@@ -52,7 +52,7 @@ func logStmt(stmt, out string, status error) {
 	log.Printf("Executed '%s' - status: %v, output: %s", stmt, status, out)
 	if isEmailNotificationEnabled() {
 		go func() {
-			msg := fmt.Sprintf("Subject: emerctl - %s\r\n\r\nstatus: %v output: %s", stmt, status, out)
+			msg := fmt.Sprintf("Subject: websh - %s\r\n\r\nstatus: %v output: %s", stmt, status, out)
 			if err := smtp.SendMail(mtaAddr, nil, mailFrom, mailRecipients, []byte(msg)); err != nil {
 				log.Printf("Failed to send notification Email: %v", err)
 			}
@@ -113,10 +113,10 @@ func main() {
 	// Email notifications are optional
 	var mailRecipientsTogether string
 	flag.StringVar(&mailRecipientsTogether, "mailrecipients", "", "Comma separated list of command notification recipients, empty to disable.")
-	mailRecipients = strings.Split(mailRecipientsTogether, ",")
 	flag.StringVar(&mailFrom, "mailfrom", "", "FROM address of command notification emails, empty to disable.")
 	flag.StringVar(&mtaAddr, "mtaaddr", "", "Mail transportation agent for sending command notification emails, empty to disable.")
 	flag.Parse()
+	mailRecipients = strings.Split(mailRecipientsTogether, ",")
 
 	if endpoint == "" || port < 1 || pin == "" || tlsCert == "" || tlsKey == "" || cmdTimeoutSec < 1 || outTruncLen < 1 {
 		flag.PrintDefaults()
@@ -124,7 +124,7 @@ func main() {
 	}
 
 	if isEmailNotificationEnabled() {
-		log.Print("Email notification is enabled")
+		log.Printf("Email notifications will be sent to %v", mailRecipients)
 	} else {
 		log.Print("Email notifications will not be sent")
 	}

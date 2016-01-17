@@ -18,7 +18,7 @@ You need the following:
 
 Run the executable with command line:
 
-    ./websh -endpoint=SecretAPIEndpointName -pin=SecretPIN -tlscert=tls.crt -tlskey=tls.key -port=12321 -mailfrom=root -mailrecipients=me@example.com -mtaaddr=127.0.0.1 -cmdtimeoutsec=10 -outtrunclen=120
+    ./websh -endpoint=SecretAPIEndpointName -pin=SecretPIN -tlscert=tls.crt -tlskey=tls.key -port=12321 -mailfrom=root@example.com -mailrecipients=me@example.com -mtaaddr=example.com:25 -cmdtimeoutsec=10 -outtrunclen=120
 
 Invoke the API service from command line:
 
@@ -26,6 +26,7 @@ Invoke the API service from command line:
 
 Please note that:
 
+- Email notifications are optional. Specify all mail parameters to enable. Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number.
 - If there is a PIN mismatch, the response code is 404.
 - The API endpoint looks for PIN and shell command together, in form parameter "Body".
 - Do not insert extra space(s) between the secret PIN and your shell command.
