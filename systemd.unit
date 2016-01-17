@@ -1,0 +1,14 @@
+[Unit]
+Description=A simple web server daemon enabling basic shell access via API calls
+
+[Service]
+ExecStart=/opt/bin/websh
+User=root
+Group=root
+WorkingDirectory=/
+PrivateTmp=true
+RestartSec=5
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
