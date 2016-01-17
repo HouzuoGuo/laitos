@@ -36,7 +36,7 @@ Production Run
 ==============
 Edit systemd.unit to adjust executable path, run-as user, and place the unit file in /etc/systemd/system/. Enable the unit and enjoy!
 
-Copyright and Author
+Copyright
 ====================
 Copyright (c) 2016, Howard Guo <guohouzuo@gmail.com>
 All rights reserved.
