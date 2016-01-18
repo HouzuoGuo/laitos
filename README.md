@@ -36,6 +36,11 @@ Production Run
 ==============
 Edit systemd.unit to adjust executable path, run-as user, and place the unit file in /etc/systemd/system/. Enable the unit and enjoy!
 
+Remeber to exercise extra caution when running the daemon:
+
+- Restrict access to /proc to hide command line parameters from being seen by all users (mount /proc -o remount,hidepid=2)
+- Set permission 0000 (or 0400) to the unit file.
+
 Copyright
 ====================
 Copyright (c) 2016, Howard Guo <guohouzuo@gmail.com>
