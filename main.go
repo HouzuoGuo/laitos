@@ -23,9 +23,12 @@ import (
 	"net/http"
 	"net/smtp"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var NonPrintableOutput = regexp.MustCompile(`[^[:print:]]`)
 
 var (
 	endpoint string // The secret API endpoint name.
@@ -62,9 +65,9 @@ func logStmt(stmt, out string, status error) {
 
 // Run a shell statement using shell interpreter.
 func runStmt(stmt string) (out string, status error) {
-	shellEscapedStmt := strings.Replace(stmt, "\"", "\\\"", -1) + " | cat -v"
-	outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(cmdTimeoutSec), "/bin/bash", "-c", shellEscapedStmt).CombinedOutput()
-	out = string(outBytes)
+	outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(cmdTimeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
+	// Only return printable characters among the output
+	out = NonPrintableOutput.ReplaceAllLiteralString(string(outBytes), "")
 	return
 }
 
