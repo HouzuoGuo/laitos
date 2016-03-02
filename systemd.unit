@@ -2,7 +2,7 @@
 Description=A simple web server daemon enabling basic shell access via API calls
 
 [Service]
-ExecStart=/opt/bin/websh -endpoint=SecretAPIEndpointName -pin=SecretPIN -tlscert=tls.crt -tlskey=tls.key -port=12321 -mailfrom=root@example.com -mailrecipients=me@example.com -mtaaddr=example.com:25 -cmdtimeoutsec=10 -outtrunclen=120
+ExecStart=/opt/bin/websh -configfilepath=/tmp/webshconf.json
 User=root
 Group=root
 WorkingDirectory=/

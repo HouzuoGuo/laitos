@@ -4,11 +4,13 @@ A simple web server daemon enabling basic shell access via API calls.
 
 Good for emergency system shutdown/reboot, and executing privileged/unprivileged shell code.
 
+Please note: exercise _extreme caution_ when using this software program, inappropriate configuration will make your computer easily compromised! If you choose to use this program, I will not be responsible for any damage/potential damage caused to your computers.
+
 Build
 =================
 Run "go build" to build the executable.
 
-Test Run
+Running
 ========
 You need the following:
 
@@ -16,30 +18,58 @@ You need the following:
 - A secret API endpoint name (longer is better)
 - A secret PIN (longer is better)
 
+Create a JSON configuration file:
+
+<pre>
+{
+    "Endpoint": "my_secret_endpoint_name_without_leading_slash",
+    "Port": 12321,
+    "PIN": "MYSECRET",
+    "TLSCert": "/tmp/test.crt",
+    "TLSKey": "/tmp/test.key",
+    "SubSectionSignForPipe": true,
+    "CmdTimeoutSec": 10,
+    "OutTruncLen": 120,
+    "MailRecipients": ["ITsupport@mydomain.com"],
+    "MailFrom": "admin@mydomain.com",
+    "MTAAddr": "mydomain.com:25"
+}
+</pre>
+
 Run the executable with command line:
 
-    ./websh -endpoint=SecretAPIEndpointName -pin=SecretPIN -tlscert=tls.crt -tlskey=tls.key -port=12321 -mailfrom=root@example.com -mailrecipients=me@example.com -mtaaddr=example.com:25 -cmdtimeoutsec=10 -outtrunclen=120
+    ./websh -configfilepath=/path/to/config.json
 
 Invoke the API service from command line:
 
-    curl -v 'https://localhost:12321/SecretAPIEndpointName' --data-ascii 'Body=SecretPINecho hello world'
+    curl -v 'https://localhost:12321/my_secret_endpoint_name_without_leading_slash' --data-ascii 'Body=MYSECRETecho hello world'
 
 Please note that:
 
-- Email notifications are optional. Specify all mail parameters to enable. Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number.
+- Email notifications (MailRecipients) are optional. Specify all mail parameters to enable. Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number.
 - If there is a PIN mismatch, the response code is 404.
-- The API endpoint looks for PIN and shell command together, in form parameter "Body".
-- Do not insert extra space(s) between the secret PIN and your shell command.
+- The API endpoint looks for PIN and shell statement together, in form parameter "Body".
+- Do not insert extra space(s) between the secret PIN and your shell statement.
 - The API endpoint can be used as Twilio SMS web-hook. Make sure to shorten "-outtrunclen" to avoid sending too many SMS responses.
 
-Production Run
-==============
-Edit systemd.unit to adjust executable path, run-as user, and place the unit file in /etc/systemd/system/. Enable the unit and enjoy!
+There is also an example systemd unit file that can help with running the program as a daemon.
 
-Remeber to exercise extra caution when running the daemon:
+Running mail-shell
+==================
+The program has a "mail mode" that processes shell statements from incoming mails, instead of running as a stand-alone daemon.
 
-- Restrict access to /proc to hide command line parameters from being seen by all users (mount /proc -o remount,hidepid=2)
-- Set permission 0000 (or 0400) to the unit file.
+To run in mail mode, specify all mail-related parameters in the configuration file, and enable mail processing by creating ".forward" file in the home of your user of choice, with the following content:
+
+<pre>
+\my_user_name
+"|/abspath/to/websh_executable -mailmode=true -configfilepath=/path/to/config.json"
+</pre>
+
+The first line makes sure that incoming mails are always delivered to mailbox. The second line pipes incoming mails to this program, running in "mail mode".
+
+Here is an example of invoking the mail-shell using mailx command:
+
+    echo 'MYSECRETecho hello world' | mail my_user_name@mydomain.com -s subject_does_not_matter
 
 Copyright
 ====================
