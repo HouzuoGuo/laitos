@@ -71,6 +71,8 @@ Here is an example of invoking the mail-shell using mailx command:
 
     echo 'MYSECRETecho hello world' | mail my_user_name@mydomain.com -s subject_does_not_matter
 
+Shell statement output and execution result will be mailed to sender my\_user\_name@mydomain.com.
+
 Copyright
 ====================
 Copyright (c) 2016, Howard Guo <guohouzuo@gmail.com>
