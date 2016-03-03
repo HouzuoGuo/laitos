@@ -41,7 +41,7 @@ The program can run in two modes:
 
 var EmailAddressAlike = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+`) // For reading email header
 
-var EmailNotifcationReplyFormat = "Subject: websh - %s\r\n\r\nstatus: %v output: %s" // Subject and body format of notification and reply emails, do not remove "websh" from the string.
+var EmailNotifcationReplyFormat = "Subject: websh - %s\r\n\r\noutput: %s" // Subject and body format of notification and reply emails, do not remove "websh" from the string.
 
 var config struct {
 	Endpoint string // The secret API endpoint name in daemon mode
@@ -52,7 +52,7 @@ var config struct {
 
 	SubSectionSignForPipe bool // Substitute char § from incoming shell command for char | before command execution
 	CmdTimeoutSec         int  // Command execution timeout
-	OutTruncLen           int  // Truncate command output to this length
+	OutTruncLen           int  // Truncate shell execution result output to this length
 
 	MailRecipients []string // List of Email addresses that receive command execution notification
 	MailFrom       string   // FROM address of the Email notifications
@@ -65,11 +65,11 @@ func isEmailNotificationEnabled() bool {
 }
 
 // Log an executed command in standard error and send an email notification if it is enabled.
-func logStmt(stmt, out string, status error) {
-	log.Printf("Executed '%s' - status: %v, output: %s", stmt, status, out)
+func logStmt(stmt, output string) {
+	log.Printf("Executed '%s' - output: %s", stmt, output)
 	if isEmailNotificationEnabled() {
 		go func() {
-			msg := fmt.Sprintf(EmailNotifcationReplyFormat, stmt, status, out)
+			msg := fmt.Sprintf(EmailNotifcationReplyFormat, stmt, output)
 			if err := smtp.SendMail(config.MTAAddr, nil, config.MailFrom, config.MailRecipients, []byte(msg)); err != nil {
 				log.Printf("Failed to send notification Email: %v", err)
 			}
@@ -77,28 +77,39 @@ func logStmt(stmt, out string, status error) {
 	}
 }
 
+// Concatenate command execution error (if any) and output together into a single string, and truncate it to fit into maximum output length.
+func trimOutput(cmdError error, cmdOut string) (shortOut string) {
+	cmdOut = strings.TrimSpace(cmdOut)
+	if cmdError == nil {
+		shortOut = cmdOut
+	} else {
+		shortOut = fmt.Sprintf("%v %s", cmdError, cmdOut)
+	}
+	shortOut = strings.TrimSpace(shortOut)
+	if len(shortOut) > config.OutTruncLen {
+		shortOut = shortOut[0:config.OutTruncLen]
+	}
+	return
+}
+
 // Run a shell statement using shell interpreter.
-func runStmt(stmt string) (out string, status error) {
+func runStmt(stmt string) (output string) {
 	if config.SubSectionSignForPipe {
 		stmt = strings.Replace(stmt, "§", "|", -1)
 	}
 	outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(config.CmdTimeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
-	out = string(outBytes)
+	output = trimOutput(status, string(outBytes))
 	return
 }
 
 // Generate XML response (conforming to Twilio SMS web hook) carrying the command exit status and output.
-func writeHTTPResponse(w http.ResponseWriter, out string, status error) {
+func writeHTTPResponse(w http.ResponseWriter, output string) {
 	w.Header().Set("Content-Type", "text/xml")
 	w.Header().Set("Cache-Control", "must-revalidate")
-	shortOut := strings.TrimSpace(out)
-	if len(shortOut) > config.OutTruncLen {
-		shortOut = out[0:config.OutTruncLen]
-	}
 	// The XML format conforms to Twilio SMS web hook
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message><![CDATA[%v %s]]></Message></Response>`, status, strings.TrimSpace(shortOut))))
+<Response><Message><![CDATA[%s]]></Message></Response>`, output)))
 }
 
 // The HTTP endpoint accepts and executes incoming shell commands. The input expectations conform to Twilio SMS web hook.
@@ -111,10 +122,10 @@ func httpShellEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	cmd := strings.TrimSpace(body[len(config.PIN):])
 	if body[0:len(config.PIN)] == config.PIN {
-		// Run arbitrary shell statement
-		out, status := runStmt(cmd)
-		logStmt(cmd, out, status)
-		writeHTTPResponse(w, out, status)
+		// Run shell statement
+		output := runStmt(cmd)
+		logStmt(cmd, output)
+		writeHTTPResponse(w, output)
 	} else {
 		// Pin mismatch but don't give too much clue in response
 		http.Error(w, "404 page not found", http.StatusNotFound)
@@ -153,10 +164,10 @@ func processMail() {
 		}
 		if trimmed[0:len(config.PIN)] == config.PIN {
 			cmd := strings.TrimSpace(trimmed[len(config.PIN):])
-			out, status := runStmt(cmd)
-			logStmt(cmd, out, status)
+			output := runStmt(cmd)
+			logStmt(cmd, output)
 			// Send response back via Email
-			msg := fmt.Sprintf(EmailNotifcationReplyFormat, cmd, status, out)
+			msg := fmt.Sprintf(EmailNotifcationReplyFormat, cmd, output)
 			if err := smtp.SendMail(config.MTAAddr, nil, config.MailFrom, []string{replyTo}, []byte(msg)); err != nil {
 				log.Printf("Failed to send Email response back to %s - %v", replyTo, err)
 			}
