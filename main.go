@@ -41,7 +41,7 @@ The program can run in two modes:
 
 var EmailAddressAlike = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+`) // For reading email header
 
-var EmailNotifcationReplyFormat = "Subject: websh - %s\r\n\r\noutput: %s" // Subject and body format of notification and reply emails, do not remove "websh" from the string.
+var EmailNotifcationReplyFormat = "Subject: websh - %s\r\n\r\n%s" // Subject and body format of notification and reply emails, do not remove "websh" from the string.
 
 var config struct {
 	Endpoint string // The secret API endpoint name in daemon mode
