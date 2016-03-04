@@ -46,7 +46,7 @@ Invoke the API service from command line:
 
 Please note that:
 
-- Email notifications (MailRecipients) can be optionally enabled to send shell statement results to the specified recipients. To enable the notifications, fill in all mail parameters.
+- Email notifications can be optionally enabled to send shell statement results to the specified recipients (MailRecipients) in addition to the web API response. To enable the notifications, fill in all mail parameters.
 - Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number.
 - If there is a PIN mismatch, the response code will be 404.
 - The API endpoint looks for PIN and shell statement together, in form parameter "Body".
