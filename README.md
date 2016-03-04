@@ -46,8 +46,9 @@ Invoke the API service from command line:
 
 Please note that:
 
-- Email notifications (MailRecipients) are optional. Specify all mail parameters to enable. Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number.
-- If there is a PIN mismatch, the response code is 404.
+- Email notifications (MailRecipients) can be optionally enabled to send shell statement results to the specified recipients. To enable the notifications, fill in all mail parameters.
+- Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number.
+- If there is a PIN mismatch, the response code will be 404.
 - The API endpoint looks for PIN and shell statement together, in form parameter "Body".
 - Do not insert extra space(s) between the secret PIN and your shell statement.
 - The API endpoint can be used as Twilio SMS web-hook. Make sure to shorten "-outtrunclen" to avoid sending too many SMS responses.
@@ -56,7 +57,7 @@ There is also an example systemd unit file that can help with running the progra
 
 Running mail-shell
 ==================
-The program has a "mail mode" that processes shell statements from incoming mails, instead of running as a stand-alone daemon.
+The program has a "mail mode" that processes shell statements from incoming mails, instead of running as a stand-alone daemon, secured by the identical PIN-matching mechanism.
 
 To run in mail mode, specify all mail-related parameters in the configuration file, and enable mail processing by creating ".forward" file in the home of your user of choice, with the following content:
 
