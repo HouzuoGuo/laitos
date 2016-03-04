@@ -27,7 +27,7 @@ Create a JSON configuration file:
     "PIN": "MYSECRET",
     "TLSCert": "/tmp/test.crt",
     "TLSKey": "/tmp/test.key",
-    "SubSectionSignForPipe": true,
+    "SubHashSlashForPipe": true,
     "CmdTimeoutSec": 10,
     "OutTruncLen": 120,
     "MailRecipients": ["ITsupport@mydomain.com"],

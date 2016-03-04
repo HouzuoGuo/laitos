@@ -50,9 +50,9 @@ var config struct {
 	TLSCert  string // Location of HTTP TLS certificate in daemon mode
 	TLSKey   string // Location of HTTP TLS key in daemon mode
 
-	SubSectionSignForPipe bool // Substitute char § from incoming shell command for char | before command execution
-	CmdTimeoutSec         int  // Command execution timeout
-	OutTruncLen           int  // Truncate shell execution result output to this length
+	SubHashSlashForPipe bool // Substitute char sequence #/ from incoming shell command for char | before command execution
+	CmdTimeoutSec       int  // Command execution timeout
+	OutTruncLen         int  // Truncate shell execution result output to this length
 
 	MailRecipients []string // List of Email addresses that receive command execution notification
 	MailFrom       string   // FROM address of the Email notifications
@@ -94,7 +94,7 @@ func trimOutput(cmdError error, cmdOut string) (shortOut string) {
 
 // Run a shell statement using shell interpreter.
 func runStmt(stmt string) (output string) {
-	if config.SubSectionSignForPipe {
+	if config.SubHashSlashForPipe {
 		stmt = strings.Replace(stmt, "§", "|", -1)
 	}
 	outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(config.CmdTimeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
