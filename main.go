@@ -95,7 +95,7 @@ func trimOutput(cmdError error, cmdOut string) (shortOut string) {
 // Run a shell statement using shell interpreter.
 func runStmt(stmt string) (output string) {
 	if config.SubHashSlashForPipe {
-		stmt = strings.Replace(stmt, "§", "|", -1)
+		stmt = strings.Replace(stmt, "#/", "|", -1)
 	}
 	outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(config.CmdTimeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
 	output = trimOutput(status, string(outBytes))
