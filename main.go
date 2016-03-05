@@ -77,7 +77,7 @@ func (sh *WebShell) doMysteriousHTTPRequest(rawMessage string) {
 
 	request, err := http.NewRequest("POST", sh.MysteriousURL, bytes.NewReader([]byte(requestBody)))
 	if err != nil {
-		log.Printf("Mysterious HTTP request cannot be initialised: %v", err)
+		log.Printf("MysteriousShell cannot initialise HTTP request for '%s': %v", rawMessage, err)
 		return
 	}
 	request.Header.Set("X-Requested-With", "XMLHttpRequest")
@@ -87,12 +87,12 @@ func (sh *WebShell) doMysteriousHTTPRequest(rawMessage string) {
 	client := &http.Client{Timeout: 25 * time.Second}
 	response, err := client.Do(request)
 	if err != nil {
-		log.Printf("Mysterious HTTP request failed to be made: %v", err)
+		log.Printf("MysteriousShell failed to make HTTP request for '%s': %v", rawMessage, err)
 		return
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
-	log.Printf("Mysterious HTTP request response is: error %v, status %d, output %s", err, response.StatusCode, string(body))
+	log.Printf("MysteriousShell got response for '%s': error %v, status %d, output %s", rawMessage, err, response.StatusCode, string(body))
 }
 
 // Return true only if all Email parameters are present (hence, enabling Email notifications).
@@ -193,26 +193,29 @@ func (sh *WebShell) httpShellEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 // Look for a reply address in the Email text (reply-to or from). Return empty string if such address is not found.
-func findReplyAddressInMail(mailContent string) string {
-	replyTo := ""
+func findSubjectAndReplyAddressInMail(mailContent string) (subject string, replyTo string) {
 	for _, line := range strings.Split(mailContent, "\n") {
 		trimmed := strings.TrimSpace(line)
 		trimmedUpper := strings.ToUpper(trimmed)
-		if strings.HasPrefix(trimmedUpper, "FROM") && replyTo == "" {
+		if strings.HasPrefix(trimmedUpper, "FROM:") && replyTo == "" {
 			if address := EmailAddressRegex.FindString(trimmed); address != "" {
 				replyTo = address
 			}
-		} else if strings.HasPrefix(trimmedUpper, "REPLY-TO") {
+		} else if strings.HasPrefix(trimmedUpper, "REPLY-TO:") {
 			// Reply-to is preferred over From
 			if address := EmailAddressRegex.FindString(trimmed); address != "" {
 				replyTo = address
 			}
-		} else if strings.HasPrefix(trimmedUpper, "SUBJECT") && strings.Contains(trimmedUpper, strings.ToUpper(WebShellEmailMagic)) {
-			// Avoid recurse on emails sent by websh itself
-			return ""
+		} else if strings.HasPrefix(trimmedUpper, "SUBJECT:") {
+			if strings.Contains(trimmedUpper, strings.ToUpper(WebShellEmailMagic)) {
+				// Avoid recurse on emails sent by websh itself so return early
+				return trimmed, ""
+			} else {
+				subject = strings.TrimSpace(strings.Replace(strings.ToLower(trimmed), "subject:", "", -1))
+			}
 		}
 	}
-	return replyTo
+	return
 }
 
 // Look for PIN/preset message match in the Email text and execute the statement.
@@ -228,25 +231,26 @@ func (sh *WebShell) runShellStatementInMail(mailContent string) (shellStmt, shel
 
 // Read email message from stdin and process the shell command in it.
 func (sh *WebShell) processMail(mailContent string) {
-	replyTo := findReplyAddressInMail(mailContent)
+	subject, replyTo := findSubjectAndReplyAddressInMail(mailContent)
+	log.Printf("MailShell is processing email '%s' and reply address is '%s'", subject, replyTo)
 	if replyTo == "" {
-		log.Print("WebShell cannot find address to reply to")
+		log.Printf("MailShell failed to find reply address of email '%s'", subject)
 		return
 	}
 	shellStmt, shellOutput := sh.runShellStatementInMail(mailContent)
 	if shellStmt == "" {
-		log.Print("WebShell cannot find shell statement or PIN mismatch")
+		log.Printf("MailShell failed to find shell statement to run in email '%s'", subject)
 		return
 	}
 	// Send reply mail
 	if sh.MysteriousAddr1 != "" && strings.HasSuffix(replyTo, sh.MysteriousAddr1) {
-		log.Printf("WebShell will send mysterious response to %s", replyTo)
+		log.Printf("MailShell will respond to email '%s' in mysterious ways", subject)
 		sh.doMysteriousHTTPRequest(shellOutput)
 	} else {
-		log.Printf("WebShell will email shell statement response to %s", replyTo)
+		log.Printf("MailShell will email response for '%s' to %s", subject, replyTo)
 		msg := fmt.Sprintf(EmailNotificationReplyFormat, shellStmt, shellOutput)
 		if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, []string{replyTo}, []byte(msg)); err != nil {
-			log.Printf("WebShell failed to send Email response to %s - %v", replyTo, err)
+			log.Printf("MailShell failed to send email response for '%s' to %s - %v", subject, replyTo, err)
 		}
 	}
 }

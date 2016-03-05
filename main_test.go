@@ -130,7 +130,8 @@ func TestMatchPresetOrPIN(t *testing.T) {
 }
 
 func TestFindReplyAddressInMail(t *testing.T) {
-	example1 := `Delivered-To: guohouzuo@gmail.com
+	example1 := `From bounces+21dd7b-root=houzuo.net@sendgrid.net  Sat Mar  5 19:4d 2016
+Delivered-To: guohouzuo@gmail.com
 Received: by 7.1.1.7 with SMTP id ev10c4;
         Sat, 5 Mar 2016 00:51:44 -0800 (PST)
 X-Received: by 1.10.15.6 with SMTP id j60iof.7.1472;
@@ -192,14 +193,14 @@ From: howard@localhost.localdomain (Howard Guo)
 
 hi there
 `
-	if addr := findReplyAddressInMail("foobar"); addr != "" {
-		t.Fatal(addr)
+	if subj, addr := findSubjectAndReplyAddressInMail("foobar"); subj != "" || addr != "" {
+		t.Fatal(subj, addr)
 	}
-	if addr := findReplyAddressInMail(example1); addr != "no.reply@example.com" {
-		t.Fatal(addr)
+	if subj, addr := findSubjectAndReplyAddressInMail(example1); subj != "message from houzuo guo" || addr != "no.reply@example.com" {
+		t.Fatal(subj, addr)
 	}
-	if addr := findReplyAddressInMail(example2); addr != "me@example.com" {
-		t.Fatal(addr)
+	if subj, addr := findSubjectAndReplyAddressInMail(example2); subj != "hi" || addr != "me@example.com" {
+		t.Fatal(subj, addr)
 	}
 }
 
