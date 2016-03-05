@@ -77,7 +77,7 @@ func (sh *WebShell) doMysteriousHTTPRequest(rawMessage string) {
 
 	request, err := http.NewRequest("POST", sh.MysteriousURL, bytes.NewReader([]byte(requestBody)))
 	if err != nil {
-		log.Printf("Bad request: %v", err)
+		log.Printf("Mysterious HTTP request cannot be initialised: %v", err)
 		return
 	}
 	request.Header.Set("X-Requested-With", "XMLHttpRequest")
@@ -87,12 +87,12 @@ func (sh *WebShell) doMysteriousHTTPRequest(rawMessage string) {
 	client := &http.Client{Timeout: 25 * time.Second}
 	response, err := client.Do(request)
 	if err != nil {
-		log.Printf("Bad response: %v", err)
+		log.Printf("Mysterious HTTP request failed to be made: %v", err)
 		return
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
-	log.Printf("Response: error %v, status %d, output %s", err, response.StatusCode, string(body))
+	log.Printf("Mysterious HTTP request response is: error %v, status %d, output %s", err, response.StatusCode, string(body))
 }
 
 // Return true only if all Email parameters are present (hence, enabling Email notifications).
@@ -102,12 +102,14 @@ func (sh *WebShell) isEmailNotificationEnabled() bool {
 
 // Log an executed command in standard error and send an email notification if it is enabled.
 func (sh *WebShell) logStatementAndNotify(stmt, output string) {
-	log.Printf("Executed '%s' - output: %s", stmt, output)
+	log.Printf("WebShell has finished executing '%s' - output: %s", stmt, output)
 	if sh.isEmailNotificationEnabled() {
 		go func() {
 			msg := fmt.Sprintf(EmailNotificationReplyFormat, stmt, output)
-			if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, sh.MailRecipients, []byte(msg)); err != nil {
-				log.Printf("Failed to send notification Email: %v", err)
+			if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, sh.MailRecipients, []byte(msg)); err == nil {
+				log.Printf("WebShell has sent Email notifications for '%s' to %v", stmt, sh.MailRecipients)
+			} else {
+				log.Printf("WebShell failed to send notification Email: %v", err)
 			}
 		}()
 	}
@@ -228,21 +230,23 @@ func (sh *WebShell) runShellStatementInMail(mailContent string) (shellStmt, shel
 func (sh *WebShell) processMail(mailContent string) {
 	replyTo := findReplyAddressInMail(mailContent)
 	if replyTo == "" {
-		log.Print("Cannot find address to reply to")
+		log.Print("WebShell cannot find address to reply to")
 		return
 	}
 	shellStmt, shellOutput := sh.runShellStatementInMail(mailContent)
 	if shellStmt == "" {
-		log.Print("Cannot find shell statement or PIN mismatch")
+		log.Print("WebShell cannot find shell statement or PIN mismatch")
 		return
 	}
 	// Send reply mail
 	if sh.MysteriousAddr1 != "" && strings.HasSuffix(replyTo, sh.MysteriousAddr1) {
+		log.Printf("WebShell will send mysterious response to %s", replyTo)
 		sh.doMysteriousHTTPRequest(shellOutput)
 	} else {
+		log.Printf("WebShell will email shell statement response to %s", replyTo)
 		msg := fmt.Sprintf(EmailNotificationReplyFormat, shellStmt, shellOutput)
 		if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, []string{replyTo}, []byte(msg)); err != nil {
-			log.Printf("Failed to send Email response back to %s - %v", replyTo, err)
+			log.Printf("WebShell failed to send Email response to %s - %v", replyTo, err)
 		}
 	}
 }
@@ -251,7 +255,7 @@ func (sh *WebShell) processMail(mailContent string) {
 func (sh *WebShell) runHTTPServer() {
 	http.HandleFunc("/"+sh.EndpointName, sh.httpShellEndpoint)
 	if err := http.ListenAndServeTLS(":"+strconv.Itoa(sh.Port), sh.TLSCert, sh.TLSKey, nil); err != nil {
-		log.Panic("Failed to start HTTPS")
+		log.Panic("Failed to start HTTPS server")
 	}
 }
 
@@ -288,14 +292,14 @@ func main() {
 	if mailMode {
 		mailContent, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			log.Panic("Failed to read from STDIN:")
+			log.Panic("Failed to read from STDIN")
 		}
 		websh.processMail(string(mailContent))
 	} else {
 		if websh.isEmailNotificationEnabled() {
-			log.Printf("Email notifications will be sent to %v", websh.MailRecipients)
+			log.Printf("WebShell will send Email notifications to %v", websh.MailRecipients)
 		} else {
-			log.Print("Email notifications will not be sent")
+			log.Print("WebShell will not send Email notifications")
 		}
 		websh.runHTTPServer()
 	}
