@@ -22,17 +22,21 @@ Create a JSON configuration file:
 
 <pre>
 {
-    "Endpoint": "my_secret_endpoint_name_without_leading_slash",
+    "EndpointName": "my_secret_endpoint_name_without_leading_slash",
     "Port": 12321,
     "PIN": "MYSECRET",
     "TLSCert": "/tmp/test.crt",
     "TLSKey": "/tmp/test.key",
     "SubHashSlashForPipe": true,
-    "CmdTimeoutSec": 10,
-    "OutTruncLen": 120,
+    "ExecutionTimeoutSec": 10,
+    "TruncateOutputLen": 120,
     "MailRecipients": ["ITsupport@mydomain.com"],
     "MailFrom": "admin@mydomain.com",
-    "MTAAddr": "mydomain.com:25"
+    "MailAgentAddressPort": "mydomain.com:25",
+    "PresetMessages": {
+        "secretapple": "echo hello world",
+        "secretpineapple": "poweroff"
+    }
 }
 </pre>
 
