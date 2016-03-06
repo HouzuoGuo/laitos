@@ -23,9 +23,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/mail"
 	"net/smtp"
 	"net/url"
 	"os"
@@ -102,14 +106,14 @@ func (sh *WebShell) isEmailNotificationEnabled() bool {
 
 // Log an executed command in standard error and send an email notification if it is enabled.
 func (sh *WebShell) logStatementAndNotify(stmt, output string) {
-	log.Printf("WebShell has finished executing '%s' - output: %s", stmt, output)
+	log.Printf("Shell has finished executing '%s' - output: %s", stmt, output)
 	if sh.isEmailNotificationEnabled() {
 		go func() {
 			msg := fmt.Sprintf(EmailNotificationReplyFormat, stmt, output)
 			if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, sh.MailRecipients, []byte(msg)); err == nil {
-				log.Printf("WebShell has sent Email notifications for '%s' to %v", stmt, sh.MailRecipients)
+				log.Printf("Shell has sent Email notifications for '%s' to %v", stmt, sh.MailRecipients)
 			} else {
-				log.Printf("WebShell failed to send notification Email: %v", err)
+				log.Printf("Shell failed to send notification Email: %v", err)
 			}
 		}()
 	}
@@ -193,7 +197,7 @@ func (sh *WebShell) httpShellEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 // Look for a reply address in the Email text (reply-to or from). Return empty string if such address is not found.
-func findSubjectAndReplyAddressInMail(mailContent string) (subject string, replyTo string) {
+func findSubjectAndReplyAddressInMail(mailContent string) (subject string, contentType string, replyTo string) {
 	for _, line := range strings.Split(mailContent, "\n") {
 		trimmed := strings.TrimSpace(line)
 		trimmedUpper := strings.ToUpper(trimmed)
@@ -209,44 +213,104 @@ func findSubjectAndReplyAddressInMail(mailContent string) (subject string, reply
 		} else if strings.HasPrefix(trimmedUpper, "SUBJECT:") {
 			if strings.Contains(trimmedUpper, strings.ToUpper(WebShellEmailMagic)) {
 				// Avoid recurse on emails sent by websh itself so return early
-				return trimmed, ""
+				return trimmed, "", ""
 			} else {
-				subject = strings.TrimSpace(strings.Replace(strings.ToLower(trimmed), "subject:", "", -1))
+				subject = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(trimmed), "subject:"))
 			}
+		} else if strings.HasPrefix(trimmedUpper, "CONTENT-TYPE:") && contentType == "" {
+			contentType = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(trimmed), "content-type:"))
 		}
 	}
 	return
 }
 
-// Look for PIN/preset message match in the Email text and execute the statement.
-func (sh *WebShell) runShellStatementInMail(mailContent string) (shellStmt, shellOutput string) {
-	for _, line := range strings.Split(mailContent, "\n") {
-		if shellStmt = sh.matchPresetOrPIN(line); shellStmt != "" {
-			shellOutput = sh.runShellStatement(shellStmt)
-			return
+// Look for shell statement and PIN/preset message match in the text part of an MIME mail. Return empty if no match.
+func (sh *WebShell) findShellStatementInMIMEMail(contentType, subject, mailContent string) string {
+	mimeMail := &mail.Message{
+		Header: map[string][]string{"Content-Type": {contentType}},
+		Body:   strings.NewReader(mailContent),
+	}
+	mediaType, params, err := mime.ParseMediaType(mimeMail.Header.Get("Content-Type"))
+	if err == nil {
+		if strings.HasPrefix(mediaType, "multipart/") {
+			mr := multipart.NewReader(mimeMail.Body, params["boundary"])
+			for {
+				p, err := mr.NextPart()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					log.Printf("MailShell failed to open MIME email '%s' - %v", subject, err)
+					break
+				}
+				slurp, err := ioutil.ReadAll(p)
+				if err != nil {
+					log.Printf("MailShell failed to read MIME email '%s' - %v", subject, err)
+					break
+				}
+				partContentType := p.Header.Get("Content-Type")
+				if strings.Contains(partContentType, "text") {
+					if shellStmt := sh.findShellStatementInTextMail(subject, string(slurp)); shellStmt != "" {
+						log.Printf("MailShell has found shell statement in MIME email '%s'", subject)
+						return shellStmt
+					}
+				}
+			}
 		}
 	}
-	return "", ""
+	log.Printf("MailShell cannot find shell statement in MIME email '%s'", subject)
+	return ""
+}
+
+// Look for PIN/preset message match in the Email text. Return empty if no match
+func (sh *WebShell) findShellStatementInTextMail(subject, mailContent string) string {
+	for _, line := range strings.Split(mailContent, "\n") {
+		if shellStmt := sh.matchPresetOrPIN(line); shellStmt != "" {
+			log.Printf("MailShell has found shell statement in text email '%s'", subject)
+			return shellStmt
+		}
+	}
+	log.Printf("MailShell cannot find shell statement in text email '%s'", subject)
+	return ""
+}
+
+// Analyse the email as either MIME or plain text mail, whichever one yields PIN/preset message match, and run the shell statement in the mail body.
+func (sh *WebShell) runShellStatementInEmail(subject, contentType, mailContent string) (shellStmt, shellOutput string) {
+	shellStmt = sh.findShellStatementInMIMEMail(contentType, subject, mailContent)
+	if shellStmt == "" {
+		shellStmt = sh.findShellStatementInTextMail(subject, mailContent)
+	}
+	if shellStmt != "" {
+		shellOutput = sh.runShellStatement(shellStmt)
+		log.Printf("MailShell has run statement '%s' from email '%s'", shellStmt, subject)
+	}
+	return
 }
 
 // Read email message from stdin and process the shell command in it.
 func (sh *WebShell) processMail(mailContent string) {
-	subject, replyTo := findSubjectAndReplyAddressInMail(mailContent)
+	subject, contentType, replyTo := findSubjectAndReplyAddressInMail(mailContent)
 	log.Printf("MailShell is processing email '%s' and reply address is '%s'", subject, replyTo)
 	if replyTo == "" {
 		log.Printf("MailShell failed to find reply address of email '%s'", subject)
 		return
 	}
-	shellStmt, shellOutput := sh.runShellStatementInMail(mailContent)
-	if shellStmt == "" {
-		log.Printf("MailShell failed to find shell statement to run in email '%s'", subject)
-		return
-	}
-	// Send reply mail
 	if sh.MysteriousAddr1 != "" && strings.HasSuffix(replyTo, sh.MysteriousAddr1) {
 		log.Printf("MailShell will respond to email '%s' in mysterious ways", subject)
+
+		shellStmt, shellOutput := sh.runShellStatementInEmail(subject, contentType, mailContent)
+		if shellStmt == "" {
+			log.Printf("MailShell failed to find shell statement to run in email '%s'", subject)
+			return
+		}
 		sh.doMysteriousHTTPRequest(shellOutput)
 	} else {
+		// Match PIN/preset message in the mail body, run the shell statement and reply
+		shellStmt, shellOutput := sh.runShellStatementInEmail(subject, contentType, mailContent)
+		if shellStmt == "" {
+			log.Printf("MailShell failed to find shell statement to run in email '%s'", subject)
+			return
+		}
 		log.Printf("MailShell will email response for '%s' to %s", subject, replyTo)
 		msg := fmt.Sprintf(EmailNotificationReplyFormat, shellStmt, shellOutput)
 		if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, []string{replyTo}, []byte(msg)); err != nil {
