@@ -21,6 +21,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
@@ -50,6 +51,7 @@ const WebShellEmailMagic = "websh"
 
 var EmailAddressRegex = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+`) // For reading email header
 var EmailNotificationReplyFormat = "Subject: " + WebShellEmailMagic + " - %s\r\n\r\n%s"      // Subject and body format of notification and reply emails
+const WolframAlphaTrigger = "#w"                                                             // Message prefix that triggers WolframAlpha query
 
 type WebShell struct {
 	EndpointName string // The secret API endpoint name in daemon mode
@@ -59,7 +61,7 @@ type WebShell struct {
 	TLSKey       string // Location of HTTP TLS key in daemon mode
 
 	SubHashSlashForPipe bool // Substitute char sequence #/ from incoming shell statement for char | before command execution
-	ExecutionTimeoutSec int  // Shell statement is killed after this number of seconds
+	ExecutionTimeoutSec int  // WolframAlpha query/shell statement is killed after this number of seconds
 	TruncateOutputLen   int  // Truncate shell execution result output to this length
 
 	MailRecipients       []string // List of Email addresses that receive notification after each shell statement
@@ -71,6 +73,8 @@ type WebShell struct {
 	MysteriousAddr2 string // intentionally undocumented
 	MysteriousID1   string // intentionally undocumented
 	MysteriousID2   string // intentionally undocumented
+
+	WolframAlphaAppID string // WolframAlpha application ID for consuming its APIs
 
 	PresetMessages map[string]string // Pre-defined mapping of secret phrases and corresponding shell statements
 }
@@ -99,6 +103,57 @@ func (sh *WebShell) doMysteriousHTTPRequest(rawMessage string) {
 	log.Printf("MysteriousShell got response for '%s': error %v, status %d, output %s", rawMessage, err, response.StatusCode, string(body))
 }
 
+// Extract "pods" from WolframAlpha API response in XML.
+func (sh *WebShell) extractWolframAlphaResponseText(xmlBody []byte) string {
+	type SubPod struct {
+		TextInfo string `xml:"plaintext"`
+		Title    string `xml:"title,attr"`
+	}
+	type Pod struct {
+		SubPods []SubPod `xml:"subpod"`
+		Title   string   `xml:"title,attr"`
+	}
+	type QueryResult struct {
+		Pods []Pod `xml:"pod"`
+	}
+	var result QueryResult
+	if err := xml.Unmarshal(xmlBody, &result); err != nil {
+		return err.Error()
+	}
+	var outBuf bytes.Buffer
+	for _, pod := range result.Pods {
+		for _, subPod := range pod.SubPods {
+			outBuf.WriteString(strings.TrimSpace(subPod.TextInfo))
+			outBuf.WriteRune('#')
+		}
+	}
+	return outBuf.String()
+}
+
+// Call WolframAlpha API.
+func (sh *WebShell) doWolframAlphaRequest(query string) string {
+	request, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext", sh.WolframAlphaAppID, url.QueryEscape(query)),
+		bytes.NewReader([]byte{}))
+	if err != nil {
+		log.Printf("Failed to initialise WolframAlpha HTTP request for '%s': %v", query, err)
+		return ""
+	}
+
+	client := &http.Client{Timeout: time.Duration(sh.ExecutionTimeoutSec) * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		log.Printf("Failed to make WolframAlpha request for '%s': %v", query, err)
+		return ""
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	defer response.Body.Close()
+	textResponse := sh.extractWolframAlphaResponseText(body)
+	log.Printf("Got response from WolframAlpha for '%s': error %v, status %d, output %s", query, err, response.StatusCode, textResponse)
+	return textResponse
+}
+
 // Return true only if all Email parameters are present (hence, enabling Email notifications).
 func (sh *WebShell) isEmailNotificationEnabled() bool {
 	return sh.MailAgentAddressPort != "" && sh.MailFrom != "" && len(sh.MailRecipients) > 0
@@ -106,21 +161,21 @@ func (sh *WebShell) isEmailNotificationEnabled() bool {
 
 // Log an executed command in standard error and send an email notification if it is enabled.
 func (sh *WebShell) logStatementAndNotify(stmt, output string) {
-	log.Printf("Shell has finished executing '%s' - output: %s", stmt, output)
+	log.Printf("Websh has finished executing '%s' - output: %s", stmt, output)
 	if sh.isEmailNotificationEnabled() {
 		go func() {
 			msg := fmt.Sprintf(EmailNotificationReplyFormat, stmt, output)
 			if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, sh.MailRecipients, []byte(msg)); err == nil {
-				log.Printf("Shell has sent Email notifications for '%s' to %v", stmt, sh.MailRecipients)
+				log.Printf("Websh has sent Email notifications for '%s' to %v", stmt, sh.MailRecipients)
 			} else {
-				log.Printf("Shell failed to send notification Email: %v", err)
+				log.Printf("Websh failed to send notification Email: %v", err)
 			}
 		}()
 	}
 }
 
 // Concatenate command execution error (if any) and output together into a single string, and truncate it to fit into maximum output length.
-func (sh *WebShell) trimShellOutput(stmtErr error, stmtOutput string) (shortOut string) {
+func (sh *WebShell) trimStatementOutput(stmtErr error, stmtOutput string) (shortOut string) {
 	stmtOutput = strings.TrimSpace(stmtOutput)
 	if stmtErr == nil {
 		shortOut = stmtOutput
@@ -134,13 +189,18 @@ func (sh *WebShell) trimShellOutput(stmtErr error, stmtOutput string) (shortOut 
 	return
 }
 
-// Run a shell statement using shell interpreter.
-func (sh *WebShell) runShellStatement(stmt string) (output string) {
-	if sh.SubHashSlashForPipe {
-		stmt = strings.Replace(stmt, "#/", "|", -1)
+// Run a WolframAlpha query or shell statement using shell interpreter.
+func (sh *WebShell) runStatement(stmt string) (output string) {
+	log.Printf("Websh will run statement '%s'", stmt)
+	if strings.HasPrefix(stmt, WolframAlphaTrigger) {
+		output = sh.trimStatementOutput(nil, sh.doWolframAlphaRequest(stmt[len(WolframAlphaTrigger):]))
+	} else {
+		if sh.SubHashSlashForPipe {
+			stmt = strings.Replace(stmt, "#/", "|", -1)
+		}
+		outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(sh.ExecutionTimeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
+		output = sh.trimStatementOutput(status, string(outBytes))
 	}
-	outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(sh.ExecutionTimeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
-	output = sh.trimShellOutput(status, string(outBytes))
 	sh.logStatementAndNotify(stmt, output)
 	return
 }
@@ -155,7 +215,7 @@ func writeHTTPResponse(w http.ResponseWriter, output string) {
 <Response><Message><![CDATA[%s]]></Message></Response>`, output)))
 }
 
-// Match an input line against preset message or PIN, return the shell statement. Return empty string if no match.
+// Match an input line against preset message or PIN, return the statement. Return empty string if no match.
 func (sh *WebShell) matchPresetOrPIN(inputLine string) string {
 	if sh.PIN == "" {
 		// Safe guard against an empty PIN
@@ -164,8 +224,8 @@ func (sh *WebShell) matchPresetOrPIN(inputLine string) string {
 	inputLine = strings.TrimSpace(inputLine)
 	// Try matching against preset
 	if sh.PresetMessages != nil {
-		for preset, shellStmt := range sh.PresetMessages {
-			if preset == "" || shellStmt == "" {
+		for preset, stmt := range sh.PresetMessages {
+			if preset == "" || stmt == "" {
 				// Safe guard against an empty preset message or statement
 				return ""
 			}
@@ -173,7 +233,7 @@ func (sh *WebShell) matchPresetOrPIN(inputLine string) string {
 				continue
 			}
 			if inputLine[0:len(preset)] == preset {
-				return shellStmt
+				return stmt
 			}
 		}
 	}
@@ -184,15 +244,14 @@ func (sh *WebShell) matchPresetOrPIN(inputLine string) string {
 	return ""
 }
 
-// The HTTP endpoint accepts and executes incoming shell commands. The input expectations conform to Twilio SMS web hook.
+// The HTTP endpoint accepts and executes incoming statement. The input expectations conform to Twilio SMS web hook.
 func (sh *WebShell) httpShellEndpoint(w http.ResponseWriter, r *http.Request) {
-	if shellStmt := sh.matchPresetOrPIN(r.FormValue("Body")); shellStmt == "" {
+	if stmt := sh.matchPresetOrPIN(r.FormValue("Body")); stmt == "" {
 		// No match, don't give much clue to the client though.
 		http.Error(w, "404 page not found", http.StatusNotFound)
 	} else {
-		// Run shell statement
-		shellOutput := sh.runShellStatement(shellStmt)
-		writeHTTPResponse(w, shellOutput)
+		respOut := sh.runStatement(stmt)
+		writeHTTPResponse(w, respOut)
 	}
 }
 
@@ -240,81 +299,81 @@ func (sh *WebShell) findShellStatementInMIMEMail(contentType, subject, mailConte
 					break
 				}
 				if err != nil {
-					log.Printf("MailShell failed to open MIME email '%s' - %v", subject, err)
+					log.Printf("Mailsh failed to open MIME email '%s' - %v", subject, err)
 					break
 				}
 				slurp, err := ioutil.ReadAll(p)
 				if err != nil {
-					log.Printf("MailShell failed to read MIME email '%s' - %v", subject, err)
+					log.Printf("Mailsh failed to read MIME email '%s' - %v", subject, err)
 					break
 				}
 				partContentType := p.Header.Get("Content-Type")
 				if strings.Contains(partContentType, "text") {
-					if shellStmt := sh.findShellStatementInTextMail(subject, string(slurp)); shellStmt != "" {
-						log.Printf("MailShell has found shell statement in MIME email '%s'", subject)
-						return shellStmt
+					if stmt := sh.matchPINInTextMailBoxy(subject, string(slurp)); stmt != "" {
+						log.Printf("Mailsh has found statement in MIME email '%s'", subject)
+						return stmt
 					}
 				}
 			}
 		}
 	}
-	log.Printf("MailShell cannot find shell statement in MIME email '%s'", subject)
+	log.Printf("Mailsh cannot find statement in MIME email '%s'", subject)
 	return ""
 }
 
 // Look for PIN/preset message match in the Email text. Return empty if no match
-func (sh *WebShell) findShellStatementInTextMail(subject, mailContent string) string {
+func (sh *WebShell) matchPINInTextMailBoxy(subject, mailContent string) string {
 	for _, line := range strings.Split(mailContent, "\n") {
-		if shellStmt := sh.matchPresetOrPIN(line); shellStmt != "" {
-			log.Printf("MailShell has found shell statement in text email '%s'", subject)
-			return shellStmt
+		if stmt := sh.matchPresetOrPIN(line); stmt != "" {
+			log.Printf("Mailsh has found statement in text email '%s'", subject)
+			return stmt
 		}
 	}
-	log.Printf("MailShell cannot find shell statement in text email '%s'", subject)
+	log.Printf("Mailsh cannot find statement in text email '%s'", subject)
 	return ""
 }
 
-// Analyse the email as either MIME or plain text mail, whichever one yields PIN/preset message match, and run the shell statement in the mail body.
-func (sh *WebShell) runShellStatementInEmail(subject, contentType, mailContent string) (shellStmt, shellOutput string) {
-	shellStmt = sh.findShellStatementInMIMEMail(contentType, subject, mailContent)
-	if shellStmt == "" {
-		shellStmt = sh.findShellStatementInTextMail(subject, mailContent)
+// Analyse the email as either MIME or plain text mail, whichever one yields PIN/preset message match, and run the statement in the mail body.
+func (sh *WebShell) runStatementInEmail(subject, contentType, mailContent string) (stmt, output string) {
+	stmt = sh.findShellStatementInMIMEMail(contentType, subject, mailContent)
+	if stmt == "" {
+		stmt = sh.matchPINInTextMailBoxy(subject, mailContent)
 	}
-	if shellStmt != "" {
-		shellOutput = sh.runShellStatement(shellStmt)
-		log.Printf("MailShell has run statement '%s' from email '%s'", shellStmt, subject)
+	if stmt != "" {
+		output = sh.runStatement(stmt)
+		log.Printf("Mailsh has run statement '%s' from email '%s'", stmt, subject)
 	}
 	return
 }
 
-// Read email message from stdin and process the shell command in it.
+// Read email message from stdin and process the statement in it.
 func (sh *WebShell) processMail(mailContent string) {
 	subject, contentType, replyTo := findSubjectAndReplyAddressInMail(mailContent)
-	log.Printf("MailShell is processing email '%s' and reply address is '%s'", subject, replyTo)
+	log.Printf("Mailsh is processing email '%s' and reply address is '%s'", subject, replyTo)
 	if replyTo == "" {
-		log.Printf("MailShell failed to find reply address of email '%s'", subject)
+		log.Printf("Mailsh failed to find reply address of email '%s'", subject)
 		return
 	}
 	if sh.MysteriousAddr1 != "" && strings.HasSuffix(replyTo, sh.MysteriousAddr1) {
-		log.Printf("MailShell will respond to email '%s' in mysterious ways", subject)
+		log.Printf("Mailsh will respond to email '%s' in mysterious ways", subject)
 
-		shellStmt, shellOutput := sh.runShellStatementInEmail(subject, contentType, mailContent)
-		if shellStmt == "" {
-			log.Printf("MailShell failed to find shell statement to run in email '%s'", subject)
+		stmt, output := sh.runStatementInEmail(subject, contentType, mailContent)
+		if stmt == "" {
+			log.Printf("Mailsh failed to find statement to run in email '%s'", subject)
 			return
 		}
-		sh.doMysteriousHTTPRequest(shellOutput)
+		sh.doMysteriousHTTPRequest(output)
 	} else {
-		// Match PIN/preset message in the mail body, run the shell statement and reply
-		shellStmt, shellOutput := sh.runShellStatementInEmail(subject, contentType, mailContent)
-		if shellStmt == "" {
-			log.Printf("MailShell failed to find shell statement to run in email '%s'", subject)
+		// Match PIN/preset message in the mail body, run the statement and reply
+		stmt, output := sh.runStatementInEmail(subject, contentType, mailContent)
+		if stmt == "" {
+			log.Printf("Mailsh failed to find statement to run in email '%s'", subject)
 			return
 		}
-		log.Printf("MailShell will email response for '%s' to %s", subject, replyTo)
-		msg := fmt.Sprintf(EmailNotificationReplyFormat, shellStmt, shellOutput)
+		log.Printf("Mailsh will email response for '%s' to %s", subject, replyTo)
+		msg := fmt.Sprintf(EmailNotificationReplyFormat, stmt, output)
 		if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, []string{replyTo}, []byte(msg)); err != nil {
-			log.Printf("MailShell failed to send email response for '%s' to %s - %v", subject, replyTo, err)
+			log.Printf("Mailsh failed to send email response for '%s' to %s - %v", subject, replyTo, err)
 		}
 	}
 }
@@ -365,9 +424,9 @@ func main() {
 		websh.processMail(string(mailContent))
 	} else {
 		if websh.isEmailNotificationEnabled() {
-			log.Printf("WebShell will send Email notifications to %v", websh.MailRecipients)
+			log.Printf("Websh will send Email notifications to %v", websh.MailRecipients)
 		} else {
-			log.Print("WebShell will not send Email notifications")
+			log.Print("Websh will not send Email notifications")
 		}
 		websh.runHTTPServer()
 	}
