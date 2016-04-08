@@ -36,7 +36,8 @@ Create a JSON configuration file:
     "PresetMessages": {
         "secretapple": "echo hello world",
         "secretpineapple": "poweroff"
-    }
+    },
+    "WolframAlphaAppID": "your-wolframalpha-app-id"
 }
 </pre>
 
@@ -56,6 +57,7 @@ Please note that:
 - The API endpoint looks for PIN and shell statement together, in form parameter "Body".
 - Do not insert extra space(s) between the secret PIN and your shell statement.
 - The API endpoint can be used as Twilio SMS web-hook. Make sure to shorten "-outtrunclen" to avoid sending too many SMS responses.
+- To invoke WolframAlpha query, set WolframAlphaAppID and then use prefix "#w" immediately following PIN in the incoming message.
 
 There is also an example systemd unit file that can help with running the program as a daemon.
 
