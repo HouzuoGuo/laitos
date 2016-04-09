@@ -38,62 +38,68 @@ func TestLogStatementAndNotify(t *testing.T) {
 
 func TestTrimShellOutput(t *testing.T) {
 	sh := WebShell{TruncateOutputLen: 0}
-	if out := sh.trimStatementOutput(nil, "0123456789"); out != "" {
+	if out := sh.lintOutput(nil, "0123456789", false, true); out != "" {
 		t.Fatal(out)
 	}
 	sh = WebShell{TruncateOutputLen: 10}
-	if out := sh.trimStatementOutput(nil, "0123456789"); out != "0123456789" {
+	if out := sh.lintOutput(nil, "0123456789", false, true); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := sh.trimStatementOutput(nil, "0123456789abc"); out != "0123456789" {
+	if out := sh.lintOutput(nil, "0123456789abc", false, true); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := sh.trimStatementOutput(errors.New("012345678"), "9"); out != "012345678" {
+	if out := sh.lintOutput(errors.New("012345678"), "9", false, true); out != "012345678" {
 		t.Fatal(out)
 	}
-	if out := sh.trimStatementOutput(errors.New("01234567"), "8"); out != "01234567 8" {
+	if out := sh.lintOutput(errors.New("01234567"), "8", false, true); out != "01234567\n8" {
+		t.Fatal(out)
+	}
+	if out := sh.lintOutput(errors.New(" 0123456789 "), " 0123456789 ", false, false); out != "0123456789\n0123456789" {
+		t.Fatal(out)
+	}
+	if out := sh.lintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", true, false); out != "012345;6789;012345;6789" {
 		t.Fatal(out)
 	}
 }
 
 func TestRunShellStatement(t *testing.T) {
 	sh := WebShell{TruncateOutputLen: 30, ExecutionTimeoutSec: 1, SubHashSlashForPipe: false}
-	if out := sh.runStatement("echo a | grep a #/thisiscomment"); out != "a" {
+	if out := sh.runStatement("echo a | grep a #/thisiscomment", false, true); out != "a" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo a && false # this is comment"); out != "exit status 1 a" {
+	if out := sh.runStatement("echo a && false # this is comment", false, true); out != "exit status 1\na" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1"); out != "a\nb" {
+	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1", false, true); out != "a\nb" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`); out != `"abc"` {
+	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`, false, true); out != `"abc"` {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo "'abc'"`); out != `'abc'` {
+	if out := sh.runStatement(`echo "'abc'"`, false, true); out != `'abc'` {
 		t.Fatal(out)
 	}
 	sh = WebShell{TruncateOutputLen: 16, ExecutionTimeoutSec: 1, SubHashSlashForPipe: false}
-	if out := sh.runStatement(`sleep 2`); out != "exit status 143" {
+	if out := sh.runStatement(`sleep 2`, false, true); out != "exit status 143" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo 01234567891234567`); out != "0123456789123456" {
+	if out := sh.runStatement(`echo 01234567891234567`, false, true); out != "0123456789123456" {
 		t.Fatal(out)
 	}
 	sh = WebShell{TruncateOutputLen: 30, ExecutionTimeoutSec: 1, SubHashSlashForPipe: false}
-	if out := sh.runStatement("echo a #/ grep a"); out != "a" {
+	if out := sh.runStatement("echo a #/ grep a", false, true); out != "a" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo a && false # this is comment"); out != "exit status 1 a" {
+	if out := sh.runStatement("echo a && false # this is comment", false, true); out != "exit status 1\na" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1"); out != "a\nb" {
+	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1", false, true); out != "a\nb" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`); out != `"abc"` {
+	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`, false, true); out != `"abc"` {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo "'abc'"`); out != `'abc'` {
+	if out := sh.runStatement(`echo "'abc'"`, false, true); out != `'abc'` {
 		t.Fatal(out)
 	}
 }
@@ -308,7 +314,7 @@ func TestMysteriousRequest(t *testing.T) {
 func TestWolframAlphaQuery(t *testing.T) {
 	t.Skip()
 	sh := WebShell{PIN: "abc", ExecutionTimeoutSec: 12, WolframAlphaAppID: "FILLME", TruncateOutputLen: 500}
-	output := sh.runStatement(sh.matchPresetOrPIN("abc#wweather in nuremberg, bavaria, germany"))
+	output := sh.runStatement(sh.matchPresetOrPIN("abc#wweather in nuremberg, bavaria, germany"), true, true)
 	t.Log(output)
 	if len(output) < 200 {
 		t.Fatal("output is too short", len(output))

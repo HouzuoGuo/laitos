@@ -175,31 +175,38 @@ func (sh *WebShell) logStatementAndNotify(stmt, output string) {
 }
 
 // Concatenate command execution error (if any) and output together into a single string, and truncate it to fit into maximum output length.
-func (sh *WebShell) trimStatementOutput(stmtErr error, stmtOutput string) (shortOut string) {
-	stmtOutput = strings.TrimSpace(stmtOutput)
-	if stmtErr == nil {
-		shortOut = stmtOutput
+func (sh *WebShell) lintOutput(outErr error, outText string, squeezeIntoOneLine, truncateToLen bool) (out string) {
+	outLines := make([]string, 0, 8)
+	if outErr != nil {
+		for _, line := range strings.Split(fmt.Sprint(outErr), "\n") {
+			outLines = append(outLines, strings.TrimSpace(line))
+		}
+	}
+	for _, line := range strings.Split(outText, "\n") {
+		outLines = append(outLines, strings.TrimSpace(line))
+	}
+	if squeezeIntoOneLine {
+		out = strings.Join(outLines, ";")
 	} else {
-		shortOut = fmt.Sprintf("%v %s", stmtErr, stmtOutput)
+		out = strings.Join(outLines, "\n")
 	}
-	shortOut = strings.TrimSpace(shortOut)
-	if len(shortOut) > sh.TruncateOutputLen {
-		shortOut = strings.TrimSpace(shortOut[0:sh.TruncateOutputLen])
+	if truncateToLen && len(out) > sh.TruncateOutputLen {
+		out = out[0:sh.TruncateOutputLen]
 	}
-	return
+	return strings.TrimSpace(out)
 }
 
 // Run a WolframAlpha query or shell statement using shell interpreter.
-func (sh *WebShell) runStatement(stmt string) (output string) {
+func (sh *WebShell) runStatement(stmt string, squeezeIntoOneLine, truncateToLen bool) (output string) {
 	log.Printf("Websh will run statement '%s'", stmt)
 	if strings.HasPrefix(stmt, WolframAlphaTrigger) {
-		output = sh.trimStatementOutput(nil, sh.doWolframAlphaRequest(stmt[len(WolframAlphaTrigger):]))
+		output = sh.lintOutput(nil, sh.doWolframAlphaRequest(stmt[len(WolframAlphaTrigger):]), squeezeIntoOneLine, truncateToLen)
 	} else {
 		if sh.SubHashSlashForPipe {
 			stmt = strings.Replace(stmt, "#/", "|", -1)
 		}
 		outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(sh.ExecutionTimeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
-		output = sh.trimStatementOutput(status, string(outBytes))
+		output = sh.lintOutput(status, string(outBytes), squeezeIntoOneLine, truncateToLen)
 	}
 	sh.logStatementAndNotify(stmt, output)
 	return
@@ -250,7 +257,7 @@ func (sh *WebShell) httpShellEndpoint(w http.ResponseWriter, r *http.Request) {
 		// No match, don't give much clue to the client though.
 		http.Error(w, "404 page not found", http.StatusNotFound)
 	} else {
-		respOut := sh.runStatement(stmt)
+		respOut := sh.runStatement(stmt, true, true)
 		writeHTTPResponse(w, respOut)
 	}
 }
@@ -340,7 +347,7 @@ func (sh *WebShell) runStatementInEmail(subject, contentType, mailContent string
 		stmt = sh.matchPINInTextMailBoxy(subject, mailContent)
 	}
 	if stmt != "" {
-		output = sh.runStatement(stmt)
+		output = sh.runStatement(stmt, false, false)
 		log.Printf("Mailsh has run statement '%s' from email '%s'", stmt, subject)
 	}
 	return
