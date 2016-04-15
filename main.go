@@ -403,6 +403,7 @@ func main() {
 	flag.BoolVar(&mailMode, "mailmode", false, "True if the program is processing an incoming email, false if the program is running as a daemon")
 	flag.Parse()
 	if configFilePath == "" {
+		flag.PrintDefaults()
 		log.Panic("Please provide path to configuration file")
 	}
 	configContent, err := ioutil.ReadFile(configFilePath)
@@ -415,13 +416,10 @@ func main() {
 		log.Panic("Failed to unmarshal config JSON")
 	}
 
-	// Check common parameters for all modes
-	if websh.PIN == "" {
-		flag.PrintDefaults()
-		log.Panic("Please complete all mandatory parameters.")
-	}
-	// Check parameter for daemon mode, email mode requires no extra check.
-	if !mailMode && (websh.EndpointName == "" || websh.Port < 1 || websh.TLSCert == "" || websh.TLSKey == "") {
+	if websh.PIN == "" ||
+		(mailMode && (websh.MailTimeoutSec < 1 || websh.MailTruncateLen < 1 || websh.MailFrom == "" || websh.MailAgentAddressPort == "")) ||
+		(!mailMode && (websh.EndpointName == "" || websh.Port < 1 || websh.TLSCert == "" || websh.TLSKey == "" ||
+			websh.WebTimeoutSec < 1 || websh.WebTruncateLen < 1)) {
 		log.Panic("Please complete all mandatory parameters.")
 	}
 

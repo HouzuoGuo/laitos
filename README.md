@@ -27,18 +27,30 @@ Create a JSON configuration file:
     "PIN": "MYSECRET",
     "TLSCert": "/tmp/test.crt",
     "TLSKey": "/tmp/test.key",
+
     "SubHashSlashForPipe": true,
-    "ExecutionTimeoutSec": 10,
-    "TruncateOutputLen": 120,
+    "WebTimeoutSec": 10,
+    "WebTruncateLen": 120,
+
+    "MailTimeoutSec": 20,
+    "MailTruncateLen": 240,
     "MailRecipients": ["ITsupport@mydomain.com"],
     "MailFrom": "admin@mydomain.com",
     "MailAgentAddressPort": "mydomain.com:25",
+
     "PresetMessages": {
         "secretapple": "echo hello world",
         "secretpineapple": "poweroff"
     },
+
+    "MysteriousURL": "",
+    "MysteriousAddr1": "",
+    "MysteriousAddr2": "",
+    "MysteriousID1": "",
+    "MysteriousID2": "",
     "WolframAlphaAppID": "your-wolframalpha-app-id"
-}
+ }
+
 </pre>
 
 Run the executable with command line:

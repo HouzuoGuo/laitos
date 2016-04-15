@@ -223,7 +223,7 @@ From: howard@localhost.localdomain (Howard Guo)
 abcfoobar  echo "'hello world'" | grep hello > /proc/self/fd/2
 
 `
-	sh := WebShell{PIN: "abcfoobar", MailTruncateLen: 6, MailTimeoutSec: 1}
+	sh := WebShell{PIN: "abcfoobar", MailTruncateLen: 6, MailTimeoutSec: 1, WebTruncateLen: 200, WebTimeoutSec: 200}
 	if stmt, out := sh.runStatementInEmail("subject does not matter", "text/plain; charset=us-ascii", example); stmt != `echo "'hello world'" | grep hello > /proc/self/fd/2` && out != "'hello" {
 		t.Fatal(stmt, out)
 	}
@@ -242,7 +242,7 @@ From: howard@localhost.localdomain (Howard Guo)
 abcfoobar  sleep 2
 
 `
-	sh = WebShell{PIN: "abcfoobar", MailTruncateLen: 6, MailTimeoutSec: 1}
+	sh = WebShell{PIN: "abcfoobar", MailTruncateLen: 6, MailTimeoutSec: 1, WebTruncateLen: 200, WebTimeoutSec: 200}
 	if stmt, out := sh.runStatementInEmail("subject does not matter", "text/plain; charset=us-ascii", example); stmt != `sleep 2` && out != "'exit status 143" {
 		t.Fatal(stmt, out)
 	}
