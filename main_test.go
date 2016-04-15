@@ -37,69 +37,66 @@ func TestLogStatementAndNotify(t *testing.T) {
 }
 
 func TestTrimShellOutput(t *testing.T) {
-	sh := WebShell{TruncateOutputLen: 0}
-	if out := sh.lintOutput(nil, "0123456789", false, true); out != "" {
+	sh := WebShell{}
+	if out := sh.lintOutput(nil, "0123456789", 0, false, true); out != "" {
 		t.Fatal(out)
 	}
-	sh = WebShell{TruncateOutputLen: 10}
-	if out := sh.lintOutput(nil, "0123456789", false, true); out != "0123456789" {
+	if out := sh.lintOutput(nil, "0123456789", 10, false, true); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(nil, "0123456789abc", false, true); out != "0123456789" {
+	if out := sh.lintOutput(nil, "0123456789abc", 10, false, true); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(errors.New("012345678"), "9", false, true); out != "012345678" {
+	if out := sh.lintOutput(errors.New("012345678"), "9", 10, false, true); out != "012345678" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(errors.New("01234567"), "8", false, true); out != "01234567\n8" {
+	if out := sh.lintOutput(errors.New("01234567"), "8", 10, false, true); out != "01234567\n8" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(errors.New(" 0123456789 "), " 0123456789 ", false, false); out != "0123456789\n0123456789" {
+	if out := sh.lintOutput(errors.New(" 0123456789 "), " 0123456789 ", 10, false, false); out != "0123456789\n0123456789" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", true, false); out != "012345;6789;012345;6789" {
+	if out := sh.lintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 10, true, false); out != "012345;6789;012345;6789" {
 		t.Fatal(out)
 	}
 }
 
 func TestRunShellStatement(t *testing.T) {
-	sh := WebShell{TruncateOutputLen: 30, ExecutionTimeoutSec: 1, SubHashSlashForPipe: false}
-	if out := sh.runStatement("echo a | grep a #/thisiscomment", false, true); out != "a" {
+	sh := WebShell{SubHashSlashForPipe: false}
+	if out := sh.runStatement("echo a | grep a #/thisiscomment", 1, 30, false, true); out != "a" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo a && false # this is comment", false, true); out != "exit status 1\na" {
+	if out := sh.runStatement("echo a && false # this is comment", 1, 30, false, true); out != "exit status 1\na" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1", false, true); out != "a\nb" {
+	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1", 1, 30, false, true); out != "a\nb" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`, false, true); out != `"abc"` {
+	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`, 1, 30, false, true); out != `"abc"` {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo "'abc'"`, false, true); out != `'abc'` {
+	if out := sh.runStatement(`echo "'abc'"`, 1, 30, false, true); out != `'abc'` {
 		t.Fatal(out)
 	}
-	sh = WebShell{TruncateOutputLen: 16, ExecutionTimeoutSec: 1, SubHashSlashForPipe: false}
-	if out := sh.runStatement(`sleep 2`, false, true); out != "exit status 143" {
+	if out := sh.runStatement(`sleep 2`, 1, 16, false, true); out != "exit status 143" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo 01234567891234567`, false, true); out != "0123456789123456" {
+	if out := sh.runStatement(`echo 01234567891234567`, 1, 16, false, true); out != "0123456789123456" {
 		t.Fatal(out)
 	}
-	sh = WebShell{TruncateOutputLen: 30, ExecutionTimeoutSec: 1, SubHashSlashForPipe: false}
-	if out := sh.runStatement("echo a #/ grep a", false, true); out != "a" {
+	if out := sh.runStatement("echo a #/ grep a", 1, 30, false, true); out != "a" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo a && false # this is comment", false, true); out != "exit status 1\na" {
+	if out := sh.runStatement("echo a && false # this is comment", 1, 30, false, true); out != "exit status 1\na" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1", false, true); out != "a\nb" {
+	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1", 1, 30, false, true); out != "a\nb" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`, false, true); out != `"abc"` {
+	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`, 1, 30, false, true); out != `"abc"` {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo "'abc'"`, false, true); out != `'abc'` {
+	if out := sh.runStatement(`echo "'abc'"`, 1, 30, false, true); out != `'abc'` {
 		t.Fatal(out)
 	}
 }
@@ -226,8 +223,27 @@ From: howard@localhost.localdomain (Howard Guo)
 abcfoobar  echo "'hello world'" | grep hello > /proc/self/fd/2
 
 `
-	sh := WebShell{PIN: "abcfoobar", TruncateOutputLen: 6, ExecutionTimeoutSec: 1}
+	sh := WebShell{PIN: "abcfoobar", MailTruncateLen: 6, MailTimeoutSec: 1}
 	if stmt, out := sh.runStatementInEmail("subject does not matter", "text/plain; charset=us-ascii", example); stmt != `echo "'hello world'" | grep hello > /proc/self/fd/2` && out != "'hello" {
+		t.Fatal(stmt, out)
+	}
+	example = `From howard@localhost.localdomain  Sat Mar  5 12:17:27 2016
+X-Original-To: howard@localhost
+Delivered-To: howard@localhost.localdomain
+Date: Sat, 05 Mar 2016 12:17:27 +0100
+To: howard@localhost.localdomain
+Subject: subject does not matter
+User-Agent: Heirloom mailx 12.5 7/5/10
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+From: howard@localhost.localdomain (Howard Guo)
+
+abcfoobar  sleep 2
+
+`
+	sh = WebShell{PIN: "abcfoobar", MailTruncateLen: 6, MailTimeoutSec: 1}
+	if stmt, out := sh.runStatementInEmail("subject does not matter", "text/plain; charset=us-ascii", example); stmt != `sleep 2` && out != "'exit status 143" {
 		t.Fatal(stmt, out)
 	}
 }
@@ -287,7 +303,7 @@ Content-Transfer-Encoding: quoted-printable
 aiwowein
 
 ------------=_1457209616-22400-170--`
-	sh := WebShell{PIN: "abc123", TruncateOutputLen: 200, ExecutionTimeoutSec: 1}
+	sh := WebShell{PIN: "abc123", WebTruncateLen: 200, WebTimeoutSec: 1}
 	subject, contentType, replyTo := findSubjectAndReplyAddressInMail(example)
 	if subject != "message from houzuo guo" || contentType != `multipart/alternative; boundary="----------=_1457209616-22400-170"` || replyTo != "no.reply@example.com" {
 		t.Fatal(subject, contentType, replyTo)
@@ -313,8 +329,8 @@ func TestMysteriousRequest(t *testing.T) {
 
 func TestWolframAlphaQuery(t *testing.T) {
 	t.Skip()
-	sh := WebShell{PIN: "abc", ExecutionTimeoutSec: 12, WolframAlphaAppID: "FILLME", TruncateOutputLen: 500}
-	output := sh.runStatement(sh.matchPresetOrPIN("abc#wweather in nuremberg, bavaria, germany"), true, true)
+	sh := WebShell{PIN: "abc", WolframAlphaAppID: "FILLME"}
+	output := sh.runStatement(sh.matchPresetOrPIN("abc#wweather in nuremberg, bavaria, germany"), 12, 500, true, true)
 	t.Log(output)
 	if len(output) < 200 {
 		t.Fatal("output is too short", len(output))

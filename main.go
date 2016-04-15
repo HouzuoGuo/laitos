@@ -61,9 +61,11 @@ type WebShell struct {
 	TLSKey       string // Location of HTTP TLS key in daemon mode
 
 	SubHashSlashForPipe bool // Substitute char sequence #/ from incoming shell statement for char | before command execution
-	ExecutionTimeoutSec int  // WolframAlpha query/shell statement is killed after this number of seconds
-	TruncateOutputLen   int  // Truncate shell execution result output to this length
+	WebTimeoutSec       int  // When reached from web API, WolframAlpha query/shell statement is killed after this number of seconds.
+	WebTruncateLen      int  // When reached from web API, truncate statement execution result to this length.
 
+	MailTimeoutSec       int      // When reached from mail API, WolframAlpha query/shell statement is killed after this number of seconds.
+	MailTruncateLen      int      // When reached from mail API, truncate statement execution result to this length.
 	MailRecipients       []string // List of Email addresses that receive notification after each shell statement
 	MailFrom             string   // FROM address of the Email notifications
 	MailAgentAddressPort string   // Address and port number of mail transportation agent for sending notifications
@@ -131,7 +133,7 @@ func (sh *WebShell) extractWolframAlphaResponseText(xmlBody []byte) string {
 }
 
 // Call WolframAlpha API.
-func (sh *WebShell) doWolframAlphaRequest(query string) string {
+func (sh *WebShell) doWolframAlphaRequest(timeoutSec int, query string) string {
 	request, err := http.NewRequest(
 		"GET",
 		fmt.Sprintf("https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext", sh.WolframAlphaAppID, url.QueryEscape(query)),
@@ -141,7 +143,7 @@ func (sh *WebShell) doWolframAlphaRequest(query string) string {
 		return ""
 	}
 
-	client := &http.Client{Timeout: time.Duration(sh.ExecutionTimeoutSec) * time.Second}
+	client := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
 	response, err := client.Do(request)
 	if err != nil {
 		log.Printf("Failed to make WolframAlpha request for '%s': %v", query, err)
@@ -175,7 +177,7 @@ func (sh *WebShell) logStatementAndNotify(stmt, output string) {
 }
 
 // Concatenate command execution error (if any) and output together into a single string, and truncate it to fit into maximum output length.
-func (sh *WebShell) lintOutput(outErr error, outText string, squeezeIntoOneLine, truncateToLen bool) (out string) {
+func (sh *WebShell) lintOutput(outErr error, outText string, maxOutLen int, squeezeIntoOneLine, truncateToLen bool) (out string) {
 	outLines := make([]string, 0, 8)
 	if outErr != nil {
 		for _, line := range strings.Split(fmt.Sprint(outErr), "\n") {
@@ -190,23 +192,23 @@ func (sh *WebShell) lintOutput(outErr error, outText string, squeezeIntoOneLine,
 	} else {
 		out = strings.Join(outLines, "\n")
 	}
-	if truncateToLen && len(out) > sh.TruncateOutputLen {
-		out = out[0:sh.TruncateOutputLen]
+	if truncateToLen && len(out) > maxOutLen {
+		out = out[0:maxOutLen]
 	}
 	return strings.TrimSpace(out)
 }
 
 // Run a WolframAlpha query or shell statement using shell interpreter.
-func (sh *WebShell) runStatement(stmt string, squeezeIntoOneLine, truncateToLen bool) (output string) {
+func (sh *WebShell) runStatement(stmt string, timeoutSec, maxOutLen int, squeezeIntoOneLine, truncateToLen bool) (output string) {
 	log.Printf("Websh will run statement '%s'", stmt)
 	if strings.HasPrefix(stmt, WolframAlphaTrigger) {
-		output = sh.lintOutput(nil, sh.doWolframAlphaRequest(stmt[len(WolframAlphaTrigger):]), squeezeIntoOneLine, truncateToLen)
+		output = sh.lintOutput(nil, sh.doWolframAlphaRequest(timeoutSec, stmt[len(WolframAlphaTrigger):]), maxOutLen, squeezeIntoOneLine, truncateToLen)
 	} else {
 		if sh.SubHashSlashForPipe {
 			stmt = strings.Replace(stmt, "#/", "|", -1)
 		}
-		outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(sh.ExecutionTimeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
-		output = sh.lintOutput(status, string(outBytes), squeezeIntoOneLine, truncateToLen)
+		outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(timeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
+		output = sh.lintOutput(status, string(outBytes), maxOutLen, squeezeIntoOneLine, truncateToLen)
 	}
 	sh.logStatementAndNotify(stmt, output)
 	return
@@ -257,7 +259,7 @@ func (sh *WebShell) httpShellEndpoint(w http.ResponseWriter, r *http.Request) {
 		// No match, don't give much clue to the client though.
 		http.Error(w, "404 page not found", http.StatusNotFound)
 	} else {
-		respOut := sh.runStatement(stmt, true, true)
+		respOut := sh.runStatement(stmt, sh.WebTimeoutSec, sh.WebTruncateLen, true, true)
 		writeHTTPResponse(w, respOut)
 	}
 }
@@ -347,7 +349,7 @@ func (sh *WebShell) runStatementInEmail(subject, contentType, mailContent string
 		stmt = sh.matchPINInTextMailBoxy(subject, mailContent)
 	}
 	if stmt != "" {
-		output = sh.runStatement(stmt, false, false)
+		output = sh.runStatement(stmt, sh.MailTimeoutSec, sh.MailTruncateLen, false, false)
 		log.Printf("Mailsh has run statement '%s' from email '%s'", stmt, subject)
 	}
 	return
@@ -414,12 +416,12 @@ func main() {
 	}
 
 	// Check common parameters for all modes
-	if websh.PIN == "" || websh.ExecutionTimeoutSec < 1 || websh.TruncateOutputLen < 1 {
+	if websh.PIN == "" {
 		flag.PrintDefaults()
 		log.Panic("Please complete all mandatory parameters.")
 	}
 	// Check parameter for daemon mode, email mode requires no extra check.
-	if !mailMode && (websh.EndpointName == "" || websh.Port < 1 || websh.TLSCert == "" || websh.TLSKey == "" || websh.ExecutionTimeoutSec < 1 || websh.TruncateOutputLen < 1) {
+	if !mailMode && (websh.EndpointName == "" || websh.Port < 1 || websh.TLSCert == "" || websh.TLSKey == "") {
 		log.Panic("Please complete all mandatory parameters.")
 	}
 
