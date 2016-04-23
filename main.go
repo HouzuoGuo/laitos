@@ -195,6 +195,9 @@ func (sh *WebShell) lintOutput(outErr error, outText string, maxOutLen int, sque
 	if truncateToLen && len(out) > maxOutLen {
 		out = out[0:maxOutLen]
 	}
+	if out == "" {
+		return "EMPTY OUTPUT"
+	}
 	return strings.TrimSpace(out)
 }
 

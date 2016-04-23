@@ -38,7 +38,10 @@ func TestLogStatementAndNotify(t *testing.T) {
 
 func TestTrimShellOutput(t *testing.T) {
 	sh := WebShell{}
-	if out := sh.lintOutput(nil, "0123456789", 0, false, true); out != "" {
+	if out := sh.lintOutput(nil, "", 0, false, false); out != "EMPTY OUTPUT" {
+		t.Fatal(out)
+	}
+	if out := sh.lintOutput(nil, "0123456789", 0, false, true); out != "EMPTY OUTPUT" {
 		t.Fatal(out)
 	}
 	if out := sh.lintOutput(nil, "0123456789", 10, false, true); out != "0123456789" {
