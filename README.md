@@ -22,8 +22,8 @@ Create a JSON configuration file:
 
 <pre>
 {
-    "EndpointName": "my_secret_endpoint_name_without_leading_slash",
-    "Port": 12321,
+    "MessageEndpoint": "my_secret_endpoint_name_without_leading_slash",
+    "ServerPort": 12321,
     "PIN": "MYSECRET",
     "TLSCert": "/tmp/test.crt",
     "TLSKey": "/tmp/test.key",

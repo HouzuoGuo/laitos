@@ -54,11 +54,13 @@ var EmailNotificationReplyFormat = "Subject: " + WebShellEmailMagic + " - %s\r\n
 const WolframAlphaTrigger = "#w"                                                             // Message prefix that triggers WolframAlpha query
 
 type WebShell struct {
-	EndpointName string // The secret API endpoint name in daemon mode
-	Port         int    // The port HTTP server listens on in daemon mode
-	PIN          string // The pre-shared secret pin to enable shell statement execution in both daemon and mail mode
-	TLSCert      string // Location of HTTP TLS certificate in daemon mode
-	TLSKey       string // Location of HTTP TLS key in daemon mode
+	MessageEndpoint   string // The secret API endpoint name for messaging in daemon mode
+	VoiceMLEndpoint   string // The secret API endpoint name that serves TwiML voice script in daemon mode
+	VoiceProcEndpoint string // The secret API endpoint name that responds to TwiML voice script
+	ServerPort        int    // The port HTTP server listens on in daemon mode
+	PIN               string // The pre-shared secret pin to enable shell statement execution in both daemon and mail mode
+	TLSCert           string // Location of HTTP TLS certificate in daemon mode
+	TLSKey            string // Location of HTTP TLS key in daemon mode
 
 	SubHashSlashForPipe bool // Substitute char sequence #/ from incoming shell statement for char | before command execution
 	WebTimeoutSec       int  // When reached from web API, WolframAlpha query/shell statement is killed after this number of seconds.
@@ -221,7 +223,6 @@ func (sh *WebShell) runStatement(stmt string, timeoutSec, maxOutLen int, squeeze
 func writeHTTPResponse(w http.ResponseWriter, output string) {
 	w.Header().Set("Content-Type", "text/xml")
 	w.Header().Set("Cache-Control", "must-revalidate")
-	// The XML format conforms to Twilio SMS web hook
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response><Message><![CDATA[%s]]></Message></Response>`, output)))
@@ -254,17 +255,6 @@ func (sh *WebShell) matchPresetOrPIN(inputLine string) string {
 		return strings.TrimSpace(inputLine[len(sh.PIN):])
 	}
 	return ""
-}
-
-// The HTTP endpoint accepts and executes incoming statement. The input expectations conform to Twilio SMS web hook.
-func (sh *WebShell) httpShellEndpoint(w http.ResponseWriter, r *http.Request) {
-	if stmt := sh.matchPresetOrPIN(r.FormValue("Body")); stmt == "" {
-		// No match, don't give much clue to the client though.
-		http.Error(w, "404 page not found", http.StatusNotFound)
-	} else {
-		respOut := sh.runStatement(stmt, sh.WebTimeoutSec, sh.WebTruncateLen, true, true)
-		writeHTTPResponse(w, respOut)
-	}
 }
 
 // Look for a reply address in the Email text (reply-to or from). Return empty string if such address is not found.
@@ -390,10 +380,55 @@ func (sh *WebShell) processMail(mailContent string) {
 	}
 }
 
+// The HTTP message endpoint looks for statement to execute from request. The input/output conforms to Twilio SMS web hook.
+func (sh *WebShell) httpMessageEndpoint(w http.ResponseWriter, r *http.Request) {
+	if stmt := sh.matchPresetOrPIN(r.FormValue("Body")); stmt == "" {
+		// No match, don't give much clue to the client though.
+		http.Error(w, "404 page not found", http.StatusNotFound)
+	} else {
+		respOut := sh.runStatement(stmt, sh.WebTimeoutSec, sh.WebTruncateLen, true, true)
+		writeHTTPResponse(w, respOut)
+	}
+}
+
+// The HTTP Voice mark-up endpoint returns TwiML voice script.
+func (sh *WebShell) httpVoiceMLEndpoint(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Got a call ML")
+	w.Header().Set("Content-Type", "text/xml")
+	w.Header().Set("Cache-Control", "must-revalidate")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Gather action="/%s" method="GET">
+        <Say>
+            Hello there
+        </Say>
+    </Gather>
+    <Say>We are done ~!@#$%%&^^*()_+{}:"|?,./;'\][=-09</Say>
+</Response>
+`, sh.VoiceProcEndpoint)))
+}
+
+// The HTTP voice processing endpoint reads DTMF (input from Twilio request) and translates it into a statement and execute.
+func (sh *WebShell) httpVoiceProcEndpoint(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/xml")
+	w.Header().Set("Cache-Control", "must-revalidate")
+	w.WriteHeader(http.StatusOK)
+	digits := r.FormValue("Digits")
+	fmt.Printf("Digits are: '%s'\n", digits)
+	w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+	<Say>You have entered %s</Say>
+</Response>
+`, digits)))
+}
+
 // Run HTTP server and block until the process exits.
 func (sh *WebShell) runHTTPServer() {
-	http.HandleFunc("/"+sh.EndpointName, sh.httpShellEndpoint)
-	if err := http.ListenAndServeTLS(":"+strconv.Itoa(sh.Port), sh.TLSCert, sh.TLSKey, nil); err != nil {
+	http.HandleFunc("/"+sh.MessageEndpoint, sh.httpMessageEndpoint)
+	http.HandleFunc("/"+sh.VoiceMLEndpoint+".xml", sh.httpVoiceMLEndpoint)
+	http.HandleFunc("/"+sh.VoiceProcEndpoint, sh.httpVoiceProcEndpoint)
+	if err := http.ListenAndServeTLS(":"+strconv.Itoa(sh.ServerPort), sh.TLSCert, sh.TLSKey, nil); err != nil {
 		log.Panic("Failed to start HTTPS server")
 	}
 }
@@ -421,7 +456,7 @@ func main() {
 
 	if websh.PIN == "" ||
 		(mailMode && (websh.MailTimeoutSec < 1 || websh.MailTruncateLen < 1 || websh.MailFrom == "" || websh.MailAgentAddressPort == "")) ||
-		(!mailMode && (websh.EndpointName == "" || websh.Port < 1 || websh.TLSCert == "" || websh.TLSKey == "" ||
+		(!mailMode && (websh.MessageEndpoint == "" || websh.ServerPort < 1 || websh.TLSCert == "" || websh.TLSKey == "" ||
 			websh.WebTimeoutSec < 1 || websh.WebTruncateLen < 1)) {
 		log.Panic("Please complete all mandatory parameters.")
 	}
