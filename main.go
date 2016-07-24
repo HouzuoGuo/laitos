@@ -2,6 +2,10 @@
 A simple web server daemon enabling basic shell access via API calls.
 Good for emergency system shutdown/reboot, and executing privileged/unprivileged shell code.
 
+The program can run in two modes:
+- HTTPS daemon mode, secured by endpoint port number + endpoint name + PIN.
+- Mail processing mode (~/.forward), secured by your username + PIN.
+
 To call the service from command line client, run:
 curl -v 'https://localhost:12321/my_secret_endpoint_name' --data-ascii 'Body=MYSECRETecho hello world'
 
@@ -41,35 +45,56 @@ import (
 	"time"
 )
 
-/*
-The program can run in two modes:
-- HTTPS daemon mode, secured by endpoint port number + endpoint name + PIN.
-- Mail processing mode (~/.forward), secured by your username + PIN.
-*/
+const (
+	magicWebshMailSubject = "websh" // Magic keyword that appears in websh mail notifications to prevent recursion in mail processing
+	magicWolframAlpha     = "#w"    // Message prefix that triggers WolframAlpha query
+)
 
-const WebShellEmailMagic = "websh"
+var mailAddressRegex = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+`) // Match a mail address in header
+var mailNotificationReplyFormat = "Subject: " + magicWebshMailSubject + " - %s\r\n\r\n%s"   // Subject and body format of notification and reply mails
 
-var EmailAddressRegex = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+`) // For reading email header
-var EmailNotificationReplyFormat = "Subject: " + WebShellEmailMagic + " - %s\r\n\r\n%s"      // Subject and body format of notification and reply emails
-const WolframAlphaTrigger = "#w"                                                             // Message prefix that triggers WolframAlpha query
+// Concatenate command execution error (if any) and output together into a single string, and truncate it to fit into maximum output length.
+func lintCommandOutput(outErr error, outText string, maxOutLen int, squeezeIntoOneLine, truncateToLen bool) (out string) {
+	outLines := make([]string, 0, 8)
+	if outErr != nil {
+		for _, line := range strings.Split(fmt.Sprint(outErr), "\n") {
+			outLines = append(outLines, strings.TrimSpace(line))
+		}
+	}
+	for _, line := range strings.Split(outText, "\n") {
+		outLines = append(outLines, strings.TrimSpace(line))
+	}
+	if squeezeIntoOneLine {
+		out = strings.Join(outLines, ";")
+	} else {
+		out = strings.Join(outLines, "\n")
+	}
+	if truncateToLen && len(out) > maxOutLen {
+		out = out[0:maxOutLen]
+	}
+	if out == "" {
+		return "EMPTY OUTPUT"
+	}
+	return strings.TrimSpace(out)
+}
 
 type WebShell struct {
 	MessageEndpoint   string // The secret API endpoint name for messaging in daemon mode
 	VoiceMLEndpoint   string // The secret API endpoint name that serves TwiML voice script in daemon mode
 	VoiceProcEndpoint string // The secret API endpoint name that responds to TwiML voice script
 	ServerPort        int    // The port HTTP server listens on in daemon mode
-	PIN               string // The pre-shared secret pin to enable shell statement execution in both daemon and mail mode
+	PIN               string // The pre-shared secret pin to enable command execution in both daemon and mail mode
 	TLSCert           string // Location of HTTP TLS certificate in daemon mode
 	TLSKey            string // Location of HTTP TLS key in daemon mode
 
-	SubHashSlashForPipe bool // Substitute char sequence #/ from incoming shell statement for char | before command execution
-	WebTimeoutSec       int  // When reached from web API, WolframAlpha query/shell statement is killed after this number of seconds.
-	WebTruncateLen      int  // When reached from web API, truncate statement execution result to this length.
+	SubHashSlashForPipe bool // Substitute char sequence #/ from incoming command for char | before command execution
+	WebTimeoutSec       int  // When reached from web API, WolframAlpha query/shell command is killed after this number of seconds.
+	WebTruncateLen      int  // When reached from web API, truncate command execution result to this length.
 
-	MailTimeoutSec       int      // When reached from mail API, WolframAlpha query/shell statement is killed after this number of seconds.
-	MailTruncateLen      int      // When reached from mail API, truncate statement execution result to this length.
-	MailRecipients       []string // List of Email addresses that receive notification after each shell statement
-	MailFrom             string   // FROM address of the Email notifications
+	MailTimeoutSec       int      // When reached from mail API, WolframAlpha query/shell command is killed after this number of seconds.
+	MailTruncateLen      int      // When reached from mail API, truncate command execution result to this length.
+	MailRecipients       []string // List of mail addresses that receive notification after each command
+	MailFrom             string   // FROM address of the mail notifications
 	MailAgentAddressPort string   // Address and port number of mail transportation agent for sending notifications
 
 	MysteriousURL   string // intentionally undocumented
@@ -80,35 +105,37 @@ type WebShell struct {
 
 	WolframAlphaAppID string // WolframAlpha application ID for consuming its APIs
 
-	PresetMessages map[string]string // Pre-defined mapping of secret phrases and corresponding shell statements
+	PresetMessages map[string]string // Pre-defined mapping of secret phrases and their  corresponding command
 }
 
-// intentionally undocumented
-func (sh *WebShell) doMysteriousHTTPRequest(rawMessage string) {
-	requestBody := fmt.Sprintf("ReplyAddress=%s&ReplyMessage=%s&MessageId=%s&Guid=%s", url.QueryEscape(sh.MysteriousAddr2), url.QueryEscape(rawMessage), sh.MysteriousID1, sh.MysteriousID2)
-
-	request, err := http.NewRequest("POST", sh.MysteriousURL, bytes.NewReader([]byte(requestBody)))
-	if err != nil {
-		log.Printf("MysteriousShell cannot initialise HTTP request for '%s': %v", rawMessage, err)
-		return
-	}
-	request.Header.Set("X-Requested-With", "XMLHttpRequest")
-	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36 OPR/35.0.2066.92")
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-
-	client := &http.Client{Timeout: 25 * time.Second}
-	response, err := client.Do(request)
-	if err != nil {
-		log.Printf("MysteriousShell failed to make HTTP request for '%s': %v", rawMessage, err)
-		return
-	}
-	body, err := ioutil.ReadAll(response.Body)
-	defer response.Body.Close()
-	log.Printf("MysteriousShell got response for '%s': error %v, status %d, output %s", rawMessage, err, response.StatusCode, string(body))
+// Return true only if all mail parameters are present (hence, enabling mail notifications).
+func (sh *WebShell) isMailNotificationEnabled() bool {
+	return sh.MailAgentAddressPort != "" && sh.MailFrom != "" && len(sh.MailRecipients) > 0
 }
+
+// Log an executed command in standard error and send an mail notification if it is enabled.
+func (sh *WebShell) logAndNotify(command, output string) {
+	log.Printf("Websh has run '%s': %s", command, output)
+	if sh.isMailNotificationEnabled() {
+		go func() {
+			msg := fmt.Sprintf(mailNotificationReplyFormat, command, output)
+			if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, sh.MailRecipients, []byte(msg)); err == nil {
+				log.Printf("Websh has sent mail notifications for '%s' to %v", command, sh.MailRecipients)
+			} else {
+				log.Printf("Websh failed to send notification mail: %v", err)
+			}
+		}()
+	}
+}
+
+/*
+=======================================
+WolframAlpha and mysterious functions
+=======================================
+*/
 
 // Extract "pods" from WolframAlpha API response in XML.
-func (sh *WebShell) extractWolframAlphaResponseText(xmlBody []byte) string {
+func (sh *WebShell) waExtractResponse(xmlBody []byte) string {
 	type SubPod struct {
 		TextInfo string `xml:"plaintext"`
 		Title    string `xml:"title,attr"`
@@ -134,8 +161,8 @@ func (sh *WebShell) extractWolframAlphaResponseText(xmlBody []byte) string {
 	return outBuf.String()
 }
 
-// Call WolframAlpha API.
-func (sh *WebShell) doWolframAlphaRequest(timeoutSec int, query string) string {
+// Call WolframAlpha API with the text query.
+func (sh *WebShell) waCallAPI(timeoutSec int, query string) string {
 	request, err := http.NewRequest(
 		"GET",
 		fmt.Sprintf("https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext", sh.WolframAlphaAppID, url.QueryEscape(query)),
@@ -144,7 +171,6 @@ func (sh *WebShell) doWolframAlphaRequest(timeoutSec int, query string) string {
 		log.Printf("Failed to initialise WolframAlpha HTTP request for '%s': %v", query, err)
 		return ""
 	}
-
 	client := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
 	response, err := client.Do(request)
 	if err != nil {
@@ -153,83 +179,60 @@ func (sh *WebShell) doWolframAlphaRequest(timeoutSec int, query string) string {
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
-	textResponse := sh.extractWolframAlphaResponseText(body)
+	textResponse := sh.waExtractResponse(body)
 	log.Printf("Got response from WolframAlpha for '%s': error %v, status %d, output %s", query, err, response.StatusCode, textResponse)
 	return textResponse
 }
 
-// Return true only if all Email parameters are present (hence, enabling Email notifications).
-func (sh *WebShell) isEmailNotificationEnabled() bool {
-	return sh.MailAgentAddressPort != "" && sh.MailFrom != "" && len(sh.MailRecipients) > 0
+// This mysterious HTTP call is intentionally undocumented hahahaha.
+func (sh *WebShell) mysteriousCallAPI(rawMessage string) {
+	requestBody := fmt.Sprintf("ReplyAddress=%s&ReplyMessage=%s&MessageId=%s&Guid=%s",
+		url.QueryEscape(sh.MysteriousAddr2), url.QueryEscape(rawMessage), sh.MysteriousID1, sh.MysteriousID2)
+
+	request, err := http.NewRequest("POST", sh.MysteriousURL, bytes.NewReader([]byte(requestBody)))
+	if err != nil {
+		log.Printf("MysteriousShell cannot initialise HTTP request for '%s': %v", rawMessage, err)
+		return
+	}
+	request.Header.Set("X-Requested-With", "XMLHttpRequest")
+	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36 OPR/35.0.2066.92")
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+
+	client := &http.Client{Timeout: 25 * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		log.Printf("MysteriousShell failed to make HTTP request for '%s': %v", rawMessage, err)
+		return
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	defer response.Body.Close()
+	log.Printf("MysteriousShell got response for '%s': error %v, status %d, output %s", rawMessage, err, response.StatusCode, string(body))
 }
 
-// Log an executed command in standard error and send an email notification if it is enabled.
-func (sh *WebShell) logStatementAndNotify(stmt, output string) {
-	log.Printf("Websh has finished executing '%s' - output: %s", stmt, output)
-	if sh.isEmailNotificationEnabled() {
-		go func() {
-			msg := fmt.Sprintf(EmailNotificationReplyFormat, stmt, output)
-			if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, sh.MailRecipients, []byte(msg)); err == nil {
-				log.Printf("Websh has sent Email notifications for '%s' to %v", stmt, sh.MailRecipients)
-			} else {
-				log.Printf("Websh failed to send notification Email: %v", err)
-			}
-		}()
-	}
-}
+/*
+=======================================
+Shell/WolframAlpha command execution
+=======================================
+*/
 
-// Concatenate command execution error (if any) and output together into a single string, and truncate it to fit into maximum output length.
-func (sh *WebShell) lintOutput(outErr error, outText string, maxOutLen int, squeezeIntoOneLine, truncateToLen bool) (out string) {
-	outLines := make([]string, 0, 8)
-	if outErr != nil {
-		for _, line := range strings.Split(fmt.Sprint(outErr), "\n") {
-			outLines = append(outLines, strings.TrimSpace(line))
-		}
-	}
-	for _, line := range strings.Split(outText, "\n") {
-		outLines = append(outLines, strings.TrimSpace(line))
-	}
-	if squeezeIntoOneLine {
-		out = strings.Join(outLines, ";")
-	} else {
-		out = strings.Join(outLines, "\n")
-	}
-	if truncateToLen && len(out) > maxOutLen {
-		out = out[0:maxOutLen]
-	}
-	if out == "" {
-		return "EMPTY OUTPUT"
-	}
-	return strings.TrimSpace(out)
-}
-
-// Run a WolframAlpha query or shell statement using shell interpreter.
-func (sh *WebShell) runStatement(stmt string, timeoutSec, maxOutLen int, squeezeIntoOneLine, truncateToLen bool) (output string) {
-	log.Printf("Websh will run statement '%s'", stmt)
-	if strings.HasPrefix(stmt, WolframAlphaTrigger) {
-		output = sh.lintOutput(nil, sh.doWolframAlphaRequest(timeoutSec, stmt[len(WolframAlphaTrigger):]), maxOutLen, squeezeIntoOneLine, truncateToLen)
+// Execute the input command with strict timeout guarantee, return command output.
+func (sh *WebShell) cmdRun(stmt string, timeoutSec, maxOutLen int, squeezeIntoOneLine, truncateToLen bool) (output string) {
+	log.Printf("Websh will run command '%s'", stmt)
+	if strings.HasPrefix(stmt, magicWolframAlpha) {
+		output = lintCommandOutput(nil, sh.waCallAPI(timeoutSec, stmt[len(magicWolframAlpha):]), maxOutLen, squeezeIntoOneLine, truncateToLen)
 	} else {
 		if sh.SubHashSlashForPipe {
 			stmt = strings.Replace(stmt, "#/", "|", -1)
 		}
 		outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(timeoutSec), "/bin/bash", "-c", stmt).CombinedOutput()
-		output = sh.lintOutput(status, string(outBytes), maxOutLen, squeezeIntoOneLine, truncateToLen)
+		output = lintCommandOutput(status, string(outBytes), maxOutLen, squeezeIntoOneLine, truncateToLen)
 	}
-	sh.logStatementAndNotify(stmt, output)
+	sh.logAndNotify(stmt, output)
 	return
 }
 
-// Generate XML response (conforming to Twilio SMS web hook) carrying the command exit status and output.
-func writeHTTPResponse(w http.ResponseWriter, output string) {
-	w.Header().Set("Content-Type", "text/xml")
-	w.Header().Set("Cache-Control", "must-revalidate")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message><![CDATA[%s]]></Message></Response>`, output)))
-}
-
-// Match an input line against preset message or PIN, return the statement. Return empty string if no match.
-func (sh *WebShell) matchPresetOrPIN(inputLine string) string {
+// Match an input line against preset message or PIN, return the command portion of the line. Return empty string if no match.
+func (sh *WebShell) cmdFind(inputLine string) string {
 	if sh.PIN == "" {
 		// Safe guard against an empty PIN
 		return ""
@@ -239,7 +242,7 @@ func (sh *WebShell) matchPresetOrPIN(inputLine string) string {
 	if sh.PresetMessages != nil {
 		for preset, stmt := range sh.PresetMessages {
 			if preset == "" || stmt == "" {
-				// Safe guard against an empty preset message or statement
+				// Safe guard against an empty preset message or empty command
 				return ""
 			}
 			if len(inputLine) < len(preset) {
@@ -250,30 +253,36 @@ func (sh *WebShell) matchPresetOrPIN(inputLine string) string {
 			}
 		}
 	}
-	// Try matching against PIN, the use of > is intentional to enforce minimum length of 1 character in the shell statement.
+	// Try matching against PIN, the use of > is intentional to enforce minimum length of 1 character in the command.
 	if len(inputLine) > len(sh.PIN) && inputLine[0:len(sh.PIN)] == sh.PIN {
 		return strings.TrimSpace(inputLine[len(sh.PIN):])
 	}
 	return ""
 }
 
-// Look for a reply address in the Email text (reply-to or from). Return empty string if such address is not found.
-func findSubjectAndReplyAddressInMail(mailContent string) (subject string, contentType string, replyTo string) {
+/*
+=======================================
+Process plain text and multi-part mails
+=======================================
+*/
+
+// Look for a reply address in the mail text (reply-to or from). Return empty string if such address is not found.
+func mailGetProperties(mailContent string) (subject string, contentType string, replyTo string) {
 	for _, line := range strings.Split(mailContent, "\n") {
 		trimmed := strings.TrimSpace(line)
 		trimmedUpper := strings.ToUpper(trimmed)
 		if strings.HasPrefix(trimmedUpper, "FROM:") && replyTo == "" {
-			if address := EmailAddressRegex.FindString(trimmed); address != "" {
+			if address := mailAddressRegex.FindString(trimmed); address != "" {
 				replyTo = address
 			}
 		} else if strings.HasPrefix(trimmedUpper, "REPLY-TO:") {
 			// Reply-to is preferred over From
-			if address := EmailAddressRegex.FindString(trimmed); address != "" {
+			if address := mailAddressRegex.FindString(trimmed); address != "" {
 				replyTo = address
 			}
 		} else if strings.HasPrefix(trimmedUpper, "SUBJECT:") {
-			if strings.Contains(trimmedUpper, strings.ToUpper(WebShellEmailMagic)) {
-				// Avoid recurse on emails sent by websh itself so return early
+			if strings.Contains(trimmedUpper, strings.ToUpper(magicWebshMailSubject)) {
+				// Avoid recurse on mails sent by websh itself so return early
 				return trimmed, "", ""
 			} else {
 				subject = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(trimmed), "subject:"))
@@ -285,8 +294,60 @@ func findSubjectAndReplyAddressInMail(mailContent string) (subject string, conte
 	return
 }
 
-// Look for shell statement and PIN/preset message match in the text part of an MIME mail. Return empty if no match.
-func (sh *WebShell) findShellStatementInMIMEMail(contentType, subject, mailContent string) string {
+// Process an entire mail message and run the command within.
+func (sh *WebShell) mailProcess(mailContent string) {
+	subject, contentType, replyTo := mailGetProperties(mailContent)
+	if replyTo == "" {
+		log.Printf("Mailsh failed to find reply address of mail '%s'", subject)
+		return
+	}
+	log.Printf("Mailsh is processing mail '%s' (type %s, reply to %s)", subject, contentType, replyTo)
+	if sh.MysteriousAddr1 != "" && strings.HasSuffix(replyTo, sh.MysteriousAddr1) {
+		log.Printf("Mailsh will respond to mail '%s' in undocumented ways", subject)
+		stmt, output := sh.mailRunCmd(subject, contentType, mailContent)
+		if stmt == "" {
+			return
+		}
+		sh.mysteriousCallAPI(output)
+	} else {
+		// Match PIN/preset message in the mail body, run the command and reply
+		stmt, output := sh.mailRunCmd(subject, contentType, mailContent)
+		if stmt == "" {
+			return
+		}
+		msg := fmt.Sprintf(mailNotificationReplyFormat, stmt, output)
+		if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, []string{replyTo}, []byte(msg)); err != nil {
+			log.Printf("Mailsh failed to respond to '%s' %s - %v", subject, replyTo, err)
+		}
+	}
+}
+
+// Find and run command from multipart or plain text mail content.
+func (sh *WebShell) mailRunCmd(subject, contentType, mailContent string) (stmt, output string) {
+	stmt = sh.mailFindCmdMultipart(contentType, subject, mailContent)
+	if stmt == "" {
+		stmt = sh.mailFindCmdPlainText(subject, mailContent)
+	}
+	if stmt != "" {
+		output = sh.cmdRun(stmt, sh.MailTimeoutSec, sh.MailTruncateLen, false, false)
+	}
+	return
+}
+
+// Look for PIN/preset message match in the mail text (no multipart). Return empty if no match
+func (sh *WebShell) mailFindCmdPlainText(subject, mailContent string) string {
+	for _, line := range strings.Split(mailContent, "\n") {
+		if stmt := sh.cmdFind(line); stmt != "" {
+			log.Printf("Mailsh found command in '%s'", subject)
+			return stmt
+		}
+	}
+	log.Printf("Mailsh cannot find command in '%s'", subject)
+	return ""
+}
+
+// Look for command or preset message match in the text part of a mutlipart mail. Return empty if no match.
+func (sh *WebShell) mailFindCmdMultipart(contentType, subject, mailContent string) string {
 	mimeMail := &mail.Message{
 		Header: map[string][]string{"Content-Type": {contentType}},
 		Body:   strings.NewReader(mailContent),
@@ -301,98 +362,144 @@ func (sh *WebShell) findShellStatementInMIMEMail(contentType, subject, mailConte
 					break
 				}
 				if err != nil {
-					log.Printf("Mailsh failed to open MIME email '%s' - %v", subject, err)
+					log.Printf("Mailsh failed to open multipart mail '%s' - %v", subject, err)
 					break
 				}
 				slurp, err := ioutil.ReadAll(p)
 				if err != nil {
-					log.Printf("Mailsh failed to read MIME email '%s' - %v", subject, err)
+					log.Printf("Mailsh failed to read multipart mail '%s' - %v", subject, err)
 					break
 				}
 				partContentType := p.Header.Get("Content-Type")
 				if strings.Contains(partContentType, "text") {
-					if stmt := sh.matchPINInTextMailBoxy(subject, string(slurp)); stmt != "" {
-						log.Printf("Mailsh has found statement in MIME email '%s'", subject)
+					if stmt := sh.mailFindCmdPlainText(subject, string(slurp)); stmt != "" {
+						log.Printf("Mailsh has found command in multipart mail '%s'", subject)
 						return stmt
 					}
 				}
 			}
 		}
 	}
-	log.Printf("Mailsh cannot find statement in MIME email '%s'", subject)
+	log.Printf("Mailsh cannot find command in multipart mail '%s'", subject)
 	return ""
 }
 
-// Look for PIN/preset message match in the Email text. Return empty if no match
-func (sh *WebShell) matchPINInTextMailBoxy(subject, mailContent string) string {
-	for _, line := range strings.Split(mailContent, "\n") {
-		if stmt := sh.matchPresetOrPIN(line); stmt != "" {
-			log.Printf("Mailsh has found statement in text email '%s'", subject)
-			return stmt
+/*
+=======================================
+Voice pocessing functions
+=======================================
+*/
+var dtmfDecode = map[string]string{
+	` `:   ` `,
+	`111`: `.`, `112`: `,`, `113`: `?`, `114`: `!`, `115`: `'`, `116`: `"`, `117`: `(`, `118`: `)`, `119`: `@`,
+	`121`: `\`, `122`: `/`, `123`: `:`, `124`: `_`, `125`: `;`, `126`: `+`, `127`: `-`, `128`: `*`, `129`: `=`,
+	`131`: `%`, `132`: `&`, `133`: `<`, `134`: `>`, `135`: `^`, `136`: `$`,
+	`142`: `[`, `143`: `]`, `144`: `{`, `145`: `}`, `146`: `~`, `147`: `#`,
+	`1`: `0`, `11`: `1`, `12`: `2`, `13`: `3`, `14`: `4`, `15`: `5`, `16`: `6`, `17`: `7`, `18`: `8`, `19`: `9`,
+	`2`: "a", `22`: `b`, `222`: `c`,
+	`3`: "d", `33`: `e`, `333`: `f`,
+	`4`: "g", `44`: `h`, `444`: `i`,
+	`5`: "j", `55`: `k`, `555`: `l`,
+	`6`: "m", `66`: `n`, `666`: `o`,
+	`7`: "p", `77`: `q`, `777`: `r`, `7777`: `s`,
+	`8`: "t", `88`: `u`, `888`: `v`,
+	`9`: "w", `99`: `x`, `999`: `y`, `9999`: `z`,
+} // Decode sequence of DTMF digits into letters and symbols
+
+// Decode a sequence of character string sent via DTMF. Input is a sequence of key names (0-9 and *)
+func voiceDecodeDTMF(digits string) string {
+	digits = strings.TrimSpace(digits)
+	if len(digits) == 0 {
+		return ""
+	}
+	// Break input into consecutive digits and asterisks
+	letters := make([]string, 0, 64)
+	var accumulator bytes.Buffer
+	for _, char := range digits {
+		switch char {
+		case ' ':
+			fallthrough
+		case '\n':
+			fallthrough
+		case '\r':
+			fallthrough
+		case '\t':
+			// Skip spaces
+			continue
+		case '*': // shift
+			if accumulator.Len() > 0 {
+				letters = append(letters, accumulator.String())
+				accumulator.Reset()
+			}
+			letters = append(letters, "*")
+		case '0': // type a single space, or mark ending of a digit sequence
+			if accumulator.Len() == 0 {
+				letters = append(letters, " ")
+			} else {
+				letters = append(letters, accumulator.String())
+				accumulator.Reset()
+			}
+		default: // digit sequence
+			accumulator.WriteRune(char)
 		}
 	}
-	log.Printf("Mailsh cannot find statement in text email '%s'", subject)
-	return ""
+	if accumulator.Len() > 0 {
+		letters = append(letters, accumulator.String())
+	}
+	// Translate digit sequences into character string
+	var message bytes.Buffer
+	var shift bool
+	for _, charseq := range letters {
+		if charseq == "*" {
+			shift = !shift
+		} else {
+			decoded, found := dtmfDecode[charseq]
+			if !found {
+				log.Printf("DTMF decoding table cannot decode '%s'", charseq)
+				continue
+			}
+			if shift {
+				decoded = strings.ToUpper(decoded)
+			}
+			message.WriteString(decoded)
+		}
+	}
+	return message.String()
 }
 
-// Analyse the email as either MIME or plain text mail, whichever one yields PIN/preset message match, and run the statement in the mail body.
-func (sh *WebShell) runStatementInEmail(subject, contentType, mailContent string) (stmt, output string) {
-	stmt = sh.findShellStatementInMIMEMail(contentType, subject, mailContent)
-	if stmt == "" {
-		stmt = sh.matchPINInTextMailBoxy(subject, mailContent)
-	}
-	if stmt != "" {
-		output = sh.runStatement(stmt, sh.MailTimeoutSec, sh.MailTruncateLen, false, false)
-		log.Printf("Mailsh has run statement '%s' from email '%s'", stmt, subject)
-	}
-	return
-}
+/*
+=======================================
+HTTP API functions
+=======================================
+*/
 
-// Read email message from stdin and process the statement in it.
-func (sh *WebShell) processMail(mailContent string) {
-	subject, contentType, replyTo := findSubjectAndReplyAddressInMail(mailContent)
-	log.Printf("Mailsh is processing email '%s' and reply address is '%s'", subject, replyTo)
-	if replyTo == "" {
-		log.Printf("Mailsh failed to find reply address of email '%s'", subject)
-		return
-	}
-	if sh.MysteriousAddr1 != "" && strings.HasSuffix(replyTo, sh.MysteriousAddr1) {
-		log.Printf("Mailsh will respond to email '%s' in mysterious ways", subject)
-
-		stmt, output := sh.runStatementInEmail(subject, contentType, mailContent)
-		if stmt == "" {
-			log.Printf("Mailsh failed to find statement to run in email '%s'", subject)
-			return
-		}
-		sh.doMysteriousHTTPRequest(output)
-	} else {
-		// Match PIN/preset message in the mail body, run the statement and reply
-		stmt, output := sh.runStatementInEmail(subject, contentType, mailContent)
-		if stmt == "" {
-			log.Printf("Mailsh failed to find statement to run in email '%s'", subject)
-			return
-		}
-		log.Printf("Mailsh will email response for '%s' to %s", subject, replyTo)
-		msg := fmt.Sprintf(EmailNotificationReplyFormat, stmt, output)
-		if err := smtp.SendMail(sh.MailAgentAddressPort, nil, sh.MailFrom, []string{replyTo}, []byte(msg)); err != nil {
-			log.Printf("Mailsh failed to send email response for '%s' to %s - %v", subject, replyTo, err)
-		}
+// Run HTTP server and block until the process exits.
+func (sh *WebShell) httpRunServer() {
+	http.HandleFunc("/"+sh.MessageEndpoint, sh.httpAPIMessage)
+	http.HandleFunc("/"+sh.VoiceMLEndpoint, sh.httpAPIVoiceGreeting)
+	http.HandleFunc("/"+sh.VoiceProcEndpoint, sh.httpAPIVoiceMessage)
+	if err := http.ListenAndServeTLS(":"+strconv.Itoa(sh.ServerPort), sh.TLSCert, sh.TLSKey, nil); err != nil {
+		log.Panic("Failed to start HTTPS server")
 	}
 }
 
-// The HTTP message endpoint looks for statement to execute from request. The input/output conforms to Twilio SMS web hook.
-func (sh *WebShell) httpMessageEndpoint(w http.ResponseWriter, r *http.Request) {
-	if stmt := sh.matchPresetOrPIN(r.FormValue("Body")); stmt == "" {
+// Look for command to execute from request body. The request/response content conform to Twilio SMS hook requirements.
+func (sh *WebShell) httpAPIMessage(w http.ResponseWriter, r *http.Request) {
+	if stmt := sh.cmdFind(r.FormValue("Body")); stmt == "" {
 		// No match, don't give much clue to the client though.
 		http.Error(w, "404 page not found", http.StatusNotFound)
 	} else {
-		respOut := sh.runStatement(stmt, sh.WebTimeoutSec, sh.WebTruncateLen, true, true)
-		writeHTTPResponse(w, respOut)
+		output := sh.cmdRun(stmt, sh.WebTimeoutSec, sh.WebTruncateLen, true, true)
+		w.Header().Set("Content-Type", "text/xml")
+		w.Header().Set("Cache-Control", "must-revalidate")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<Response><Message><![CDATA[%s]]></Message></Response>`, output)))
 	}
 }
 
 // The HTTP Voice mark-up endpoint returns TwiML voice script.
-func (sh *WebShell) httpVoiceMLEndpoint(w http.ResponseWriter, r *http.Request) {
+func (sh *WebShell) httpAPIVoiceGreeting(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Got a call ML")
 	w.Header().Set("Content-Type", "text/xml")
 	w.Header().Set("Cache-Control", "must-revalidate")
@@ -410,7 +517,7 @@ func (sh *WebShell) httpVoiceMLEndpoint(w http.ResponseWriter, r *http.Request) 
 }
 
 // The HTTP voice processing endpoint reads DTMF (input from Twilio request) and translates it into a statement and execute.
-func (sh *WebShell) httpVoiceProcEndpoint(w http.ResponseWriter, r *http.Request) {
+func (sh *WebShell) httpAPIVoiceMessage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/xml")
 	w.Header().Set("Cache-Control", "must-revalidate")
 	w.WriteHeader(http.StatusOK)
@@ -423,22 +530,12 @@ func (sh *WebShell) httpVoiceProcEndpoint(w http.ResponseWriter, r *http.Request
 `, digits)))
 }
 
-// Run HTTP server and block until the process exits.
-func (sh *WebShell) runHTTPServer() {
-	http.HandleFunc("/"+sh.MessageEndpoint, sh.httpMessageEndpoint)
-	http.HandleFunc("/"+sh.VoiceMLEndpoint+".xml", sh.httpVoiceMLEndpoint)
-	http.HandleFunc("/"+sh.VoiceProcEndpoint, sh.httpVoiceProcEndpoint)
-	if err := http.ListenAndServeTLS(":"+strconv.Itoa(sh.ServerPort), sh.TLSCert, sh.TLSKey, nil); err != nil {
-		log.Panic("Failed to start HTTPS server")
-	}
-}
-
 func main() {
+	// Read configuration file path from CLI parameter
 	var configFilePath string
 	var mailMode bool
-	// Read configuration file path from CLI parameter
 	flag.StringVar(&configFilePath, "configfilepath", "", "Path to the configuration file")
-	flag.BoolVar(&mailMode, "mailmode", false, "True if the program is processing an incoming email, false if the program is running as a daemon")
+	flag.BoolVar(&mailMode, "mailmode", false, "True if the program is processing an incoming mail, false if the program is running as a daemon")
 	flag.Parse()
 	if configFilePath == "" {
 		flag.PrintDefaults()
@@ -448,31 +545,29 @@ func main() {
 	if err != nil {
 		log.Panic("Failed to read config file")
 	}
-
 	websh := WebShell{}
 	if err = json.Unmarshal(configContent, &websh); err != nil {
 		log.Panic("Failed to unmarshal config JSON")
 	}
-
 	if websh.PIN == "" ||
 		(mailMode && (websh.MailTimeoutSec < 1 || websh.MailTruncateLen < 1 || websh.MailFrom == "" || websh.MailAgentAddressPort == "")) ||
 		(!mailMode && (websh.MessageEndpoint == "" || websh.ServerPort < 1 || websh.TLSCert == "" || websh.TLSKey == "" ||
 			websh.WebTimeoutSec < 1 || websh.WebTruncateLen < 1)) {
 		log.Panic("Please complete all mandatory parameters.")
 	}
-
 	if mailMode {
 		mailContent, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			log.Panic("Failed to read from STDIN")
 		}
-		websh.processMail(string(mailContent))
+		websh.mailProcess(string(mailContent))
+		return
 	} else {
-		if websh.isEmailNotificationEnabled() {
-			log.Printf("Websh will send Email notifications to %v", websh.MailRecipients)
+		if websh.isMailNotificationEnabled() {
+			log.Printf("Websh will send mail notifications to %v", websh.MailRecipients)
 		} else {
-			log.Print("Websh will not send Email notifications")
+			log.Print("Websh will not send mail notifications")
 		}
-		websh.runHTTPServer()
+		websh.httpRunServer() // blocks
 	}
 }

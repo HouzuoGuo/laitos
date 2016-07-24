@@ -6,136 +6,135 @@ import (
 	"testing"
 )
 
-func TestIsEmailNotificationEnabled(t *testing.T) {
+func TestIsMailNotificationEnabled(t *testing.T) {
 	sh := WebShell{}
-	if sh.isEmailNotificationEnabled() {
+	if sh.isMailNotificationEnabled() {
 		t.Fatal()
 	}
 	sh.MailRecipients = []string{"dummy"}
-	if sh.isEmailNotificationEnabled() {
+	if sh.isMailNotificationEnabled() {
 		t.Fatal()
 	}
 	sh.MailFrom = "abc"
-	if sh.isEmailNotificationEnabled() {
+	if sh.isMailNotificationEnabled() {
 		t.Fatal()
 	}
 	sh.MailAgentAddressPort = "example.com:25"
-	if !sh.isEmailNotificationEnabled() {
+	if !sh.isMailNotificationEnabled() {
 		t.Fatal()
 	}
 }
 
-func TestLogStatementAndNotify(t *testing.T) {
+func TestLogAndNotify(t *testing.T) {
 	sh := WebShell{
 		MailRecipients:       []string{"dummy"},
 		MailFrom:             "abc",
 		MailAgentAddressPort: "example.com:25"}
 	log.Print("========= Observe one log message ========")
-	sh.logStatementAndNotify("stmt", "output")
+	sh.logAndNotify("stmt", "output")
 	log.Print("===========================================")
 	// the background goroutine should spit another log message, but it won't happen unless we wait.
 }
 
-func TestTrimShellOutput(t *testing.T) {
-	sh := WebShell{}
-	if out := sh.lintOutput(nil, "", 0, false, false); out != "EMPTY OUTPUT" {
+func TestLintCommandOutput(t *testing.T) {
+	if out := lintCommandOutput(nil, "", 0, false, false); out != "EMPTY OUTPUT" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(nil, "0123456789", 0, false, true); out != "EMPTY OUTPUT" {
+	if out := lintCommandOutput(nil, "0123456789", 0, false, true); out != "EMPTY OUTPUT" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(nil, "0123456789", 10, false, true); out != "0123456789" {
+	if out := lintCommandOutput(nil, "0123456789", 10, false, true); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(nil, "0123456789abc", 10, false, true); out != "0123456789" {
+	if out := lintCommandOutput(nil, "0123456789abc", 10, false, true); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(errors.New("012345678"), "9", 10, false, true); out != "012345678" {
+	if out := lintCommandOutput(errors.New("012345678"), "9", 10, false, true); out != "012345678" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(errors.New("01234567"), "8", 10, false, true); out != "01234567\n8" {
+	if out := lintCommandOutput(errors.New("01234567"), "8", 10, false, true); out != "01234567\n8" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(errors.New(" 0123456789 "), " 0123456789 ", 10, false, false); out != "0123456789\n0123456789" {
+	if out := lintCommandOutput(errors.New(" 0123456789 "), " 0123456789 ", 10, false, false); out != "0123456789\n0123456789" {
 		t.Fatal(out)
 	}
-	if out := sh.lintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 10, true, false); out != "012345;6789;012345;6789" {
+	if out := lintCommandOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 10, true, false); out != "012345;6789;012345;6789" {
 		t.Fatal(out)
 	}
 }
 
-func TestRunShellStatement(t *testing.T) {
+func TestCmdRun(t *testing.T) {
 	sh := WebShell{SubHashSlashForPipe: false}
-	if out := sh.runStatement("echo a | grep a #/thisiscomment", 1, 30, false, true); out != "a" {
+	if out := sh.cmdRun("echo a | grep a #/thisiscomment", 1, 30, false, true); out != "a" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo a && false # this is comment", 1, 30, false, true); out != "exit status 1\na" {
+	if out := sh.cmdRun("echo a && false # this is comment", 1, 30, false, true); out != "exit status 1\na" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1", 1, 30, false, true); out != "a\nb" {
+	if out := sh.cmdRun("echo -e 'a\nb' > /proc/self/fd/1", 1, 30, false, true); out != "a\nb" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`, 1, 30, false, true); out != `"abc"` {
+	if out := sh.cmdRun(`echo '"abc"' > /proc/self/fd/2`, 1, 30, false, true); out != `"abc"` {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo "'abc'"`, 1, 30, false, true); out != `'abc'` {
+	if out := sh.cmdRun(`echo "'abc'"`, 1, 30, false, true); out != `'abc'` {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`sleep 2`, 1, 16, false, true); out != "exit status 143" {
+	if out := sh.cmdRun(`sleep 2`, 1, 16, false, true); out != "exit status 143" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo 01234567891234567`, 1, 16, false, true); out != "0123456789123456" {
+	if out := sh.cmdRun(`echo 01234567891234567`, 1, 16, false, true); out != "0123456789123456" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo a #/ grep a", 1, 30, false, true); out != "a" {
+	if out := sh.cmdRun("echo a #/ grep a", 1, 30, false, true); out != "a" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo a && false # this is comment", 1, 30, false, true); out != "exit status 1\na" {
+	if out := sh.cmdRun("echo a && false # this is comment", 1, 30, false, true); out != "exit status 1\na" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement("echo -e 'a\nb' > /proc/self/fd/1", 1, 30, false, true); out != "a\nb" {
+	if out := sh.cmdRun("echo -e 'a\nb' > /proc/self/fd/1", 1, 30, false, true); out != "a\nb" {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo '"abc"' > /proc/self/fd/2`, 1, 30, false, true); out != `"abc"` {
+	if out := sh.cmdRun(`echo '"abc"' > /proc/self/fd/2`, 1, 30, false, true); out != `"abc"` {
 		t.Fatal(out)
 	}
-	if out := sh.runStatement(`echo "'abc'"`, 1, 30, false, true); out != `'abc'` {
+	if out := sh.cmdRun(`echo "'abc'"`, 1, 30, false, true); out != `'abc'` {
 		t.Fatal(out)
 	}
 }
 
-func TestMatchPresetOrPIN(t *testing.T) {
+func TestCmdFind(t *testing.T) {
 	sh := WebShell{}
-	if stmt := sh.matchPresetOrPIN("echo hi"); stmt != "" {
+	if stmt := sh.cmdFind("echo hi"); stmt != "" {
 		t.Fatal(stmt)
 	}
 	sh = WebShell{PresetMessages: map[string]string{"": "echo hi"}}
-	if stmt := sh.matchPresetOrPIN("echo hi"); stmt != "" {
+	if stmt := sh.cmdFind("echo hi"); stmt != "" {
 		t.Fatal(stmt)
 	}
 	sh = WebShell{PIN: "abc123"}
-	if stmt := sh.matchPresetOrPIN("badpinhello world"); stmt != "" {
+	if stmt := sh.cmdFind("badpinhello world"); stmt != "" {
 		t.Fatal(stmt)
 	}
-	if stmt := sh.matchPresetOrPIN("abc123hello world"); stmt != "hello world" {
+	if stmt := sh.cmdFind("abc123hello world"); stmt != "hello world" {
 		t.Fatal(stmt)
 	}
-	if stmt := sh.matchPresetOrPIN("   abc123    hello world   \r\n\t  "); stmt != "hello world" {
+	if stmt := sh.cmdFind("   abc123    hello world   \r\n\t  "); stmt != "hello world" {
 		t.Fatal(stmt)
 	}
 	sh = WebShell{PIN: "nopin", PresetMessages: map[string]string{"abc": "123", "def": "456"}}
-	if stmt := sh.matchPresetOrPIN("badbadbad"); stmt != "" {
+	if stmt := sh.cmdFind("badbadbad"); stmt != "" {
 		t.Fatal(stmt)
 	}
-	if stmt := sh.matchPresetOrPIN("   abcfoobar  "); stmt != "123" {
+	if stmt := sh.cmdFind("   abcfoobar  "); stmt != "123" {
 		t.Fatal(stmt)
 	}
-	if stmt := sh.matchPresetOrPIN("   deffoobar  "); stmt != "456" {
+	if stmt := sh.cmdFind("   deffoobar  "); stmt != "456" {
 		t.Fatal(stmt)
 	}
 }
 
-func TestFindReplyAddressInMail(t *testing.T) {
+func TestMailGetProperties(t *testing.T) {
 	example1 := `From bounces+21dd7b-root=houzuo.net@sendgrid.net  Sat Mar  5 19:4d 2016
 Delivered-To: guohouzuo@gmail.com
 Received: by 7.1.1.7 with SMTP id ev10c4;
@@ -199,18 +198,18 @@ From: howard@localhost.localdomain (Howard Guo)
 
 hi there
 `
-	if subj, contentType, addr := findSubjectAndReplyAddressInMail("foobar"); subj != "" || contentType != "" || addr != "" {
+	if subj, contentType, addr := mailGetProperties("foobar"); subj != "" || contentType != "" || addr != "" {
 		t.Fatal(subj, addr)
 	}
-	if subj, contentType, addr := findSubjectAndReplyAddressInMail(example1); subj != "message from houzuo guo" || contentType != `multipart/alternative; boundary="----------=_1457167900-29001-525"` || addr != "no.reply@example.com" {
+	if subj, contentType, addr := mailGetProperties(example1); subj != "message from houzuo guo" || contentType != `multipart/alternative; boundary="----------=_1457167900-29001-525"` || addr != "no.reply@example.com" {
 		t.Fatal(subj, addr)
 	}
-	if subj, contentType, addr := findSubjectAndReplyAddressInMail(example2); subj != "hi" || contentType != `text/plain; charset=us-ascii` || addr != "me@example.com" {
+	if subj, contentType, addr := mailGetProperties(example2); subj != "hi" || contentType != `text/plain; charset=us-ascii` || addr != "me@example.com" {
 		t.Fatal(subj, addr)
 	}
 }
 
-func TestRunShellStatementInMail(t *testing.T) {
+func TestMailRunCmdPlainText(t *testing.T) {
 	example := `From howard@localhost.localdomain  Sat Mar  5 12:17:27 2016
 X-Original-To: howard@localhost
 Delivered-To: howard@localhost.localdomain
@@ -227,7 +226,7 @@ abcfoobar  echo "'hello world'" | grep hello > /proc/self/fd/2
 
 `
 	sh := WebShell{PIN: "abcfoobar", MailTruncateLen: 6, MailTimeoutSec: 1, WebTruncateLen: 200, WebTimeoutSec: 200}
-	if stmt, out := sh.runStatementInEmail("subject does not matter", "text/plain; charset=us-ascii", example); stmt != `echo "'hello world'" | grep hello > /proc/self/fd/2` && out != "'hello" {
+	if stmt, out := sh.mailRunCmd("subject does not matter", "text/plain; charset=us-ascii", example); stmt != `echo "'hello world'" | grep hello > /proc/self/fd/2` && out != "'hello" {
 		t.Fatal(stmt, out)
 	}
 	example = `From howard@localhost.localdomain  Sat Mar  5 12:17:27 2016
@@ -246,12 +245,12 @@ abcfoobar  sleep 2
 
 `
 	sh = WebShell{PIN: "abcfoobar", MailTruncateLen: 6, MailTimeoutSec: 1, WebTruncateLen: 200, WebTimeoutSec: 200}
-	if stmt, out := sh.runStatementInEmail("subject does not matter", "text/plain; charset=us-ascii", example); stmt != `sleep 2` && out != "'exit status 143" {
+	if stmt, out := sh.mailRunCmd("subject does not matter", "text/plain; charset=us-ascii", example); stmt != `sleep 2` && out != "'exit status 143" {
 		t.Fatal(stmt, out)
 	}
 }
 
-func TestRunShellStatementInMIMEMail(t *testing.T) {
+func TestMailRunCmdMultipart(t *testing.T) {
 	example := `From bounces+21dd7b-root=houzuo.net@sendgrid.net  Sat Mar  5 19:4d 2016
 Delivered-To: guohouzuo@gmail.com
 Received: by 7.1.1.7 with SMTP id ev10c4;
@@ -307,18 +306,18 @@ aiwowein
 
 ------------=_1457209616-22400-170--`
 	sh := WebShell{PIN: "abc123", WebTruncateLen: 200, WebTimeoutSec: 1}
-	subject, contentType, replyTo := findSubjectAndReplyAddressInMail(example)
+	subject, contentType, replyTo := mailGetProperties(example)
 	if subject != "message from houzuo guo" || contentType != `multipart/alternative; boundary="----------=_1457209616-22400-170"` || replyTo != "no.reply@example.com" {
 		t.Fatal(subject, contentType, replyTo)
 	}
 	outputMatch := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccdddddddddddddddddddddddddeeeeeeeeeeeeee"
 	stmtMatch := "echo " + outputMatch
-	if stmt, out := sh.runStatementInEmail("subject does not matter", contentType, example); stmt != stmtMatch || out != outputMatch {
+	if stmt, out := sh.mailRunCmd("subject does not matter", contentType, example); stmt != stmtMatch || out != outputMatch {
 		t.Fatal(stmt, out)
 	}
 }
 
-func TestMysteriousRequest(t *testing.T) {
+func TestMysteriousCallAPI(t *testing.T) {
 	t.Skip()
 	sh := WebShell{
 		MysteriousURL:   "https://a",
@@ -327,23 +326,23 @@ func TestMysteriousRequest(t *testing.T) {
 		MysteriousID1:   "123456",
 		MysteriousID2:   "foo-bar",
 	}
-	sh.doMysteriousHTTPRequest("hi there")
+	sh.mysteriousCallAPI("hi there")
 }
 
-func TestWolframAlphaQuery(t *testing.T) {
+func TestWACallAPI(t *testing.T) {
 	t.Skip()
 	sh := WebShell{PIN: "abc", WolframAlphaAppID: "FILLME"}
-	output := sh.runStatement(sh.matchPresetOrPIN("abc#wweather in nuremberg, bavaria, germany"), 12, 500, true, true)
+	output := sh.cmdRun(sh.cmdFind("abc#wweather in nuremberg, bavaria, germany"), 12, 500, true, true)
 	t.Log(output)
 	if len(output) < 200 {
 		t.Fatal("output is too short", len(output))
 	}
 }
 
-func TestProcessingMail(t *testing.T) {
+func TestMailProcess(t *testing.T) {
 	// It should not panic
 	sh := WebShell{PIN: "abcfoobar"}
-	sh.processMail(`From howard@localhost.localdomain  Sat Mar  5 12:17:27 2016
+	sh.mailProcess(`From howard@localhost.localdomain  Sat Mar  5 12:17:27 2016
 To: howard@localhost.localdomain
 Subject: subject does not matter
 From: howard@localhost.localdomain (Howard Guo)
@@ -351,7 +350,7 @@ From: howard@localhost.localdomain (Howard Guo)
 abcfoobar  echo "'hello world'" | grep hello > /proc/self/fd/2`)
 }
 
-func TestExtractingFromWolframAlpha(t *testing.T) {
+func TestWAExtractResponse(t *testing.T) {
 	input := `<?xml version='1.0' encoding='UTF-8'?>
 <queryresult success='true'
     error='false'
@@ -671,7 +670,7 @@ azimuth: 295°  (WNW)  |  altitude: -10°</plaintext>
  </sources>
 </queryresult>`
 	sh := WebShell{PIN: "abcfoobar"}
-	txtInfo := sh.extractWolframAlphaResponseText([]byte(input))
+	txtInfo := sh.waExtractResponse([]byte(input))
 	if txtInfo != `weather | Nuremberg, Germany#temperature | 9 °C
 conditions | clear
 relative humidity | 57%  (dew point: 1 °C)
@@ -696,5 +695,38 @@ local time | 9:02:24 pm CEST  |  Friday, April 8, 2016
 local sunlight | sun is below the horizon
 azimuth: 295°  (WNW)  |  altitude: -10°#` {
 		t.Fatal(txtInfo)
+	}
+}
+
+func TestVoiceDecodeDTMF(t *testing.T) {
+	if s := voiceDecodeDTMF(""); s != "" {
+		t.Fatal(s)
+	}
+	if s := voiceDecodeDTMF("02033004440009999"); s != " ae i  z" {
+		t.Fatal(s)
+	}
+	if s := voiceDecodeDTMF("020330044400099990000"); s != " ae i  z   " {
+		t.Fatal(s)
+	}
+	if s := voiceDecodeDTMF("20*330*4440**9999"); s != "aEiz" {
+		t.Fatal(s)
+	}
+	if s := voiceDecodeDTMF("2010*220*1102220120*3013"); s != "a0B1c2D3" {
+		t.Fatal(s)
+	}
+	goodMsg := `perl -F: -lane 'print $F[0] if $F[4] =~ /'"'"'/' /etc/passwd`
+	if s := voiceDecodeDTMF(`
+	70330777055500
+	1270*3330*
+	1230012705550206603300
+	11507077704440660800
+	1360*333*14201014300
+	444033300
+	1360*333*142014014300
+	129014600
+	122011501160115011601150122011500
+	12203308022201220702077770777709030
+	`); s != goodMsg {
+		t.Fatal(s)
 	}
 }
