@@ -10,12 +10,12 @@ Build
 =================
 Run "go build" to build the executable.
 
-Running
+Run message-shell
 ========
 You need the following:
 
 - HTTPS certificate and key
-- A secret API endpoint name (longer is better)
+- Secret API endpoint names (longer is better)
 - A secret PIN (longer is better)
 
 Create a JSON configuration file:
@@ -23,6 +23,9 @@ Create a JSON configuration file:
 <pre>
 {
     "MessageEndpoint": "my_secret_endpoint_name_without_leading_slash",
+    "VoiceMLEndpoint": "twilio_hook_initial_contact_without_leading_slash",
+    "VoiceProcEndpoint": "twilio_hook_processor_without_leading_slash",
+    "VoiceEndpointPrefix": "/optional_voice_hook_proxy_prefix",
     "ServerPort": 12321,
     "PIN": "MYSECRET",
     "TLSCert": "/tmp/test.crt",
@@ -68,12 +71,13 @@ Please note that:
 - If there is a PIN mismatch, the response code will be 404.
 - The API endpoint looks for PIN and shell statement together, in form parameter "Body".
 - Do not insert extra space(s) between the secret PIN and your shell statement.
-- The API endpoint can be used as Twilio SMS web-hook. Make sure to shorten "-outtrunclen" to avoid sending too many SMS responses.
 - To invoke WolframAlpha query, set WolframAlphaAppID and then use prefix "#w" immediately following PIN in the incoming message.
+- MessageEndpoint conforms to Twilio SMS web-hook, make sure to "-outtrunclen" to avoid sending too many SMS responses.
+- Voice endpoints are optional, fill in if you need to run Twilio voice web-hook. On Twilio, the web-hook configuration URL should use `VoiceMLEndpoint`.
 
 There is also an example systemd unit file that can help with running the program as a daemon.
 
-Running mail-shell
+Run mail-shell
 ==================
 The program has a "mail mode" that processes shell statements from incoming mails, instead of running as a stand-alone daemon, secured by the identical PIN-matching mechanism.
 
@@ -91,6 +95,20 @@ Here is an example of invoking the mail-shell using mailx command:
     echo 'MYSECRETecho hello world' | mail my_user_name@mydomain.com -s subject_does_not_matter
 
 Shell statement output and execution result will be mailed to sender my\_user\_name@mydomain.com.
+
+Run voice-shell
+===================
+The program supports Twilio voice web-hook so that you can run shell commands by typing in a sequence of keys on keypad, and have the command output read out to you. To set it up:
+
+- Please carefully read the DTMF sections of the source code to understand how keypad input is intepreted. In general: asterisk switches letter case, zero marks end of a single letter or single symbol, zeros followed by a zero give spaces, and key one can type various symbols and numbers.
+- As of July 2016, Twilio voice hook does not support port number in the URL, if you decide to run this program on a port different from 443, please place a proxy (such as apache HTTP server) in front so that this program can be accessed via HTTPS without special port number.
+- If there is a proxy in front of the voice API endpoints and the proxy places additional path segments the endpoints (e.g. proxy directs `/voice/my_hook` at `/my_hook`), please enter the additional path segments in `VoiceEndpointPrefix` (e.g. `/voice/`).
+- If there is not a proxy in front of the voice API endpoints, set `VoiceEndpointPrefix` to a single forward slash (`/`).
+- On Twilio configuration panel, the web-hook URL should use `VoiceMLEndpoint`, which is the initial contact point. `VoiceProcEndpoint` is not relevant to your Twilio configuration and can be an arbitrary string of letters.
+
+After the voice web-hook has been set up, dial your Twilio number and enter PIN as you would with message-shell and mail-shell, followed by the command to run. Command output will be dictated back to you, terminating with the word "over", then you may enter a new command and the cycle repeats untill you hang up.
+
+If PIN entry is incorrect, voice will say sorry and hang up. The usual logging and mail notifications apply to voice-shell.
 
 Copyright
 ====================
