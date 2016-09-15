@@ -43,6 +43,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -53,19 +54,34 @@ const (
 var mailAddressRegex = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+`) // Match a mail address in header
 var mailNotificationReplyFormat = "Subject: " + magicWebshMailSubject + " - %s\r\n\r\n%s"   // Subject and body format of notification and reply mails
 
+// Remove non-ASCII sequences form the input string and return.
+func removeNonAscii(in string) string {
+	var out bytes.Buffer
+	for _, r := range in {
+		if unicode.IsPrint(r) {
+			if r < 128 {
+				out.WriteRune(r)
+			} else {
+				out.WriteRune(' ')
+			}
+		}
+	}
+	return out.String()
+}
+
 // Concatenate command execution error (if any) and output together into a single string, and truncate it to fit into maximum output length.
 func lintCommandOutput(outErr error, outText string, maxOutLen int, squeezeIntoOneLine, truncateToLen bool) (out string) {
 	outLines := make([]string, 0, 8)
 	if outErr != nil {
 		for _, line := range strings.Split(fmt.Sprint(outErr), "\n") {
-			outLines = append(outLines, strings.TrimSpace(line))
+			outLines = append(outLines, removeNonAscii(strings.TrimSpace(line)))
 		}
 	}
 	for _, line := range strings.Split(outText, "\n") {
-		outLines = append(outLines, strings.TrimSpace(line))
+		outLines = append(outLines, removeNonAscii(strings.TrimSpace(line)))
 	}
 	if squeezeIntoOneLine {
-		out = strings.Join(outLines, ";")
+		out = strings.Join(outLines, "#")
 	} else {
 		out = strings.Join(outLines, "\n")
 	}
@@ -156,7 +172,7 @@ func (sh *WebShell) waExtractResponse(xmlBody []byte) string {
 	for _, pod := range result.Pods {
 		for _, subPod := range pod.SubPods {
 			outBuf.WriteString(strings.TrimSpace(subPod.TextInfo))
-			outBuf.WriteRune('#')
+			outBuf.WriteRune(';')
 		}
 	}
 	return outBuf.String()

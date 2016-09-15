@@ -49,6 +49,9 @@ func TestLintCommandOutput(t *testing.T) {
 	if out := lintCommandOutput(nil, "0123456789abc", 10, false, true); out != "0123456789" {
 		t.Fatal(out)
 	}
+	if out := lintCommandOutput(nil, "0123456789abc", 10, false, true); out != "0123456789" {
+		t.Fatal(out)
+	}
 	if out := lintCommandOutput(errors.New("012345678"), "9", 10, false, true); out != "012345678" {
 		t.Fatal(out)
 	}
@@ -58,7 +61,11 @@ func TestLintCommandOutput(t *testing.T) {
 	if out := lintCommandOutput(errors.New(" 0123456789 "), " 0123456789 ", 10, false, false); out != "0123456789\n0123456789" {
 		t.Fatal(out)
 	}
-	if out := lintCommandOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 10, true, false); out != "012345;6789;012345;6789" {
+	if out := lintCommandOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 10, true, false); out != "012345#6789#012345#6789" {
+		t.Fatal(out)
+	}
+	utfSample := `S  (siemens)#1 S | 10 dS  (decisiemens);| 1000 mS  (millisiemens);| 0.001 kS  (kilosiemens);| 1×10^-9 abS  (absiemens);(unit officially deprecated);| 1×10^-9 emus of conductance;(unit officially deprecated);| 8.988×10^11 statS  (statsiemens);(unit officially deprecated);| 8.988×10^11 esus of conductance;(unit offic`
+	if out := lintCommandOutput(nil, utfSample, 80, true, true); out != "S  (siemens)#1 S | 10 dS  (decisiemens);| 1000 mS  (millisiemens);| 0.001 kS  (k" {
 		t.Fatal(out)
 	}
 }
@@ -671,29 +678,29 @@ azimuth: 295°  (WNW)  |  altitude: -10°</plaintext>
 </queryresult>`
 	sh := WebShell{PIN: "abcfoobar"}
 	txtInfo := sh.waExtractResponse([]byte(input))
-	if txtInfo != `weather | Nuremberg, Germany#temperature | 9 °C
+	if txtInfo != `weather | Nuremberg, Germany;temperature | 9 °C
 conditions | clear
 relative humidity | 57%  (dew point: 1 °C)
 wind speed | 0.5 m/s
-(42 minutes ago)#between 3 °C and 7 °C
-clear (all night)#between 5 °C and 14 °C
-clear (all day)  |  rain (mid-morning to late afternoon)#|  |   |
+(42 minutes ago);between 3 °C and 7 °C
+clear (all night);between 5 °C and 14 °C
+clear (all day)  |  rain (mid-morning to late afternoon);|  |   |
 low: 3 °C
 Sun, Apr 10, 5:00am, ... | average high:  | 14 °C
 average low:  | 6 °C | high: 18 °C
 Mon, Apr 11, 5:00pm
- |   |#| clear: 79.8% (4.7 days)   |  overcast: 4.2% (6 hours)#| rain: 13.7% (19.5 hours)#|
+ |   |;| clear: 79.8% (4.7 days)   |  overcast: 4.2% (6 hours);| rain: 13.7% (19.5 hours);|
 maximum: 0.01 mm/h
-Sun, Apr 10, 2:00pm#low: -10 °C
+Sun, Apr 10, 2:00pm;low: -10 °C
 2003 | average high:  | 12 °C
 average low:  | 1 °C | high: 21 °C
 1986
-(daily ranges, not corrected for changes in local weather station environment)#name | EDDN  (Nürnberg Airport)
+(daily ranges, not corrected for changes in local weather station environment);name | EDDN  (Nürnberg Airport)
 relative position | 6 km N  (from center of Nuremberg)
 relative elevation | (comparable to center of Nuremberg)
 local time | 9:02:24 pm CEST  |  Friday, April 8, 2016
 local sunlight | sun is below the horizon
-azimuth: 295°  (WNW)  |  altitude: -10°#` {
+azimuth: 295°  (WNW)  |  altitude: -10°;` {
 		t.Fatal(txtInfo)
 	}
 }
