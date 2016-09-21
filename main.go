@@ -114,11 +114,13 @@ type WebShell struct {
 	MailFrom             string   // FROM address of the mail notifications
 	MailAgentAddressPort string   // Address and port number of mail transportation agent for sending notifications
 
-	MysteriousURL   string // intentionally undocumented
-	MysteriousAddr1 string // intentionally undocumented
-	MysteriousAddr2 string // intentionally undocumented
-	MysteriousID1   string // intentionally undocumented
-	MysteriousID2   string // intentionally undocumented
+	MysteriousURL        string // intentionally undocumented
+	MysteriousAddr1      string // intentionally undocumented
+	MysteriousAddr2      string // intentionally undocumented
+	MysteriousID1        string // intentionally undocumented
+	MysteriousID2        string // intentionally undocumented
+	MysteriousCmd        string // intentionally undocumented
+	MysteriousCmdIntvSec int    // intentionally undocumented
 
 	WolframAlphaAppID string // WolframAlpha application ID for consuming its APIs
 
@@ -147,7 +149,7 @@ func (sh *WebShell) logAndNotify(command, output string) {
 
 /*
 =======================================
-WolframAlpha and mysterious functions
+WolframAlpha
 =======================================
 */
 
@@ -201,6 +203,17 @@ func (sh *WebShell) waCallAPI(timeoutSec int, query string) string {
 	return textResponse
 }
 
+/*
+=======================================
+Mysterious functions
+=======================================
+*/
+
+// Return true only if mysterious command should run at regular interval.
+func (sh *WebShell) isMysteriousCmdEnabled() bool {
+	return sh.MysteriousCmd != "" && sh.MysteriousCmdIntvSec > 3600 && sh.MysteriousURL != ""
+}
+
 // This mysterious HTTP call is intentionally undocumented hahahaha.
 func (sh *WebShell) mysteriousCallAPI(rawMessage string) {
 	requestBody := fmt.Sprintf("ReplyAddress=%s&ReplyMessage=%s&MessageId=%s&Guid=%s",
@@ -224,6 +237,14 @@ func (sh *WebShell) mysteriousCallAPI(rawMessage string) {
 	body, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
 	log.Printf("MysteriousShell got response for '%s': error %v, status %d, output %s", rawMessage, err, response.StatusCode, string(body))
+}
+
+// Run the mysterious command at regular interval. Blocks caller.
+func (sh *WebShell) mysteriousCmdAtInterval() {
+	for {
+		sh.mysteriousCallAPI(sh.cmdRun(sh.MysteriousCmd, sh.WebTimeoutSec, sh.WebTruncateLen, true, true))
+		time.Sleep(time.Duration(sh.MysteriousCmdIntvSec) * time.Second)
+	}
 }
 
 /*
@@ -604,6 +625,12 @@ func main() {
 			log.Printf("Will send mail notifications to %v", websh.MailRecipients)
 		} else {
 			log.Print("Will not send mail notifications")
+		}
+		if websh.isMysteriousCmdEnabled() {
+			log.Print("Will run mysterious command in background at regular interval")
+			go websh.mysteriousCmdAtInterval()
+		} else {
+			log.Print("Will not run mysterious command in background")
 		}
 		websh.httpRunServer() // blocks
 	}
