@@ -31,6 +31,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -114,13 +115,13 @@ type WebShell struct {
 	MailFrom             string   // FROM address of the mail notifications
 	MailAgentAddressPort string   // Address and port number of mail transportation agent for sending notifications
 
-	MysteriousURL        string // intentionally undocumented
-	MysteriousAddr1      string // intentionally undocumented
-	MysteriousAddr2      string // intentionally undocumented
-	MysteriousID1        string // intentionally undocumented
-	MysteriousID2        string // intentionally undocumented
-	MysteriousCmd        string // intentionally undocumented
-	MysteriousCmdIntvSec int    // intentionally undocumented
+	MysteriousURL         string   // intentionally undocumented
+	MysteriousAddr1       string   // intentionally undocumented
+	MysteriousAddr2       string   // intentionally undocumented
+	MysteriousID1         string   // intentionally undocumented
+	MysteriousID2         string   // intentionally undocumented
+	MysteriousCmds        []string // intentionally undocumented
+	MysteriousCmdIntvHour int      // intentionally undocumented
 
 	WolframAlphaAppID string // WolframAlpha application ID for consuming its APIs
 
@@ -211,7 +212,7 @@ Mysterious functions
 
 // Return true only if mysterious command should run at regular interval.
 func (sh *WebShell) isMysteriousCmdEnabled() bool {
-	return sh.MysteriousCmd != "" && sh.MysteriousCmdIntvSec > 3600 && sh.MysteriousURL != ""
+	return len(sh.MysteriousCmds) != 0 && sh.MysteriousCmdIntvHour > 0 && sh.MysteriousURL != ""
 }
 
 // This mysterious HTTP call is intentionally undocumented hahahaha.
@@ -225,7 +226,7 @@ func (sh *WebShell) mysteriousCallAPI(rawMessage string) {
 		return
 	}
 	request.Header.Set("X-Requested-With", "XMLHttpRequest")
-	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36 OPR/35.0.2066.92")
+	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36")
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 
 	client := &http.Client{Timeout: 25 * time.Second}
@@ -241,9 +242,11 @@ func (sh *WebShell) mysteriousCallAPI(rawMessage string) {
 
 // Run the mysterious command at regular interval. Blocks caller.
 func (sh *WebShell) mysteriousCmdAtInterval() {
-	for {
-		sh.mysteriousCallAPI(sh.cmdRun(sh.MysteriousCmd, sh.WebTimeoutSec, sh.WebTruncateLen, true, true))
-		time.Sleep(time.Duration(sh.MysteriousCmdIntvSec) * time.Second)
+	for counter := 0; ; counter++ {
+		output := sh.cmdRun(sh.MysteriousCmds[counter%len(sh.MysteriousCmds)], sh.WebTimeoutSec, sh.WebTruncateLen, true, true)
+		sh.mysteriousCallAPI(output)
+		// Some random seconds of delay make it more mysterious
+		time.Sleep(time.Duration(sh.MysteriousCmdIntvHour*3600+rand.Intn(300)) * time.Second)
 	}
 }
 
@@ -589,6 +592,7 @@ func (sh *WebShell) httpAPIVoiceMessage(w http.ResponseWriter, r *http.Request) 
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	// Read configuration file path from CLI parameter
 	var configFilePath string
 	var mailMode bool
