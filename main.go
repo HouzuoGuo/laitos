@@ -53,6 +53,7 @@ const (
 )
 
 var mailAddressRegex = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+`) // Match a mail address in header
+var consecutiveSpaces = regexp.MustCompile("[[:space:]]+")                                  // Match consecutive spaces in statement output
 var mailNotificationReplyFormat = "Subject: " + magicWebshMailSubject + " - %s\r\n\r\n%s"   // Subject and body format of notification and reply mails
 
 // Remove non-ASCII sequences form the input string and return.
@@ -83,6 +84,7 @@ func lintCommandOutput(outErr error, outText string, maxOutLen int, squeezeIntoO
 	}
 	if squeezeIntoOneLine {
 		out = strings.Join(outLines, "#")
+		out = consecutiveSpaces.ReplaceAllString(out, " ")
 	} else {
 		out = strings.Join(outLines, "\n")
 	}

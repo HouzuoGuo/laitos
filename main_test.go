@@ -65,7 +65,7 @@ func TestLintCommandOutput(t *testing.T) {
 		t.Fatal(out)
 	}
 	utfSample := `S  (siemens)#1 S | 10 dS  (decisiemens);| 1000 mS  (millisiemens);| 0.001 kS  (kilosiemens);| 1×10^-9 abS  (absiemens);(unit officially deprecated);| 1×10^-9 emus of conductance;(unit officially deprecated);| 8.988×10^11 statS  (statsiemens);(unit officially deprecated);| 8.988×10^11 esus of conductance;(unit offic`
-	if out := lintCommandOutput(nil, utfSample, 80, true, true); out != "S  (siemens)#1 S | 10 dS  (decisiemens);| 1000 mS  (millisiemens);| 0.001 kS  (k" {
+	if out := lintCommandOutput(nil, utfSample, 80, true, true); out != "S (siemens)#1 S | 10 dS (decisiemens);| 1000 mS (millisiemens);| 0.001 kS (kilos" {
 		t.Fatal(out)
 	}
 }
