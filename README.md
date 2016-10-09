@@ -1,16 +1,25 @@
 Websh
 =====
-A simple web server daemon enabling basic shell access via API calls.
+A simple do-everything daemon, primary for offering control of your computer via telephone and SMS.
+
+It can do:
+- Run shell commands and get output in text form.
+- Run WolframAlpha queries and get result in text form.
+- Truncate response/output to shorter length.
+- Define shortcuts (preset messages) for long commands.
+- Invoke Twilio to call a number (and speak a text) or send a text message.
+- Deliver all of the features by responding to HTTP requests or incoming Emails.
+- HTTP daemon can also act as Twilio web-hook (both voice and message) to allow running commands via telephone call and text messages.
 
 Good for emergency system shutdown/reboot, and executing privileged/unprivileged shell code.
 
-Please note: exercise _extreme caution_ when using this software program, inappropriate configuration will make your computer easily compromised! If you choose to use this program, I will not be responsible for any damage/potential damage caused to your computers.
+Please note: exercise _extreme caution_ when using this software program, inappropriate configuration will make your computer vulnerable to attacks! I will not be responsible for any damage/potential damage caused to your computers.
 
 Build
 =================
-Run "go build" to build the executable.
+Simply run "go build".
 
-Run message-shell
+Run HTTP daemon
 ========
 You need the following:
 
@@ -46,14 +55,18 @@ Create a JSON configuration file:
         "secretpineapple": "poweroff"
     },
 
+    "WolframAlphaAppID": "optional-your-wolframalpha-app-id",
+
+    "TwilioNumber": "optional-twilio-outgoing-originating-number",
+    "TwilioSID": "optional-twilio-outgoing-account-sid",
+    "TwilioAuthSecret": "optional-twilio-outgoing-account-secret",
+
     "MysteriousURL": "",
     "MysteriousAddr1": "",
     "MysteriousAddr2": "",
     "MysteriousID1": "",
-    "MysteriousID2": "",
-    "WolframAlphaAppID": "your-wolframalpha-app-id"
- }
-
+    "MysteriousID2": ""
+}
 </pre>
 
 Run the executable with command line:
@@ -77,7 +90,7 @@ Please note that:
 
 There is also an example systemd unit file that can help with running the program as a daemon.
 
-Run mail-shell
+Run Email processor
 ==================
 The program has a "mail mode" that processes shell statements from incoming mails, instead of running as a stand-alone daemon, secured by the identical PIN-matching mechanism.
 
@@ -96,11 +109,12 @@ Here is an example of invoking the mail-shell using mailx command:
 
 Shell statement output and execution result will be mailed to sender my\_user\_name@mydomain.com.
 
-Run voice-shell
+Run HTTP daemon as Twilio web-hook
 ===================
 The program supports Twilio voice web-hook so that you can run shell commands by typing in a sequence of keys on keypad, and have the command output read out to you. To set it up:
 
 - Please carefully read the DTMF sections of the source code to understand how keypad input is intepreted. In general: asterisk switches letter case, zero marks end of a single letter or single symbol, zeros followed by a zero give spaces, and key one can type various symbols and numbers.
+- The Twilio parameters in JSON configuration are only for outgoing calls and texts, they do not influence the operation of web-hook, which deals with incoming calls and texts.
 - As of July 2016, Twilio voice hook does not support port number in the URL, if you decide to run this program on a port different from 443, please place a proxy (such as apache HTTP server) in front so that this program can be accessed via HTTPS without special port number.
 - If there is a proxy in front of the voice API endpoints and the proxy places additional path segments the endpoints (e.g. proxy directs `/voice/my_hook` at `/my_hook`), please enter the additional path segments in `VoiceEndpointPrefix` (e.g. `/voice/`).
 - If there is not a proxy in front of the voice API endpoints, set `VoiceEndpointPrefix` to a single forward slash (`/`).

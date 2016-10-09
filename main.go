@@ -50,11 +50,15 @@ import (
 const (
 	magicWebshMailSubject = "websh" // Magic keyword that appears in websh mail notifications to prevent recursion in mail processing
 	magicWolframAlpha     = "#w"    // Message prefix that triggers WolframAlpha query
+	magicTwilioSendSMS    = "#t"    // Message prefix that triggers sending outbound text via Twilio
+	magicTwilioVoiceCall  = "#c"    // Message prefix that triggers outbound calling via Twilio
+	twilioParamError      = "Error" // Response text from a bad twilio call/text request
 )
 
 var mailAddressRegex = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+`) // Match a mail address in header
-var consecutiveSpaces = regexp.MustCompile("[[:space:]]+")                                  // Match consecutive spaces in statement output
-var mailNotificationReplyFormat = "Subject: " + magicWebshMailSubject + " - %s\r\n\r\n%s"   // Subject and body format of notification and reply mails
+var consecutiveSpacesRegex = regexp.MustCompile("[[:space:]]+")                             // Match consecutive spaces in statement output
+var phoneNumberRegex = regexp.MustCompile(`\+[0-9]+`)
+var mailNotificationReplyFormat = "Subject: " + magicWebshMailSubject + " - %s\r\n\r\n%s" // Subject and body format of notification and reply mails
 
 // Remove non-ASCII sequences form the input string and return.
 func removeNonAscii(in string) string {
@@ -84,7 +88,7 @@ func lintCommandOutput(outErr error, outText string, maxOutLen int, squeezeIntoO
 	}
 	if squeezeIntoOneLine {
 		out = strings.Join(outLines, "#")
-		out = consecutiveSpaces.ReplaceAllString(out, " ")
+		out = consecutiveSpacesRegex.ReplaceAllString(out, " ")
 	} else {
 		out = strings.Join(outLines, "\n")
 	}
@@ -124,6 +128,10 @@ type WebShell struct {
 	MysteriousID2         string   // intentionally undocumented
 	MysteriousCmds        []string // intentionally undocumented
 	MysteriousCmdIntvHour int      // intentionally undocumented
+
+	TwilioNumber     string // Twilio telephone number for outbound call and SMS
+	TwilioSID        string // Twilio account SID
+	TwilioAuthSecret string // Twilio authentication secret token
 
 	WolframAlphaAppID string // WolframAlpha application ID for consuming its APIs
 
@@ -193,6 +201,7 @@ func (sh *WebShell) waCallAPI(timeoutSec int, query string) string {
 		log.Printf("Failed to initialise WolframAlpha HTTP request for '%s': %v", query, err)
 		return ""
 	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	client := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
 	response, err := client.Do(request)
 	if err != nil {
@@ -254,15 +263,68 @@ func (sh *WebShell) mysteriousCmdAtInterval() {
 
 /*
 =======================================
-Shell/WolframAlpha command execution
+Shell/WolframAlpha/Twilio command execution
 =======================================
 */
 
+// Invoke Twilio account's HTTP endpoint, passing additional number and caller specified parameters. Return "OK" or "Error" string.
+func (sh *WebShell) twilioInvokeAPI(timeoutSec int, finalEndpoint string, toNumber string, otherParams map[string]string) string {
+	urlParams := url.Values{"From": []string{sh.TwilioNumber}, "To": []string{toNumber}}
+	for key, val := range otherParams {
+		urlParams[key] = []string{val}
+	}
+	fmt.Println("TWILIO POST PARAMS ARE", urlParams.Encode())
+	request, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/%s", sh.TwilioSID, finalEndpoint),
+		strings.NewReader(urlParams.Encode()))
+	if err != nil {
+		log.Printf("Failed to initialise Twilio HTTP request for '%s': %v", finalEndpoint, err)
+		return ""
+	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+	request.SetBasicAuth(sh.TwilioSID, sh.TwilioAuthSecret)
+	client := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		log.Printf("Failed to make Twilio request for '%s': %v", finalEndpoint, err)
+		return ""
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	defer response.Body.Close()
+	log.Printf("Got response from Twilio for: error %v, status %d, output %s", err, response.StatusCode, string(body))
+	if response.StatusCode/200 == 1 {
+		return "OK " + toNumber
+	} else {
+		return "Error " + toNumber
+	}
+}
+
 // Execute the input command with strict timeout guarantee, return command output.
 func (sh *WebShell) cmdRun(cmd string, timeoutSec, maxOutLen int, squeezeIntoOneLine, truncateToLen bool) (output string) {
-	log.Printf("Will run command '%s'", cmd)
+	cmd = strings.TrimSpace(cmd)
+	log.Printf("Processing command '%s'", cmd)
 	if strings.HasPrefix(cmd, magicWolframAlpha) {
 		output = lintCommandOutput(nil, sh.waCallAPI(timeoutSec, cmd[len(magicWolframAlpha):]), maxOutLen, squeezeIntoOneLine, truncateToLen)
+	} else if strings.HasPrefix(cmd, magicTwilioVoiceCall) {
+		// The first phone number from input message is the to-number, extract and remove it before calling.
+		inMessage := cmd[len(magicTwilioVoiceCall):]
+		toNumber := phoneNumberRegex.FindString(inMessage)
+		if toNumber == "" {
+			return twilioParamError
+		}
+		inMessage = strings.Replace(inMessage, toNumber, "", 1)
+		return sh.twilioInvokeAPI(timeoutSec, "Calls.json", toNumber,
+			map[string]string{"Url": "http://twimlets.com/message?Message=" + url.QueryEscape(inMessage+" repeat once more "+inMessage)})
+	} else if strings.HasPrefix(cmd, magicTwilioSendSMS) {
+		// The first phone number from input message is the to-number, extract and remove it before texting.
+		inMessage := cmd[len(magicTwilioVoiceCall):]
+		toNumber := phoneNumberRegex.FindString(inMessage)
+		if toNumber == "" {
+			return twilioParamError
+		}
+		inMessage = strings.Replace(inMessage, toNumber, "", 1)
+		return sh.twilioInvokeAPI(timeoutSec, "Messages.json", toNumber, map[string]string{"Body": inMessage})
 	} else {
 		if sh.SubHashSlashForPipe {
 			cmd = strings.Replace(cmd, "#/", "|", -1)
@@ -570,12 +632,12 @@ func (sh *WebShell) httpAPIVoiceMessage(w http.ResponseWriter, r *http.Request) 
 	log.Printf("Voice message got digits: %s (decoded - %s)", digits, decodedLetters)
 	if cmd := sh.cmdFind(decodedLetters); cmd == "" {
 		// PIN mismatch
-		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+		w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
 	<Say>Sorry</Say>
 	<Hangup/>
 </Response>
-`)))
+`))
 	} else {
 		// Speak the command result and repeat
 		output := sh.cmdRun(cmd, sh.WebTimeoutSec, sh.WebTruncateLen, true, true)

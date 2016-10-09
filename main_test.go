@@ -141,6 +141,35 @@ func TestCmdFind(t *testing.T) {
 	}
 }
 
+func TestCmdRunTwilio(t *testing.T) {
+	sh := WebShell{}
+	if out := sh.cmdRun("#c+49123456789 hi there", 1, 30, false, true); out == twilioParamError {
+		t.Fatal("should not fail this way")
+	} else if out := sh.cmdRun("#t+49123456789 hi there", 1, 30, false, true); out == twilioParamError {
+		t.Fatal("should not fail this way")
+	}
+	if out := sh.cmdRun("#c +49123456789 hi there", 1, 30, false, true); out == twilioParamError {
+		t.Fatal("should not fail this way")
+	} else if out := sh.cmdRun("#t +49123456789 hi there", 1, 30, false, true); out == twilioParamError {
+		t.Fatal("should not fail this way")
+	}
+	if out := sh.cmdRun("#c hi +49123456789 there", 1, 30, false, true); out == twilioParamError {
+		t.Fatal("should not fail this way")
+	} else if out := sh.cmdRun("#t hi +49123456789 there", 1, 30, false, true); out == twilioParamError {
+		t.Fatal("should not fail this way")
+	}
+	if out := sh.cmdRun("#chi there", 1, 30, false, true); out != twilioParamError {
+		t.Fatal("did not fail expectedly")
+	} else if out := sh.cmdRun("#thi there", 1, 30, false, true); out != twilioParamError {
+		t.Fatal("did not fail expectedly")
+	}
+	if out := sh.cmdRun("#c2347891hi there", 1, 30, false, true); out != twilioParamError {
+		t.Fatal("did not fail expectedly")
+	} else if out := sh.cmdRun("#t147897hi there", 1, 30, false, true); out != twilioParamError {
+		t.Fatal("did not fail expectedly")
+	}
+}
+
 func TestMailGetProperties(t *testing.T) {
 	example1 := `From bounces+21dd7b-root=houzuo.net@sendgrid.net  Sat Mar  5 19:4d 2016
 Delivered-To: guohouzuo@gmail.com
