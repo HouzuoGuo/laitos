@@ -273,7 +273,6 @@ func (sh *WebShell) twilioInvokeAPI(timeoutSec int, finalEndpoint string, toNumb
 	for key, val := range otherParams {
 		urlParams[key] = []string{val}
 	}
-	fmt.Println("TWILIO POST PARAMS ARE", urlParams.Encode())
 	request, err := http.NewRequest(
 		"POST",
 		fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/%s", sh.TwilioSID, finalEndpoint),
