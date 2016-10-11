@@ -1,6 +1,5 @@
 /*
-A simple web server daemon enabling basic shell access via API calls.
-Good for emergency system shutdown/reboot, and executing privileged/unprivileged shell code.
+A simple do-everything daemon, primary for offering control of your computer via telephone and SMS.
 
 The program can run in two modes:
 - HTTPS daemon mode, secured by endpoint port number + endpoint name + PIN.
