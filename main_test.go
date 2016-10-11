@@ -738,6 +738,9 @@ func TestVoiceDecodeDTMF(t *testing.T) {
 	if s := voiceDecodeDTMF(""); s != "" {
 		t.Fatal(s)
 	}
+	if s := voiceDecodeDTMF(" awzxv<>?  \n\t<w;'{}   -=  "); s != "" {
+		t.Fatal(s)
+	}
 	if s := voiceDecodeDTMF("02033004440009999"); s != " ae i  z" {
 		t.Fatal(s)
 	}
@@ -764,6 +767,18 @@ func TestVoiceDecodeDTMF(t *testing.T) {
 	}
 	// Some unusual typing techniques
 	if s := voiceDecodeDTMF(`2*2*22*222*`); s != "aAbC" {
+		t.Fatal(s)
+	}
+	if s := voiceDecodeDTMF(`23344456677789999`); s != "aeijnrtz" {
+		t.Fatal(s)
+	}
+	if s := voiceDecodeDTMF(`
+	2334440
+	110
+	566777*
+	11100
+	800
+	9999*`); s != "aei1jnr! T Z" {
 		t.Fatal(s)
 	}
 }

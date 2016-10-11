@@ -516,50 +516,68 @@ func voiceDecodeDTMF(digits string) string {
 	if len(digits) == 0 {
 		return ""
 	}
-	// Break input into consecutive digits and asterisks
-	letters := make([]string, 0, 64)
-	var accumulator bytes.Buffer
+	/*
+		The rationale is following:
+		- The number-pad should be able to enter nearly all characters (symbols, numerals, and letters).
+		- Each character is entered either by a single number or a sequence of numbers.
+		- Asterisk toggles between upper case and lower case. In the beginning letters are in lower case.
+		- Number 0 either terminates a character sequence, or generate spaces if character sequence is already terminated.
+		- A new character sequence begins automatically if previous character sequence is terminated or this number does not
+		  continue the number sequence (e.g. terminate when 4 follows "333")
+		- Symbols and numerals always require explicit termination of their sequence by a number 0.
+	*/
+	words := make([]string, 0, 256)
+	word := make([]rune, 0, 8)
 	for _, char := range digits {
 		switch char {
-		case ' ':
-			fallthrough
-		case '\n':
-			fallthrough
-		case '\r':
-			fallthrough
-		case '\t':
-			// Skip spaces
-			continue
-		case '*': // shift
-			if accumulator.Len() > 0 {
-				letters = append(letters, accumulator.String())
-				accumulator.Reset()
+		case '1':
+			if len(word) > 0 && word[0] != '1' {
+				// The running word isn't a symbol/numeral sequence, terminate it and start a new sequence.
+				words = append(words, string(word))
+				word = make([]rune, 0, 8)
 			}
-			letters = append(letters, "*")
-		case '0': // type a single space, or mark ending of a digit sequence
-			if accumulator.Len() == 0 {
-				letters = append(letters, " ")
+			word = append(word, char)
+		case '2', '3', '4', '5', '6', '7', '8', '9':
+			if len(word) > 0 && word[len(word)-1] != char && word[0] != '1' {
+				// Not a consecutive digit, store the previous word.
+				words = append(words, string(word))
+				word = make([]rune, 0, 8)
+			}
+			word = append(word, char)
+		case '0':
+			if len(word) == 0 {
+				// Consecutive 0s after previously terminated word are going to appear as spaces
+				words = append(words, " ")
 			} else {
-				letters = append(letters, accumulator.String())
-				accumulator.Reset()
+				// Terminate stored word
+				words = append(words, string(word))
+				word = make([]rune, 0, 8)
 			}
-		default: // digit sequence
-			accumulator.WriteRune(char)
+		case '*':
+			// Terminate stored word and store an asterisk (shift case)
+			if len(word) > 0 {
+				words = append(words, string(word))
+				word = make([]rune, 0, 8)
+			}
+			words = append(words, "*")
+		default:
+			// Simply discard
 		}
 	}
-	if accumulator.Len() > 0 {
-		letters = append(letters, accumulator.String())
+	// Store the very last word
+	if len(word) > 0 {
+		words = append(words, string(word))
 	}
-	// Translate digit sequences into character string
+	// Translate word sequences into message string
 	var message bytes.Buffer
 	var shift bool
-	for _, charseq := range letters {
-		if charseq == "*" {
+	for _, seq := range words {
+		if seq == "*" {
 			shift = !shift
 		} else {
-			decoded, found := dtmfDecode[charseq]
+			decoded, found := dtmfDecode[seq]
 			if !found {
-				log.Printf("DTMF decoding table cannot decode '%s'", charseq)
+				log.Printf("DTMF decoding table failed to decode '%s'", seq)
 				continue
 			}
 			if shift {

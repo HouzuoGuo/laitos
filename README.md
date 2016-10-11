@@ -113,7 +113,7 @@ Run HTTP daemon as Twilio web-hook
 ===================
 The program supports Twilio voice web-hook so that you can run shell commands by typing in a sequence of keys on keypad, and have the command output read out to you. To set it up:
 
-- Please carefully read the DTMF sections of the source code to understand how keypad input is intepreted. In general: asterisk switches letter case, zero marks end of a single letter or single symbol, zeros followed by a zero give spaces, and key one can type various symbols and numbers.
+- Please carefully read the DTMF sections of the source code (`voiceDecodeDTMF`) to understand how keypad input is intepreted. In general: asterisk switches letter case, zero marks end of a numeral or symbol, zeros followed by a zero give spaces, and key one can type various symbols and numbers.
 - The Twilio parameters in JSON configuration are only for outgoing calls and texts, they do not influence the operation of web-hook, which deals with incoming calls and texts.
 - As of July 2016, Twilio voice hook does not support port number in the URL, if you decide to run this program on a port different from 443, please place a proxy (such as apache HTTP server) in front so that this program can be accessed via HTTPS without special port number.
 - If there is a proxy in front of the voice API endpoints and the proxy places additional path segments the endpoints (e.g. proxy directs `/voice/my_hook` at `/my_hook`), please enter the additional path segments in `VoiceEndpointPrefix` (e.g. `/voice/`).
