@@ -1,11 +1,12 @@
 [Unit]
-Description=A simple web server daemon enabling basic shell access via API calls
+Description=A simple do-everything daemon, primary for offering control of your computer via telephone and SMS.
+After=network.target
 
 [Service]
-ExecStart=/opt/bin/websh -configfilepath=/tmp/webshconf.json
+ExecStart=/usr/sbin/emerctl -configfilepath=/root/.webshconf
 User=root
 Group=root
-WorkingDirectory=/
+WorkingDirectory=/tmp
 PrivateTmp=true
 RestartSec=5
 Restart=always
