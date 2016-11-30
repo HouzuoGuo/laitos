@@ -60,12 +60,6 @@ Create a JSON configuration file:
     "TwilioNumber": "optional-twilio-outgoing-originating-number",
     "TwilioSID": "optional-twilio-outgoing-account-sid",
     "TwilioAuthSecret": "optional-twilio-outgoing-account-secret",
-
-    "MysteriousURL": "",
-    "MysteriousAddr1": "",
-    "MysteriousAddr2": "",
-    "MysteriousID1": "",
-    "MysteriousID2": ""
 }
 </pre>
 
