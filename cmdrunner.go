@@ -13,12 +13,14 @@ import (
 )
 
 const (
-	magicWolframAlpha    = "#w"           // Message prefix that triggers WolframAlpha query
-	magicTwilioSendSMS   = "#t"           // Message prefix that triggers sending outbound text via Twilio
-	magicTwilioVoiceCall = "#c"           // Message prefix that triggers outbound calling via Twilio
-	twilioParamError     = "Error"        // Response text from a bad twilio call/text request
-	maxOutputLength      = 2048           // Ultimate maximum length of response text (override user's configuration)
-	emptyOutputResponse  = "EMPTY OUTPUT" // Response to make if a command did not produce any response at all
+	magicWolframAlpha    = "#w"              // Message prefix that triggers WolframAlpha query
+	magicTwilioSendSMS   = "#s"              // Message prefix that triggers sending outbound text via Twilio
+	magicTwilioVoiceCall = "#c"              // Message prefix that triggers outbound calling via Twilio
+	magicTwitterGet      = "#tg"             // Message prefix that triggers reading twitter timeline
+	magicTwitterPost     = "#tp"             // Message prefix that triggers tweet
+	twilioParamError     = "Parameter error" // Response text from a bad twilio call/text request
+	maxOutputLength      = 2048              // Ultimate maximum length of response text (override user's configuration)
+	emptyOutputResponse  = "EMPTY OUTPUT"    // Response to make if a command did not produce any response at all
 )
 
 var consecutiveSpacesRegex = regexp.MustCompile("[[:space:]]+") // Match consecutive spaces in statement output
@@ -80,6 +82,7 @@ type CommandRunner struct {
 
 	Mailer       Mailer
 	Twilio       TwilioClient
+	Twitter      TwitterClient
 	WolframAlpha WolframAlphaClient
 }
 
@@ -96,29 +99,30 @@ func (run *CommandRunner) CheckConfig() error {
 }
 
 // Execute the input command with strict timeout guarantee, return command output.
-func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) (output string) {
+func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) string {
 	cmd = strings.TrimSpace(cmd)
 	if run.SubHashSlashForPipe {
 		cmd = strings.Replace(cmd, "#/", "|", -1)
 	}
 	log.Printf("Processing command '%s'...", cmd)
 
+	var output string
+	var err error
+
 	if strings.HasPrefix(cmd, magicWolframAlpha) {
 		// Run WolframAlpha query
-		output = LintOutput(nil, run.WolframAlpha.InvokeAPI(run.TimeoutSec, cmd[len(magicWolframAlpha):]), run.TruncateLen, squeezeIntoOneLine)
+		output, err = run.WolframAlpha.InvokeAPI(run.TimeoutSec, cmd[len(magicWolframAlpha):])
 	} else if strings.HasPrefix(cmd, magicTwilioVoiceCall) {
 		// The first phone number from input message is the to-number, extract and remove it before calling.
 		inMessage := cmd[len(magicTwilioVoiceCall):]
 		toNumber := phoneNumberRegex.FindString(inMessage)
 		if toNumber == "" {
 			output = twilioParamError
-		} else {
-			inMessage = strings.Replace(inMessage, toNumber, "", 1)
-			if err := run.Twilio.MakeCall(run.TimeoutSec, toNumber, inMessage); err == nil {
-				output = "OK " + toNumber
-			} else {
-				output = "ERROR " + toNumber
-			}
+			goto out
+		}
+		inMessage = strings.Replace(inMessage, toNumber, "", 1)
+		if err = run.Twilio.MakeCall(run.TimeoutSec, toNumber, inMessage); err == nil {
+			output = "OK " + toNumber
 		}
 	} else if strings.HasPrefix(cmd, magicTwilioSendSMS) {
 		// The first phone number from input message is the to-number, extract and remove it before texting.
@@ -126,23 +130,51 @@ func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) (outpu
 		toNumber := phoneNumberRegex.FindString(inMessage)
 		if toNumber == "" {
 			output = twilioParamError
-		} else {
-			inMessage = strings.Replace(inMessage, toNumber, "", 1)
-			if err := run.Twilio.SendText(run.TimeoutSec, toNumber, inMessage); err == nil {
-				output = "OK " + toNumber
-			} else {
-				output = "ERROR " + toNumber
-			}
+			goto out
+		}
+		inMessage = strings.Replace(inMessage, toNumber, "", 1)
+		if err = run.Twilio.SendText(run.TimeoutSec, toNumber, inMessage); err == nil {
+			output = "OK " + toNumber
+		}
+	} else if strings.HasPrefix(cmd, magicTwitterGet) {
+		// Read latest tweets from twitter timeline
+		inParams := cmd[len(magicTwitterGet):]
+		params := consecutiveSpacesRegex.Split(inParams, -1)
+		var skip, count int
+		skip, err = strconv.Atoi(params[0])
+		if err != nil {
+			goto out
+		}
+		count, err = strconv.Atoi(params[1])
+		if err != nil {
+			goto out
+		}
+		var tweets []Tweet
+		tweets, err = run.Twitter.RetrieveLatest(run.TimeoutSec, skip, count)
+		if err != nil {
+			goto out
+		}
+		for _, tweet := range tweets {
+			output += fmt.Sprintf("%s %s\n", tweet.User.Name, tweet.Text)
+		}
+	} else if strings.HasPrefix(cmd, magicTwitterPost) {
+		// Post update to twitter timeline
+		twitMessage := strings.TrimSpace(cmd[len(magicTwitterPost):])
+		if err = run.Twitter.PostUpdate(run.TimeoutSec, twitMessage); err == nil {
+			output = fmt.Sprintf("OK %d", len(twitMessage))
 		}
 	} else {
 		// Run shell command
-		outBytes, status := exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(run.TimeoutSec), "/bin/bash", "-c", cmd).CombinedOutput()
-		output = LintOutput(status, string(outBytes), run.TruncateLen, squeezeIntoOneLine)
+		var cmdOut []byte
+		cmdOut, err = exec.Command("/usr/bin/timeout", "--preserve-status", strconv.Itoa(run.TimeoutSec), "/bin/bash", "-c", cmd).CombinedOutput()
+		output = string(cmdOut)
 	}
 
-	log.Printf("Command '%s' finished with output - %s", cmd, output)
+out:
+	funcOutput := LintOutput(err, output, run.TruncateLen, squeezeIntoOneLine)
+	log.Printf("Command '%s' finished with output - %s", cmd, funcOutput)
 	run.Mailer.SendNotification(cmd, output)
-	return
+	return funcOutput
 }
 
 // Match an input line against preset message or PIN, return the command portion of the line. Return empty string if no match.

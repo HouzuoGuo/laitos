@@ -45,25 +45,25 @@ func (wa *WolframAlphaClient) ExtractResponse(xmlBody []byte) string {
 }
 
 // Call WolframAlpha API with the text query.
-func (wa *WolframAlphaClient) InvokeAPI(timeoutSec int, query string) string {
+func (wa *WolframAlphaClient) InvokeAPI(timeoutSec int, query string) (out string, err error) {
 	request, err := http.NewRequest(
 		"GET",
 		fmt.Sprintf("https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext", wa.AppID, url.QueryEscape(query)),
 		bytes.NewReader([]byte{}))
 	if err != nil {
 		log.Printf("Failed to initialise WolframAlpha HTTP request for '%s': %v", query, err)
-		return ""
+		return
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	client := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
 	response, err := client.Do(request)
 	if err != nil {
 		log.Printf("Failed to make WolframAlpha request for '%s': %v", query, err)
-		return ""
+		return
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
-	textResponse := wa.ExtractResponse(body)
-	log.Printf("Got response from WolframAlpha for '%s': error %v, status %d, output %s", query, err, response.StatusCode, textResponse)
-	return textResponse
+	out = wa.ExtractResponse(body)
+	log.Printf("Got response from WolframAlpha for '%s': error %v, status %d, output %s", query, err, response.StatusCode, out)
+	return
 }
