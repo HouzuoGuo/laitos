@@ -333,29 +333,26 @@ azimuth: 295°  (WNW)  |  altitude: -10°</plaintext>
 </queryresult>`
 	wa := WolframAlphaClient{AppID: "FILLME"}
 	txtInfo := wa.ExtractResponse([]byte(input))
-	if txtInfo != `weather | Nuremberg, Germany;temperature | 9 °C
-conditions | clear
-relative humidity | 57%  (dew point: 1 °C)
-wind speed | 0.5 m/s
-(42 minutes ago);between 3 °C and 7 °C
-clear (all night);between 5 °C and 14 °C
-clear (all day)  |  rain (mid-morning to late afternoon);|  |   |
-low: 3 °C
-Sun, Apr 10, 5:00am, ... | average high:  | 14 °C
-average low:  | 6 °C | high: 18 °C
-Mon, Apr 11, 5:00pm
- |   |;| clear: 79.8% (4.7 days)   |  overcast: 4.2% (6 hours);| rain: 13.7% (19.5 hours);|
-maximum: 0.01 mm/h
-Sun, Apr 10, 2:00pm;low: -10 °C
-2003 | average high:  | 12 °C
-average low:  | 1 °C | high: 21 °C
+	if txtInfo != `weather Nuremberg, Germany.temperature 9 °C
+conditions clear
+relative humidity 57%  (dew point: 1 °C)
+wind speed 0.5 m/s
+(42 minutes ago).between 3 °C and 7 °C
+clear (all night).between 5 °C and 14 °C
+clear (all day)   rain (mid-morning to late afternoon).low: 3 °C
+Sun, Apr 10, 5:00am, ... average high:  14 °C
+average low:  6 °C high: 18 °C
+Mon, Apr 11, 5:00pm.clear: 79.8% (4.7 days)    overcast: 4.2% (6 hours).rain: 13.7% (19.5 hours).maximum: 0.01 mm/h
+Sun, Apr 10, 2:00pm.low: -10 °C
+2003 average high:  12 °C
+average low:  1 °C high: 21 °C
 1986
-(daily ranges, not corrected for changes in local weather station environment);name | EDDN  (Nürnberg Airport)
-relative position | 6 km N  (from center of Nuremberg)
-relative elevation | (comparable to center of Nuremberg)
-local time | 9:02:24 pm CEST  |  Friday, April 8, 2016
-local sunlight | sun is below the horizon
-azimuth: 295°  (WNW)  |  altitude: -10°;` {
+(daily ranges, not corrected for changes in local weather station environment).name EDDN  (Nürnberg Airport)
+relative position 6 km N  (from center of Nuremberg)
+relative elevation (comparable to center of Nuremberg)
+local time 9:02:24 pm CEST   Friday, April 8, 2016
+local sunlight sun is below the horizon
+azimuth: 295°  (WNW)   altitude: -10°.` {
 		t.Fatal(txtInfo)
 	}
 }

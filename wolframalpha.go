@@ -37,8 +37,9 @@ func (wa *WolframAlphaClient) ExtractResponse(xmlBody []byte) string {
 	var outBuf bytes.Buffer
 	for _, pod := range result.Pods {
 		for _, subPod := range pod.SubPods {
-			outBuf.WriteString(strings.TrimSpace(subPod.TextInfo))
-			outBuf.WriteRune(';')
+			// Further compact output by eliminating " |" from pods
+			outBuf.WriteString(strings.TrimSpace(strings.Replace(subPod.TextInfo, " |", "", -1)))
+			outBuf.WriteRune('.')
 		}
 	}
 	return outBuf.String()
