@@ -58,6 +58,10 @@ The configuration file is quite long, leave blank in those features that you are
 <pre>
     "WolframAlphaAppID": "your-wolframalpha-app-id",
 </pre>
+- Use this user access token to post Facebook status updates (e.g. `MYSECRET#f hello there facebook friends`):
+<pre>
+    "FacebookAccessToken": "your-facebook-user-access-token",
+</pre>
 - Use this Twilio application credential to making outgoing calls (e.g. `MYSECRET#c +4912345 message to speak`) and SMS (e.g. `MYSECRET#s +4912345 message to send`):
 <pre>
     "TwilioNumber": "twilio-outgoing-originating-number",

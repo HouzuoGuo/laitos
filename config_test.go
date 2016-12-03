@@ -34,6 +34,8 @@ func TestConfig(t *testing.T) {
 
     "WolframAlphaAppID": "optional-your-wolframalpha-app-id",
 
+    "FacebookAccessToken": "fbme",
+
     "TwilioNumber": "+4912345678",
     "TwilioSID": "1234-5678",
     "TwilioAuthSecret": "abc-def",
@@ -73,6 +75,9 @@ func TestConfig(t *testing.T) {
 				Recipients:     []string{"ITsupport@mydomain.com"},
 				MailFrom:       "admin@mydomain.com",
 				MTAAddressPort: "mydomain.com:25",
+			},
+			Facebook: FacebookClient{
+				AccessToken: conf.FacebookAccessToken,
 			},
 			Twilio: TwilioClient{
 				PhoneNumber: "+4912345678",
@@ -125,6 +130,9 @@ func TestConfig(t *testing.T) {
 				Recipients:     []string{"ITsupport@mydomain.com"},
 				MailFrom:       "admin@mydomain.com",
 				MTAAddressPort: "mydomain.com:25",
+			},
+			Facebook: FacebookClient{
+				AccessToken: conf.FacebookAccessToken,
 			},
 			Twilio: TwilioClient{
 				PhoneNumber: "+4912345678",

@@ -81,7 +81,7 @@ func (twi *TwitterClient) RetrieveLatest(apiTimeoutSec, skip, count int) (tweets
 }
 
 // Post a tweet.
-func (twi *TwitterClient) PostUpdate(apiTimeoutSec int, text string) error {
+func (twi *TwitterClient) Tweet(apiTimeoutSec int, text string) error {
 	// Create and sign API request
 	auther := &oauth.AuthHead{
 		ConsumerKey:       twi.APIConsumerKey,

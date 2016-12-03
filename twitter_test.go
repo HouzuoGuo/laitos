@@ -25,7 +25,7 @@ func TestTwitter(t *testing.T) {
 		fmt.Println(t)
 	}
 	// Post update
-	err = twitter.PostUpdate(10, "aaaaa")
+	err = twitter.Tweet(10, "aaaaa")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	magicWolframAlpha    = "#w"              // Message prefix that triggers WolframAlpha query
-	magicTwilioSendSMS   = "#s"              // Message prefix that triggers sending outbound text via Twilio
 	magicTwilioVoiceCall = "#c"              // Message prefix that triggers outbound calling via Twilio
+	magicFacebookPost    = "#f"              // Message prefix that triggers Facebook posting
+	magicTwilioSendSMS   = "#s"              // Message prefix that triggers sending outbound text via Twilio
 	magicTwitterGet      = "#tg"             // Message prefix that triggers reading twitter timeline
 	magicTwitterPost     = "#tp"             // Message prefix that triggers tweet
+	magicWolframAlpha    = "#w"              // Message prefix that triggers WolframAlpha query
 	twilioParamError     = "Parameter error" // Response text from a bad twilio call/text request
 	maxOutputLength      = 2048              // Ultimate maximum length of response text (override user's configuration)
 	emptyOutputResponse  = "EMPTY OUTPUT"    // Response to make if a command did not produce any response at all
@@ -81,6 +82,7 @@ type CommandRunner struct {
 	PresetMessages      map[string]string // Pre-defined mapping of secret phrases and their  corresponding command
 
 	Mailer       Mailer
+	Facebook     FacebookClient
 	Twilio       TwilioClient
 	Twitter      TwitterClient
 	WolframAlpha WolframAlphaClient
@@ -160,8 +162,14 @@ func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) string
 	} else if strings.HasPrefix(cmd, magicTwitterPost) {
 		// Post update to twitter time-line
 		twitMessage := strings.TrimSpace(cmd[len(magicTwitterPost):])
-		if err = run.Twitter.PostUpdate(run.TimeoutSec, twitMessage); err == nil {
+		if err = run.Twitter.Tweet(run.TimeoutSec, twitMessage); err == nil {
 			output = fmt.Sprintf("OK %d", len(twitMessage))
+		}
+	} else if strings.HasPrefix(cmd, magicFacebookPost) {
+		// Post status update to Facebook
+		fbStatus := strings.TrimSpace(cmd[len(magicFacebookPost):])
+		if err = run.Facebook.WriteStatus(run.TimeoutSec, fbStatus); err == nil {
+			output = fmt.Sprintf("OK %d", len(fbStatus))
 		}
 	} else {
 		// Run shell command

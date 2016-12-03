@@ -29,6 +29,8 @@ type Config struct {
 	MysteriousCmds        []string // intentionally undocumented
 	MysteriousCmdIntvHour int      // intentionally undocumented
 
+	FacebookAccessToken string // Facebook user access token
+
 	TwilioNumber     string // Twilio telephone number for outbound call and SMS
 	TwilioSID        string // Twilio account SID
 	TwilioAuthSecret string // Twilio authentication secret token
@@ -57,6 +59,9 @@ func (conf *Config) ToWebServer() APIServer {
 			MailFrom:       conf.MailFrom,
 			MTAAddressPort: conf.MailAgentAddressPort,
 			Recipients:     conf.MailRecipients,
+		},
+		Facebook: FacebookClient{
+			AccessToken: conf.FacebookAccessToken,
 		},
 		Twilio: TwilioClient{
 			AccountSID:  conf.TwilioSID,
@@ -96,6 +101,9 @@ func (conf *Config) ToMailProcessor() MailProcessor {
 			MailFrom:       conf.MailFrom,
 			MTAAddressPort: conf.MailAgentAddressPort,
 			Recipients:     conf.MailRecipients,
+		},
+		Facebook: FacebookClient{
+			AccessToken: conf.FacebookAccessToken,
 		},
 		Twilio: TwilioClient{
 			AccountSID:  conf.TwilioSID,
