@@ -39,10 +39,10 @@ func TestLintOutput(t *testing.T) {
 	if out := LintOutput(errors.New(" 0123456789 "), " 0123456789 ", 0, false); out != "0123456789\n0123456789" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 0, true); out != "012345#6789#012345#6789" {
+	if out := LintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 0, true); out != "012345;6789;012345;6789" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 10, true); out != "012345#678" {
+	if out := LintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 10, true); out != "012345;678" {
 		t.Fatal(out)
 	}
 	utfSample := `S  (siemens)#1 S | 10 dS  (decisiemens);| 1000 mS  (millisiemens);| 0.001 kS  (kilosiemens);| 1×10^-9 abS  (absiemens);(unit officially deprecated);| 1×10^-9 emus of conductance;(unit officially deprecated);| 8.988×10^11 statS  (statsiemens);(unit officially deprecated);| 8.988×10^11 esus of conductance;(unit offic`

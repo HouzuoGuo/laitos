@@ -1,11 +1,13 @@
 /*
-A simple do-everything daemon, primary for offering control of your computer via telephone and SMS.
+A comprehensive do-everything daemon, delivers all of the following features via telephone calls, SMS, email exchange, and web API calls:
+- Run shell commands and retrieve result.
+- Run WolframAlpha queries and retrieve result.
+- Call another telephone number and speak a piece of text.
+- Send SMS to another person.
+- Post to Twitter time-line.
+- Read the latest updates from Twitter home time-line.
 
-The program can run in two modes:
-- HTTPS daemon mode, secured by endpoint port number + endpoint name + PIN.
-- Mail processing mode (~/.forward), secured by your username + PIN.
-
-To call the service from command line client, run:
+To test run the web API daemon via curl, do:
 curl -v 'https://localhost:12321/my_secret_endpoint_name' --data-ascii 'Body=MYSECRETecho hello world'
 
 Please note: exercise extreme caution when using this software program, inappropriate configuration will make your computer easily compromised! If you choose to use this program, I will not be responsible for any damage/potential damage caused to your computers.
@@ -58,11 +60,11 @@ func main() {
 	}
 	configContent, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
-		log.Panic("Failed to read config file")
+		log.Panicf("Failed to read config file - %v", err)
 	}
 	var conf Config
 	if err = json.Unmarshal(configContent, &conf); err != nil {
-		log.Panic("Failed to unmarshal config JSON")
+		log.Panicf("Failed to unmarshal config JSON - %v", err)
 	}
 
 	if mailMode {

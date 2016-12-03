@@ -33,6 +33,11 @@ type Config struct {
 	TwilioSID        string // Twilio account SID
 	TwilioAuthSecret string // Twilio authentication secret token
 
+	TwitterConsumerKey    string // Twitter application key
+	TwitterConsumerSecret string // Twitter application secret
+	TwitterAccessToken    string // Twitter application-user key
+	TwitterAccessSecret   string // Twitter application-user secret
+
 	WolframAlphaAppID string // WolframAlpha application ID for consuming its APIs
 
 	PresetMessages map[string]string // Pre-defined mapping of secret phrases and their  corresponding command
@@ -57,6 +62,12 @@ func (conf *Config) ToWebServer() APIServer {
 			AccountSID:  conf.TwilioSID,
 			AuthSecret:  conf.TwilioAuthSecret,
 			PhoneNumber: conf.TwilioNumber},
+		Twitter: TwitterClient{
+			APIConsumerKey:       conf.TwitterConsumerKey,
+			APIConsumerSecret:    conf.TwitterConsumerSecret,
+			APIAccessToken:       conf.TwitterAccessToken,
+			APIAccessTokenSecret: conf.TwitterAccessSecret,
+		},
 		WolframAlpha: WolframAlphaClient{AppID: conf.WolframAlphaAppID},
 	}
 	return APIServer{
@@ -90,6 +101,12 @@ func (conf *Config) ToMailProcessor() MailProcessor {
 			AccountSID:  conf.TwilioSID,
 			AuthSecret:  conf.TwilioAuthSecret,
 			PhoneNumber: conf.TwilioNumber},
+		Twitter: TwitterClient{
+			APIConsumerKey:       conf.TwitterConsumerKey,
+			APIConsumerSecret:    conf.TwitterConsumerSecret,
+			APIAccessToken:       conf.TwitterAccessToken,
+			APIAccessTokenSecret: conf.TwitterAccessSecret,
+		},
 		WolframAlpha: WolframAlphaClient{AppID: conf.WolframAlphaAppID},
 	}
 	return MailProcessor{

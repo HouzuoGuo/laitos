@@ -53,7 +53,7 @@ func LintOutput(outErr error, outText string, maxOutLen int, squeezeIntoOneLine 
 		outLines = append(outLines, RemoveNonAscii(strings.TrimSpace(line)))
 	}
 	if squeezeIntoOneLine {
-		out = strings.Join(outLines, "#")
+		out = strings.Join(outLines, ";")
 		out = consecutiveSpacesRegex.ReplaceAllString(out, " ")
 	} else {
 		out = strings.Join(outLines, "\n")
@@ -114,7 +114,7 @@ func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) string
 		output, err = run.WolframAlpha.InvokeAPI(run.TimeoutSec, cmd[len(magicWolframAlpha):])
 	} else if strings.HasPrefix(cmd, magicTwilioVoiceCall) {
 		// The first phone number from input message is the to-number, extract and remove it before calling.
-		inMessage := cmd[len(magicTwilioVoiceCall):]
+		inMessage := strings.TrimSpace(cmd[len(magicTwilioVoiceCall):])
 		toNumber := phoneNumberRegex.FindString(inMessage)
 		if toNumber == "" {
 			output = twilioParamError
@@ -126,7 +126,7 @@ func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) string
 		}
 	} else if strings.HasPrefix(cmd, magicTwilioSendSMS) {
 		// The first phone number from input message is the to-number, extract and remove it before texting.
-		inMessage := cmd[len(magicTwilioVoiceCall):]
+		inMessage := strings.TrimSpace(cmd[len(magicTwilioVoiceCall):])
 		toNumber := phoneNumberRegex.FindString(inMessage)
 		if toNumber == "" {
 			output = twilioParamError
@@ -137,8 +137,8 @@ func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) string
 			output = "OK " + toNumber
 		}
 	} else if strings.HasPrefix(cmd, magicTwitterGet) {
-		// Read latest tweets from twitter timeline
-		inParams := cmd[len(magicTwitterGet):]
+		// Read latest tweets from twitter time-line
+		inParams := strings.TrimSpace(cmd[len(magicTwitterGet):])
 		params := consecutiveSpacesRegex.Split(inParams, -1)
 		var skip, count int
 		skip, err = strconv.Atoi(params[0])
@@ -158,7 +158,7 @@ func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) string
 			output += fmt.Sprintf("%s %s\n", tweet.User.Name, tweet.Text)
 		}
 	} else if strings.HasPrefix(cmd, magicTwitterPost) {
-		// Post update to twitter timeline
+		// Post update to twitter time-line
 		twitMessage := strings.TrimSpace(cmd[len(magicTwitterPost):])
 		if err = run.Twitter.PostUpdate(run.TimeoutSec, twitMessage); err == nil {
 			output = fmt.Sprintf("OK %d", len(twitMessage))

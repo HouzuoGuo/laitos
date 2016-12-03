@@ -26,8 +26,9 @@ type Tweet struct {
 	} `json:"user"`
 }
 
-// Retrieve the latest tweets. Due to Twitter limitation it will not look back further than 200 tweets.
+// Retrieve the latest tweets.
 func (twi *TwitterClient) RetrieveLatest(apiTimeoutSec, skip, count int) (tweets []Tweet, err error) {
+	// Due to Twitter limitation, it will not look back further than 200 tweets.
 	if skip > 199 {
 		skip = 199
 	}

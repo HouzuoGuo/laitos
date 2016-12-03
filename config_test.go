@@ -38,6 +38,11 @@ func TestConfig(t *testing.T) {
     "TwilioSID": "1234-5678",
     "TwilioAuthSecret": "abc-def",
 
+	"TwitterConsumerKey": "1",
+	"TwitterConsumerSecret": "2",
+	"TwitterAccessToken": "3",
+	"TwitterAccessSecret": "4",
+
     "MysteriousURL": "a",
     "MysteriousAddr1": "b",
     "MysteriousAddr2": "c",
@@ -73,6 +78,12 @@ func TestConfig(t *testing.T) {
 				PhoneNumber: "+4912345678",
 				AccountSID:  "1234-5678",
 				AuthSecret:  "abc-def",
+			},
+			Twitter: TwitterClient{
+				APIConsumerKey:       "1",
+				APIConsumerSecret:    "2",
+				APIAccessToken:       "3",
+				APIAccessTokenSecret: "4",
 			},
 			WolframAlpha: WolframAlphaClient{AppID: "optional-your-wolframalpha-app-id"},
 		},
@@ -119,6 +130,12 @@ func TestConfig(t *testing.T) {
 				PhoneNumber: "+4912345678",
 				AccountSID:  "1234-5678",
 				AuthSecret:  "abc-def",
+			},
+			Twitter: TwitterClient{
+				APIConsumerKey:       "1",
+				APIConsumerSecret:    "2",
+				APIAccessToken:       "3",
+				APIAccessTokenSecret: "4",
 			},
 			WolframAlpha: WolframAlphaClient{AppID: "optional-your-wolframalpha-app-id"},
 		},

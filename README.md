@@ -1,67 +1,83 @@
 Websh
 =====
-A simple do-everything daemon, primary for offering control of your computer via telephone and SMS.
-
-It can do:
-- Run shell commands and get output in text form.
-- Run WolframAlpha queries and get result in text form.
-- Truncate response/output to shorter length.
-- Define shortcuts (preset messages) for long commands.
-- Invoke Twilio to call a number (and speak a text) or send a text message.
-- Deliver all of the features by responding to HTTP requests or incoming Emails.
-- HTTP daemon can also act as Twilio web-hook (both voice and message) to allow running commands via telephone call and text messages.
-
-Good for emergency system shutdown/reboot, and executing privileged/unprivileged shell code.
+A comprehensive do-everything daemon, delivers all of the following features via telephone calls, SMS, email exchange, and web API calls:
+- Run shell commands and retrieve result.
+- Run WolframAlpha queries and retrieve result.
+- Call another telephone number and speak a piece of text.
+- Send SMS to another person.
+- Post to Twitter time-line.
+- Read the latest updates from Twitter home time-line.
 
 Please note: exercise _extreme caution_ when using this software program, inappropriate configuration will make your computer vulnerable to attacks! I will not be responsible for any damage/potential damage caused to your computers.
 
 Build
-=================
+=====
 Simply run "go build".
 
-Run HTTP daemon
-========
-You need the following:
-
-- HTTPS certificate and key
-- Secret API endpoint names (longer is better)
-- A secret PIN (longer is better)
-
-Create a JSON configuration file:
-
+Configuration
+=============
+The configuration file is quite long, leave blank in those features that you are not going to use. The configuration shall be valid JSON.
 <pre>
 {
+</pre>
+- For all use cases, prepare a secret PIN. All incoming messages must begin with the correct PIN to authorise command execution:
+<pre>
+    "PIN": "MYSECRET",
+</pre>
+- To serve Twilio phone number hook via web API, prepare HTTPS certificate and key and write down these configurations in JSON. All endpoint names should be difficult to guess:
+<pre>
     "MessageEndpoint": "my_secret_endpoint_name_without_leading_slash",
     "VoiceMLEndpoint": "twilio_hook_initial_contact_without_leading_slash",
     "VoiceProcEndpoint": "twilio_hook_processor_without_leading_slash",
     "VoiceEndpointPrefix": "/optional_voice_hook_proxy_prefix",
     "ServerPort": 12321,
-    "PIN": "MYSECRET",
     "TLSCert": "/tmp/test.crt",
     "TLSKey": "/tmp/test.key",
-
+</pre>
+- When running as a phone number hook, to work around certain dumb phones that cannot type pipe symbol, they may use a pound sign and forward slash together to subsitute for a pipe:
+<pre>
     "SubHashSlashForPipe": true,
+</pre>
+- Running commands via web API call and phone number hooks will be constrained by execution timeout and truncated output length. Set truncated output length appropriately to avoid sending too many SMS responses in a phone number hook:
+<pre>
     "WebTimeoutSec": 10,
     "WebTruncateLen": 120,
-
-    "MailTimeoutSec": 20,
-    "MailTruncateLen": 240,
+</pre>
+- Send Email notifications to designated addresses upon execution of commands. Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number:
+<pre>
     "MailRecipients": ["ITsupport@mydomain.com"],
     "MailFrom": "admin@mydomain.com",
     "MailAgentAddressPort": "mydomain.com:25",
-
+</pre>
+- Running commands via Email exchange is constrained by independent execution timeout and truncated output length:
+<pre>
+    "MailTimeoutSec": 20,
+    "MailTruncateLen": 240,
+</pre>
+- Use this application ID to query WolframAlpha (e.g. `MYSECRET#w weather in Nuremberg, Germany`):
+<pre>
+    "WolframAlphaAppID": "your-wolframalpha-app-id",
+</pre>
+- Use this Twilio application credential to making outgoing calls (e.g. `MYSECRET#c +4912345 message to speak`) and SMS (e.g. `MYSECRET#s +4912345 message to send`):
+<pre>
+    "TwilioNumber": "twilio-outgoing-originating-number",
+    "TwilioSID": "twilio-outgoing-account-sid",
+    "TwilioAuthSecret": "twilio-outgoing-account-secret",
+</pre>
+- Use this Twitter credential to retrieve home time-line (e.g. read 30 latest tweets, drop the latest 12 `MYSECRET#tg 12 30`) and post tweet (e.g. `MYSECRET#tp This is a timeline update`):
+<pre>
+</pre>
+- Define secret shortcuts that execute commands without requiring PIN entry:
+<pre>
     "PresetMessages": {
         "secretapple": "echo hello world",
         "secretpineapple": "poweroff"
-    },
-
-    "WolframAlphaAppID": "optional-your-wolframalpha-app-id",
-
-    "TwilioNumber": "optional-twilio-outgoing-originating-number",
-    "TwilioSID": "optional-twilio-outgoing-account-sid",
-    "TwilioAuthSecret": "optional-twilio-outgoing-account-secret",
+    }
 }
 </pre>
+
+Web API/phone number hook daemon
+===============================
 
 Run the executable with command line:
 
@@ -71,52 +87,23 @@ Invoke the API service from command line:
 
     curl -v 'https://localhost:12321/my_secret_endpoint_name_without_leading_slash' --data-ascii 'Body=MYSECRETecho hello world'
 
-Please note that:
+General notes:
 
-- Email notifications can be optionally enabled to send shell statement results to the specified recipients (MailRecipients) in addition to the web API response. To enable the notifications, fill in all mail parameters.
-- Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number.
 - If there is a PIN mismatch, the response code will be 404.
 - The API endpoint looks for PIN and shell statement together, in form parameter "Body".
 - Do not insert extra space(s) between the secret PIN and your shell statement.
-- To invoke WolframAlpha query, set WolframAlphaAppID and then use prefix "#w" immediately following PIN in the incoming message.
-- MessageEndpoint conforms to Twilio SMS web-hook, make sure to "-outtrunclen" to avoid sending too many SMS responses.
-- Voice endpoints are optional, fill in if you need to run Twilio voice web-hook. On Twilio, the web-hook configuration URL should use `VoiceMLEndpoint`.
 
-There is also an example systemd unit file that can help with running the program as a daemon.
+Notes for Twilio phone-number hook:
 
-Run Email processor
-==================
-The program has a "mail mode" that processes shell statements from incoming mails, instead of running as a stand-alone daemon, secured by the identical PIN-matching mechanism.
-
-To run in mail mode, specify all mail-related parameters in the configuration file, and enable mail processing by creating ".forward" file in the home of your user of choice, with the following content:
-
-<pre>
-\my_user_name
-"|/abspath/to/websh_executable -mailmode=true -configfilepath=/path/to/config.json"
-</pre>
-
-The first line makes sure that incoming mails are always delivered to mailbox. The second line pipes incoming mails to this program, running in "mail mode".
-
-Here is an example of invoking the mail-shell using mailx command:
-
-    echo 'MYSECRETecho hello world' | mail my_user_name@mydomain.com -s subject_does_not_matter
-
-Shell statement output and execution result will be mailed to sender my\_user\_name@mydomain.com.
-
-Run HTTP daemon as Twilio web-hook
-===================
-The program supports Twilio voice web-hook so that you can run shell commands by typing in a sequence of keys on keypad, and have the command output read out to you. To set it up:
-
-- Please carefully read the DTMF sections of the source code (`voiceDecodeDTMF`) to understand how keypad input is intepreted. In general: asterisk switches letter case, zero marks end of a numeral or symbol, zeros followed by a zero give spaces, and key one can type various symbols and numbers.
-- The Twilio parameters in JSON configuration are only for outgoing calls and texts, they do not influence the operation of web-hook, which deals with incoming calls and texts.
+- Please carefully read the DTMF sections of the source code (`dtmf.go`) to understand how keypad input is interpreted. In general: `*` switches letter case, `0` marks end of a numeral or symbol, zeros followed by a zero give spaces, and `1` types various symbols and numbers.
 - As of July 2016, Twilio voice hook does not support port number in the URL, if you decide to run this program on a port different from 443, please place a proxy (such as apache HTTP server) in front so that this program can be accessed via HTTPS without special port number.
 - If there is a proxy in front of the voice API endpoints and the proxy places additional path segments the endpoints (e.g. proxy directs `/voice/my_hook` at `/my_hook`), please enter the additional path segments in `VoiceEndpointPrefix` (e.g. `/voice/`).
 - If there is not a proxy in front of the voice API endpoints, set `VoiceEndpointPrefix` to a single forward slash (`/`).
 - On Twilio configuration panel, the web-hook URL should use `VoiceMLEndpoint`, which is the initial contact point. `VoiceProcEndpoint` is not relevant to your Twilio configuration and can be an arbitrary string of letters.
+- After the voice web-hook has been set up, dial your Twilio number and enter PIN as you would normally do, followed by the command to run. Command output will be dictated back to you, terminating with the word "over", then you may enter a new command and the cycle repeats until you hang up.
+- If PIN entry is incorrect, voice will say sorry and hang up. The usual logging and mail notifications apply to voice-shell.
 
-After the voice web-hook has been set up, dial your Twilio number and enter PIN as you would with message-shell and mail-shell, followed by the command to run. Command output will be dictated back to you, terminating with the word "over", then you may enter a new command and the cycle repeats untill you hang up.
-
-If PIN entry is incorrect, voice will say sorry and hang up. The usual logging and mail notifications apply to voice-shell.
+There is also an example systemd unit file that can help with running the program as a daemon.
 
 Copyright
 ====================
