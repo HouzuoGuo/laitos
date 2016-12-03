@@ -14,6 +14,7 @@ const (
 var mailAddressRegex = regexp.MustCompile(`[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+`) // Match a mail address in header
 var mailNotificationFormat = "Subject: " + mailMagicKeyword + " - %s\r\n\r\n%s"             // Subject and body format of notification and reply mails
 
+// Help sending notification mails after command execution.
 type Mailer struct {
 	Recipients     []string // List of mail addresses that receive notification after each command
 	MailFrom       string   // FROM address of the mail notifications

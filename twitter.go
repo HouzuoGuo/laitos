@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// Invoke Twitter API to interact with user's time-line.
 type TwitterClient struct {
 	APIConsumerKey       string
 	APIConsumerSecret    string

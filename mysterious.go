@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Intentionally undocumented
+// Intentionally undocumented hehehe.
 type MysteriousClient struct {
 	URL             string
 	Addr1           string

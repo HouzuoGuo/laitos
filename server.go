@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// Web API server, can also act as Twilio phone number hook.
 type APIServer struct {
 	MessageEndpoint     string // The secret API endpoint name for messaging in daemon mode
 	VoiceMLEndpoint     string // The secret API endpoint name that serves TwiML voice script in daemon mode
