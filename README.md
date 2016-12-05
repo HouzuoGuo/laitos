@@ -12,15 +12,17 @@ Please note: exercise _extreme caution_ when using this software program, inappr
 
 Build
 =====
-Simply run "go build".
+Simply check out the source code under your `$GOPATH` directory and run `go build`.
+
+The program does not use anything other than Go standard library.
 
 Configuration
 =============
-The configuration file is quite long, leave blank in those features that you are not going to use. The configuration shall be valid JSON.
+The program uses a single JSON configuration file that is specified via command line parameter. The configuration is quite long, but feel free to leave blank in those features that you are not going to use.
 <pre>
 {
 </pre>
-- For all use cases, prepare a secret PIN. All incoming messages must begin with the correct PIN to authorise command execution:
+- For all use cases, prepare a secret PIN. All incoming messages must begin with the correct PIN to authorise command execution. Specify a long and strong PIN to prevent unauthorised access:
 <pre>
     "PIN": "MYSECRET",
 </pre>
@@ -34,7 +36,7 @@ The configuration file is quite long, leave blank in those features that you are
     "TLSCert": "/tmp/test.crt",
     "TLSKey": "/tmp/test.key",
 </pre>
-- When running as a phone number hook, to work around certain dumb phones that cannot type pipe symbol, they may use a pound sign and forward slash together to subsitute for a pipe:
+- When running as a phone number hook, to work around certain dumb phones that cannot type pipe symbol in SMS, they may use a pound sign and forward slash together (`#/`) to substitute for a pipe:
 <pre>
     "SubHashSlashForPipe": true,
 </pre>
@@ -43,13 +45,13 @@ The configuration file is quite long, leave blank in those features that you are
     "WebTimeoutSec": 10,
     "WebTruncateLen": 120,
 </pre>
-- Send Email notifications to designated addresses upon execution of commands. Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number:
+- Configure Email parameters for sending notifications after each command execution and/or running as a mail processor. Mail FROM and recipients must be use full address(name@domain.net), MTA address must contain both host name (domain name) and port number.:
 <pre>
     "MailRecipients": ["ITsupport@mydomain.com"],
     "MailFrom": "admin@mydomain.com",
     "MailAgentAddressPort": "mydomain.com:25",
 </pre>
-- Running commands via Email exchange is constrained by independent execution timeout and truncated output length:
+- Running commands via Email exchange is constrained by independent (usually relaxed) execution timeout and truncated output length:
 <pre>
     "MailTimeoutSec": 20,
     "MailTruncateLen": 240,
@@ -70,6 +72,11 @@ The configuration file is quite long, leave blank in those features that you are
 </pre>
 - Use this Twitter credential to retrieve home time-line (e.g. read 30 latest tweets, drop the latest 12 `MYSECRET#tg 12 30`) and post tweet (e.g. `MYSECRET#tp This is a timeline update`):
 <pre>
+
+	"TwitterConsumerKey": "twitter-app-consumer-key",
+	"TwitterConsumerSecret": "twitter-app-consumer-secret",
+	"TwitterAccessToken": "twitter-app-user-access-token",
+	"TwitterAccessSecret": "twitter-app-user-access-secret",
 </pre>
 - Define secret shortcuts that execute commands without requiring PIN entry:
 <pre>
@@ -77,12 +84,13 @@ The configuration file is quite long, leave blank in those features that you are
         "secretapple": "echo hello world",
         "secretpineapple": "poweroff"
     }
+</pre>
+<pre>
 }
 </pre>
 
 Web API/phone number hook daemon
 ===============================
-
 Run the executable with command line:
 
     ./websh -configfilepath=/path/to/config.json
@@ -100,14 +108,37 @@ General notes:
 Notes for Twilio phone-number hook:
 
 - Please carefully read the DTMF sections of the source code (`dtmf.go`) to understand how keypad input is interpreted. In general: `*` switches letter case, `0` marks end of a numeral or symbol, zeros followed by a zero give spaces, and `1` types various symbols and numbers.
-- As of July 2016, Twilio voice hook does not support port number in the URL, if you decide to run this program on a port different from 443, please place a proxy (such as apache HTTP server) in front so that this program can be accessed via HTTPS without special port number.
+- As of December 2016, Twilio voice hook does not support port number in the URL, if you decide to run this program on a port different from 443, please place a proxy (such as apache HTTP server) in front so that this program can be accessed via HTTPS without special port number.
 - If there is a proxy in front of the voice API endpoints and the proxy places additional path segments the endpoints (e.g. proxy directs `/voice/my_hook` at `/my_hook`), please enter the additional path segments in `VoiceEndpointPrefix` (e.g. `/voice/`).
 - If there is not a proxy in front of the voice API endpoints, set `VoiceEndpointPrefix` to a single forward slash (`/`).
 - On Twilio configuration panel, the web-hook URL should use `VoiceMLEndpoint`, which is the initial contact point. `VoiceProcEndpoint` is not relevant to your Twilio configuration and can be an arbitrary string of letters.
+- Twilio expires its HTTP request after 15 seconds, make sure to lower `WebTimeoutSec` below 15.
 - After the voice web-hook has been set up, dial your Twilio number and enter PIN as you would normally do, followed by the command to run. Command output will be dictated back to you, terminating with the word "over", then you may enter a new command and the cycle repeats until you hang up.
 - If PIN entry is incorrect, voice will say sorry and hang up. The usual logging and mail notifications apply to voice-shell.
 
 There is also an example systemd unit file that can help with running the program as a daemon.
+
+Mail processor
+==============
+The program has a "mail processor mode" that processes commands from user's incoming mails, secured by the identical PIN-matching mechanism.
+
+Make sure to specify all mail parameters in the configuration file for this mode to work.
+
+To enable, create a `.forward` file in the home directory of user, with the following content:
+
+<pre>
+\my_user_name
+"|/abspath/to/websh_executable -mailmode=true -configfilepath=/path/to/config.json"
+</pre>
+
+The first line tells mail transfer agent (e.g. postfix or sendmail) to put incoming mail into user's mail box. The second line pipes the content of incoming mail to this program. The program will try to match PIN and find a single command to execute in the body of mail (subject is discarded).
+Once processing is finished, the program delivers command response back to the sender using the mail parameters specified in configuration file.
+
+After the mail processor is set up, test run it using this command:
+
+`echo 'MYSECRETecho hello world' | mail my_user_name@mydomain.com -s subject_does_not_matter`
+
+Moments later, observe command response in the mail box of `my_user_name@mydomain.com`.
 
 Copyright
 ====================
