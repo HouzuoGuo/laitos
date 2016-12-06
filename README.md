@@ -7,6 +7,7 @@ A comprehensive do-everything daemon, delivers all of the following features via
 - Send SMS to another person.
 - Post to Twitter time-line.
 - Read the latest updates from Twitter home time-line.
+- Post Facebook update.
 
 Please note: exercise _extreme caution_ when using this software program, inappropriate configuration will make your computer vulnerable to attacks! I will not be responsible for any damage/potential damage caused to your computers.
 
@@ -60,7 +61,7 @@ The program uses a single JSON configuration file that is specified via command 
 <pre>
     "WolframAlphaAppID": "your-wolframalpha-app-id",
 </pre>
-- Use this user access token to post Facebook status updates (e.g. `MYSECRET#f hello there facebook friends`):
+- Use this user access token to post Facebook status updates (e.g. `MYSECRET#f hello there facebook friends`). Remember to use Facebook's "long lived access token", and refresh the token once every 30 days!
 <pre>
     "FacebookAccessToken": "your-facebook-user-access-token",
 </pre>
