@@ -17,33 +17,34 @@ type TwilioClient struct {
 	AuthSecret  string // Twilio authentication secret token
 }
 
-func (twilio *TwilioClient) InvokeAPI(timeoutSec int, finalEndpoint string, toNumber string, otherParams map[string]string) (err error) {
+func (twilio *TwilioClient) InvokeAPI(timeoutSec int, finalEndpoint string, toNumber string, otherParams map[string]string) error {
 	urlParams := url.Values{"From": []string{twilio.PhoneNumber}, "To": []string{toNumber}}
 	for key, val := range otherParams {
 		urlParams[key] = []string{val}
 	}
-	request, err := http.NewRequest(
-		"POST",
-		fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/%s", twilio.AccountSID, finalEndpoint),
-		strings.NewReader(urlParams.Encode()))
+	urlPath := fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/%s", twilio.AccountSID, finalEndpoint)
+	request, err := http.NewRequest("POST", urlPath, strings.NewReader(urlParams.Encode()))
 	if err != nil {
-		return
+		return err
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	request.SetBasicAuth(twilio.AccountSID, twilio.AuthSecret)
 	client := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
 	response, err := client.Do(request)
 	if err != nil {
-		return
+		return err
 	}
 	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
 	defer response.Body.Close()
 
-	log.Printf("Twilio responded to '%s': error %v, status %d, output %s", finalEndpoint, err, response.StatusCode, string(body))
+	log.Printf("Twilio responded to %s (%s): error %v, status %d, output %s", finalEndpoint, toNumber, err, response.StatusCode, string(body))
 	if response.StatusCode/200 != 1 {
-		err = fmt.Errorf("Twilio API '%s' responded with status code %d", finalEndpoint, response.StatusCode)
+		return fmt.Errorf("HTTP status code %d", response.StatusCode)
 	}
-	return
+	return nil
 }
 
 // Send an SMS via Twilio.

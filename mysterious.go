@@ -27,13 +27,13 @@ func (myst *MysteriousClient) IsEnabled() bool {
 }
 
 // This mysterious HTTP call is intentionally undocumented hahahaha.
-func (myst *MysteriousClient) InvokeAPI(rawMessage string) (err error) {
+func (myst *MysteriousClient) InvokeAPI(rawMessage string) error {
 	requestBody := fmt.Sprintf("ReplyAddress=%s&ReplyMessage=%s&MessageId=%s&Guid=%s",
 		url.QueryEscape(myst.Addr2), url.QueryEscape(rawMessage), myst.ID1, myst.ID2)
 
 	request, err := http.NewRequest("POST", myst.URL, bytes.NewReader([]byte(requestBody)))
 	if err != nil {
-		return
+		return err
 	}
 	request.Header.Set("X-Requested-With", "XMLHttpRequest")
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36")
@@ -42,11 +42,17 @@ func (myst *MysteriousClient) InvokeAPI(rawMessage string) (err error) {
 	client := &http.Client{Timeout: 25 * time.Second}
 	response, err := client.Do(request)
 	if err != nil {
-		return
+		return err
 	}
 	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
 	defer response.Body.Close()
 
-	log.Printf("Mysterious thingy responded to '%s' : error %v, status %d, output %s", requestBody, err, response.StatusCode, string(body))
-	return
+	log.Printf("Mysterious ding responded to '%s': error %v, status %d, output %s", rawMessage, err, response.StatusCode, string(body))
+	if response.StatusCode/200 != 1 {
+		return fmt.Errorf("HTTP status code %d", response.StatusCode)
+	}
+	return nil
 }

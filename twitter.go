@@ -33,8 +33,15 @@ func (twi *TwitterClient) RetrieveLatest(apiTimeoutSec, skip, count int) (tweets
 	if skip > 199 {
 		skip = 199
 	}
+	if skip < 0 {
+		skip = 0
+	}
+	count += skip
 	if count > 200 {
 		count = 200
+	}
+	if count < 1 {
+		count = 1
 	}
 	// Create and sign API request
 	auther := &oauth.AuthHead{
@@ -44,7 +51,8 @@ func (twi *TwitterClient) RetrieveLatest(apiTimeoutSec, skip, count int) (tweets
 		AccessTokenSecret: twi.APIAccessTokenSecret,
 	}
 	client := &http.Client{Timeout: time.Duration(apiTimeoutSec) * time.Second}
-	request, err := http.NewRequest("GET", "https://api.twitter.com/1.1/statuses/home_timeline.json?count="+strconv.Itoa(count), nil)
+	urlPath := "https://api.twitter.com/1.1/statuses/home_timeline.json?count=" + strconv.Itoa(count)
+	request, err := http.NewRequest("GET", urlPath, nil)
 	if err != nil {
 		return
 	} else if err = auther.SetRequestAuthHeader(request); err != nil {
@@ -56,27 +64,30 @@ func (twi *TwitterClient) RetrieveLatest(apiTimeoutSec, skip, count int) (tweets
 		return
 	}
 	body, err := ioutil.ReadAll(response.Body)
-	defer response.Body.Close()
-	log.Printf("Timeline retrieval request got a response: error %v, status %d, output length %d", err, response.StatusCode, len(body))
-	if response.StatusCode/200 != 1 {
-		err = fmt.Errorf("Timeline retrieval API responded with status code %d", response.StatusCode)
+	if err != nil {
 		return
 	}
+	defer response.Body.Close()
+
+	log.Printf("Twitter timeline responded to (%d,%d): error %v, status %d, output length %d", skip, count, err, response.StatusCode, len(body))
+	if response.StatusCode/200 != 1 {
+		err = fmt.Errorf("HTTP status code %d", response.StatusCode)
+		return
+	}
+
 	// Skip certain number of tweets
 	if err = json.Unmarshal(body, &tweets); err != nil {
 		return
 	}
-
-	// I have no idea why Twitter cannot count. The API won't return the exact number of tweets as requested.
-	numKeep := count - skip
-	if len(tweets) < numKeep {
-		numKeep = len(tweets)
+	if skip >= len(tweets) {
+		tweets = []Tweet{}
+		return
 	}
-	if numKeep < 1 {
-		numKeep = 1
+	finalTweet := count
+	if finalTweet > len(tweets) {
+		finalTweet = count
 	}
-	tweets = tweets[:numKeep]
-
+	tweets = tweets[skip:finalTweet]
 	return
 }
 
@@ -90,7 +101,8 @@ func (twi *TwitterClient) Tweet(apiTimeoutSec int, text string) error {
 		AccessTokenSecret: twi.APIAccessTokenSecret,
 	}
 	client := &http.Client{Timeout: time.Duration(apiTimeoutSec) * time.Second}
-	request, err := http.NewRequest("POST", "https://api.twitter.com/1.1/statuses/update.json?status="+url.QueryEscape(text), nil)
+	urlPath := "https://api.twitter.com/1.1/statuses/update.json?status=" + url.QueryEscape(text)
+	request, err := http.NewRequest("POST", urlPath, nil)
 	if err != nil {
 		return err
 	} else if err = auther.SetRequestAuthHeader(request); err != nil {
@@ -102,10 +114,14 @@ func (twi *TwitterClient) Tweet(apiTimeoutSec int, text string) error {
 		return err
 	}
 	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
 	defer response.Body.Close()
-	log.Printf("Timeline update request got a response: error %v, status %d, output length %d", err, response.StatusCode, len(body))
+
+	log.Printf("Twitter update responded to '%s': error %v, status %d, output %s", text, err, response.StatusCode, string(body))
 	if response.StatusCode/200 != 1 {
-		return fmt.Errorf("Timeline update API responded with status code %d", response.StatusCode)
+		return fmt.Errorf("HTTP status code %d", response.StatusCode)
 	}
 	return nil
 }

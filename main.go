@@ -8,7 +8,7 @@ A comprehensive do-everything daemon, delivers all of the following features via
 - Read the latest updates from Twitter home time-line.
 
 To test run the web API daemon via curl, do:
-curl -v 'https://localhost:12321/my_secret_endpoint_name' --data-ascii 'Body=MYSECRETecho hello world'
+curl --insecure -v 'https://localhost:12321/my_secret_endpoint_name' --data-ascii 'Body=MYSECRETecho hello world'
 
 Please note: exercise extreme caution when using this software program, inappropriate configuration will make your computer easily compromised! If you choose to use this program, I will not be responsible for any damage/potential damage caused to your computers.
 

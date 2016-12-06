@@ -18,10 +18,8 @@ type FacebookClient struct {
 // Post a Facebook status update.
 func (fb *FacebookClient) WriteStatus(apiTimeoutSec int, updateMessage string) error {
 	client := &http.Client{Timeout: time.Duration(apiTimeoutSec) * time.Second}
-	request, err := http.NewRequest(
-		"POST",
-		"https://graph.facebook.com//v2.8/me/feed?access_token="+fb.AccessToken,
-		strings.NewReader(url.Values{"message": []string{updateMessage}}.Encode()))
+	urlPath := "https://graph.facebook.com/v2.8/me/feed?access_token=" + fb.AccessToken
+	request, err := http.NewRequest("POST", urlPath, strings.NewReader(url.Values{"message": []string{updateMessage}}.Encode()))
 	if err != nil {
 		return err
 	}
@@ -31,10 +29,14 @@ func (fb *FacebookClient) WriteStatus(apiTimeoutSec int, updateMessage string) e
 		return err
 	}
 	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
 	defer response.Body.Close()
-	log.Printf("Status update request got a response: error %v, status %d, output %d", err, response.StatusCode, body)
+
+	log.Printf("Facebook responded to '%s': error %v, status %d, output %s", updateMessage, err, response.StatusCode, string(body))
 	if response.StatusCode/200 != 1 {
-		return fmt.Errorf("Status update API responded with status code %d", response.StatusCode)
+		return fmt.Errorf("HTTP status code %d", response.StatusCode)
 	}
 	return nil
 }

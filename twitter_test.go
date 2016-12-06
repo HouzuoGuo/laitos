@@ -18,7 +18,7 @@ func TestTwitter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tweets) != 10 {
+	if len(tweets) != 20 {
 		fmt.Println("not enough tweets")
 	}
 	for _, t := range tweets {
