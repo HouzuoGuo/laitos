@@ -105,6 +105,7 @@ General notes:
 - If there is a PIN mismatch, the response code will be 404.
 - The API endpoint looks for PIN and shell statement together, in form parameter "Body".
 - Do not insert extra space(s) between the secret PIN and your shell statement.
+- Use prefix `#o skip_len output_len` to skip certain number of characters in command response, and temporary override response length restriction to the specified value.
 
 Notes for Twilio phone-number hook:
 

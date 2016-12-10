@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 )
@@ -15,43 +17,60 @@ func TestRemoveNonAscii(t *testing.T) {
 }
 
 func TestLintOutput(t *testing.T) {
-	if out := LintOutput(nil, "", 0, false); out != emptyOutputResponse {
+	if out := LintOutput(nil, "", 0, 0, false); out != emptyOutputResponse {
+		t.Fatal([]byte(out))
 		t.Fatal(out)
 	}
-	if out := LintOutput(nil, "0123456789", 0, false); out != "0123456789" {
+	if out := LintOutput(nil, "0123456789", 0, 0, false); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(nil, "0123456789", 10, false); out != "0123456789" {
+	if out := LintOutput(nil, "0123456789", 0, 10, false); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(nil, "0123456789abc", 10, false); out != "0123456789" {
+	if out := LintOutput(nil, "0123456789abc", 0, 10, false); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(nil, "0123456789abc", 10, true); out != "0123456789" {
+	if out := LintOutput(nil, "0123456789abc", 0, 10, true); out != "0123456789" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(errors.New("012345678"), "9", 10, false); out != "012345678" {
+	if out := LintOutput(errors.New("012345678"), "9", 0, 10, false); out != "012345678" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(errors.New("01234567"), "8", 10, false); out != "01234567\n8" {
+	if out := LintOutput(errors.New("01234567"), "8", 0, 10, false); out != "01234567\n8" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(errors.New(" 0123456789 "), " 0123456789 ", 0, false); out != "0123456789\n0123456789" {
+	if out := LintOutput(errors.New(" 0123456789 "), " 0123456789 ", 0, 0, false); out != "0123456789\n0123456789" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 0, true); out != "012345;6789;012345;6789" {
+	if out := LintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 0, 0, true); out != "012345;6789;012345;6789" {
 		t.Fatal(out)
 	}
-	if out := LintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 10, true); out != "012345;678" {
+	if out := LintOutput(errors.New(" 012345 \n 6789 "), " 012345 \n 6789 ", 0, 10, true); out != "012345;678" {
 		t.Fatal(out)
 	}
 	utfSample := `S  (siemens)#1 S | 10 dS  (decisiemens);| 1000 mS  (millisiemens);| 0.001 kS  (kilosiemens);| 1×10^-9 abS  (absiemens);(unit officially deprecated);| 1×10^-9 emus of conductance;(unit officially deprecated);| 8.988×10^11 statS  (statsiemens);(unit officially deprecated);| 8.988×10^11 esus of conductance;(unit offic`
-	if out := LintOutput(nil, utfSample, 80, true); out != "S (siemens)#1 S | 10 dS (decisiemens);| 1000 mS (millisiemens);| 0.001 kS (kilos" {
+	if out := LintOutput(nil, utfSample, 0, 80, true); out != "S (siemens)#1 S | 10 dS (decisiemens);| 1000 mS (millisiemens);| 0.001 kS (kilos" {
 		t.Fatal(out)
 	}
-	// Test hard limit
-	if out := LintOutput(nil, strings.Repeat("12", maxOutputLength), maxOutputLength*2, false); len(out) != maxOutputLength {
+	// Test hard output length limit
+	if out := LintOutput(nil, strings.Repeat("12", maxOutputLen), 0, maxOutputLen*2, false); len(out) != maxOutputLen {
 		t.Fatal(len(out))
+	}
+	if out := LintOutput(nil, strings.Repeat("12", maxOutputLen), 0, -1, false); len(out) != maxOutputLen {
+		t.Fatal(len(out))
+	}
+	// Test seek position
+	if out := LintOutput(nil, "0123456789", 1, 3, false); out != "123" {
+		t.Fatal(out)
+	}
+	if out := LintOutput(nil, "0123456789", -1, 3, false); out != "012" {
+		t.Fatal(out)
+	}
+	if out := LintOutput(nil, "0123456789", 3, 0, false); out != "3456789" {
+		t.Fatal(out)
+	}
+	if out := LintOutput(nil, "0123456789", -1, -1, false); out != "0123456789" {
+		t.Fatal(out)
 	}
 }
 
@@ -108,7 +127,7 @@ func TestRunCommand(t *testing.T) {
 	if out := run.RunCommand(`echo "'abc'"`, false); out != `'abc'` {
 		t.Fatal(out)
 	}
-	if out := run.RunCommand(`sleep 2`, false); out != "exit status 143" {
+	if out := run.RunCommand(`sleep 2`, false); out != timeoutErr.Error() {
 		t.Fatal(out)
 	}
 	if out := run.RunCommand(`echo 01234567891234567`, false); out != "0123456789123456" {
@@ -130,12 +149,40 @@ func TestRunCommand(t *testing.T) {
 		t.Fatal(out)
 	}
 
+	// Seek to position & override truncate length in output
+	if out := run.RunCommand(magicSeekOutput+"echo01234567", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicSeekOutput+"1 echo 01234567", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicSeekOutput+"0 3 echo 01234567", false); out != "012" {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicSeekOutput+"3 3 echo 01234567", false); out != "345" {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicSeekOutput+"-1 -1 echo 01234567", false); out != "01234567" {
+		t.Fatal(out)
+	}
+
+	// Substitution of pipe character
 	run.SubHashSlashForPipe = true
 	if out := run.RunCommand("echo a && false # this is comment", false); out != "exit status 1\na" {
 		t.Fatal(out)
 	}
 	if out := run.RunCommand("yes #/ head -1", false); out != "y" {
 		t.Fatal(out)
+	}
+
+	// Make sure process is indeed killed after timeout
+	tmpFile, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	// The long-running process tries to delete the file
+	if out := run.RunCommand(`sleep 2 && rm `+tmpFile.Name(), false); out != timeoutErr.Error() {
+		t.Fatal(out)
+	}
+	if _, err := os.Stat(tmpFile.Name()); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -170,5 +217,68 @@ func TestFindCommand(t *testing.T) {
 	}
 	if stmt := run.FindCommand("   deffoobar  "); stmt != "456" {
 		t.Fatal(stmt)
+	}
+}
+
+func TestRunBadParam(t *testing.T) {
+	run := CommandRunner{}
+	if out := run.RunCommand(magicWolframAlpha, false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicWolframAlpha+"a", false); out == paramErr.Error() {
+		t.Fatal(out)
+	}
+
+	if out := run.RunCommand(magicTwilioVoiceCall, false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioVoiceCall+"+49123", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioVoiceCall+"+49123 a", false); out == paramErr.Error() {
+		t.Fatal(out)
+	}
+
+	if out := run.RunCommand(magicTwilioSendSMS, false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123 a", false); out == paramErr.Error() {
+		t.Fatal(out)
+	}
+
+	if out := run.RunCommand(magicTwilioSendSMS, false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123 a", false); out == paramErr.Error() {
+		t.Fatal(out)
+	}
+
+	if out := run.RunCommand(magicTwitterGet, false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwitterGet+"1", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwitterGet+"a b", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwitterGet+"1 b", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwitterGet+"1 2", false); out == paramErr.Error() {
+		t.Fatal(out)
+	}
+
+	if out := run.RunCommand(magicTwitterPost, false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwitterPost+"a", false); out == paramErr.Error() {
+		t.Fatal(out)
+	}
+
+	if out := run.RunCommand(magicFacebookPost, false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicFacebookPost+"a", false); out == paramErr.Error() {
+		t.Fatal(out)
+	}
+
+	if out := run.RunCommand("", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand("cd", false); out == paramErr.Error() {
+		t.Fatal(out)
 	}
 }
