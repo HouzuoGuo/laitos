@@ -23,11 +23,11 @@ The program uses a single JSON configuration file that is specified via command 
 <pre>
 {
 </pre>
-- For all use cases, prepare a secret PIN. All incoming messages must begin with the correct PIN to authorise command execution. Specify a long and strong PIN to prevent unauthorised access:
+- For all use cases, prepare a secret PIN (alphanumeric characters). All incoming messages must begin with the correct PIN to authorise command execution. Specify a long and strong PIN to prevent unauthorised access:
 <pre>
     "PIN": "MYSECRET",
 </pre>
-- To serve Twilio phone number hook via web API, prepare HTTPS certificate and key and write down these configurations in JSON. All endpoint names should be difficult to guess:
+- To serve Twilio phone number hook via web API, prepare HTTPS certificate and key and write down these configurations in JSON. Voice hook parameters are explained in detail in a later section. All endpoint names should be difficult to guess:
 <pre>
     "MessageEndpoint": "my_secret_endpoint_name_without_leading_slash",
     "VoiceMLEndpoint": "twilio_hook_initial_contact_without_leading_slash",
@@ -96,15 +96,14 @@ Run the executable with command line:
 
     ./websh -configfilepath=/path/to/config.json
 
-Invoke the API service from command line:
+To test run the API service, use curl from command line:
 
     curl -v 'https://localhost:12321/my_secret_endpoint_name_without_leading_slash' --data-ascii 'Body=MYSECRETecho hello world'
 
 General notes:
 
-- If there is a PIN mismatch, the response code will be 404.
-- The API endpoint looks for PIN and shell statement together, in form parameter "Body".
-- Do not insert extra space(s) between the secret PIN and your shell statement.
+- Write PIN characters in front of the command to run. If there is a PIN mismatch, the HTTP response code will be 404.
+- "Body" is the parameter in which the API looks for PIN and command statement. It is not necessary to insert extra space(s) between the PIN and command statement.
 - Use prefix `#o skip_len output_len` to skip certain number of characters in command response, and temporary override response length restriction to the specified value.
 
 Notes for Twilio phone-number hook:
@@ -114,9 +113,9 @@ Notes for Twilio phone-number hook:
 - If there is a proxy in front of the voice API endpoints and the proxy places additional path segments the endpoints (e.g. proxy directs `/voice/my_hook` at `/my_hook`), please enter the additional path segments in `VoiceEndpointPrefix` (e.g. `/voice/`).
 - If there is not a proxy in front of the voice API endpoints, set `VoiceEndpointPrefix` to a single forward slash (`/`).
 - On Twilio configuration panel, the web-hook URL should use `VoiceMLEndpoint`, which is the initial contact point. `VoiceProcEndpoint` is not relevant to your Twilio configuration and can be an arbitrary string of letters.
-- Twilio expires its HTTP request after 15 seconds, make sure to lower `WebTimeoutSec` below 15.
-- After the voice web-hook has been set up, dial your Twilio number and enter PIN as you would normally do, followed by the command to run. Command output will be dictated back to you, terminating with the word "over", then you may enter a new command and the cycle repeats until you hang up.
-- If PIN entry is incorrect, voice will say sorry and hang up. The usual logging and mail notifications apply to voice-shell.
+- Twilio times out its HTTP request after 15 seconds, so make sure to lower `WebTimeoutSec` below 15.
+- After the voice web-hook has been set up, dial your Twilio number and enter PIN as you would normally do, followed by the command to run. Command output will be dictated back to you, terminating with the word "over", then you may enter another PIN + command and the cycle repeats until you hang up. Always enter PIN before entering each command, even though you have already entered the correct PIN in a previous command.
+- If PIN entry is incorrect, voice will say sorry and hang up. The usual logging and mail notifications apply to phone number hooks.
 
 There is also an example systemd unit file that can help with running the program as a daemon.
 
