@@ -160,8 +160,8 @@ func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) string
 		}
 
 		// Parse the next two numeric parameters
-		cmd = cmd[len(magicSeekOutput):]
-		params := strings.SplitN(cmd, " ", 3)
+		cmd = strings.TrimSpace(cmd[len(magicSeekOutput):])
+		params := consecutiveSpacesRegex.Split(cmd, 3)
 		if len(params) != 3 {
 			cmdErr = paramErr
 			goto out
@@ -177,7 +177,7 @@ func (run *CommandRunner) RunCommand(cmd string, squeezeIntoOneLine bool) string
 			cmdErr = paramErr
 			goto out
 		}
-		cmd = params[2]
+		cmd = strings.TrimSpace(params[2])
 	}
 	// Match special trigger prefixes
 	if strings.HasPrefix(cmd, magicWolframAlpha) {

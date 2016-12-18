@@ -160,6 +160,8 @@ func TestRunCommand(t *testing.T) {
 		t.Fatal(out)
 	} else if out := run.RunCommand(magicSeekOutput+"-1 -1 echo 01234567", false); out != "01234567" {
 		t.Fatal(out)
+	} else if out := run.RunCommand(magicSeekOutput+"    -1    -1    echo    01234567", false); out != "01234567" {
+		t.Fatal(out)
 	}
 
 	// Substitution of pipe character
@@ -226,6 +228,8 @@ func TestRunBadParam(t *testing.T) {
 		t.Fatal(out)
 	} else if out := run.RunCommand(magicWolframAlpha+"a", false); out == paramErr.Error() {
 		t.Fatal(out)
+	} else if out := run.RunCommand(magicWolframAlpha+"    a    ", false); out == paramErr.Error() {
+		t.Fatal(out)
 	}
 
 	if out := run.RunCommand(magicTwilioVoiceCall, false); out != paramErr.Error() {
@@ -234,13 +238,7 @@ func TestRunBadParam(t *testing.T) {
 		t.Fatal(out)
 	} else if out := run.RunCommand(magicTwilioVoiceCall+"+49123 a", false); out == paramErr.Error() {
 		t.Fatal(out)
-	}
-
-	if out := run.RunCommand(magicTwilioSendSMS, false); out != paramErr.Error() {
-		t.Fatal(out)
-	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123", false); out != paramErr.Error() {
-		t.Fatal(out)
-	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123 a", false); out == paramErr.Error() {
+	} else if out := run.RunCommand(magicTwilioVoiceCall+"    +49123    a    ", false); out == paramErr.Error() {
 		t.Fatal(out)
 	}
 
@@ -249,6 +247,18 @@ func TestRunBadParam(t *testing.T) {
 	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123", false); out != paramErr.Error() {
 		t.Fatal(out)
 	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123 a", false); out == paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioSendSMS+"    +49123    a    ", false); out == paramErr.Error() {
+		t.Fatal(out)
+	}
+
+	if out := run.RunCommand(magicTwilioSendSMS, false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123", false); out != paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioSendSMS+"+49123 a", false); out == paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwilioSendSMS+"    +49123    a    ", false); out == paramErr.Error() {
 		t.Fatal(out)
 	}
 
@@ -262,11 +272,15 @@ func TestRunBadParam(t *testing.T) {
 		t.Fatal(out)
 	} else if out := run.RunCommand(magicTwitterGet+"1 2", false); out == paramErr.Error() {
 		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwitterGet+"    1    2    ", false); out == paramErr.Error() {
+		t.Fatal(out)
 	}
 
 	if out := run.RunCommand(magicTwitterPost, false); out != paramErr.Error() {
 		t.Fatal(out)
 	} else if out := run.RunCommand(magicTwitterPost+"a", false); out == paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand(magicTwitterPost+"    a    ", false); out == paramErr.Error() {
 		t.Fatal(out)
 	}
 
@@ -274,11 +288,15 @@ func TestRunBadParam(t *testing.T) {
 		t.Fatal(out)
 	} else if out := run.RunCommand(magicFacebookPost+"a", false); out == paramErr.Error() {
 		t.Fatal(out)
+	} else if out := run.RunCommand(magicFacebookPost+"    a    ", false); out == paramErr.Error() {
+		t.Fatal(out)
 	}
 
 	if out := run.RunCommand("", false); out != paramErr.Error() {
 		t.Fatal(out)
 	} else if out := run.RunCommand("cd", false); out == paramErr.Error() {
+		t.Fatal(out)
+	} else if out := run.RunCommand("    cd    ", false); out == paramErr.Error() {
 		t.Fatal(out)
 	}
 }
