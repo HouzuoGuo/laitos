@@ -8,7 +8,7 @@ var localMailer = Mailer{
 	MailFrom:       "root@localhost",
 }
 
-func TestGetMailProperties(t *testing.T) {
+func TestGetMultipartMailProperties(t *testing.T) {
 	example1 := `From bounces+21dd7b-root=houzuo.net@sendgrid.net  Sat Mar  5 19:4d 2016
 Delivered-To: guohouzuo@gmail.com
 Received: by 7.1.1.7 with SMTP id ev10c4;
@@ -57,6 +57,58 @@ Content-Transfer-Encoding: quoted-printable
 def
 ------------=_1457900-29001-525--
 `
+	if subj, contentType, addr := GetMailProperties("foobar"); subj != "" || contentType != "" || addr != "" {
+		t.Fatal(subj, contentType, addr)
+	}
+	if subj, contentType, addr := GetMailProperties(example1); subj != "message from houzuo guo" ||
+		contentType != `multipart/alternative; boundary="----------=_1457167900-29001-525"` ||
+		addr != "no.reply@example.com" {
+		t.Fatal(subj, contentType, addr)
+	}
+}
+
+func TestGetSinglepartMailProperties(t *testing.T) {
+	example := `From bounces+2565887-39aa-root=ccc.ddd@aaa.bbb.com  Sat Dec 24 05:59:29 2016
+X-Original-To: root@ccc.ddd
+Delivered-To: root@ccc.ddd
+DKIM-Signature: v=1; a=rsa-sha1; c=relaxed; d=bbb.com;
+        h=from:mime-version:subject:to:content-type; s=s1;
+        bh=gfjwgKXXLe/VOMaaaLodbbbABhM=; b=GuP7GxEHKC55B5bRtkVSxFiI9Sqn9
+        Uyay9bS+SOmWzy/MY6mbmmmYmwiBHqFfEV/piKByZvLUL6cHz7ZipjCV1U0xlVXq
+        X0Mjccc7zzfqYw=
+Date: Sat, 24 Dec 2016 04:59:26 +0000
+From: "Houzuo Guo (via abc)" <no.reply.abc@def.ghi>
+Mime-Version: 1.0
+Subject: message from Houzuo Guo
+To: root@ccc.ddd
+Content-type: multipart/alternative; boundary="----------=_1482555566-20113-459"
+X-SG-EID: ZPWmCwPRM4AlS4dNaaaaaa5ynw1Ls9ipvw/8bs0OcA7OhJjGPg3tvaaa2NTHbiYVLzSGZovXQBbvIS
+ IJ4vWBvW3zaDlNypLg6X2jeeYEnddd5mKnlSCsezFgiP+s+bNBY4O1fS5Lx1sJbbbk92gdvO4FkTjd
+ QFmoC4WbZfffBFzWp3l/kyJUSheee7kxAuOspCEaN/FHgeP0EsGHUD2s+im6Mqccc2UZJG8IovQJt2
+ 4VL9ikX4agggMtDknmCQdI
+
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=UTF-8
+
+znaaaaaaxdffff
+
+send a reply to Houzuo Guo:
+https://aa.ct.sendgrid.net/wf/click?upn=bb-cc-ff-dd-ee-dd-ee-ff-gg-hh-ii-jj-3k-3k
+
+Houzuo Guo sent this message from:
+aaa bbb
+
+Do not reply directly to this message.
+
+This message was sent to you using aaa To learn more, visit https://ccc.ct.sendgrid.net/wf/click?upn=dd-ee-ff-gg-hh-3k-3k`
+	if subj, contentType, addr := GetMailProperties(example); subj != "message from houzuo guo" ||
+		contentType != `multipart/alternative; boundary="----------=_1482555566-20113-459"` ||
+		addr != "no.reply.abc@def.ghi" {
+		t.Fatal(subj, contentType, addr)
+	}
+}
+
+func TestGetTextMailProperties(t *testing.T) {
 	example2 := `From howard@localhost.localdomain  Sat Mar  5 12:12:14 2016
 X-Original-To: howard
 Delivered-To: howard@localhost.localdomain
@@ -72,13 +124,9 @@ From: howard@localhost.localdomain (Howard Guo)
 
 hi there
 `
-	if subj, contentType, addr := GetMailProperties("foobar"); subj != "" || contentType != "" || addr != "" {
-		t.Fatal(subj, addr)
-	}
-	if subj, contentType, addr := GetMailProperties(example1); subj != "message from houzuo guo" || contentType != `multipart/alternative; boundary="----------=_1457167900-29001-525"` || addr != "no.reply@example.com" {
-		t.Fatal(subj, addr)
-	}
-	if subj, contentType, addr := GetMailProperties(example2); subj != "hi" || contentType != `text/plain; charset=us-ascii` || addr != "me@example.com" {
+	if subj, contentType, addr := GetMailProperties(example2); subj != "hi" ||
+		contentType != `text/plain; charset=us-ascii` ||
+		addr != "me@example.com" {
 		t.Fatal(subj, addr)
 	}
 }
