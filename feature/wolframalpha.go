@@ -3,58 +3,32 @@ package feature
 import (
 	"bytes"
 	"encoding/xml"
-	"errors"
 	"log"
 	"strings"
 )
 
-// Implement Result interface for WolframAlpha query.
-type WolframAlphaResult struct {
-	Error     error
-	RawOutput []byte
-}
-
-func (waResult *WolframAlphaResult) Err() error {
-	return waResult.Error
-}
-
-func (waResult *WolframAlphaResult) ErrText() string {
-	if waResult.Error == nil {
-		return ""
-	}
-	return waResult.Error.Error()
-}
-
-func (waResult *WolframAlphaResult) OutText() string {
-	if waResult.RawOutput == nil {
-		return ""
-	}
-	return string(waResult.RawOutput)
-}
-
-func (waResult *WolframAlphaResult) CombinedText() (ret string) {
-	errText := waResult.ErrText()
-	outText := waResult.OutText()
-	if errText != "" {
-		ret = errText
-		if outText != "" {
-			ret += COMBINED_TEXT_SEP
-		}
-	}
-	ret += outText
-	return
-}
-
-// Query WolframAlpha.
+// Send query to WolframAlpha.
 type WolframAlpha struct {
 	AppID string // Secret application ID granted by WolframAlpha developer console for authorising requests
 }
 
-func (wa *WolframAlpha) InitAndTest() error {
-	if wa.AppID == "" {
-		return errors.New("WolframAlpha AppID is empty")
+var TestWolframAlpha = WolframAlpha{} // AppID is set by init_test.go
+
+func (wa *WolframAlpha) IsConfigured() bool {
+	return wa.AppID != ""
+}
+
+func (wa *WolframAlpha) Initialise() error {
+	log.Print("WolframAlpha.Initiaise: in progress")
+	if !wa.IsConfigured() {
+		return ErrIncompleteConfig
 	}
-	// TODO: call WolframAlpha to validate AppID
+	// Make a test query to verify AppID and response data structure
+	testExec := wa.Execute(&Command{TimeoutSec: 30, Content: "pi"})
+	if testExec.Error != nil {
+		return testExec.Error
+	}
+	log.Printf("WolframAlpha.Initialise: successfully completed (test query returned %d characters)", len(testExec.Output))
 	return nil
 }
 
@@ -62,13 +36,31 @@ func (wa *WolframAlpha) TriggerPrefix() string {
 	return ".w"
 }
 
-func (wa *WolframAlpha) Execute(timeoutSec int, query string) (ret Result) {
-	log.Printf("WolframAlpha.Execute: will run query - %s", query)
-	return nil
+func (wa *WolframAlpha) Execute(cmd *Command) (ret *Result) {
+	LogBeforeExecute(cmd)
+	defer func() {
+		LogAfterExecute(cmd, ret)
+	}()
+	if errResult := cmd.Trim(); errResult != nil {
+		ret = errResult
+		return
+	}
+
+	status, resp, err := DoHTTP(cmd.TimeoutSec, "GET", "application/x-www-form-urlencoded; charset=UTF-8", nil, nil,
+		"https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext", wa.AppID, cmd.Content)
+	if errResult := HTTPResponseError(status, resp, err); errResult != nil {
+		ret = errResult
+	} else if text, err := wa.ExtractResponse(resp); err != nil {
+		ret = &Result{Error: err, Output: string(resp)}
+	} else {
+		ret = &Result{Error: nil, Output: text}
+	}
+	return
 }
 
-// Extract "pods" from WolframAlpha API response in XML.
-func (wa *WolframAlpha) ExtractResponse(xmlBody []byte) string {
+// Extract information "pods" from WolframAlpha API response in XML.
+func (wa *WolframAlpha) ExtractResponse(xmlBody []byte) (string, error) {
+	// Extract plain text information
 	type SubPod struct {
 		TextInfo string `xml:"plaintext"`
 		Title    string `xml:"title,attr"`
@@ -82,15 +74,17 @@ func (wa *WolframAlpha) ExtractResponse(xmlBody []byte) string {
 	}
 	var result QueryResult
 	if err := xml.Unmarshal(xmlBody, &result); err != nil {
-		return err.Error()
+		return "", err
 	}
+	// Compact information from all pods into a single string
 	var outBuf bytes.Buffer
 	for _, pod := range result.Pods {
 		for _, subPod := range pod.SubPods {
-			// Further compact output by eliminating " |" from pods
+			// Compact pod's key+value ("key | value") by eliminating the pipe symbol
 			outBuf.WriteString(strings.TrimSpace(strings.Replace(subPod.TextInfo, " |", "", -1)))
+			// Terminate a piece of pod info with full stop
 			outBuf.WriteRune('.')
 		}
 	}
-	return outBuf.String()
+	return outBuf.String(), nil
 }
