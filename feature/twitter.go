@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	TWITTER_GET_TIMELINE  = "g"
-	TWITTER_POST_TIMELINE = "p"
+	TWITTER_GET_FEEDS = "g"
+	TWITTER_TWEET     = "p"
 )
 
-var RegexTwoNumbers = regexp.MustCompile("([0-9]+)[^0-9]+([0-9]+)") // Capture two groups of numbers
+var RegexTwoNumbers = regexp.MustCompile(`([0-9]+)[^0-9]+([0-9]+)`) // Capture two groups of numbers
 
 // Use Twitter API to interact with user's time-line.
 type Twitter struct {
@@ -49,7 +49,7 @@ func (twi *Twitter) Initialise() error {
 		ConsumerSecret:    twi.APIConsumerSecret,
 	}
 	// Make a test query (retrieve one tweet) to verify validity of API credentials
-	testExec := twi.Execute(&Command{TimeoutSec: 30, Content: TWITTER_GET_TIMELINE})
+	testExec := twi.Execute(&Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS})
 	if testExec.Error != nil {
 		return testExec.Error
 	}
@@ -71,19 +71,18 @@ func (twi *Twitter) Execute(cmd *Command) (ret *Result) {
 		return
 	}
 
-	if strings.HasPrefix(cmd.Content, TWITTER_GET_TIMELINE) {
-		ret = twi.GetTimeline(cmd)
-	} else if strings.HasPrefix(cmd.Content, TWITTER_POST_TIMELINE) {
-		ret = twi.PostTimeline(cmd)
+	if strings.HasPrefix(cmd.Content, TWITTER_GET_FEEDS) {
+		ret = twi.GetFeeds(cmd)
+	} else if strings.HasPrefix(cmd.Content, TWITTER_TWEET) {
+		ret = twi.Tweet(cmd)
 	} else {
-		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TWITTER_GET_TIMELINE, TWITTER_POST_TIMELINE)}
-		return
+		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TWITTER_GET_FEEDS, TWITTER_TWEET)}
 	}
 	return
 }
 
 // Retrieve tweets from timeline.
-func (twi *Twitter) GetTimeline(cmd *Command) *Result {
+func (twi *Twitter) GetFeeds(cmd *Command) *Result {
 	// Find two numeric parameters among the content
 	var skip, count int
 	params := RegexTwoNumbers.FindStringSubmatch(cmd.Content)
@@ -136,8 +135,8 @@ func (twi *Twitter) GetTimeline(cmd *Command) *Result {
 }
 
 // Post a new tweet to timeline.
-func (twi *Twitter) PostTimeline(cmd *Command) *Result {
-	tweet := strings.TrimSpace(strings.TrimPrefix(cmd.Content, TWITTER_POST_TIMELINE))
+func (twi *Twitter) Tweet(cmd *Command) *Result {
+	tweet := strings.TrimSpace(strings.TrimPrefix(cmd.Content, TWITTER_TWEET))
 	if tweet == "" {
 		return &Result{Error: errors.New("Post content is empty")}
 	}
@@ -148,7 +147,7 @@ func (twi *Twitter) PostTimeline(cmd *Command) *Result {
 	if errResult := HTTPResponseError(status, resp, err); errResult != nil {
 		return errResult
 	}
-	// The output is simply the length of trimmed tweet
+	// The OK output is simply the length of trimmed tweet
 	return &Result{Output: strconv.Itoa(len(tweet))}
 }
 

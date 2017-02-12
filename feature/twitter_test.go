@@ -18,23 +18,23 @@ func TestTwitter_Execute(t *testing.T) {
 		t.Fatal("did not error")
 	}
 	// Retrieve one latest tweet
-	if ret := TestTwitter.Execute(&Command{TimeoutSec: 30, Content: TWITTER_GET_TIMELINE}); ret.Error != nil ||
+	if ret := TestTwitter.Execute(&Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS}); ret.Error != nil ||
 		len(strings.Split(ret.Output, "\n")) != 1+1 {
 		t.Fatal(ret)
 	}
 	// Retrieve 4 tweets after skip the very latest one
-	if ret := TestTwitter.Execute(&Command{TimeoutSec: 30, Content: TWITTER_GET_TIMELINE + "1, 5"}); ret.Error != nil ||
+	if ret := TestTwitter.Execute(&Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS + "1, 5"}); ret.Error != nil ||
 		len(strings.Split(ret.Output, "\n")) != 5+1 {
 		t.Fatal(ret)
 	}
 	// Post an empty tweet should result in error
-	if ret := TestTwitter.Execute(&Command{TimeoutSec: 30, Content: TWITTER_POST_TIMELINE + "  "}); ret.Error == nil ||
+	if ret := TestTwitter.Execute(&Command{TimeoutSec: 30, Content: TWITTER_TWEET + "  "}); ret.Error == nil ||
 		ret.ErrText() != "Post content is empty" {
 		t.Fatal(ret)
 	}
 	// Post a good tweet
 	tweet := "test pls ignore"
-	if ret := TestTwitter.Execute(&Command{TimeoutSec: 30, Content: TWITTER_POST_TIMELINE + tweet}); ret.Error != nil ||
+	if ret := TestTwitter.Execute(&Command{TimeoutSec: 30, Content: TWITTER_TWEET + tweet}); ret.Error != nil ||
 		ret.Output != strconv.Itoa(len(tweet)) {
 		t.Fatal(ret)
 	}
