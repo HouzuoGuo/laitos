@@ -27,7 +27,7 @@ func TestTwitter_Execute(t *testing.T) {
 		len(strings.Split(ret.Output, "\n")) != 5+1 {
 		t.Fatal(ret)
 	}
-	// Post an empty tweet should result in error
+	// Posting an empty tweet should result in error
 	if ret := TestTwitter.Execute(&Command{TimeoutSec: 30, Content: TWITTER_TWEET + "  "}); ret.Error == nil ||
 		ret.ErrText() != "Post content is empty" {
 		t.Fatal(ret)
