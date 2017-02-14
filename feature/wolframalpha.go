@@ -18,17 +18,21 @@ func (wa *WolframAlpha) IsConfigured() bool {
 	return wa.AppID != ""
 }
 
-func (wa *WolframAlpha) Initialise() error {
-	log.Print("WolframAlpha.Initiaise: in progress")
+func (wa *WolframAlpha) SelfTest() error {
 	if !wa.IsConfigured() {
 		return ErrIncompleteConfig
 	}
 	// Make a test query to verify AppID and response data structure
 	testExec := wa.Execute(Command{TimeoutSec: 30, Content: "pi"})
-	if testExec.Error != nil {
-		return testExec.Error
+	return testExec.Error
+}
+
+func (wa *WolframAlpha) Initialise() error {
+	log.Print("WolframAlpha.Initiaise: in progress")
+	if err := wa.SelfTest(); err != nil {
+		return err
 	}
-	log.Printf("WolframAlpha.Initialise: successfully completed (test query returned %d characters)", len(testExec.Output))
+	log.Print("WolframAlpha.Initialise: successfully completed")
 	return nil
 }
 

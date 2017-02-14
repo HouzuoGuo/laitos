@@ -1,7 +1,6 @@
 package feature
 
 import (
-	"errors"
 	"log"
 	"net/url"
 	"strconv"
@@ -18,13 +17,16 @@ func (fb *Facebook) IsConfigured() bool {
 	return fb.AccessToken != ""
 }
 
-func (fb *Facebook) Initialise() error {
-	log.Print("Facebook.Initialise: in progress")
+func (fb *Facebook) SelfTest() error {
 	if !fb.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	// Make a test API call to validate API access token
-	if err := fb.ValidateAccessToken(); err != nil {
+	return fb.ValidateAccessToken()
+}
+
+func (fb *Facebook) Initialise() error {
+	log.Print("Facebook.Initialise: in progress")
+	if err := fb.SelfTest(); err != nil {
 		return err
 	}
 	log.Print("Facebook.Initialise: successfully completed")
@@ -55,12 +57,7 @@ func (fb *Facebook) Execute(cmd Command) (ret *Result) {
 }
 
 func (fb *Facebook) ValidateAccessToken() error {
-	_, resp, err := DoHTTP(30, "GET", "", nil, nil,
+	_, _, err := DoHTTP(30, "GET", "", nil, nil,
 		"https://graph.facebook.com/2.8/me?access_token=%s", fb.AccessToken)
-	if err != nil {
-		return err
-	} else if len(resp) < 10 {
-		return errors.New("Response body seems too short: " + string(resp))
-	}
-	return nil
+	return err
 }

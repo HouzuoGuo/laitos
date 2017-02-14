@@ -40,9 +40,10 @@ func (cmd *Command) Trim() *Result {
 // Represent a useful feature that is capable of execution and provide execution result as feedback.
 type Feature interface {
 	IsConfigured() bool      // Return true only if configuration is present, this is called prior to Initialise().
-	Initialise() error       // Prepare internal states by running configuration and a self-test
-	TriggerPrefix() string   // Command prefix string to trigger the feature
-	Execute(Command) *Result // Feature execution and return the result
+	SelfTest() error         // Validate and test configuration.
+	Initialise() error       // Prepare internal states by running configuration and a self-test.
+	TriggerPrefix() string   // Return a command prefix string (e.g. ".t") to trigger the feature.
+	Execute(Command) *Result // Execute the command and return result.
 }
 
 // Feedback from feature execution that gives human readable output and error (if any).

@@ -36,11 +36,17 @@ func (twi *Twitter) IsConfigured() bool {
 		twi.APIConsumerKey != "" && twi.APIConsumerSecret != ""
 }
 
-func (twi *Twitter) Initialise() error {
-	log.Print("Twitter.Initialise: in progress")
+func (twi *Twitter) SelfTest() error {
 	if !twi.IsConfigured() {
 		return ErrIncompleteConfig
 	}
+	// Make a test query (retrieve one tweet) to verify validity of API credentials
+	testExec := twi.Execute(Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS})
+	return testExec.Error
+}
+
+func (twi *Twitter) Initialise() error {
+	log.Print("Twitter.Initialise: in progress")
 	// Initialise API request signer
 	twi.reqSigner = &oauth.AuthHead{
 		AccessToken:       twi.APIAccessToken,
@@ -48,12 +54,10 @@ func (twi *Twitter) Initialise() error {
 		ConsumerKey:       twi.APIConsumerKey,
 		ConsumerSecret:    twi.APIConsumerSecret,
 	}
-	// Make a test query (retrieve one tweet) to verify validity of API credentials
-	testExec := twi.Execute(Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS})
-	if testExec.Error != nil {
-		return testExec.Error
+	if err := twi.SelfTest(); err != nil {
+		return err
 	}
-	log.Printf("Twitter.Initialise: successfully completed (test query returned %d characters)", len(testExec.Output))
+	log.Print("Twitter.Initialise: successfully completed")
 	return nil
 }
 

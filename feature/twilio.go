@@ -32,13 +32,17 @@ func (twi *Twilio) IsConfigured() bool {
 	return twi.PhoneNumber != "" && twi.AccountSID != "" && twi.AuthSecret != ""
 }
 
-func (twi *Twilio) Initialise() error {
-	log.Print("Twilio.Initialise: in progress")
+func (twi *Twilio) SelfTest() error {
 	if !twi.IsConfigured() {
 		return ErrIncompleteConfig
 	}
 	// Make a test API call to validate credentials
-	if err := twi.ValidateCredentials(); err != nil {
+	return twi.ValidateCredentials()
+}
+
+func (twi *Twilio) Initialise() error {
+	log.Print("Twilio.Initialise: in progress")
+	if err := twi.SelfTest(); err != nil {
 		return err
 	}
 	log.Print("Twilio.Initialise: successfully completed")
@@ -120,14 +124,9 @@ func (twi *Twilio) SendSMS(cmd Command) *Result {
 
 // Validate my account credentials, return an error only if credentials are invalid.
 func (twi *Twilio) ValidateCredentials() error {
-	_, resp, err := DoHTTP(30, "GET", "", nil, func(req *http.Request) error {
+	_, _, err := DoHTTP(30, "GET", "", nil, func(req *http.Request) error {
 		req.SetBasicAuth(twi.AccountSID, twi.AuthSecret)
 		return nil
 	}, "https://api.twilio.com/2010-04-01/Accounts/%s", twi.AccountSID)
-	if err != nil {
-		return err
-	} else if len(resp) < 100 {
-		return errors.New("Response body seems too short: " + string(resp))
-	}
-	return nil
+	return err
 }

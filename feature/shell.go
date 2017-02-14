@@ -21,19 +21,24 @@ func (sh *Shell) IsConfigured() bool {
 	return runtime.GOOS != "windows"
 }
 
-func (sh *Shell) Initialise() error {
-	log.Print("Shell.Initialise: in progress")
+func (sh *Shell) SelfTest() error {
 	if !sh.IsConfigured() {
 		return errors.New("Incompatible OS")
 	}
+	// The timeout for testing shell is gracious enough to allow disk to spin up from sleep
+	ret := sh.Execute(Command{TimeoutSec: 10, Content: "echo test"})
+	return ret.Error
+}
+
+func (sh *Shell) Initialise() error {
+	log.Print("Shell.Initialise: in progress")
 	// Find a shell interpreter with a preference to use bash
 	for _, shellName := range []string{"bash", "dash", "tcsh", "ksh", "sh"} {
 		for _, pathPrefix := range []string{"/bin", "/usr/bin", "/usr/local/bin"} {
 			shellPath := path.Join(pathPrefix, shellName)
 			if _, err := os.Stat(shellPath); err == nil {
 				sh.InterpreterPath = shellPath
-				// The timeout for testing shell is gracious enough to allow disk to spin up from sleep
-				if ret := sh.Execute(Command{TimeoutSec: 10, Content: "echo test"}); ret.Error == nil {
+				if err := sh.SelfTest(); err == nil {
 					goto afterShell
 				}
 				sh.InterpreterPath = ""
