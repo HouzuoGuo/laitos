@@ -57,7 +57,7 @@ func TestHTTPResponseError(t *testing.T) {
 
 func TestLog(t *testing.T) {
 	// Log functions should not crash
-	LogBeforeExecute(&Command{})
-	LogAfterExecute(&Command{}, nil)
-	LogAfterExecute(&Command{}, &Result{})
+	LogBeforeExecute(Command{})
+	LogAfterExecute(Command{}, nil)
+	LogAfterExecute(Command{}, &Result{})
 }

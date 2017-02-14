@@ -28,7 +28,7 @@ type Command struct {
 	Content    string
 }
 
-// Trim command content to remove leading and trailing white spaces. If content becomes empty afterwards, return an error result.
+// Modify command content to remove leading and trailing white spaces. If content becomes empty afterwards, return an error result.
 func (cmd *Command) Trim() *Result {
 	cmd.Content = strings.TrimSpace(cmd.Content)
 	if cmd.Content == "" {
@@ -39,10 +39,10 @@ func (cmd *Command) Trim() *Result {
 
 // Represent a useful feature that is capable of execution and provide execution result as feedback.
 type Feature interface {
-	IsConfigured() bool       // Return true only if configuration is present, this is called prior to Initialise().
-	Initialise() error        // Prepare internal states by running configuration and a self-test
-	TriggerPrefix() string    // Command prefix string to trigger the feature
-	Execute(*Command) *Result // Feature execution and return the result
+	IsConfigured() bool      // Return true only if configuration is present, this is called prior to Initialise().
+	Initialise() error       // Prepare internal states by running configuration and a self-test
+	TriggerPrefix() string   // Command prefix string to trigger the feature
+	Execute(Command) *Result // Feature execution and return the result
 }
 
 // Feedback from feature execution that gives human readable output and error (if any).
@@ -72,12 +72,12 @@ func (result *Result) CombinedText() (ret string) {
 }
 
 // Log a command prior to its execution.
-func LogBeforeExecute(cmd *Command) {
+func LogBeforeExecute(cmd Command) {
 	log.Printf(`Will use up to %d seconds to run command: %s`, cmd.TimeoutSec, cmd.Content)
 }
 
 // Log a command after its execution. To log the result properly, call the function this way: defer func() {Log(a,b)}
-func LogAfterExecute(cmd *Command, result *Result) {
+func LogAfterExecute(cmd Command, result *Result) {
 	var resultMsg string
 	if result == nil {
 		resultMsg = "(nil)"

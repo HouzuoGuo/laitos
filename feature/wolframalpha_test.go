@@ -9,10 +9,10 @@ func TestWolframAlpha_Execute(t *testing.T) {
 	if err := TestWolframAlpha.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if ret := TestWolframAlpha.Execute(&Command{TimeoutSec: 30, Content: "  "}); ret.Error == nil || ret.Error != ErrEmptyCommand {
+	if ret := TestWolframAlpha.Execute(Command{TimeoutSec: 30, Content: "  "}); ret.Error == nil || ret.Error != ErrEmptyCommand {
 		t.Fatal(ret)
 	}
-	if ret := TestWolframAlpha.Execute(&Command{TimeoutSec: 30, Content: "pi"}); ret.Error != nil || len(ret.CombinedText()) < 100 {
+	if ret := TestWolframAlpha.Execute(Command{TimeoutSec: 30, Content: "pi"}); ret.Error != nil || len(ret.CombinedText()) < 100 {
 		t.Fatal(ret.Error, ret.CombinedText())
 	}
 }

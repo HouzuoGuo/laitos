@@ -35,7 +35,7 @@ func (fb *Facebook) TriggerPrefix() string {
 	return ".f"
 }
 
-func (fb *Facebook) Execute(cmd *Command) (ret *Result) {
+func (fb *Facebook) Execute(cmd Command) (ret *Result) {
 	LogBeforeExecute(cmd)
 	defer func() {
 		LogAfterExecute(cmd, ret)

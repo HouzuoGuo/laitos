@@ -13,13 +13,13 @@ func TestFacebook_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Posting an empty message should result in an error
-	if ret := TestFacebook.Execute(&Command{TimeoutSec: 30, Content: "  "}); ret.Error == nil ||
+	if ret := TestFacebook.Execute(Command{TimeoutSec: 30, Content: "  "}); ret.Error == nil ||
 		ret.Error != ErrEmptyCommand {
 		t.Fatal(ret)
 	}
 	// Post a good tweet
 	message := "test pls ignore"
-	if ret := TestFacebook.Execute(&Command{TimeoutSec: 30, Content: message}); ret.Error != nil ||
+	if ret := TestFacebook.Execute(Command{TimeoutSec: 30, Content: message}); ret.Error != nil ||
 		ret.Output != strconv.Itoa(len(message)) {
 		t.Fatal(ret)
 	}

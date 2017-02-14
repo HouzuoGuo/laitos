@@ -49,7 +49,7 @@ func (twi *Twilio) TriggerPrefix() string {
 	return ".c"
 }
 
-func (twi *Twilio) Execute(cmd *Command) (ret *Result) {
+func (twi *Twilio) Execute(cmd Command) (ret *Result) {
 	LogBeforeExecute(cmd)
 	defer func() {
 		LogAfterExecute(cmd, ret)
@@ -70,7 +70,7 @@ func (twi *Twilio) Execute(cmd *Command) (ret *Result) {
 	return
 }
 
-func (twi *Twilio) MakeCall(cmd *Command) *Result {
+func (twi *Twilio) MakeCall(cmd Command) *Result {
 	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimSpace(strings.TrimPrefix(cmd.Content, TWILIO_MAKE_CALL)))
 	if len(params) < 3 {
 		return &Result{Error: errors.New("Call parameters are missing")}
@@ -94,7 +94,7 @@ func (twi *Twilio) MakeCall(cmd *Command) *Result {
 	return &Result{Error: nil, Output: strconv.Itoa(len(toNumber) + len(message))}
 }
 
-func (twi *Twilio) SendSMS(cmd *Command) *Result {
+func (twi *Twilio) SendSMS(cmd Command) *Result {
 	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimSpace(strings.TrimPrefix(cmd.Content, TWILIO_MAKE_CALL)))
 	if len(params) < 3 {
 		return &Result{Error: errors.New("SMS parameters are missing")}

@@ -33,7 +33,7 @@ func (sh *Shell) Initialise() error {
 			if _, err := os.Stat(shellPath); err == nil {
 				sh.InterpreterPath = shellPath
 				// The timeout for testing shell is gracious enough to allow disk to spin up from sleep
-				if ret := sh.Execute(&Command{TimeoutSec: 10, Content: "echo test"}); ret.Error == nil {
+				if ret := sh.Execute(Command{TimeoutSec: 10, Content: "echo test"}); ret.Error == nil {
 					goto afterShell
 				}
 				sh.InterpreterPath = ""
@@ -52,7 +52,7 @@ func (sh *Shell) TriggerPrefix() string {
 	return ".s"
 }
 
-func (sh *Shell) Execute(cmd *Command) (ret *Result) {
+func (sh *Shell) Execute(cmd Command) (ret *Result) {
 	LogBeforeExecute(cmd)
 	defer func() {
 		LogAfterExecute(cmd, ret)

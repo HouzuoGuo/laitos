@@ -24,7 +24,7 @@ func (wa *WolframAlpha) Initialise() error {
 		return ErrIncompleteConfig
 	}
 	// Make a test query to verify AppID and response data structure
-	testExec := wa.Execute(&Command{TimeoutSec: 30, Content: "pi"})
+	testExec := wa.Execute(Command{TimeoutSec: 30, Content: "pi"})
 	if testExec.Error != nil {
 		return testExec.Error
 	}
@@ -36,7 +36,7 @@ func (wa *WolframAlpha) TriggerPrefix() string {
 	return ".w"
 }
 
-func (wa *WolframAlpha) Execute(cmd *Command) (ret *Result) {
+func (wa *WolframAlpha) Execute(cmd Command) (ret *Result) {
 	LogBeforeExecute(cmd)
 	defer func() {
 		LogAfterExecute(cmd, ret)

@@ -49,7 +49,7 @@ func (twi *Twitter) Initialise() error {
 		ConsumerSecret:    twi.APIConsumerSecret,
 	}
 	// Make a test query (retrieve one tweet) to verify validity of API credentials
-	testExec := twi.Execute(&Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS})
+	testExec := twi.Execute(Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS})
 	if testExec.Error != nil {
 		return testExec.Error
 	}
@@ -61,7 +61,7 @@ func (twi *Twitter) TriggerPrefix() string {
 	return ".t"
 }
 
-func (twi *Twitter) Execute(cmd *Command) (ret *Result) {
+func (twi *Twitter) Execute(cmd Command) (ret *Result) {
 	LogBeforeExecute(cmd)
 	defer func() {
 		LogAfterExecute(cmd, ret)
@@ -82,7 +82,7 @@ func (twi *Twitter) Execute(cmd *Command) (ret *Result) {
 }
 
 // Retrieve tweets from timeline.
-func (twi *Twitter) GetFeeds(cmd *Command) *Result {
+func (twi *Twitter) GetFeeds(cmd Command) *Result {
 	// Find two numeric parameters among the content
 	var skip, count int
 	params := RegexTwoNumbers.FindStringSubmatch(cmd.Content)
@@ -135,7 +135,7 @@ func (twi *Twitter) GetFeeds(cmd *Command) *Result {
 }
 
 // Post a new tweet to timeline.
-func (twi *Twitter) Tweet(cmd *Command) *Result {
+func (twi *Twitter) Tweet(cmd Command) *Result {
 	tweet := strings.TrimSpace(strings.TrimPrefix(cmd.Content, TWITTER_TWEET))
 	if tweet == "" {
 		return &Result{Error: errors.New("Post content is empty")}
