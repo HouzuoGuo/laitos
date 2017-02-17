@@ -57,7 +57,7 @@ func TestStringLint_Transform(t *testing.T) {
 	lint.CompressSpaces = true
 	lint.BeginPosition = 2
 	lint.MaxLength = 14
-	if out := lint.Transform(mixedString); out != "c def 123 ;@#" {
+	if out := lint.Transform(mixedString); out != "c def 123;@#$<" {
 		t.Fatal(out)
 	}
 }

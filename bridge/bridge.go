@@ -2,12 +2,9 @@ package bridge
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/HouzuoGuo/websh/feature"
-	"os"
 	"regexp"
 	"strings"
-	"time"
 	"unicode"
 )
 
@@ -92,10 +89,7 @@ func (lint *StringLint) Transform(in string) string {
 	}
 	// Compress lines
 	if lint.CompressToSingleLine {
-		ret = strings.Replace(in, "\n", ";", -1)
-		time.Sleep(2 * time.Second)
-		panic(ret)
-		fmt.Fprintf(os.Stderr, "RET2 is =========\n%v\n========\n", []byte(ret))
+		ret = strings.Replace(ret, "\n", ";", -1)
 	}
 	// Retain printable chars
 	if lint.KeepVisible7BitCharOnly {
