@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"bytes"
-	"github.com/HouzuoGuo/websh/feature"
 	"regexp"
 	"strings"
 	"unicode"
@@ -10,52 +9,9 @@ import (
 
 var RegexConsecutiveSpaces = regexp.MustCompile("[[:space:]]+")
 
-// Provide transformation feature for input command.
-type CommandBridge interface {
-	Transform(feature.Command) feature.Command
-}
-
 // Provide transformation feature for command result.
 type ResultBridge interface {
-	Transform(string) string
-}
-
-// Expand shortcuts to full commands.
-type CommandShortcuts struct {
-	Shortcuts map[string]string
-}
-
-func (short *CommandShortcuts) Transform(cmd feature.Command) feature.Command {
-	if short.Shortcuts == nil {
-		return cmd
-	}
-	if shortcut, exists := short.Shortcuts[strings.TrimSpace(cmd.Content)]; exists {
-		ret := cmd
-		ret.Content = shortcut
-		return ret
-	}
-	return cmd
-}
-
-// Translate character sequences to something different.
-type CommandTranslator struct {
-	Sequences [][]string
-}
-
-func (tr *CommandTranslator) Transform(cmd feature.Command) feature.Command {
-	if tr.Sequences == nil {
-		return cmd
-	}
-	newContent := cmd.Content
-	for _, tuple := range tr.Sequences {
-		if len(tuple) != 2 {
-			continue
-		}
-		newContent = strings.Replace(newContent, tuple[0], tuple[1], -1)
-	}
-	ret := cmd
-	ret.Content = newContent
-	return ret
+	Transform(string) (string, error)
 }
 
 /*
@@ -76,7 +32,7 @@ type StringLint struct {
 	MaxLength               int
 }
 
-func (lint *StringLint) Transform(in string) string {
+func (lint *StringLint) Transform(in string) (string, error) {
 	ret := in
 	// Trim
 	if lint.TrimSpaces {
@@ -119,5 +75,5 @@ func (lint *StringLint) Transform(in string) string {
 			ret = ret[0:lint.MaxLength]
 		}
 	}
-	return ret
+	return ret, nil
 }

@@ -1,3 +1,4 @@
+// An Internet function or system function that takes a text command as input and responds with string text.
 package feature
 
 import (
@@ -37,11 +38,15 @@ func (cmd *Command) Trim() *Result {
 	return nil
 }
 
+func (cmd *Command) Lines() []string {
+	return strings.Split(cmd.Content, "\n")
+}
+
 // Represent a useful feature that is capable of execution and provide execution result as feedback.
 type Feature interface {
 	IsConfigured() bool      // Return true only if configuration is present, this is called prior to Initialise().
 	SelfTest() error         // Validate and test configuration.
-	Initialise() error       // Prepare internal states by running configuration and a self-test.
+	Initialise() error       // Prepare internal states.
 	TriggerPrefix() string   // Return a command prefix string (e.g. ".t") to trigger the feature.
 	Execute(Command) *Result // Execute the command and return result.
 }

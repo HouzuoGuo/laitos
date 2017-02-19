@@ -3,7 +3,6 @@ package feature
 import (
 	"bytes"
 	"encoding/xml"
-	"log"
 	"strings"
 )
 
@@ -28,11 +27,6 @@ func (wa *WolframAlpha) SelfTest() error {
 }
 
 func (wa *WolframAlpha) Initialise() error {
-	log.Print("WolframAlpha.Initiaise: in progress")
-	if err := wa.SelfTest(); err != nil {
-		return err
-	}
-	log.Print("WolframAlpha.Initialise: successfully completed")
 	return nil
 }
 

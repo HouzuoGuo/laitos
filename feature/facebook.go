@@ -1,7 +1,6 @@
 package feature
 
 import (
-	"log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -25,11 +24,6 @@ func (fb *Facebook) SelfTest() error {
 }
 
 func (fb *Facebook) Initialise() error {
-	log.Print("Facebook.Initialise: in progress")
-	if err := fb.SelfTest(); err != nil {
-		return err
-	}
-	log.Print("Facebook.Initialise: successfully completed")
 	return nil
 }
 

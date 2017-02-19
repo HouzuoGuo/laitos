@@ -3,7 +3,6 @@ package feature
 import (
 	"bytes"
 	"errors"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -31,7 +30,9 @@ func (sh *Shell) SelfTest() error {
 }
 
 func (sh *Shell) Initialise() error {
-	log.Print("Shell.Initialise: in progress")
+	if sh.InterpreterPath != "" {
+		goto afterShell
+	}
 	// Find a shell interpreter with a preference to use bash
 	for _, shellName := range []string{"bash", "dash", "tcsh", "ksh", "sh"} {
 		for _, pathPrefix := range []string{"/bin", "/usr/bin", "/usr/local/bin"} {
@@ -49,7 +50,6 @@ afterShell:
 	if sh.InterpreterPath == "" {
 		return errors.New("Failed to find a working shell interpreter (bash/dash/tcsh/ksh/sh)")
 	}
-	log.Printf("Shell.Initialise: successfully completed (shell is %s)", sh.InterpreterPath)
 	return nil
 }
 

@@ -3,7 +3,6 @@ package feature
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -41,11 +40,6 @@ func (twi *Twilio) SelfTest() error {
 }
 
 func (twi *Twilio) Initialise() error {
-	log.Print("Twilio.Initialise: in progress")
-	if err := twi.SelfTest(); err != nil {
-		return err
-	}
-	log.Print("Twilio.Initialise: successfully completed")
 	return nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/websh/oauth"
-	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -46,7 +45,6 @@ func (twi *Twitter) SelfTest() error {
 }
 
 func (twi *Twitter) Initialise() error {
-	log.Print("Twitter.Initialise: in progress")
 	// Initialise API request signer
 	twi.reqSigner = &oauth.AuthHead{
 		AccessToken:       twi.APIAccessToken,
@@ -54,10 +52,6 @@ func (twi *Twitter) Initialise() error {
 		ConsumerKey:       twi.APIConsumerKey,
 		ConsumerSecret:    twi.APIConsumerSecret,
 	}
-	if err := twi.SelfTest(); err != nil {
-		return err
-	}
-	log.Print("Twitter.Initialise: successfully completed")
 	return nil
 }
 
