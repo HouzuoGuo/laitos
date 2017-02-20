@@ -51,7 +51,7 @@ func (fb *Facebook) Execute(cmd Command) (ret *Result) {
 }
 
 func (fb *Facebook) ValidateAccessToken() error {
-	_, _, err := DoHTTP(30, "GET", "", nil, nil,
+	_, _, err := DoHTTP(HTTP_TEST_TIMEOUT_SEC, "GET", "", nil, nil,
 		"https://graph.facebook.com/2.8/me?access_token=%s", fb.AccessToken)
 	return err
 }

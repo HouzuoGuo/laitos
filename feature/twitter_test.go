@@ -2,7 +2,6 @@ package feature
 
 import (
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -13,18 +12,21 @@ func TestTwitter_Execute(t *testing.T) {
 	if err := TestTwitter.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	if err := TestTwitter.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
 	// Nothing to do
 	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"}); ret.Error == nil {
 		t.Fatal("did not error")
 	}
 	// Retrieve one latest tweet
 	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS}); ret.Error != nil ||
-		len(strings.Split(ret.Output, "\n")) != 1+1 {
+		len(ret.Output) < 10 || len(ret.Output) > 200 {
 		t.Fatal(ret)
 	}
-	// Retrieve 4 tweets after skip the very latest one
-	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS + "1, 5"}); ret.Error != nil ||
-		len(strings.Split(ret.Output, "\n")) != 5+1 {
+	// Retrieve 5 tweets after skipping the latest three tweets
+	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS + "3, 5"}); ret.Error != nil ||
+		len(ret.Output) < 50 || len(ret.Output) > 1000 {
 		t.Fatal(ret)
 	}
 	// Posting an empty tweet should result in error

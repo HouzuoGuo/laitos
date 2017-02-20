@@ -40,7 +40,7 @@ func (twi *Twitter) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make a test query (retrieve one tweet) to verify validity of API credentials
-	testExec := twi.Execute(Command{TimeoutSec: 30, Content: TWITTER_GET_FEEDS})
+	testExec := twi.Execute(Command{TimeoutSec: HTTP_TEST_TIMEOUT_SEC, Content: TWITTER_GET_FEEDS})
 	return testExec.Error
 }
 

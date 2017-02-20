@@ -12,6 +12,9 @@ func TestTwilio_Execute(t *testing.T) {
 	if err := TestTwilio.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	if err := TestTwilio.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
 	// Nothing to do
 	if ret := TestTwilio.Execute(Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"}); ret.Error == nil {
 		t.Fatal("did not error")

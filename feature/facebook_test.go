@@ -12,6 +12,9 @@ func TestFacebook_Execute(t *testing.T) {
 	if err := TestFacebook.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	if err := TestFacebook.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
 	// Posting an empty message should result in an error
 	if ret := TestFacebook.Execute(Command{TimeoutSec: 30, Content: "  "}); ret.Error == nil ||
 		ret.Error != ErrEmptyCommand {

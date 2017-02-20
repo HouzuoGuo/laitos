@@ -13,7 +13,7 @@ func CommandPINOrShortcut_Transform(t *testing.T) {
 	if out, err := pin.Transform(feature.Command{Content: "mypineapple"}); err != nil || out.Content != "eapple" {
 		t.Fatal(out)
 	}
-	if out, err := pin.Transform(feature.Command{Content: "\n\n mypineapple \n\n"}); err != nil || out.Content != "eapple" {
+	if out, err := pin.Transform(feature.Command{Content: "\nline\n mypineapple \nline\n"}); err != nil || out.Content != "eapple" {
 		t.Fatal(out)
 	}
 	pin.Shortcuts = map[string]string{"abc": "123", "def": "456"}
@@ -23,10 +23,10 @@ func CommandPINOrShortcut_Transform(t *testing.T) {
 	if out, err := pin.Transform(feature.Command{Content: "\n\n mypineapple \n\n"}); err != nil || out.Content != "eapple" {
 		t.Fatal(out)
 	}
-	if out, err := pin.Transform(feature.Command{Content: "\n\n abc"}); err != nil || out.Content != "123" {
+	if out, err := pin.Transform(feature.Command{Content: "\n\n abc\nline"}); err != nil || out.Content != "123" {
 		t.Fatal(out)
 	}
-	if out, err := pin.Transform(feature.Command{Content: "\n\n def \n\n"}); err != nil || out.Content != "456" {
+	if out, err := pin.Transform(feature.Command{Content: "\nline\n\n def \n\n"}); err != nil || out.Content != "456" {
 		t.Fatal(out)
 	}
 	if out, err := pin.Transform(feature.Command{Content: "ghi"}); err != nil || out.Content != "ghi" {

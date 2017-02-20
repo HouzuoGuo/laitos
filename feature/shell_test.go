@@ -12,9 +12,11 @@ func TestShell_Execute(t *testing.T) {
 	if !sh.IsConfigured() {
 		t.Skip()
 	}
-
-	if err := sh.Initialise(); err != nil || sh.InterpreterPath == "" {
-		t.Fatal(err, sh)
+	if err := sh.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if err := sh.SelfTest(); err != nil {
+		t.Fatal(err)
 	}
 
 	// Execute empty command

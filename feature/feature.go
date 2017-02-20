@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	COMBINED_TEXT_SEP = "|" // Separate error and command output in the combined output
+	COMBINED_TEXT_SEP     = "|" // Separate error and command output in the combined output
+	HTTP_TEST_TIMEOUT_SEC = 60  // Timeout for HTTP requests among those involved in self tests
 )
 
 var (

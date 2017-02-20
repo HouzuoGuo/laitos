@@ -22,7 +22,7 @@ func (wa *WolframAlpha) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make a test query to verify AppID and response data structure
-	testExec := wa.Execute(Command{TimeoutSec: 30, Content: "pi"})
+	testExec := wa.Execute(Command{TimeoutSec: HTTP_TEST_TIMEOUT_SEC, Content: "pi"})
 	return testExec.Error
 }
 

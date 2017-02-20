@@ -63,7 +63,6 @@ func (twi *Twilio) Execute(cmd Command) (ret *Result) {
 		ret = twi.SendSMS(cmd)
 	} else {
 		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TWILIO_MAKE_CALL, TWILIO_SEND_SMS)}
-		return
 	}
 	return
 }
@@ -79,7 +78,7 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 	formParams := url.Values{
 		"From": []string{twi.PhoneNumber},
 		"To":   []string{toNumber},
-		"Url":  []string{"http://twimlets.com/message?Message=" + url.QueryEscape(message+" repeat once more "+message)}}
+		"Url":  []string{"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s repeat once again %s repeat once again %s over", message, message, message))}}
 
 	status, resp, err := DoHTTP(cmd.TimeoutSec, "POST", "", strings.NewReader(formParams.Encode()), func(req *http.Request) error {
 		req.SetBasicAuth(twi.AccountSID, twi.AuthSecret)
@@ -118,7 +117,7 @@ func (twi *Twilio) SendSMS(cmd Command) *Result {
 
 // Validate my account credentials, return an error only if credentials are invalid.
 func (twi *Twilio) ValidateCredentials() error {
-	_, _, err := DoHTTP(30, "GET", "", nil, func(req *http.Request) error {
+	_, _, err := DoHTTP(HTTP_TEST_TIMEOUT_SEC, "GET", "", nil, func(req *http.Request) error {
 		req.SetBasicAuth(twi.AccountSID, twi.AuthSecret)
 		return nil
 	}, "https://api.twilio.com/2010-04-01/Accounts/%s", twi.AccountSID)
