@@ -1,0 +1,10 @@
+HTTP server:
+/voice - Feature set, PIN, shortcuts. Output only keeps 7bit char, compacts, and caps max length.
+/sms - Feature set, PIN, shortcuts, translator. Output only keeps 7bit chat, compacts, and caps max length.
+/plain - Feature set, PIN, shortcuts. Output caps max length.
+
+Mail processor:
+ordinary mail: Feature set, PIN, shortcuts. Output caps max length.
+ordinary multipart: Feature set, PIN, shortcuts. Output caps max length.
+undocumented1 mail: Feature set, PIN, shortcuts. Output only keeps 7bit char, compacts, and caps max length.
+undocumented1 multipart: Feature set, PIN, shortcuts. Output only keeps 7bit chat, compacts, and caps max length.

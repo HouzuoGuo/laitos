@@ -15,6 +15,7 @@ type FeatureSet struct {
 	Twilio       feature.Twilio
 	Twitter      feature.Twitter
 	WolframAlpha feature.WolframAlpha
+	Undocumented1 feature.Undocumented1
 }
 
 // Initialise all features from JSON configuration. If a feature's JSON key is missing, the feature won't be initialised.
@@ -25,6 +26,7 @@ func (fs *FeatureSet) Initialise(config map[string]json.RawMessage) error {
 		"Twilio":       &fs.Twilio,
 		"Twitter":      &fs.Twitter,
 		"WolframAlpha": &fs.WolframAlpha,
+		"Undocumented1": &fs.Undocumented1,
 	}
 	// Deserialise configuration of individual feature
 	for jsonKey, featureRef := range features {
@@ -53,12 +55,4 @@ type FrontendDaemon interface {
 	StartAndBlock() error
 	SelfTest() error
 	Stop() error
-}
-
-// Look for PIN prefix among the input lines, return first matched line trimmed and without PIN prefix. Panic on empty PIN.
-func MatchPINAmongLines(in, pin string) string {
-	if pin == "" {
-		log.Panic("MatchPINAmongLines: input PIN is empty")
-	}
-
 }
