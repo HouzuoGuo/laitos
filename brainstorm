@@ -8,3 +8,13 @@ ordinary mail: Feature set, PIN, shortcuts. Output caps max length.
 ordinary multipart: Feature set, PIN, shortcuts. Output caps max length.
 undocumented1 mail: Feature set, PIN, shortcuts. Output only keeps 7bit char, compacts, and caps max length.
 undocumented1 multipart: Feature set, PIN, shortcuts. Output only keeps 7bit chat, compacts, and caps max length.
+
+
+Common input options:
+Feature set
+PIN
+shortcuts
+translator
+
+Common output options:
+Max length

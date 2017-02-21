@@ -1,16 +1,16 @@
 package mail
 
 import (
-	"strings"
 	"regexp"
+	"strings"
 )
 
-const WEBSH_MAIL_SUBJECT_KEYWORD = "websh" // the keyword to appear in all outgoing mails sent by websh
+const WEBSH_MAIL_SUBJECT_KEYWORD = "greetings from websh" // the keyword to appear in all outgoing mails sent by websh
 
 var RegexMailAddress = regexp.MustCompile(`[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+@[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+.[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+`)
 
 /*
-Read an entire email and figure out subject, content type, and address to reply to.
+Read an entire email and figure out subject, content type, and address to reply to, all in lower case.
 Return nothing if the email appears to be originated from websh itself.
 All return values are in lower case.
 */

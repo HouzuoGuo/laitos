@@ -40,15 +40,15 @@ func TestResult(t *testing.T) {
 }
 
 func TestHTTPResponseError(t *testing.T) {
-	if errResult := HTTPResponseError(200, []byte("good"), nil); errResult != nil {
+	if errResult := HTTPResponseErrorResult(200, []byte("good"), nil); errResult != nil {
 		t.Fatal(errResult)
 	}
-	if errResult := HTTPResponseError(400, []byte("bad"), nil); errResult == nil ||
+	if errResult := HTTPResponseErrorResult(400, []byte("bad"), nil); errResult == nil ||
 		errResult.Error.Error() != "HTTP 400: bad" ||
 		errResult.Output != "bad" {
 		t.Fatal(errResult)
 	}
-	if errResult := HTTPResponseError(200, []byte("also bad"), os.ErrInvalid); errResult == nil ||
+	if errResult := HTTPResponseErrorResult(200, []byte("also bad"), os.ErrInvalid); errResult == nil ||
 		errResult.Error != os.ErrInvalid ||
 		errResult.Output != "also bad" {
 		t.Fatal(errResult)

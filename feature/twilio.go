@@ -18,32 +18,36 @@ const (
 var RegexNumberAndMessage = regexp.MustCompile(`(\+[0-9]+)[^\w]+(.*)`)
 
 type Twilio struct {
-	PhoneNumber string // Twilio telephone number for outbound call and SMS
-	AccountSID  string // Twilio account SID
-	AuthSecret  string // Twilio authentication secret token
+	PhoneNumber string `json:"PhoneNumber"` // Twilio telephone country code and number (the number you purchased from Twilio)
+	AccountSID  string `json:"AccountSID"`  // Twilio account SID ("Account Settings - LIVE Credentials - Account SID")
+	AuthToken   string `json:"AuthToken"`   // Twilio authentication secret token ("Account Settings - LIVE Credentials - Auth Token")
 
-	TestPhoneNumber string // Set by init_test.go for running test case
+	TestPhoneNumber string `json:"-"` // Set by init_test.go for running test case, not a configuration.
 }
 
 var TestTwilio = Twilio{} // API credentials are set by init_test.go
 
 func (twi *Twilio) IsConfigured() bool {
-	return twi.PhoneNumber != "" && twi.AccountSID != "" && twi.AuthSecret != ""
+	return twi.PhoneNumber != "" && twi.AccountSID != "" && twi.AuthToken != ""
 }
 
 func (twi *Twilio) SelfTest() error {
 	if !twi.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	// Make a test API call to validate credentials
-	return twi.ValidateCredentials()
+	// Validate API credentials with a simple API call
+	status, resp, err := DoHTTP(HTTP_TEST_TIMEOUT_SEC, "GET", "", nil, func(req *http.Request) error {
+		req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
+		return nil
+	}, "https://api.twilio.com/2010-04-01/Accounts/%s", twi.AccountSID)
+	return HTTPResponseError(status, resp, err)
 }
 
 func (twi *Twilio) Initialise() error {
 	return nil
 }
 
-func (twi *Twilio) TriggerPrefix() string {
+func (twi *Twilio) Trigger() Trigger {
 	return ".c"
 }
 
@@ -81,10 +85,10 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 		"Url":  []string{"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s repeat once again %s repeat once again %s over", message, message, message))}}
 
 	status, resp, err := DoHTTP(cmd.TimeoutSec, "POST", "", strings.NewReader(formParams.Encode()), func(req *http.Request) error {
-		req.SetBasicAuth(twi.AccountSID, twi.AuthSecret)
+		req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
 		return nil
 	}, "https://api.twilio.com/2010-04-01/Accounts/%s/Calls.json", twi.AccountSID)
-	if errResult := HTTPResponseError(status, resp, err); errResult != nil {
+	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
 		return errResult
 	}
 	// The OK output is simply the length of number + message
@@ -105,21 +109,12 @@ func (twi *Twilio) SendSMS(cmd Command) *Result {
 		"Body": []string{message}}
 
 	status, resp, err := DoHTTP(cmd.TimeoutSec, "POST", "", strings.NewReader(formParams.Encode()), func(req *http.Request) error {
-		req.SetBasicAuth(twi.AccountSID, twi.AuthSecret)
+		req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
 		return nil
 	}, "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json", twi.AccountSID)
-	if errResult := HTTPResponseError(status, resp, err); errResult != nil {
+	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
 		return errResult
 	}
 	// The OK output is simply the length of number + message
 	return &Result{Error: nil, Output: strconv.Itoa(len(toNumber) + len(message))}
-}
-
-// Validate my account credentials, return an error only if credentials are invalid.
-func (twi *Twilio) ValidateCredentials() error {
-	_, _, err := DoHTTP(HTTP_TEST_TIMEOUT_SEC, "GET", "", nil, func(req *http.Request) error {
-		req.SetBasicAuth(twi.AccountSID, twi.AuthSecret)
-		return nil
-	}, "https://api.twilio.com/2010-04-01/Accounts/%s", twi.AccountSID)
-	return err
 }

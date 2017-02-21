@@ -43,12 +43,14 @@ func (cmd *Command) Lines() []string {
 	return strings.Split(cmd.Content, "\n")
 }
 
+type Trigger string // Trigger is a prefix string that is matched against command input to trigger a feature, each feature has a unique trigger.
+
 // Represent a useful feature that is capable of execution and provide execution result as feedback.
 type Feature interface {
 	IsConfigured() bool      // Return true only if configuration is present, this is called prior to Initialise().
 	SelfTest() error         // Validate and test configuration.
 	Initialise() error       // Prepare internal states.
-	TriggerPrefix() string   // Return a command prefix string (e.g. ".t") to trigger the feature.
+	Trigger() Trigger        // Return a prefix string that is matched against command input to trigger a feature, each feature has a unique trigger.
 	Execute(Command) *Result // Execute the command and return result.
 }
 
@@ -129,8 +131,19 @@ func DoHTTP(timeoutSec int, method string, contentType string, reqBody io.Reader
 	return
 }
 
-// If HTTP response constitutes any sort of error, return the error in a Result. Otherwise return nil.
-func HTTPResponseError(status int, respBody []byte, err error) *Result {
+// If HTTP status is not 2xx or HTTP response already has an error, return an error. Otherwise return nil.
+func HTTPResponseError(status int, respBody []byte, err error) error {
+	if err != nil {
+		return err
+	} else if status/200 != 1 {
+		return fmt.Errorf("HTTP %d: %s", status, string(respBody))
+	} else {
+		return nil
+	}
+}
+
+// If HTTP status is not 2xx or HTTP response already has an error, return an error result. Otherwise return nil.
+func HTTPResponseErrorResult(status int, respBody []byte, err error) *Result {
 	if err != nil {
 		return &Result{Error: err, Output: string(respBody)}
 	} else if status/200 != 1 {

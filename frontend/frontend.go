@@ -3,49 +3,22 @@ package frontend
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/HouzuoGuo/websh/bridge"
 	"github.com/HouzuoGuo/websh/feature"
-	"log"
 )
 
-// Aggregate all available features together.
-type FeatureSet struct {
-	Facebook     feature.Facebook
-	Shell        feature.Shell
-	Twilio       feature.Twilio
-	Twitter      feature.Twitter
-	WolframAlpha feature.WolframAlpha
-	Undocumented1 feature.Undocumented1
+// Expose features over HTTP API endpoint.
+type FeaturesHTTPEndpoint struct {
+	Features       *feature.FeatureSet
+	CommandBridges []bridge.CommandBridge
+	ResultBridges  []bridge.ResultBridge
 }
 
-// Initialise all features from JSON configuration. If a feature's JSON key is missing, the feature won't be initialised.
-func (fs *FeatureSet) Initialise(config map[string]json.RawMessage) error {
-	features := map[string]feature.Feature{
-		"Facebook":     &fs.Facebook,
-		"Shell":        &fs.Shell,
-		"Twilio":       &fs.Twilio,
-		"Twitter":      &fs.Twitter,
-		"WolframAlpha": &fs.WolframAlpha,
-		"Undocumented1": &fs.Undocumented1,
-	}
-	// Deserialise configuration of individual feature
-	for jsonKey, featureRef := range features {
-		if conf, found := config[jsonKey]; found {
-			if err := json.Unmarshal(conf, featureRef); err != nil {
-				return fmt.Errorf("FeatureSet.Initialise: JSON error in key \"%s\" - %v", jsonKey, err)
-			}
-		}
-	}
-	// Initialise all features
-	for jsonKey, featureRef := range features {
-		if featureRef.IsConfigured() {
-			if err := featureRef.Initialise(); err != nil {
-				return err
-			}
-		} else {
-			log.Printf("FeatureSet.Initialise: skip initialisation of feature \"%s\" due to missing configuration", jsonKey)
-		}
-	}
+func (httpapi *FeaturesHTTPEndpoint) Initialise() {
+
+}
+
+func (httpapi *FeaturesHTTPEndpoint) RunCommand(cmd feature.Command) (ret *feature.Result) {
 	return nil
 }
 

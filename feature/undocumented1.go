@@ -1,6 +1,7 @@
 package feature
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -9,11 +10,11 @@ import (
 
 // An undocumented way to send message to myself.
 type Undocumented1 struct {
-	URL   string
-	Addr1 string
-	Addr2 string
-	ID1   string
-	ID2   string
+	URL   string `json:"URL"`
+	Addr1 string `json:"Addr1"`
+	Addr2 string `json:"Addr2"`
+	ID1   string `json:"ID1"`
+	ID2   string `json:"ID2"`
 }
 
 var TestUndocumented1 = Undocumented1{} // Details are set by init_test.go
@@ -27,9 +28,11 @@ func (und *Undocumented1) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	status, _, err := DoHTTP(HTTP_TEST_TIMEOUT_SEC, "GET", "", nil, nil, und.URL)
-	// Only consider 404 to be an actual error
-	if status == 404 {
+	// Only consider IO error and 404 response to be actual errors
+	if err != nil {
 		return err
+	} else if status == 404 {
+		return errors.New("HTTP NotFound")
 	}
 	return nil
 }
@@ -38,8 +41,8 @@ func (und *Undocumented1) Initialise() error {
 	return nil
 }
 
-func (und *Undocumented1) TriggerPrefix() string {
-	return "NOT-TO-BE-TRIGGERED-MANUALLY"
+func (und *Undocumented1) Trigger() Trigger {
+	return "NOT-TO-BE-TRIGGERED-MANUALLY-UNDOCUMENTED1"
 }
 
 func (und *Undocumented1) Execute(cmd Command) (ret *Result) {
@@ -60,7 +63,7 @@ func (und *Undocumented1) Execute(cmd Command) (ret *Result) {
 		return nil
 	}, und.URL)
 
-	if errResult := HTTPResponseError(status, resp, err); errResult != nil {
+	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
 		ret = errResult
 	} else {
 		// The OK output is simply the length message

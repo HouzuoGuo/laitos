@@ -21,18 +21,18 @@ var RegexTwoNumbers = regexp.MustCompile(`([0-9]+)[^0-9]+([0-9]+)`) // Capture t
 
 // Use Twitter API to interact with user's time-line.
 type Twitter struct {
-	APIAccessToken       string
-	APIAccessTokenSecret string
-	APIConsumerKey       string
-	APIConsumerSecret    string
-	reqSigner            *oauth.AuthHead
+	AccessToken       string          `json:"AccessToken"`       // Twitter API access token ("Your Access Token - Access Token")
+	AccessTokenSecret string          `json:"AccessTokenSecret"` // Twitter API access token secret ("Your Access Token - Access Token Secret")
+	ConsumerKey       string          `json:"ConsumerKey"`       // Twitter API consumer key ("Application Settings - Consumer Key (API Key)")
+	ConsumerSecret    string          `json:"ConsumerSecret"`    // Twitter API consumer secret ("Application Settings - Consumer Secret (API Secret)")
+	reqSigner         *oauth.AuthHead `json:"-"`
 }
 
 var TestTwitter = Twitter{} // API credentials are set by init_test.go
 
 func (twi *Twitter) IsConfigured() bool {
-	return twi.APIAccessToken != "" && twi.APIAccessTokenSecret != "" &&
-		twi.APIConsumerKey != "" && twi.APIConsumerSecret != ""
+	return twi.AccessToken != "" && twi.AccessTokenSecret != "" &&
+		twi.ConsumerKey != "" && twi.ConsumerSecret != ""
 }
 
 func (twi *Twitter) SelfTest() error {
@@ -40,22 +40,22 @@ func (twi *Twitter) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make a test query (retrieve one tweet) to verify validity of API credentials
-	testExec := twi.Execute(Command{TimeoutSec: HTTP_TEST_TIMEOUT_SEC, Content: TWITTER_GET_FEEDS})
+	testExec := twi.GetFeeds(Command{TimeoutSec: HTTP_TEST_TIMEOUT_SEC, Content: TWITTER_GET_FEEDS})
 	return testExec.Error
 }
 
 func (twi *Twitter) Initialise() error {
 	// Initialise API request signer
 	twi.reqSigner = &oauth.AuthHead{
-		AccessToken:       twi.APIAccessToken,
-		AccessTokenSecret: twi.APIAccessTokenSecret,
-		ConsumerKey:       twi.APIConsumerKey,
-		ConsumerSecret:    twi.APIConsumerSecret,
+		AccessToken:       twi.AccessToken,
+		AccessTokenSecret: twi.AccessTokenSecret,
+		ConsumerKey:       twi.ConsumerKey,
+		ConsumerSecret:    twi.ConsumerSecret,
 	}
 	return nil
 }
 
-func (twi *Twitter) TriggerPrefix() string {
+func (twi *Twitter) Trigger() Trigger {
 	return ".t"
 }
 
@@ -118,7 +118,7 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 		return twi.reqSigner.SetRequestAuthHeader(req)
 	}, "https://api.twitter.com/1.1/statuses/home_timeline.json?count=%s", count)
 	// Return error or extract tweets
-	if errResult := HTTPResponseError(status, resp, err); errResult != nil {
+	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
 		return errResult
 	} else if tweets, err := twi.ExtractTweets(resp, skip, count); err != nil {
 		return &Result{Error: err, Output: string(resp)}
@@ -142,7 +142,7 @@ func (twi *Twitter) Tweet(cmd Command) *Result {
 		return twi.reqSigner.SetRequestAuthHeader(req)
 	}, "https://api.twitter.com/1.1/statuses/update.json?status=%s", tweet)
 	// Return error or extract tweets
-	if errResult := HTTPResponseError(status, resp, err); errResult != nil {
+	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
 		return errResult
 	}
 	// The OK output is simply the length of trimmed tweet
