@@ -59,10 +59,6 @@ func (twi *Twilio) Trigger() Trigger {
 }
 
 func (twi *Twilio) Execute(cmd Command) (ret *Result) {
-	LogBeforeExecute(cmd)
-	defer func() {
-		LogAfterExecute(cmd, ret)
-	}()
 	if errResult := cmd.Trim(); errResult != nil {
 		ret = errResult
 		return

@@ -54,10 +54,6 @@ func (wa *WolframAlpha) Query(timeoutSec int, query string) (resp httpclient.Res
 }
 
 func (wa *WolframAlpha) Execute(cmd Command) (ret *Result) {
-	LogBeforeExecute(cmd)
-	defer func() {
-		LogAfterExecute(cmd, ret)
-	}()
 	if errResult := cmd.Trim(); errResult != nil {
 		ret = errResult
 		return

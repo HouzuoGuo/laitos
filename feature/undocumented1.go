@@ -47,11 +47,6 @@ func (und *Undocumented1) Trigger() Trigger {
 }
 
 func (und *Undocumented1) Execute(cmd Command) (ret *Result) {
-	LogBeforeExecute(cmd)
-	defer func() {
-		LogAfterExecute(cmd, ret)
-	}()
-
 	if errResult := cmd.Trim(); errResult != nil {
 		ret = errResult
 		return

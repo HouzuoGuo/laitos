@@ -24,8 +24,8 @@ func TestShell_Execute(t *testing.T) {
 	if ret.Error != ErrEmptyCommand ||
 		ret.ErrText() != ErrEmptyCommand.Error() ||
 		ret.Output != "" ||
-		ret.CombinedText() != ErrEmptyCommand.Error() {
-		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.CombinedText())
+		ret.ResetCombinedText() != ErrEmptyCommand.Error() {
+		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
 	}
 
 	// Execute a successful command
@@ -33,8 +33,8 @@ func TestShell_Execute(t *testing.T) {
 	if ret.Error != nil ||
 		ret.ErrText() != "" ||
 		ret.Output != `"abc"` ||
-		ret.CombinedText() != `"abc"` {
-		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.CombinedText())
+		ret.ResetCombinedText() != `"abc"` {
+		t.Fatalf("Err: %v\nErrText: %s\nOutput: %s\nCombinedOutput: %s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
 	}
 
 	// Execute a failing command
@@ -42,8 +42,8 @@ func TestShell_Execute(t *testing.T) {
 	if ret.Error == nil ||
 		ret.ErrText() != "exit status 1" ||
 		ret.Output != "a\nb\n" ||
-		ret.CombinedText() != "exit status 1"+COMBINED_TEXT_SEP+"a\nb\n" {
-		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.CombinedText())
+		ret.ResetCombinedText() != "exit status 1"+COMBINED_TEXT_SEP+"a\nb\n" {
+		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
 	}
 
 	// Execute a timeout command - it should not remove the temp file after timing out
@@ -56,8 +56,8 @@ func TestShell_Execute(t *testing.T) {
 	if ret.Error != ErrExecTimeout ||
 		ret.ErrText() != ErrExecTimeout.Error() ||
 		ret.Output != "abc" ||
-		ret.CombinedText() != ErrExecTimeout.Error()+COMBINED_TEXT_SEP+"abc" {
-		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.CombinedText())
+		ret.ResetCombinedText() != ErrExecTimeout.Error()+COMBINED_TEXT_SEP+"abc" {
+		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
 	}
 	// If the command was truly killed, the file would still remain.
 	time.Sleep(3 * time.Second)

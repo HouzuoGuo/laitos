@@ -1,13 +1,13 @@
 package httpclient
 
 import (
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
-	"fmt"
-	"log"
 	"time"
-	"io/ioutil"
-	"io"
 )
 
 // Define properties for an HTTP request for DoHTTP function.

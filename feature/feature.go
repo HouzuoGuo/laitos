@@ -4,7 +4,6 @@ package feature
 import (
 	"errors"
 	"github.com/HouzuoGuo/websh/httpclient"
-	"log"
 	"strings"
 )
 
@@ -25,13 +24,23 @@ type Command struct {
 	Content    string
 }
 
-// Modify command content to remove leading and trailing white spaces. If content becomes empty afterwards, return an error result.
+// Modify command content to remove leading and trailing white spaces. Return error result if command becomes empty afterwards.
 func (cmd *Command) Trim() *Result {
 	cmd.Content = strings.TrimSpace(cmd.Content)
 	if cmd.Content == "" {
 		return &Result{Error: ErrEmptyCommand, Output: ""}
 	}
 	return nil
+}
+
+// Remove a prefix string from command content and then trim white spaces. Return true only if the prefix was found and removed.
+func (cmd *Command) FindAndRemovePrefix(prefix string) (hasPrefix bool) {
+	trimmedOriginal := strings.TrimSpace(cmd.Content)
+	hasPrefix = strings.HasPrefix(trimmedOriginal, prefix)
+	if hasPrefix {
+		cmd.Content = strings.TrimSpace(strings.TrimPrefix(trimmedOriginal, prefix))
+	}
+	return
 }
 
 func (cmd *Command) Lines() []string {
@@ -49,10 +58,12 @@ type Feature interface {
 	Execute(Command) *Result // Execute the command and return result.
 }
 
-// Feedback from feature execution that gives human readable output and error (if any).
+// Feature's execution result that includes human readable output and error (if any).
 type Result struct {
-	Error  error  // Result error if there is any
-	Output string // Human readable normal output excluding error text
+	Command        Command // Help CommandProcessor to keep track of command in execution result
+	Error          error   // Result error if there is any
+	Output         string  // Human readable normal output excluding error text
+	CombinedOutput string  // Human readable error text + normal output. This is set when calling SetCombinedText() function.
 }
 
 // Return error text or empty string if error is absent.
@@ -63,32 +74,17 @@ func (result *Result) ErrText() string {
 	return result.Error.Error()
 }
 
-// Return combined error text and output text
-func (result *Result) CombinedText() (ret string) {
+// Set and return combined error text and output text.
+func (result *Result) ResetCombinedText() string {
+	result.CombinedOutput = ""
 	if result.Error != nil {
-		ret = result.Error.Error()
+		result.CombinedOutput = result.Error.Error()
 		if result.Output != "" {
-			ret += COMBINED_TEXT_SEP
+			result.CombinedOutput += COMBINED_TEXT_SEP
 		}
 	}
-	ret += result.Output
-	return
-}
-
-// Log a command prior to its execution.
-func LogBeforeExecute(cmd Command) {
-	log.Printf(`Will use up to %d seconds to run command: %s`, cmd.TimeoutSec, cmd.Content)
-}
-
-// Log a command after its execution. To log the result properly, call the function this way: defer func() {Log(a,b)}
-func LogAfterExecute(cmd Command, result *Result) {
-	var resultMsg string
-	if result == nil {
-		resultMsg = "(nil)"
-	} else {
-		resultMsg = result.CombinedText()
-	}
-	log.Printf(`Command "%s" has completed with result: %s`, cmd.Content, resultMsg)
+	result.CombinedOutput += result.Output
+	return result.CombinedOutput
 }
 
 // If HTTP status is not 2xx or HTTP response already has an error, return an error result. Otherwise return nil.

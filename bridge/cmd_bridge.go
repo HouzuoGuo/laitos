@@ -4,7 +4,6 @@ package bridge
 import (
 	"errors"
 	"github.com/HouzuoGuo/websh/feature"
-	"log"
 	"strings"
 )
 
@@ -48,7 +47,7 @@ func (pin *CommandPINOrShortcut) Transform(cmd feature.Command) (feature.Command
 		}
 	}
 	// Nothing matched
-	return feature.Command{}, ErrPINAndShortcutNotFound
+	return cmd, ErrPINAndShortcutNotFound
 }
 
 // Translate character sequences to something different.

@@ -87,10 +87,6 @@ func (sh *Shell) InvokeShell(timeoutSec int, content string) (out string, err er
 }
 
 func (sh *Shell) Execute(cmd Command) (ret *Result) {
-	LogBeforeExecute(cmd)
-	defer func() {
-		LogAfterExecute(cmd, ret)
-	}()
 	if errResult := cmd.Trim(); errResult != nil {
 		ret = errResult
 		return

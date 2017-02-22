@@ -61,18 +61,14 @@ func (twi *Twitter) Trigger() Trigger {
 }
 
 func (twi *Twitter) Execute(cmd Command) (ret *Result) {
-	LogBeforeExecute(cmd)
-	defer func() {
-		LogAfterExecute(cmd, ret)
-	}()
 	if errResult := cmd.Trim(); errResult != nil {
 		ret = errResult
 		return
 	}
 
-	if strings.HasPrefix(cmd.Content, TWITTER_GET_FEEDS) {
+	if cmd.FindAndRemovePrefix(TWITTER_GET_FEEDS) {
 		ret = twi.GetFeeds(cmd)
-	} else if strings.HasPrefix(cmd.Content, TWITTER_TWEET) {
+	} else if cmd.FindAndRemovePrefix(TWITTER_TWEET) {
 		ret = twi.Tweet(cmd)
 	} else {
 		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TWITTER_GET_FEEDS, TWITTER_TWEET)}
@@ -138,7 +134,7 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 
 // Post a new tweet to timeline.
 func (twi *Twitter) Tweet(cmd Command) *Result {
-	tweet := strings.TrimSpace(strings.TrimPrefix(cmd.Content, TWITTER_TWEET))
+	tweet := cmd.Content
 	if tweet == "" {
 		return &Result{Error: errors.New("Post content is empty")}
 	}

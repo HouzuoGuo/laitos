@@ -6,7 +6,12 @@ import (
 )
 
 func CommandPINOrShortcut_Transform(t *testing.T) {
-	pin := CommandPINOrShortcut{PIN: "mypin"}
+	pin := CommandPINOrShortcut{}
+	if _, err := pin.Transform(feature.Command{Content: "abc"}); err == nil {
+		t.Fatal("should have been an error")
+	}
+
+	pin = CommandPINOrShortcut{PIN: "mypin"}
 	if out, err := pin.Transform(feature.Command{Content: "abc"}); err != ErrPINAndShortcutNotFound || out.Content != "" {
 		t.Fatal(out)
 	}
@@ -39,7 +44,7 @@ func TestCommandTranslator_Transform(t *testing.T) {
 	if out, err := tr.Transform(feature.Command{Content: "abc"}); err != nil || out.Content != "abc" {
 		t.Fatal(out)
 	}
-	tr.Sequences = [][]string{{"abc", "123"}, {"def", "456"}}
+	tr.Sequences = [][]string{{"abc", "123"}, {"def", "456"}, {"bad tuple"}}
 	if out, err := tr.Transform(feature.Command{Content: ""}); err != nil || out.Content != "" {
 		t.Fatal(out)
 	}

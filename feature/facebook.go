@@ -40,10 +40,6 @@ func (fb *Facebook) Trigger() Trigger {
 }
 
 func (fb *Facebook) Execute(cmd Command) (ret *Result) {
-	LogBeforeExecute(cmd)
-	defer func() {
-		LogAfterExecute(cmd, ret)
-	}()
 	if errResult := cmd.Trim(); errResult != nil {
 		ret = errResult
 		return
@@ -55,9 +51,11 @@ func (fb *Facebook) Execute(cmd Command) (ret *Result) {
 		Body:       strings.NewReader(url.Values{"message": []string{cmd.Content}}.Encode()),
 	}, "https://graph.facebook.com/v2.8/me/feed?access_token=%s", fb.UserAccessToken)
 
-	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
-		return errResult
+	if errResult := HTTPErrorToResult(resp, err); errResult == nil {
+		// The OK output is simply the length of posted message
+		ret = &Result{Error: nil, Output: strconv.Itoa(len(cmd.Content))}
+	} else {
+		ret = errResult
 	}
-	// The OK output is simply the length of posted message
-	return &Result{Error: nil, Output: strconv.Itoa(len(cmd.Content))}
+	return
 }
