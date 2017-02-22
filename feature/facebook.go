@@ -1,6 +1,8 @@
 package feature
 
 import (
+	"github.com/HouzuoGuo/websh/httpclient"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -22,9 +24,11 @@ func (fb *Facebook) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Validate access token via a simple API call
-	status, resp, err := DoHTTP(HTTP_TEST_TIMEOUT_SEC, "GET", "", nil, nil,
-		"https://graph.facebook.com/v2.8/me/feed?access_token=%s", fb.UserAccessToken)
-	return HTTPResponseError(status, resp, err)
+	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: HTTP_TEST_TIMEOUT_SEC}, "https://graph.facebook.com/v2.8/me/feed?access_token=%s", fb.UserAccessToken)
+	if err != nil {
+		return err
+	}
+	return resp.Non2xxToError()
 }
 
 func (fb *Facebook) Initialise() error {
@@ -45,9 +49,13 @@ func (fb *Facebook) Execute(cmd Command) (ret *Result) {
 		return
 	}
 
-	status, resp, err := DoHTTP(cmd.TimeoutSec, "POST", "", strings.NewReader(url.Values{"message": []string{cmd.Content}}.Encode()), nil,
-		"https://graph.facebook.com/v2.8/me/feed?access_token=%s", fb.UserAccessToken)
-	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
+	resp, err := httpclient.DoHTTP(httpclient.Request{
+		TimeoutSec: HTTP_TEST_TIMEOUT_SEC,
+		Method:     http.MethodPost,
+		Body:       strings.NewReader(url.Values{"message": []string{cmd.Content}}.Encode()),
+	}, "https://graph.facebook.com/v2.8/me/feed?access_token=%s", fb.UserAccessToken)
+
+	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return errResult
 	}
 	// The OK output is simply the length of posted message

@@ -1,6 +1,8 @@
 package feature
 
 import (
+	"errors"
+	"github.com/HouzuoGuo/websh/httpclient"
 	"os"
 	"testing"
 )
@@ -39,19 +41,20 @@ func TestResult(t *testing.T) {
 	}
 }
 
-func TestHTTPResponseError(t *testing.T) {
-	if errResult := HTTPResponseErrorResult(200, []byte("good"), nil); errResult != nil {
-		t.Fatal(errResult)
+func TestHTTPErrorToResult(t *testing.T) {
+	resp := httpclient.Response{StatusCode: 201}
+	if result := HTTPErrorToResult(resp, nil); result != nil {
+		t.Fatal(result)
 	}
-	if errResult := HTTPResponseErrorResult(400, []byte("bad"), nil); errResult == nil ||
-		errResult.Error.Error() != "HTTP 400: bad" ||
-		errResult.Output != "bad" {
-		t.Fatal(errResult)
+	if result := HTTPErrorToResult(resp, errors.New("an error")); result.Error == nil {
+		t.Fatal("did not error")
 	}
-	if errResult := HTTPResponseErrorResult(200, []byte("also bad"), os.ErrInvalid); errResult == nil ||
-		errResult.Error != os.ErrInvalid ||
-		errResult.Output != "also bad" {
-		t.Fatal(errResult)
+	resp.StatusCode = 400
+	if result := HTTPErrorToResult(resp, nil); result.Error == nil {
+		t.Fatal("did not error")
+	}
+	if result := HTTPErrorToResult(resp, errors.New("an error")); result.Error == nil {
+		t.Fatal("did not error")
 	}
 }
 

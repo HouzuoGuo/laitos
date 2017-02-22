@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
+	"github.com/HouzuoGuo/websh/httpclient"
 	"strings"
 )
 
@@ -23,12 +24,12 @@ func (wa *WolframAlpha) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make a test query to verify AppID and response data structure
-	status, resp, err := wa.Query(HTTP_TEST_TIMEOUT_SEC, "pi")
-	if err := HTTPResponseError(status, resp, err); err != nil {
-		return err
+	resp, err := wa.Query(HTTP_TEST_TIMEOUT_SEC, "pi")
+	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
+		return errResult.Error
 	}
 	// In case that AppID is incorrect, WolframAlpha will still respond with HTTP OK, only the response gives a clue.
-	lower := strings.ToLower(string(resp))
+	lower := strings.ToLower(string(resp.Body))
 	if strings.Contains(lower, "invalid appid") || strings.Contains(lower, "error='true'") || strings.Contains(lower, "success='false'") {
 		return errors.New(lower)
 	}
@@ -44,9 +45,11 @@ func (wa *WolframAlpha) Trigger() Trigger {
 }
 
 // Call WolframAlpha API to run a query. Return HTTP status, response, and error if any.
-func (wa *WolframAlpha) Query(timeoutSec int, query string) (status int, resp []byte, err error) {
-	status, resp, err = DoHTTP(timeoutSec, "GET", "application/x-www-form-urlencoded; charset=UTF-8", nil, nil,
-		"https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext", wa.AppID, query)
+func (wa *WolframAlpha) Query(timeoutSec int, query string) (resp httpclient.Response, err error) {
+	resp, err = httpclient.DoHTTP(
+		httpclient.Request{TimeoutSec: timeoutSec},
+		"https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext",
+		wa.AppID, query)
 	return
 }
 
@@ -60,11 +63,11 @@ func (wa *WolframAlpha) Execute(cmd Command) (ret *Result) {
 		return
 	}
 
-	status, resp, err := wa.Query(cmd.TimeoutSec, cmd.Content)
-	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
+	resp, err := wa.Query(cmd.TimeoutSec, cmd.Content)
+	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		ret = errResult
-	} else if text, err := wa.ExtractResponse(resp); err != nil {
-		ret = &Result{Error: err, Output: string(resp)}
+	} else if text, err := wa.ExtractResponse(resp.Body); err != nil {
+		ret = &Result{Error: err, Output: string(resp.Body)}
 	} else {
 		ret = &Result{Error: nil, Output: text}
 	}

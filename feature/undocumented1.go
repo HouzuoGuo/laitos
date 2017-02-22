@@ -2,6 +2,7 @@ package feature
 
 import (
 	"errors"
+	"github.com/HouzuoGuo/websh/httpclient"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -27,12 +28,12 @@ func (und *Undocumented1) SelfTest() error {
 	if !und.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	status, _, err := DoHTTP(HTTP_TEST_TIMEOUT_SEC, "GET", "", nil, nil, und.URL)
+	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: HTTP_TEST_TIMEOUT_SEC}, und.URL)
 	// Only consider IO error and 404 response to be actual errors
 	if err != nil {
 		return err
-	} else if status == 404 {
-		return errors.New("HTTP NotFound")
+	} else if resp.StatusCode == http.StatusNotFound {
+		return errors.New("URL responsed with status 404")
 	}
 	return nil
 }
@@ -56,14 +57,22 @@ func (und *Undocumented1) Execute(cmd Command) (ret *Result) {
 		return
 	}
 
-	params := url.Values{"ReplyAddress": {und.Addr2}, "ReplyMessage": {cmd.Content}, "MessageId": {und.ID1}, "Guid": {und.ID2}}
-	status, resp, err := DoHTTP(cmd.TimeoutSec, "POST", "", strings.NewReader(params.Encode()), func(req *http.Request) error {
-		req.Header.Set("X-Requested-With", "XMLHttpRequest")
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36")
-		return nil
+	resp, err := httpclient.DoHTTP(httpclient.Request{
+		TimeoutSec: cmd.TimeoutSec,
+		Method:     http.MethodPost,
+		Body: strings.NewReader(url.Values{
+			"MessageId":    {und.ID1},
+			"Guid":         {und.ID2},
+			"ReplyAddress": {und.Addr2},
+			"ReplyMessage": {cmd.Content},
+		}.Encode()),
+		RequestFunc: func(req *http.Request) error {
+			req.Header.Set("X-Requested-With", "XMLHttpRequest")
+			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36")
+			return nil
+		},
 	}, und.URL)
-
-	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
+	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		ret = errResult
 	} else {
 		// The OK output is simply the length message

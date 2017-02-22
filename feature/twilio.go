@@ -3,6 +3,7 @@ package feature
 import (
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/websh/httpclient"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -36,11 +37,17 @@ func (twi *Twilio) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Validate API credentials with a simple API call
-	status, resp, err := DoHTTP(HTTP_TEST_TIMEOUT_SEC, "GET", "", nil, func(req *http.Request) error {
-		req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
-		return nil
+	resp, err := httpclient.DoHTTP(httpclient.Request{
+		TimeoutSec: HTTP_TEST_TIMEOUT_SEC,
+		RequestFunc: func(req *http.Request) error {
+			req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
+			return nil
+		},
 	}, "https://api.twilio.com/2010-04-01/Accounts/%s", twi.AccountSID)
-	return HTTPResponseError(status, resp, err)
+	if err != nil {
+		return err
+	}
+	return resp.Non2xxToError()
 }
 
 func (twi *Twilio) Initialise() error {
@@ -78,17 +85,21 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 	}
 	toNumber := params[1]
 	message := params[2]
-
 	formParams := url.Values{
-		"From": []string{twi.PhoneNumber},
-		"To":   []string{toNumber},
-		"Url":  []string{"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s repeat once again %s repeat once again %s over", message, message, message))}}
-
-	status, resp, err := DoHTTP(cmd.TimeoutSec, "POST", "", strings.NewReader(formParams.Encode()), func(req *http.Request) error {
-		req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
-		return nil
+		"From": {twi.PhoneNumber},
+		"To":   {toNumber},
+		"Url":  {"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s repeat once again %s repeat once again %s over", message, message, message))},
+	}
+	resp, err := httpclient.DoHTTP(httpclient.Request{
+		TimeoutSec: HTTP_TEST_TIMEOUT_SEC,
+		Method:     http.MethodPost,
+		Body:       strings.NewReader(formParams.Encode()),
+		RequestFunc: func(req *http.Request) error {
+			req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
+			return nil
+		},
 	}, "https://api.twilio.com/2010-04-01/Accounts/%s/Calls.json", twi.AccountSID)
-	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
+	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return errResult
 	}
 	// The OK output is simply the length of number + message
@@ -104,15 +115,20 @@ func (twi *Twilio) SendSMS(cmd Command) *Result {
 	message := params[2]
 
 	formParams := url.Values{
-		"From": []string{twi.PhoneNumber},
-		"To":   []string{toNumber},
-		"Body": []string{message}}
-
-	status, resp, err := DoHTTP(cmd.TimeoutSec, "POST", "", strings.NewReader(formParams.Encode()), func(req *http.Request) error {
-		req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
-		return nil
+		"From": {twi.PhoneNumber},
+		"To":   {toNumber},
+		"Body": {message},
+	}
+	resp, err := httpclient.DoHTTP(httpclient.Request{
+		TimeoutSec: HTTP_TEST_TIMEOUT_SEC,
+		Method:     http.MethodPost,
+		Body:       strings.NewReader(formParams.Encode()),
+		RequestFunc: func(req *http.Request) error {
+			req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
+			return nil
+		},
 	}, "https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json", twi.AccountSID)
-	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
+	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return errResult
 	}
 	// The OK output is simply the length of number + message

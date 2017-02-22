@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/websh/httpclient"
 	"github.com/HouzuoGuo/websh/oauth"
 	"net/http"
 	"regexp"
@@ -114,14 +115,17 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 		count = 1
 	}
 	// Execute the API request
-	status, resp, err := DoHTTP(cmd.TimeoutSec, "GET", "", nil, func(req *http.Request) error {
-		return twi.reqSigner.SetRequestAuthHeader(req)
+	resp, err := httpclient.DoHTTP(httpclient.Request{
+		TimeoutSec: cmd.TimeoutSec,
+		RequestFunc: func(req *http.Request) error {
+			return twi.reqSigner.SetRequestAuthHeader(req)
+		},
 	}, "https://api.twitter.com/1.1/statuses/home_timeline.json?count=%s", count)
 	// Return error or extract tweets
-	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
+	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return errResult
-	} else if tweets, err := twi.ExtractTweets(resp, skip, count); err != nil {
-		return &Result{Error: err, Output: string(resp)}
+	} else if tweets, err := twi.ExtractTweets(resp.Body, skip, count); err != nil {
+		return &Result{Error: err, Output: string(resp.Body)}
 	} else {
 		// Return one tweet per line
 		var outBuf bytes.Buffer
@@ -138,11 +142,16 @@ func (twi *Twitter) Tweet(cmd Command) *Result {
 	if tweet == "" {
 		return &Result{Error: errors.New("Post content is empty")}
 	}
-	status, resp, err := DoHTTP(cmd.TimeoutSec, "POST", "", nil, func(req *http.Request) error {
-		return twi.reqSigner.SetRequestAuthHeader(req)
+
+	resp, err := httpclient.DoHTTP(httpclient.Request{
+		TimeoutSec: cmd.TimeoutSec,
+		Method:     http.MethodPost,
+		RequestFunc: func(req *http.Request) error {
+			return twi.reqSigner.SetRequestAuthHeader(req)
+		},
 	}, "https://api.twitter.com/1.1/statuses/update.json?status=%s", tweet)
 	// Return error or extract tweets
-	if errResult := HTTPResponseErrorResult(status, resp, err); errResult != nil {
+	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return errResult
 	}
 	// The OK output is simply the length of trimmed tweet

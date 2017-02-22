@@ -28,7 +28,7 @@ var ErrPINAndShortcutNotFound = errors.New("Failed to match PIN/shortcut")
 
 func (pin *CommandPINOrShortcut) Transform(cmd feature.Command) (feature.Command, error) {
 	if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
-		log.Panic("CommandPINOrShortcut: cannot work with neither PIN nor shortcut defined")
+		return feature.Command{}, errors.New("Both PIN and shortcuts are undefined")
 	}
 	for _, line := range cmd.Lines() {
 		line = strings.TrimSpace(line)

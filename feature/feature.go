@@ -3,14 +3,9 @@ package feature
 
 import (
 	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
+	"github.com/HouzuoGuo/websh/httpclient"
 	"log"
-	"net/http"
-	"net/url"
 	"strings"
-	"time"
 )
 
 const (
@@ -96,58 +91,12 @@ func LogAfterExecute(cmd Command, result *Result) {
 	log.Printf(`Command "%s" has completed with result: %s`, cmd.Content, resultMsg)
 }
 
-// Send an HTTP request and return its response. Placeholders in URL template must be "%s".
-func DoHTTP(timeoutSec int, method string, contentType string, reqBody io.Reader, reqFun func(*http.Request) error, urlTemplate string, urlValues ...interface{}) (
-	status int, respBody []byte, err error) {
-	// Encode values in URL path
-	encodedURLValues := make([]interface{}, len(urlValues))
-	for i, val := range urlValues {
-		encodedURLValues[i] = url.QueryEscape(fmt.Sprint(val))
-	}
-	req, err := http.NewRequest(method, fmt.Sprintf(urlTemplate, encodedURLValues...), reqBody)
-	if err != nil {
-		return
-	}
-	// Allow function to further manipulate HTTP request
-	if reqFun != nil {
-		if err = reqFun(req); err != nil {
-			return
-		}
-	}
-	// Always carry Content-Type header
-	if contentType == "" {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	} else {
-		req.Header.Set("Content-Type", contentType)
-	}
-	client := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
-	response, err := client.Do(req)
-	if err != nil {
-		return
-	}
-	defer response.Body.Close()
-	status = response.StatusCode
-	respBody, err = ioutil.ReadAll(response.Body)
-	return
-}
-
-// If HTTP status is not 2xx or HTTP response already has an error, return an error. Otherwise return nil.
-func HTTPResponseError(status int, respBody []byte, err error) error {
-	if err != nil {
-		return err
-	} else if status/200 != 1 {
-		return fmt.Errorf("HTTP %d: %s", status, string(respBody))
-	} else {
-		return nil
-	}
-}
-
 // If HTTP status is not 2xx or HTTP response already has an error, return an error result. Otherwise return nil.
-func HTTPResponseErrorResult(status int, respBody []byte, err error) *Result {
+func HTTPErrorToResult(resp httpclient.Response, err error) *Result {
 	if err != nil {
-		return &Result{Error: err, Output: string(respBody)}
-	} else if status/200 != 1 {
-		return &Result{Error: fmt.Errorf("HTTP %d: %s", status, string(respBody)), Output: string(respBody)}
+		return &Result{Error: err, Output: string(resp.Body)}
+	} else if respErr := resp.Non2xxToError(); respErr != nil {
+		return &Result{Error: respErr, Output: string(resp.Body)}
 	}
 	return nil
 }
