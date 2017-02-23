@@ -71,3 +71,61 @@ func TestCommandProcessor_Process(t *testing.T) {
 		t.Fatalf("%+v", result)
 	}
 }
+
+func TestCommandProcessor_IsSane(t *testing.T) {
+	proc := CommandProcessor{
+		Features:       nil,
+		CommandBridges: nil,
+		ResultBridges:  nil,
+	}
+	if errs := proc.IsSaneForInternet(); len(errs) != 3 {
+		t.Fatal(errs)
+	}
+	// FeatureSet is assigned but not initialised
+	proc.Features = &feature.FeatureSet{}
+	if errs := proc.IsSaneForInternet(); len(errs) != 3 {
+		t.Fatal(errs)
+	}
+	// Good feature set
+	if err := proc.Features.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
+		t.Fatal(errs)
+	}
+	// No PIN bridge
+	proc.CommandBridges = []bridge.CommandBridge{}
+	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
+		t.Fatal(errs)
+	}
+	// PIN bridge has short PIN
+	proc.CommandBridges = []bridge.CommandBridge{&bridge.CommandPINOrShortcut{PIN: "a"}}
+	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
+		t.Fatal(errs)
+	}
+	// PIN bridge has nothing
+	proc.CommandBridges = []bridge.CommandBridge{&bridge.CommandPINOrShortcut{}}
+	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
+		t.Fatal(errs)
+	}
+	// Good PIN bridge
+	proc.CommandBridges = []bridge.CommandBridge{&bridge.CommandPINOrShortcut{PIN: "very-long-pin"}}
+	if errs := proc.IsSaneForInternet(); len(errs) != 1 {
+		t.Fatal(errs)
+	}
+	// No linter bridge
+	proc.ResultBridges = []bridge.ResultBridge{}
+	if errs := proc.IsSaneForInternet(); len(errs) != 1 {
+		t.Fatal(errs)
+	}
+	// Linter bridge has out-of-range max length
+	proc.ResultBridges = []bridge.ResultBridge{&bridge.LintCombinedText{MaxLength: 1}}
+	if errs := proc.IsSaneForInternet(); len(errs) != 1 {
+		t.Fatal(errs)
+	}
+	// Good linter bridge
+	proc.ResultBridges = []bridge.ResultBridge{&bridge.LintCombinedText{MaxLength: 35}}
+	if errs := proc.IsSaneForInternet(); len(errs) != 0 {
+		t.Fatal(errs)
+	}
+}

@@ -123,3 +123,17 @@ func (email *NotifyViaEmail) Transform(result *feature.Result) error {
 	}
 	return nil
 }
+
+// If there is no graph character among the combined output, replace it by "EMPTY OUTPUT".
+type SayEmptyOutput struct {
+}
+
+var RegexGraphChar = regexp.MustCompile("[[:graph:]]") // Match any visible character
+const EmptyOutputText = "EMPTY OUTPUT"                 // Text to substitute empty combined output with (SayEmptyOutput)
+
+func (empty *SayEmptyOutput) Transform(result *feature.Result) error {
+	if !RegexGraphChar.MatchString(result.CombinedOutput) {
+		result.CombinedOutput = EmptyOutputText
+	}
+	return nil
+}

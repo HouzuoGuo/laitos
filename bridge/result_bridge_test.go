@@ -69,3 +69,15 @@ func TestResetCombinedText_Transform(t *testing.T) {
 		t.Fatal(result.CombinedOutput)
 	}
 }
+
+func TestSayEmptyOutput_Transform(t *testing.T) {
+	empty := SayEmptyOutput{}
+	result := &feature.Result{CombinedOutput: "    \t\r\n    "}
+	if err := empty.Transform(result); err != nil || result.CombinedOutput != EmptyOutputText {
+		t.Fatal(err, result)
+	}
+	result.CombinedOutput = "test"
+	if err := empty.Transform(result); err != nil || result.CombinedOutput != "test" {
+		t.Fatal(err, result)
+	}
+}
