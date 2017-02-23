@@ -58,6 +58,8 @@ func (lint *LintCombinedText) Transform(result *feature.Result) error {
 			out.WriteString(strings.TrimSpace(line))
 			out.WriteRune('\n')
 		}
+		// Remove the suffix \n
+		out.Truncate(out.Len() - 1)
 		ret = out.String()
 	}
 	// Compress lines

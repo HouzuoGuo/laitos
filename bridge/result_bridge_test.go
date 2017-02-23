@@ -19,13 +19,18 @@ func TestLintCombinedText_Transform(t *testing.T) {
 		t.Fatal(err, result.CombinedOutput)
 	}
 
-	result.CombinedOutput = mixedString
+	// Even with all options turned on, linting an empty string should still result in an empty string.
 	lint.TrimSpaces = true
 	lint.CompressToSingleLine = true
 	lint.KeepVisible7BitCharOnly = true
 	lint.CompressSpaces = true
 	lint.BeginPosition = 2
 	lint.MaxLength = 14
+	result.CombinedOutput = ""
+	if err := lint.Transform(result); err != nil || result.CombinedOutput != "c def 123;@#$<" {
+		t.Fatal(err, result.CombinedOutput)
+	}
+	result.CombinedOutput = mixedString
 	if err := lint.Transform(result); err != nil || result.CombinedOutput != "c def 123;@#$<" {
 		t.Fatal(err, result.CombinedOutput)
 	}
