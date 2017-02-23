@@ -129,3 +129,9 @@ func TestCommandProcessor_IsSane(t *testing.T) {
 		t.Fatal(errs)
 	}
 }
+
+func TestGetTestCommandProcessor(t *testing.T) {
+	if proc := GetTestCommandProcessor(); proc == nil {
+		t.Fatal("did not return")
+	}
+}

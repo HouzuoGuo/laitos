@@ -1,4 +1,4 @@
-package httpd
+package api
 
 import (
 	"bytes"

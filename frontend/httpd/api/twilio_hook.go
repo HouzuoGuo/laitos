@@ -1,42 +1,28 @@
-package httpd
+package api
 
 import (
-	"bytes"
-	"encoding/xml"
+	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/websh/bridge"
 	"github.com/HouzuoGuo/websh/feature"
 	"github.com/HouzuoGuo/websh/frontend/common"
-	"log"
 	"net/http"
 )
 
 const TWILIO_HANDLER_TIMEOUT_SEC = 14 // as of 2017-02-23, the timeout is required by Twilio on both SMS and call hooks.
 
-// Escape sequences in a string to make it safe for being element data.
-func XMLEscape(in string) string {
-	var escapeOutput bytes.Buffer
-	if err := xml.EscapeText(&escapeOutput, []byte(in)); err != nil {
-		log.Printf("XMLEscape: failed - %v", err)
-	}
-	return escapeOutput.String()
+// Implement handler for Twilio phone number's SMS hook.
+type TwilioSMSHook struct {
+	CommandProcessor *common.CommandProcessor
 }
 
-// Create HTTP handler functions for Twilio phone number hook.
-type TwilioFactory struct {
-	CommandProcessor           *common.CommandProcessor
-	CallGreeting               string // a message to speak upon picking up a call
-	CallCommandHandlerEndpoint string // URL (e.g. /handle_my_call) to command handler endpoint
-}
-
-// Run command from incoming SMS.
-func (factory *TwilioFactory) SMSHandler() (http.HandlerFunc, error) {
-	if errs := factory.CommandProcessor.IsSaneForInternet(); len(errs) > 0 {
+func (hand *TwilioSMSHook) MakeHandler() (http.HandlerFunc, error) {
+	if errs := hand.CommandProcessor.IsSaneForInternet(); len(errs) > 0 {
 		return nil, fmt.Errorf("%+v", errs)
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// SMS message is in "Body" parameter
-		ret := factory.CommandProcessor.Process(feature.Command{
+		ret := hand.CommandProcessor.Process(feature.Command{
 			TimeoutSec: TWILIO_HANDLER_TIMEOUT_SEC,
 			Content:    r.FormValue("Body"),
 		})
@@ -54,10 +40,19 @@ func (factory *TwilioFactory) SMSHandler() (http.HandlerFunc, error) {
 	return fun, nil
 }
 
-// Say a greeting message when picking up a call.
-func (factory *TwilioFactory) CallGreetingHandler() (http.HandlerFunc, error) {
-	if errs := factory.CommandProcessor.IsSaneForInternet(); len(errs) > 0 {
+// Implement handler for Twilio phone number's telephone hook.
+type TwilioCallHook struct {
+	CommandProcessor *common.CommandProcessor
+	CallGreeting     string // a message to speak upon picking up a call
+	CallbackEndpoint string // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
+}
+
+func (hand *TwilioCallHook) MakeHandler() (http.HandlerFunc, error) {
+	if errs := hand.CommandProcessor.IsSaneForInternet(); len(errs) > 0 {
 		return nil, fmt.Errorf("%+v", errs)
+	}
+	if hand.CallGreeting == "" || hand.CallbackEndpoint == "" {
+		return nil, errors.New("Greeting or handler endpoint is empty")
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// The greeting XML tells Twilio to ask user for DTMF input, and direct the input to another URL endpoint.
@@ -69,19 +64,27 @@ func (factory *TwilioFactory) CallGreetingHandler() (http.HandlerFunc, error) {
         <Say>%s</Say>
     </Gather>
 </Response>
-`, factory.CallCommandHandlerEndpoint, XMLEscape(factory.CallGreeting))))
+`, hand.CallbackEndpoint, XMLEscape(hand.CallGreeting))))
 	}
 	return fun, nil
 }
 
-// Run command from DTMF input and wait for next command.
-func (factory *TwilioFactory) CallCommandHandler() (http.HandlerFunc, error) {
-	if errs := factory.CommandProcessor.IsSaneForInternet(); len(errs) > 0 {
+// Implement handler for Twilio phone number's telephone callback (triggered by response of TwilioCallHook).
+type TwilioCallCallback struct {
+	CommandProcessor *common.CommandProcessor
+	MyEndpoint       string // URL to the callback itself
+}
+
+func (hand *TwilioCallCallback) MakeHandler() (http.HandlerFunc, error) {
+	if errs := hand.CommandProcessor.IsSaneForInternet(); len(errs) > 0 {
 		return nil, fmt.Errorf("%+v", errs)
+	}
+	if hand.MyEndpoint == "" {
+		return nil, errors.New("Handler endpoint is empty")
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// DTMF input digits are in "Digits" parameter
-		ret := factory.CommandProcessor.Process(feature.Command{
+		ret := hand.CommandProcessor.Process(feature.Command{
 			TimeoutSec: TWILIO_HANDLER_TIMEOUT_SEC,
 			Content:    DTMFDecode(r.FormValue("Digits")),
 		})
@@ -104,7 +107,7 @@ func (factory *TwilioFactory) CallCommandHandler() (http.HandlerFunc, error) {
         <Say>%s repeat again, %s repeat again, %s over.</Say>
     </Gather>
 </Response>
-`, factory.CallCommandHandlerEndpoint, combinedOutput, combinedOutput, combinedOutput)))
+`, hand.MyEndpoint, combinedOutput, combinedOutput, combinedOutput)))
 		}
 	}
 	return fun, nil

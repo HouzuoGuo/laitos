@@ -116,3 +116,29 @@ result:
 	}
 	return
 }
+
+// Return a realistic command processor for test cases. Only shell execution feature is available from it.
+func GetTestCommandProcessor() *CommandProcessor {
+	// Prepare feature set - the shell execution feature should be available even without configuration
+	features := &feature.FeatureSet{}
+	if err := features.Initialise(); err != nil {
+		panic(err)
+	}
+	// Prepare realistic command bridges
+	commandBridges := []bridge.CommandBridge{
+		&bridge.CommandPINOrShortcut{PIN: "verysecret"},
+		&bridge.CommandTranslator{Sequences: [][]string{{"alpha", "beta"}}},
+	}
+	// Prepare realistic result bridges
+	resultBridges := []bridge.ResultBridge{
+		&bridge.ResetCombinedText{},
+		&bridge.LintCombinedText{TrimSpaces: true, MaxLength: 35},
+		&bridge.SayEmptyOutput{},
+		&bridge.NotifyViaEmail{},
+	}
+	return &CommandProcessor{
+		Features:       features,
+		CommandBridges: commandBridges,
+		ResultBridges:  resultBridges,
+	}
+}
