@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"errors"
+	"github.com/HouzuoGuo/websh/email"
 	"github.com/HouzuoGuo/websh/feature"
 	"testing"
 )
@@ -27,7 +28,7 @@ func TestLintCombinedText_Transform(t *testing.T) {
 	lint.BeginPosition = 2
 	lint.MaxLength = 14
 	result.CombinedOutput = ""
-	if err := lint.Transform(result); err != nil || result.CombinedOutput != "c def 123;@#$<" {
+	if err := lint.Transform(result); err != nil || result.CombinedOutput != "" {
 		t.Fatal(err, result.CombinedOutput)
 	}
 	result.CombinedOutput = mixedString
@@ -37,24 +38,26 @@ func TestLintCombinedText_Transform(t *testing.T) {
 }
 
 func TestNotifyViaEmail_Transform(t *testing.T) {
-	email := NotifyViaEmail{}
-	if email.IsConfigured() {
+	notify := NotifyViaEmail{}
+	if notify.IsConfigured() {
 		t.Fatal("should not be configured")
 	}
 	// It simply must not panic
-	if err := email.Transform(&feature.Result{}); err != nil {
+	if err := notify.Transform(&feature.Result{}); err != nil {
 		t.Fatal(err)
 	}
 
-	email.MailFrom = "howard@localhost"
-	email.Recipients = []string{"howard@localhost"}
-	email.MTAAddressPort = "localhost:25"
-	if !email.IsConfigured() {
+	notify.Mailer = &email.Mailer{
+		MailFrom:       "howard@localhost",
+		MTAAddressPort: "localhost:25",
+	}
+	notify.Recipients = []string{"howard@localhost"}
+	if !notify.IsConfigured() {
 		t.Fatal("should be configured now")
 	}
 
 	// It simply must not panic
-	if err := email.Transform(&feature.Result{}); err != nil {
+	if err := notify.Transform(&feature.Result{}); err != nil {
 		t.Fatal(err)
 	}
 }

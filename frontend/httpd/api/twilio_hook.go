@@ -104,7 +104,7 @@ func (hand *TwilioCallCallback) MakeHandler() (http.HandlerFunc, error) {
 			w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say>%s repeat again, %s repeat again, %s over.</Say>
+        <Say>%s, repeat again, %s, repeat again, %s, over.</Say>
     </Gather>
 </Response>
 `, hand.MyEndpoint, combinedOutput, combinedOutput, combinedOutput)))

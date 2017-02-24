@@ -2,10 +2,9 @@ package bridge
 
 import (
 	"bytes"
-	"fmt"
+	"github.com/HouzuoGuo/websh/email"
 	"github.com/HouzuoGuo/websh/feature"
 	"log"
-	"net/smtp"
 	"regexp"
 	"strings"
 	"unicode"
@@ -41,12 +40,12 @@ Lint combined text string in the following order (each step is turned on by resp
 6. Remove excessive characters at end of the string.
 */
 type LintCombinedText struct {
-	TrimSpaces              bool
-	CompressToSingleLine    bool
-	KeepVisible7BitCharOnly bool
-	CompressSpaces          bool
-	BeginPosition           int
-	MaxLength               int
+	TrimSpaces              bool `json:"TrimSpaces"`
+	CompressToSingleLine    bool `json:"CompressToSingleLine"`
+	KeepVisible7BitCharOnly bool `json:"KeepVisible7BitCharOnly"`
+	CompressSpaces          bool `json:"CompressSpaces"`
+	BeginPosition           int  `json:"BeginPosition"`
+	MaxLength               int  `json:"MaxLength"`
 }
 
 func (lint *LintCombinedText) Transform(result *feature.Result) error {
@@ -100,25 +99,21 @@ func (lint *LintCombinedText) Transform(result *feature.Result) error {
 
 // Send email notification for command result.
 type NotifyViaEmail struct {
-	Recipients     []string // Email recipient addresses
-	MailFrom       string   // FROM address of the outgoing emails
-	MTAAddressPort string   // Address and port number of mail transportation agent
+	Recipients []string // Email recipient addresses
+	Mailer     *email.Mailer
 }
 
 // Return true only if all mail parameters are present.
 func (email *NotifyViaEmail) IsConfigured() bool {
-	return email.Recipients != nil && len(email.Recipients) > 0 && email.MailFrom != "" && email.MTAAddressPort != ""
+	return email.Recipients != nil && len(email.Recipients) > 0 && email.Mailer != nil && email.Mailer.IsConfigured()
 }
 
 const MailNotificationGreeting = "websh notification" // These terms appear in the subject of notification emails
 
-var FormatNotificationEmail = "Subject: " + MailNotificationGreeting + " - %s\r\n\r\n%s" // Subject and body format of notification emails
-
 func (email *NotifyViaEmail) Transform(result *feature.Result) error {
 	if email.IsConfigured() {
 		go func() {
-			msg := fmt.Sprintf(FormatNotificationEmail, result.Command, result.CombinedOutput)
-			if err := smtp.SendMail(email.MTAAddressPort, nil, email.MailFrom, email.Recipients, []byte(msg)); err != nil {
+			if err := email.Mailer.Send(MailNotificationGreeting+result.Command.Content, result.CombinedOutput, email.Recipients...); err != nil {
 				log.Printf("NotifyViaEmail: failed to send email for command \"%s\" - %v", result.Command.Content, err)
 			}
 		}()

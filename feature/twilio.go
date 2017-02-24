@@ -84,7 +84,7 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 	formParams := url.Values{
 		"From": {twi.PhoneNumber},
 		"To":   {toNumber},
-		"Url":  {"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s repeat once again %s repeat once again %s over", message, message, message))},
+		"Url":  {"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s, repeat again, %s, repeat again, %s, over.", message, message, message))},
 	}
 	resp, err := httpclient.DoHTTP(httpclient.Request{
 		TimeoutSec: HTTP_TEST_TIMEOUT_SEC,

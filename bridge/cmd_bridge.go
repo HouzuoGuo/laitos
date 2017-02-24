@@ -19,8 +19,8 @@ To successfully expend shortcut, the shortcut must occupy the entire line, witho
 Return error if neither PIN nor pre-defined shortcuts matched any line of input command.
 */
 type CommandPINOrShortcut struct {
-	PIN       string
-	Shortcuts map[string]string
+	PIN       string            `json:"PIN"`
+	Shortcuts map[string]string `json:"Shortcuts"`
 }
 
 var ErrPINAndShortcutNotFound = errors.New("Failed to match PIN/shortcut")
@@ -52,7 +52,7 @@ func (pin *CommandPINOrShortcut) Transform(cmd feature.Command) (feature.Command
 
 // Translate character sequences to something different.
 type CommandTranslator struct {
-	Sequences [][]string
+	Sequences [][]string `json:"Sequences"`
 }
 
 func (tr *CommandTranslator) Transform(cmd feature.Command) (feature.Command, error) {

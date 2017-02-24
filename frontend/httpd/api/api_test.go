@@ -150,7 +150,7 @@ func TestAllHandlers(t *testing.T) {
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="/test" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say>EMPTY OUTPUT repeat again, EMPTY OUTPUT repeat again, EMPTY OUTPUT over.</Say>
+        <Say>EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.</Say>
     </Gather>
 </Response>
 `
