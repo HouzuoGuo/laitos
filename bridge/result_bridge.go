@@ -108,12 +108,12 @@ func (email *NotifyViaEmail) IsConfigured() bool {
 	return email.Recipients != nil && len(email.Recipients) > 0 && email.Mailer != nil && email.Mailer.IsConfigured()
 }
 
-const MailNotificationGreeting = "websh notification" // These terms appear in the subject of notification emails
+const MailNotificationSubject = "websh-notify-" // These terms appear in the subject of notification emails
 
 func (email *NotifyViaEmail) Transform(result *feature.Result) error {
 	if email.IsConfigured() {
 		go func() {
-			if err := email.Mailer.Send(MailNotificationGreeting+result.Command.Content, result.CombinedOutput, email.Recipients...); err != nil {
+			if err := email.Mailer.Send(MailNotificationSubject+result.Command.Content, result.CombinedOutput, email.Recipients...); err != nil {
 				log.Printf("NotifyViaEmail: failed to send email for command \"%s\" - %v", result.Command.Content, err)
 			}
 		}()

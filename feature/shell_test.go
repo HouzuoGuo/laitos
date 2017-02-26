@@ -42,7 +42,7 @@ func TestShell_Execute(t *testing.T) {
 	if ret.Error == nil ||
 		ret.ErrText() != "exit status 1" ||
 		ret.Output != "a\nb\n" ||
-		ret.ResetCombinedText() != "exit status 1"+COMBINED_TEXT_SEP+"a\nb\n" {
+		ret.ResetCombinedText() != "exit status 1"+CombinedTextSeperator+"a\nb\n" {
 		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
 	}
 
@@ -56,7 +56,7 @@ func TestShell_Execute(t *testing.T) {
 	if ret.Error != ErrExecTimeout ||
 		ret.ErrText() != ErrExecTimeout.Error() ||
 		ret.Output != "abc" ||
-		ret.ResetCombinedText() != ErrExecTimeout.Error()+COMBINED_TEXT_SEP+"abc" {
+		ret.ResetCombinedText() != ErrExecTimeout.Error()+CombinedTextSeperator+"abc" {
 		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
 	}
 	// If the command was truly killed, the file would still remain.

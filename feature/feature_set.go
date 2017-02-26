@@ -8,21 +8,21 @@ import (
 
 // Aggregate all available features together.
 type FeatureSet struct {
-	Facebook       Facebook
-	Shell          Shell
-	Twilio         Twilio
-	Twitter        Twitter
-	WolframAlpha   WolframAlpha
-	Undocumented1  Undocumented1
-	LookupByPrefix map[Trigger]Feature
+	Facebook        Facebook
+	Shell           Shell
+	Twilio          Twilio
+	Twitter         Twitter
+	WolframAlpha    WolframAlpha
+	Undocumented1   Undocumented1
+	LookupByTrigger map[Trigger]Feature
 }
 
 var TestFeatureSetJSON = []byte{} // JSON string is set by init_test.go
 
 // Run initialisation routine on all features, and then populate lookup table for all configured features.
 func (fs *FeatureSet) Initialise() error {
-	fs.LookupByPrefix = map[Trigger]Feature{}
-	prefixes := map[Trigger]Feature{
+	fs.LookupByTrigger = map[Trigger]Feature{}
+	triggers := map[Trigger]Feature{
 		fs.Facebook.Trigger():      &fs.Facebook,
 		fs.Shell.Trigger():         &fs.Shell,
 		fs.Twilio.Trigger():        &fs.Twilio,
@@ -30,12 +30,12 @@ func (fs *FeatureSet) Initialise() error {
 		fs.WolframAlpha.Trigger():  &fs.WolframAlpha,
 		fs.Undocumented1.Trigger(): &fs.Undocumented1,
 	}
-	for prefix, featureRef := range prefixes {
+	for trigger, featureRef := range triggers {
 		if featureRef.IsConfigured() {
 			if err := featureRef.Initialise(); err != nil {
 				return err
 			}
-			fs.LookupByPrefix[prefix] = featureRef
+			fs.LookupByTrigger[trigger] = featureRef
 		}
 	}
 	return nil
@@ -46,8 +46,8 @@ func (fs *FeatureSet) SelfTest() (ret map[Trigger]error) {
 	ret = make(map[Trigger]error)
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
-	wait.Add(len(fs.LookupByPrefix))
-	for _, featureRef := range fs.LookupByPrefix {
+	wait.Add(len(fs.LookupByTrigger))
+	for _, featureRef := range fs.LookupByTrigger {
 		go func(ref Feature) {
 			err := ref.SelfTest()
 			if err != nil {

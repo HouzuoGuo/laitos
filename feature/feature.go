@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	COMBINED_TEXT_SEP     = "|" // Separate error and command output in the combined output
-	HTTP_TEST_TIMEOUT_SEC = 60  // Timeout for HTTP requests among those involved in self tests
+	CombinedTextSeperator = "|" // Separate error and command output in the combined output
+	HTTPTestTimeoutSec    = 60  // Timeout for HTTP requests among those involved in self tests
 )
 
 var (
@@ -80,7 +80,7 @@ func (result *Result) ResetCombinedText() string {
 	if result.Error != nil {
 		result.CombinedOutput = result.Error.Error()
 		if result.Output != "" {
-			result.CombinedOutput += COMBINED_TEXT_SEP
+			result.CombinedOutput += CombinedTextSeperator
 		}
 	}
 	result.CombinedOutput += result.Output

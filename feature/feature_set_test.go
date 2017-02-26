@@ -11,8 +11,8 @@ func TestFeatureSet(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Apart from shell, none of the features is in a configured state, their tests are skipped automatically.
-	if len(features.LookupByPrefix) != 1 {
-		t.Fatal(features.LookupByPrefix)
+	if len(features.LookupByTrigger) != 1 {
+		t.Fatal(features.LookupByTrigger)
 	}
 	if errs := features.SelfTest(); len(errs) != 0 {
 		t.Fatal(errs)
@@ -27,8 +27,8 @@ func TestFeatureSet(t *testing.T) {
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByPrefix) != 6 {
-		t.Fatal(features.LookupByPrefix)
+	if len(features.LookupByTrigger) != 6 {
+		t.Fatal(features.LookupByTrigger)
 	}
 	if errs := features.SelfTest(); len(errs) != 0 {
 		t.Fatal(errs)

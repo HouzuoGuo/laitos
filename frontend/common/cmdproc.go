@@ -16,6 +16,8 @@ type CommandProcessor struct {
 	ResultBridges  []bridge.ResultBridge
 }
 
+const ErrBadProcessorConfig = "Insane: " // Prefix errors in function IsSaneForInternet
+
 /*
 From the prospect of Internet-facing mail processor and Twilio hooks, check that parameters are within sane range.
 Return a zero-length slice if everything looks OK.
@@ -24,59 +26,55 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 	errs = make([]error, 0, 0)
 	// Check for nils too, just in case.
 	if proc.Features == nil {
-		errs = append(errs, errors.New("FeatureSet is not assigned"))
+		errs = append(errs, errors.New(ErrBadProcessorConfig+"FeatureSet is not assigned"))
 	} else {
-		if len(proc.Features.LookupByPrefix) == 0 {
-			errs = append(errs, errors.New("FeatureSet is not intialised or all features are lacking configuration"))
+		if len(proc.Features.LookupByTrigger) == 0 {
+			errs = append(errs, errors.New(ErrBadProcessorConfig+"FeatureSet is not intialised or all features are lacking configuration"))
 		}
 	}
 	if proc.CommandBridges == nil {
-		errs = append(errs, errors.New("CommandBridges is not assigned"))
+		errs = append(errs, errors.New(ErrBadProcessorConfig+"CommandBridges is not assigned"))
 	} else {
 		// Check whether PIN bridge is sanely configured
 		seenPIN := false
 		for _, cmdBridge := range proc.CommandBridges {
 			if pin, yes := cmdBridge.(*bridge.CommandPINOrShortcut); yes {
 				if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
-					errs = append(errs, errors.New("PIN is empty and there is no shortcut defined, hence no command will ever execute."))
+					errs = append(errs, errors.New(ErrBadProcessorConfig+"PIN is empty and there is no shortcut defined, hence no command will ever execute."))
 				}
 				if pin.PIN != "" && len(pin.PIN) < 5 {
-					errs = append(errs, errors.New("PIN is too short, make it at least 5 characters long to be somewhat secure."))
+					errs = append(errs, errors.New(ErrBadProcessorConfig+"PIN is too short, make it at least 5 characters long to be somewhat secure."))
 				}
 				seenPIN = true
 				break
 			}
 		}
 		if !seenPIN {
-			errs = append(errs, errors.New("\"CommandPINOrShortcut\" bridge is not used, this is horribly insecure."))
+			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"CommandPINOrShortcut\" bridge is not used, this is horribly insecure."))
 		}
 	}
 	if proc.ResultBridges == nil {
-		errs = append(errs, errors.New("ResultBridges is not assigned"))
+		errs = append(errs, errors.New(ErrBadProcessorConfig+"ResultBridges is not assigned"))
 	} else {
 		// Check whether string linter is sanely configured
 		seenLinter := false
 		for _, resultBridge := range proc.ResultBridges {
 			if linter, yes := resultBridge.(*bridge.LintCombinedText); yes {
 				if linter.MaxLength < 35 || linter.MaxLength > 4096 {
-					errs = append(errs, errors.New("Maximum output length is not within [35, 4096]. This may cause undesired telephone cost."))
+					errs = append(errs, errors.New(ErrBadProcessorConfig+"Maximum output length is not within [35, 4096]. This may cause undesired telephone cost."))
 				}
 				seenLinter = true
 				break
 			}
 		}
 		if !seenLinter {
-			errs = append(errs, errors.New("\"LintCombinedText\" bridge is not used, this may cause crashes or undesired telephone cost."))
+			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"LintCombinedText\" bridge is not used, this may cause crashes or undesired telephone cost."))
 		}
 	}
 	return
 }
 
 func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result) {
-	log.Printf("CommandProcessor.Process: going to run %+v", cmd)
-	defer func() {
-		log.Printf("CommandProcessor.Process: finished with %+v - %s", cmd, ret.CombinedOutput)
-	}()
 	var bridgeErr error
 	var matchedFeature feature.Feature
 	// Walk the command through all bridges
@@ -92,7 +90,7 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 		goto result
 	}
 	// Look for command's prefix among configured features
-	for prefix, configuredFeature := range proc.Features.LookupByPrefix {
+	for prefix, configuredFeature := range proc.Features.LookupByTrigger {
 		if cmd.FindAndRemovePrefix(string(prefix)) {
 			matchedFeature = configuredFeature
 			break
@@ -104,6 +102,10 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 		goto result
 	}
 	// Run the feature
+	log.Printf("CommandProcessor.Process: going to run %+v", cmd)
+	defer func() {
+		log.Printf("CommandProcessor.Process: finished with %+v - %s", cmd, ret.CombinedOutput)
+	}()
 	ret = matchedFeature.Execute(cmd)
 
 result:

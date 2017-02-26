@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	TWITTER_GET_FEEDS = "g"
-	TWITTER_TWEET     = "p"
+	TwitterGetFeeds = "g"
+	TwitterPostTweet = "p"
 )
 
 var RegexTwoNumbers = regexp.MustCompile(`([0-9]+)[^0-9]+([0-9]+)`) // Capture two groups of numbers
@@ -41,7 +41,7 @@ func (twi *Twitter) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make a test query (retrieve one tweet) to verify validity of API credentials
-	testExec := twi.GetFeeds(Command{TimeoutSec: HTTP_TEST_TIMEOUT_SEC, Content: TWITTER_GET_FEEDS})
+	testExec := twi.GetFeeds(Command{TimeoutSec: HTTPTestTimeoutSec, Content: TwitterGetFeeds})
 	return testExec.Error
 }
 
@@ -66,12 +66,12 @@ func (twi *Twitter) Execute(cmd Command) (ret *Result) {
 		return
 	}
 
-	if cmd.FindAndRemovePrefix(TWITTER_GET_FEEDS) {
+	if cmd.FindAndRemovePrefix(TwitterGetFeeds) {
 		ret = twi.GetFeeds(cmd)
-	} else if cmd.FindAndRemovePrefix(TWITTER_TWEET) {
+	} else if cmd.FindAndRemovePrefix(TwitterPostTweet) {
 		ret = twi.Tweet(cmd)
 	} else {
-		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TWITTER_GET_FEEDS, TWITTER_TWEET)}
+		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TwitterGetFeeds, TwitterPostTweet)}
 	}
 	return
 }

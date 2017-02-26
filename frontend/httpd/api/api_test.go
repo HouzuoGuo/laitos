@@ -21,50 +21,31 @@ func TestAllHandlers(t *testing.T) {
 	// ============ All handlers are tested here ============
 	proc := common.GetTestCommandProcessor()
 
-	//  ============ Refuse to make handler function if processor is not sane ============
-	var hook HandlerFactory
-	hook = &FeatureSelfTest{CommandProcessor: &common.CommandProcessor{}}
-	if fun, err := hook.MakeHandler(); err == nil || fun != nil {
-		t.Fatal("did not error")
-	}
-	hook = &TwilioSMSHook{CommandProcessor: &common.CommandProcessor{}}
-	if fun, err := hook.MakeHandler(); err == nil || fun != nil {
-		t.Fatal("did not error")
-	}
-	hook = &TwilioCallHook{CommandProcessor: &common.CommandProcessor{}}
-	if fun, err := hook.MakeHandler(); err == nil || fun != nil {
-		t.Fatal("did not error")
-	}
-	hook = &TwilioCallCallback{CommandProcessor: &common.CommandProcessor{}}
-	if fun, err := hook.MakeHandler(); err == nil || fun != nil {
-		t.Fatal("did not error")
-	}
-
 	// ============ Give handlers to HTTP server mux ============
 	handlers := http.NewServeMux()
 
 	// Self test
-	hook = &FeatureSelfTest{CommandProcessor: proc}
-	selfTestHandle, err := hook.MakeHandler()
+	var hook HandlerFactory = &FeatureSelfTest{}
+	selfTestHandle, err := hook.MakeHandler(proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/self_test", selfTestHandle)
 	// Twilio
-	hook = &TwilioSMSHook{CommandProcessor: proc}
-	smsHandle, err := hook.MakeHandler()
+	hook = &TwilioSMSHook{}
+	smsHandle, err := hook.MakeHandler(proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/sms", smsHandle)
-	hook = &TwilioCallHook{CommandProcessor: proc, CallGreeting: "Hi there", CallbackEndpoint: "/test"}
-	callHandle, err := hook.MakeHandler()
+	hook = &TwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}
+	callHandle, err := hook.MakeHandler(proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/call_greeting", callHandle)
-	hook = &TwilioCallCallback{CommandProcessor: proc, MyEndpoint: "/test"}
-	callbackHandle, err := hook.MakeHandler()
+	hook = &TwilioCallCallback{MyEndpoint: "/test"}
+	callbackHandle, err := hook.MakeHandler(proc)
 	if err != nil {
 		t.Fatal(err)
 	}

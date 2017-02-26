@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	TWILIO_MAKE_CALL = "c"
-	TWILIO_SEND_SMS  = "s"
+	TwilioMakeCall = "c"
+	TwilioSendSMS = "s"
 )
 
 var RegexNumberAndMessage = regexp.MustCompile(`(\+[0-9]+)[^\w]+(.*)`)
@@ -38,7 +38,7 @@ func (twi *Twilio) SelfTest() error {
 	}
 	// Validate API credentials with a simple API call
 	resp, err := httpclient.DoHTTP(httpclient.Request{
-		TimeoutSec: HTTP_TEST_TIMEOUT_SEC,
+		TimeoutSec: HTTPTestTimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
 			return nil
@@ -64,18 +64,18 @@ func (twi *Twilio) Execute(cmd Command) (ret *Result) {
 		return
 	}
 
-	if strings.HasPrefix(cmd.Content, TWILIO_MAKE_CALL) {
+	if strings.HasPrefix(cmd.Content, TwilioMakeCall) {
 		ret = twi.MakeCall(cmd)
-	} else if strings.HasPrefix(cmd.Content, TWILIO_SEND_SMS) {
+	} else if strings.HasPrefix(cmd.Content, TwilioSendSMS) {
 		ret = twi.SendSMS(cmd)
 	} else {
-		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TWILIO_MAKE_CALL, TWILIO_SEND_SMS)}
+		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TwilioMakeCall, TwilioSendSMS)}
 	}
 	return
 }
 
 func (twi *Twilio) MakeCall(cmd Command) *Result {
-	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimSpace(strings.TrimPrefix(cmd.Content, TWILIO_MAKE_CALL)))
+	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimSpace(strings.TrimPrefix(cmd.Content, TwilioMakeCall)))
 	if len(params) < 3 {
 		return &Result{Error: errors.New("Call parameters are missing")}
 	}
@@ -87,7 +87,7 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 		"Url":  {"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s, repeat again, %s, repeat again, %s, over.", message, message, message))},
 	}
 	resp, err := httpclient.DoHTTP(httpclient.Request{
-		TimeoutSec: HTTP_TEST_TIMEOUT_SEC,
+		TimeoutSec: HTTPTestTimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(formParams.Encode()),
 		RequestFunc: func(req *http.Request) error {
@@ -103,7 +103,7 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 }
 
 func (twi *Twilio) SendSMS(cmd Command) *Result {
-	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimSpace(strings.TrimPrefix(cmd.Content, TWILIO_MAKE_CALL)))
+	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimSpace(strings.TrimPrefix(cmd.Content, TwilioMakeCall)))
 	if len(params) < 3 {
 		return &Result{Error: errors.New("SMS parameters are missing")}
 	}
@@ -116,7 +116,7 @@ func (twi *Twilio) SendSMS(cmd Command) *Result {
 		"Body": {message},
 	}
 	resp, err := httpclient.DoHTTP(httpclient.Request{
-		TimeoutSec: HTTP_TEST_TIMEOUT_SEC,
+		TimeoutSec: HTTPTestTimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(formParams.Encode()),
 		RequestFunc: func(req *http.Request) error {

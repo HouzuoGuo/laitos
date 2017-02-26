@@ -9,21 +9,17 @@ import (
 	"net/http"
 )
 
-const TWILIO_HANDLER_TIMEOUT_SEC = 14 // as of 2017-02-23, the timeout is required by Twilio on both SMS and call hooks.
+const TwilioHandlerTimeoutSec = 14 // as of 2017-02-23, the timeout is required by Twilio on both SMS and call hooks.
 
 // Implement handler for Twilio phone number's SMS hook.
 type TwilioSMSHook struct {
-	CommandProcessor *common.CommandProcessor
 }
 
-func (hand *TwilioSMSHook) MakeHandler() (http.HandlerFunc, error) {
-	if errs := hand.CommandProcessor.IsSaneForInternet(); len(errs) > 0 {
-		return nil, fmt.Errorf("%+v", errs)
-	}
+func (hand *TwilioSMSHook) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// SMS message is in "Body" parameter
-		ret := hand.CommandProcessor.Process(feature.Command{
-			TimeoutSec: TWILIO_HANDLER_TIMEOUT_SEC,
+		ret := cmdProc.Process(feature.Command{
+			TimeoutSec: TwilioHandlerTimeoutSec,
 			Content:    r.FormValue("Body"),
 		})
 		// In case both PIN and shortcuts mismatch, try to conceal this endpoint.
@@ -42,15 +38,11 @@ func (hand *TwilioSMSHook) MakeHandler() (http.HandlerFunc, error) {
 
 // Implement handler for Twilio phone number's telephone hook.
 type TwilioCallHook struct {
-	CommandProcessor *common.CommandProcessor
 	CallGreeting     string // a message to speak upon picking up a call
 	CallbackEndpoint string // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
 }
 
-func (hand *TwilioCallHook) MakeHandler() (http.HandlerFunc, error) {
-	if errs := hand.CommandProcessor.IsSaneForInternet(); len(errs) > 0 {
-		return nil, fmt.Errorf("%+v", errs)
-	}
+func (hand *TwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
 	if hand.CallGreeting == "" || hand.CallbackEndpoint == "" {
 		return nil, errors.New("Greeting or handler endpoint is empty")
 	}
@@ -71,21 +63,17 @@ func (hand *TwilioCallHook) MakeHandler() (http.HandlerFunc, error) {
 
 // Implement handler for Twilio phone number's telephone callback (triggered by response of TwilioCallHook).
 type TwilioCallCallback struct {
-	CommandProcessor *common.CommandProcessor
-	MyEndpoint       string // URL to the callback itself
+	MyEndpoint string // URL to the callback itself
 }
 
-func (hand *TwilioCallCallback) MakeHandler() (http.HandlerFunc, error) {
-	if errs := hand.CommandProcessor.IsSaneForInternet(); len(errs) > 0 {
-		return nil, fmt.Errorf("%+v", errs)
-	}
+func (hand *TwilioCallCallback) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	if hand.MyEndpoint == "" {
 		return nil, errors.New("Handler endpoint is empty")
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// DTMF input digits are in "Digits" parameter
-		ret := hand.CommandProcessor.Process(feature.Command{
-			TimeoutSec: TWILIO_HANDLER_TIMEOUT_SEC,
+		ret := cmdProc.Process(feature.Command{
+			TimeoutSec: TwilioHandlerTimeoutSec,
 			Content:    DTMFDecode(r.FormValue("Digits")),
 		})
 		w.Header().Set("Content-Type", "text/xml")
