@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/HouzuoGuo/websh.svg?branch=master)](https://travis-ci.org/HouzuoGuo/websh)
+
 Websh
 =====
 A comprehensive do-everything daemon, delivers all of the following features via telephone calls, SMS, email exchange, and web API calls:

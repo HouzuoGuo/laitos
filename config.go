@@ -1,132 +1,134 @@
 package main
 
-// A single configuration file format dictates all functions of this program.
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"github.com/HouzuoGuo/websh/bridge"
+	"github.com/HouzuoGuo/websh/email"
+	"github.com/HouzuoGuo/websh/feature"
+	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/websh/frontend/httpd"
+	"github.com/HouzuoGuo/websh/frontend/httpd/api"
+	"github.com/HouzuoGuo/websh/frontend/mailp"
+	"log"
+)
+
+// Configuration of a standard set of bridges that are useful to both HTTP daemon and mail processor.
+type StandardBridges struct {
+	// Before command...
+	TranslateSequences bridge.TranslateSequences `json:"TranslateSequences"`
+	PINAndShortcuts    bridge.PINAndShortcuts    `json:"PINAndShortcuts"`
+
+	// After result...
+	NotifyViaEmail bridge.NotifyViaEmail `json:"NotifyViaEmail"`
+	LintText       bridge.LintText       `json:"LintText"`
+}
+
+// Configure path to HTTP handlers and handler themselves.
+type HTTPHandlers struct {
+	TwilioSMSEndpoint        string             `json:"TwilioSMSEndpoint"`
+	TwilioCallEndpoint       string             `json:"TwilioCallEndpoint"`
+	TwilioCallEndpointConfig api.TwilioCallHook `json:"TwilioCallEndpointConfig"`
+	SelfTestEndpoint         string             `json:"SelfTestEndpoint"`
+}
+
+// The structure is JSON-compatible and capable of setting up all features and front-end services.
 type Config struct {
-	MessageEndpoint     string // The secret API endpoint name for messaging in daemon mode
-	VoiceMLEndpoint     string // The secret API endpoint name that serves TwiML voice script in daemon mode
-	VoiceProcEndpoint   string // The secret API endpoint name that responds to TwiML voice script
-	VoiceEndpointPrefix string // The HTTP scheme and/or host name and/or URL prefix that will correctly construct URLs leading to ML and Proc endpoints
-	ServerPort          int    // The port HTTP server listens on in daemon mode
-	PIN                 string // The pre-shared secret pin to enable command execution in both daemon and mail mode
-	TLSCert             string // Location of HTTP TLS certificate in daemon mode
-	TLSKey              string // Location of HTTP TLS key in daemon mode
-
-	SubHashSlashForPipe bool // Substitute char sequence #/ from incoming command for char | before command execution
-	WebTimeoutSec       int  // When reached from web API, WolframAlpha query/shell command is killed after this number of seconds.
-	WebTruncateLen      int  // When reached from web API, truncate command execution result to this length.
-
-	MailTimeoutSec       int      // When reached from mail API, WolframAlpha query/shell command is killed after this number of seconds.
-	MailTruncateLen      int      // When reached from mail API, truncate command execution result to this length.
-	MailRecipients       []string // List of mail addresses that receive notification after each command
-	MailFrom             string   // FROM address of the mail notifications
-	MailAgentAddressPort string   // Address and port number of mail transportation agent for sending notifications
-
-	MysteriousURL         string   // intentionally undocumented
-	MysteriousAddr1       string   // intentionally undocumented
-	MysteriousAddr2       string   // intentionally undocumented
-	MysteriousID1         string   // intentionally undocumented
-	MysteriousID2         string   // intentionally undocumented
-	MysteriousCmds        []string // intentionally undocumented
-	MysteriousCmdIntvHour int      // intentionally undocumented
-
-	FacebookAccessToken string // Facebook user access token
-
-	TwilioNumber     string // Twilio telephone number for outbound call and SMS
-	TwilioSID        string // Twilio account SID
-	TwilioAuthSecret string // Twilio authentication secret token
-
-	TwitterConsumerKey    string // Twitter application key
-	TwitterConsumerSecret string // Twitter application secret
-	TwitterAccessToken    string // Twitter application-user key
-	TwitterAccessSecret   string // Twitter application-user secret
-
-	WolframAlphaAppID string // WolframAlpha application ID for consuming its APIs
-
-	PresetMessages map[string]string // Pre-defined mapping of secret phrases and their  corresponding command
+	Features             feature.FeatureSet  `json:"Features"`             // Feature configuration is shared by all services
+	HTTPDaemon           httpd.HTTPD         `json:"HTTPDaemon"`           // HTTP daemon configuration
+	HTTPBridges          StandardBridges     `json:"HTTPBridges"`          // HTTP daemon bridge configuration
+	HTTPHandlers         HTTPHandlers        `json:"HTTPHandlers"`         // HTTP daemon handler configuration
+	MailProcessor        mailp.MailProcessor `json:"MailProcessor"`        // Incoming mail processor configuration
+	MailProcessorBridges StandardBridges     `json:"MailProcessorBridges"` // Incoming mail processor bridge configuration
+	Mailer               email.Mailer        `json:"Mailer"`               // Outgoing mail configuration for notifications and mail replies
 }
 
-// Return a web API server instance with completed configuration.
-func (conf *Config) ToWebServer() APIServer {
-	var cmdRunner CommandRunner
-	cmdRunner = CommandRunner{
-		SubHashSlashForPipe: conf.SubHashSlashForPipe,
-		SqueezeIntoOneLine:  true,
-		TimeoutSec:          conf.WebTimeoutSec,
-		TruncateLen:         conf.WebTruncateLen,
-		PIN:                 conf.PIN,
-		PresetMessages:      conf.PresetMessages,
-		Mailer: Mailer{
-			MailFrom:       conf.MailFrom,
-			MTAAddressPort: conf.MailAgentAddressPort,
-			Recipients:     conf.MailRecipients,
-		},
-		Facebook: FacebookClient{
-			AccessToken: conf.FacebookAccessToken,
-		},
-		Twilio: TwilioClient{
-			AccountSID:  conf.TwilioSID,
-			AuthSecret:  conf.TwilioAuthSecret,
-			PhoneNumber: conf.TwilioNumber},
-		Twitter: TwitterClient{
-			APIConsumerKey:       conf.TwitterConsumerKey,
-			APIConsumerSecret:    conf.TwitterConsumerSecret,
-			APIAccessToken:       conf.TwitterAccessToken,
-			APIAccessTokenSecret: conf.TwitterAccessSecret,
-		},
-		WolframAlpha: WolframAlphaClient{AppID: conf.WolframAlphaAppID},
-	}
-	return APIServer{
-		MessageEndpoint:     conf.MessageEndpoint,
-		VoiceMLEndpoint:     conf.VoiceMLEndpoint,
-		VoiceProcEndpoint:   conf.VoiceProcEndpoint,
-		VoiceEndpointPrefix: conf.VoiceEndpointPrefix,
-		ServerPort:          conf.ServerPort,
-		TLSCert:             conf.TLSCert,
-		TLSKey:              conf.TLSKey,
-		Command:             cmdRunner,
-	}
+// Deserialise JSON data into config structures.
+func (config *Config) DeserialiseFromJSON(in []byte) error {
+	return json.Unmarshal(in, config)
 }
 
-// Return a mail processor instance with completed configuration.
-func (conf *Config) ToMailProcessor() MailProcessor {
-	var cmdRunner CommandRunner
-	cmdRunner = CommandRunner{
-		SubHashSlashForPipe: conf.SubHashSlashForPipe,
-		SqueezeIntoOneLine:  true,
-		TimeoutSec:          conf.MailTimeoutSec,
-		TruncateLen:         conf.MailTruncateLen,
-		PIN:                 conf.PIN,
-		PresetMessages:      conf.PresetMessages,
-		Mailer: Mailer{
-			MailFrom:       conf.MailFrom,
-			MTAAddressPort: conf.MailAgentAddressPort,
-			Recipients:     conf.MailRecipients,
-		},
-		Facebook: FacebookClient{
-			AccessToken: conf.FacebookAccessToken,
-		},
-		Twilio: TwilioClient{
-			AccountSID:  conf.TwilioSID,
-			AuthSecret:  conf.TwilioAuthSecret,
-			PhoneNumber: conf.TwilioNumber},
-		Twitter: TwitterClient{
-			APIConsumerKey:       conf.TwitterConsumerKey,
-			APIConsumerSecret:    conf.TwitterConsumerSecret,
-			APIAccessToken:       conf.TwitterAccessToken,
-			APIAccessTokenSecret: conf.TwitterAccessSecret,
-		},
-		WolframAlpha: WolframAlphaClient{AppID: conf.WolframAlphaAppID},
+// Construct an HTTP daemon from configuration and return.
+func (config *Config) GetHTTPD() *httpd.HTTPD {
+	ret := config.HTTPDaemon
+
+	mailNotification := config.HTTPBridges.NotifyViaEmail
+	mailNotification.Mailer = &config.Mailer
+	features := config.Features
+	if err := features.Initialise(); err != nil {
+		log.Panicf("GetHTTPD: failed to initialise features - %v", err)
 	}
-	return MailProcessor{
-		CommandRunner: cmdRunner,
-		Mysterious: MysteriousClient{
-			Addr1:           conf.MysteriousAddr1,
-			Addr2:           conf.MysteriousAddr2,
-			CmdIntervalHour: conf.MysteriousCmdIntvHour,
-			Cmds:            conf.MysteriousCmds,
-			ID1:             conf.MysteriousID1,
-			ID2:             conf.MysteriousID2,
-			URL:             conf.MysteriousURL,
+	// Assemble command processor from features and bridges
+	ret.Processor = &common.CommandProcessor{
+		Features: &features,
+		CommandBridges: []bridge.CommandBridge{
+			&config.HTTPBridges.PINAndShortcuts,
+			&config.HTTPBridges.TranslateSequences,
+		},
+		ResultBridges: []bridge.ResultBridge{
+			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+			&bridge.LintText{TrimSpaces: true, MaxLength: 35},
+			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+			&mailNotification,
 		},
 	}
+	// Make handler factories
+	handlers := map[string]api.HandlerFactory{}
+	if config.HTTPHandlers.SelfTestEndpoint != "" {
+		handlers[config.HTTPHandlers.SelfTestEndpoint] = &api.FeatureSelfTest{}
+		log.Print("GetHTTPD: feature self-test endpoint is enabled")
+	}
+	if config.HTTPHandlers.TwilioCallEndpoint != "" {
+		/*
+		 Configure a callback endpoint for Twilio call's callback.
+		 The endpoint name is automatically generated from random bytes.
+		*/
+		randBytes := make([]byte, 16)
+		_, err := rand.Read(randBytes)
+		if err != nil {
+			log.Panicf("GetHTTPD: failed to read random number - %v", err)
+		}
+		callbackEndpoint := "/" + hex.EncodeToString(randBytes)
+		// The greeting handler will use the callback endpoint to handle command
+		config.HTTPHandlers.TwilioCallEndpointConfig.CallbackEndpoint = callbackEndpoint
+		handlers[config.HTTPHandlers.TwilioCallEndpoint] = &config.HTTPHandlers.TwilioCallEndpointConfig
+		// The callback handler will use the callback point that points to itself to carry on with phone conversation
+		handlers[callbackEndpoint] = &api.TwilioCallCallback{MyEndpoint: callbackEndpoint}
+		log.Print("GetHTTPD: Twilio call hook endpoint is enabled")
+	}
+	if config.HTTPHandlers.TwilioSMSEndpoint != "" {
+		handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &api.TwilioSMSHook{}
+		log.Print("GetHTTPD: Twilio SMS hook endpoint is enabled")
+	}
+	ret.Handlers = handlers
+	return &ret
+}
+
+// Construct a mail processor from configuration and return.
+func (config *Config) GetMailProcessor() *mailp.MailProcessor {
+	ret := config.MailProcessor
+
+	mailNotification := config.MailProcessorBridges.NotifyViaEmail
+	mailNotification.Mailer = &config.Mailer
+	features := config.Features
+	if err := features.Initialise(); err != nil {
+		log.Panicf("GetMailProcessor: failed to initialise features - %v", err)
+	}
+	// Assemble command processor from features and bridges
+	ret.Processor = &common.CommandProcessor{
+		Features: &features,
+		CommandBridges: []bridge.CommandBridge{
+			&config.MailProcessorBridges.PINAndShortcuts,
+			&config.MailProcessorBridges.TranslateSequences,
+		},
+		ResultBridges: []bridge.ResultBridge{
+			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+			&bridge.LintText{TrimSpaces: true, MaxLength: 35},
+			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+			&mailNotification,
+		},
+	}
+	ret.ReplyMailer = &config.Mailer
+	return &ret
 }

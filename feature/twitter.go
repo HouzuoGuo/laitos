@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	TwitterGetFeeds = "g"
+	TwitterGetFeeds  = "g"
 	TwitterPostTweet = "p"
 )
 

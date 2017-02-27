@@ -13,7 +13,7 @@ import (
 
 const (
 	TwilioMakeCall = "c"
-	TwilioSendSMS = "s"
+	TwilioSendSMS  = "s"
 )
 
 var RegexNumberAndMessage = regexp.MustCompile(`(\+[0-9]+)[^\w]+(.*)`)

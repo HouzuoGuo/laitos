@@ -85,7 +85,7 @@ func TestAllHandlers(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusNotFound {
 		t.Fatal(err, resp)
 	}
-	// Twilio - the extra spaces around prefix and PIN do not matter
+	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
@@ -125,7 +125,7 @@ func TestAllHandlers(t *testing.T) {
 	// Twilio - check phone call response to command
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
-		//                                            v  e r  y  s   e c  r  e t .   s    tr  u e
+		//                                             v  e r  y  s   e c  r  e t .   s    tr  u e
 		Body: strings.NewReader(url.Values{"Digits": {"88833777999777733222777338014207777087778833"}}.Encode()),
 	}, addr+"call_command")
 	expected = `<?xml version="1.0" encoding="UTF-8"?>

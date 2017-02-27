@@ -15,13 +15,13 @@ func TestCommandProcessor_Process(t *testing.T) {
 	}
 	// Prepare all kinds of command bridges
 	commandBridges := []bridge.CommandBridge{
-		&bridge.CommandPINOrShortcut{PIN: "mypin"},
-		&bridge.CommandTranslator{Sequences: [][]string{{"alpha", "beta"}}},
+		&bridge.PINAndShortcuts{PIN: "mypin"},
+		&bridge.TranslateSequences{Sequences: [][]string{{"alpha", "beta"}}},
 	}
 	// Prepare all kinds of result bridges
 	resultBridges := []bridge.ResultBridge{
 		&bridge.ResetCombinedText{},
-		&bridge.LintCombinedText{TrimSpaces: true, MaxLength: 2},
+		&bridge.LintText{TrimSpaces: true, MaxLength: 2},
 		&bridge.NotifyViaEmail{},
 	}
 
@@ -99,17 +99,17 @@ func TestCommandProcessor_IsSane(t *testing.T) {
 		t.Fatal(errs)
 	}
 	// PIN bridge has short PIN
-	proc.CommandBridges = []bridge.CommandBridge{&bridge.CommandPINOrShortcut{PIN: "a"}}
+	proc.CommandBridges = []bridge.CommandBridge{&bridge.PINAndShortcuts{PIN: "a"}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
 		t.Fatal(errs)
 	}
 	// PIN bridge has nothing
-	proc.CommandBridges = []bridge.CommandBridge{&bridge.CommandPINOrShortcut{}}
+	proc.CommandBridges = []bridge.CommandBridge{&bridge.PINAndShortcuts{}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
 		t.Fatal(errs)
 	}
 	// Good PIN bridge
-	proc.CommandBridges = []bridge.CommandBridge{&bridge.CommandPINOrShortcut{PIN: "very-long-pin"}}
+	proc.CommandBridges = []bridge.CommandBridge{&bridge.PINAndShortcuts{PIN: "very-long-pin"}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 1 {
 		t.Fatal(errs)
 	}
@@ -119,12 +119,12 @@ func TestCommandProcessor_IsSane(t *testing.T) {
 		t.Fatal(errs)
 	}
 	// Linter bridge has out-of-range max length
-	proc.ResultBridges = []bridge.ResultBridge{&bridge.LintCombinedText{MaxLength: 1}}
+	proc.ResultBridges = []bridge.ResultBridge{&bridge.LintText{MaxLength: 1}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 1 {
 		t.Fatal(errs)
 	}
 	// Good linter bridge
-	proc.ResultBridges = []bridge.ResultBridge{&bridge.LintCombinedText{MaxLength: 35}}
+	proc.ResultBridges = []bridge.ResultBridge{&bridge.LintText{MaxLength: 35}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 0 {
 		t.Fatal(errs)
 	}

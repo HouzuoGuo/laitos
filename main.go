@@ -1,18 +1,11 @@
 /*
-A comprehensive do-everything daemon, delivers all of the following features via telephone calls, SMS, email exchange, and web API calls:
-- Run shell commands and retrieve result.
-- Run WolframAlpha queries and retrieve result.
-- Call another telephone number and speak a piece of text.
-- Send SMS to another person.
-- Post to Twitter time-line.
-- Read the latest updates from Twitter home time-line.
+websh is a comprehensive do-everything daemon that delivers many Internet features (not generic Internet Protocol) over
+alternative communication infrastructure such as PSTN, GSM, and satellite.
 
-To test run the web API daemon via curl, do:
-curl --insecure -v 'https://localhost:12321/my_secret_endpoint_name' --data-ascii 'Body=MYSECRETecho hello world'
+You must exercise extreme caution when using this software program, inappropriate configuration will severely compromise
+the security of the host computer. I am not responsible for any damage/potential damage caused to your computers.
 
-Please note: exercise extreme caution when using this software program, inappropriate configuration will make your computer easily compromised! If you choose to use this program, I will not be responsible for any damage/potential damage caused to your computers.
-
-Copyright (c) 2016, Howard Guo <guohouzuo@gmail.com>
+Copyright (c) 2017, Howard Guo <guohouzuo@gmail.com>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -24,72 +17,92 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 package main
 
 import (
-	"encoding/json"
+	cryptoRand "crypto/rand"
+	"encoding/binary"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
-	"math/rand"
+	pseudoRand "math/rand"
 	"os"
+	"regexp"
 	"syscall"
 	"time"
 )
+
+// Re-seed global pseudo random generator using cryptographic random number generator.
+func ReseedPseudoRand() {
+	seedBytes := make([]byte, 8)
+	_, err := cryptoRand.Read(seedBytes)
+	if err != nil {
+		log.Panicf("ReseedPseudoRand: failed to read from crypto random generator - %v", err)
+	}
+	seed, _ := binary.Varint(seedBytes)
+	if seed == 0 {
+		log.Panic("ReseedPseudoRand: binary conversion failed")
+	}
+	pseudoRand.Seed(seed)
+	log.Print("ReseedPseudoRand: succeeded")
+}
 
 func main() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
 		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
-			fmt.Fprintln(os.Stderr, "Failed to lock memory - %v", err)
-			os.Exit(111)
+			log.Panicf("main: failed to lock memory - %v", err)
 		}
-		log.Print("Program is now locked into memory for safety reasons")
+		log.Print("Program has been locked into memory for safety reasons.")
+	} else {
+		log.Print("Program is not running as root (UID 0) hence memory is not locked, your private information will leak into swap.")
 	}
-	// Random delay in command processor uses this random number generator
-	rand.Seed(time.Now().UnixNano())
 
-	var configFilePath string
-	var mailMode bool
-	flag.StringVar(&configFilePath, "configfilepath", "", "Path to the configuration file")
-	flag.BoolVar(&mailMode, "mailmode", false, "True if the program is processing an incoming mail, false if the program is running as a daemon")
+	// Re-seed pseudo random number generator once a while
+	ReseedPseudoRand()
+	go func() {
+		ReseedPseudoRand()
+		time.Sleep(2 * time.Minute)
+	}()
+
+	// Process command line flags
+	var configFile, frontend string
+	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (httpd, mailp)")
 	flag.Parse()
 
-	// Load configuration file from CLI parameter
-	if configFilePath == "" {
-		flag.PrintDefaults()
-		log.Panic("Please provide path to configuration file")
+	if configFile == "" {
+		log.Panic("Please provide a configuration file (-config).")
 	}
-	configContent, err := ioutil.ReadFile(configFilePath)
+	frontendList := regexp.MustCompile(`\w+`)
+	frontends := frontendList.FindAllString(frontend, -1)
+	if frontends == nil || len(frontends) == 0 {
+		log.Panic("Please provide comma-separated list of frontend services to start (-frontend).")
+	}
+
+	// Deserialise configuration file
+	var config Config
+	configBytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		log.Panicf("Failed to read config file - %v", err)
+		log.Panicf("Failed to read config file \"%s\" - %v", configFile, err)
 	}
-	var conf Config
-	if err = json.Unmarshal(configContent, &conf); err != nil {
-		log.Panicf("Failed to unmarshal config JSON - %v", err)
-	}
-
-	if mailMode {
-		// Process incoming mail from stdin
-		mailProc := conf.ToMailProcessor()
-		if err := mailProc.CheckConfig(); err != nil {
-			log.Panic(err)
-		}
-		mailContent, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			log.Panic("Failed to read mail content from STDIN")
-		}
-		mailProc.RunCommandFromMail(string(mailContent))
-	} else {
-		// Run web server and block until exit
-		webServer := conf.ToWebServer()
-		if err := webServer.CheckConfig(); err != nil {
-			log.Panic(err)
-		}
-		if webServer.Command.Mailer.IsEnabled() {
-			log.Printf("Will send mail notifications to %v", webServer.Command.Mailer.Recipients)
-		} else {
-			log.Print("Will not send mail notifications")
-		}
-		webServer.Run() // blocks
+	if err := config.DeserialiseFromJSON(configBytes); err != nil {
+		log.Panicf("Failed to deserialise config file \"%s\" - %v", configFile, err)
 	}
 
+	for _, frontendName := range frontends {
+		switch frontendName {
+		case "httpd":
+			go func() {
+				if err := config.GetHTTPD().StartAndBlock(); err != nil {
+					log.Panicf("main: failed to start http daemon - %v", err)
+				}
+			}()
+		case "mailp":
+			mailContent, err := ioutil.ReadAll(os.Stdin)
+			if err != nil {
+				log.Panicf("main: failed to read mail content from stdin - %v", err)
+			}
+			if err := config.GetMailProcessor().Process(mailContent); err != nil {
+				log.Panicf("main: failed to process mail - %v", err)
+			}
+		}
+	}
 }

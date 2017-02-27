@@ -1,14 +1,14 @@
 [Unit]
-Description=A simple do-everything daemon, primary for offering control of your computer via telephone and SMS.
+Description=websh communicator daemon
 After=network.target
 
 [Service]
-ExecStart=/usr/sbin/emerctl -configfilepath=/root/.webshconf
+ExecStart=/usr/sbin/websh -configfilepath=/root/.webshconf
 User=root
 Group=root
 WorkingDirectory=/tmp
 PrivateTmp=true
-RestartSec=5
+RestartSec=3
 Restart=always
 
 [Install]

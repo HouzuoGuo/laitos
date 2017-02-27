@@ -14,9 +14,9 @@ const MailProcessorReplySubject = "websh-result-" // These terms appear in the s
 
 // Process incoming mail and reply to it via the specified mailer.
 type MailProcessor struct {
-	Processor         *common.CommandProcessor // Configured features
-	CommandTimeoutSec int                      // Commands are restricted to run within this number of seconds
-	ReplyMailer       *email.Mailer            // If an Email reply is necessary, use this mailer to deliver it.
+	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
+	CommandTimeoutSec int                      `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds
+	ReplyMailer       *email.Mailer            `json:"-"`                 // To deliver Email replies
 }
 
 /*
@@ -55,7 +55,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte) error {
 		if isConfigured {
 			undoc1T := undoc1.(*feature.Undocumented1)
 			// The undocumented scenario is triggered by an Email address suffix
-			if strings.HasSuffix(prop.ReplyAddress, undoc1T.Addr1) {
+			if undoc1T.Addr1 != "" && strings.HasSuffix(prop.ReplyAddress, undoc1T.Addr1) {
 				// Let the undocumented scenario take care of delivering the result
 				undoc1Result := undoc1T.Execute(feature.Command{
 					Content:    result.CombinedOutput,
@@ -68,7 +68,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte) error {
 				}
 			}
 		}
-		// Undocumented scenario did not take care of the result, so send it as a normal Email reply.
+		// The Email address suffix did not satisfy undocumented scenario, so send the result as a normal Email reply.
 		if mailproc.ReplyMailer == nil || !mailproc.ReplyMailer.IsConfigured() {
 			return false, errors.New("The reply has to be sent via Email but configuration is missing")
 		}

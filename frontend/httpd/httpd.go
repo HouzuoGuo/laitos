@@ -17,8 +17,8 @@ type HTTPD struct {
 	TLSCertPath   string                        `json:"TLSCertPath"`
 	TLSKeyPath    string                        `json:"TLSKeyPath"`
 	Handlers      map[string]api.HandlerFactory `json:"-"`
-	Processor     *common.CommandProcessor
-	Server        *http.Server `json:"-"`
+	Server        *http.Server                  `json:"-"`
+	Processor     *common.CommandProcessor      `json:"-"`
 }
 
 // Start HTTP daemon and block until this program exits.

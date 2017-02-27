@@ -38,7 +38,7 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 		// Check whether PIN bridge is sanely configured
 		seenPIN := false
 		for _, cmdBridge := range proc.CommandBridges {
-			if pin, yes := cmdBridge.(*bridge.CommandPINOrShortcut); yes {
+			if pin, yes := cmdBridge.(*bridge.PINAndShortcuts); yes {
 				if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
 					errs = append(errs, errors.New(ErrBadProcessorConfig+"PIN is empty and there is no shortcut defined, hence no command will ever execute."))
 				}
@@ -59,7 +59,7 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 		// Check whether string linter is sanely configured
 		seenLinter := false
 		for _, resultBridge := range proc.ResultBridges {
-			if linter, yes := resultBridge.(*bridge.LintCombinedText); yes {
+			if linter, yes := resultBridge.(*bridge.LintText); yes {
 				if linter.MaxLength < 35 || linter.MaxLength > 4096 {
 					errs = append(errs, errors.New(ErrBadProcessorConfig+"Maximum output length is not within [35, 4096]. This may cause undesired telephone cost."))
 				}
@@ -128,13 +128,13 @@ func GetTestCommandProcessor() *CommandProcessor {
 	}
 	// Prepare realistic command bridges
 	commandBridges := []bridge.CommandBridge{
-		&bridge.CommandPINOrShortcut{PIN: "verysecret"},
-		&bridge.CommandTranslator{Sequences: [][]string{{"alpha", "beta"}}},
+		&bridge.PINAndShortcuts{PIN: "verysecret"},
+		&bridge.TranslateSequences{Sequences: [][]string{{"alpha", "beta"}}},
 	}
 	// Prepare realistic result bridges
 	resultBridges := []bridge.ResultBridge{
 		&bridge.ResetCombinedText{},
-		&bridge.LintCombinedText{TrimSpaces: true, MaxLength: 35},
+		&bridge.LintText{TrimSpaces: true, MaxLength: 35},
 		&bridge.SayEmptyOutput{},
 		&bridge.NotifyViaEmail{},
 	}

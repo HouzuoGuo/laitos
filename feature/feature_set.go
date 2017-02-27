@@ -8,16 +8,16 @@ import (
 
 // Aggregate all available features together.
 type FeatureSet struct {
-	Facebook        Facebook
-	Shell           Shell
-	Twilio          Twilio
-	Twitter         Twitter
-	WolframAlpha    WolframAlpha
-	Undocumented1   Undocumented1
-	LookupByTrigger map[Trigger]Feature
+	Facebook        Facebook            `json:"Facebook"`
+	Shell           Shell               `json:"Shell"`
+	Twilio          Twilio              `json:"Twilio"`
+	Twitter         Twitter             `json:"Twitter"`
+	WolframAlpha    WolframAlpha        `json:"WolframAlpha"`
+	Undocumented1   Undocumented1       `json:"Undocumented1"`
+	LookupByTrigger map[Trigger]Feature `json:"-"`
 }
 
-var TestFeatureSetJSON = []byte{} // JSON string is set by init_test.go
+var TestFeatureSet = FeatureSet{} // Features are assigned by init_test.go
 
 // Run initialisation routine on all features, and then populate lookup table for all configured features.
 func (fs *FeatureSet) Initialise() error {

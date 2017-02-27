@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-func TestCommandPINOrShortcut_Transform(t *testing.T) {
-	pin := CommandPINOrShortcut{}
+func TestPINAndShortcuts_Transform(t *testing.T) {
+	pin := PINAndShortcuts{}
 	if _, err := pin.Transform(feature.Command{Content: "abc"}); err == nil {
 		t.Fatal("should have been an error")
 	}
 
-	pin = CommandPINOrShortcut{PIN: "mypin"}
+	pin = PINAndShortcuts{PIN: "mypin"}
 	if out, err := pin.Transform(feature.Command{Content: "abc"}); err != ErrPINAndShortcutNotFound || out.Content != "abc" {
 		t.Fatal(out, err)
 	}
@@ -39,8 +39,8 @@ func TestCommandPINOrShortcut_Transform(t *testing.T) {
 	}
 }
 
-func TestCommandTranslator_Transform(t *testing.T) {
-	tr := CommandTranslator{}
+func TestTranslateSequences_Transform(t *testing.T) {
+	tr := TranslateSequences{}
 	if out, err := tr.Transform(feature.Command{Content: "abc"}); err != nil || out.Content != "abc" {
 		t.Fatal(out)
 	}

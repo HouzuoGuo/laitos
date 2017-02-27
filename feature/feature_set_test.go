@@ -1,11 +1,10 @@
 package feature
 
 import (
-	"encoding/json"
 	"testing"
 )
 
-func TestFeatureSet(t *testing.T) {
+func TestFeatureSet_SelfTest(t *testing.T) {
 	features := FeatureSet{}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
@@ -17,12 +16,11 @@ func TestFeatureSet(t *testing.T) {
 	if errs := features.SelfTest(); len(errs) != 0 {
 		t.Fatal(errs)
 	}
-	// Configure all features via JSON and verify via self test
-	if len(TestFeatureSetJSON) == 0 {
+	// Configure all features via JSON and verify via self test\
+	features = TestFeatureSet
+	features.Initialise()
+	if len(features.LookupByTrigger) != 6 {
 		t.Skip()
-	}
-	if err := features.DeserialiseFromJSON(json.RawMessage(TestFeatureSetJSON)); err != nil {
-		t.Fatal(err)
 	}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)

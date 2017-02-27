@@ -39,7 +39,7 @@ Lint combined text string in the following order (each step is turned on by resp
 5. Remove a number of leading character.
 6. Remove excessive characters at end of the string.
 */
-type LintCombinedText struct {
+type LintText struct {
 	TrimSpaces              bool `json:"TrimSpaces"`
 	CompressToSingleLine    bool `json:"CompressToSingleLine"`
 	KeepVisible7BitCharOnly bool `json:"KeepVisible7BitCharOnly"`
@@ -48,7 +48,7 @@ type LintCombinedText struct {
 	MaxLength               int  `json:"MaxLength"`
 }
 
-func (lint *LintCombinedText) Transform(result *feature.Result) error {
+func (lint *LintText) Transform(result *feature.Result) error {
 	ret := result.CombinedOutput
 	// Trim
 	if lint.TrimSpaces {
@@ -57,9 +57,7 @@ func (lint *LintCombinedText) Transform(result *feature.Result) error {
 			out.WriteString(strings.TrimSpace(line))
 			out.WriteRune('\n')
 		}
-		// Remove the suffix \n
-		out.Truncate(out.Len() - 1)
-		ret = out.String()
+		ret = strings.TrimSpace(out.String())
 	}
 	// Compress lines
 	if lint.CompressToSingleLine {
@@ -99,7 +97,7 @@ func (lint *LintCombinedText) Transform(result *feature.Result) error {
 
 // Send email notification for command result.
 type NotifyViaEmail struct {
-	Recipients []string // Email recipient addresses
+	Recipients []string `json:"Recipients"` // Email recipient addresses
 	Mailer     *email.Mailer
 }
 

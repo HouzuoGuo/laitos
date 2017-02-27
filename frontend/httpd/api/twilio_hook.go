@@ -38,8 +38,8 @@ func (hand *TwilioSMSHook) MakeHandler(cmdProc *common.CommandProcessor) (http.H
 
 // Implement handler for Twilio phone number's telephone hook.
 type TwilioCallHook struct {
-	CallGreeting     string // a message to speak upon picking up a call
-	CallbackEndpoint string // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
+	CallGreeting     string `json:"CallGreeting"` // a message to speak upon picking up a call
+	CallbackEndpoint string `json:"-"`            // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
 }
 
 func (hand *TwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
@@ -63,7 +63,7 @@ func (hand *TwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.Handle
 
 // Implement handler for Twilio phone number's telephone callback (triggered by response of TwilioCallHook).
 type TwilioCallCallback struct {
-	MyEndpoint string // URL to the callback itself
+	MyEndpoint string `json:"-"` // URL to the callback itself
 }
 
 func (hand *TwilioCallCallback) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {

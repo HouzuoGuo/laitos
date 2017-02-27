@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func TestLintCombinedText_Transform(t *testing.T) {
-	lint := LintCombinedText{}
+func TestLintText_Transform(t *testing.T) {
+	lint := LintText{}
 	result := &feature.Result{}
 	if err := lint.Transform(result); err != nil || result.CombinedOutput != "" {
 		t.Fatal(err, result.CombinedOutput)
@@ -29,6 +29,10 @@ func TestLintCombinedText_Transform(t *testing.T) {
 	lint.MaxLength = 14
 	result.CombinedOutput = ""
 	if err := lint.Transform(result); err != nil || result.CombinedOutput != "" {
+		t.Fatal(err, result.CombinedOutput)
+	}
+	result.CombinedOutput = "aaa  \r\n\t"
+	if err := lint.Transform(result); err != nil || result.CombinedOutput != "a" {
 		t.Fatal(err, result.CombinedOutput)
 	}
 	result.CombinedOutput = mixedString

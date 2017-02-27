@@ -41,7 +41,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Message-Id: <20170226171734.542EA2421BD@linux-mtj3.>
-From: howard@linux-mtj3.suse (Howard Guo)
+From: howard@localhost (Howard Guo)
 Status: R
 
 PIN mismatch`
@@ -67,7 +67,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Message-Id: <20170226171734.542EA2421BD@linux-mtj3.>
-From: howard@linux-mtj3.suse (Howard Guo)
+From: howard@localhost (Howard Guo)
 Status: R
 
 PIN mismatch

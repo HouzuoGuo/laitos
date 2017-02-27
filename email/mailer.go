@@ -7,8 +7,8 @@ import (
 
 // Send emails via SMTP.
 type Mailer struct {
-	MailFrom       string // FROM address of the outgoing mails
-	MTAAddressPort string // Address and port number of mail transportation agent
+	MailFrom       string `json:"MailFrom"`       // FROM address of the outgoing mails
+	MTAAddressPort string `json:"MTAAddressPort"` // Address and port number of mail transportation agent
 }
 
 // Return true only if all mail parameters are present.

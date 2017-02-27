@@ -18,14 +18,14 @@ and without PIN prefix, or expanded shortcut if found.
 To successfully expend shortcut, the shortcut must occupy the entire line, without extra prefix or suffix.
 Return error if neither PIN nor pre-defined shortcuts matched any line of input command.
 */
-type CommandPINOrShortcut struct {
+type PINAndShortcuts struct {
 	PIN       string            `json:"PIN"`
 	Shortcuts map[string]string `json:"Shortcuts"`
 }
 
 var ErrPINAndShortcutNotFound = errors.New("Failed to match PIN/shortcut")
 
-func (pin *CommandPINOrShortcut) Transform(cmd feature.Command) (feature.Command, error) {
+func (pin *PINAndShortcuts) Transform(cmd feature.Command) (feature.Command, error) {
 	if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
 		return feature.Command{}, errors.New("Both PIN and shortcuts are undefined")
 	}
@@ -51,11 +51,11 @@ func (pin *CommandPINOrShortcut) Transform(cmd feature.Command) (feature.Command
 }
 
 // Translate character sequences to something different.
-type CommandTranslator struct {
+type TranslateSequences struct {
 	Sequences [][]string `json:"Sequences"`
 }
 
-func (tr *CommandTranslator) Transform(cmd feature.Command) (feature.Command, error) {
+func (tr *TranslateSequences) Transform(cmd feature.Command) (feature.Command, error) {
 	if tr.Sequences == nil {
 		return cmd, nil
 	}
