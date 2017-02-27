@@ -102,16 +102,15 @@ type NotifyViaEmail struct {
 }
 
 // Return true only if all mail parameters are present.
-func (email *NotifyViaEmail) IsConfigured() bool {
-	return email.Recipients != nil && len(email.Recipients) > 0 && email.Mailer != nil && email.Mailer.IsConfigured()
+func (notify *NotifyViaEmail) IsConfigured() bool {
+	return notify.Recipients != nil && len(notify.Recipients) > 0 && notify.Mailer != nil && notify.Mailer.IsConfigured()
 }
 
-const MailNotificationSubject = "websh-notify-" // These terms appear in the subject of notification emails
-
-func (email *NotifyViaEmail) Transform(result *feature.Result) error {
-	if email.IsConfigured() {
+func (notify *NotifyViaEmail) Transform(result *feature.Result) error {
+	if notify.IsConfigured() {
 		go func() {
-			if err := email.Mailer.Send(MailNotificationSubject+result.Command.Content, result.CombinedOutput, email.Recipients...); err != nil {
+			subject := email.OutgoingMailSubjectKeyword + "-notify-" + result.Command.Content
+			if err := notify.Mailer.Send(subject, result.CombinedOutput, notify.Recipients...); err != nil {
 				log.Printf("NotifyViaEmail: failed to send email for command \"%s\" - %v", result.Command.Content, err)
 			}
 		}()

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/HouzuoGuo/websh/email"
 	"github.com/HouzuoGuo/websh/frontend/common"
 	"github.com/HouzuoGuo/websh/httpclient"
 	"net/http"
@@ -25,31 +26,45 @@ func TestAllHandlers(t *testing.T) {
 	handlers := http.NewServeMux()
 
 	// Self test
-	var hook HandlerFactory = &FeatureSelfTest{}
-	selfTestHandle, err := hook.MakeHandler(proc)
+	var handle HandlerFactory = &HandleFeatureSelfTest{}
+	selfTestHandle, err := handle.MakeHandler(proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/self_test", selfTestHandle)
 	// Twilio
-	hook = &TwilioSMSHook{}
-	smsHandle, err := hook.MakeHandler(proc)
+	handle = &HandleTwilioSMSHook{}
+	smsHandle, err := handle.MakeHandler(proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/sms", smsHandle)
-	hook = &TwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}
-	callHandle, err := hook.MakeHandler(proc)
+	handle = &HandleTwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}
+	callHandle, err := handle.MakeHandler(proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/call_greeting", callHandle)
-	hook = &TwilioCallCallback{MyEndpoint: "/test"}
-	callbackHandle, err := hook.MakeHandler(proc)
+	handle = &HandleTwilioCallCallback{MyEndpoint: "/test"}
+	callbackHandle, err := handle.MakeHandler(proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/call_command", callbackHandle)
+	// MailMe
+	handle = &HandleMailMe{
+		Recipients: []string{"howard@localhost"},
+		Mailer: &email.Mailer{
+			MailFrom: "howard@localhost",
+			MTAHost:  "localhost",
+			MTAPort:  25,
+		},
+	}
+	mailMeHandle, err := handle.MakeHandler(proc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handlers.HandleFunc("/mail_me", mailMeHandle)
 
 	// ============ Start HTTP server ============
 	httpServer := http.Server{Handler: handlers, Addr: "127.0.0.1:34791"} // hard coded port is a random choice
@@ -136,6 +151,23 @@ func TestAllHandlers(t *testing.T) {
 </Response>
 `
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+		t.Fatal(err, string(resp.Body))
+	}
+	// MailMe
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"mail_me")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, addr+"mail_me")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
+	}, addr+"mail_me")
+	if err != nil || resp.StatusCode != http.StatusOK ||
+		(!strings.Contains(string(resp.Body), "发不出去") && !strings.Contains(string(resp.Body), "发出去了")) {
 		t.Fatal(err, string(resp.Body))
 	}
 }

@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-const MailProcessorReplySubject = "websh-result-" // These terms appear in the subject of reply emails
-
 // Process incoming mail and reply to it via the specified mailer.
 type MailProcessor struct {
 	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
@@ -31,7 +29,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte) error {
 	var commandIsProcessed bool
 	walkErr := email.WalkMessage(mailContent, func(prop email.BasicProperties, body []byte) (bool, error) {
 		// Avoid recursive processing
-		if strings.Contains(prop.Subject, bridge.MailNotificationSubject) || strings.Contains(prop.Subject, MailProcessorReplySubject) {
+		if strings.Contains(prop.Subject, email.OutgoingMailSubjectKeyword) {
 			return false, errors.New("Ignore email sent by this program itself")
 		}
 		// By contract, PIN processor finds command among input lines.
@@ -72,7 +70,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte) error {
 		if mailproc.ReplyMailer == nil || !mailproc.ReplyMailer.IsConfigured() {
 			return false, errors.New("The reply has to be sent via Email but configuration is missing")
 		}
-		return false, mailproc.ReplyMailer.Send(MailProcessorReplySubject+result.Command.Content, result.CombinedOutput, prop.ReplyAddress)
+		return false, mailproc.ReplyMailer.Send(email.OutgoingMailSubjectKeyword+"-reply-"+result.Command.Content, result.CombinedOutput, prop.ReplyAddress)
 	})
 	if walkErr != nil {
 		return walkErr

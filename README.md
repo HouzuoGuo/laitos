@@ -13,7 +13,6 @@ The latest features are:
 - Read the latest updates from Twitter home time-line.
 - Post Facebook update.
 
-
 You must exercise _extreme caution_ when using this software program, inappropriate configuration will severely compromise the security of the host computer. I am not responsible for any damage/potential damage caused to your computers.
 
 Build

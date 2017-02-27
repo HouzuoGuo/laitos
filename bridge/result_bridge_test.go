@@ -4,7 +4,9 @@ import (
 	"errors"
 	"github.com/HouzuoGuo/websh/email"
 	"github.com/HouzuoGuo/websh/feature"
+	"net"
 	"testing"
+	"time"
 )
 
 func TestLintText_Transform(t *testing.T) {
@@ -52,17 +54,24 @@ func TestNotifyViaEmail_Transform(t *testing.T) {
 	}
 
 	notify.Mailer = &email.Mailer{
-		MailFrom:       "howard@localhost",
-		MTAAddressPort: "localhost:25",
+		MailFrom: "howard@localhost",
+		MTAHost:  "localhost",
+		MTAPort:  25,
 	}
 	notify.Recipients = []string{"howard@localhost"}
 	if !notify.IsConfigured() {
 		t.Fatal("should be configured now")
 	}
 
-	// It simply must not panic
+	// It must not panic
 	if err := notify.Transform(&feature.Result{}); err != nil {
 		t.Fatal(err)
+	}
+	time.Sleep(2 * time.Second)
+	if _, err := net.Dial("tcp", "localhost:25"); err == nil {
+		t.Log("Check howard@localhost mail box")
+	} else {
+		t.Log("MTA isn't running on localhost, observe an error message above.")
 	}
 }
 

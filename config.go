@@ -27,10 +27,14 @@ type StandardBridges struct {
 
 // Configure path to HTTP handlers and handler themselves.
 type HTTPHandlers struct {
-	TwilioSMSEndpoint        string             `json:"TwilioSMSEndpoint"`
-	TwilioCallEndpoint       string             `json:"TwilioCallEndpoint"`
-	TwilioCallEndpointConfig api.TwilioCallHook `json:"TwilioCallEndpointConfig"`
-	SelfTestEndpoint         string             `json:"SelfTestEndpoint"`
+	SelfTestEndpoint string `json:"SelfTestEndpoint"`
+
+	TwilioSMSEndpoint        string                   `json:"TwilioSMSEndpoint"`
+	TwilioCallEndpoint       string                   `json:"TwilioCallEndpoint"`
+	TwilioCallEndpointConfig api.HandleTwilioCallHook `json:"TwilioCallEndpointConfig"`
+
+	MailMeEndpoint       string           `json:"MailMeEndpoint"`
+	MailMeEndpointConfig api.HandleMailMe `json:"MailMeEndpointConfig"`
 }
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
@@ -76,8 +80,12 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	// Make handler factories
 	handlers := map[string]api.HandlerFactory{}
 	if config.HTTPHandlers.SelfTestEndpoint != "" {
-		handlers[config.HTTPHandlers.SelfTestEndpoint] = &api.FeatureSelfTest{}
+		handlers[config.HTTPHandlers.SelfTestEndpoint] = &api.HandleFeatureSelfTest{}
 		log.Print("GetHTTPD: feature self-test endpoint is enabled")
+	}
+	if config.HTTPHandlers.TwilioSMSEndpoint != "" {
+		handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &api.HandleTwilioSMSHook{}
+		log.Print("GetHTTPD: Twilio SMS hook endpoint is enabled")
 	}
 	if config.HTTPHandlers.TwilioCallEndpoint != "" {
 		/*
@@ -94,12 +102,14 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 		config.HTTPHandlers.TwilioCallEndpointConfig.CallbackEndpoint = callbackEndpoint
 		handlers[config.HTTPHandlers.TwilioCallEndpoint] = &config.HTTPHandlers.TwilioCallEndpointConfig
 		// The callback handler will use the callback point that points to itself to carry on with phone conversation
-		handlers[callbackEndpoint] = &api.TwilioCallCallback{MyEndpoint: callbackEndpoint}
+		handlers[callbackEndpoint] = &api.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
 		log.Print("GetHTTPD: Twilio call hook endpoint is enabled")
 	}
-	if config.HTTPHandlers.TwilioSMSEndpoint != "" {
-		handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &api.TwilioSMSHook{}
-		log.Print("GetHTTPD: Twilio SMS hook endpoint is enabled")
+	if config.HTTPHandlers.MailMeEndpoint != "" {
+		handler := config.HTTPHandlers.MailMeEndpointConfig
+		handler.Mailer = &config.Mailer
+		handlers[config.HTTPHandlers.MailMeEndpoint] = &handler
+		log.Print("GetHTTPD: MailMe endpoint is enabled")
 	}
 	ret.Handlers = handlers
 	return &ret

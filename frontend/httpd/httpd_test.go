@@ -17,10 +17,10 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		ListenPort:    13589, // hard coded port is a random choice
 		Processor:     &common.CommandProcessor{},
 		Handlers: map[string]api.HandlerFactory{
-			"/twilio_sms":      &api.TwilioSMSHook{},
-			"/twilio_call":     &api.TwilioCallHook{CallbackEndpoint: "/twilio_callback", CallGreeting: "hello"},
-			"/twilio_callback": &api.TwilioCallCallback{MyEndpoint: "/twilio_callback"},
-			"/self_test":       &api.FeatureSelfTest{},
+			"/twilio_sms":      &api.HandleTwilioSMSHook{},
+			"/twilio_call":     &api.HandleTwilioCallHook{CallbackEndpoint: "/twilio_callback", CallGreeting: "hello"},
+			"/twilio_callback": &api.HandleTwilioCallCallback{MyEndpoint: "/twilio_callback"},
+			"/self_test":       &api.HandleFeatureSelfTest{},
 		},
 	}
 	if err := daemon.StartAndBlock(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {

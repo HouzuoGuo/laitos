@@ -22,7 +22,8 @@ func TestConfig(t *testing.T) {
 	},
 	"Mailer": {
 		"MailFrom": "howard@localhost",
-		"MTAAddressPort": "127.0.0.1:25"
+		"MTAHost": "127.0.0.1",
+		"MTAPort": 25
 	},
 	"HTTPDaemon": {
 		"ListenAddress": "127.0.0.1",
@@ -52,12 +53,16 @@ func TestConfig(t *testing.T) {
 		}
 	},
 	"HTTPHandlers": {
+		"SelfTestEndpoint": "/test",
 		"TwilioSMSEndpoint": "/sms",
 		"TwilioCallEndpoint": "/call",
 		"TwilioCallEndpointConfig": {
 			"CallGreeting": "hello there"
 		},
-		"SelfTestEndpoint": "/test"
+		"MailMeEndpoint": "/mailme",
+		"MailMeEndpointConfig": {
+			"Recipients": ["howard@localhost"]
+		}
 	},
 	"MailProcessor": {
 		"CommandTimeoutSec": 10
@@ -93,8 +98,8 @@ func TestConfig(t *testing.T) {
 
 	httpDaemon := config.GetHTTPD()
 
-	if len(httpDaemon.Handlers) != 4 {
-		// 2 x call, 1 x sms, 1 x self test
+	if len(httpDaemon.Handlers) != 5 {
+		// 1 x self test, 1 x sms, 2 x call, 1 x mailme
 		t.Fatal(httpDaemon.Handlers)
 	}
 	// Find the randomly generated endpoint name for twilio call callback
@@ -104,6 +109,7 @@ func TestConfig(t *testing.T) {
 		case "/sms":
 		case "/call":
 		case "/test":
+		case "/mailme":
 		default:
 			twilioCallbackEndpoint = endpoint
 		}
@@ -183,14 +189,23 @@ func TestConfig(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body))
 	}
+	// MailMe
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
+	}, addr+"/mailme")
+	if err != nil || resp.StatusCode != http.StatusOK ||
+		(!strings.Contains(string(resp.Body), "发不出去") && !strings.Contains(string(resp.Body), "发出去了")) {
+		t.Fatal(err, string(resp.Body))
+	}
 
 	// ============ Test mail processor ============
 	mailproc := config.GetMailProcessor()
-	pinMismatch := `From howard@linux-mtj3 Sun Feb 26 18:17:34 2017
-Return-Path: <howard@linux-mtj3>
+	pinMismatch := `From howard@localhost Sun Feb 26 18:17:34 2017
+Return-Path: <howard@localhost>
 X-Original-To: howard@localhost
 Delivered-To: howard@localhost
-Received: by linux-mtj3 (Postfix, from userid 1000)
+Received: by localhost (Postfix, from userid 1000)
         id 542EA2421BD; Sun, 26 Feb 2017 18:17:34 +0100 (CET)
 Date: Sun, 26 Feb 2017 18:17:34 +0100
 To: howard@localhost
@@ -199,8 +214,8 @@ User-Agent: Heirloom mailx 12.5 7/5/10
 MIME-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Message-Id: <20170226171734.542EA2421BD@linux-mtj3.>
-From: howard@linux-mtj3 (Howard Guo)
+Message-Id: <20170226171734.542EA2421BD@localhost.>
+From: howard@localhost (Howard Guo)
 Status: R
 
 PIN mismatch`
@@ -209,11 +224,11 @@ PIN mismatch`
 	}
 	// Real MTA is required for the shortcut email test
 	if _, err := net.Dial("tcp", "127.0.0.1:25"); err == nil {
-		shortcutMatch := `From howard@linux-mtj3 Sun Feb 26 18:17:34 2017
-Return-Path: <howard@linux-mtj3>
+		shortcutMatch := `From howard@localhost Sun Feb 26 18:17:34 2017
+Return-Path: <howard@localhost>
 X-Original-To: howard@localhost
 Delivered-To: howard@localhost
-Received: by linux-mtj3 (Postfix, from userid 1000)
+Received: by localhost (Postfix, from userid 1000)
         id 542EA2421BD; Sun, 26 Feb 2017 18:17:34 +0100 (CET)
 Date: Sun, 26 Feb 2017 18:17:34 +0100
 To: howard@localhost
@@ -222,8 +237,8 @@ User-Agent: Heirloom mailx 12.5 7/5/10
 MIME-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Message-Id: <20170226171734.542EA2421BD@linux-mtj3.>
-From: howard@linux-mtj3 (Howard Guo)
+Message-Id: <20170226171734.542EA2421BD@localhost.>
+From: howard@localhost (Howard Guo)
 Status: R
 
 PIN mismatch

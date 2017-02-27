@@ -26,10 +26,10 @@ func XMLEscape(in string) string {
 }
 
 // Implement health check end-point for all features configured in the command processor.
-type FeatureSelfTest struct {
+type HandleFeatureSelfTest struct {
 }
 
-func (hook *FeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (hook *HandleFeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Header().Set("Cache-Control", "must-revalidate")

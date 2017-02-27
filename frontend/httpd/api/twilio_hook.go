@@ -12,10 +12,10 @@ import (
 const TwilioHandlerTimeoutSec = 14 // as of 2017-02-23, the timeout is required by Twilio on both SMS and call hooks.
 
 // Implement handler for Twilio phone number's SMS hook.
-type TwilioSMSHook struct {
+type HandleTwilioSMSHook struct {
 }
 
-func (hand *TwilioSMSHook) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (hand *HandleTwilioSMSHook) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// SMS message is in "Body" parameter
 		ret := cmdProc.Process(feature.Command{
@@ -37,12 +37,12 @@ func (hand *TwilioSMSHook) MakeHandler(cmdProc *common.CommandProcessor) (http.H
 }
 
 // Implement handler for Twilio phone number's telephone hook.
-type TwilioCallHook struct {
+type HandleTwilioCallHook struct {
 	CallGreeting     string `json:"CallGreeting"` // a message to speak upon picking up a call
 	CallbackEndpoint string `json:"-"`            // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
 }
 
-func (hand *TwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
+func (hand *HandleTwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
 	if hand.CallGreeting == "" || hand.CallbackEndpoint == "" {
 		return nil, errors.New("Greeting or handler endpoint is empty")
 	}
@@ -62,11 +62,11 @@ func (hand *TwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.Handle
 }
 
 // Implement handler for Twilio phone number's telephone callback (triggered by response of TwilioCallHook).
-type TwilioCallCallback struct {
+type HandleTwilioCallCallback struct {
 	MyEndpoint string `json:"-"` // URL to the callback itself
 }
 
-func (hand *TwilioCallCallback) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (hand *HandleTwilioCallCallback) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	if hand.MyEndpoint == "" {
 		return nil, errors.New("Handler endpoint is empty")
 	}
