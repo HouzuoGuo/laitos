@@ -90,7 +90,7 @@ func DTMFDecode(digits string) string {
 		} else {
 			decoded, found := DTMFDecodeTable[seq]
 			if !found {
-				log.Printf("DTMF decoding table failed to decode '%s'", seq)
+				log.Printf("DTMFDecode: failed to decode - %s", seq)
 				continue
 			}
 			if shift {

@@ -31,7 +31,7 @@ type HandleFeatureSelfTest struct {
 
 func (hook *HandleFeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "must-revalidate")
 		errs := cmdProc.Features.SelfTest()
 		if len(errs) == 0 {

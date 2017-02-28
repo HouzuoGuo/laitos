@@ -61,7 +61,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	mailNotification.Mailer = &config.Mailer
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		log.Panicf("GetHTTPD: failed to initialise features - %v", err)
+		log.Fatalf("Config.GetHTTPD: failed to initialise features - %v", err)
 	}
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
@@ -81,21 +81,19 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	handlers := map[string]api.HandlerFactory{}
 	if config.HTTPHandlers.SelfTestEndpoint != "" {
 		handlers[config.HTTPHandlers.SelfTestEndpoint] = &api.HandleFeatureSelfTest{}
-		log.Print("GetHTTPD: feature self-test endpoint is enabled")
 	}
 	if config.HTTPHandlers.TwilioSMSEndpoint != "" {
 		handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &api.HandleTwilioSMSHook{}
-		log.Print("GetHTTPD: Twilio SMS hook endpoint is enabled")
 	}
 	if config.HTTPHandlers.TwilioCallEndpoint != "" {
 		/*
 		 Configure a callback endpoint for Twilio call's callback.
 		 The endpoint name is automatically generated from random bytes.
 		*/
-		randBytes := make([]byte, 16)
+		randBytes := make([]byte, 32)
 		_, err := rand.Read(randBytes)
 		if err != nil {
-			log.Panicf("GetHTTPD: failed to read random number - %v", err)
+			log.Panicf("Config.GetHTTPD: failed to read random number - %v", err)
 		}
 		callbackEndpoint := "/" + hex.EncodeToString(randBytes)
 		// The greeting handler will use the callback endpoint to handle command
@@ -103,15 +101,24 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 		handlers[config.HTTPHandlers.TwilioCallEndpoint] = &config.HTTPHandlers.TwilioCallEndpointConfig
 		// The callback handler will use the callback point that points to itself to carry on with phone conversation
 		handlers[callbackEndpoint] = &api.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
-		log.Print("GetHTTPD: Twilio call hook endpoint is enabled")
 	}
 	if config.HTTPHandlers.MailMeEndpoint != "" {
 		handler := config.HTTPHandlers.MailMeEndpointConfig
 		handler.Mailer = &config.Mailer
 		handlers[config.HTTPHandlers.MailMeEndpoint] = &handler
-		log.Print("GetHTTPD: MailMe endpoint is enabled")
 	}
-	ret.Handlers = handlers
+	ret.SpecialHandlers = handlers
+	// Call initialise and print out prefixes of installed routes
+	if err := ret.Initialise(); err != nil {
+		log.Fatalf("Config.GetHTTPD: failed to initialise HTTPD - %v", err)
+	}
+	for route := range ret.AllRoutes {
+		shortRoute := route
+		if len(route) > 12 {
+			shortRoute = route[0:12] + "..."
+		}
+		log.Printf("Config.GetHTTPD: installed route %s", shortRoute)
+	}
 	return &ret
 }
 
@@ -123,7 +130,7 @@ func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 	mailNotification.Mailer = &config.Mailer
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		log.Panicf("GetMailProcessor: failed to initialise features - %v", err)
+		log.Fatalf("Config.GetMailProcessor: failed to initialise features - %v", err)
 	}
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{

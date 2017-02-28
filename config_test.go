@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"github.com/HouzuoGuo/websh/bridge"
+	"github.com/HouzuoGuo/websh/frontend/httpd"
 	"github.com/HouzuoGuo/websh/httpclient"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +30,11 @@ func TestConfig(t *testing.T) {
 	},
 	"HTTPDaemon": {
 		"ListenAddress": "127.0.0.1",
-		"ListenPort": 23486
+		"ListenPort": 23486,
+		"ServeIndexDocument": "/tmp/test-websh-index.html",
+		"ServeDirectories": {
+			"/my/dir": "/tmp/test-websh-dir"
+		}
 	},
 	"HTTPBridges": {
 		"TranslateSequences": {
@@ -95,16 +102,31 @@ func TestConfig(t *testing.T) {
 	}
 
 	// ============ Test HTTP daemon ============
+	// Create a temporary file for index
+	indexFile := "/tmp/test-websh-index.html"
+	defer os.Remove(indexFile)
+	if err := ioutil.WriteFile(indexFile, []byte("this is index"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Create a temporary directory of file
+	htmlDir := "/tmp/test-websh-dir"
+	if err := os.MkdirAll(htmlDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(htmlDir)
+	if err := ioutil.WriteFile(htmlDir+"/a.html", []byte("a html"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	httpDaemon := config.GetHTTPD()
 
-	if len(httpDaemon.Handlers) != 5 {
+	if len(httpDaemon.SpecialHandlers) != 5 {
 		// 1 x self test, 1 x sms, 2 x call, 1 x mailme
-		t.Fatal(httpDaemon.Handlers)
+		t.Fatal(httpDaemon.SpecialHandlers)
 	}
 	// Find the randomly generated endpoint name for twilio call callback
 	var twilioCallbackEndpoint string
-	for endpoint := range httpDaemon.Handlers {
+	for endpoint := range httpDaemon.SpecialHandlers {
 		switch endpoint {
 		case "/sms":
 		case "/call":
@@ -114,19 +136,48 @@ func TestConfig(t *testing.T) {
 			twilioCallbackEndpoint = endpoint
 		}
 	}
-	t.Log("Twilio callback endpoint is located at ", twilioCallbackEndpoint)
+	t.Log("Twilio callback endpoint is located at", twilioCallbackEndpoint)
 	go func() {
 		if err := httpDaemon.StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
 	}()
+	addr := "http://127.0.0.1:23486"
 	time.Sleep(2 * time.Second)
 
-	// Run feature test
-	addr := "http://127.0.0.1:23486"
-	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
+	// Index handle
+	for _, location := range httpd.IndexLocations {
+		resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+location)
+		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "this is index" {
+			t.Fatal(err, string(resp.Body), resp)
+		}
+	}
+	// Directory handle
+	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
+<a href="a.html">a.html</a>
+</pre>
+` {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir/a.html")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	// Non-existent paths
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir/doesnotexist.html")
+	if err != nil || resp.StatusCode != http.StatusNotFound {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/doesnotexist")
+	if err != nil || resp.StatusCode != http.StatusNotFound || len(resp.Body) != 0 {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+
+	// Specialised handle - self_test
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
 	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatal(err, resp)
+		t.Fatal(err, string(resp.Body), resp)
 	}
 
 	// Twilio - exchange SMS

@@ -48,7 +48,7 @@ func main() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
 		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
-			log.Panicf("main: failed to lock memory - %v", err)
+			log.Fatalf("main: failed to lock memory - %v", err)
 		}
 		log.Print("Program has been locked into memory for safety reasons.")
 	} else {
@@ -69,22 +69,22 @@ func main() {
 	flag.Parse()
 
 	if configFile == "" {
-		log.Panic("Please provide a configuration file (-config).")
+		log.Fatal("Please provide a configuration file (-config).")
 	}
 	frontendList := regexp.MustCompile(`\w+`)
 	frontends := frontendList.FindAllString(frontend, -1)
 	if frontends == nil || len(frontends) == 0 {
-		log.Panic("Please provide comma-separated list of frontend services to start (-frontend).")
+		log.Fatal("Please provide comma-separated list of frontend services to start (-frontend).")
 	}
 
 	// Deserialise configuration file
 	var config Config
 	configBytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		log.Panicf("Failed to read config file \"%s\" - %v", configFile, err)
+		log.Fatalf("Failed to read config file \"%s\" - %v", configFile, err)
 	}
 	if err := config.DeserialiseFromJSON(configBytes); err != nil {
-		log.Panicf("Failed to deserialise config file \"%s\" - %v", configFile, err)
+		log.Fatalf("Failed to deserialise config file \"%s\" - %v", configFile, err)
 	}
 
 	for _, frontendName := range frontends {
@@ -92,16 +92,16 @@ func main() {
 		case "httpd":
 			go func() {
 				if err := config.GetHTTPD().StartAndBlock(); err != nil {
-					log.Panicf("main: failed to start http daemon - %v", err)
+					log.Fatalf("main: failed to start http daemon - %v", err)
 				}
 			}()
 		case "mailp":
 			mailContent, err := ioutil.ReadAll(os.Stdin)
 			if err != nil {
-				log.Panicf("main: failed to read mail content from stdin - %v", err)
+				log.Fatalf("main: failed to read mail content from stdin - %v", err)
 			}
 			if err := config.GetMailProcessor().Process(mailContent); err != nil {
-				log.Panicf("main: failed to process mail - %v", err)
+				log.Fatalf("main: failed to process mail - %v", err)
 			}
 		}
 	}

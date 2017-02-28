@@ -7,6 +7,7 @@ import (
 	"github.com/HouzuoGuo/websh/email"
 	"github.com/HouzuoGuo/websh/feature"
 	"github.com/HouzuoGuo/websh/frontend/common"
+	"log"
 	"strings"
 )
 
@@ -32,6 +33,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte) error {
 		if strings.Contains(prop.Subject, email.OutgoingMailSubjectKeyword) {
 			return false, errors.New("Ignore email sent by this program itself")
 		}
+		log.Printf("MAILP: Handle %s - %s - %s", prop.FromAddress, prop.ContentType, prop.Subject)
 		// By contract, PIN processor finds command among input lines.
 		result := mailproc.Processor.Process(feature.Command{
 			Content:    string(body),

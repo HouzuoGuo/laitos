@@ -29,7 +29,7 @@ func (mailer *Mailer) Send(subject string, textBody string, recipients ...string
 		auth = smtp.PlainAuth("", mailer.AuthUsername, mailer.AuthPassword, mailer.MTAHost)
 	}
 	// Construct appropriate mail headers
-	mailBody := fmt.Sprintf("MIME-Version: 1.0\r\nContent-type: text/plain; charset=UTF-8\r\nFrom: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
+	mailBody := fmt.Sprintf("MIME-Version: 1.0\r\nContent-type: text/plain; charset=utf-8\r\nFrom: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
 		mailer.MailFrom, strings.Join(recipients, ", "), subject, textBody)
 	return smtp.SendMail(fmt.Sprintf("%s:%d", mailer.MTAHost, mailer.MTAPort), auth, mailer.MailFrom, recipients, []byte(mailBody))
 }
