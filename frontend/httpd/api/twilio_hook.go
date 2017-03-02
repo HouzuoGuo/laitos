@@ -63,12 +63,12 @@ func (hand *HandleTwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.
 
 // Implement handler for Twilio phone number's telephone callback (triggered by response of TwilioCallHook).
 type HandleTwilioCallCallback struct {
-	MyEndpoint string `json:"-"` // URL to the callback itself
+	MyEndpoint string `json:"-"` // URL endpoint to the callback itself, including prefix /.
 }
 
 func (hand *HandleTwilioCallCallback) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	if hand.MyEndpoint == "" {
-		return nil, errors.New("Handler endpoint is empty")
+		return nil, errors.New("MyEndpoint is empty")
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// DTMF input digits are in "Digits" parameter

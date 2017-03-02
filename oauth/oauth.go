@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+// FIXME: clean this up (howard)
 /*
 The source code in this file take heavy inspiration from "oauth1" project -
 https://github.com/dghubble/oauth1 - authored by "dghubble", carrying the following license text:
