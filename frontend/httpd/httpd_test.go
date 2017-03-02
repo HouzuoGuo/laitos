@@ -41,6 +41,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 			"/twilio_call":     &api.HandleTwilioCallHook{CallbackEndpoint: "/twilio_callback", CallGreeting: "hello"},
 			"/twilio_callback": &api.HandleTwilioCallCallback{MyEndpoint: "/twilio_callback"},
 			"/test":            &api.HandleFeatureSelfTest{},
+			"/proxy":           &api.HandleWebProxy{MyEndpoint: "/proxy"},
 		},
 	}
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
@@ -89,7 +90,13 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	}
 	// Specialised handle - self_test
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
+	testRespBody := string(resp.Body)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body), resp)
+	}
+	// Specialised handle - proxy
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A13589%%2Ftest")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != testRespBody {
+		t.Fatalf("Err: %v\nResp: %+v\nActual:%s\nExpected:%s\n", err, resp, string(resp.Body), testRespBody)
 	}
 }

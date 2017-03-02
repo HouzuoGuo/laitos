@@ -1,3 +1,4 @@
 websh
 feature/init_test.go
 frontend/mailp/init_test.go
+nohup.out

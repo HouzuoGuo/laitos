@@ -69,7 +69,8 @@ func TestConfig(t *testing.T) {
 		"MailMeEndpoint": "/mailme",
 		"MailMeEndpointConfig": {
 			"Recipients": ["howard@localhost"]
-		}
+		},
+		"WebProxyEndpoint": "/proxy"
 	},
 	"MailProcessor": {
 		"CommandTimeoutSec": 10
@@ -120,8 +121,8 @@ func TestConfig(t *testing.T) {
 
 	httpDaemon := config.GetHTTPD()
 
-	if len(httpDaemon.SpecialHandlers) != 5 {
-		// 1 x self test, 1 x sms, 2 x call, 1 x mailme
+	if len(httpDaemon.SpecialHandlers) != 6 {
+		// 1 x self test, 1 x sms, 2 x call, 1 x mailme, 1 x proxy
 		t.Fatal(httpDaemon.SpecialHandlers)
 	}
 	// Find the randomly generated endpoint name for twilio call callback
@@ -132,6 +133,7 @@ func TestConfig(t *testing.T) {
 		case "/call":
 		case "/test":
 		case "/mailme":
+		case "/proxy":
 		default:
 			twilioCallbackEndpoint = endpoint
 		}
@@ -179,6 +181,7 @@ func TestConfig(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body), resp)
 	}
+	testRespBody := string(resp.Body)
 
 	// Twilio - exchange SMS
 	resp, err = httpclient.DoHTTP(httpclient.Request{
@@ -208,7 +211,7 @@ func TestConfig(t *testing.T) {
 </Response>
 `, twilioCallbackEndpoint)
 	if err != nil || string(resp.Body) != expected {
-		t.Fatal(err, string(resp.Body))
+		t.Fatalf("%+v\n%s\n%s", err, string(resp.Body), expected)
 	}
 	// Twilio - check phone call response to DTMF
 	resp, err = httpclient.DoHTTP(httpclient.Request{
@@ -248,6 +251,11 @@ func TestConfig(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK ||
 		(!strings.Contains(string(resp.Body), "发不出去") && !strings.Contains(string(resp.Body), "发出去了")) {
 		t.Fatal(err, string(resp.Body))
+	}
+	// Web proxy
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A23486%%2Ftest")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != testRespBody {
+		t.Fatalf("Err: %v\nResp: %+v\nActual:%s\nExpected:%s\n", err, resp, string(resp.Body), testRespBody)
 	}
 
 	// ============ Test mail processor ============

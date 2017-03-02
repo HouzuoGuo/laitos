@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/websh/frontend/common"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -128,12 +129,9 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 		if browseURL == "" {
 			return
 		}
-		fmt.Println("Going to fetch", browseURL)
-		fmt.Println("proxySchemeHost", proxySchemeHost)
-		fmt.Println("proxyHandlePath", proxyHandlePath)
 		urlParts, err := url.Parse(browseURL)
 		if err != nil {
-			fmt.Println(err)
+			log.Printf("PROXY: failed to parse proxyURL %s - %v", browseURL, err)
 			return
 		}
 
@@ -143,13 +141,11 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 		if urlParts.RawQuery != "" {
 			browseSchemeHostPathQuery += "?" + urlParts.RawQuery
 		}
-		fmt.Println("browseSchemeHost", browseSchemeHost)
-		fmt.Println("browseSchemeHostPath", browseSchemeHostPath)
-		fmt.Println("browseSchemeHostPathQuery", browseSchemeHostPathQuery)
+		log.Printf("PROXY: going to visit %s", browseSchemeHostPathQuery)
 
-		myReq, err := http.NewRequest(r.Method, browseSchemeHostPath, r.Body)
+		myReq, err := http.NewRequest(r.Method, browseSchemeHostPathQuery, r.Body)
 		if err != nil {
-			fmt.Println("Failed to make proxy request", err)
+			log.Printf("PROXY: failed to create request to URL %s - %v", browseSchemeHostPathQuery, err)
 			return
 		}
 		// Remove request headers that are not necessary
@@ -162,7 +158,7 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 		remoteResp, err := client.Do(myReq)
 		remoteRespBody, err := ioutil.ReadAll(remoteResp.Body)
 		if err != nil {
-			fmt.Println("Failed to read response body", err)
+			log.Printf("PROXY: failed to download URL %s - %v", browseSchemeHostPathQuery, err)
 			return
 		}
 		// Copy headers from remote response
@@ -189,9 +185,7 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 			headIndex := strings.Index(strBody, "<head>")
 			if headIndex == -1 {
 				bodyIndex := strings.Index(strBody, "<body")
-				if bodyIndex == -1 {
-					fmt.Println("Will not modify the page")
-				} else {
+				if bodyIndex != -1 {
 					beforeBody := strBody[0 : bodyIndex-5]
 					atAndAfterBody := strBody[bodyIndex:]
 					strBody = fmt.Sprintf("%s<head>%s</head>%s", beforeBody, injectedJS, atAndAfterBody)
@@ -199,10 +193,9 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 			} else {
 				strBody = strBody[0:headIndex+6] + injectedJS + strBody[headIndex+7:]
 			}
-			fmt.Println("Send modified page")
 			w.Write([]byte(strBody))
+			log.Printf("PROXY: altered and served page %s", browseSchemeHostPathQuery)
 		} else {
-			fmt.Println("Send original", w.Header().Get("Content-Type"))
 			w.Write(remoteRespBody)
 		}
 	}
