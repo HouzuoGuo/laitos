@@ -17,7 +17,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	// Create a temporary file for index
 	indexFile := "/tmp/test-websh-index.html"
 	defer os.Remove(indexFile)
-	if err := ioutil.WriteFile(indexFile, []byte("this is index"), 0644); err != nil {
+	if err := ioutil.WriteFile(indexFile, []byte("this is index #WEBSH_CLIENTADDR #WEBSH_3339TIME"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	// Create a temporary directory of file
@@ -63,8 +63,9 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	// Index handle
 	for _, location := range IndexLocations {
 		resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+location)
-		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "this is index" {
-			t.Fatal(err, string(resp.Body), resp)
+		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
+		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+			t.Fatal(err, string(resp.Body), expected, resp)
 		}
 	}
 	// Directory handle

@@ -63,11 +63,19 @@ type HTTPD struct {
 	TLSKeyPath         string                        `json:"TLSKeyPath"`         // (Optional) serve HTTPS via this certificate (key)
 	ServeDirectories   map[string]string             `json:"ServeDirectories"`   // Serve directories (value) on prefix paths (key)
 	ServeIndexDocument string                        `json:"ServeIndexDocument"` // Serve this HTML document as index document
-	IndexContent       []byte                        `json:"-"`                  // The content of ServeIndexDocument file is read into memory
+	IndexContent       string                        `json:"-"`                  // The content of ServeIndexDocument file is read into memory
 	SpecialHandlers    map[string]api.HandlerFactory `json:"-"`                  // Specialised handlers that implement api.HandlerFactory interface
 	AllRoutes          map[string]http.HandlerFunc   `json:"-"`                  // Aggregate all routes from all handlers
 	Server             *http.Server                  `json:"-"`                  // Standard library HTTP server structure
 	Processor          *common.CommandProcessor      `json:"-"`                  // Common command processor
+}
+
+// Inject browser client IP and current time into index document and return.
+func (httpd *HTTPD) IndexHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	page := strings.Replace(httpd.IndexContent, "#WEBSH_3339TIME", time.Now().Format(time.RFC3339), -1)
+	page = strings.Replace(page, "#WEBSH_CLIENTADDR", r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')], -1)
+	w.Write([]byte(page))
 }
 
 // Check configuration and initialise internal states.
@@ -109,13 +117,12 @@ func (httpd *HTTPD) Initialise() error {
 	// Collect index handlers
 	if httpd.ServeIndexDocument != "" {
 		var err error
-		if httpd.IndexContent, err = ioutil.ReadFile(httpd.ServeIndexDocument); err != nil {
+		var contentBytes []byte
+		if contentBytes, err = ioutil.ReadFile(httpd.ServeIndexDocument); err != nil {
 			return fmt.Errorf("HTTPD.StartAndBlock: failed to open index document file - %v", err)
 		}
-		indexHandler := func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Write(httpd.IndexContent)
-		}
+		httpd.IndexContent = string(contentBytes)
+		indexHandler := httpd.IndexHandler
 		for _, urlLocation := range IndexLocations {
 			httpd.AllRoutes[urlLocation] = indexHandler
 		}
