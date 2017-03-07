@@ -110,7 +110,7 @@ type HandleWebProxy struct {
 
 func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
 	if xy.MyEndpoint == "" {
-		return nil, errors.New("MyEndpoint is empty")
+		return nil, errors.New("HandleWebProxy.MakeHandler: own endpoint is empty")
 	}
 	var RemoveRequestHeaders = []string{"Host", "Content-Length", "Accept-Encoding", "Content-Security-Policy", "Set-Cookie"}
 	var RemoveResponseHeaders = []string{"Host", "Content-Length", "Transfer-Encoding", "Content-Security-Policy", "Set-Cookie"}
@@ -127,11 +127,13 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 		// Figure out where user wants to go
 		browseURL := r.FormValue("u")
 		if browseURL == "" {
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		urlParts, err := url.Parse(browseURL)
 		if err != nil {
 			log.Printf("PROXY: failed to parse proxyURL %s - %v", browseURL, err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
@@ -141,11 +143,11 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 		if urlParts.RawQuery != "" {
 			browseSchemeHostPathQuery += "?" + urlParts.RawQuery
 		}
-		log.Printf("PROXY: going to visit %s", browseSchemeHostPathQuery)
 
 		myReq, err := http.NewRequest(r.Method, browseSchemeHostPathQuery, r.Body)
 		if err != nil {
 			log.Printf("PROXY: failed to create request to URL %s - %v", browseSchemeHostPathQuery, err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		// Remove request headers that are not necessary
@@ -156,9 +158,15 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 		// Retrieve resource from remote
 		client := http.Client{}
 		remoteResp, err := client.Do(myReq)
+		if err != nil {
+			log.Printf("PROXY: failed to send request to %s - %v", browseSchemeHostPathQuery, err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 		remoteRespBody, err := ioutil.ReadAll(remoteResp.Body)
 		if err != nil {
 			log.Printf("PROXY: failed to download URL %s - %v", browseSchemeHostPathQuery, err)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		// Copy headers from remote response
@@ -194,10 +202,14 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 				strBody = strBody[0:headIndex+6] + injectedJS + strBody[headIndex+7:]
 			}
 			w.Write([]byte(strBody))
-			log.Printf("PROXY: altered and served page %s", browseSchemeHostPathQuery)
+			log.Printf("PROXY: serve HTML %s", browseSchemeHostPathQuery)
 		} else {
 			w.Write(remoteRespBody)
 		}
 	}
 	return fun, nil
+}
+
+func (xy *HandleWebProxy) GetRateLimitFactor() int {
+	return 10
 }

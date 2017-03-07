@@ -37,6 +37,9 @@ type HTTPHandlers struct {
 	MailMeEndpointConfig api.HandleMailMe `json:"MailMeEndpointConfig"`
 
 	WebProxyEndpoint string `json:"WebProxyEndpoint"`
+
+	IndexEndpoints      []string               `json:"IndexEndpoints"`
+	IndexEndpointConfig api.HandleHTMLDocument `json:"IndexEndpointConfig"`
 }
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
@@ -116,6 +119,11 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	}
 	if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
 		handlers[proxyEndpoint] = &api.HandleWebProxy{MyEndpoint: proxyEndpoint}
+	}
+	if config.HTTPHandlers.IndexEndpoints != nil {
+		for _, location := range config.HTTPHandlers.IndexEndpoints {
+			handlers[location] = &config.HTTPHandlers.IndexEndpointConfig
+		}
 	}
 	ret.SpecialHandlers = handlers
 	// Call initialise and print out prefixes of installed routes

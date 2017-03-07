@@ -32,7 +32,7 @@ type HandleMailMe struct {
 
 func (mm *HandleMailMe) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
 	if mm.Recipients == nil || len(mm.Recipients) == 0 || !mm.Mailer.IsConfigured() {
-		return nil, errors.New("Recipient list is empty or mailer is not configured")
+		return nil, errors.New("HandleMailMe.MakeHandler: recipient list is empty or mailer is not configured")
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -54,4 +54,8 @@ func (mm *HandleMailMe) MakeHandler(_ *common.CommandProcessor) (http.HandlerFun
 		}
 	}
 	return fun, nil
+}
+
+func (mm *HandleMailMe) GetRateLimitFactor() int {
+	return 1
 }

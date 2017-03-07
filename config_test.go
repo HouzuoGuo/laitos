@@ -31,7 +31,7 @@ func TestConfig(t *testing.T) {
 	"HTTPDaemon": {
 		"ListenAddress": "127.0.0.1",
 		"ListenPort": 23486,
-		"ServeIndexDocument": "/tmp/test-websh-index2.html",
+		"BaseRateLimit":10,
 		"ServeDirectories": {
 			"/my/dir": "/tmp/test-websh-dir2"
 		}
@@ -70,7 +70,12 @@ func TestConfig(t *testing.T) {
 		"MailMeEndpointConfig": {
 			"Recipients": ["howard@localhost"]
 		},
-		"WebProxyEndpoint": "/proxy"
+		"WebProxyEndpoint": "/proxy",
+
+		"IndexEndpoints": ["/", "/index.html"],
+		"IndexEndpointConfig": {
+			"HTMLFilePath": "/tmp/test-websh-index2.html"
+		}
 	},
 	"MailProcessor": {
 		"CommandTimeoutSec": 10
@@ -106,7 +111,7 @@ func TestConfig(t *testing.T) {
 	// Create a temporary file for index
 	indexFile := "/tmp/test-websh-index2.html"
 	defer os.Remove(indexFile)
-	if err := ioutil.WriteFile(indexFile, []byte("this is index"), 0644); err != nil {
+	if err := ioutil.WriteFile(indexFile, []byte("this is index #WEBSH_CLIENTADDR #WEBSH_3339TIME"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	// Create a temporary directory of file
@@ -121,8 +126,8 @@ func TestConfig(t *testing.T) {
 
 	httpDaemon := config.GetHTTPD()
 
-	if len(httpDaemon.SpecialHandlers) != 6 {
-		// 1 x self test, 1 x sms, 2 x call, 1 x mailme, 1 x proxy
+	if len(httpDaemon.SpecialHandlers) != 8 {
+		// 1 x self test, 1 x sms, 2 x call, 1 x mailme, 1 x proxy, 2 x index
 		t.Fatal(httpDaemon.SpecialHandlers)
 	}
 	// Find the randomly generated endpoint name for twilio call callback
@@ -134,6 +139,8 @@ func TestConfig(t *testing.T) {
 		case "/test":
 		case "/mailme":
 		case "/proxy":
+		case "/":
+		case "/index.html":
 		default:
 			twilioCallbackEndpoint = endpoint
 		}
@@ -148,9 +155,12 @@ func TestConfig(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Index handle
-	for _, location := range httpd.IndexLocations {
+	var indexRespBody string
+	for _, location := range []string{"/", "/index.html"} {
 		resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+location)
-		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "this is index" {
+		indexRespBody = string(resp.Body)
+		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
+		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 			t.Fatal(err, string(resp.Body), resp)
 		}
 	}
@@ -172,7 +182,7 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/doesnotexist")
-	if err != nil || resp.StatusCode != http.StatusNotFound || len(resp.Body) != 0 {
+	if err != nil || resp.StatusCode != http.StatusNotFound {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 
@@ -181,7 +191,6 @@ func TestConfig(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	testRespBody := string(resp.Body)
 
 	// Twilio - exchange SMS
 	resp, err = httpclient.DoHTTP(httpclient.Request{
@@ -253,9 +262,23 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Web proxy
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A23486%%2Ftest")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != testRespBody {
-		t.Fatalf("Err: %v\nResp: %+v\nActual:%s\nExpected:%s\n", err, resp, string(resp.Body), testRespBody)
+	// Normally the proxy should inject javascript into the page, but the home page does not look like HTML so proxy won't do that.
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A13589%%2F")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != indexRespBody {
+		t.Fatalf("Err: %v\nResp: %+v\nActual:%s\nExpected:%s\n", err, resp, string(resp.Body), indexRespBody)
+	}
+	// Test hitting rate limits
+	time.Sleep(httpd.HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
+	success := 0
+	for i := 0; i < 200; i++ {
+		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/")
+		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
+		if err == nil && resp.StatusCode == http.StatusOK && string(resp.Body) == expected {
+			success++
+		}
+	}
+	if success > 105 || success < 95 {
+		t.Fatal(success)
 	}
 
 	// ============ Test mail processor ============

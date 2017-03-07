@@ -9,11 +9,10 @@ import (
 	"net/http"
 )
 
-// FIXME: implement rate limit on twilio and self test handlers
-
 // Return an http.HandlerFunc.
 type HandlerFactory interface {
-	MakeHandler(*common.CommandProcessor) (http.HandlerFunc, error)
+	MakeHandler(*common.CommandProcessor) (http.HandlerFunc, error) // Return HTTP handler function associated with the command processor.
+	GetRateLimitFactor() int                                        // Factor of how expensive the handler is to execute, 1 being most expensive.
 }
 
 // Escape sequences in a string to make it safe for being element data.
@@ -42,4 +41,8 @@ func (hook *HandleFeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor)
 		}
 	}
 	return fun, nil
+}
+
+func (hook *HandleFeatureSelfTest) GetRateLimitFactor() int {
+	return 1
 }

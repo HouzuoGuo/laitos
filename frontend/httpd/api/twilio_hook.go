@@ -35,6 +35,9 @@ func (hand *HandleTwilioSMSHook) MakeHandler(cmdProc *common.CommandProcessor) (
 	}
 	return fun, nil
 }
+func (hand *HandleTwilioSMSHook) GetRateLimitFactor() int {
+	return 1
+}
 
 // Implement handler for Twilio phone number's telephone hook.
 type HandleTwilioCallHook struct {
@@ -44,7 +47,7 @@ type HandleTwilioCallHook struct {
 
 func (hand *HandleTwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
 	if hand.CallGreeting == "" || hand.CallbackEndpoint == "" {
-		return nil, errors.New("Greeting or handler endpoint is empty")
+		return nil, errors.New("HandleTwilioCallHook.MakeHandler: greeting or callback endpoint is empty")
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// The greeting XML tells Twilio to ask user for DTMF input, and direct the input to another URL endpoint.
@@ -60,6 +63,9 @@ func (hand *HandleTwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.
 	}
 	return fun, nil
 }
+func (hand *HandleTwilioCallHook) GetRateLimitFactor() int {
+	return 1
+}
 
 // Implement handler for Twilio phone number's telephone callback (triggered by response of TwilioCallHook).
 type HandleTwilioCallCallback struct {
@@ -68,7 +74,7 @@ type HandleTwilioCallCallback struct {
 
 func (hand *HandleTwilioCallCallback) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	if hand.MyEndpoint == "" {
-		return nil, errors.New("MyEndpoint is empty")
+		return nil, errors.New("HandleTwilioCallCallback.MakeHandler: own endpoint is empty")
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// DTMF input digits are in "Digits" parameter
@@ -99,4 +105,8 @@ func (hand *HandleTwilioCallCallback) MakeHandler(cmdProc *common.CommandProcess
 		}
 	}
 	return fun, nil
+}
+
+func (hand *HandleTwilioCallCallback) GetRateLimitFactor() int {
+	return 1
 }

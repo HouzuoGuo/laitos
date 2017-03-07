@@ -5,77 +5,37 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/websh/frontend/common"
 	"github.com/HouzuoGuo/websh/frontend/httpd/api"
-	"io/ioutil"
+	"github.com/HouzuoGuo/websh/ratelimit"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 )
 
-var IndexLocations = []string{"/", "/index", "/index.htm", "/index.html", "/index.php"} // Locations to which index document is served
+const (
+	HTTPD_DIRECTORY_HANDLER_RATE_LIMIT_FACTOR = 10      // 9 times less expensive than the most expensive handler
+	HTTPD_RATE_LIMIT_INTERVAL_SEC             = 10      // Rate limit is calculated at 10 seconds interval
+	HTTPD_RATE_LIMIT_404                      = "RL404" // Fake endpoint name for rate limit on 404 handler
+)
 
 // Return true if input character is a forward ot backward slash.
 func IsSlash(c rune) bool {
 	return c == '\\' || c == '/'
 }
 
-/*
-Create a handler func that serves all of the input routes.
-Input routes must use forward slash in URL.
-This function exists to work around Go's inability to serve an independent handler on /.
-*/
-func MakeRootHandlerFunc(allRoutes map[string]http.HandlerFunc) http.HandlerFunc {
-	maxURLFields := 0
-	for urlLocation := range allRoutes {
-		if num := len(strings.FieldsFunc(urlLocation, IsSlash)); num > maxURLFields {
-			maxURLFields = num
-		}
-	}
-	return func(w http.ResponseWriter, r *http.Request) {
-		urlFields := strings.FieldsFunc(r.URL.Path, IsSlash)
-		// Retrieve part of requested URL that can be used to identify route
-		assembledPath := "/"
-		if len(urlFields) >= maxURLFields {
-			assembledPath += strings.Join(urlFields[0:maxURLFields], "/")
-		} else {
-			assembledPath += strings.Join(urlFields, "/")
-		}
-		if pathLen := len(assembledPath); pathLen != 1 && assembledPath[pathLen-1] == '/' {
-			assembledPath = assembledPath[0 : pathLen-1]
-		}
-		// Look up the partial URL to find handler function
-		if fun, found := allRoutes[assembledPath]; found {
-			log.Printf("HTTPD: Handle %s - %s - %s", r.RemoteAddr, r.Method, assembledPath)
-			fun(w, r)
-		} else {
-			log.Printf("HTTPD: NotFound %s - %s - %s", r.RemoteAddr, r.Method, assembledPath)
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-	}
-}
-
 // An HTTP daemon.
 type HTTPD struct {
-	ListenAddress      string                        `json:"ListenAddress"`      // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	ListenPort         int                           `json:"ListenPort"`         // Port number to listen on
-	TLSCertPath        string                        `json:"TLSCertPath"`        // (Optional) serve HTTPS via this certificate
-	TLSKeyPath         string                        `json:"TLSKeyPath"`         // (Optional) serve HTTPS via this certificate (key)
-	ServeDirectories   map[string]string             `json:"ServeDirectories"`   // Serve directories (value) on prefix paths (key)
-	ServeIndexDocument string                        `json:"ServeIndexDocument"` // Serve this HTML document as index document
-	IndexContent       string                        `json:"-"`                  // The content of ServeIndexDocument file is read into memory
-	SpecialHandlers    map[string]api.HandlerFactory `json:"-"`                  // Specialised handlers that implement api.HandlerFactory interface
-	AllRoutes          map[string]http.HandlerFunc   `json:"-"`                  // Aggregate all routes from all handlers
-	Server             *http.Server                  `json:"-"`                  // Standard library HTTP server structure
-	Processor          *common.CommandProcessor      `json:"-"`                  // Common command processor
-}
-
-// Inject browser client IP and current time into index document and return.
-func (httpd *HTTPD) IndexHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	page := strings.Replace(httpd.IndexContent, "#WEBSH_3339TIME", time.Now().Format(time.RFC3339), -1)
-	page = strings.Replace(page, "#WEBSH_CLIENTADDR", r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')], -1)
-	w.Write([]byte(page))
+	ListenAddress    string                          `json:"ListenAddress"`    // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
+	ListenPort       int                             `json:"ListenPort"`       // Port number to listen on
+	TLSCertPath      string                          `json:"TLSCertPath"`      // (Optional) serve HTTPS via this certificate
+	TLSKeyPath       string                          `json:"TLSKeyPath"`       // (Optional) serve HTTPS via this certificate (key)
+	BaseRateLimit    int                             `json:"BaseRateLimit"`    // How many times in 10 seconds the most expensive HTTP handler may be invoked by an IP
+	ServeDirectories map[string]string               `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
+	SpecialHandlers  map[string]api.HandlerFactory   `json:"-"`                // Specialised handlers that implement api.HandlerFactory interface
+	AllRoutes        map[string]http.HandlerFunc     `json:"-"`                // Aggregate all routes from all handlers
+	AllRateLimits    map[string]*ratelimit.RateLimit `json:"-"`                // Aggregate all routes and their rate limit counters
+	Server           *http.Server                    `json:"-"`                // Standard library HTTP server structure
+	Processor        *common.CommandProcessor        `json:"-"`                // Common command processor
 }
 
 // Check configuration and initialise internal states.
@@ -94,6 +54,7 @@ func (httpd *HTTPD) Initialise() error {
 	}
 	// Work around Go's inability to serve a handler on / and only /
 	httpd.AllRoutes = map[string]http.HandlerFunc{}
+	httpd.AllRateLimits = map[string]*ratelimit.RateLimit{}
 	// Collect directory handlers
 	if httpd.ServeDirectories != nil {
 		for urlLocation, dirPath := range httpd.ServeDirectories {
@@ -104,6 +65,7 @@ func (httpd *HTTPD) Initialise() error {
 				urlLocation = "/" + urlLocation
 			}
 			httpd.AllRoutes[urlLocation] = http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)
+			httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{UnitSecs: HTTPD_RATE_LIMIT_INTERVAL_SEC, MaxCount: HTTPD_DIRECTORY_HANDLER_RATE_LIMIT_FACTOR * httpd.BaseRateLimit}
 		}
 	}
 	// Collect specialised handlers
@@ -113,32 +75,72 @@ func (httpd *HTTPD) Initialise() error {
 			return err
 		}
 		httpd.AllRoutes[urlLocation] = fun
+		httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{UnitSecs: HTTPD_RATE_LIMIT_INTERVAL_SEC, MaxCount: handler.GetRateLimitFactor() * httpd.BaseRateLimit}
 	}
-	// Collect index handlers
-	if httpd.ServeIndexDocument != "" {
-		var err error
-		var contentBytes []byte
-		if contentBytes, err = ioutil.ReadFile(httpd.ServeIndexDocument); err != nil {
-			return fmt.Errorf("HTTPD.StartAndBlock: failed to open index document file - %v", err)
-		}
-		httpd.IndexContent = string(contentBytes)
-		indexHandler := httpd.IndexHandler
-		for _, urlLocation := range IndexLocations {
-			httpd.AllRoutes[urlLocation] = indexHandler
-		}
+	// There is a rate limit for 404 that does not allow frequent hits
+	httpd.AllRateLimits[HTTPD_RATE_LIMIT_404] = &ratelimit.RateLimit{UnitSecs: HTTPD_RATE_LIMIT_INTERVAL_SEC, MaxCount: httpd.BaseRateLimit}
+	// Initialise all rate limits
+	for _, limit := range httpd.AllRateLimits {
+		limit.Initialise()
 	}
-	// Install the handlers to /
-	rootHandler := MakeRootHandlerFunc(httpd.AllRoutes)
+	// Install all handlers
+	rootHandler := httpd.MakeRootHandlerFunc()
 	muxHandlers := http.NewServeMux()
 	muxHandlers.HandleFunc("/", rootHandler)
 	// Configure server with rather generous and sane defaults
 	httpd.Server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", httpd.ListenAddress, httpd.ListenPort),
 		Handler:      muxHandlers,
-		ReadTimeout:  120 * time.Second,
-		WriteTimeout: 120 * time.Second,
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 60 * time.Second,
 	}
 	return nil
+}
+
+/*
+Create a handler func that serves all of the input routes.
+Input routes must use forward slash in URL.
+This function exists to work around Go's inability to serve an independent handler on /.
+*/
+func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
+	maxURLFields := 0
+	for urlLocation := range httpd.AllRoutes {
+		if num := len(strings.FieldsFunc(urlLocation, IsSlash)); num > maxURLFields {
+			maxURLFields = num
+		}
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		urlFields := strings.FieldsFunc(r.URL.Path, IsSlash)
+		// Retrieve part of requested URL that can be used to identify route
+		assembledPath := "/"
+		if len(urlFields) >= maxURLFields {
+			assembledPath += strings.Join(urlFields[0:maxURLFields], "/")
+		} else {
+			assembledPath += strings.Join(urlFields, "/")
+		}
+		if pathLen := len(assembledPath); pathLen != 1 && assembledPath[pathLen-1] == '/' {
+			assembledPath = assembledPath[0 : pathLen-1]
+		}
+		remoteIP := r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')]
+		// Apply rate limit
+		if limit, routeFound := httpd.AllRateLimits[assembledPath]; routeFound {
+			if limit.Add(remoteIP, true) {
+				// Look up the partial URL to find handler function
+				log.Printf("HTTPD: handle %s - %s - %s", remoteIP, r.Method, assembledPath)
+				httpd.AllRoutes[assembledPath](w, r)
+			} else {
+				http.Error(w, "", http.StatusTooManyRequests)
+			}
+		} else {
+			// Route is not found
+			if httpd.AllRateLimits[HTTPD_RATE_LIMIT_404].Add(remoteIP, true) {
+				log.Printf("HTTPD: cannot find %s - %s - %s", remoteIP, r.Method, assembledPath)
+				http.Error(w, "", http.StatusNotFound)
+			} else {
+				http.Error(w, "", http.StatusTooManyRequests)
+			}
+		}
+	}
 }
 
 /*

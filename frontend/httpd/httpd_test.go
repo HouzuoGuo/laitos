@@ -31,12 +31,13 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	}
 
 	daemon := HTTPD{
-		ListenAddress:      "127.0.0.1",
-		ListenPort:         13589, // hard coded port is a random choice
-		Processor:          &common.CommandProcessor{},
-		ServeIndexDocument: indexFile,
-		ServeDirectories:   map[string]string{"my/dir": "/tmp/test-websh-dir"},
+		ListenAddress:    "127.0.0.1",
+		ListenPort:       13589, // hard coded port is a random choice
+		Processor:        &common.CommandProcessor{},
+		ServeDirectories: map[string]string{"my/dir": "/tmp/test-websh-dir"},
+		BaseRateLimit:    1,
 		SpecialHandlers: map[string]api.HandlerFactory{
+			"/":                &api.HandleHTMLDocument{HTMLFilePath: indexFile},
 			"/twilio_sms":      &api.HandleTwilioSMSHook{},
 			"/twilio_call":     &api.HandleTwilioCallHook{CallbackEndpoint: "/twilio_callback", CallGreeting: "hello"},
 			"/twilio_callback": &api.HandleTwilioCallCallback{MyEndpoint: "/twilio_callback"},
@@ -61,15 +62,14 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	addr := "http://127.0.0.1:13589"
 
 	// Index handle
-	for _, location := range IndexLocations {
-		resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+location)
-		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
-		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
-			t.Fatal(err, string(resp.Body), expected, resp)
-		}
+	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"/")
+	indexRespBody := string(resp.Body)
+	expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+		t.Fatal(err, string(resp.Body), expected, resp)
 	}
 	// Directory handle
-	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir")
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
 <a href="a.html">a.html</a>
 </pre>
@@ -86,18 +86,26 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/doesnotexist")
-	if err != nil || resp.StatusCode != http.StatusNotFound || len(resp.Body) != 0 {
+	if err != nil || resp.StatusCode != http.StatusNotFound {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	// Specialised handle - self_test
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
-	testRespBody := string(resp.Body)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatal(err, string(resp.Body), resp)
+	// Specialised handle - proxy visit home page
+	// Normally the proxy should inject javascript into the page, but the home page does not look like HTML so proxy won't do that.
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A13589%%2F")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != indexRespBody {
+		t.Fatalf("Err: %v\nResp: %+v\nActual:%s\nExpected:%s\n", err, resp, string(resp.Body), indexRespBody)
 	}
-	// Specialised handle - proxy
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A13589%%2Ftest")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != testRespBody {
-		t.Fatalf("Err: %v\nResp: %+v\nActual:%s\nExpected:%s\n", err, resp, string(resp.Body), testRespBody)
+	// Test hitting rate limits
+	time.Sleep(HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
+	success := 0
+	for i := 0; i < 100; i++ {
+		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/")
+		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
+		if err == nil && resp.StatusCode == http.StatusOK && string(resp.Body) == expected {
+			success++
+		}
+	}
+	if success > 11 || success < 9 {
+		t.Fatal(success)
 	}
 }
