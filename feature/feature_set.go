@@ -9,6 +9,7 @@ import (
 // Aggregate all available features together.
 type FeatureSet struct {
 	Facebook        Facebook            `json:"Facebook"`
+	SendMail        SendMail            `json:"SendMail"`
 	Shell           Shell               `json:"Shell"`
 	Twilio          Twilio              `json:"Twilio"`
 	Twitter         Twitter             `json:"Twitter"`
@@ -24,6 +25,7 @@ func (fs *FeatureSet) Initialise() error {
 	fs.LookupByTrigger = map[Trigger]Feature{}
 	triggers := map[Trigger]Feature{
 		fs.Facebook.Trigger():      &fs.Facebook,
+		fs.SendMail.Trigger():      &fs.SendMail,
 		fs.Shell.Trigger():         &fs.Shell,
 		fs.Twilio.Trigger():        &fs.Twilio,
 		fs.Twitter.Trigger():       &fs.Twitter,
@@ -72,6 +74,7 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 	// Here are the feature keys
 	features := map[string]Feature{
 		"Facebook":      &fs.Facebook,
+		"SendMail":      &fs.SendMail,
 		"Shell":         &fs.Shell,
 		"Twilio":        &fs.Twilio,
 		"Twitter":       &fs.Twitter,

@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	CombinedTextSeperator = "|" // Separate error and command output in the combined output
-	HTTPTestTimeoutSec    = 60  // Timeout for HTTP requests among those involved in self tests
+	CombinedTextSeparator = "|" // Separate error and command output in the combined output
+	FeatureTestTimeoutSec = 60  // Timeout for outgoing connections among those involved in feature self tests
 )
 
 var (
@@ -55,7 +55,7 @@ type Feature interface {
 	SelfTest() error         // Validate and test configuration.
 	Initialise() error       // Prepare internal states.
 	Trigger() Trigger        // Return a prefix string that is matched against command input to trigger a feature, each feature has a unique trigger.
-	Execute(Command) *Result // Execute the command and return result.
+	Execute(Command) *Result // Execute the command with trigger prefix removed, and return execution result.
 }
 
 // Feature's execution result that includes human readable output and error (if any).
@@ -80,7 +80,7 @@ func (result *Result) ResetCombinedText() string {
 	if result.Error != nil {
 		result.CombinedOutput = result.Error.Error()
 		if result.Output != "" {
-			result.CombinedOutput += CombinedTextSeperator
+			result.CombinedOutput += CombinedTextSeparator
 		}
 	}
 	result.CombinedOutput += result.Output

@@ -13,7 +13,7 @@ import (
 
 const (
 	TwilioMakeCall = "c"
-	TwilioSendSMS  = "s"
+	TwilioSendSMS  = "t"
 )
 
 var RegexNumberAndMessage = regexp.MustCompile(`(\+[0-9]+)[^\w]+(.*)`)
@@ -38,7 +38,7 @@ func (twi *Twilio) SelfTest() error {
 	}
 	// Validate API credentials with a simple API call
 	resp, err := httpclient.DoHTTP(httpclient.Request{
-		TimeoutSec: HTTPTestTimeoutSec,
+		TimeoutSec: FeatureTestTimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
 			return nil
@@ -55,7 +55,7 @@ func (twi *Twilio) Initialise() error {
 }
 
 func (twi *Twilio) Trigger() Trigger {
-	return ".c"
+	return ".p"
 }
 
 func (twi *Twilio) Execute(cmd Command) (ret *Result) {
@@ -87,7 +87,7 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 		"Url":  {"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s, repeat again, %s, repeat again, %s, over.", message, message, message))},
 	}
 	resp, err := httpclient.DoHTTP(httpclient.Request{
-		TimeoutSec: HTTPTestTimeoutSec,
+		TimeoutSec: FeatureTestTimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(formParams.Encode()),
 		RequestFunc: func(req *http.Request) error {
@@ -116,7 +116,7 @@ func (twi *Twilio) SendSMS(cmd Command) *Result {
 		"Body": {message},
 	}
 	resp, err := httpclient.DoHTTP(httpclient.Request{
-		TimeoutSec: HTTPTestTimeoutSec,
+		TimeoutSec: FeatureTestTimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(formParams.Encode()),
 		RequestFunc: func(req *http.Request) error {

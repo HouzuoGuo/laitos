@@ -52,7 +52,12 @@ type Config struct {
 
 // Deserialise JSON data into config structures.
 func (config *Config) DeserialiseFromJSON(in []byte) error {
-	return json.Unmarshal(in, config)
+	if err := json.Unmarshal(in, config); err != nil {
+		return err
+	}
+	// Give the mailer to sendmail feature
+	config.Features.SendMail.Mailer = &config.Mailer
+	return nil
 }
 
 // Construct an HTTP daemon from configuration and return.

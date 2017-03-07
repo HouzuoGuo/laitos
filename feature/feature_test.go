@@ -53,7 +53,7 @@ func TestResult(t *testing.T) {
 	if result.ErrText() != os.ErrInvalid.Error() {
 		t.Fatal(result.ErrText())
 	}
-	if result.ResetCombinedText() != os.ErrInvalid.Error()+CombinedTextSeperator+"abc" {
+	if result.ResetCombinedText() != os.ErrInvalid.Error()+CombinedTextSeparator+"abc" {
 		t.Fatal(result.ResetCombinedText())
 	}
 }

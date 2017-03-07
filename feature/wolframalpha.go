@@ -24,7 +24,7 @@ func (wa *WolframAlpha) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make a test query to verify AppID and response data structure
-	resp, err := wa.Query(HTTPTestTimeoutSec, "pi")
+	resp, err := wa.Query(FeatureTestTimeoutSec, "pi")
 	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return errResult.Error
 	}

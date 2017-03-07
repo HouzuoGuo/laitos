@@ -28,7 +28,7 @@ func (und *Undocumented1) SelfTest() error {
 	if !und.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: HTTPTestTimeoutSec}, und.URL)
+	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: FeatureTestTimeoutSec}, und.URL)
 	// Only consider IO error and 404 response to be actual errors
 	if err != nil {
 		return err
