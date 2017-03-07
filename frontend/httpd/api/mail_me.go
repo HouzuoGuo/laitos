@@ -26,12 +26,12 @@ const HandleMailMePage = `<!doctype html>
 
 // Implement handler for sending Howard an email. The text on the page is deliberately written in Chinese.
 type HandleMailMe struct {
-	Recipients []string      `json:"Recipients"` // Recipients of these mail messages
-	Mailer     *email.Mailer `json:"-"`
+	Recipients []string     `json:"Recipients"` // Recipients of these mail messages
+	Mailer     email.Mailer `json:"-"`
 }
 
 func (mm *HandleMailMe) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
-	if mm.Recipients == nil || len(mm.Recipients) == 0 || mm.Mailer == nil || !mm.Mailer.IsConfigured() {
+	if mm.Recipients == nil || len(mm.Recipients) == 0 || !mm.Mailer.IsConfigured() {
 		return nil, errors.New("Recipient list is empty or mailer is not configured")
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {

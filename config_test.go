@@ -31,9 +31,9 @@ func TestConfig(t *testing.T) {
 	"HTTPDaemon": {
 		"ListenAddress": "127.0.0.1",
 		"ListenPort": 23486,
-		"ServeIndexDocument": "/tmp/test-websh-index.html",
+		"ServeIndexDocument": "/tmp/test-websh-index2.html",
 		"ServeDirectories": {
-			"/my/dir": "/tmp/test-websh-dir"
+			"/my/dir": "/tmp/test-websh-dir2"
 		}
 	},
 	"HTTPBridges": {
@@ -104,13 +104,13 @@ func TestConfig(t *testing.T) {
 
 	// ============ Test HTTP daemon ============
 	// Create a temporary file for index
-	indexFile := "/tmp/test-websh-index.html"
+	indexFile := "/tmp/test-websh-index2.html"
 	defer os.Remove(indexFile)
 	if err := ioutil.WriteFile(indexFile, []byte("this is index"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	// Create a temporary directory of file
-	htmlDir := "/tmp/test-websh-dir"
+	htmlDir := "/tmp/test-websh-dir2"
 	if err := os.MkdirAll(htmlDir, 0755); err != nil {
 		t.Fatal(err)
 	}

@@ -54,7 +54,7 @@ func TestAllHandlers(t *testing.T) {
 	// MailMe
 	handle = &HandleMailMe{
 		Recipients: []string{"howard@localhost"},
-		Mailer: &email.Mailer{
+		Mailer: email.Mailer{
 			MailFrom: "howard@localhost",
 			MTAHost:  "localhost",
 			MTAPort:  25,

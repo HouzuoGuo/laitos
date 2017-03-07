@@ -98,12 +98,12 @@ func (lint *LintText) Transform(result *feature.Result) error {
 // Send email notification for command result.
 type NotifyViaEmail struct {
 	Recipients []string `json:"Recipients"` // Email recipient addresses
-	Mailer     *email.Mailer
+	Mailer     email.Mailer
 }
 
 // Return true only if all mail parameters are present.
 func (notify *NotifyViaEmail) IsConfigured() bool {
-	return notify.Recipients != nil && len(notify.Recipients) > 0 && notify.Mailer != nil && notify.Mailer.IsConfigured()
+	return notify.Recipients != nil && len(notify.Recipients) > 0 && notify.Mailer.IsConfigured()
 }
 
 func (notify *NotifyViaEmail) Transform(result *feature.Result) error {

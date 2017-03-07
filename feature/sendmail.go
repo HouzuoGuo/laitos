@@ -17,13 +17,13 @@ var ErrBadSendMailParam = errors.New(`Example: addr@dom.tld "subj" body`)
 
 // Send outgoing emails.
 type SendMail struct {
-	Mailer *email.Mailer `json:"-"`
+	Mailer email.Mailer `json:"-"`
 }
 
 var TestSendMail = SendMail{} // Details are set by init_test.go
 
 func (email *SendMail) IsConfigured() bool {
-	return email.Mailer != nil && email.Mailer.IsConfigured()
+	return email.Mailer.IsConfigured()
 }
 
 func (email *SendMail) SelfTest() error {

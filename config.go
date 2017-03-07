@@ -56,7 +56,7 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 		return err
 	}
 	// Give the mailer to sendmail feature
-	config.Features.SendMail.Mailer = &config.Mailer
+	config.Features.SendMail.Mailer = config.Mailer
 	return nil
 }
 
@@ -65,7 +65,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	ret := config.HTTPDaemon
 
 	mailNotification := config.HTTPBridges.NotifyViaEmail
-	mailNotification.Mailer = &config.Mailer
+	mailNotification.Mailer = config.Mailer
 	features := config.Features
 	if err := features.Initialise(); err != nil {
 		log.Fatalf("Config.GetHTTPD: failed to initialise features - %v", err)
@@ -111,7 +111,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	}
 	if config.HTTPHandlers.MailMeEndpoint != "" {
 		handler := config.HTTPHandlers.MailMeEndpointConfig
-		handler.Mailer = &config.Mailer
+		handler.Mailer = config.Mailer
 		handlers[config.HTTPHandlers.MailMeEndpoint] = &handler
 	}
 	if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
@@ -137,7 +137,7 @@ func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 	ret := config.MailProcessor
 
 	mailNotification := config.MailProcessorBridges.NotifyViaEmail
-	mailNotification.Mailer = &config.Mailer
+	mailNotification.Mailer = config.Mailer
 	features := config.Features
 	if err := features.Initialise(); err != nil {
 		log.Fatalf("Config.GetMailProcessor: failed to initialise features - %v", err)
@@ -156,6 +156,6 @@ func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 			&mailNotification,
 		},
 	}
-	ret.ReplyMailer = &config.Mailer
+	ret.ReplyMailer = config.Mailer
 	return &ret
 }

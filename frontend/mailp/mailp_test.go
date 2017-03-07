@@ -13,7 +13,7 @@ func TestMailProcessor_Process_MailReply(t *testing.T) {
 	mailproc := MailProcessor{
 		Processor:         &common.CommandProcessor{},
 		CommandTimeoutSec: 5,
-		ReplyMailer: &email.Mailer{
+		ReplyMailer: email.Mailer{
 			MTAHost:  "127.0.0.1",
 			MTAPort:  25,
 			MailFrom: "howard@localhost",
@@ -85,7 +85,7 @@ func TestMailProcessor_Process_Undocument1Reply(t *testing.T) {
 	}
 	mailproc := MailProcessor{
 		CommandTimeoutSec: 5,
-		ReplyMailer: &email.Mailer{
+		ReplyMailer: email.Mailer{
 			MTAHost:  "127.0.0.1",
 			MTAPort:  25,
 			MailFrom: "howard@localhost",

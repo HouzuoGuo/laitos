@@ -15,7 +15,7 @@ import (
 type MailProcessor struct {
 	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
 	CommandTimeoutSec int                      `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds
-	ReplyMailer       *email.Mailer            `json:"-"`                 // To deliver Email replies
+	ReplyMailer       email.Mailer             `json:"-"`                 // To deliver Email replies
 }
 
 /*
@@ -69,7 +69,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte) error {
 			}
 		}
 		// The Email address suffix did not satisfy undocumented scenario, so send the result as a normal Email reply.
-		if mailproc.ReplyMailer == nil || !mailproc.ReplyMailer.IsConfigured() {
+		if !mailproc.ReplyMailer.IsConfigured() {
 			return false, errors.New("The reply has to be sent via Email but configuration is missing")
 		}
 		return false, mailproc.ReplyMailer.Send(email.OutgoingMailSubjectKeyword+"-reply-"+result.Command.Content, result.CombinedOutput, prop.ReplyAddress)
@@ -84,5 +84,5 @@ func (mailproc *MailProcessor) Process(mailContent []byte) error {
 	return nil
 }
 
-var TestUndocumented1Message = ""               // Content is set by init_test.go
-var TestUndocumented1 = feature.Undocumented1{} // Details are set by init_test.go
+var TestUndocumented1Message = ""               // Content is set by init_mail_test.go
+var TestUndocumented1 = feature.Undocumented1{} // Details are set by init_mail_test.go
