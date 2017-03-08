@@ -22,7 +22,7 @@ const HandleMailMePage = `<!doctype html>
     </form>
 </body>
 </html>
-` // Web page content
+` // Mail Me page content
 
 // Implement handler for sending Howard an email. The text on the page is deliberately written in Chinese.
 type HandleMailMe struct {

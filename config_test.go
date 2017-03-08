@@ -61,20 +61,20 @@ func TestConfig(t *testing.T) {
 	},
 	"HTTPHandlers": {
 		"SelfTestEndpoint": "/test",
-		"TwilioSMSEndpoint": "/sms",
-		"TwilioCallEndpoint": "/call",
-		"TwilioCallEndpointConfig": {
-			"CallGreeting": "hello there"
+		"CommandFormEndpoint": "/cmd_form",
+		"IndexEndpoints": ["/", "/index.html"],
+		"IndexEndpointConfig": {
+			"HTMLFilePath": "/tmp/test-websh-index2.html"
 		},
-		"MailMeEndpoint": "/mailme",
+		"MailMeEndpoint": "/mail_me",
 		"MailMeEndpointConfig": {
 			"Recipients": ["howard@localhost"]
 		},
 		"WebProxyEndpoint": "/proxy",
-
-		"IndexEndpoints": ["/", "/index.html"],
-		"IndexEndpointConfig": {
-			"HTMLFilePath": "/tmp/test-websh-index2.html"
+		"TwilioSMSEndpoint": "/sms",
+		"TwilioCallEndpoint": "/call",
+		"TwilioCallEndpointConfig": {
+			"CallGreeting": "Hi there"
 		}
 	},
 	"MailProcessor": {
@@ -108,6 +108,7 @@ func TestConfig(t *testing.T) {
 	}
 
 	// ============ Test HTTP daemon ============
+	// (Essentially combine all cases of api_test.go and httpd_test.go)
 	// Create a temporary file for index
 	indexFile := "/tmp/test-websh-index2.html"
 	defer os.Remove(indexFile)
@@ -126,8 +127,8 @@ func TestConfig(t *testing.T) {
 
 	httpDaemon := config.GetHTTPD()
 
-	if len(httpDaemon.SpecialHandlers) != 8 {
-		// 1 x self test, 1 x sms, 2 x call, 1 x mailme, 1 x proxy, 2 x index
+	if len(httpDaemon.SpecialHandlers) != 9 {
+		// 1 x self test, 1 x sms, 2 x call, 1 x mail me, 1 x proxy, 2 x index, 1 x cmd form
 		t.Fatal(httpDaemon.SpecialHandlers)
 	}
 	// Find the randomly generated endpoint name for twilio call callback
@@ -137,7 +138,8 @@ func TestConfig(t *testing.T) {
 		case "/sms":
 		case "/call":
 		case "/test":
-		case "/mailme":
+		case "/cmd_form":
+		case "/mail_me":
 		case "/proxy":
 		case "/":
 		case "/index.html":
@@ -155,10 +157,8 @@ func TestConfig(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Index handle
-	var indexRespBody string
 	for _, location := range []string{"/", "/index.html"} {
 		resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+location)
-		indexRespBody = string(resp.Body)
 		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
 		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 			t.Fatal(err, string(resp.Body), resp)
@@ -185,37 +185,90 @@ func TestConfig(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusNotFound {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-
-	// Specialised handle - self_test
+	// Test hitting rate limits
+	time.Sleep(httpd.HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
+	success := 0
+	for i := 0; i < 200; i++ {
+		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/")
+		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
+		if err == nil && resp.StatusCode == http.StatusOK && string(resp.Body) == expected {
+			success++
+		}
+	}
+	if success > 105 || success < 95 {
+		t.Fatal(success)
+	}
+	// Wait till rate limits reset
+	time.Sleep(httpd.HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
+	// Feature self test
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-
-	// Twilio - exchange SMS
-	resp, err = httpclient.DoHTTP(httpclient.Request{
-		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{"Body": {"badsecret.secho alpha"}}.Encode()),
-	}, addr+"/sms")
-	if err != nil || resp.StatusCode != http.StatusNotFound {
+	// Command Form
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/cmd_form")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, addr+"/cmd_form")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{"Body": {"httpsecret.secho alpha"}}.Encode()),
+		Body:   strings.NewReader(url.Values{"cmd": {"httpsecret.sls /"}}.Encode()),
+	}, addr+"/cmd_form")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "bin") {
+		t.Fatal(err, string(resp.Body))
+	}
+	// MailMe
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/mail_me")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, addr+"/mail_me")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
+	}, addr+"/mail_me")
+	if err != nil || resp.StatusCode != http.StatusOK ||
+		(!strings.Contains(string(resp.Body), "发不出去") && !strings.Contains(string(resp.Body), "发出去了")) {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Web proxy
+	// Normally the proxy should inject javascript into the page, but the home page does not look like HTML so proxy won't do that.
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A23486%%2F")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.HasPrefix(string(resp.Body), "this is index") {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Twilio - exchange SMS with bad PIN
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Body:   strings.NewReader(url.Values{"Body": {"pin mismatch"}}.Encode()),
+	}, addr+"/sms")
+	if err != nil || resp.StatusCode != http.StatusNotFound {
+		t.Fatal(err, resp)
+	}
+	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Body:   strings.NewReader(url.Values{"Body": {"httpsecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+"/sms")
 	expected := `<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message>beta</Message></Response>
+<Response><Message>01234567890123456789012345678901234</Message></Response>
 `
-	if err != nil || string(resp.Body) != expected {
-		t.Fatal(err, string(resp.Body))
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+		t.Fatal(err, resp)
 	}
 	// Twilio - check phone call greeting
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/call")
 	expected = fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say>hello there</Say>
+        <Say>Hi there</Say>
     </Gather>
 </Response>
 `, twilioCallbackEndpoint)
@@ -251,34 +304,6 @@ func TestConfig(t *testing.T) {
 `, twilioCallbackEndpoint)
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body))
-	}
-	// MailMe
-	resp, err = httpclient.DoHTTP(httpclient.Request{
-		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
-	}, addr+"/mailme")
-	if err != nil || resp.StatusCode != http.StatusOK ||
-		(!strings.Contains(string(resp.Body), "发不出去") && !strings.Contains(string(resp.Body), "发出去了")) {
-		t.Fatal(err, string(resp.Body))
-	}
-	// Web proxy
-	// Normally the proxy should inject javascript into the page, but the home page does not look like HTML so proxy won't do that.
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A13589%%2F")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != indexRespBody {
-		t.Fatalf("Err: %v\nResp: %+v\nActual:%s\nExpected:%s\n", err, resp, string(resp.Body), indexRespBody)
-	}
-	// Test hitting rate limits
-	time.Sleep(httpd.HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
-	success := 0
-	for i := 0; i < 200; i++ {
-		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/")
-		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
-		if err == nil && resp.StatusCode == http.StatusOK && string(resp.Body) == expected {
-			success++
-		}
-	}
-	if success > 105 || success < 95 {
-		t.Fatal(success)
 	}
 
 	// ============ Test mail processor ============

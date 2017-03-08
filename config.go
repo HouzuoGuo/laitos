@@ -29,17 +29,19 @@ type StandardBridges struct {
 type HTTPHandlers struct {
 	SelfTestEndpoint string `json:"SelfTestEndpoint"`
 
-	TwilioSMSEndpoint        string                   `json:"TwilioSMSEndpoint"`
-	TwilioCallEndpoint       string                   `json:"TwilioCallEndpoint"`
-	TwilioCallEndpointConfig api.HandleTwilioCallHook `json:"TwilioCallEndpointConfig"`
+	CommandFormEndpoint string `json:"CommandFormEndpoint"`
+
+	IndexEndpoints      []string               `json:"IndexEndpoints"`
+	IndexEndpointConfig api.HandleHTMLDocument `json:"IndexEndpointConfig"`
 
 	MailMeEndpoint       string           `json:"MailMeEndpoint"`
 	MailMeEndpointConfig api.HandleMailMe `json:"MailMeEndpointConfig"`
 
 	WebProxyEndpoint string `json:"WebProxyEndpoint"`
 
-	IndexEndpoints      []string               `json:"IndexEndpoints"`
-	IndexEndpointConfig api.HandleHTMLDocument `json:"IndexEndpointConfig"`
+	TwilioSMSEndpoint        string                   `json:"TwilioSMSEndpoint"`
+	TwilioCallEndpoint       string                   `json:"TwilioCallEndpoint"`
+	TwilioCallEndpointConfig api.HandleTwilioCallHook `json:"TwilioCallEndpointConfig"`
 }
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
@@ -92,6 +94,22 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	if config.HTTPHandlers.SelfTestEndpoint != "" {
 		handlers[config.HTTPHandlers.SelfTestEndpoint] = &api.HandleFeatureSelfTest{}
 	}
+	if config.HTTPHandlers.CommandFormEndpoint != "" {
+		handlers[config.HTTPHandlers.CommandFormEndpoint] = &api.HandleCommandForm{}
+	}
+	if config.HTTPHandlers.IndexEndpoints != nil {
+		for _, location := range config.HTTPHandlers.IndexEndpoints {
+			handlers[location] = &config.HTTPHandlers.IndexEndpointConfig
+		}
+	}
+	if config.HTTPHandlers.MailMeEndpoint != "" {
+		handler := config.HTTPHandlers.MailMeEndpointConfig
+		handler.Mailer = config.Mailer
+		handlers[config.HTTPHandlers.MailMeEndpoint] = &handler
+	}
+	if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
+		handlers[proxyEndpoint] = &api.HandleWebProxy{MyEndpoint: proxyEndpoint}
+	}
 	if config.HTTPHandlers.TwilioSMSEndpoint != "" {
 		handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &api.HandleTwilioSMSHook{}
 	}
@@ -111,19 +129,6 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 		handlers[config.HTTPHandlers.TwilioCallEndpoint] = &config.HTTPHandlers.TwilioCallEndpointConfig
 		// The callback handler will use the callback point that points to itself to carry on with phone conversation
 		handlers[callbackEndpoint] = &api.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
-	}
-	if config.HTTPHandlers.MailMeEndpoint != "" {
-		handler := config.HTTPHandlers.MailMeEndpointConfig
-		handler.Mailer = config.Mailer
-		handlers[config.HTTPHandlers.MailMeEndpoint] = &handler
-	}
-	if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
-		handlers[proxyEndpoint] = &api.HandleWebProxy{MyEndpoint: proxyEndpoint}
-	}
-	if config.HTTPHandlers.IndexEndpoints != nil {
-		for _, location := range config.HTTPHandlers.IndexEndpoints {
-			handlers[location] = &config.HTTPHandlers.IndexEndpointConfig
-		}
 	}
 	ret.SpecialHandlers = handlers
 	// Call initialise and print out prefixes of installed routes

@@ -14,7 +14,7 @@ import (
 
 const (
 	HTTPD_DIRECTORY_HANDLER_RATE_LIMIT_FACTOR = 10      // 9 times less expensive than the most expensive handler
-	HTTPD_RATE_LIMIT_INTERVAL_SEC             = 10      // Rate limit is calculated at 10 seconds interval
+	HTTPD_RATE_LIMIT_INTERVAL_SEC             = 5       // Rate limit is calculated at 5 seconds interval
 	HTTPD_RATE_LIMIT_404                      = "RL404" // Fake endpoint name for rate limit on 404 handler
 )
 

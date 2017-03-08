@@ -9,6 +9,8 @@ import (
 	"net/http"
 )
 
+const FeatureSelfTestOK = "All OK" // response body of a feature self test that all went OK
+
 // Return an http.HandlerFunc.
 type HandlerFactory interface {
 	MakeHandler(*common.CommandProcessor) (http.HandlerFunc, error) // Return HTTP handler function associated with the command processor.
@@ -34,7 +36,7 @@ func (hook *HandleFeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor)
 		w.Header().Set("Cache-Control", "must-revalidate")
 		errs := cmdProc.Features.SelfTest()
 		if len(errs) == 0 {
-			w.Write([]byte("All OK"))
+			w.Write([]byte(FeatureSelfTestOK))
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(fmt.Sprintf("%+v", errs)))

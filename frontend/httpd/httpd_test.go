@@ -63,7 +63,6 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 
 	// Index handle
 	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"/")
-	indexRespBody := string(resp.Body)
 	expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body), expected, resp)
@@ -89,12 +88,6 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusNotFound {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	// Specialised handle - proxy visit home page
-	// Normally the proxy should inject javascript into the page, but the home page does not look like HTML so proxy won't do that.
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A13589%%2F")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != indexRespBody {
-		t.Fatalf("Err: %v\nResp: %+v\nActual:%s\nExpected:%s\n", err, resp, string(resp.Body), indexRespBody)
-	}
 	// Test hitting rate limits
 	time.Sleep(HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
 	success := 0
@@ -107,5 +100,12 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	}
 	if success > 11 || success < 9 {
 		t.Fatal(success)
+	}
+	// Wait till rate limits reset
+	time.Sleep(HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
+	// Specialised handle - self test (just an example)
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != api.FeatureSelfTestOK {
+		t.Fatal(err, string(resp.Body), resp)
 	}
 }

@@ -1,3 +1,5 @@
-websh
+.idea
 init*.go
 nohup.out
+.vscode
+websh
