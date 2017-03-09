@@ -5,9 +5,18 @@ import (
 	"github.com/HouzuoGuo/websh/bridge"
 	"github.com/HouzuoGuo/websh/feature"
 	"log"
+	"regexp"
+	"strconv"
 )
 
-var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")
+const (
+	ErrBadProcessorConfig = "Insane: " // Prefix errors in function IsSaneForInternet
+	PrefixCommandLPT      = ".lpt"     // A command input prefix that temporary overrides output length, position, and timeout.
+)
+
+var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")  // Returned if input command does not contain valid feature trigger
+var ErrBadLPT = errors.New(PrefixCommandLPT + " L P T command")           // Return LPT invocation example in an error
+var RegexCommandWithLPT = regexp.MustCompile(`.*(\d+).*(\d+).*(\d+)(.*)`) // Parse L.P.T. and command content
 
 // Environment and configuration for running commands.
 type CommandProcessor struct {
@@ -15,8 +24,6 @@ type CommandProcessor struct {
 	CommandBridges []bridge.CommandBridge
 	ResultBridges  []bridge.ResultBridge
 }
-
-const ErrBadProcessorConfig = "Insane: " // Prefix errors in function IsSaneForInternet
 
 /*
 From the prospect of Internet-facing mail processor and Twilio hooks, check that parameters are within sane range.
@@ -77,6 +84,7 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result) {
 	var bridgeErr error
 	var matchedFeature feature.Feature
+	var overrideLintText *bridge.LintText
 	// Walk the command through all bridges
 	for _, cmdBridge := range proc.CommandBridges {
 		cmd, bridgeErr = cmdBridge.Transform(cmd)
@@ -88,6 +96,40 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 	// Trim spaces and expect non-empty command
 	if ret = cmd.Trim(); ret != nil {
 		goto result
+	}
+	// Look for LPT (length, position, timeout) override, it is going to affect LintText bridge.
+	if cmd.FindAndRemovePrefix(PrefixCommandLPT) {
+		// Find the configured LintText bridge
+		for _, resultBridge := range proc.ResultBridges {
+			if aBridge, isLintText := resultBridge.(*bridge.LintText); isLintText {
+				*overrideLintText = *aBridge
+				break
+			}
+		}
+		// Parse L. P. T. <cmd> parameters
+		lptParams := RegexCommandWithLPT.FindStringSubmatch(cmd.Content)
+		if len(lptParams) != 5 { // 4 groups + 1
+			ret = &feature.Result{Error: ErrBadLPT}
+			goto result
+		}
+		var intErr error
+		if overrideLintText.MaxLength, intErr = strconv.Atoi(lptParams[1]); intErr != nil {
+			ret = &feature.Result{Error: ErrBadLPT}
+			goto result
+		}
+		if overrideLintText.BeginPosition, intErr = strconv.Atoi(lptParams[2]); intErr != nil {
+			ret = &feature.Result{Error: ErrBadLPT}
+			goto result
+		}
+		if cmd.TimeoutSec, intErr = strconv.Atoi(lptParams[3]); intErr != nil {
+			ret = &feature.Result{Error: ErrBadLPT}
+			goto result
+		}
+		cmd.Content = lptParams[4]
+		if cmd.Content == "" {
+			ret = &feature.Result{Error: ErrBadLPT}
+			goto result
+		}
 	}
 	// Look for command's prefix among configured features
 	for prefix, configuredFeature := range proc.Features.LookupByTrigger {
@@ -112,6 +154,10 @@ result:
 	ret.Command = cmd
 	// Walk through result bridges
 	for _, resultBridge := range proc.ResultBridges {
+		// LintText bridge may have been manipulated by override
+		if _, isLT := resultBridge.(*bridge.LintText); isLT && overrideLintText != nil {
+			resultBridge = overrideLintText
+		}
 		if err := resultBridge.Transform(ret); err != nil {
 			return &feature.Result{Command: cmd, Error: bridgeErr}
 		}
