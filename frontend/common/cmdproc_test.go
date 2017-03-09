@@ -70,6 +70,22 @@ func TestCommandProcessor_Process(t *testing.T) {
 		result.Error != nil || result.Output != "beta\n" || result.CombinedOutput != "be" {
 		t.Fatalf("%+v", result)
 	}
+
+	// Override LPT but LPT parameter values are not given
+	cmd = feature.Command{TimeoutSec: 5, Content: "mypin  .lpt   sadf asdf "}
+	result = proc.Process(cmd)
+	if !reflect.DeepEqual(result.Command, feature.Command{TimeoutSec: 5, Content: "sadf asdf"}) ||
+		result.Error != ErrBadLPT || result.Output != "" || result.CombinedOutput != ErrBadLPT.Error()[0:2] {
+		t.Fatalf("'%v' '%v' '%v' '%v'", result.Error, result.Output, result.CombinedOutput, result.Command)
+	}
+	// Override LPT using good LPT parameter values
+	cmd = feature.Command{TimeoutSec: 1, Content: "mypin  .lpt  5, 2. 3  .s  sleep 2 && echo -n 0123456789 "}
+	result = proc.Process(cmd)
+	if !reflect.DeepEqual(result.Command, feature.Command{TimeoutSec: 3, Content: "sleep 2 && echo -n 0123456789"}) ||
+		result.Error != nil || result.Output != "0123456789" || result.CombinedOutput != "23456" {
+		t.Fatalf("'%v' '%v' '%v' '%+v'", result.Error, result.Output, result.CombinedOutput, result.Command)
+	}
+
 }
 
 func TestCommandProcessor_IsSane(t *testing.T) {
@@ -133,5 +149,7 @@ func TestCommandProcessor_IsSane(t *testing.T) {
 func TestGetTestCommandProcessor(t *testing.T) {
 	if proc := GetTestCommandProcessor(); proc == nil {
 		t.Fatal("did not return")
+	} else if errs := proc.Features.SelfTest(); len(errs) != 0 {
+		t.Fatal(errs)
 	}
 }

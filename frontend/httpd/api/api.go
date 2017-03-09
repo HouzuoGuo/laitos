@@ -39,7 +39,11 @@ func (hook *HandleFeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor)
 			w.Write([]byte(FeatureSelfTestOK))
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("%+v", errs)))
+			var lines bytes.Buffer
+			for triggerPrefix, err := range errs {
+				lines.WriteString(fmt.Sprintf("%s: %v<br/>\n", triggerPrefix, err))
+			}
+			w.Write([]byte(lines.String()))
 		}
 	}
 	return fun, nil

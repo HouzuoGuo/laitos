@@ -202,7 +202,12 @@ func TestConfig(t *testing.T) {
 	time.Sleep(httpd.HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
 	// Feature self test
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
-	if err != nil || resp.StatusCode != http.StatusOK {
+	if err != nil {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	// If feature self test fails, the failure would only occur in contacting mailer
+	mailFailure := ".m: dial tcp 127.0.0.1:25: getsockopt: connection refused<br/>\n"
+	if resp.StatusCode == http.StatusInternalServerError && string(resp.Body) != mailFailure {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Command Form

@@ -16,7 +16,7 @@ const (
 	TwilioSendSMS  = "t"
 )
 
-var RegexNumberAndMessage = regexp.MustCompile(`(\+[0-9]+)[^\w]+(.*)`)
+var RegexNumberAndMessage = regexp.MustCompile(`(\+\d+)[^\w]+(.*)`)
 
 type Twilio struct {
 	PhoneNumber string `json:"PhoneNumber"` // Twilio telephone country code and number (the number you purchased from Twilio)

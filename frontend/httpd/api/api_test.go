@@ -116,9 +116,9 @@ func TestAllHandlers(t *testing.T) {
 	oldShellInterpreter := proc.Features.Shell.InterpreterPath
 	proc.Features.Shell.InterpreterPath = ""
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"self_test")
-	expected = `map[.s:fork/exec : no such file or directory]`
+	expected = ".s: fork/exec : no such file or directory<br/>\n"
 	if err != nil || resp.StatusCode != http.StatusInternalServerError || string(resp.Body) != expected {
-		t.Fatal(err, string(resp.Body))
+		t.Fatal(err, "\n", string(resp.Body), "\n", expected)
 	}
 	proc.Features.Shell.InterpreterPath = oldShellInterpreter
 	// Command Form

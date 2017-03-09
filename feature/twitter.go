@@ -18,7 +18,7 @@ const (
 	TwitterPostTweet = "p"
 )
 
-var RegexTwoNumbers = regexp.MustCompile(`([0-9]+)[^0-9]+([0-9]+)`) // Capture two groups of numbers
+var RegexTwoNumbers = regexp.MustCompile(`(\d+)[^\d]+(\d+)`) // Capture two groups of numbers
 
 // Use Twitter API to interact with user's time-line.
 type Twitter struct {

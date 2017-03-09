@@ -14,9 +14,9 @@ const (
 	PrefixCommandLPT      = ".lpt"     // A command input prefix that temporary overrides output length, position, and timeout.
 )
 
-var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")  // Returned if input command does not contain valid feature trigger
-var ErrBadLPT = errors.New(PrefixCommandLPT + " L P T command")           // Return LPT invocation example in an error
-var RegexCommandWithLPT = regexp.MustCompile(`.*(\d+).*(\d+).*(\d+)(.*)`) // Parse L.P.T. and command content
+var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")              // Returned if input command does not contain valid feature trigger
+var ErrBadLPT = errors.New(PrefixCommandLPT + " L P T command")                       // Return LPT invocation example in an error
+var RegexCommandWithLPT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`) // Parse L.P.T. and command content
 
 // Environment and configuration for running commands.
 type CommandProcessor struct {
@@ -84,7 +84,8 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result) {
 	var bridgeErr error
 	var matchedFeature feature.Feature
-	var overrideLintText *bridge.LintText
+	var overrideLintText bridge.LintText
+	var hasOverrideLintText bool
 	// Walk the command through all bridges
 	for _, cmdBridge := range proc.CommandBridges {
 		cmd, bridgeErr = cmdBridge.Transform(cmd)
@@ -102,9 +103,14 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 		// Find the configured LintText bridge
 		for _, resultBridge := range proc.ResultBridges {
 			if aBridge, isLintText := resultBridge.(*bridge.LintText); isLintText {
-				*overrideLintText = *aBridge
+				overrideLintText = *aBridge
+				hasOverrideLintText = true
 				break
 			}
+		}
+		if !hasOverrideLintText {
+			ret = &feature.Result{Error: errors.New("LPT is not available because LintText is not used")}
+			goto result
 		}
 		// Parse L. P. T. <cmd> parameters
 		lptParams := RegexCommandWithLPT.FindStringSubmatch(cmd.Content)
@@ -155,8 +161,8 @@ result:
 	// Walk through result bridges
 	for _, resultBridge := range proc.ResultBridges {
 		// LintText bridge may have been manipulated by override
-		if _, isLT := resultBridge.(*bridge.LintText); isLT && overrideLintText != nil {
-			resultBridge = overrideLintText
+		if _, isLintText := resultBridge.(*bridge.LintText); isLintText && hasOverrideLintText {
+			resultBridge = &overrideLintText
 		}
 		if err := resultBridge.Transform(ret); err != nil {
 			return &feature.Result{Command: cmd, Error: bridgeErr}
@@ -165,7 +171,7 @@ result:
 	return
 }
 
-// Return a realistic command processor for test cases. Only shell execution feature is available from it.
+// Return a realistic command processor for test cases. The only feature made available and initialised is shell execution.
 func GetTestCommandProcessor() *CommandProcessor {
 	// Prepare feature set - the shell execution feature should be available even without configuration
 	features := &feature.FeatureSet{}
