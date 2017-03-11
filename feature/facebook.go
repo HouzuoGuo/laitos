@@ -39,10 +39,9 @@ func (fb *Facebook) Trigger() Trigger {
 	return ".f"
 }
 
-func (fb *Facebook) Execute(cmd Command) (ret *Result) {
+func (fb *Facebook) Execute(cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
-		ret = errResult
-		return
+		return errResult
 	}
 
 	resp, err := httpclient.DoHTTP(httpclient.Request{
@@ -53,9 +52,8 @@ func (fb *Facebook) Execute(cmd Command) (ret *Result) {
 
 	if errResult := HTTPErrorToResult(resp, err); errResult == nil {
 		// The OK output is simply the length of posted message
-		ret = &Result{Error: nil, Output: strconv.Itoa(len(cmd.Content))}
+		return &Result{Error: nil, Output: strconv.Itoa(len(cmd.Content))}
 	} else {
-		ret = errResult
+		return errResult
 	}
-	return
 }

@@ -15,7 +15,7 @@ func TestSendMail_Execute(t *testing.T) {
 	if ret := TestSendMail.Execute(Command{TimeoutSec: 10, Content: "wrong"}); ret.Error != ErrBadSendMailParam {
 		t.Fatal(ret)
 	}
-	if ret := TestSendMail.Execute(Command{TimeoutSec: 10, Content: `howard@localhost "hi there" hi howard`}); ret.Error != nil || ret.Output != "9" {
+	if ret := TestSendMail.Execute(Command{TimeoutSec: 10, Content: `guohouzuo@gmail.com "hi there" hi howard`}); ret.Error != nil || ret.Output != "9" {
 		t.Fatal(ret)
 	}
 }

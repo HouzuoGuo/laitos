@@ -8,6 +8,7 @@ import (
 
 // Aggregate all available features together.
 type FeatureSet struct {
+	AESDecrypt      AESDecrypt          `json:"AESDecrypt"`
 	Facebook        Facebook            `json:"Facebook"`
 	SendMail        SendMail            `json:"SendMail"`
 	Shell           Shell               `json:"Shell"`
@@ -24,6 +25,7 @@ var TestFeatureSet = FeatureSet{} // Features are assigned by init_test.go
 func (fs *FeatureSet) Initialise() error {
 	fs.LookupByTrigger = map[Trigger]Feature{}
 	triggers := map[Trigger]Feature{
+		fs.AESDecrypt.Trigger():    &fs.AESDecrypt,
 		fs.Facebook.Trigger():      &fs.Facebook,
 		fs.SendMail.Trigger():      &fs.SendMail,
 		fs.Shell.Trigger():         &fs.Shell,
@@ -73,6 +75,7 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 	}
 	// Here are the feature keys
 	features := map[string]Feature{
+		"AESDecrypt":    &fs.AESDecrypt,
 		"Facebook":      &fs.Facebook,
 		"SendMail":      &fs.SendMail,
 		"Shell":         &fs.Shell,

@@ -44,36 +44,32 @@ func (email *SendMail) Trigger() Trigger {
 	return ".m"
 }
 
-func (email *SendMail) Execute(cmd Command) (ret *Result) {
+func (email *SendMail) Execute(cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
-		ret = errResult
-		return
+		return errResult
 	}
 
 	params := RegexMailCommand.FindStringSubmatch(cmd.Content)
-	if len(params) == 4 {
-		mailTo := params[1]
-		mailSubject := params[2]
-		mailBody := params[3]
-		// Send email in background if it takes too long
-		sendErrChan := make(chan error, 1)
-		go func() {
-			sendErrChan <- email.Mailer.Send(mailSubject, mailBody, mailTo)
-		}()
-
-		select {
-		case <-time.After(time.Duration(cmd.TimeoutSec) * time.Second):
-			ret = &Result{Output: "Sending in background"}
-		case sendErr := <-sendErrChan:
-			if sendErr == nil {
-				// Normal result is the length of email body
-				ret = &Result{Output: strconv.Itoa(len(mailBody))}
-			} else {
-				ret = &Result{Error: sendErr}
-			}
-		}
-	} else {
-		ret = &Result{Error: ErrBadSendMailParam}
+	if len(params) != 4 {
+		return &Result{Error: ErrBadSendMailParam}
 	}
-	return
+	mailTo := params[1]
+	mailSubject := params[2]
+	mailBody := params[3]
+	// Send email in background if it takes too long
+	sendErrChan := make(chan error, 1)
+	go func() {
+		sendErrChan <- email.Mailer.Send(mailSubject, mailBody, mailTo)
+	}()
+	select {
+	case <-time.After(time.Duration(cmd.TimeoutSec) * time.Second):
+		return &Result{Output: "Sending in background"}
+	case sendErr := <-sendErrChan:
+		if sendErr == nil {
+			// Normal result is the length of email body
+			return &Result{Output: strconv.Itoa(len(mailBody))}
+		} else {
+			return &Result{Error: sendErr}
+		}
+	}
 }

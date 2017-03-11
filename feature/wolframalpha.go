@@ -53,21 +53,19 @@ func (wa *WolframAlpha) Query(timeoutSec int, query string) (resp httpclient.Res
 	return
 }
 
-func (wa *WolframAlpha) Execute(cmd Command) (ret *Result) {
+func (wa *WolframAlpha) Execute(cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
-		ret = errResult
-		return
+		return errResult
 	}
 
 	resp, err := wa.Query(cmd.TimeoutSec, cmd.Content)
 	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
-		ret = errResult
+		return errResult
 	} else if text, err := wa.ExtractResponse(resp.Body); err != nil {
-		ret = &Result{Error: err, Output: string(resp.Body)}
+		return &Result{Error: err, Output: string(resp.Body)}
 	} else {
-		ret = &Result{Error: nil, Output: text}
+		return &Result{Error: nil, Output: text}
 	}
-	return
 }
 
 // Extract information "pods" from WolframAlpha API response in XML.

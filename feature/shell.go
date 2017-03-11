@@ -86,13 +86,11 @@ func (sh *Shell) InvokeShell(timeoutSec int, content string) (out string, err er
 	return
 }
 
-func (sh *Shell) Execute(cmd Command) (ret *Result) {
+func (sh *Shell) Execute(cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
-		ret = errResult
-		return
+		return errResult
 	}
 
 	procOut, procErr := sh.InvokeShell(cmd.TimeoutSec, cmd.Content)
-	ret = &Result{Error: procErr, Output: procOut}
-	return
+	return &Result{Error: procErr, Output: procOut}
 }

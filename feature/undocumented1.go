@@ -46,10 +46,9 @@ func (und *Undocumented1) Trigger() Trigger {
 	return "NOT-TO-BE-TRIGGERED-MANUALLY-UNDOCUMENTED1"
 }
 
-func (und *Undocumented1) Execute(cmd Command) (ret *Result) {
+func (und *Undocumented1) Execute(cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
-		ret = errResult
-		return
+		return errResult
 	}
 
 	resp, err := httpclient.DoHTTP(httpclient.Request{
@@ -68,10 +67,9 @@ func (und *Undocumented1) Execute(cmd Command) (ret *Result) {
 		},
 	}, und.URL)
 	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
-		ret = errResult
-	} else {
-		// The OK output is simply the length message
-		ret = &Result{Error: nil, Output: strconv.Itoa(len(cmd.Content))}
+		return errResult
 	}
-	return
+	// The OK output is simply the length message
+	return &Result{Error: nil, Output: strconv.Itoa(len(cmd.Content))}
+
 }

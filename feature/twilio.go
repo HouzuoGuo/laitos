@@ -75,7 +75,7 @@ func (twi *Twilio) Execute(cmd Command) (ret *Result) {
 }
 
 func (twi *Twilio) MakeCall(cmd Command) *Result {
-	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimSpace(strings.TrimPrefix(cmd.Content, TwilioMakeCall)))
+	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimPrefix(cmd.Content, TwilioMakeCall))
 	if len(params) < 3 {
 		return &Result{Error: errors.New("Call parameters are missing")}
 	}
