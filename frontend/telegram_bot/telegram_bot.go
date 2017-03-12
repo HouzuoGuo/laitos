@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/websh/feature"
 	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/websh/httpclient"
 	"github.com/HouzuoGuo/websh/ratelimit"
-	"github.com/kotarock/Lookatme.OpenAPI/httpclient"
 	"log"
 	"net/http"
 	"net/url"
@@ -70,7 +70,7 @@ type TelegramBot struct {
 
 // Send a text reply to the telegram chat.
 func (bot *TelegramBot) ReplyTo(chatID uint64, text string) error {
-	resp, err := httpclient.DoHTTP(httpclient.HTTPRequest{
+	resp, err := httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
 		Body: strings.NewReader(url.Values{
 			"chat_id": []string{strconv.FormatUint(chatID, 10)},
@@ -131,7 +131,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 		MaxCount: 1,
 	}
 	// Make a test API call
-	testResp, testErr := httpclient.DoHTTP(httpclient.HTTPRequest{}, "https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)
+	testResp, testErr := httpclient.DoHTTP(httpclient.Request{}, "https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)
 	if testErr != nil || testResp.StatusCode/200 != 1 {
 		return fmt.Errorf("TelegramBot.StartAndBlock: test failed - HTTP %d - %v %s", testResp.StatusCode, testErr, string(testResp.Body))
 	}
@@ -147,7 +147,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 			lastIdle = time.Now().Unix()
 		}
 		// Poll for new messages
-		updatesResp, updatesErr := httpclient.DoHTTP(httpclient.HTTPRequest{}, "https://api.telegram.org/bot%s/getUpdates?offset=%s", bot.AuthorizationToken, bot.MessageOffset)
+		updatesResp, updatesErr := httpclient.DoHTTP(httpclient.Request{}, "https://api.telegram.org/bot%s/getUpdates?offset=%s", bot.AuthorizationToken, bot.MessageOffset)
 		var newMessages APIUpdates
 		if updatesErr != nil || updatesResp.StatusCode/200 != 1 {
 			log.Printf("TELEGRAMBOT: failed to poll - HTTP %d - %v - %s", updatesResp.StatusCode, updatesErr, string(updatesResp.Body))

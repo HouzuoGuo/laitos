@@ -45,7 +45,7 @@ func ReseedPseudoRand() {
 	log.Print("ReseedPseudoRand: succeeded")
 }
 
-func main2() {
+func main() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
 		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
