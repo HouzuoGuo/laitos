@@ -15,7 +15,7 @@ const HandleCommandFormPage = `<!doctype html>
 </head>
 <body>
     <form action="#" method="post">
-        <p><input type="text" name="cmd" /><input type="submit" value="Exec"/></p>
+        <p><input type="password" name="cmd" /><input type="submit" value="Exec"/></p>
         <pre>%s</pre>
     </form>
 </body>
@@ -49,5 +49,5 @@ func (_ *HandleCommandForm) MakeHandler(cmdProc *common.CommandProcessor) (http.
 }
 
 func (_ *HandleCommandForm) GetRateLimitFactor() int {
-	return 5
+	return 1
 }

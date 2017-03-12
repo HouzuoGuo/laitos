@@ -45,6 +45,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 			"/proxy":           &api.HandleWebProxy{MyEndpoint: "/proxy"},
 		},
 	}
+	// Must not start if command processor is insane
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
 		t.Fatal("did not error due to insane CommandProcessor")
 	}
@@ -89,7 +90,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Test hitting rate limits
-	time.Sleep(HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
+	time.Sleep(RateLimitIntervalSec * time.Second)
 	success := 0
 	for i := 0; i < 100; i++ {
 		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/")
@@ -102,7 +103,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(success)
 	}
 	// Wait till rate limits reset
-	time.Sleep(HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
+	time.Sleep(RateLimitIntervalSec * time.Second)
 	// Specialised handle - self test (just an example)
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != api.FeatureSelfTestOK {

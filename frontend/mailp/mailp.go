@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// Process incoming mail and reply to it via the specified mailer.
+// Look for feature commands from an incoming mail, run them and reply the sender with command results.
 type MailProcessor struct {
 	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
 	CommandTimeoutSec int                      `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds

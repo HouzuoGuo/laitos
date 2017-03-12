@@ -11,6 +11,7 @@ import (
 	"github.com/HouzuoGuo/websh/frontend/httpd"
 	"github.com/HouzuoGuo/websh/frontend/httpd/api"
 	"github.com/HouzuoGuo/websh/frontend/mailp"
+	"github.com/HouzuoGuo/websh/frontend/telegram_bot"
 	"log"
 )
 
@@ -46,13 +47,18 @@ type HTTPHandlers struct {
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
 type Config struct {
-	Features             feature.FeatureSet  `json:"Features"`             // Feature configuration is shared by all services
-	HTTPDaemon           httpd.HTTPD         `json:"HTTPDaemon"`           // HTTP daemon configuration
-	HTTPBridges          StandardBridges     `json:"HTTPBridges"`          // HTTP daemon bridge configuration
-	HTTPHandlers         HTTPHandlers        `json:"HTTPHandlers"`         // HTTP daemon handler configuration
+	Features feature.FeatureSet `json:"Features"` // Feature configuration is shared by all services
+	Mailer   email.Mailer       `json:"Mailer"`   // Mail configuration for all outgoing mails such as notifications
+
+	HTTPDaemon   httpd.HTTPD     `json:"HTTPDaemon"`   // HTTP daemon configuration
+	HTTPBridges  StandardBridges `json:"HTTPBridges"`  // HTTP daemon bridge configuration
+	HTTPHandlers HTTPHandlers    `json:"HTTPHandlers"` // HTTP daemon handler configuration
+
 	MailProcessor        mailp.MailProcessor `json:"MailProcessor"`        // Incoming mail processor configuration
 	MailProcessorBridges StandardBridges     `json:"MailProcessorBridges"` // Incoming mail processor bridge configuration
-	Mailer               email.Mailer        `json:"Mailer"`               // Outgoing mail configuration for notifications and mail replies
+
+	TelegramBot        telegram.TelegramBot `json:"TelegramBot"`        // Telegram bot configuration
+	TelegramBotBridges StandardBridges      `json:"TelegramBotBridges"` // Telegram bot bridge configuration
 }
 
 // Deserialise JSON data into config structures.
@@ -74,6 +80,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	features := config.Features
 	if err := features.Initialise(); err != nil {
 		log.Fatalf("Config.GetHTTPD: failed to initialise features - %v", err)
+		return nil
 	}
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
@@ -84,7 +91,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 		},
 		ResultBridges: []bridge.ResultBridge{
 			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&bridge.LintText{TrimSpaces: true, MaxLength: 35},
+			&config.HTTPBridges.LintText,
 			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
@@ -134,6 +141,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
 		log.Fatalf("Config.GetHTTPD: failed to initialise HTTPD - %v", err)
+		return nil
 	}
 	for route := range ret.AllRoutes {
 		shortRoute := route
@@ -154,6 +162,7 @@ func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 	features := config.Features
 	if err := features.Initialise(); err != nil {
 		log.Fatalf("Config.GetMailProcessor: failed to initialise features - %v", err)
+		return nil
 	}
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
@@ -164,11 +173,39 @@ func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 		},
 		ResultBridges: []bridge.ResultBridge{
 			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&bridge.LintText{TrimSpaces: true, MaxLength: 35},
+			&config.MailProcessorBridges.LintText,
 			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
 	}
 	ret.ReplyMailer = config.Mailer
+	return &ret
+}
+
+// Construct a telegram bot from configuration and return.
+func (config *Config) GetTelegramBot() *telegram.TelegramBot {
+	ret := config.TelegramBot
+
+	mailNotification := config.TelegramBotBridges.NotifyViaEmail
+	mailNotification.Mailer = config.Mailer
+	features := config.Features
+	if err := features.Initialise(); err != nil {
+		log.Fatalf("Config.GetTelegramBot: failed to initialise features - %v", err)
+		return nil
+	}
+	// Assemble telegram bot from features and bridges
+	ret.Processor = &common.CommandProcessor{
+		Features: &features,
+		CommandBridges: []bridge.CommandBridge{
+			&config.TelegramBotBridges.PINAndShortcuts,
+			&config.TelegramBotBridges.TranslateSequences,
+		},
+		ResultBridges: []bridge.ResultBridge{
+			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+			&config.TelegramBotBridges.LintText,
+			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+			&mailNotification,
+		},
+	}
 	return &ret
 }

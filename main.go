@@ -25,6 +25,7 @@ import (
 	pseudoRand "math/rand"
 	"os"
 	"regexp"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -44,7 +45,7 @@ func ReseedPseudoRand() {
 	log.Print("ReseedPseudoRand: succeeded")
 }
 
-func main() {
+func main2() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
 		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
@@ -65,7 +66,7 @@ func main() {
 	// Process command line flags
 	var configFile, frontend string
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (httpd, mailp)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (httpd, mailp, telegram)")
 	flag.Parse()
 
 	if configFile == "" {
@@ -87,10 +88,15 @@ func main() {
 		log.Fatalf("Failed to deserialise config file \"%s\" - %v", configFile, err)
 	}
 
+	daemons := &sync.WaitGroup{}
+	var hasDaemon bool
 	for _, frontendName := range frontends {
 		switch frontendName {
 		case "httpd":
 			go func() {
+				daemons.Add(1)
+				hasDaemon = true
+				defer daemons.Done()
 				if err := config.GetHTTPD().StartAndBlock(); err != nil {
 					log.Fatalf("main: failed to start http daemon - %v", err)
 				}
@@ -103,6 +109,20 @@ func main() {
 			if err := config.GetMailProcessor().Process(mailContent); err != nil {
 				log.Fatalf("main: failed to process mail - %v", err)
 			}
+		case "telegram":
+			go func() {
+				daemons.Add(1)
+				hasDaemon = true
+				defer daemons.Done()
+				if err := config.GetTelegramBot().StartAndBlock(); err != nil {
+					log.Fatalf("main: failed to start telegram bot daemon - %v", err)
+				}
+			}()
 		}
 	}
+	if hasDaemon {
+		log.Printf("main: frontend daemons are started")
+	}
+	// Daemons are not really supposed to quit
+	daemons.Wait()
 }

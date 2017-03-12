@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	HTTPD_DIRECTORY_HANDLER_RATE_LIMIT_FACTOR = 10      // 9 times less expensive than the most expensive handler
-	HTTPD_RATE_LIMIT_INTERVAL_SEC             = 5       // Rate limit is calculated at 5 seconds interval
-	HTTPD_RATE_LIMIT_404                      = "RL404" // Fake endpoint name for rate limit on 404 handler
+	DirectoryHandlerRateLimitFactor = 10             // 9 times less expensive than the most expensive handler
+	RateLimitIntervalSec            = 5              // Rate limit is calculated at 5 seconds interval
+	RateLimit404Key                 = "RATELIMIT404" // Fake endpoint name for rate limit on 404 handler
 )
 
 // Return true if input character is a forward ot backward slash.
@@ -23,13 +23,13 @@ func IsSlash(c rune) bool {
 	return c == '\\' || c == '/'
 }
 
-// An HTTP daemon.
+// Generic HTTP daemon.
 type HTTPD struct {
 	ListenAddress    string                          `json:"ListenAddress"`    // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
 	ListenPort       int                             `json:"ListenPort"`       // Port number to listen on
 	TLSCertPath      string                          `json:"TLSCertPath"`      // (Optional) serve HTTPS via this certificate
 	TLSKeyPath       string                          `json:"TLSKeyPath"`       // (Optional) serve HTTPS via this certificate (key)
-	BaseRateLimit    int                             `json:"BaseRateLimit"`    // How many times in 10 seconds the most expensive HTTP handler may be invoked by an IP
+	BaseRateLimit    int                             `json:"BaseRateLimit"`    // How many times in 5 seconds interval the most expensive HTTP handler may be invoked by an IP
 	ServeDirectories map[string]string               `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
 	SpecialHandlers  map[string]api.HandlerFactory   `json:"-"`                // Specialised handlers that implement api.HandlerFactory interface
 	AllRoutes        map[string]http.HandlerFunc     `json:"-"`                // Aggregate all routes from all handlers
@@ -40,6 +40,9 @@ type HTTPD struct {
 
 // Check configuration and initialise internal states.
 func (httpd *HTTPD) Initialise() error {
+	if errs := httpd.Processor.IsSaneForInternet(); len(errs) > 0 {
+		return fmt.Errorf("HTTPD.StartAndBlock: %+v", errs)
+	}
 	if httpd.ListenAddress == "" {
 		return errors.New("HTTPD.StartAndBlock: listen address is empty")
 	}
@@ -48,9 +51,6 @@ func (httpd *HTTPD) Initialise() error {
 	}
 	if (httpd.TLSCertPath != "" || httpd.TLSKeyPath != "") && (httpd.TLSCertPath == "" || httpd.TLSKeyPath == "") {
 		return errors.New("HTTPD.StartAndBlock: if TLS is to be enabled, both TLS certificate and key path must be present.")
-	}
-	if errs := httpd.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("HTTPD.StartAndBlock: %+v", errs)
 	}
 	// Work around Go's inability to serve a handler on / and only /
 	httpd.AllRoutes = map[string]http.HandlerFunc{}
@@ -65,7 +65,7 @@ func (httpd *HTTPD) Initialise() error {
 				urlLocation = "/" + urlLocation
 			}
 			httpd.AllRoutes[urlLocation] = http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)
-			httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{UnitSecs: HTTPD_RATE_LIMIT_INTERVAL_SEC, MaxCount: HTTPD_DIRECTORY_HANDLER_RATE_LIMIT_FACTOR * httpd.BaseRateLimit}
+			httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{UnitSecs: RateLimitIntervalSec, MaxCount: DirectoryHandlerRateLimitFactor * httpd.BaseRateLimit}
 		}
 	}
 	// Collect specialised handlers
@@ -75,10 +75,10 @@ func (httpd *HTTPD) Initialise() error {
 			return err
 		}
 		httpd.AllRoutes[urlLocation] = fun
-		httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{UnitSecs: HTTPD_RATE_LIMIT_INTERVAL_SEC, MaxCount: handler.GetRateLimitFactor() * httpd.BaseRateLimit}
+		httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{UnitSecs: RateLimitIntervalSec, MaxCount: handler.GetRateLimitFactor() * httpd.BaseRateLimit}
 	}
 	// There is a rate limit for 404 that does not allow frequent hits
-	httpd.AllRateLimits[HTTPD_RATE_LIMIT_404] = &ratelimit.RateLimit{UnitSecs: HTTPD_RATE_LIMIT_INTERVAL_SEC, MaxCount: httpd.BaseRateLimit}
+	httpd.AllRateLimits[RateLimit404Key] = &ratelimit.RateLimit{UnitSecs: RateLimitIntervalSec, MaxCount: httpd.BaseRateLimit}
 	// Initialise all rate limits
 	for _, limit := range httpd.AllRateLimits {
 		limit.Initialise()
@@ -133,7 +133,7 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 			}
 		} else {
 			// Route is not found
-			if httpd.AllRateLimits[HTTPD_RATE_LIMIT_404].Add(remoteIP, true) {
+			if httpd.AllRateLimits[RateLimit404Key].Add(remoteIP, true) {
 				log.Printf("HTTPD: cannot find %s - %s - %s", remoteIP, r.Method, assembledPath)
 				http.Error(w, "", http.StatusNotFound)
 			} else {
@@ -144,7 +144,7 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 }
 
 /*
-You may only call this function after having called Initialise()
+You may call this function only after having called Initialise()!
 Start HTTP daemon and block until this program exits.
 */
 func (httpd *HTTPD) StartAndBlock() error {

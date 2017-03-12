@@ -115,7 +115,7 @@ func TestCommandProcessor_IsSane(t *testing.T) {
 		t.Fatal(errs)
 	}
 	// PIN bridge has short PIN
-	proc.CommandBridges = []bridge.CommandBridge{&bridge.PINAndShortcuts{PIN: "a"}}
+	proc.CommandBridges = []bridge.CommandBridge{&bridge.PINAndShortcuts{PIN: "aaaaaa"}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
 		t.Fatal(errs)
 	}

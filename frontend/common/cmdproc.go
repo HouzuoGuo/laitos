@@ -18,7 +18,7 @@ var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")        
 var ErrBadLPT = errors.New(PrefixCommandLPT + " L P T command")                       // Return LPT invocation example in an error
 var RegexCommandWithLPT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`) // Parse L.P.T. and command content
 
-// Environment and configuration for running commands.
+// Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
 	Features       *feature.FeatureSet
 	CommandBridges []bridge.CommandBridge
@@ -49,8 +49,8 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 				if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
 					errs = append(errs, errors.New(ErrBadProcessorConfig+"PIN is empty and there is no shortcut defined, hence no command will ever execute."))
 				}
-				if pin.PIN != "" && len(pin.PIN) < 5 {
-					errs = append(errs, errors.New(ErrBadProcessorConfig+"PIN is too short, make it at least 5 characters long to be somewhat secure."))
+				if pin.PIN != "" && len(pin.PIN) < 7 {
+					errs = append(errs, errors.New(ErrBadProcessorConfig+"PIN is too short, make it at least 7 characters long to be somewhat secure."))
 				}
 				seenPIN = true
 				break

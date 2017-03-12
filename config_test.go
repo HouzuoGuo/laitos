@@ -28,6 +28,7 @@ func TestConfig(t *testing.T) {
 		"MTAHost": "127.0.0.1",
 		"MTAPort": 25
 	},
+
 	"HTTPDaemon": {
 		"ListenAddress": "127.0.0.1",
 		"ListenPort": 23486,
@@ -45,7 +46,7 @@ func TestConfig(t *testing.T) {
 		"PINAndShortcuts": {
 			"PIN": "httpsecret",
 			"Shortcuts": {
-				"httpshortcut": ".secho alpha"
+				"httpshortcut": ".secho httpshortcut"
 			}
 		},
 		"NotifyViaEmail": {
@@ -77,6 +78,7 @@ func TestConfig(t *testing.T) {
 			"CallGreeting": "Hi there"
 		}
 	},
+
 	"MailProcessor": {
 		"CommandTimeoutSec": 10
 	},
@@ -89,7 +91,7 @@ func TestConfig(t *testing.T) {
 		"PINAndShortcuts": {
 			"PIN": "mailsecret",
 			"Shortcuts": {
-				"mailshortcut": ".secho aaa"
+				"mailshortcut": ".secho mailshortcut"
 			}
 		},
 		"NotifyViaEmail": {
@@ -98,7 +100,32 @@ func TestConfig(t *testing.T) {
 		"LintText": {
 			"TrimSpaces": true,
 			"CompressToSingleLine": true,
-			"MaxLength": 35
+			"MaxLength": 70
+		}
+	},
+
+	"TelegramBot": {
+		"AuthorizationToken": "intentionally-bad-token"
+	},
+	"TelegramBotBridges": {
+		"TranslateSequences": {
+		"Sequences": [
+				["123", "456"]
+			]
+		},
+		"PINAndShortcuts": {
+			"PIN": "telegramsecret",
+			"Shortcuts": {
+				"telegramshortcut": ".secho telegramshortcut"
+			}
+		},
+		"NotifyViaEmail": {
+			"Recipients": ["howard@localhost"]
+		},
+		"LintText": {
+			"TrimSpaces": true,
+			"CompressToSingleLine": true,
+			"MaxLength": 120
 		}
 	}
 }`
@@ -186,7 +213,7 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Test hitting rate limits
-	time.Sleep(httpd.HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
+	time.Sleep(httpd.RateLimitIntervalSec * time.Second)
 	success := 0
 	for i := 0; i < 200; i++ {
 		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/")
@@ -199,7 +226,7 @@ func TestConfig(t *testing.T) {
 		t.Fatal(success)
 	}
 	// Wait till rate limits reset
-	time.Sleep(httpd.HTTPD_RATE_LIMIT_INTERVAL_SEC * time.Second)
+	time.Sleep(httpd.RateLimitIntervalSec * time.Second)
 	// Feature self test
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
 	if err != nil {
@@ -360,5 +387,13 @@ mailshortcut
 			t.Fatal(err)
 		}
 		t.Log("Check howard@localhost mailbox")
+	}
+
+	// ============ Test telegram bot ============
+	telegramBot := config.GetTelegramBot()
+	// It is really difficult to test the chat routine
+	// So I am going to only do the API test call
+	if err := telegramBot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {
+		t.Fatal(err)
 	}
 }

@@ -11,7 +11,7 @@ import (
 
 const FeatureSelfTestOK = "All OK" // response body of a feature self test that all went OK
 
-// Return an http.HandlerFunc.
+// An HTTP handler function factory.
 type HandlerFactory interface {
 	MakeHandler(*common.CommandProcessor) (http.HandlerFunc, error) // Return HTTP handler function associated with the command processor.
 	GetRateLimitFactor() int                                        // Factor of how expensive the handler is to execute, 1 being most expensive.
