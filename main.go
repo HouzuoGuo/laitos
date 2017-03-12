@@ -32,17 +32,23 @@ import (
 
 // Re-seed global pseudo random generator using cryptographic random number generator.
 func ReseedPseudoRand() {
-	seedBytes := make([]byte, 8)
-	_, err := cryptoRand.Read(seedBytes)
-	if err != nil {
-		log.Panicf("ReseedPseudoRand: failed to read from crypto random generator - %v", err)
+	numAttempts := 1
+	for ; ; numAttempts++ {
+		seedBytes := make([]byte, 8)
+		_, err := cryptoRand.Read(seedBytes)
+		if err != nil {
+			log.Panicf("ReseedPseudoRand: failed to read from crypto random generator - %v", err)
+		}
+		seed, _ := binary.Varint(seedBytes)
+		if seed == 0 {
+			// If random entropy decodes into an integer that overflows, simply retry.
+			continue
+		} else {
+			pseudoRand.Seed(seed)
+			break
+		}
 	}
-	seed, _ := binary.Varint(seedBytes)
-	if seed == 0 {
-		log.Panic("ReseedPseudoRand: binary conversion failed")
-	}
-	pseudoRand.Seed(seed)
-	log.Print("ReseedPseudoRand: succeeded")
+	log.Printf("ReseedPseudoRand: succeeded after %d attempts", numAttempts)
 }
 
 func main() {
@@ -88,15 +94,17 @@ func main() {
 		log.Fatalf("Failed to deserialise config file \"%s\" - %v", configFile, err)
 	}
 
+	// Start frontent daemons
 	daemons := &sync.WaitGroup{}
 	var hasDaemon bool
 	for _, frontendName := range frontends {
 		switch frontendName {
 		case "httpd":
+			hasDaemon = true
+			daemons.Add(1)
 			go func() {
-				daemons.Add(1)
-				hasDaemon = true
 				defer daemons.Done()
+				log.Print("main: going to start httpd")
 				if err := config.GetHTTPD().StartAndBlock(); err != nil {
 					log.Fatalf("main: failed to start http daemon - %v", err)
 				}
@@ -110,14 +118,17 @@ func main() {
 				log.Fatalf("main: failed to process mail - %v", err)
 			}
 		case "telegram":
+			hasDaemon = true
+			daemons.Add(1)
 			go func() {
-				daemons.Add(1)
-				hasDaemon = true
 				defer daemons.Done()
+				log.Print("main: going to start telegram bot")
 				if err := config.GetTelegramBot().StartAndBlock(); err != nil {
 					log.Fatalf("main: failed to start telegram bot daemon - %v", err)
 				}
 			}()
+		default:
+			log.Fatalf("main: unknown frontend name - %s", frontendName)
 		}
 	}
 	if hasDaemon {

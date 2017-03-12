@@ -64,7 +64,7 @@ func (hand *HandleTwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.
 	return fun, nil
 }
 func (hand *HandleTwilioCallHook) GetRateLimitFactor() int {
-	return 1
+	return 10
 }
 
 // Implement handler for Twilio phone number's telephone callback (triggered by response of TwilioCallHook).

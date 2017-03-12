@@ -81,11 +81,7 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 	// Find two numeric parameters among the content
 	var skip, count int
 	params := RegexTwoNumbers.FindStringSubmatch(cmd.Content)
-	if len(params) < 3 {
-		// If skip/count are not given or incomplete, retrieve exactly one latest tweet.
-		skip = 0
-		count = 1
-	} else {
+	if len(params) >= 3 {
 		var intErr error
 		skip, intErr = strconv.Atoi(params[1])
 		if intErr != nil {
@@ -96,19 +92,24 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 			return &Result{Error: fmt.Errorf("Second parameter '%s' is not a number", params[2])}
 		}
 	}
-	// Twitter API will not retrieve more than 200 tweets, so limit the parameters accordingly.
-	if skip > 199 {
-		skip = 199
-	}
-	if skip < 0 {
-		skip = 0
-	}
-	count += skip
-	if count > 200 {
-		count = 200
-	}
-	if count < 1 {
+	// If neither count nor skip was given in the input command, retrieve one latest tweet.
+	if count == 0 && skip == 0 {
 		count = 1
+	} else {
+		// Twitter API will not retrieve more than 200 tweets, so limit the parameters accordingly.
+		if skip > 199 {
+			skip = 199
+		}
+		if skip < 0 {
+			skip = 0
+		}
+		count += skip
+		if count > 200 {
+			count = 200
+		}
+		if count < 1 {
+			count = 1
+		}
 	}
 	// Execute the API request
 	resp, err := httpclient.DoHTTP(httpclient.Request{
@@ -173,7 +174,7 @@ func (twi *Twitter) ExtractTweets(jsonBody []byte, skip, count int) (tweets []Tw
 	finalTweet := count
 	// Retrieving more tweets than there are in response?
 	if finalTweet > len(tweets) {
-		finalTweet = count
+		finalTweet = len(tweets)
 	}
 	tweets = tweets[skip:finalTweet]
 	return

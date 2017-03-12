@@ -35,7 +35,7 @@ function websh_rewrite_url(before) {
     } else {
         after = websh_proxy_scheme_host_handle_param + encodeURIComponent(websh_browse_scheme_host + '/' + before);
     }
-    console.log('before ' + before + ' after ' + after);
+    // console.log('before ' + before + ' after ' + after);
     return after;
 }
 
@@ -54,6 +54,27 @@ function websh_replace_url(elem, attr) {
         if (before != '') {
             elems[i][attr] = websh_rewrite_url(before);
         }
+    }
+}
+
+function websh_place_btns() {
+    setTimeout(websh_place_btns, 4000);
+    console.log('websh_place_btns fired');
+    if (!document.getElementById('websh_replace_few')) {
+        var btn = document.createElement('button');
+        btn.id = 'websh_replace_few';
+        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 100px !important; zIndex: 999999 !important';
+        btn.onclick = websh_replace_few;
+        btn.appendChild(document.createTextNode('XY'));
+        document.body.appendChild(btn);
+    }
+    if (!document.getElementById('websh_replace_many')) {
+        var btn = document.createElement('button');
+        btn.id = 'websh_replace_many';
+        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 200px !important; zIndex: 999999 !important';
+        btn.onclick = websh_replace_many;
+        btn.appendChild(document.createTextNode('XY-ALL'));
+        document.body.appendChild(btn);
     }
 }
 
@@ -79,27 +100,11 @@ function websh_replace_many() {
     for (var i = 0; i < script_srcs.length; i++) {
         document.body.appendChild(document.createElement('script')).src=script_srcs[i];
     }
-    if (!document.getElementById('websh_replace_few')) {
-        var btn = document.createElement('button');
-        btn.id = 'websh_replace_few';
-        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; bottom: 0px !important; left: 100px !important; zIndex: 999999 !important';
-        btn.onclick = websh_replace_few;
-        btn.appendChild(document.createTextNode('XY'));
-        document.body.appendChild(btn);
-    }
-    if (!document.getElementById('websh_replace_many')) {
-        var btn = document.createElement('button');
-        btn.id = 'websh_replace_many';
-        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; bottom: 0px !important; left: 200px !important; zIndex: 999999 !important';
-        btn.onclick = websh_replace_many;
-        btn.appendChild(document.createTextNode('XY-ALL'));
-        document.body.appendChild(btn);
-    }
 }
 
-window.onload = function() {
-    websh_replace_many();
-};
+websh_place_btns();
+
+window.onload = websh_replace_many;
 </script>
 ` // Snippet of Javascript that has to be injected into proxied web page
 
@@ -130,9 +135,14 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
+		if len(browseURL) > 2048 {
+			log.Printf("PROXY: proxy URL is unusually long at %d bytes", len(browseURL))
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 		urlParts, err := url.Parse(browseURL)
 		if err != nil {
-			log.Printf("PROXY: failed to parse proxyURL %s - %v", browseURL, err)
+			log.Printf("PROXY: failed to parse proxy URL %s - %v", browseURL, err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -199,7 +209,7 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 					strBody = fmt.Sprintf("%s<head>%s</head>%s", beforeBody, injectedJS, atAndAfterBody)
 				}
 			} else {
-				strBody = strBody[0:headIndex+6] + injectedJS + strBody[headIndex+7:]
+				strBody = strBody[0:headIndex+6] + injectedJS + strBody[headIndex+6:]
 			}
 			w.Write([]byte(strBody))
 			log.Printf("PROXY: serve HTML %s", browseSchemeHostPathQuery)
@@ -211,5 +221,5 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 }
 
 func (xy *HandleWebProxy) GetRateLimitFactor() int {
-	return 10
+	return 50
 }

@@ -86,7 +86,7 @@ func (bot *TelegramBot) ReplyTo(chatID uint64, text string) error {
 // Process incoming chat messages and reply command results to chat initiators.
 func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 	for _, ding := range updates.Updates {
-		if bot.MessageOffset < ding.ID {
+		if bot.MessageOffset <= ding.ID {
 			bot.MessageOffset = ding.ID + 1
 		}
 		// Apply rate limit to the user
@@ -130,6 +130,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 		UnitSecs: PollIntervalSec,
 		MaxCount: 1,
 	}
+	bot.UserRateLimit.Initialise()
 	// Make a test API call
 	testResp, testErr := httpclient.DoHTTP(httpclient.Request{}, "https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)
 	if testErr != nil || testResp.StatusCode/200 != 1 {

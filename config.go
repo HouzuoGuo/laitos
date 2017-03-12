@@ -66,8 +66,6 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 	if err := json.Unmarshal(in, config); err != nil {
 		return err
 	}
-	// Give the mailer to sendmail feature
-	config.Features.SendMail.Mailer = config.Mailer
 	return nil
 }
 
@@ -82,6 +80,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 		log.Fatalf("Config.GetHTTPD: failed to initialise features - %v", err)
 		return nil
 	}
+	log.Printf("Config.GetHTTPD: enabled features are - %v", features.GetTriggers())
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
@@ -164,6 +163,7 @@ func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 		log.Fatalf("Config.GetMailProcessor: failed to initialise features - %v", err)
 		return nil
 	}
+	log.Printf("Config.GetMailProcessor: enabled features are - %v", features.GetTriggers())
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
@@ -193,6 +193,7 @@ func (config *Config) GetTelegramBot() *telegram.TelegramBot {
 		log.Fatalf("Config.GetTelegramBot: failed to initialise features - %v", err)
 		return nil
 	}
+	log.Printf("Config.GetTelegramBot: enabled features are - %v", features.GetTriggers())
 	// Assemble telegram bot from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,

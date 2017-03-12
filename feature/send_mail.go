@@ -17,7 +17,7 @@ var ErrBadSendMailParam = errors.New(`Example: addr@dom.tld "subj" body`)
 
 // Send outgoing emails.
 type SendMail struct {
-	Mailer email.Mailer `json:"-"`
+	Mailer email.Mailer `json:"Mailer"`
 }
 
 var TestSendMail = SendMail{} // Details are set by init_test.go

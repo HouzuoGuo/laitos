@@ -1,6 +1,7 @@
 package feature
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -23,6 +24,10 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	}
 	if errs := features.SelfTest(); len(errs) != 0 {
 		t.Fatal(errs)
+	}
+	// Get triggers of configured features
+	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".a", ".s"}) {
+		t.Fatal(triggers)
 	}
 	// Configure all features via JSON and verify via self test
 	features = TestFeatureSet

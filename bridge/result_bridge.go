@@ -107,7 +107,7 @@ func (notify *NotifyViaEmail) IsConfigured() bool {
 }
 
 func (notify *NotifyViaEmail) Transform(result *feature.Result) error {
-	if notify.IsConfigured() {
+	if notify.IsConfigured() && result.Error != ErrPINAndShortcutNotFound {
 		go func() {
 			subject := email.OutgoingMailSubjectKeyword + "-notify-" + result.Command.Content
 			if err := notify.Mailer.Send(subject, result.CombinedOutput, notify.Recipients...); err != nil {

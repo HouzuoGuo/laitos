@@ -3,6 +3,7 @@ package feature
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -28,8 +29,8 @@ func (fs *FeatureSet) Initialise() error {
 		fs.AESDecrypt.Trigger():    &fs.AESDecrypt,
 		fs.Facebook.Trigger():      &fs.Facebook,
 		fs.SendMail.Trigger():      &fs.SendMail,
-		fs.Shell.Trigger():         &fs.Shell,
 		fs.Twilio.Trigger():        &fs.Twilio,
+		fs.Shell.Trigger():         &fs.Shell,
 		fs.Twitter.Trigger():       &fs.Twitter,
 		fs.WolframAlpha.Trigger():  &fs.WolframAlpha,
 		fs.Undocumented1.Trigger(): &fs.Undocumented1,
@@ -92,4 +93,17 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 		}
 	}
 	return nil
+}
+
+// Return all configured & initialised triggers.
+func (fs *FeatureSet) GetTriggers() []string {
+	ret := make([]string, 0, 8)
+	if fs.LookupByTrigger == nil {
+		return ret
+	}
+	for trigger, _ := range fs.LookupByTrigger {
+		ret = append(ret, string(trigger))
+	}
+	sort.Strings(ret)
+	return ret
 }
