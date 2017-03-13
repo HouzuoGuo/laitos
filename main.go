@@ -80,11 +80,11 @@ func main() {
 
 	// Start frontent daemons
 	daemons := &sync.WaitGroup{}
-	var hasDaemon bool
+	var numDaemons int
 	for _, frontendName := range frontends {
 		switch frontendName {
 		case "httpd":
-			hasDaemon = true
+			numDaemons++
 			daemons.Add(1)
 			go func() {
 				defer daemons.Done()
@@ -102,7 +102,7 @@ func main() {
 				log.Fatalf("main: failed to process mail - %v", err)
 			}
 		case "telegram":
-			hasDaemon = true
+			numDaemons++
 			daemons.Add(1)
 			go func() {
 				defer daemons.Done()
@@ -115,8 +115,8 @@ func main() {
 			log.Fatalf("main: unknown frontend name - %s", frontendName)
 		}
 	}
-	if hasDaemon {
-		log.Printf("main: frontend daemons are started")
+	if numDaemons > 0 {
+		log.Print("main: started %d frontend daemons", numDaemons)
 	}
 	// Daemons are not really supposed to quit
 	daemons.Wait()

@@ -25,32 +25,33 @@ func IsSlash(c rune) bool {
 
 // Generic HTTP daemon.
 type HTTPD struct {
-	ListenAddress    string                          `json:"ListenAddress"`    // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	ListenPort       int                             `json:"ListenPort"`       // Port number to listen on
-	TLSCertPath      string                          `json:"TLSCertPath"`      // (Optional) serve HTTPS via this certificate
-	TLSKeyPath       string                          `json:"TLSKeyPath"`       // (Optional) serve HTTPS via this certificate (key)
-	BaseRateLimit    int                             `json:"BaseRateLimit"`    // How many times in 5 seconds interval the most expensive HTTP handler may be invoked by an IP
-	ServeDirectories map[string]string               `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
-	SpecialHandlers  map[string]api.HandlerFactory   `json:"-"`                // Specialised handlers that implement api.HandlerFactory interface
-	AllRoutes        map[string]http.HandlerFunc     `json:"-"`                // Aggregate all routes from all handlers
-	AllRateLimits    map[string]*ratelimit.RateLimit `json:"-"`                // Aggregate all routes and their rate limit counters
-	Server           *http.Server                    `json:"-"`                // Standard library HTTP server structure
-	Processor        *common.CommandProcessor        `json:"-"`                // Common command processor
+	ListenAddress    string            `json:"ListenAddress"`    // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
+	ListenPort       int               `json:"ListenPort"`       // Port number to listen on
+	TLSCertPath      string            `json:"TLSCertPath"`      // (Optional) serve HTTPS via this certificate
+	TLSKeyPath       string            `json:"TLSKeyPath"`       // (Optional) serve HTTPS via this certificate (key)
+	BaseRateLimit    int               `json:"BaseRateLimit"`    // How many times in 5 seconds interval the most expensive HTTP handler may be invoked by an IP
+	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
+
+	SpecialHandlers map[string]api.HandlerFactory   `json:"-"` // Specialised handlers that implement api.HandlerFactory interface
+	AllRoutes       map[string]http.HandlerFunc     `json:"-"` // Aggregate all routes from all handlers
+	AllRateLimits   map[string]*ratelimit.RateLimit `json:"-"` // Aggregate all routes and their rate limit counters
+	Server          *http.Server                    `json:"-"` // Standard library HTTP server structure
+	Processor       *common.CommandProcessor        `json:"-"` // Feature command processor
 }
 
 // Check configuration and initialise internal states.
 func (httpd *HTTPD) Initialise() error {
 	if errs := httpd.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("HTTPD.StartAndBlock: %+v", errs)
+		return fmt.Errorf("HTTPD.Initialise: %+v", errs)
 	}
 	if httpd.ListenAddress == "" {
-		return errors.New("HTTPD.StartAndBlock: listen address is empty")
+		return errors.New("HTTPD.Initialise: listen address is empty")
 	}
 	if httpd.ListenPort == 0 {
-		return errors.New("HTTPD.StartAndBlock: listen port must not be empty or 0")
+		return errors.New("HTTPD.Initialise: listen port must not be empty or 0")
 	}
 	if (httpd.TLSCertPath != "" || httpd.TLSKeyPath != "") && (httpd.TLSCertPath == "" || httpd.TLSKeyPath == "") {
-		return errors.New("HTTPD.StartAndBlock: if TLS is to be enabled, both TLS certificate and key path must be present.")
+		return errors.New("HTTPD.Initialise: if TLS is to be enabled, both TLS certificate and key path must be present.")
 	}
 	// Work around Go's inability to serve a handler on / and only /
 	httpd.AllRoutes = map[string]http.HandlerFunc{}
@@ -150,10 +151,14 @@ Start HTTP daemon and block until this program exits.
 func (httpd *HTTPD) StartAndBlock() error {
 	if httpd.TLSCertPath == "" {
 		log.Printf("HTTPD.StartAndBlock: will listen for HTTPS traffic on %s:%d", httpd.ListenAddress, httpd.ListenPort)
-		return httpd.Server.ListenAndServe()
+		if err := httpd.Server.ListenAndServe(); err != nil {
+			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
+		}
 	} else {
 		log.Printf("HTTPD.StartAndBlock: will listen for HTTP traffic on %s:%d", httpd.ListenAddress, httpd.ListenPort)
-		return httpd.Server.ListenAndServeTLS(httpd.TLSCertPath, httpd.TLSKeyPath)
+		if err := httpd.Server.ListenAndServeTLS(httpd.TLSCertPath, httpd.TLSKeyPath); err != nil {
+			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
+		}
 	}
 	// Never reached
 	return nil
