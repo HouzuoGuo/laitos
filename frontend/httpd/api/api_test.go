@@ -34,6 +34,13 @@ func TestAllHandlers(t *testing.T) {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/self_test", selfTestHandle)
+	// System info
+	handle = &HandleSystemInfo{}
+	infoHandler, err := handle.MakeHandler(proc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handlers.HandleFunc("/info", infoHandler)
 	// Command form
 	handle = &HandleCommandForm{}
 	cmdFormHandle, err := handle.MakeHandler(proc)
@@ -121,6 +128,11 @@ func TestAllHandlers(t *testing.T) {
 		t.Fatal(err, "\n", string(resp.Body), "\n", expected)
 	}
 	proc.Features.Shell.InterpreterPath = oldShellInterpreter
+	// System information
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"info")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Public IP:") {
+		t.Fatal(err, string(resp.Body))
+	}
 	// Command Form
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {

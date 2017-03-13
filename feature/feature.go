@@ -9,7 +9,7 @@ import (
 
 const (
 	CombinedTextSeparator = "|" // Separate error and command output in the combined output
-	FeatureTestTimeoutSec = 60  // Timeout for outgoing connections among those involved in feature self tests
+	TestTimeoutSec        = 20  // Timeout for outgoing connections among those involved in feature self tests
 )
 
 var (

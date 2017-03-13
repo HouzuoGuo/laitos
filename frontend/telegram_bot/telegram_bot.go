@@ -18,7 +18,8 @@ import (
 const (
 	ChatTypePrivate   = "private" // Name of the private chat type
 	PollIntervalSec   = 5         // Poll for incoming messages every three seconds
-	CommandTimeoutSec = 30        // By default, commands from chat run using 30 seconds timeout.
+	APICallTimeoutSec = 30        // Outgoing API calls are constrained by this timeout
+	CommandTimeoutSec = 30        // Command execution is constrained by this timeout
 )
 
 // Telegram API entity - user
@@ -71,7 +72,8 @@ type TelegramBot struct {
 // Send a text reply to the telegram chat.
 func (bot *TelegramBot) ReplyTo(chatID uint64, text string) error {
 	resp, err := httpclient.DoHTTP(httpclient.Request{
-		Method: http.MethodPost,
+		Method:     http.MethodPost,
+		TimeoutSec: APICallTimeoutSec,
 		Body: strings.NewReader(url.Values{
 			"chat_id": []string{strconv.FormatUint(chatID, 10)},
 			"text":    []string{text},
@@ -132,7 +134,8 @@ func (bot *TelegramBot) StartAndBlock() error {
 	}
 	bot.UserRateLimit.Initialise()
 	// Make a test API call
-	testResp, testErr := httpclient.DoHTTP(httpclient.Request{}, "https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)
+	testResp, testErr := httpclient.DoHTTP(httpclient.Request{TimeoutSec: APICallTimeoutSec},
+		"https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)
 	if testErr != nil || testResp.StatusCode/200 != 1 {
 		return fmt.Errorf("TelegramBot.StartAndBlock: test failed - HTTP %d - %v %s", testResp.StatusCode, testErr, string(testResp.Body))
 	}
@@ -148,7 +151,8 @@ func (bot *TelegramBot) StartAndBlock() error {
 			lastIdle = time.Now().Unix()
 		}
 		// Poll for new messages
-		updatesResp, updatesErr := httpclient.DoHTTP(httpclient.Request{}, "https://api.telegram.org/bot%s/getUpdates?offset=%s", bot.AuthorizationToken, bot.MessageOffset)
+		updatesResp, updatesErr := httpclient.DoHTTP(httpclient.Request{TimeoutSec: APICallTimeoutSec},
+			"https://api.telegram.org/bot%s/getUpdates?offset=%s", bot.AuthorizationToken, bot.MessageOffset)
 		var newMessages APIUpdates
 		if updatesErr != nil || updatesResp.StatusCode/200 != 1 {
 			log.Printf("TELEGRAMBOT: failed to poll - HTTP %d - %v - %s", updatesResp.StatusCode, updatesErr, string(updatesResp.Body))

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"github.com/HouzuoGuo/websh/env"
 	"github.com/HouzuoGuo/websh/frontend/common"
 	"log"
 	"net/http"
@@ -30,7 +31,7 @@ func XMLEscape(in string) string {
 type HandleFeatureSelfTest struct {
 }
 
-func (hook *HandleFeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (_ *HandleFeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "must-revalidate")
@@ -49,6 +50,23 @@ func (hook *HandleFeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor)
 	return fun, nil
 }
 
-func (hook *HandleFeatureSelfTest) GetRateLimitFactor() int {
+func (_ *HandleFeatureSelfTest) GetRateLimitFactor() int {
+	return 1
+}
+
+// Inspect system and environment and return their information in text form.
+type HandleSystemInfo struct {
+}
+
+func (_ *HandleSystemInfo) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
+	fun := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "must-revalidate")
+		w.Write([]byte(fmt.Sprintf("Public IP: %s", env.GetPublicIP())))
+	}
+	return fun, nil
+}
+
+func (_ *HandleSystemInfo) GetRateLimitFactor() int {
 	return 1
 }

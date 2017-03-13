@@ -28,7 +28,8 @@ type StandardBridges struct {
 
 // Configure path to HTTP handlers and handler themselves.
 type HTTPHandlers struct {
-	SelfTestEndpoint string `json:"SelfTestEndpoint"`
+	SelfTestEndpoint    string `json:"SelfTestEndpoint"`
+	InformationEndpoint string `json:"InformationEndpoint"`
 
 	CommandFormEndpoint string `json:"CommandFormEndpoint"`
 
@@ -99,6 +100,9 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	handlers := map[string]api.HandlerFactory{}
 	if config.HTTPHandlers.SelfTestEndpoint != "" {
 		handlers[config.HTTPHandlers.SelfTestEndpoint] = &api.HandleFeatureSelfTest{}
+	}
+	if config.HTTPHandlers.InformationEndpoint != "" {
+		handlers[config.HTTPHandlers.InformationEndpoint] = &api.HandleSystemInfo{}
 	}
 	if config.HTTPHandlers.CommandFormEndpoint != "" {
 		handlers[config.HTTPHandlers.CommandFormEndpoint] = &api.HandleCommandForm{}

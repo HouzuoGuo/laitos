@@ -30,7 +30,7 @@ func (email *SendMail) SelfTest() error {
 	if !email.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	if _, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", email.Mailer.MTAHost, email.Mailer.MTAPort), FeatureTestTimeoutSec*time.Second); err != nil {
+	if _, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", email.Mailer.MTAHost, email.Mailer.MTAPort), TestTimeoutSec*time.Second); err != nil {
 		return err
 	}
 	return nil

@@ -41,7 +41,7 @@ func (twi *Twitter) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make a test query (retrieve one tweet) to verify validity of API credentials
-	testExec := twi.GetFeeds(Command{TimeoutSec: FeatureTestTimeoutSec, Content: TwitterGetFeeds})
+	testExec := twi.GetFeeds(Command{TimeoutSec: TestTimeoutSec, Content: TwitterGetFeeds})
 	return testExec.Error
 }
 

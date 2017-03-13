@@ -62,6 +62,7 @@ func TestConfig(t *testing.T) {
 	},
 	"HTTPHandlers": {
 		"SelfTestEndpoint": "/test",
+		"InformationEndpoint": "/info",
 		"CommandFormEndpoint": "/cmd_form",
 		"IndexEndpoints": ["/", "/index.html"],
 		"IndexEndpointConfig": {
@@ -154,8 +155,8 @@ func TestConfig(t *testing.T) {
 
 	httpDaemon := config.GetHTTPD()
 
-	if len(httpDaemon.SpecialHandlers) != 9 {
-		// 1 x self test, 1 x sms, 2 x call, 1 x mail me, 1 x proxy, 2 x index, 1 x cmd form
+	if len(httpDaemon.SpecialHandlers) != 10 {
+		// 1 x self test, 1 x sms, 2 x call, 1 x mail me, 1 x proxy, 2 x index, 1 x cmd form, 1 x info
 		t.Fatal(httpDaemon.SpecialHandlers)
 	}
 	// Find the randomly generated endpoint name for twilio call callback
@@ -168,6 +169,7 @@ func TestConfig(t *testing.T) {
 		case "/cmd_form":
 		case "/mail_me":
 		case "/proxy":
+		case "/info":
 		case "/":
 		case "/index.html":
 		default:
@@ -236,6 +238,11 @@ func TestConfig(t *testing.T) {
 	mailFailure := ".m: dial tcp 127.0.0.1:25: getsockopt: connection refused<br/>\n"
 	if resp.StatusCode == http.StatusInternalServerError && string(resp.Body) != mailFailure {
 		t.Fatal(err, string(resp.Body), resp)
+	}
+	// System information
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/info")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Public IP:") {
+		t.Fatal(err, string(resp.Body))
 	}
 	// Command Form
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/cmd_form")
