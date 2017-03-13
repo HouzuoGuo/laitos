@@ -2,8 +2,8 @@ package common
 
 import (
 	"errors"
-	"github.com/HouzuoGuo/websh/bridge"
-	"github.com/HouzuoGuo/websh/feature"
+	"github.com/HouzuoGuo/laitos/bridge"
+	"github.com/HouzuoGuo/laitos/feature"
 	"log"
 	"regexp"
 	"strconv"

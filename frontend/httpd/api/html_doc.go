@@ -2,7 +2,7 @@ package api
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/common"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -24,8 +24,8 @@ func (index *HandleHTMLDocument) MakeHandler(cmdProc *common.CommandProcessor) (
 	// Inject browser client IP and current time into index document and return.
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		page := strings.Replace(contentStr, "#WEBSH_3339TIME", time.Now().Format(time.RFC3339), -1)
-		page = strings.Replace(page, "#WEBSH_CLIENTADDR", r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')], -1)
+		page := strings.Replace(contentStr, "#LAITOS_3339TIME", time.Now().Format(time.RFC3339), -1)
+		page = strings.Replace(page, "#LAITOS_CLIENTADDR", r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')], -1)
 		w.Write([]byte(page))
 	}
 	return fun, nil

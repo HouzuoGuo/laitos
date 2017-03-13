@@ -1,17 +1,25 @@
-[![Build Status](https://travis-ci.org/HouzuoGuo/websh.svg?branch=master)](https://travis-ci.org/HouzuoGuo/websh)
+[![Build Status](https://travis-ci.org/HouzuoGuo/laitos.svg?branch=master)](https://travis-ci.org/HouzuoGuo/laitos)
 
-Websh
+laitos
 =====
-websh is a comprehensive do-everything daemon that delivers many Internet features (not generic Internet Protocol) over alternative communication infrastructures such as PSTN, GSM, and satellite.
+laitos has many Internet infrastructure daemons built into a single executable, they also enable users to access Internet features via alternative means such as PSTN (telephone), GSM (SMS), and satellite messaging.
 
-The latest features are:
-- Run shell commands and retrieve result.
-- Run WolframAlpha queries and retrieve result.
-- Call another telephone number and speak a piece of text.
-- Send SMS to another person.
-- Post to Twitter time-line.
-- Read the latest updates from Twitter home time-line.
-- Post Facebook update.
+laitos was called "websh" before 13th March 2017.
+
+The latest daemon features are:
+- Generic purpose HTTP daemon serves static HTML pages, directories, Twilio hooks, and more.
+- Telegram bot serves Internet features via telegram chats.
+
+The latest Internet features are:
+- Decrypt and find lines among AES-encrypted content.
+- Post to Facebook.
+- Send Emails.
+- Run shell commands.
+- Call a phone number and speak some texts.
+- Send text message to a mobile phone number.
+- Post to Twitter.
+- Retrieve latest tweets.
+- Run WolframAlpha queries.
 
 You must exercise _extreme caution_ when using this software program, inappropriate configuration will severely compromise the security of the host computer. I am not responsible for any damage/potential damage caused to your computers.
 

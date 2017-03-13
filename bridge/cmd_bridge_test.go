@@ -1,7 +1,7 @@
 package bridge
 
 import (
-	"github.com/HouzuoGuo/websh/feature"
+	"github.com/HouzuoGuo/laitos/feature"
 	"testing"
 )
 

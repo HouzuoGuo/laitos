@@ -3,9 +3,9 @@ package httpd
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/websh/frontend/common"
-	"github.com/HouzuoGuo/websh/frontend/httpd/api"
-	"github.com/HouzuoGuo/websh/ratelimit"
+	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
+	"github.com/HouzuoGuo/laitos/ratelimit"
 	"log"
 	"net/http"
 	"strings"

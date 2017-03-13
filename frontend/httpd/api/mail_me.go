@@ -3,8 +3,8 @@ package api
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/websh/email"
-	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/laitos/email"
+	"github.com/HouzuoGuo/laitos/frontend/common"
 	"net/http"
 )
 

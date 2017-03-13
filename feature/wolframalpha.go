@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
-	"github.com/HouzuoGuo/websh/httpclient"
+	"github.com/HouzuoGuo/laitos/httpclient"
 	"strings"
 )
 

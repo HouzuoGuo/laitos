@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/common"
 	"strings"
 	"testing"
 )

@@ -3,10 +3,10 @@ package mailp
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/websh/bridge"
-	"github.com/HouzuoGuo/websh/email"
-	"github.com/HouzuoGuo/websh/feature"
-	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/laitos/bridge"
+	"github.com/HouzuoGuo/laitos/email"
+	"github.com/HouzuoGuo/laitos/feature"
+	"github.com/HouzuoGuo/laitos/frontend/common"
 	"log"
 	"strings"
 )

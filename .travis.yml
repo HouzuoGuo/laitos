@@ -1,5 +1,5 @@
 language: go
-go_import_path: github.com/HouzuoGuo/websh
+go_import_path: github.com/HouzuoGuo/laitos
 go:
   - 1.6.x
   - 1.7.x

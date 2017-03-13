@@ -3,7 +3,7 @@ package bridge
 
 import (
 	"errors"
-	"github.com/HouzuoGuo/websh/feature"
+	"github.com/HouzuoGuo/laitos/feature"
 	"strings"
 )
 

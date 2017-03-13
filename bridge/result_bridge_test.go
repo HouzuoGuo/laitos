@@ -2,8 +2,8 @@ package bridge
 
 import (
 	"errors"
-	"github.com/HouzuoGuo/websh/email"
-	"github.com/HouzuoGuo/websh/feature"
+	"github.com/HouzuoGuo/laitos/email"
+	"github.com/HouzuoGuo/laitos/feature"
 	"net"
 	"testing"
 	"time"

@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/websh/bridge"
-	"github.com/HouzuoGuo/websh/frontend/httpd"
-	"github.com/HouzuoGuo/websh/httpclient"
+	"github.com/HouzuoGuo/laitos/bridge"
+	"github.com/HouzuoGuo/laitos/frontend/httpd"
+	"github.com/HouzuoGuo/laitos/httpclient"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -34,7 +34,7 @@ func TestConfig(t *testing.T) {
 		"ListenPort": 23486,
 		"BaseRateLimit":10,
 		"ServeDirectories": {
-			"/my/dir": "/tmp/test-websh-dir2"
+			"/my/dir": "/tmp/test-laitos-dir2"
 		}
 	},
 	"HTTPBridges": {
@@ -66,7 +66,7 @@ func TestConfig(t *testing.T) {
 		"CommandFormEndpoint": "/cmd_form",
 		"IndexEndpoints": ["/", "/index.html"],
 		"IndexEndpointConfig": {
-			"HTMLFilePath": "/tmp/test-websh-index2.html"
+			"HTMLFilePath": "/tmp/test-laitos-index2.html"
 		},
 		"MailMeEndpoint": "/mail_me",
 		"MailMeEndpointConfig": {
@@ -138,13 +138,13 @@ func TestConfig(t *testing.T) {
 	// ============ Test HTTP daemon ============
 	// (Essentially combine all cases of api_test.go and httpd_test.go)
 	// Create a temporary file for index
-	indexFile := "/tmp/test-websh-index2.html"
+	indexFile := "/tmp/test-laitos-index2.html"
 	defer os.Remove(indexFile)
-	if err := ioutil.WriteFile(indexFile, []byte("this is index #WEBSH_CLIENTADDR #WEBSH_3339TIME"), 0644); err != nil {
+	if err := ioutil.WriteFile(indexFile, []byte("this is index #LAITOS_CLIENTADDR #LAITOS_3339TIME"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	// Create a temporary directory of file
-	htmlDir := "/tmp/test-websh-dir2"
+	htmlDir := "/tmp/test-laitos-dir2"
 	if err := os.MkdirAll(htmlDir, 0755); err != nil {
 		t.Fatal(err)
 	}

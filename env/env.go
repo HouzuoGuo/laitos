@@ -1,7 +1,7 @@
 package env
 
 import (
-	"github.com/HouzuoGuo/websh/httpclient"
+	"github.com/HouzuoGuo/laitos/httpclient"
 	"strings"
 	"sync"
 )

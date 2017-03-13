@@ -3,7 +3,7 @@ package feature
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/websh/httpclient"
+	"github.com/HouzuoGuo/laitos/httpclient"
 	"net/http"
 	"net/url"
 	"regexp"

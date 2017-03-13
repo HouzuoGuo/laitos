@@ -2,7 +2,7 @@ package feature
 
 import (
 	"errors"
-	"github.com/HouzuoGuo/websh/httpclient"
+	"github.com/HouzuoGuo/laitos/httpclient"
 	"net/http"
 	"net/url"
 	"strconv"

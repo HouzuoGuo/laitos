@@ -1,9 +1,9 @@
 package api
 
 import (
-	"github.com/HouzuoGuo/websh/email"
-	"github.com/HouzuoGuo/websh/frontend/common"
-	"github.com/HouzuoGuo/websh/httpclient"
+	"github.com/HouzuoGuo/laitos/email"
+	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/httpclient"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -50,9 +50,9 @@ func TestAllHandlers(t *testing.T) {
 	handlers.HandleFunc("/cmd_form", cmdFormHandle)
 	// HTML document
 	// Create a temporary html file
-	indexFile := "/tmp/test-websh-index.html"
+	indexFile := "/tmp/test-laitos-index.html"
 	defer os.Remove(indexFile)
-	if err := ioutil.WriteFile(indexFile, []byte("this is index #WEBSH_CLIENTADDR #WEBSH_3339TIME"), 0644); err != nil {
+	if err := ioutil.WriteFile(indexFile, []byte("this is index #LAITOS_CLIENTADDR #LAITOS_3339TIME"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	handle = &HandleHTMLDocument{HTMLFilePath: indexFile}

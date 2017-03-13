@@ -3,7 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/common"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,88 +13,88 @@ import (
 
 const ProxyInjectJS = `
 <script type="text/javascript">
-websh_proxy_scheme_host = '%s';
-websh_proxy_scheme_host_slash = websh_proxy_scheme_host + '/';
-websh_proxy_scheme_host_handle = '%s';
-websh_proxy_scheme_host_handle_param = websh_proxy_scheme_host_handle + '?u=';
-websh_browse_scheme_host = '%s';
-websh_browse_scheme_host_path = '%s';
+laitos_proxy_scheme_host = '%s';
+laitos_proxy_scheme_host_slash = laitos_proxy_scheme_host + '/';
+laitos_proxy_scheme_host_handle = '%s';
+laitos_proxy_scheme_host_handle_param = laitos_proxy_scheme_host_handle + '?u=';
+laitos_browse_scheme_host = '%s';
+laitos_browse_scheme_host_path = '%s';
 
-function websh_rewrite_url(before) {
+function laitos_rewrite_url(before) {
     var after;
-    if (before == '' || before == '#' || before.indexOf('data') == 0 || before.indexOf('javascript') == 0 || before.indexOf(websh_proxy_scheme_host_handle_param) == 0) {
+    if (before == '' || before == '#' || before.indexOf('data') == 0 || before.indexOf('javascript') == 0 || before.indexOf(laitos_proxy_scheme_host_handle_param) == 0) {
         after = before;
-    } else if (before.indexOf(websh_proxy_scheme_host_slash) == 0) {
-        after = websh_proxy_scheme_host_handle_param + encodeURIComponent(websh_browse_scheme_host + '/' + before.substr(websh_proxy_scheme_host_slash.length));
+    } else if (before.indexOf(laitos_proxy_scheme_host_slash) == 0) {
+        after = laitos_proxy_scheme_host_handle_param + encodeURIComponent(laitos_browse_scheme_host + '/' + before.substr(laitos_proxy_scheme_host_slash.length));
     } else if (before.indexOf('http') == 0) {
-        after = websh_proxy_scheme_host_handle_param + encodeURIComponent(before);
+        after = laitos_proxy_scheme_host_handle_param + encodeURIComponent(before);
     } else if (before.indexOf('../') == 0) {
-        after = websh_proxy_scheme_host_handle_param + encodeURIComponent(websh_browse_scheme_host_path + '/' + before);
+        after = laitos_proxy_scheme_host_handle_param + encodeURIComponent(laitos_browse_scheme_host_path + '/' + before);
     } else if (before.indexOf('/') == 0) {
-        after = websh_proxy_scheme_host_handle_param + encodeURIComponent(websh_browse_scheme_host + before);
+        after = laitos_proxy_scheme_host_handle_param + encodeURIComponent(laitos_browse_scheme_host + before);
     } else {
-        after = websh_proxy_scheme_host_handle_param + encodeURIComponent(websh_browse_scheme_host + '/' + before);
+        after = laitos_proxy_scheme_host_handle_param + encodeURIComponent(laitos_browse_scheme_host + '/' + before);
     }
     // console.log('before ' + before + ' after ' + after);
     return after;
 }
 
-var websh_proxied_ajax_open = window.XMLHttpRequest.prototype.open;
+var laitos_proxied_ajax_open = window.XMLHttpRequest.prototype.open;
 window.XMLHttpRequest.prototype.open = function() {
     var before = arguments[1];
-    var after = websh_rewrite_url(before);
+    var after = laitos_rewrite_url(before);
     arguments[1] = after;
-    return websh_proxied_ajax_open.apply(this, [].slice.call(arguments));
+    return laitos_proxied_ajax_open.apply(this, [].slice.call(arguments));
 };
 
-function websh_replace_url(elem, attr) {
+function laitos_replace_url(elem, attr) {
     var elems = document.getElementsByTagName(elem);
     for (var i = 0; i < elems.length; i++) {
         var before = elems[i][attr];
         if (before != '') {
-            elems[i][attr] = websh_rewrite_url(before);
+            elems[i][attr] = laitos_rewrite_url(before);
         }
     }
 }
 
-function websh_place_btns() {
-    setTimeout(websh_place_btns, 4000);
-    console.log('websh_place_btns fired');
-    if (!document.getElementById('websh_replace_few')) {
+function laitos_place_btns() {
+    setTimeout(laitos_place_btns, 4000);
+    console.log('laitos_place_btns fired');
+    if (!document.getElementById('laitos_replace_few')) {
         var btn = document.createElement('button');
-        btn.id = 'websh_replace_few';
+        btn.id = 'laitos_replace_few';
         btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 100px !important; zIndex: 999999 !important';
-        btn.onclick = websh_replace_few;
+        btn.onclick = laitos_replace_few;
         btn.appendChild(document.createTextNode('XY'));
         document.body.appendChild(btn);
     }
-    if (!document.getElementById('websh_replace_many')) {
+    if (!document.getElementById('laitos_replace_many')) {
         var btn = document.createElement('button');
-        btn.id = 'websh_replace_many';
+        btn.id = 'laitos_replace_many';
         btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 200px !important; zIndex: 999999 !important';
-        btn.onclick = websh_replace_many;
+        btn.onclick = laitos_replace_many;
         btn.appendChild(document.createTextNode('XY-ALL'));
         document.body.appendChild(btn);
     }
 }
 
-function websh_replace_few() {
-    websh_replace_url('a', 'href');
-    websh_replace_url('img', 'src');
-    websh_replace_url('form', 'action');
+function laitos_replace_few() {
+    laitos_replace_url('a', 'href');
+    laitos_replace_url('img', 'src');
+    laitos_replace_url('form', 'action');
 }
 
-function websh_replace_many() {
-    websh_replace_few();
-    websh_replace_url('link', 'href');
-    websh_replace_url('iframe', 'src');
+function laitos_replace_many() {
+    laitos_replace_few();
+    laitos_replace_url('link', 'href');
+    laitos_replace_url('iframe', 'src');
 
     var script_srcs = [];
     var scripts = document.getElementsByTagName('script');
     for (var i = 0; i < scripts.length; i++) {
         var before = scripts[i]['src'];
         if (before != '') {
-            script_srcs.push(websh_rewrite_url(before));
+            script_srcs.push(laitos_rewrite_url(before));
         }
     }
     for (var i = 0; i < script_srcs.length; i++) {
@@ -102,9 +102,9 @@ function websh_replace_many() {
     }
 }
 
-websh_place_btns();
+laitos_place_btns();
 
-window.onload = websh_replace_many;
+window.onload = laitos_replace_many;
 </script>
 ` // Snippet of Javascript that has to be injected into proxied web page
 

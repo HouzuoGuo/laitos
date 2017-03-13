@@ -1,9 +1,9 @@
 package mailp
 
 import (
-	"github.com/HouzuoGuo/websh/bridge"
-	"github.com/HouzuoGuo/websh/email"
-	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/laitos/bridge"
+	"github.com/HouzuoGuo/laitos/email"
+	"github.com/HouzuoGuo/laitos/frontend/common"
 	"net"
 	"strings"
 	"testing"

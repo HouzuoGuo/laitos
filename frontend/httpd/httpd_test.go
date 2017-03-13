@@ -1,9 +1,9 @@
 package httpd
 
 import (
-	"github.com/HouzuoGuo/websh/frontend/common"
-	"github.com/HouzuoGuo/websh/frontend/httpd/api"
-	"github.com/HouzuoGuo/websh/httpclient"
+	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
+	"github.com/HouzuoGuo/laitos/httpclient"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -15,13 +15,13 @@ import (
 // TODO: upgrade to go 1.8 and implement graceful httpd shutdown.
 func TestHTTPD_StartAndBlock(t *testing.T) {
 	// Create a temporary file for index
-	indexFile := "/tmp/test-websh-index.html"
+	indexFile := "/tmp/test-laitos-index.html"
 	defer os.Remove(indexFile)
-	if err := ioutil.WriteFile(indexFile, []byte("this is index #WEBSH_CLIENTADDR #WEBSH_3339TIME"), 0644); err != nil {
+	if err := ioutil.WriteFile(indexFile, []byte("this is index #LAITOS_CLIENTADDR #LAITOS_3339TIME"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	// Create a temporary directory of file
-	htmlDir := "/tmp/test-websh-dir"
+	htmlDir := "/tmp/test-laitos-dir"
 	if err := os.MkdirAll(htmlDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		ListenAddress:    "127.0.0.1",
 		ListenPort:       13589, // hard coded port is a random choice
 		Processor:        &common.CommandProcessor{},
-		ServeDirectories: map[string]string{"my/dir": "/tmp/test-websh-dir"},
+		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir"},
 		BaseRateLimit:    1,
 		SpecialHandlers: map[string]api.HandlerFactory{
 			"/":                &api.HandleHTMLDocument{HTMLFilePath: indexFile},

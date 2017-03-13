@@ -1,9 +1,9 @@
 [Unit]
-Description=websh communicator daemon
+Description=laitos Internet infrastructure
 After=network.target
 
 [Service]
-ExecStart=/usr/sbin/websh -configfilepath=/root/.webshconf
+ExecStart=/usr/sbin/laitos -config=/root/laitos.conf
 User=root
 Group=root
 WorkingDirectory=/tmp

@@ -2,8 +2,8 @@ package api
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/websh/feature"
-	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/laitos/feature"
+	"github.com/HouzuoGuo/laitos/frontend/common"
 	"net/http"
 )
 

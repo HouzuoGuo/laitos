@@ -3,7 +3,7 @@ package feature
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/websh/email"
+	"github.com/HouzuoGuo/laitos/email"
 	"net"
 	"regexp"
 	"strconv"

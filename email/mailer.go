@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const OutgoingMailSubjectKeyword = "websh" // Outgoing emails are encouraged to carry this string in their subject
+const OutgoingMailSubjectKeyword = "laitos" // Outgoing emails are encouraged to carry this string in their subject
 
 // Send emails via SMTP.
 type Mailer struct {

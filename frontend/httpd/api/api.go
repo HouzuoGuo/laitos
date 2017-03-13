@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"github.com/HouzuoGuo/websh/env"
-	"github.com/HouzuoGuo/websh/frontend/common"
+	"github.com/HouzuoGuo/laitos/env"
+	"github.com/HouzuoGuo/laitos/frontend/common"
 	"log"
 	"net/http"
 )
