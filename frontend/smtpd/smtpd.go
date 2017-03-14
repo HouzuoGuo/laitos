@@ -8,10 +8,13 @@ import (
 	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd/smtp"
+	"github.com/HouzuoGuo/laitos/ratelimit"
 	"log"
 	"net"
 	"time"
 )
+
+const RateLimitIntervalSec = 30 // Rate limit is calculated at 30 seconds interval
 
 // An SMTP daemon that receives mails addressed to its domain name, and optionally forward the received mails to other addresses.
 type SMTPD struct {
@@ -19,14 +22,15 @@ type SMTPD struct {
 	ListenPort    int          `json:"ListenPort"`    // Port number to listen on
 	TLSCertPath   string       `json:"TLSCertPath"`   // (Optional) serve StartTLS via this certificate
 	TLSKeyPath    string       `json:"TLSCertKey"`    // (Optional) serve StartTLS via this certificte (key)
-	RateLimit     int          `json:"RateLimit"`     // How many times in 30 seconds interval an IP may deliver an email to this server
+	IPLimit       int          `json:"IPLimit"`       // How many times in 30 seconds interval an IP may deliver an email to this server
 	MyDomain      string       `json:"MyDomain"`      // Only receive mails addressed to this domain name
 	ForwardTo     []string     `json:"ForwardTo"`     // Forward received mails to these addresses
 	ForwardMailer email.Mailer `json:"ForwardMailer"` // Use this mailer to forward emails
 
+	Processor      *common.CommandProcessor `json:"-"` // Feature command processor
 	SMTPConfig     smtp.Config              `json:"-"` // SMTP processor configuration
 	TLSCertificate tls.Certificate          `json:"-"` // TLS certificate read from the certificate and key files
-	Processor      *common.CommandProcessor `json:"-"` // Feature command processor
+	RateLimit      *ratelimit.RateLimit     `json:"-"` // Rate limit counter per IP address
 }
 
 // Check configuration and initialise internal states.
@@ -67,34 +71,47 @@ func (smtpd *SMTPD) Initialise() error {
 	if smtpd.TLSCertPath != "" {
 		smtpd.SMTPConfig.TLSConfig = &tls.Config{Certificates: []tls.Certificate{smtpd.TLSCertificate}}
 	}
+	smtpd.RateLimit = &ratelimit.RateLimit{
+		MaxCount: smtpd.IPLimit,
+		UnitSecs: RateLimitIntervalSec,
+	}
 	return nil
 }
 
 func (smtpd *SMTPD) ServeSMTP(clientConn net.Conn) {
-	smtpConn := smtp.NewConn(clientConn, smtpd.SMTPConfig, nil)
-	for {
-		ev := smtpConn.Next()
-		switch ev.What {
-		case smtp.DONE, smtp.ABORT:
-			fmt.Println("Server is done")
-			return
-		case smtp.COMMAND:
-			switch ev.Cmd {
-			case smtp.EHLO, smtp.HELO:
-				fmt.Println("Server got HELO", ev)
-			case smtp.MAILFROM:
-				fmt.Println("Server got MAILFROM", ev)
-			case smtp.RCPTTO:
-				fmt.Println("Server got RCPTTO", ev)
-			case smtp.DATA:
-				fmt.Println("Server got DATA", ev)
+	clientAddr := clientConn.RemoteAddr().String()
+	log.Printf("SMTPD: handle %s", clientAddr)
+
+	// Reject with 421 - server name ?
+	//rateLimitExceeded := !smtpd.RateLimit.Add(clientAddr, true)
+	/*
+		var fromAddr, body, doneReason string
+		toAddrs := make([]string, 0, 4)
+		smtpConn := smtp.NewConn(clientConn, smtpd.SMTPConfig, nil)
+		for {
+			ev := smtpConn.Next()
+			switch ev.What {
+			case smtp.DONE:
+				doneReason = "client finished normally"
+				break
+			case smtp.ABORT:
+				doneReason = "client aborted"
+				break
+			case smtp.TLSERROR:
+				doneReason = "client encountered TLS error"
+				break
+			case smtp.COMMAND:
+				switch ev.Cmd {
+				case smtp.MAILFROM:
+					fromAddr = ev.Arg
+				case smtp.RCPTTO:
+					toAddrs = append(toAddrs, ev.Arg)
+				}
+			case smtp.GOTDATA:
+				body = ev.Arg
 			}
-		case smtp.GOTDATA:
-			fmt.Println("Server got GOTDATA", ev)
-		case smtp.TLSERROR:
-			fmt.Println("Server got TLS error")
 		}
-	}
+		log.Printf("SMTPD: done with %s - %s", clientConn.RemoteAddr().String(), doneReason)*/
 }
 
 /*
