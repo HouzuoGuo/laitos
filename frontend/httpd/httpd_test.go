@@ -45,7 +45,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 			"/proxy":           &api.HandleWebProxy{MyEndpoint: "/proxy"},
 		},
 	}
-	// Must not start if command processor is insane
+	// Must not initialise if command processor is insane
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
 		t.Fatal("did not error due to insane CommandProcessor")
 	}
@@ -53,6 +53,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	// HTTP daemon is expected to start in two seconds
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
 			t.Fatal(err)

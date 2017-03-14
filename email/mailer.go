@@ -22,7 +22,7 @@ func (mailer *Mailer) IsConfigured() bool {
 	return mailer.MailFrom != "" && mailer.MTAHost != "" && mailer.MTAPort != 0
 }
 
-// Deliver mail to all recipients.
+// Deliver mail to all recipients. Block until mail is sent or an error has occurred.
 func (mailer *Mailer) Send(subject string, textBody string, recipients ...string) error {
 	var auth smtp.Auth
 	if mailer.AuthUsername != "" {
@@ -32,4 +32,13 @@ func (mailer *Mailer) Send(subject string, textBody string, recipients ...string
 	mailBody := fmt.Sprintf("MIME-Version: 1.0\r\nContent-type: text/plain; charset=utf-8\r\nFrom: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
 		mailer.MailFrom, strings.Join(recipients, ", "), subject, textBody)
 	return smtp.SendMail(fmt.Sprintf("%s:%d", mailer.MTAHost, mailer.MTAPort), auth, mailer.MailFrom, recipients, []byte(mailBody))
+}
+
+// Deliver unmodified mail body to all recipients. Block until mail is sent or an error has occurred.
+func (mailer *Mailer) SendRaw(fromAddr string, rawMailBody []byte, recipients ...string) error {
+	var auth smtp.Auth
+	if mailer.AuthUsername != "" {
+		auth = smtp.PlainAuth("", mailer.AuthUsername, mailer.AuthPassword, mailer.MTAHost)
+	}
+	return smtp.SendMail(fmt.Sprintf("%s:%d", mailer.MTAHost, mailer.MTAPort), auth, fromAddr, recipients, rawMailBody)
 }

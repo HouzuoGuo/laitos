@@ -20,10 +20,10 @@ type MailProcessor struct {
 
 /*
 Make sure mail processor is sane before processing the incoming mail.
-Process only one command (if found) in the incoming mail, figure out its reply address and send command result to
-the reply address.
+Process only one command (if found) in the incoming mail. If reply addresses are specified, send command result
+to the specified addresses. If they are not specified, use the incoming mail sender's address as reply address.
 */
-func (mailproc *MailProcessor) Process(mailContent []byte) error {
+func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...string) error {
 	if errs := mailproc.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("%+v", errs)
 	}
@@ -72,7 +72,11 @@ func (mailproc *MailProcessor) Process(mailContent []byte) error {
 		if !mailproc.ReplyMailer.IsConfigured() {
 			return false, errors.New("The reply has to be sent via Email but configuration is missing")
 		}
-		return false, mailproc.ReplyMailer.Send(email.OutgoingMailSubjectKeyword+"-reply-"+result.Command.Content, result.CombinedOutput, prop.ReplyAddress)
+		recipients := replyAddresses
+		if recipients == nil || len(recipients) == 0 {
+			recipients = []string{prop.ReplyAddress}
+		}
+		return false, mailproc.ReplyMailer.Send(email.OutgoingMailSubjectKeyword+"-reply-"+result.Command.Content, result.CombinedOutput, recipients...)
 	})
 	if walkErr != nil {
 		return walkErr

@@ -21,7 +21,7 @@ func (limit *RateLimit) Initialise() {
 	limit.counter = make(map[string]int)
 	limit.counterMutex = new(sync.Mutex)
 	if limit.UnitSecs < 1 || limit.MaxCount < 1 {
-		panic("RateLimit.Initialise: unit or max count is lower than 1")
+		panic("RateLimit.Initialise: unit or max count must be greater than 0")
 	}
 }
 

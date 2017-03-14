@@ -513,6 +513,13 @@ func (c *Conn) Reject() {
 	c.replied = true
 }
 
+// Inform sender to slow down by replying a temporary failure code and then abort the sequence.
+func (c *Conn) ReplyRateExceeded() {
+	c.reply("451 Try again later rate limit exceeded")
+	c.replied = true
+	c.state = sAbort
+}
+
 // Next returns the next high-level event from the SMTP connection.
 //
 // Next() guarantees that the SMTP protocol ordering requirements are

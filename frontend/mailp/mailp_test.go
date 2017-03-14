@@ -77,6 +77,11 @@ verysecret.s echo hi
 	if err := mailproc.Process([]byte(pinMatch)); err != nil {
 		t.Fatal(err)
 	}
+	// PIN matches and override reply addr
+	if err := mailproc.Process([]byte(pinMatch), "root@localhost"); err != nil {
+		t.Fatal(err)
+	}
+	t.Log("Check mail box of both root@localhost and howard@localhost")
 }
 
 func TestMailProcessor_Process_Undocument1Reply(t *testing.T) {

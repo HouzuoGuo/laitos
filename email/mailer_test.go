@@ -25,6 +25,10 @@ func TestMailer_Send(t *testing.T) {
 		if err := m.Send("test subject", "test body", m.MailFrom); err != nil {
 			t.Fatal(err)
 		}
+		rawBody := "From: FromAddr@localhost\r\nTo: ToAddr@localhost\r\nSubject: rawSubject\r\n\r\nrawBody"
+		if err := m.SendRaw("howard@localhost", rawBody, "howard@localhost"); err != nil {
+			t.Fatal(err)
+		}
 		t.Log("Check howard@localhost mail box")
 	}
 }
