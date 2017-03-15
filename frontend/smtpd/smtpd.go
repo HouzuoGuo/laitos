@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/env"
-	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd/smtp"
 	"github.com/HouzuoGuo/laitos/ratelimit"
@@ -17,36 +16,37 @@ import (
 )
 
 const (
-	RateLimitIntervalSec  = 30  // Rate limit is calculated at 30 seconds interval
-	MailCommandTimeout    = 120 // There is no hurry in running feature commands from mail
-	MaxConversationLength = 64  // Only converse up to this number of messages in an SMTP connection
+	RateLimitIntervalSec  = 30 // Rate limit is calculated at 30 seconds interval
+	MaxConversationLength = 64 // Only converse up to this number of messages in an SMTP connection
 )
 
 // An SMTP daemon that receives mails addressed to its domain name, and optionally forward the received mails to other addresses.
 type SMTPD struct {
-	ListenAddress string       `json:"ListenAddress"` // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	ListenPort    int          `json:"ListenPort"`    // Port number to listen on
-	TLSCertPath   string       `json:"TLSCertPath"`   // (Optional) serve StartTLS via this certificate
-	TLSKeyPath    string       `json:"TLSCertKey"`    // (Optional) serve StartTLS via this certificte (key)
-	IPLimit       int          `json:"IPLimit"`       // How many times in 30 seconds interval an IP may deliver an email to this server
-	ForwardTo     []string     `json:"ForwardTo"`     // Forward received mails to these addresses
-	ForwardMailer email.Mailer `json:"ForwardMailer"` // Use this mailer to forward emails
+	ListenAddress string   `json:"ListenAddress"` // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
+	ListenPort    int      `json:"ListenPort"`    // Port number to listen on
+	TLSCertPath   string   `json:"TLSCertPath"`   // (Optional) serve StartTLS via this certificate
+	TLSKeyPath    string   `json:"TLSCertKey"`    // (Optional) serve StartTLS via this certificte (key)
+	IPLimit       int      `json:"IPLimit"`       // How many times in 30 seconds interval an IP may deliver an email to this server
+	ForwardTo     []string `json:"ForwardTo"`     // Forward received mails to these addresses
 
-	Listener       net.Listener             `json:"-"` // Once daemon is started, this is its TCP listener.
-	Processor      *common.CommandProcessor `json:"-"` // Feature command processor
-	SMTPConfig     smtp.Config              `json:"-"` // SMTP processor configuration
-	TLSCertificate tls.Certificate          `json:"-"` // TLS certificate read from the certificate and key files
-	RateLimit      *ratelimit.RateLimit     `json:"-"` // Rate limit counter per IP address
-	MyPublicIP     string                   `json:"-"` // My public IP address as discovered by external services
+	ForwardMailer email.Mailer `json:"-"` // Use this mailer to forward arrived mails
+	SMTPConfig    smtp.Config  `json:"-"` // SMTP processor configuration
+	MyPublicIP    string       `json:"-"` // My public IP address as discovered by external services
+
+	Listener       net.Listener    `json:"-"` // Once daemon is started, this is its TCP listener.
+	TLSCertificate tls.Certificate `json:"-"` // TLS certificate read from the certificate and key files
+
+	MailProcessor *mailp.MailProcessor `json:"-"` // Process feature commands from incoming mails
+	RateLimit     *ratelimit.RateLimit `json:"-"` // Rate limit counter per IP address
 }
 
 // Check configuration and initialise internal states.
 func (smtpd *SMTPD) Initialise() error {
-	if errs := smtpd.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("SMTPD.Initialise: %+v", errs)
+	if !smtpd.MailProcessor.ReplyMailer.IsConfigured() {
+		return errors.New("SMTPD.Initialise: mail processor's reply mailer must be configured")
 	}
 	if smtpd.ListenAddress == "" {
-		return errors.New("SMTPD.Initialise: listen address is empty")
+		return errors.New("SMTPD.Initialise: listen address must not be empty")
 	}
 	if smtpd.ListenPort == 0 {
 		return errors.New("SMTPD.Initialise: listen port must not be empty or 0")
@@ -88,7 +88,12 @@ func (smtpd *SMTPD) Initialise() error {
 	// Do not allow forward to this daemon itself
 	if (strings.HasPrefix(smtpd.ForwardMailer.MTAHost, "127.") || smtpd.ForwardMailer.MTAHost == smtpd.MyPublicIP) &&
 		smtpd.ForwardMailer.MTAPort == smtpd.ListenPort {
-		return errors.New("SMTPD.Initialise: forward MTA is myself")
+		return errors.New("SMTPD.Initialise: forward MTA must not be myself")
+	}
+	// Do not allow mail processor to reply to this daemon itself
+	if (strings.HasPrefix(smtpd.MailProcessor.ReplyMailer.MTAHost, "127.") || smtpd.MailProcessor.ReplyMailer.MTAHost == smtpd.MyPublicIP) &&
+		smtpd.MailProcessor.ReplyMailer.MTAPort == smtpd.ListenPort {
+		return errors.New("SMTPD.Initialise: mail processor's reply MTA must not be myself")
 	}
 	return nil
 }
@@ -103,12 +108,7 @@ func (smtpd *SMTPD) ProcessMail(fromAddr, mailBody string) {
 		log.Printf("SMTPD: failed to forward mail from %s - %v", fromAddr, err)
 	}
 	// Run feature command from mail body
-	mailProc := mailp.MailProcessor{
-		Processor:         smtpd.Processor,
-		CommandTimeoutSec: MailCommandTimeout,
-		ReplyMailer:       smtpd.ForwardMailer,
-	}
-	if err := mailProc.Process(bodyBytes, smtpd.ForwardTo...); err != nil {
+	if err := smtpd.MailProcessor.Process(bodyBytes, smtpd.ForwardTo...); err != nil {
 		log.Printf("SMTPD: failed to process feature commands from %s - %v", fromAddr, err)
 	}
 }
@@ -171,16 +171,21 @@ conversationDone:
 You may call this function only after having called Initialise()!
 Start SMTP daemon and block until this program exits.
 */
-func (smtpd *SMTPD) StartAndBlock() error {
+func (smtpd *SMTPD) StartAndBlock() (err error) {
 	log.Printf("SMTPD.StartAndBlock: will listen for connections on %s:%d", smtpd.ListenAddress, smtpd.ListenPort)
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", smtpd.ListenAddress, smtpd.ListenPort))
+	smtpd.Listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", smtpd.ListenAddress, smtpd.ListenPort))
 	if err != nil {
 		return fmt.Errorf("SMTPD.StartAndBlock: failed to listen on %s:%d - %v", smtpd.ListenAddress, smtpd.ListenPort, err)
 	}
 	for {
-		clientConn, err := listener.Accept()
+		clientConn, err := smtpd.Listener.Accept()
 		if err != nil {
-			return fmt.Errorf("SMTPD.StartAndBlock: failed to accept new connection - %v", err)
+			// Listener is told to stop
+			if strings.Contains(err.Error(), "closed") {
+				return nil
+			} else {
+				return fmt.Errorf("SMTPD.StartAndBlock: failed to accept new connection - %v", err)
+			}
 		}
 		go smtpd.ServeSMTP(clientConn)
 	}

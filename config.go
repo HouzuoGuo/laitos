@@ -11,6 +11,7 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
+	"github.com/HouzuoGuo/laitos/frontend/smtpd"
 	"github.com/HouzuoGuo/laitos/frontend/telegram_bot"
 	"log"
 )
@@ -49,12 +50,13 @@ type HTTPHandlers struct {
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
 type Config struct {
 	Features feature.FeatureSet `json:"Features"` // Feature configuration is shared by all services
-	Mailer   email.Mailer       `json:"Mailer"`   // Mail configuration for all outgoing mails such as notifications
+	Mailer   email.Mailer       `json:"Mailer"`   // Mail configuration for notifications and mail processor results
 
 	HTTPDaemon   httpd.HTTPD     `json:"HTTPDaemon"`   // HTTP daemon configuration
 	HTTPBridges  StandardBridges `json:"HTTPBridges"`  // HTTP daemon bridge configuration
 	HTTPHandlers HTTPHandlers    `json:"HTTPHandlers"` // HTTP daemon handler configuration
 
+	MailDaemon           smtpd.SMTPD         `json:"MailDaemon"`           // SMTP daemon configuration
 	MailProcessor        mailp.MailProcessor `json:"MailProcessor"`        // Incoming mail processor configuration
 	MailProcessorBridges StandardBridges     `json:"MailProcessorBridges"` // Incoming mail processor bridge configuration
 
@@ -143,7 +145,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	ret.SpecialHandlers = handlers
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
-		log.Fatalf("Config.GetHTTPD: failed to initialise HTTPD - %v", err)
+		log.Fatalf("Config.GetHTTPD: failed to initialise - %v", err)
 		return nil
 	}
 	for route := range ret.AllRoutes {
@@ -156,7 +158,12 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	return &ret
 }
 
-// Construct a mail processor from configuration and return.
+/*
+Construct a mail processor from configuration and return. The mail processor will use the common mailer to send replies.
+Mail processor is usually built into laitos' own SMTP daemon to process feature commands from incoming mails, but an
+independent mail process is useful in certain scenarios, such as integrating with postfix's "forward-mail-to-program"
+mechanism.
+*/
 func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 	ret := config.MailProcessor
 
@@ -183,6 +190,21 @@ func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 		},
 	}
 	ret.ReplyMailer = config.Mailer
+	return &ret
+}
+
+/*
+Construct an SMTP daemon together with its mail command processor.
+Both SMTP daemon and mail command processor will use the common mailer to forward mails and send replies.
+*/
+func (config *Config) GetMailDaemon() *smtpd.SMTPD {
+	ret := config.MailDaemon
+	ret.MailProcessor = config.GetMailProcessor()
+	ret.ForwardMailer = config.Mailer
+	if err := ret.Initialise(); err != nil {
+		log.Fatalf("Config.GetMailDeamon: failed to initialise - %v", err)
+		return nil
+	}
 	return &ret
 }
 

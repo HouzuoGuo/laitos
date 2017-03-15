@@ -11,7 +11,11 @@ import (
 	"strings"
 )
 
-// Look for feature commands from an incoming mail, run them and reply the sender with command results.
+/*
+Look for feature commands from an incoming mail, run them and reply the sender with command results.
+Usually used in combination of laitos' own SMTP daemon, but it can also work independently in something like
+postfix's "forward-mail-to-program" mechanism.
+*/
 type MailProcessor struct {
 	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
 	CommandTimeoutSec int                      `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds

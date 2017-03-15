@@ -56,7 +56,7 @@ func main() {
 	// Process command line flags
 	var configFile, frontend string
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (httpd, mailp, telegram)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (httpd, mailp, smtpd, telegram)")
 	flag.Parse()
 
 	if configFile == "" {
@@ -101,6 +101,15 @@ func main() {
 			if err := config.GetMailProcessor().Process(mailContent); err != nil {
 				log.Fatalf("main: failed to process mail - %v", err)
 			}
+		case "smtpd":
+			numDaemons++
+			daemons.Add(1)
+			go func() {
+				defer daemons.Done()
+				if err := config.GetMailDaemon().StartAndBlock(); err != nil {
+					log.Fatalf("main: failed to start smtp daemon - %v", err)
+				}
+			}()
 		case "telegram":
 			numDaemons++
 			daemons.Add(1)
@@ -116,7 +125,7 @@ func main() {
 		}
 	}
 	if numDaemons > 0 {
-		log.Print("main: started %d frontend daemons", numDaemons)
+		log.Printf("main: started %d frontend daemons", numDaemons)
 	}
 	// Daemons are not really supposed to quit
 	daemons.Wait()

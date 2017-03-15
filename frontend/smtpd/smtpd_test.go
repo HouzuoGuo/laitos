@@ -3,6 +3,7 @@ package smtpd
 import (
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"net/smtp"
 	"strings"
 	"testing"
@@ -10,49 +11,68 @@ import (
 )
 
 func TestSMTPD_StartAndBlock(t *testing.T) {
+	goodMailer := email.Mailer{
+		MailFrom: "howard@localhost",
+		MTAHost:  "127.0.0.1",
+		MTAPort:  25,
+	}
 	daemon := SMTPD{
 		ListenAddress: "127.0.0.1",
 		ListenPort:    61358, // hard coded port is a random choice
 		IPLimit:       3,
-		Processor:     &common.CommandProcessor{},
+		MailProcessor: &mailp.MailProcessor{
+			CommandTimeoutSec: 10,
+			Processor:         common.GetTestCommandProcessor(),
+			ReplyMailer:       goodMailer,
+		},
 		ForwardTo:     []string{"howard@localhost", "root@localhost"},
-		ForwardMailer: email.Mailer{},
+		ForwardMailer: goodMailer,
 	}
-	// Must not initialise if command processor is insane
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
-		t.Fatal("did not error due to insane CommandProcessor")
+	// Must not initialise if mail processor reply mailer is not there
+	daemon.MailProcessor.ReplyMailer.MTAHost = ""
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "reply mailer") {
+		t.Fatal("did not error due to bad mailer")
 	}
-	daemon.Processor = common.GetTestCommandProcessor()
-	// Must not initialise if mailer is not there
+	daemon.MailProcessor.ReplyMailer = goodMailer
+	// Must not initialise if forward mailer is not there
+	daemon.ForwardMailer.MTAHost = ""
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "forward mailer") {
 		t.Fatal("did not error due to bad mailer")
 	}
-	// Must not initialise if mailer is myself
+	// Must not initialise if forward mailer is myself
 	daemon.ForwardMailer = email.Mailer{
 		MailFrom: "howard@localhost",
 		MTAHost:  "127.0.0.1",
 		MTAPort:  61358,
 	}
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "myself") {
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "forward MTA") {
 		t.Fatal("did not error due to bad mailer")
 	}
-	// Finally a good mailer
-	daemon.ForwardMailer = email.Mailer{
+	daemon.ForwardMailer = goodMailer
+	// Must not initialise if mail processor reply mailer is myself
+	daemon.MailProcessor.ReplyMailer = email.Mailer{
 		MailFrom: "howard@localhost",
 		MTAHost:  "127.0.0.1",
-		MTAPort:  25,
+		MTAPort:  61358,
 	}
-	if err := daemon.Initialise(); err != nil {
-		t.Fatal(err)
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "reply MTA") {
+		t.Fatal("did not error due to bad mailer")
 	}
+	daemon.MailProcessor.ReplyMailer = goodMailer
+
 	/*
 		SMTP daemon is expected to start in a few seconds, it may take a short while because
 		the daemon has to figure out its public IP address.
 	*/
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	var stoppedNormally bool
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
+		stoppedNormally = true
 	}()
 	time.Sleep(3 * time.Second) // this really should be env.HTTPPublicIPTimeout * time.Second
 	// Send an ordinary mail to the daemon
@@ -71,4 +91,10 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	}
 	time.Sleep(3 * time.Second)
 	t.Log("Check howard@localhost and root@localhost mailbox")
+	// Daemon must stop in a second
+	daemon.Stop()
+	time.Sleep(1 * time.Second)
+	if !stoppedNormally {
+		t.Fatal("did not stop")
+	}
 }

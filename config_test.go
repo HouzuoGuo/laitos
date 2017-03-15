@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/smtp"
 	"net/url"
 	"os"
 	"strings"
@@ -80,6 +81,12 @@ func TestConfig(t *testing.T) {
 		}
 	},
 
+	"MailDaemon": {
+		"ListenAddress": "127.0.0.1",
+		"ListenPort": 18573,
+		"IPLimit": 2,
+		"ForwardTo": ["howard@localhost", "root@localhost"]
+	},
 	"MailProcessor": {
 		"CommandTimeoutSec": 10
 	},
@@ -394,6 +401,39 @@ mailshortcut
 			t.Fatal(err)
 		}
 		t.Log("Check howard@localhost mailbox")
+	}
+
+	// ============ Test SMTPD ============
+	mailDaemon := config.GetMailDaemon()
+	var mailDaemonStoppedNormally bool
+	go func() {
+		if err := mailDaemon.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+		mailDaemonStoppedNormally = true
+	}()
+	time.Sleep(3 * time.Second) // this really should be env.HTTPPublicIPTimeout * time.Second
+	// Send an ordinary mail to the daemon
+	mailMsg := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(mailMsg)); err != nil {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Try run a command via email
+	mailMsg = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\nmailsecret.s echo hi"
+	if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(mailMsg)); err != nil {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	time.Sleep(3 * time.Second)
+	t.Log("Check howard@localhost and root@localhost mailbox")
+	// Daemon must stop in a second
+	mailDaemon.Stop()
+	time.Sleep(1 * time.Second)
+	if !mailDaemonStoppedNormally {
+		t.Fatal("did not stop")
 	}
 
 	// ============ Test telegram bot ============
