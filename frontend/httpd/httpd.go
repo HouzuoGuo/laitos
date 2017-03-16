@@ -150,12 +150,12 @@ Start HTTP daemon and block until this program exits.
 */
 func (httpd *HTTPD) StartAndBlock() error {
 	if httpd.TLSCertPath == "" {
-		log.Printf("HTTPD.StartAndBlock: will listen for HTTPS traffic on %s:%d", httpd.ListenAddress, httpd.ListenPort)
+		log.Printf("HTTPD.StartAndBlock: will listen for HTTP traffic on %s:%d", httpd.ListenAddress, httpd.ListenPort)
 		if err := httpd.Server.ListenAndServe(); err != nil {
 			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
 		}
 	} else {
-		log.Printf("HTTPD.StartAndBlock: will listen for HTTP traffic on %s:%d", httpd.ListenAddress, httpd.ListenPort)
+		log.Printf("HTTPD.StartAndBlock: will listen for HTTPS traffic on %s:%d", httpd.ListenAddress, httpd.ListenPort)
 		if err := httpd.Server.ListenAndServeTLS(httpd.TLSCertPath, httpd.TLSKeyPath); err != nil {
 			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
 		}

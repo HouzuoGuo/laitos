@@ -139,6 +139,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 	if testErr != nil || testResp.StatusCode/200 != 1 {
 		return fmt.Errorf("TelegramBot.StartAndBlock: test failed - HTTP %d - %v %s", testResp.StatusCode, testErr, string(testResp.Body))
 	}
+	log.Print("TelegramBot.StartAndBlock: will start now")
 	lastIdle := time.Now().Unix()
 	for {
 		if bot.Stop {

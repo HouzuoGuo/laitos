@@ -1,22 +1,25 @@
-package named
+package dnsd
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/httpclient"
 	"github.com/HouzuoGuo/laitos/ratelimit"
 	"log"
 	"math/rand"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	RateLimitIntervalSec = 10    // Rate limit is calculated at 10 seconds interval
-	IOTimeoutSec         = 60    // IO timeout for both read and write operations
-	MaxPacketSize        = 65535 // Maximum acceptable UDP packet size
-	NumQueueRatio        = 10    // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
+	RateLimitIntervalSec       = 10    // Rate limit is calculated at 10 seconds interval
+	IOTimeoutSec               = 60    // IO timeout for both read and write operations
+	MaxPacketSize              = 65535 // Maximum acceptable UDP packet size
+	NumQueueRatio              = 10    // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
+	BlacklistUpdateIntervalSec = 7200  // Update ad-server blacklist at this interval
 )
 
 // A query to forward to DNS forwarder.
@@ -27,15 +30,16 @@ type ForwarderQuery struct {
 	QueryPacket []byte
 }
 
-// A DNS forwarder daemon that selectively refuse to answer certain A record requests based on a black list.
+// A DNS forwarder daemon that selectively refuse to answer certain A record requests made against advertisement servers.
 type DNSD struct {
-	ListenAddress        string   `json:"ListenAddr"`           // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
+	ListenAddress        string   `json:"ListenAddress"`        // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
 	ListenPort           int      `json:"ListenPort"`           // Port to listen on
 	ForwardTo            string   `json:"ForwardTo"`            // Forward DNS queries to this address
 	AllowQueryIPPrefixes []string `json:"AllowQueryIPPrefixes"` // Only allow queries from IP addresses that carry any of the prefixes
 	PerIPLimit           int      `json:"PerIPLimit"`           // How many times in 10 seconds interval an IP may send DNS request
 
 	RateLimit       *ratelimit.RateLimit   `json:"-"` // Rate limit counter
+	BlackListMutex  *sync.Mutex            `json:"-"` // Protect against concurrent access to black list
 	BlackList       map[string]struct{}    `json:"-"` // Do not answer to type A queries made toward these domains
 	ForwarderConns  []*net.UDPConn         `json:"-"` // UDP connections made toward forwarder
 	ForwarderQueues []chan *ForwarderQuery `json:"-"` // Processing queues that handle forward queries
@@ -91,8 +95,8 @@ func (dnsd *DNSD) Initialise() error {
 			return errors.New("DNSD.Initialise: all allowable IP prefixes must not be empty string")
 		}
 	}
-
-	dnsd.BlackList = make(map[string]struct{}) // TODO: initialise this from ad block source
+	dnsd.BlackListMutex = new(sync.Mutex)
+	dnsd.BlackList = make(map[string]struct{})
 	dnsd.RateLimit = &ratelimit.RateLimit{
 		MaxCount: dnsd.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
@@ -117,6 +121,29 @@ func (dnsd *DNSD) Initialise() error {
 	return nil
 }
 
+// Download ad-servers list from yoyo.org and put them into blacklist.
+func (dnsd *DNSD) InstallAdBlacklist() (int, error) {
+	yoyo := "http://pgl.yoyo.org/adservers/serverlist.php?hostformat=nohtml&showintro=0&mimetype=plaintext"
+	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: 30}, yoyo)
+	if err != nil {
+		return 0, err
+	}
+	if statusErr := resp.Non2xxToError(); statusErr != nil {
+		return 0, statusErr
+	}
+	adServerNames := strings.Split(string(resp.Body), "\n")
+	if len(adServerNames) < 100 {
+		return 0, fmt.Errorf("yoyo's ad-server list is suspiciously short at only %d lines", len(adServerNames))
+	}
+	dnsd.BlackListMutex.Lock()
+	defer dnsd.BlackListMutex.Unlock()
+	dnsd.BlackList = make(map[string]struct{})
+	for _, name := range adServerNames {
+		dnsd.BlackList[strings.TrimSpace(name)] = struct{}{}
+	}
+	return len(dnsd.BlackList), nil
+}
+
 /*
 You may call this function only after having called Initialise()!
 Start DNS daemon and block until this program exits.
@@ -130,12 +157,24 @@ func (dnsd *DNSD) StartAndBlock() error {
 	if err != nil {
 		return err
 	}
+	// Keep updating ad-block black list in background
+	go func() {
+		for {
+			if numEntries, err := dnsd.InstallAdBlacklist(); err == nil {
+				log.Printf("DNSD: successfully updated ad-blacklist with %d entries", numEntries)
+			} else {
+				log.Printf("DNSD: failed to update ad-blacklist - %v", err)
+			}
+			time.Sleep(BlacklistUpdateIntervalSec * time.Second)
+		}
+	}()
 	// Start forwarder queues that will forward client queries and respond to them
 	for i, queue := range dnsd.ForwarderQueues {
 		go dnsd.ForwarderQueueProcessor(queue, dnsd.ForwarderConns[i])
 	}
 	// Dispatch queries to forwarder queues
 	packetBuf := make([]byte, MaxPacketSize)
+	log.Printf("DNSD.StartAndBlock: will listen for queries on %s:%d", dnsd.ListenAddress, dnsd.ListenPort)
 	for {
 		packetLength, clientAddr, err := udpServer.ReadFromUDP(packetBuf)
 		if err != nil {
@@ -175,7 +214,10 @@ func (dnsd *DNSD) StartAndBlock() error {
 			}
 			domainName := string(domainNameBytes)
 			// Do not respond to black list domain names
-			if _, exists := dnsd.BlackList[domainName]; exists {
+			dnsd.BlackListMutex.Lock()
+			_, blacklisted := dnsd.BlackList[domainName]
+			dnsd.BlackListMutex.Unlock()
+			if blacklisted {
 				log.Printf("DNSD: client %s queried black list domain \"%s\"", clientIP, domainName)
 			} else {
 				randForwarder := rand.Intn(len(dnsd.ForwarderQueues))

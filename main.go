@@ -32,7 +32,7 @@ func ReseedPseudoRand() {
 			break
 		}
 	}
-	log.Printf("ReseedPseudoRand: succeeded after %d attempts", numAttempts)
+	log.Printf("ReseedPseudoRand: succeeded after %d attempt(s)", numAttempts)
 }
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 	// Process command line flags
 	var configFile, frontend string
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (httpd, mailp, smtpd, telegram)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, mailp, smtpd, telegram)")
 	flag.Parse()
 
 	if configFile == "" {
@@ -83,6 +83,16 @@ func main() {
 	var numDaemons int
 	for _, frontendName := range frontends {
 		switch frontendName {
+		case "dnsd":
+			numDaemons++
+			daemons.Add(1)
+			go func() {
+				defer daemons.Done()
+				log.Print("main: going to start dnsd")
+				if err := config.GetDNSD().StartAndBlock(); err != nil {
+					log.Fatalf("main: failed to start dns daemon - %v", err)
+				}
+			}()
 		case "httpd":
 			numDaemons++
 			daemons.Add(1)

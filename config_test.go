@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/bridge"
+	"github.com/HouzuoGuo/laitos/frontend/dnsd"
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd"
 	"github.com/HouzuoGuo/laitos/httpclient"
@@ -29,6 +31,14 @@ func TestConfig(t *testing.T) {
 		"MailFrom": "howard@localhost",
 		"MTAHost": "127.0.0.1",
 		"MTAPort": 25
+	},
+
+	"DNSDaemon": {
+		"ListenAddress": "127.0.0.1",
+		"ListenPort": 61211,
+		"ForwardTo": "8.8.8.8",
+		"AllowQueryIPPrefixes": ["127.0"],
+		"PerIPLimit": 10
 	},
 
 	"HTTPDaemon": {
@@ -143,6 +153,58 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// ============ Test DNS daemon ============
+	// Update ad-server blacklist
+	dnsDaemon := config.GetDNSD()
+	if numEntries, err := dnsDaemon.InstallAdBlacklist(); err != nil || numEntries < 100 {
+		t.Fatal(err, numEntries)
+	}
+	// Server should start within two seconds
+	go func() {
+		if err := dnsDaemon.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	time.Sleep(2 * time.Second)
+
+	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:61211")
+	if err != nil {
+		t.Fatal(err)
+	}
+	githubComQuery, err := hex.DecodeString("97eb010000010000000000000667697468756203636f6d0000010001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	packetBuf := make([]byte, dnsd.MaxPacketSize)
+	clientConn, err := net.DialUDP("udp", nil, serverAddr)
+	// Try to reach rate limit
+	delete(dnsDaemon.BlackList, "github.com")
+	var success int
+	for i := 0; i < 100; i++ {
+		if _, err := clientConn.Write(githubComQuery); err != nil {
+			t.Fatal(err)
+		}
+		clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		length, err := clientConn.Read(packetBuf)
+		if err == nil && length > 50 {
+			success++
+		}
+	}
+	if success < 8 || success > 12 {
+		t.Fatal(success)
+	}
+	// Wait out rate limit
+	time.Sleep(dnsd.RateLimitIntervalSec * time.Second)
+	// Blacklist github and see if query still succeeds
+	dnsDaemon.BlackList["github.com"] = struct{}{}
+	if _, err := clientConn.Write(githubComQuery); err != nil {
+		t.Fatal(err)
+	}
+	clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	if _, err = clientConn.Read(packetBuf); err == nil {
+		t.Fatal("did not block")
+	}
+
 	// ============ Test HTTP daemon ============
 	// (Essentially combine all cases of api_test.go and httpd_test.go)
 	// Create a temporary file for index
@@ -224,7 +286,7 @@ func TestConfig(t *testing.T) {
 	}
 	// Test hitting rate limits
 	time.Sleep(httpd.RateLimitIntervalSec * time.Second)
-	success := 0
+	success = 0
 	for i := 0; i < 200; i++ {
 		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/")
 		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)

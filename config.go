@@ -8,6 +8,7 @@ import (
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/dnsd"
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
@@ -52,6 +53,8 @@ type Config struct {
 	Features feature.FeatureSet `json:"Features"` // Feature configuration is shared by all services
 	Mailer   email.Mailer       `json:"Mailer"`   // Mail configuration for notifications and mail processor results
 
+	DNSDaemon dnsd.DNSD `json:"DNSDaemon"` // DNS daemon configuration
+
 	HTTPDaemon   httpd.HTTPD     `json:"HTTPDaemon"`   // HTTP daemon configuration
 	HTTPBridges  StandardBridges `json:"HTTPBridges"`  // HTTP daemon bridge configuration
 	HTTPHandlers HTTPHandlers    `json:"HTTPHandlers"` // HTTP daemon handler configuration
@@ -70,6 +73,16 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 		return err
 	}
 	return nil
+}
+
+// Construct a DNS daemon from configuration and return.
+func (config *Config) GetDNSD() *dnsd.DNSD {
+	ret := config.DNSDaemon
+	if err := ret.Initialise(); err != nil {
+		log.Fatalf("Config.GetDNSD: failed to initialise - %v", err)
+		return nil
+	}
+	return &ret
 }
 
 // Construct an HTTP daemon from configuration and return.

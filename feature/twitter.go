@@ -40,9 +40,17 @@ func (twi *Twitter) SelfTest() error {
 	if !twi.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	// Make a test query (retrieve one tweet) to verify validity of API credentials
-	testExec := twi.GetFeeds(Command{TimeoutSec: TestTimeoutSec, Content: TwitterGetFeeds})
-	return testExec.Error
+	// Make an inexpensive API call to test API credentials
+	resp, err := httpclient.DoHTTP(httpclient.Request{
+		TimeoutSec: TestTimeoutSec,
+		RequestFunc: func(req *http.Request) error {
+			return twi.reqSigner.SetRequestAuthHeader(req)
+		},
+	}, "https://api.twitter.com/1.1/statuses/user_timeline.json?count=1")
+	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
+		return errResult.Error
+	}
+	return nil
 }
 
 func (twi *Twitter) Initialise() error {
