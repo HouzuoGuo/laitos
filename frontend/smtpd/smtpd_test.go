@@ -19,7 +19,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	daemon := SMTPD{
 		ListenAddress: "127.0.0.1",
 		ListenPort:    61358, // hard coded port is a random choice
-		IPLimit:       3,
+		PerIPLimit:    10,
 		MailProcessor: &mailp.MailProcessor{
 			CommandTimeoutSec: 10,
 			Processor:         common.GetTestCommandProcessor(),
@@ -75,8 +75,20 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 		stoppedNormally = true
 	}()
 	time.Sleep(3 * time.Second) // this really should be env.HTTPPublicIPTimeout * time.Second
-	// Send an ordinary mail to the daemon
+	// Try to exceed rate limit
 	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	success := 0
+	for i := 0; i < 100; i++ {
+		if err := smtp.SendMail("127.0.0.1:61358", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(testMessage)); err == nil {
+			success++
+		}
+	}
+	if success < 8 || success > 12 {
+		t.Log("successful delivery", success)
+	}
+	time.Sleep(RateLimitIntervalSec * time.Second)
+	// Send an ordinary mail to the daemon
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
 	if err := smtp.SendMail("127.0.0.1:61358", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(testMessage)); err != nil {
 		if err != nil {
 			t.Fatal(err)
@@ -89,7 +101,6 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	time.Sleep(3 * time.Second)
 	t.Log("Check howard@localhost and root@localhost mailbox")
 	// Daemon must stop in a second
 	daemon.Stop()

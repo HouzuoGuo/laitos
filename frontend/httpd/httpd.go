@@ -47,8 +47,8 @@ func (httpd *HTTPD) Initialise() error {
 	if httpd.ListenAddress == "" {
 		return errors.New("HTTPD.Initialise: listen address is empty")
 	}
-	if httpd.ListenPort == 0 {
-		return errors.New("HTTPD.Initialise: listen port must not be empty or 0")
+	if httpd.ListenPort < 1 {
+		return errors.New("HTTPD.Initialise: listen port must be greater than 0")
 	}
 	if (httpd.TLSCertPath != "" || httpd.TLSKeyPath != "") && (httpd.TLSCertPath == "" || httpd.TLSKeyPath == "") {
 		return errors.New("HTTPD.Initialise: if TLS is to be enabled, both TLS certificate and key path must be present.")

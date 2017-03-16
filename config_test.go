@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/bridge"
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
+	"github.com/HouzuoGuo/laitos/frontend/smtpd"
 	"github.com/HouzuoGuo/laitos/httpclient"
 	"io/ioutil"
 	"net"
@@ -84,7 +85,7 @@ func TestConfig(t *testing.T) {
 	"MailDaemon": {
 		"ListenAddress": "127.0.0.1",
 		"ListenPort": 18573,
-		"IPLimit": 2,
+		"PerIPLimit": 2,
 		"ForwardTo": ["howard@localhost", "root@localhost"]
 	},
 	"MailProcessor": {
@@ -413,6 +414,18 @@ mailshortcut
 		mailDaemonStoppedNormally = true
 	}()
 	time.Sleep(3 * time.Second) // this really should be env.HTTPPublicIPTimeout * time.Second
+	// Try to exceed rate limit
+	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	success = 0
+	for i := 0; i < 100; i++ {
+		if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(testMessage)); err == nil {
+			success++
+		}
+	}
+	if success < 8 || success > 12 {
+		t.Log("successful delivery", success)
+	}
+	time.Sleep(smtpd.RateLimitIntervalSec * time.Second)
 	// Send an ordinary mail to the daemon
 	mailMsg := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
 	if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(mailMsg)); err != nil {

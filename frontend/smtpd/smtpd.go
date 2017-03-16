@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	RateLimitIntervalSec  = 30 // Rate limit is calculated at 30 seconds interval
+	RateLimitIntervalSec  = 10 // Rate limit is calculated at 10 seconds interval
+	IOTimeoutSec          = 60 // IO timeout for both read and write operations
 	MaxConversationLength = 64 // Only converse up to this number of messages in an SMTP connection
 )
 
@@ -26,7 +27,7 @@ type SMTPD struct {
 	ListenPort    int      `json:"ListenPort"`    // Port number to listen on
 	TLSCertPath   string   `json:"TLSCertPath"`   // (Optional) serve StartTLS via this certificate
 	TLSKeyPath    string   `json:"TLSCertKey"`    // (Optional) serve StartTLS via this certificte (key)
-	IPLimit       int      `json:"IPLimit"`       // How many times in 30 seconds interval an IP may deliver an email to this server
+	PerIPLimit    int      `json:"PerIPLimit"`    // How many times in 10 seconds interval an IP may deliver an email to this server
 	ForwardTo     []string `json:"ForwardTo"`     // Forward received mails to these addresses
 
 	ForwardMailer email.Mailer `json:"-"` // Use this mailer to forward arrived mails
@@ -48,8 +49,8 @@ func (smtpd *SMTPD) Initialise() error {
 	if smtpd.ListenAddress == "" {
 		return errors.New("SMTPD.Initialise: listen address must not be empty")
 	}
-	if smtpd.ListenPort == 0 {
-		return errors.New("SMTPD.Initialise: listen port must not be empty or 0")
+	if smtpd.ListenPort < 1 {
+		return errors.New("SMTPD.Initialise: listen port must be greater than 0")
 	}
 	if smtpd.ForwardTo == nil || len(smtpd.ForwardTo) == 0 || !smtpd.ForwardMailer.IsConfigured() {
 		return errors.New("SMTPD.Initialise: the server is not useful if forward addresses/forward mailer are not configured")
@@ -71,9 +72,9 @@ func (smtpd *SMTPD) Initialise() error {
 	}
 	smtpd.SMTPConfig = smtp.Config{
 		Limits: &smtp.Limits{
-			MsgSize:   1024 * 1024,      // Accept mails up to 1 MB large
-			IOTimeout: 60 * time.Second, // IO timeout is a reasonable minute
-			BadCmds:   32,               // Abort connection after consecutive bad commands
+			MsgSize:   1024 * 1024,                // Accept mails up to 1 MB large
+			IOTimeout: IOTimeoutSec * time.Second, // IO timeout is a reasonable minute
+			BadCmds:   32,                         // Abort connection after consecutive bad commands
 		},
 		ServerName: smtpd.MyPublicIP,
 	}
@@ -81,7 +82,7 @@ func (smtpd *SMTPD) Initialise() error {
 		smtpd.SMTPConfig.TLSConfig = &tls.Config{Certificates: []tls.Certificate{smtpd.TLSCertificate}}
 	}
 	smtpd.RateLimit = &ratelimit.RateLimit{
-		MaxCount: smtpd.IPLimit,
+		MaxCount: smtpd.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
 	}
 	smtpd.RateLimit.Initialise()
@@ -117,7 +118,6 @@ func (smtpd *SMTPD) ProcessMail(fromAddr, mailBody string) {
 func (smtpd *SMTPD) ServeSMTP(clientConn net.Conn) {
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().String()[:strings.LastIndexByte(clientConn.RemoteAddr().String(), ':')]
-	log.Printf("SMTPD: handle %s", clientIP)
 
 	var numConversations int
 	var finishedNormally bool
@@ -132,9 +132,9 @@ func (smtpd *SMTPD) ServeSMTP(clientConn net.Conn) {
 		// Politely reject the mail if rate is exceeded
 		if !rateLimitOK {
 			smtpConn.ReplyRateExceeded()
-			finishReason = "rate limited"
-			goto conversationDone
+			return
 		}
+		log.Printf("SMTPD: handle %s", clientIP)
 		// Converse with the client to retrieve mail
 		switch ev.What {
 		case smtp.DONE:
@@ -161,15 +161,15 @@ func (smtpd *SMTPD) ServeSMTP(clientConn net.Conn) {
 conversationDone:
 	if finishedNormally {
 		log.Printf("SMTPD: got a mail from %s, composed by %s, addressed to %v", clientIP, fromAddr, toAddrs)
+		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
+		smtpd.ProcessMail(fromAddr, mailBody)
+		log.Printf("SMTPD: done with %s (%s) in %d conversations", clientIP, finishReason, numConversations)
 	}
-	log.Printf("SMTPD: done with %s (%s) in %d conversations", clientIP, finishReason, numConversations)
-	// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
-	smtpd.ProcessMail(fromAddr, mailBody)
 }
 
 /*
 You may call this function only after having called Initialise()!
-Start SMTP daemon and block until this program exits.
+Start SMTP daemon and block until daemon is told to stop.
 */
 func (smtpd *SMTPD) StartAndBlock() (err error) {
 	log.Printf("SMTPD.StartAndBlock: will listen for connections on %s:%d", smtpd.ListenAddress, smtpd.ListenPort)
