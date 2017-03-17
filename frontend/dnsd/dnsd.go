@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	RateLimitIntervalSec       = 10    // Rate limit is calculated at 10 seconds interval
-	IOTimeoutSec               = 60    // IO timeout for both read and write operations
-	MaxPacketSize              = 65535 // Maximum acceptable UDP packet size
-	NumQueueRatio              = 10    // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
-	BlacklistUpdateIntervalSec = 7200  // Update ad-server blacklist at this interval
+	RateLimitIntervalSec       = 10   // Rate limit is calculated at 10 seconds interval
+	IOTimeoutSec               = 120  // IO timeout for both read and write operations
+	MaxPacketSize              = 9038 // Maximum acceptable UDP packet size
+	NumQueueRatio              = 10   // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
+	BlacklistUpdateIntervalSec = 7200 // Update ad-server blacklist at this interval
 )
 
 // A query to forward to DNS forwarder.

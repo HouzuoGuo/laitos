@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	RateLimitIntervalSec  = 10 // Rate limit is calculated at 10 seconds interval
-	IOTimeoutSec          = 60 // IO timeout for both read and write operations
-	MaxConversationLength = 64 // Only converse up to this number of messages in an SMTP connection
+	RateLimitIntervalSec  = 10  // Rate limit is calculated at 10 seconds interval
+	IOTimeoutSec          = 120 // IO timeout for both read and write operations
+	MaxConversationLength = 64  // Only converse up to this number of messages in an SMTP connection
 )
 
 // An SMTP daemon that receives mails addressed to its domain name, and optionally forward the received mails to other addresses.
@@ -72,9 +72,9 @@ func (smtpd *SMTPD) Initialise() error {
 	}
 	smtpd.SMTPConfig = smtp.Config{
 		Limits: &smtp.Limits{
-			MsgSize:   1024 * 1024,                // Accept mails up to 1 MB large
+			MsgSize:   2 * 1024 * 1024,            // Accept mails up to 2 MB large
 			IOTimeout: IOTimeoutSec * time.Second, // IO timeout is a reasonable minute
-			BadCmds:   32,                         // Abort connection after consecutive bad commands
+			BadCmds:   64,                         // Abort connection after consecutive bad commands
 		},
 		ServerName: smtpd.MyPublicIP,
 	}

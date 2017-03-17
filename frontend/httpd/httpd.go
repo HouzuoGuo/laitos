@@ -16,6 +16,7 @@ const (
 	DirectoryHandlerRateLimitFactor = 10             // 9 times less expensive than the most expensive handler
 	RateLimitIntervalSec            = 5              // Rate limit is calculated at 5 seconds interval
 	RateLimit404Key                 = "RATELIMIT404" // Fake endpoint name for rate limit on 404 handler
+	IOTimeoutSec               = 120  // IO timeout for both read and write operations
 )
 
 // Return true if input character is a forward ot backward slash.
@@ -92,8 +93,8 @@ func (httpd *HTTPD) Initialise() error {
 	httpd.Server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", httpd.ListenAddress, httpd.ListenPort),
 		Handler:      muxHandlers,
-		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		ReadTimeout:  IOTimeoutSec * time.Second,
+		WriteTimeout: IOTimeoutSec * time.Second,
 	}
 	return nil
 }
