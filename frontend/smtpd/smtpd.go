@@ -8,8 +8,8 @@ import (
 	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd/smtp"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/ratelimit"
-	"log"
 	"net"
 	"strings"
 	"time"
@@ -39,6 +39,7 @@ type SMTPD struct {
 
 	MailProcessor *mailp.MailProcessor `json:"-"` // Process feature commands from incoming mails
 	RateLimit     *ratelimit.RateLimit `json:"-"` // Rate limit counter per IP address
+	Logger        lalog.Logger         `json:"-"` // Logger
 }
 
 // Check configuration and initialise internal states.
@@ -68,7 +69,8 @@ func (smtpd *SMTPD) Initialise() error {
 	// Initialise SMTP processor configuration
 	smtpd.MyPublicIP = env.GetPublicIP()
 	if smtpd.MyPublicIP == "" {
-		log.Print("SMTPD.Initialise: unable to determine public IP address")
+		// Not a fatal error
+		smtpd.Logger.Printf("Initialise", "", nil, "unable to determine public IP address")
 	}
 	smtpd.SMTPConfig = smtp.Config{
 		Limits: &smtp.Limits{
@@ -84,6 +86,7 @@ func (smtpd *SMTPD) Initialise() error {
 	smtpd.RateLimit = &ratelimit.RateLimit{
 		MaxCount: smtpd.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
+		Logger:   smtpd.Logger,
 	}
 	smtpd.RateLimit.Initialise()
 	// Do not allow forward to this daemon itself
@@ -104,21 +107,21 @@ func (smtpd *SMTPD) ProcessMail(fromAddr, mailBody string) {
 	bodyBytes := []byte(mailBody)
 	// Forward the mail
 	if err := smtpd.ForwardMailer.SendRaw(smtpd.ForwardMailer.MailFrom, bodyBytes, smtpd.ForwardTo...); err == nil {
-		log.Printf("SMTPD: successfully forwarded email from %s to %v", fromAddr, smtpd.ForwardTo)
+		smtpd.Logger.Printf("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", smtpd.ForwardTo)
 	} else {
-		log.Printf("SMTPD: failed to forward mail from %s - %v", fromAddr, err)
+		smtpd.Logger.Printf("ProcessMail", fromAddr, err, "failed to forward email")
 	}
 	// Run feature command from mail body
 	if err := smtpd.MailProcessor.Process(bodyBytes, smtpd.ForwardTo...); err != nil {
-		log.Printf("SMTPD: failed to process feature commands from %s - %v", fromAddr, err)
+		smtpd.Logger.Printf("ProcessMail", fromAddr, err, "failed to process feature command")
 	}
 }
 
 // Converse with SMTP client to retrieve mail, then immediately process the retrieved mail. Finally close the connection.
-func (smtpd *SMTPD) ServeSMTP(clientConn net.Conn) {
+func (smtpd *SMTPD) ServeConn(clientConn net.Conn) {
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().String()[:strings.LastIndexByte(clientConn.RemoteAddr().String(), ':')]
-
+	smtpd.Logger.Printf("ServeConn", clientIP, nil, "connected")
 	var numConversations int
 	var finishedNormally bool
 	var finishReason string
@@ -134,7 +137,6 @@ func (smtpd *SMTPD) ServeSMTP(clientConn net.Conn) {
 			smtpConn.ReplyRateExceeded()
 			return
 		}
-		log.Printf("SMTPD: handle %s", clientIP)
 		// Converse with the client to retrieve mail
 		switch ev.What {
 		case smtp.DONE:
@@ -160,11 +162,11 @@ func (smtpd *SMTPD) ServeSMTP(clientConn net.Conn) {
 	}
 conversationDone:
 	if finishedNormally {
-		log.Printf("SMTPD: got a mail from %s, composed by %s, addressed to %v", clientIP, fromAddr, toAddrs)
+		smtpd.Logger.Printf("ServeConn", clientIP, nil, "got a mail from \"%s\" addressed to %v", fromAddr, toAddrs)
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		smtpd.ProcessMail(fromAddr, mailBody)
-		log.Printf("SMTPD: done with %s (%s) in %d conversations", clientIP, finishReason, numConversations)
 	}
+	smtpd.Logger.Printf("ServeConn", clientIP, nil, "%s after %d conversations", finishReason, numConversations)
 }
 
 /*
@@ -172,7 +174,7 @@ You may call this function only after having called Initialise()!
 Start SMTP daemon and block until daemon is told to stop.
 */
 func (smtpd *SMTPD) StartAndBlock() (err error) {
-	log.Printf("SMTPD.StartAndBlock: will listen for connections on %s:%d", smtpd.ListenAddress, smtpd.ListenPort)
+	smtpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for connections")
 	smtpd.Listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", smtpd.ListenAddress, smtpd.ListenPort))
 	if err != nil {
 		return fmt.Errorf("SMTPD.StartAndBlock: failed to listen on %s:%d - %v", smtpd.ListenAddress, smtpd.ListenPort, err)
@@ -187,7 +189,7 @@ func (smtpd *SMTPD) StartAndBlock() (err error) {
 				return fmt.Errorf("SMTPD.StartAndBlock: failed to accept new connection - %v", err)
 			}
 		}
-		go smtpd.ServeSMTP(clientConn)
+		go smtpd.ServeConn(clientConn)
 	}
 	return nil
 }
@@ -196,7 +198,7 @@ func (smtpd *SMTPD) StartAndBlock() (err error) {
 func (smtpd *SMTPD) Stop() {
 	if smtpd.Listener != nil {
 		if err := smtpd.Listener.Close(); err != nil {
-			log.Printf("SMTPD: failed to close listener - %v", err)
+			smtpd.Logger.Printf("Stop", "", err, "failed to close listener")
 		}
 	}
 }

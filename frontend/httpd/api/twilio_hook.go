@@ -6,6 +6,7 @@ import (
 	"github.com/HouzuoGuo/laitos/bridge"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"net/http"
 )
 
@@ -15,7 +16,7 @@ const TwilioHandlerTimeoutSec = 14 // as of 2017-02-23, the timeout is required 
 type HandleTwilioSMSHook struct {
 }
 
-func (hand *HandleTwilioSMSHook) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (hand *HandleTwilioSMSHook) MakeHandler(logger lalog.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// SMS message is in "Body" parameter
 		ret := cmdProc.Process(feature.Command{
@@ -45,7 +46,7 @@ type HandleTwilioCallHook struct {
 	CallbackEndpoint string `json:"-"`            // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
 }
 
-func (hand *HandleTwilioCallHook) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
+func (hand *HandleTwilioCallHook) MakeHandler(logger lalog.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
 	if hand.CallGreeting == "" || hand.CallbackEndpoint == "" {
 		return nil, errors.New("HandleTwilioCallHook.MakeHandler: greeting or callback endpoint is empty")
 	}
@@ -72,7 +73,7 @@ type HandleTwilioCallCallback struct {
 	MyEndpoint string `json:"-"` // URL endpoint to the callback itself, including prefix /.
 }
 
-func (hand *HandleTwilioCallCallback) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (hand *HandleTwilioCallCallback) MakeHandler(logger lalog.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	if hand.MyEndpoint == "" {
 		return nil, errors.New("HandleTwilioCallCallback.MakeHandler: own endpoint is empty")
 	}

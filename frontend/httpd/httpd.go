@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/ratelimit"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -16,7 +16,7 @@ const (
 	DirectoryHandlerRateLimitFactor = 10             // 9 times less expensive than the most expensive handler
 	RateLimitIntervalSec            = 5              // Rate limit is calculated at 5 seconds interval
 	RateLimit404Key                 = "RATELIMIT404" // Fake endpoint name for rate limit on 404 handler
-	IOTimeoutSec               = 120  // IO timeout for both read and write operations
+	IOTimeoutSec                    = 120            // IO timeout for both read and write operations
 )
 
 // Return true if input character is a forward ot backward slash.
@@ -38,6 +38,7 @@ type HTTPD struct {
 	AllRateLimits   map[string]*ratelimit.RateLimit `json:"-"` // Aggregate all routes and their rate limit counters
 	Server          *http.Server                    `json:"-"` // Standard library HTTP server structure
 	Processor       *common.CommandProcessor        `json:"-"` // Feature command processor
+	Logger          lalog.Logger                    `json:"-"` // Logger
 }
 
 // Check configuration and initialise internal states.
@@ -67,20 +68,32 @@ func (httpd *HTTPD) Initialise() error {
 				urlLocation = "/" + urlLocation
 			}
 			httpd.AllRoutes[urlLocation] = http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)
-			httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{UnitSecs: RateLimitIntervalSec, MaxCount: DirectoryHandlerRateLimitFactor * httpd.BaseRateLimit}
+			httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{
+				UnitSecs: RateLimitIntervalSec,
+				MaxCount: DirectoryHandlerRateLimitFactor * httpd.BaseRateLimit,
+				Logger:   httpd.Logger,
+			}
 		}
 	}
 	// Collect specialised handlers
 	for urlLocation, handler := range httpd.SpecialHandlers {
-		fun, err := handler.MakeHandler(httpd.Processor)
+		fun, err := handler.MakeHandler(httpd.Logger, httpd.Processor)
 		if err != nil {
 			return err
 		}
 		httpd.AllRoutes[urlLocation] = fun
-		httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{UnitSecs: RateLimitIntervalSec, MaxCount: handler.GetRateLimitFactor() * httpd.BaseRateLimit}
+		httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{
+			UnitSecs: RateLimitIntervalSec,
+			MaxCount: handler.GetRateLimitFactor() * httpd.BaseRateLimit,
+			Logger:   httpd.Logger,
+		}
 	}
 	// There is a rate limit for 404 that does not allow frequent hits
-	httpd.AllRateLimits[RateLimit404Key] = &ratelimit.RateLimit{UnitSecs: RateLimitIntervalSec, MaxCount: httpd.BaseRateLimit}
+	httpd.AllRateLimits[RateLimit404Key] = &ratelimit.RateLimit{
+		UnitSecs: RateLimitIntervalSec,
+		MaxCount: httpd.BaseRateLimit,
+		Logger:   httpd.Logger,
+	}
 	// Initialise all rate limits
 	for _, limit := range httpd.AllRateLimits {
 		limit.Initialise()
@@ -128,7 +141,7 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 		if limit, routeFound := httpd.AllRateLimits[assembledPath]; routeFound {
 			if limit.Add(remoteIP, true) {
 				// Look up the partial URL to find handler function
-				log.Printf("HTTPD: handle %s - %s - %s", remoteIP, r.Method, assembledPath)
+				httpd.Logger.Printf("Handle", remoteIP, nil, "%s %s", r.Method, assembledPath)
 				httpd.AllRoutes[assembledPath](w, r)
 			} else {
 				http.Error(w, "", http.StatusTooManyRequests)
@@ -136,7 +149,7 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 		} else {
 			// Route is not found
 			if httpd.AllRateLimits[RateLimit404Key].Add(remoteIP, true) {
-				log.Printf("HTTPD: cannot find %s - %s - %s", remoteIP, r.Method, assembledPath)
+				httpd.Logger.Printf("Handle", remoteIP, nil, "NotFound %s %s", r.Method, assembledPath)
 				http.Error(w, "", http.StatusNotFound)
 			} else {
 				http.Error(w, "", http.StatusTooManyRequests)
@@ -151,12 +164,12 @@ Start HTTP daemon and block until this program exits.
 */
 func (httpd *HTTPD) StartAndBlock() error {
 	if httpd.TLSCertPath == "" {
-		log.Printf("HTTPD.StartAndBlock: will listen for HTTP traffic on %s:%d", httpd.ListenAddress, httpd.ListenPort)
+		httpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTP connections")
 		if err := httpd.Server.ListenAndServe(); err != nil {
 			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
 		}
 	} else {
-		log.Printf("HTTPD.StartAndBlock: will listen for HTTPS traffic on %s:%d", httpd.ListenAddress, httpd.ListenPort)
+		httpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTPS connections")
 		if err := httpd.Server.ListenAndServeTLS(httpd.TLSCertPath, httpd.TLSKeyPath); err != nil {
 			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
 		}

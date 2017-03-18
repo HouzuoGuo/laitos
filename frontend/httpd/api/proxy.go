@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -113,7 +113,7 @@ type HandleWebProxy struct {
 	MyEndpoint string `json:"-"` // URL endpoint to the proxy itself, including prefix /.
 }
 
-func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
+func (xy *HandleWebProxy) MakeHandler(logger lalog.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
 	if xy.MyEndpoint == "" {
 		return nil, errors.New("HandleWebProxy.MakeHandler: own endpoint is empty")
 	}
@@ -135,14 +135,14 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
-		if len(browseURL) > 2048 {
-			log.Printf("PROXY: proxy URL is unusually long at %d bytes", len(browseURL))
+		if len(browseURL) > 1024 {
+			logger.Printf("Proxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		urlParts, err := url.Parse(browseURL)
 		if err != nil {
-			log.Printf("PROXY: failed to parse proxy URL %s - %v", browseURL, err)
+			logger.Printf("Proxy", browseURL, err, "failed to parse proxy URL")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -156,7 +156,7 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 
 		myReq, err := http.NewRequest(r.Method, browseSchemeHostPathQuery, r.Body)
 		if err != nil {
-			log.Printf("PROXY: failed to create request to URL %s - %v", browseSchemeHostPathQuery, err)
+			logger.Printf("Proxy", browseSchemeHostPathQuery, err, "failed to create request to URL")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -169,13 +169,13 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 		client := http.Client{}
 		remoteResp, err := client.Do(myReq)
 		if err != nil {
-			log.Printf("PROXY: failed to send request to %s - %v", browseSchemeHostPathQuery, err)
+			logger.Printf("Proxy", browseSchemeHostPathQuery, err, "failed to send request")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		remoteRespBody, err := ioutil.ReadAll(remoteResp.Body)
 		if err != nil {
-			log.Printf("PROXY: failed to download URL %s - %v", browseSchemeHostPathQuery, err)
+			logger.Printf("Proxy", browseSchemeHostPathQuery, err, "failed to download the URL")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -212,7 +212,7 @@ func (xy *HandleWebProxy) MakeHandler(_ *common.CommandProcessor) (http.HandlerF
 				strBody = strBody[0:headIndex+6] + injectedJS + strBody[headIndex+6:]
 			}
 			w.Write([]byte(strBody))
-			log.Printf("PROXY: serve HTML %s", browseSchemeHostPathQuery)
+			logger.Printf("Proxy", browseSchemeHostPathQuery, nil, "served modified HTML")
 		} else {
 			w.Write(remoteRespBody)
 		}

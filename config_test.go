@@ -95,7 +95,7 @@ func TestConfig(t *testing.T) {
 	"MailDaemon": {
 		"ListenAddress": "127.0.0.1",
 		"ListenPort": 18573,
-		"PerIPLimit": 2,
+		"PerIPLimit": 10,
 		"ForwardTo": ["howard@localhost", "root@localhost"]
 	},
 	"MailProcessor": {
@@ -121,6 +121,13 @@ func TestConfig(t *testing.T) {
 			"CompressToSingleLine": true,
 			"MaxLength": 70
 		}
+	},
+
+	"SockDaemon": {
+		"ListenAddress": "127.0.0.1",
+		"ListenPort": 6891,
+		"PerIPLimit": 10,
+		"Password": "1234567"
 	},
 
 	"TelegramBot": {
@@ -190,7 +197,7 @@ func TestConfig(t *testing.T) {
 			success++
 		}
 	}
-	if success < 8 || success > 12 {
+	if success < 5 || success > 15 {
 		t.Fatal(success)
 	}
 	// Wait out rate limit
@@ -294,7 +301,7 @@ func TestConfig(t *testing.T) {
 			success++
 		}
 	}
-	if success > 105 || success < 95 {
+	if success < 50 || success > 150 {
 		t.Fatal(success)
 	}
 	// Wait till rate limits reset
@@ -484,8 +491,8 @@ mailshortcut
 			success++
 		}
 	}
-	if success < 8 || success > 12 {
-		t.Log("successful delivery", success)
+	if success < 5 || success > 15 {
+		t.Fatal("delivered", success)
 	}
 	time.Sleep(smtpd.RateLimitIntervalSec * time.Second)
 	// Send an ordinary mail to the daemon
@@ -508,6 +515,27 @@ mailshortcut
 	mailDaemon.Stop()
 	time.Sleep(1 * time.Second)
 	if !mailDaemonStoppedNormally {
+		t.Fatal("did not stop")
+	}
+
+	// ============ Test sock daemon ============
+	sockDaemon := config.GetSockDaemon()
+	var stopped bool
+	go func() {
+		if err := sockDaemon.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+		stopped = true
+	}()
+	time.Sleep(2 * time.Second)
+	if conn, err := net.Dial("tcp", "127.0.0.1:6891"); err != nil {
+		t.Fatal(err)
+	} else if n, err := conn.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}); err != nil && n != 10 {
+		t.Fatal(err, n)
+	}
+	sockDaemon.Stop()
+	time.Sleep(1 * time.Second)
+	if !stopped {
 		t.Fatal("did not stop")
 	}
 

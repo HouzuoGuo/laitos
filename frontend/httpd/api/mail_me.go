@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"net/http"
 )
 
@@ -30,7 +31,7 @@ type HandleMailMe struct {
 	Mailer     email.Mailer `json:"-"`
 }
 
-func (mm *HandleMailMe) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
+func (mm *HandleMailMe) MakeHandler(logger lalog.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
 	if mm.Recipients == nil || len(mm.Recipients) == 0 || !mm.Mailer.IsConfigured() {
 		return nil, errors.New("HandleMailMe.MakeHandler: recipient list is empty or mailer is not configured")
 	}

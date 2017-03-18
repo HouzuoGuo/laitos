@@ -4,15 +4,18 @@ import (
 	cryptoRand "crypto/rand"
 	"encoding/binary"
 	"flag"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"io/ioutil"
-	"log"
 	pseudoRand "math/rand"
 	"os"
 	"regexp"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
 )
+
+var logger = lalog.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
 
 // Re-seed global pseudo random generator using cryptographic random number generator.
 func ReseedPseudoRand() {
@@ -21,7 +24,7 @@ func ReseedPseudoRand() {
 		seedBytes := make([]byte, 8)
 		_, err := cryptoRand.Read(seedBytes)
 		if err != nil {
-			log.Panicf("ReseedPseudoRand: failed to read from crypto random generator - %v", err)
+			logger.Panicf("ReseedPseudoRand", "", err, "failed to read from random generator")
 		}
 		seed, _ := binary.Varint(seedBytes)
 		if seed == 0 {
@@ -32,18 +35,19 @@ func ReseedPseudoRand() {
 			break
 		}
 	}
-	log.Printf("ReseedPseudoRand: succeeded after %d attempt(s)", numAttempts)
+	logger.Printf("ReseedPseudoRand", "", nil, "succeeded after %d attempt(s)", numAttempts)
 }
 
 func main() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
 		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
-			log.Fatalf("main: failed to lock memory - %v", err)
+			logger.Fatalf("main", "", err, "failed to lock memory")
+			return
 		}
-		log.Print("Program has been locked into memory for safety reasons.")
+		logger.Printf("main", "", nil, "program has been locked into memory for safety reasons")
 	} else {
-		log.Print("Program is not running as root (UID 0) hence memory is not locked, your private information will leak into swap.")
+		logger.Printf("main", "", nil, "program is not running as root (UID 0) hence memory is not locked, your private information will leak into swap.")
 	}
 
 	// Re-seed pseudo random number generator once a while
@@ -56,26 +60,30 @@ func main() {
 	// Process command line flags
 	var configFile, frontend string
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, mailp, smtpd, telegram)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, mailp, smtpd, sockd, telegram)")
 	flag.Parse()
 
 	if configFile == "" {
-		log.Fatal("Please provide a configuration file (-config).")
+		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
+		return
 	}
 	frontendList := regexp.MustCompile(`\w+`)
 	frontends := frontendList.FindAllString(frontend, -1)
 	if frontends == nil || len(frontends) == 0 {
-		log.Fatal("Please provide comma-separated list of frontend services to start (-frontend).")
+		logger.Fatalf("main", "", nil, "please provide comma-separated list of frontend services to start (-frontend).")
+		return
 	}
 
 	// Deserialise configuration file
 	var config Config
 	configBytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		log.Fatalf("Failed to read config file \"%s\" - %v", configFile, err)
+		logger.Fatalf("main", "", err, "failed to read config file \"%s\"", configFile)
+		return
 	}
 	if err := config.DeserialiseFromJSON(configBytes); err != nil {
-		log.Fatalf("Failed to deserialise config file \"%s\" - %v", configFile, err)
+		logger.Fatalf("main", "", err, "failed to deserialise config file \"%s\"", configFile)
+		return
 	}
 
 	// Start frontent daemons
@@ -88,9 +96,10 @@ func main() {
 			daemons.Add(1)
 			go func() {
 				defer daemons.Done()
-				log.Print("main: going to start dnsd")
+				logger.Printf("main", "", nil, "going to start dns daemon")
 				if err := config.GetDNSD().StartAndBlock(); err != nil {
-					log.Fatalf("main: failed to start dns daemon - %v", err)
+					logger.Fatalf("main", "", err, "failed to start dns daemon")
+					return
 				}
 			}()
 		case "httpd":
@@ -98,44 +107,61 @@ func main() {
 			daemons.Add(1)
 			go func() {
 				defer daemons.Done()
-				log.Print("main: going to start httpd")
+				logger.Printf("main", "", nil, "going to start http daemon")
 				if err := config.GetHTTPD().StartAndBlock(); err != nil {
-					log.Fatalf("main: failed to start http daemon - %v", err)
+					logger.Fatalf("main", "", err, "failed to start http daemon")
+					return
 				}
 			}()
 		case "mailp":
 			mailContent, err := ioutil.ReadAll(os.Stdin)
 			if err != nil {
-				log.Fatalf("main: failed to read mail content from stdin - %v", err)
+				logger.Fatalf("main", "", err, "failed to read mail from STDIN")
+				return
 			}
 			if err := config.GetMailProcessor().Process(mailContent); err != nil {
-				log.Fatalf("main: failed to process mail - %v", err)
+				logger.Fatalf("main", "", err, "failed to process mail")
 			}
 		case "smtpd":
 			numDaemons++
 			daemons.Add(1)
 			go func() {
 				defer daemons.Done()
+				logger.Printf("main", "", nil, "going to start smtp daemon")
 				if err := config.GetMailDaemon().StartAndBlock(); err != nil {
-					log.Fatalf("main: failed to start smtp daemon - %v", err)
+					logger.Fatalf("main", "", err, "failed to start smtp daemon")
+					return
 				}
 			}()
+		case "sockd":
+			numDaemons++
+			daemons.Add(1)
+			go func() {
+				defer daemons.Done()
+				logger.Printf("main", "", nil, "going to start sock daemon")
+				if err := config.GetSockDaemon().StartAndBlock(); err != nil {
+					logger.Fatalf("main", "", err, "failed to start sock daemon")
+					return
+				}
+			}()
+
 		case "telegram":
 			numDaemons++
 			daemons.Add(1)
 			go func() {
 				defer daemons.Done()
-				log.Print("main: going to start telegram bot")
+				logger.Printf("main", "", nil, "going to start telegram bot")
 				if err := config.GetTelegramBot().StartAndBlock(); err != nil {
-					log.Fatalf("main: failed to start telegram bot daemon - %v", err)
+					logger.Fatalf("main", "", err, "failed to start telegram bot")
+					return
 				}
 			}()
 		default:
-			log.Fatalf("main: unknown frontend name - %s", frontendName)
+			logger.Fatalf("main", "", err, "unknown frontend name \"%s\"", frontendName)
 		}
 	}
 	if numDaemons > 0 {
-		log.Printf("main: started %d frontend daemons", numDaemons)
+		logger.Printf("main", "", nil, "started %d daemons", numDaemons)
 	}
 	// Daemons are not really supposed to quit
 	daemons.Wait()

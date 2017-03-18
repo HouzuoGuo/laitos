@@ -83,8 +83,8 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 			success++
 		}
 	}
-	if success < 8 || success > 12 {
-		t.Log("successful delivery", success)
+	if success < 5 || success > 15 {
+		t.Fatal("delivered", success)
 	}
 	time.Sleep(RateLimitIntervalSec * time.Second)
 	// Send an ordinary mail to the daemon

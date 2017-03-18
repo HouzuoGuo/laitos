@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -18,7 +17,6 @@ type Request struct {
 	ContentType string                    // Content type header (default to "application/x-www-form-urlencoded; charset=UTF-8")
 	Body        io.Reader                 // Request body (default to nil)
 	RequestFunc func(*http.Request) error // Manipulate the HTTP request at will (default to nil)
-	Log         bool                      // Log request URL (default to false)
 }
 
 // Set blank attributes to their default value.
@@ -65,9 +63,6 @@ func DoHTTP(reqParam Request, urlTemplate string, urlValues ...interface{}) (res
 	}
 	if reqParam.Header != nil {
 		req.Header = reqParam.Header
-	}
-	if reqParam.Log {
-		log.Printf("DoHTTP: %s %s", reqParam.Method, fullURL)
 	}
 	// Let function to further manipulate HTTP request
 	if reqParam.RequestFunc != nil {

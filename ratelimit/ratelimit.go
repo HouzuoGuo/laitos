@@ -1,7 +1,7 @@
 package ratelimit
 
 import (
-	"log"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"sync"
 	"time"
 )
@@ -10,6 +10,7 @@ import (
 type RateLimit struct {
 	UnitSecs      int64
 	MaxCount      int
+	Logger        lalog.Logger
 	lastTimestamp int64
 	counter       map[string]int
 	logged        map[string]struct{}
@@ -21,7 +22,8 @@ func (limit *RateLimit) Initialise() {
 	limit.counter = make(map[string]int)
 	limit.counterMutex = new(sync.Mutex)
 	if limit.UnitSecs < 1 || limit.MaxCount < 1 {
-		panic("RateLimit.Initialise: unit or max count must be greater than 0")
+		limit.Logger.Panicf("Initialise", "RateLimit", nil, "UnitSecs and Maxcount must be greater than 0")
+		return
 	}
 }
 
@@ -37,7 +39,7 @@ func (limit *RateLimit) Add(actor string, logIfLimitHit bool) bool {
 	if count, exists := limit.counter[actor]; exists {
 		if count >= limit.MaxCount {
 			if _, hasLogged := limit.logged[actor]; !hasLogged && logIfLimitHit {
-				log.Printf("RATELIMIT: %s exceeded limit of %d hits per %d seconds", actor, limit.MaxCount, limit.UnitSecs)
+				limit.Logger.Printf("Add", "RateLimit", nil, "%s exceeded limit of %d hits per %d seconds", actor, limit.MaxCount, limit.UnitSecs)
 				limit.logged[actor] = struct{}{}
 			}
 			limit.counterMutex.Unlock()

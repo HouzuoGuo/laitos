@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"github.com/HouzuoGuo/laitos/bridge"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
@@ -13,8 +14,9 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd"
+	"github.com/HouzuoGuo/laitos/frontend/sockd"
 	"github.com/HouzuoGuo/laitos/frontend/telegram_bot"
-	"log"
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 // Configuration of a standard set of bridges that are useful to both HTTP daemon and mail processor.
@@ -63,6 +65,8 @@ type Config struct {
 	MailProcessor        mailp.MailProcessor `json:"MailProcessor"`        // Incoming mail processor configuration
 	MailProcessorBridges StandardBridges     `json:"MailProcessorBridges"` // Incoming mail processor bridge configuration
 
+	SockDaemon sockd.Sockd `json:"SockDaemon"` // Intentionally undocumented
+
 	TelegramBot        telegram.TelegramBot `json:"TelegramBot"`        // Telegram bot configuration
 	TelegramBotBridges StandardBridges      `json:"TelegramBotBridges"` // Telegram bot bridge configuration
 }
@@ -78,8 +82,9 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 // Construct a DNS daemon from configuration and return.
 func (config *Config) GetDNSD() *dnsd.DNSD {
 	ret := config.DNSDaemon
+	ret.Logger = lalog.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 	if err := ret.Initialise(); err != nil {
-		log.Fatalf("Config.GetDNSD: failed to initialise - %v", err)
+		ret.Logger.Fatalf("GetDNSD", "Config", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -88,15 +93,18 @@ func (config *Config) GetDNSD() *dnsd.DNSD {
 // Construct an HTTP daemon from configuration and return.
 func (config *Config) GetHTTPD() *httpd.HTTPD {
 	ret := config.HTTPDaemon
+	ret.Logger = lalog.Logger{ComponentName: "HTTPD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 
 	mailNotification := config.HTTPBridges.NotifyViaEmail
 	mailNotification.Mailer = config.Mailer
+	mailNotification.Logger = ret.Logger
+
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		log.Fatalf("Config.GetHTTPD: failed to initialise features - %v", err)
+		ret.Logger.Fatalf("GetHTTPD", "Config", err, "failed to initialise features")
 		return nil
 	}
-	log.Printf("Config.GetHTTPD: enabled features are - %v", features.GetTriggers())
+	ret.Logger.Printf("GetHTTPD", "Config", nil, "enabled features are - %v", features.GetTriggers())
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
@@ -146,7 +154,8 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 		randBytes := make([]byte, 32)
 		_, err := rand.Read(randBytes)
 		if err != nil {
-			log.Panicf("Config.GetHTTPD: failed to read random number - %v", err)
+			ret.Logger.Panicf("GetHTTPD", "Config", err, "failed to read random number")
+			return nil
 		}
 		callbackEndpoint := "/" + hex.EncodeToString(randBytes)
 		// The greeting handler will use the callback endpoint to handle command
@@ -158,7 +167,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	ret.SpecialHandlers = handlers
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
-		log.Fatalf("Config.GetHTTPD: failed to initialise - %v", err)
+		ret.Logger.Fatalf("GetHTTPD", "Config", err, "failed to initialise")
 		return nil
 	}
 	for route := range ret.AllRoutes {
@@ -166,7 +175,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 		if len(route) > 12 {
 			shortRoute = route[0:12] + "..."
 		}
-		log.Printf("Config.GetHTTPD: installed route %s", shortRoute)
+		ret.Logger.Printf("GetHTTPD", "Config", nil, "installed route %s", shortRoute)
 	}
 	return &ret
 }
@@ -179,15 +188,18 @@ mechanism.
 */
 func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 	ret := config.MailProcessor
+	ret.Logger = lalog.Logger{ComponentName: "MailProcessor", ComponentID: ret.ReplyMailer.MTAHost}
 
 	mailNotification := config.MailProcessorBridges.NotifyViaEmail
 	mailNotification.Mailer = config.Mailer
+	mailNotification.Logger = ret.Logger
+
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		log.Fatalf("Config.GetMailProcessor: failed to initialise features - %v", err)
+		ret.Logger.Fatalf("GetMailProcessor", "Config", err, "failed to initialise features")
 		return nil
 	}
-	log.Printf("Config.GetMailProcessor: enabled features are - %v", features.GetTriggers())
+	ret.Logger.Printf("GetMailProcessor", "Config", nil, "enabled features are - %v", features.GetTriggers())
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
@@ -212,10 +224,22 @@ Both SMTP daemon and mail command processor will use the common mailer to forwar
 */
 func (config *Config) GetMailDaemon() *smtpd.SMTPD {
 	ret := config.MailDaemon
+	ret.Logger = lalog.Logger{ComponentName: "SMTPD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 	ret.MailProcessor = config.GetMailProcessor()
 	ret.ForwardMailer = config.Mailer
 	if err := ret.Initialise(); err != nil {
-		log.Fatalf("Config.GetMailDeamon: failed to initialise - %v", err)
+		ret.Logger.Fatalf("GetMailDaemon", "Config", err, "failed to initialise")
+		return nil
+	}
+	return &ret
+}
+
+// Intentionally undocumented
+func (config *Config) GetSockDaemon() *sockd.Sockd {
+	ret := config.SockDaemon
+	ret.Logger = lalog.Logger{ComponentName: "Sockd", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
+	if err := ret.Initialise(); err != nil {
+		ret.Logger.Fatalf("GetSockDaemon", "Config", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -224,15 +248,18 @@ func (config *Config) GetMailDaemon() *smtpd.SMTPD {
 // Construct a telegram bot from configuration and return.
 func (config *Config) GetTelegramBot() *telegram.TelegramBot {
 	ret := config.TelegramBot
+	ret.Logger = lalog.Logger{ComponentName: "TelegramBot"}
 
 	mailNotification := config.TelegramBotBridges.NotifyViaEmail
 	mailNotification.Mailer = config.Mailer
+	mailNotification.Logger = ret.Logger
+
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		log.Fatalf("Config.GetTelegramBot: failed to initialise features - %v", err)
+		ret.Logger.Fatalf("GetTelegramBot", "Config", err, "failed to initialise features")
 		return nil
 	}
-	log.Printf("Config.GetTelegramBot: enabled features are - %v", features.GetTriggers())
+	ret.Logger.Printf("GetTelegramBot", "Config", nil, "enabled features are - %v", features.GetTriggers())
 	// Assemble telegram bot from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,

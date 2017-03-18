@@ -7,7 +7,7 @@ import (
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
-	"log"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"strings"
 )
 
@@ -17,9 +17,10 @@ Usually used in combination of laitos' own SMTP daemon, but it can also work ind
 postfix's "forward-mail-to-program" mechanism.
 */
 type MailProcessor struct {
-	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
 	CommandTimeoutSec int                      `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds
+	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
 	ReplyMailer       email.Mailer             `json:"-"`                 // To deliver Email replies
+	Logger            lalog.Logger             `json:"-"`                 // Logger
 }
 
 /*
@@ -37,7 +38,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...str
 		if strings.Contains(prop.Subject, email.OutgoingMailSubjectKeyword) {
 			return false, errors.New("Ignore email sent by this program itself")
 		}
-		log.Printf("MAILP: Handle %s - %s - %s", prop.FromAddress, prop.ContentType, prop.Subject)
+		mailproc.Logger.Printf("Process", prop.FromAddress, nil, "process message of type %s, subject \"%s\"", prop.ContentType, prop.Subject)
 		// By contract, PIN processor finds command among input lines.
 		result := mailproc.Processor.Process(feature.Command{
 			Content:    string(body),

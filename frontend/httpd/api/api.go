@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"log"
 	"net/http"
 )
@@ -14,8 +15,8 @@ const FeatureSelfTestOK = "All OK" // response body of a feature self test that 
 
 // An HTTP handler function factory.
 type HandlerFactory interface {
-	MakeHandler(*common.CommandProcessor) (http.HandlerFunc, error) // Return HTTP handler function associated with the command processor.
-	GetRateLimitFactor() int                                        // Factor of how expensive the handler is to execute, 1 being most expensive.
+	MakeHandler(lalog.Logger, *common.CommandProcessor) (http.HandlerFunc, error) // Return HTTP handler function associated with the command processor.
+	GetRateLimitFactor() int                                                      // Factor of how expensive the handler is to execute, 1 being most expensive.
 }
 
 // Escape sequences in a string to make it safe for being element data.
@@ -31,7 +32,7 @@ func XMLEscape(in string) string {
 type HandleFeatureSelfTest struct {
 }
 
-func (_ *HandleFeatureSelfTest) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (_ *HandleFeatureSelfTest) MakeHandler(logger lalog.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "must-revalidate")
@@ -58,7 +59,7 @@ func (_ *HandleFeatureSelfTest) GetRateLimitFactor() int {
 type HandleSystemInfo struct {
 }
 
-func (_ *HandleSystemInfo) MakeHandler(_ *common.CommandProcessor) (http.HandlerFunc, error) {
+func (_ *HandleSystemInfo) MakeHandler(logger lalog.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "must-revalidate")

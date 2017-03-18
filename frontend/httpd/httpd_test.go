@@ -100,7 +100,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 			success++
 		}
 	}
-	if success > 11 || success < 9 {
+	if success > 15 || success < 5 {
 		t.Fatal(success)
 	}
 	// Wait till rate limits reset

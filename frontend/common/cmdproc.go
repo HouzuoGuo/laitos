@@ -4,14 +4,14 @@ import (
 	"errors"
 	"github.com/HouzuoGuo/laitos/bridge"
 	"github.com/HouzuoGuo/laitos/feature"
-	"log"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"regexp"
 	"strconv"
 )
 
 const (
-	ErrBadProcessorConfig = "Insane: " // Prefix errors in function IsSaneForInternet
-	PrefixCommandLPT      = ".lpt"     // A command input prefix that temporary overrides output length, position, and timeout.
+	ErrBadProcessorConfig = "Insane configuration: " // Prefix errors in function IsSaneForInternet
+	PrefixCommandLPT      = ".lpt"                   // A command input prefix that temporary overrides output length, position, and timeout.
 )
 
 var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")              // Returned if input command does not contain valid feature trigger
@@ -23,6 +23,7 @@ type CommandProcessor struct {
 	Features       *feature.FeatureSet
 	CommandBridges []bridge.CommandBridge
 	ResultBridges  []bridge.ResultBridge
+	Logger         lalog.Logger
 }
 
 /*
@@ -57,7 +58,7 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 			}
 		}
 		if !seenPIN {
-			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"CommandPINOrShortcut\" bridge is not used, this is horribly insecure."))
+			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"PINAndShortcuts\" bridge is not used, this is horribly insecure."))
 		}
 	}
 	if proc.ResultBridges == nil {
@@ -75,7 +76,7 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 			}
 		}
 		if !seenLinter {
-			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"LintCombinedText\" bridge is not used, this may cause crashes or undesired telephone cost."))
+			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"LintText\" bridge is not used, this may cause crashes or undesired telephone cost."))
 		}
 	}
 	return
@@ -150,9 +151,9 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 		goto result
 	}
 	// Run the feature
-	log.Printf("CommandProcessor.Process: going to run %+v", cmd)
+	proc.Logger.Printf("Process", "CommandProcessor", nil, "going to run %+v", cmd)
 	defer func() {
-		log.Printf("CommandProcessor.Process: finished with %+v - %s", cmd, ret.CombinedOutput)
+		proc.Logger.Printf("Process", "CommandProcessor", nil, "finished running %+v - %s", cmd, ret.CombinedOutput)
 	}()
 	ret = matchedFeature.Execute(cmd)
 

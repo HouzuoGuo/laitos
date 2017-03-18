@@ -6,8 +6,8 @@ import (
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/httpclient"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/ratelimit"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -62,11 +62,13 @@ type APIUpdates struct {
 
 // Process feature commands from incoming telegram messages, reply to the chats with command results.
 type TelegramBot struct {
-	Processor          *common.CommandProcessor `json:"-"`                  // Feature command processor
-	AuthorizationToken string                   `json:"AuthorizationToken"` // Telegram bot API auth token
-	Stop               bool                     `json:"-"`                  // StartAndBlock function will exit soon after this flag is turned on.
-	MessageOffset      uint64                   `json:"-"`                  // Process chat messages arrived after this point
-	UserRateLimit      *ratelimit.RateLimit     `json:"-"`                  // Prevent user from flooding bot with new messages
+	AuthorizationToken string `json:"AuthorizationToken"` // Telegram bot API auth token
+
+	Processor     *common.CommandProcessor `json:"-"` // Feature command processor
+	Stop          bool                     `json:"-"` // StartAndBlock function will exit soon after this flag is turned on.
+	MessageOffset uint64                   `json:"-"` // Process chat messages arrived after this point
+	UserRateLimit *ratelimit.RateLimit     `json:"-"` // Prevent user from flooding bot with new messages
+	Logger        lalog.Logger             `json:"-"` // Logger
 }
 
 // Send a text reply to the telegram chat.
@@ -98,25 +100,25 @@ func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 		}
 		if !bot.UserRateLimit.Add(origin, true) {
 			if err := bot.ReplyTo(ding.Message.Chat.ID, "rate limited"); err != nil {
-				log.Printf("TELEGRAMBOT: failed to reply to %s - %v", origin, err)
+				bot.Logger.Printf("ProcessMessages", origin, err, "failed to send message reply")
 			}
 			continue
 		}
 		// Do not process non-private chats
 		if ding.Message.Chat.Type != ChatTypePrivate {
-			log.Printf("TELEGRAMBOT: ignore non-private chat %d from %s", ding.Message.Chat.ID, ding.Message.Chat.UserName)
+			bot.Logger.Printf("ProcessMessages", origin, nil, "ignore non-private chat %d", ding.Message.Chat.ID)
 			continue
 		}
 		// /start is not a command
 		if ding.Message.Text == "/start" {
-			log.Printf("TELEGRAMBOT: chat %d started by %s - %s", ding.Message.Chat.ID, ding.Message.Chat.UserName, ding.Message.From.UserName)
+			bot.Logger.Printf("ProcessMessages", origin, nil, "chat %d is started by %s", ding.Message.Chat.ID, ding.Message.Chat.UserName)
 			continue
 		}
 		// Find and run command in background
 		go func(ding APIUpdate) {
 			result := bot.Processor.Process(feature.Command{TimeoutSec: CommandTimeoutSec, Content: ding.Message.Text})
 			if err := bot.ReplyTo(ding.Message.Chat.ID, result.CombinedOutput); err != nil {
-				log.Printf("TELEGRAMBOT: failed to reply to %s - %v", origin, err)
+				bot.Logger.Printf("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
 			}
 		}(ding)
 	}
@@ -131,6 +133,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 	bot.UserRateLimit = &ratelimit.RateLimit{
 		UnitSecs: PollIntervalSec,
 		MaxCount: 1,
+		Logger:   bot.Logger,
 	}
 	bot.UserRateLimit.Initialise()
 	// Make a test API call
@@ -139,16 +142,16 @@ func (bot *TelegramBot) StartAndBlock() error {
 	if testErr != nil || testResp.StatusCode/200 != 1 {
 		return fmt.Errorf("TelegramBot.StartAndBlock: test failed - HTTP %d - %v %s", testResp.StatusCode, testErr, string(testResp.Body))
 	}
-	log.Print("TelegramBot.StartAndBlock: will start now")
+	bot.Logger.Printf("StartAndBlock", "", nil, "going to poll for messages")
 	lastIdle := time.Now().Unix()
 	for {
 		if bot.Stop {
-			log.Print("TELEGRAMBOT: signaled to stop")
+			bot.Logger.Printf("StartAndBlock", "", nil, "going to stop now")
 			return nil
 		}
 		// Log a message if the loop has not processed messages for a while (multiplier 200 is an arbitrary choice)
 		if idleMax := int64(200 * PollIntervalSec); time.Now().Unix()-lastIdle > idleMax {
-			log.Printf("TELEGRAMBOT: has been idling for %d seconds", idleMax)
+			bot.Logger.Printf("Loop", "", nil, "has been idling for %d seconds", idleMax)
 			lastIdle = time.Now().Unix()
 		}
 		// Poll for new messages
@@ -156,16 +159,16 @@ func (bot *TelegramBot) StartAndBlock() error {
 			"https://api.telegram.org/bot%s/getUpdates?offset=%s", bot.AuthorizationToken, bot.MessageOffset)
 		var newMessages APIUpdates
 		if updatesErr != nil || updatesResp.StatusCode/200 != 1 {
-			log.Printf("TELEGRAMBOT: failed to poll - HTTP %d - %v - %s", updatesResp.StatusCode, updatesErr, string(updatesResp.Body))
+			bot.Logger.Printf("Loop", "", updatesErr, "failed to poll due to HTTP %d %s", updatesResp.StatusCode, string(updatesResp.Body))
 			goto sleepAndContinue
 		}
 		// Deserialise new messages
 		if err := json.Unmarshal(updatesResp.Body, &newMessages); err != nil {
-			log.Printf("TELEGRAMBOT: failed to decode response JSON - %v", err)
+			bot.Logger.Printf("Loop", "", err, "failed to decode response JSON")
 			goto sleepAndContinue
 		}
 		if !newMessages.OK {
-			log.Printf("TELEGRAMBOT: API response is not OK - %s", string(updatesResp.Body))
+			bot.Logger.Printf("Loop", "", nil, "API response is not OK - %s", string(updatesResp.Body))
 			goto sleepAndContinue
 		}
 		// Process new messages

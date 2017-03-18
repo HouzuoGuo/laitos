@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"net/http"
 )
 
@@ -27,7 +28,7 @@ const CommandFormTimeoutSec = 55 // Form commands may enjoy a less constrained t
 type HandleCommandForm struct {
 }
 
-func (_ *HandleCommandForm) MakeHandler(cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (_ *HandleCommandForm) MakeHandler(logger lalog.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "must-revalidate")

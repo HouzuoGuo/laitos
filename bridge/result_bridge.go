@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
-	"log"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"regexp"
 	"strings"
 	"unicode"
@@ -97,8 +97,9 @@ func (lint *LintText) Transform(result *feature.Result) error {
 
 // Send email notification for command result.
 type NotifyViaEmail struct {
-	Recipients []string `json:"Recipients"` // Email recipient addresses
-	Mailer     email.Mailer
+	Recipients []string     `json:"Recipients"` // Email recipient addresses
+	Mailer     email.Mailer `json:"-"`          // MTA that delivers outgoing notification email
+	Logger     lalog.Logger `json:"-"`          // Logger
 }
 
 // Return true only if all mail parameters are present.
@@ -111,7 +112,7 @@ func (notify *NotifyViaEmail) Transform(result *feature.Result) error {
 		go func() {
 			subject := email.OutgoingMailSubjectKeyword + "-notify-" + result.Command.Content
 			if err := notify.Mailer.Send(subject, result.CombinedOutput, notify.Recipients...); err != nil {
-				log.Printf("NotifyViaEmail: failed to send email for command \"%s\" - %v", result.Command.Content, err)
+				notify.Logger.Printf("Transform", "NotifyViaEmail", nil, "failed to send notification for command \"%s\"", result.Command.Content)
 			}
 		}()
 	}

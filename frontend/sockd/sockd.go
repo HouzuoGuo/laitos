@@ -8,8 +8,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/ratelimit"
 	"io"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -32,17 +33,21 @@ const (
 	DMPacketLength        = 1
 	DMPacketPaddingLength = 2
 
-	MD5SumLength = 16
-	IOTimeoutSec = time.Duration(120 * time.Second)
+	MD5SumLength         = 16
+	IOTimeoutSec         = time.Duration(120 * time.Second)
+	RateLimitIntervalSec = 10
 )
 
 // Intentionally undocumented magic, please move along.
 type Sockd struct {
-	ListenAddress string `json:"ListenAddress"`
-	ListenPort    int    `json:"ListenPort"`
-	Password      string `json:"Password"`
-
-	cipher *Cipher `json:"-"`
+	ListenAddress string               `json:"ListenAddress"`
+	ListenPort    int                  `json:"ListenPort"`
+	Password      string               `json:"Password"`
+	PerIPLimit    int                  `json:"PerIPLimit"`
+	Listener      net.Listener         `json:"-"`
+	Logger        lalog.Logger         `json:"-"`
+	cipher        *Cipher              `json:"-"`
+	rateLimit     *ratelimit.RateLimit `json:"-"`
 }
 
 func (sock *Sockd) Initialise() error {
@@ -55,23 +60,50 @@ func (sock *Sockd) Initialise() error {
 	if len(sock.Password) < 7 {
 		return errors.New("Sockd.Initialise: password must be at least 7 characters long")
 	}
+	if sock.PerIPLimit < 10 {
+		return errors.New("Sockd.Initialise: PerIPLimit must be greater than 9")
+	}
 	sock.cipher = &Cipher{}
 	sock.cipher.Initialise(sock.Password)
+	sock.rateLimit = &ratelimit.RateLimit{
+		Logger:   sock.Logger,
+		MaxCount: sock.PerIPLimit,
+		UnitSecs: RateLimitIntervalSec,
+	}
+	sock.rateLimit.Initialise()
 	return nil
 }
 
 func (sock *Sockd) StartAndBlock() error {
-	log.Printf("Sockd.StartAndBlock: will listen for connections on %s:%d", sock.ListenAddress, sock.ListenPort)
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", sock.ListenAddress, sock.ListenPort))
+	sock.Logger.Printf("StartAndBlock", "", nil, "going to listen for connections")
+	var err error
+	sock.Listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", sock.ListenAddress, sock.ListenPort))
 	if err != nil {
 		return fmt.Errorf("Sockd.StartAndBlock: failed to listen on %s:%d - %v", sock.ListenAddress, sock.ListenPort, err)
 	}
 	for {
-		conn, err := listener.Accept()
+		conn, err := sock.Listener.Accept()
 		if err != nil {
-			return err
+			if strings.Contains(err.Error(), "closed") {
+				return nil
+			} else {
+				return fmt.Errorf("Sockd.StartAndBlock: failed to accept new connection - %v", err)
+			}
 		}
-		go NewCipherConnection(conn, sock.cipher.Copy()).HandleAndCloseConnection()
+		clientIP := conn.RemoteAddr().String()[:strings.LastIndexByte(conn.RemoteAddr().String(), ':')]
+		if sock.rateLimit.Add(clientIP, true) {
+			go NewCipherConnection(conn, sock.cipher.Copy(), sock.Logger).HandleAndCloseConnection()
+		} else {
+			conn.Close()
+		}
+	}
+}
+
+func (sock *Sockd) Stop() {
+	if sock.Listener != nil {
+		if err := sock.Listener.Close(); err != nil {
+			sock.Logger.Printf("Stop", "", err, "failed to close listener")
+		}
 	}
 }
 
@@ -106,7 +138,6 @@ func (cip *Cipher) Initialise(password string) {
 		copy(buf[start:], md5Sum(destinationBuf))
 	}
 	cip.Key = buf[:cip.KeyLength]
-	fmt.Println("key is", cip.Key)
 }
 
 func (cip *Cipher) GetCipherStream(key, iv []byte) (cipher.Stream, error) {
@@ -163,9 +194,10 @@ type CipherConnection struct {
 	*Cipher
 	readBuf, writeBuf []byte
 	numActiveConns    int64
+	logger            lalog.Logger
 }
 
-func NewCipherConnection(netConn net.Conn, cip *Cipher) *CipherConnection {
+func NewCipherConnection(netConn net.Conn, cip *Cipher, logger lalog.Logger) *CipherConnection {
 	return &CipherConnection{
 		Conn:     netConn,
 		Cipher:   cip,
@@ -280,7 +312,7 @@ func (conn *CipherConnection) ParseRequest() (destAddr string, err error) {
 func (conn *CipherConnection) HandleAndCloseConnection() {
 	numActiveConns := atomic.AddInt64(&conn.numActiveConns, 1)
 	remoteAddr := conn.RemoteAddr().String()
-	log.Printf("SOCK: handle connection from %s (there are %d active connections)", remoteAddr, numActiveConns)
+	conn.logger.Printf("HandleAndCloseConnection", remoteAddr, nil, "there are now %d active connections", numActiveConns)
 
 	defer func() {
 		atomic.AddInt64(&conn.numActiveConns, -1)
@@ -289,16 +321,16 @@ func (conn *CipherConnection) HandleAndCloseConnection() {
 
 	destAddr, err := conn.ParseRequest()
 	if err != nil {
-		log.Printf("SOCK: failed to get destination address for %s - %v", remoteAddr, err)
+		conn.logger.Printf("HandleAndCloseConnection", remoteAddr, err, "failed to get destination address")
 		return
 	}
 	if strings.ContainsRune(destAddr, 0x00) {
-		log.Printf("SOCK: will not serve connection from %s due to invalid destination address \"%s\"", remoteAddr, destAddr)
+		conn.logger.Printf("HandleAndCloseConnection", remoteAddr, err, "will not serve invalid destination address with 0 in it")
 		return
 	}
 	dest, err := net.Dial("tcp", destAddr)
 	if err != nil {
-		log.Printf("SOCK: failed to handle %s's connection to %s - %v", remoteAddr, dest, err)
+		conn.logger.Printf("HandleAndCloseConnection", remoteAddr, err, "failed to connect to destination \"%s\"", dest)
 		return
 	}
 	defer dest.Close()

@@ -4,6 +4,7 @@ import (
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/httpclient"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -23,27 +24,28 @@ func TestXMLEscape(t *testing.T) {
 func TestAllHandlers(t *testing.T) {
 	// ============ All handlers are tested here ============
 	proc := common.GetTestCommandProcessor()
+	logger := lalog.Logger{}
 
 	// ============ Give handlers to HTTP server mux ============
 	handlers := http.NewServeMux()
 
 	// Self test
 	var handle HandlerFactory = &HandleFeatureSelfTest{}
-	selfTestHandle, err := handle.MakeHandler(proc)
+	selfTestHandle, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/self_test", selfTestHandle)
 	// System info
 	handle = &HandleSystemInfo{}
-	infoHandler, err := handle.MakeHandler(proc)
+	infoHandler, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/info", infoHandler)
 	// Command form
 	handle = &HandleCommandForm{}
-	cmdFormHandle, err := handle.MakeHandler(proc)
+	cmdFormHandle, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +58,7 @@ func TestAllHandlers(t *testing.T) {
 		t.Fatal(err)
 	}
 	handle = &HandleHTMLDocument{HTMLFilePath: indexFile}
-	htmlDocHandle, err := handle.MakeHandler(proc)
+	htmlDocHandle, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,33 +72,33 @@ func TestAllHandlers(t *testing.T) {
 			MTAPort:  25,
 		},
 	}
-	mailMeHandle, err := handle.MakeHandler(proc)
+	mailMeHandle, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/mail_me", mailMeHandle)
 	// Proxy
 	handle = &HandleWebProxy{MyEndpoint: "/proxy"}
-	proxyHandle, err := handle.MakeHandler(proc)
+	proxyHandle, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/proxy", proxyHandle)
 	// Twilio
 	handle = &HandleTwilioSMSHook{}
-	smsHandle, err := handle.MakeHandler(proc)
+	smsHandle, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/sms", smsHandle)
 	handle = &HandleTwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}
-	callHandle, err := handle.MakeHandler(proc)
+	callHandle, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/call_greeting", callHandle)
 	handle = &HandleTwilioCallCallback{MyEndpoint: "/test"}
-	callbackHandle, err := handle.MakeHandler(proc)
+	callbackHandle, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
 	}

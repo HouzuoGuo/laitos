@@ -72,7 +72,7 @@ func TestDNSD_StartAndBlock(t *testing.T) {
 			success++
 		}
 	}
-	if success < 8 || success > 12 {
+	if success < 5 || success > 15 {
 		t.Fatal(success)
 	}
 	// Wait out rate limit
