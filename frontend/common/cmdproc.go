@@ -87,6 +87,7 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 	var matchedFeature feature.Feature
 	var overrideLintText bridge.LintText
 	var hasOverrideLintText bool
+	logCommandContent := cmd.Content
 	// Walk the command through all bridges
 	for _, cmdBridge := range proc.CommandBridges {
 		cmd, bridgeErr = cmdBridge.Transform(cmd)
@@ -99,6 +100,8 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 	if ret = cmd.Trim(); ret != nil {
 		goto result
 	}
+	// If bridges did not throw an error, they should have got rid of bits and pieces of command content that must not be logged.
+	logCommandContent = cmd.Content
 	// Look for LPT (length, position, timeout) override, it is going to affect LintText bridge.
 	if cmd.FindAndRemovePrefix(PrefixCommandLPT) {
 		// Find the configured LintText bridge
@@ -158,7 +161,14 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 	ret = matchedFeature.Execute(cmd)
 
 result:
+	// Command in the result structure is mainly used for logging purpose
 	ret.Command = cmd
+	/*
+		Features may have modified command in-place to remove certain content and it's OK to do that.
+		But to make log messages more meaningful, it is better to restore command content to the modified one
+		after triggering bridges, and before triggering features.
+	*/
+	ret.Command.Content = logCommandContent
 	// Walk through result bridges
 	for _, resultBridge := range proc.ResultBridges {
 		// LintText bridge may have been manipulated by override
@@ -166,7 +176,7 @@ result:
 			resultBridge = &overrideLintText
 		}
 		if err := resultBridge.Transform(ret); err != nil {
-			return &feature.Result{Command: cmd, Error: bridgeErr}
+			return &feature.Result{Command: ret.Command, Error: bridgeErr}
 		}
 	}
 	return
