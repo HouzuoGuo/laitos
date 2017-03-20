@@ -60,7 +60,7 @@ func main() {
 	// Process command line flags
 	var configFile, frontend string
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, mailp, smtpd, sockd, telegram)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, mailp, smtpd, sockd, telegram)")
 	flag.Parse()
 
 	if configFile == "" {
@@ -99,6 +99,17 @@ func main() {
 				logger.Printf("main", "", nil, "going to start dns daemon")
 				if err := config.GetDNSD().StartAndBlock(); err != nil {
 					logger.Fatalf("main", "", err, "failed to start dns daemon")
+					return
+				}
+			}()
+		case "healthcheck":
+			numDaemons++
+			daemons.Add(1)
+			go func() {
+				defer daemons.Done()
+				logger.Printf("main", "", nil, "going to start health check")
+				if err := config.GetHealthCheck().StartAndBlock(); err != nil {
+					logger.Fatalf("main", "", err, "failed to start health check")
 					return
 				}
 			}()
@@ -144,7 +155,6 @@ func main() {
 					return
 				}
 			}()
-
 		case "telegram":
 			numDaemons++
 			daemons.Add(1)

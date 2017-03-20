@@ -41,13 +41,13 @@ type DNSD struct {
 	RateLimit       *ratelimit.RateLimit   `json:"-"` // Rate limit counter
 	BlackListMutex  *sync.Mutex            `json:"-"` // Protect against concurrent access to black list
 	BlackList       map[string]struct{}    `json:"-"` // Do not answer to type A queries made toward these domains
-	ForwarderConns  []*net.UDPConn         `json:"-"` // UDP connections made toward forwarder
+	ForwarderConns  []net.Conn             `json:"-"` // UDP connections made toward forwarder
 	ForwarderQueues []chan *ForwarderQuery `json:"-"` // Processing queues that handle forward queries
 	Logger          lalog.Logger           `json:"-"` // Logger
 }
 
 // Send forward queries to forwarder and forward the response to my DNS client.
-func (dnsd *DNSD) ForwarderQueueProcessor(myQueue chan *ForwarderQuery, forwarderConn *net.UDPConn) {
+func (dnsd *DNSD) ForwarderQueueProcessor(myQueue chan *ForwarderQuery, forwarderConn net.Conn) {
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
 		query := <-myQueue
@@ -105,14 +105,14 @@ func (dnsd *DNSD) Initialise() error {
 	dnsd.RateLimit.Initialise()
 	// Create a number of forwarder queues to handle incoming DNS queries
 	numQueues := dnsd.PerIPLimit / NumQueueRatio
-	dnsd.ForwarderConns = make([]*net.UDPConn, numQueues)
+	dnsd.ForwarderConns = make([]net.Conn, numQueues)
 	dnsd.ForwarderQueues = make([]chan *ForwarderQuery, numQueues)
 	for i := 0; i < numQueues; i++ {
 		forwarderAddr, err := net.ResolveUDPAddr("udp", dnsd.ForwardTo+":53")
 		if err != nil {
 			return fmt.Errorf("DNSD.Initialise: failed to resolve address - %v", err)
 		}
-		forwarderConn, err := net.DialUDP("udp", nil, forwarderAddr)
+		forwarderConn, err := net.DialTimeout("udp", forwarderAddr.String(), IOTimeoutSec*time.Second)
 		if err != nil {
 			return fmt.Errorf("DNSD.Initialise: failed to connect to forwarder - %v", err)
 		}

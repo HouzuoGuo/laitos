@@ -63,7 +63,11 @@ func (_ *HandleSystemInfo) MakeHandler(logger lalog.Logger, _ *common.CommandPro
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "must-revalidate")
-		w.Write([]byte(fmt.Sprintf("Public IP: %s", env.GetPublicIP())))
+		w.Write([]byte(fmt.Sprintf("Public IP: %s\n\nLog:\n", env.GetPublicIP())))
+		lalog.GlobalRingBuffer.Iterate(func(_ uint64, msg string) bool {
+			w.Write([]byte(fmt.Sprintf("%s\n", msg)))
+			return true
+		})
 	}
 	return fun, nil
 }

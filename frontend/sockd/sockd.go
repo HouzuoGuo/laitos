@@ -328,7 +328,7 @@ func (conn *CipherConnection) HandleAndCloseConnection() {
 		conn.logger.Printf("HandleAndCloseConnection", remoteAddr, err, "will not serve invalid destination address with 0 in it")
 		return
 	}
-	dest, err := net.Dial("tcp", destAddr)
+	dest, err := net.DialTimeout("tcp", destAddr, IOTimeoutSec)
 	if err != nil {
 		conn.logger.Printf("HandleAndCloseConnection", remoteAddr, err, "failed to connect to destination \"%s\"", dest)
 		return

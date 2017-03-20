@@ -10,6 +10,7 @@ import (
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/dnsd"
+	"github.com/HouzuoGuo/laitos/frontend/healthcheck"
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
@@ -55,6 +56,8 @@ type Config struct {
 	Features feature.FeatureSet `json:"Features"` // Feature configuration is shared by all services
 	Mailer   email.Mailer       `json:"Mailer"`   // Mail configuration for notifications and mail processor results
 
+	HealthCheck healthcheck.HealthCheck `json:"HealthCheck"` // Periodic self health check
+
 	DNSDaemon dnsd.DNSD `json:"DNSDaemon"` // DNS daemon configuration
 
 	HTTPDaemon   httpd.HTTPD     `json:"HTTPDaemon"`   // HTTP daemon configuration
@@ -85,6 +88,23 @@ func (config *Config) GetDNSD() *dnsd.DNSD {
 	ret.Logger = lalog.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 	if err := ret.Initialise(); err != nil {
 		ret.Logger.Fatalf("GetDNSD", "Config", err, "failed to initialise")
+		return nil
+	}
+	return &ret
+}
+
+// Construct a health checker and return.
+func (config *Config) GetHealthCheck() *healthcheck.HealthCheck {
+	ret := config.HealthCheck
+	ret.Logger = lalog.Logger{ComponentName: "HealthCheck", ComponentID: "Global"}
+	ret.Features = config.Features
+	if err := ret.Features.Initialise(); err != nil {
+		ret.Logger.Fatalf("GetHealthCheck", "Config", err, "failed to initialise features")
+		return nil
+	}
+	ret.Mailer = config.Mailer
+	if err := ret.Initialise(); err != nil {
+		ret.Logger.Fatalf("GetHealthCheck", "Config", err, "failed to initialise")
 		return nil
 	}
 	return &ret

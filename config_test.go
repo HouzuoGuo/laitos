@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/bridge"
+	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/dnsd"
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd"
@@ -19,8 +20,8 @@ import (
 	"time"
 )
 
+// Pretty much copied from other test cases.
 func TestConfig(t *testing.T) {
-	// Configure HTTP daemon and mail processor for running shell commands
 	js := `{
 	"Features": {
 		"Shell": {
@@ -48,6 +49,11 @@ func TestConfig(t *testing.T) {
 		"ServeDirectories": {
 			"/my/dir": "/tmp/test-laitos-dir2"
 		}
+	},
+	"HealthCheck": {
+		"TCPPorts": [9114],
+		"IntervalSec": 300,
+		"Recipients": ["howard@localhost"]
 	},
 	"HTTPBridges": {
 		"TranslateSequences": {
@@ -211,6 +217,40 @@ func TestConfig(t *testing.T) {
 	if _, err = clientConn.Read(packetBuf); err == nil {
 		t.Fatal("did not block")
 	}
+
+	// ============ Test health check ===========
+	// Port is now listening
+	go func() {
+		listener, err := net.Listen("tcp", "127.0.0.1:9114")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for {
+			if _, err := listener.Accept(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}()
+	check := config.GetHealthCheck()
+	if !check.Execute() {
+		t.Fatal("some check failed")
+	}
+	// Break a feature
+	check.Features.LookupByTrigger[".s"] = &feature.Shell{}
+	if check.Execute() {
+		t.Fatal("did not fail")
+	}
+	check.Features.LookupByTrigger[".s"] = &feature.Shell{InterpreterPath: "/bin/bash"}
+	// Expect checks to begin within a second
+	if err := check.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		if err := check.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	time.Sleep(1 * time.Second)
 
 	// ============ Test HTTP daemon ============
 	// (Essentially combine all cases of api_test.go and httpd_test.go)
