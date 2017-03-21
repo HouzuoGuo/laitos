@@ -26,7 +26,7 @@ type SMTPD struct {
 	ListenAddress string   `json:"ListenAddress"` // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
 	ListenPort    int      `json:"ListenPort"`    // Port number to listen on
 	TLSCertPath   string   `json:"TLSCertPath"`   // (Optional) serve StartTLS via this certificate
-	TLSKeyPath    string   `json:"TLSCertKey"`    // (Optional) serve StartTLS via this certificte (key)
+	TLSKeyPath    string   `json:"TLSKeyPath"`    // (Optional) serve StartTLS via this certificte (key)
 	PerIPLimit    int      `json:"PerIPLimit"`    // How many times in 10 seconds interval an IP may deliver an email to this server
 	ForwardTo     []string `json:"ForwardTo"`     // Forward received mails to these addresses
 
