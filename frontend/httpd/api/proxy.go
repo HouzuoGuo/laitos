@@ -21,6 +21,9 @@ laitos_browse_scheme_host = '%s';
 laitos_browse_scheme_host_path = '%s';
 
 function laitos_rewrite_url(before) {
+    if (!(typeof before == 'string' || before instanceof String)) {
+        return before;
+    }
     var after;
     if (before == '' || before == '#' || before.indexOf('data') == 0 || before.indexOf('javascript') == 0 || before.indexOf(laitos_proxy_scheme_host_handle_param) == 0) {
         after = before;
@@ -51,19 +54,19 @@ function laitos_replace_url(elem, attr) {
     var elems = document.getElementsByTagName(elem);
     for (var i = 0; i < elems.length; i++) {
         var before = elems[i][attr];
-        if (before != '') {
+        if (before) {
             elems[i][attr] = laitos_rewrite_url(before);
         }
     }
 }
 
 function laitos_place_btns() {
-    setTimeout(laitos_place_btns, 4000);
+    setTimeout(laitos_place_btns, 3000);
     console.log('laitos_place_btns fired');
     if (!document.getElementById('laitos_replace_few')) {
         var btn = document.createElement('button');
         btn.id = 'laitos_replace_few';
-        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 100px !important; zIndex: 999999 !important';
+        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 100px !important; zIndex: 9999 !important';
         btn.onclick = laitos_replace_few;
         btn.appendChild(document.createTextNode('XY'));
         document.body.appendChild(btn);
@@ -71,7 +74,7 @@ function laitos_place_btns() {
     if (!document.getElementById('laitos_replace_many')) {
         var btn = document.createElement('button');
         btn.id = 'laitos_replace_many';
-        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 200px !important; zIndex: 999999 !important';
+        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 200px !important; zIndex: 9999 !important';
         btn.onclick = laitos_replace_many;
         btn.appendChild(document.createTextNode('XY-ALL'));
         document.body.appendChild(btn);
@@ -93,7 +96,7 @@ function laitos_replace_many() {
     var scripts = document.getElementsByTagName('script');
     for (var i = 0; i < scripts.length; i++) {
         var before = scripts[i]['src'];
-        if (before != '') {
+        if (before) {
             script_srcs.push(laitos_rewrite_url(before));
         }
     }
