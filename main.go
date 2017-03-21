@@ -60,7 +60,7 @@ func main() {
 	// Process command line flags
 	var configFile, frontend string
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, mailp, smtpd, sockd, telegram)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, httpd80, mailp, smtpd, sockd, telegram)")
 	flag.Parse()
 
 	if configFile == "" {
@@ -121,6 +121,17 @@ func main() {
 				logger.Printf("main", "", nil, "going to start http daemon")
 				if err := config.GetHTTPD().StartAndBlock(); err != nil {
 					logger.Fatalf("main", "", err, "failed to start http daemon")
+					return
+				}
+			}()
+		case "httpd80":
+			numDaemons++
+			daemons.Add(1)
+			go func() {
+				defer daemons.Done()
+				logger.Printf("main", "", nil, "going to start http80 daemon")
+				if err := config.GetHTTPD80().StartAndBlock(); err != nil {
+					logger.Fatalf("main", "", err, "failed to start http80 daemon")
 					return
 				}
 			}()

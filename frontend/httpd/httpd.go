@@ -43,8 +43,10 @@ type HTTPD struct {
 
 // Check configuration and initialise internal states.
 func (httpd *HTTPD) Initialise() error {
-	if errs := httpd.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("HTTPD.Initialise: %+v", errs)
+	if httpd.Processor != nil {
+		if errs := httpd.Processor.IsSaneForInternet(); len(errs) > 0 {
+			return fmt.Errorf("HTTPD.Initialise: %+v", errs)
+		}
 	}
 	if httpd.ListenAddress == "" {
 		return errors.New("HTTPD.Initialise: listen address is empty")

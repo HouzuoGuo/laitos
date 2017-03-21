@@ -64,6 +64,8 @@ type Config struct {
 	HTTPBridges  StandardBridges `json:"HTTPBridges"`  // HTTP daemon bridge configuration
 	HTTPHandlers HTTPHandlers    `json:"HTTPHandlers"` // HTTP daemon handler configuration
 
+	HTTPIndexOnlyOn80 bool `json:"HTTPHomepageOn80"` // If TLS is enabled in HTTP daemon, serve only index pages via HTTP on port 80.
+
 	MailDaemon           smtpd.SMTPD         `json:"MailDaemon"`           // SMTP daemon configuration
 	MailProcessor        mailp.MailProcessor `json:"MailProcessor"`        // Incoming mail processor configuration
 	MailProcessorBridges StandardBridges     `json:"MailProcessorBridges"` // Incoming mail processor bridge configuration
@@ -196,6 +198,37 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 			shortRoute = route[0:12] + "..."
 		}
 		ret.Logger.Printf("GetHTTPD", "Config", nil, "installed route %s", shortRoute)
+	}
+	return &ret
+}
+
+// Return an alternative HTTP daemon that only serves index pages without TLS and listens on port 80.
+func (config *Config) GetHTTPD80() *httpd.HTTPD {
+	ret := config.HTTPDaemon
+	ret.ListenPort = 80
+	ret.TLSCertPath = ""
+	ret.TLSKeyPath = ""
+	ret.Logger = lalog.Logger{ComponentName: "HTTPD80", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
+
+	// Make handler factories
+	handlers := map[string]api.HandlerFactory{}
+	if config.HTTPHandlers.IndexEndpoints != nil {
+		for _, location := range config.HTTPHandlers.IndexEndpoints {
+			handlers[location] = &config.HTTPHandlers.IndexEndpointConfig
+		}
+	}
+	ret.SpecialHandlers = handlers
+	// Call initialise and print out prefixes of installed routes
+	if err := ret.Initialise(); err != nil {
+		ret.Logger.Fatalf("GetHTTPD80", "Config", err, "failed to initialise")
+		return nil
+	}
+	for route := range ret.AllRoutes {
+		shortRoute := route
+		if len(route) > 12 {
+			shortRoute = route[0:12] + "..."
+		}
+		ret.Logger.Printf("GetHTTPD80", "Config", nil, "installed route %s", shortRoute)
 	}
 	return &ret
 }
