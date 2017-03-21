@@ -161,7 +161,9 @@ func (smtpd *SMTPD) ServeConn(clientConn net.Conn) {
 		}
 	}
 conversationDone:
-	if finishedNormally {
+	if fromAddr == "" || len(toAddrs) == 0 {
+		finishReason = "discarded malformed mail"
+	} else if finishedNormally {
 		smtpd.Logger.Printf("ServeConn", clientIP, nil, "got a mail from \"%s\" addressed to %v", fromAddr, toAddrs)
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		smtpd.ProcessMail(fromAddr, mailBody)
