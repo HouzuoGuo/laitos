@@ -9,6 +9,8 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 	"log"
 	"net/http"
+	"runtime"
+	"runtime/pprof"
 )
 
 const FeatureSelfTestOK = "All OK" // response body of a feature self test that all went OK
@@ -63,11 +65,15 @@ func (_ *HandleSystemInfo) MakeHandler(logger lalog.Logger, _ *common.CommandPro
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "must-revalidate")
-		w.Write([]byte(fmt.Sprintf("Public IP: %s\n\nLog:\n", env.GetPublicIP())))
+		w.Write([]byte(fmt.Sprintf("Public IP: %s\n", env.GetPublicIP())))
+		w.Write([]byte(fmt.Sprintf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))))
+		w.Write([]byte("\nLog: \n"))
 		lalog.GlobalRingBuffer.Iterate(func(_ uint64, msg string) bool {
 			w.Write([]byte(fmt.Sprintf("%s\n", msg)))
 			return true
 		})
+		w.Write([]byte("\nGoroutines: \n"))
+		pprof.Lookup("goroutine").WriteTo(w, 1)
 	}
 	return fun, nil
 }
