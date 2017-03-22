@@ -78,7 +78,7 @@ func TestDNSD_StartAndBlock(t *testing.T) {
 	}
 	// Wait out rate limit
 	time.Sleep(RateLimitIntervalSec * time.Second)
-	// Blacklist github and see if query still succeeds
+	// Blacklist github and see if query gets a black hole response
 	daemon.BlackList["github.com"] = struct{}{}
 	if _, err := clientConn.Write(githubComQuery); err != nil {
 		t.Fatal(err)

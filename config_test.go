@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/bridge"
@@ -208,14 +209,18 @@ func TestConfig(t *testing.T) {
 	}
 	// Wait out rate limit
 	time.Sleep(dnsd.RateLimitIntervalSec * time.Second)
-	// Blacklist github and see if query still succeeds
+	// Blacklist github and see if query gets a black hole response
 	dnsDaemon.BlackList["github.com"] = struct{}{}
 	if _, err := clientConn.Write(githubComQuery); err != nil {
 		t.Fatal(err)
 	}
 	clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-	if _, err = clientConn.Read(packetBuf); err == nil {
-		t.Fatal("did not block")
+	respLen, err := clientConn.Read(packetBuf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Index(packetBuf[:respLen], dnsd.BlackHoleAnswer) == -1 {
+		t.Fatal("did not answer black hole")
 	}
 
 	// ============ Test health check ===========
@@ -231,6 +236,7 @@ func TestConfig(t *testing.T) {
 			}
 		}
 	}()
+	time.Sleep(1 * time.Second)
 	check := config.GetHealthCheck()
 	if !check.Execute() {
 		t.Fatal("some check failed")
