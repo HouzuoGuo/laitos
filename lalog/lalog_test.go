@@ -37,3 +37,19 @@ func TestLogger_Panicf(t *testing.T) {
 	logger.Panicf("", "", nil, "")
 	t.Fatal("did not panic")
 }
+
+func TestLogger_Printf(t *testing.T) {
+	logger := Logger{}
+	logger.Printf("", "", nil, "")
+	logger.Printf("", "", nil, "")
+
+	count := 0
+	LatestLogEntries.Iterate(func(_ uint64, _ string) bool {
+		count++
+		return true
+	})
+
+	if count != 2 {
+		t.Fatal(count)
+	}
+}
