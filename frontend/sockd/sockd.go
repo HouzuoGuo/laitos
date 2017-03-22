@@ -201,6 +201,7 @@ func NewCipherConnection(netConn net.Conn, cip *Cipher, logger lalog.Logger) *Ci
 		Cipher:   cip,
 		readBuf:  make([]byte, MaxPacketSize),
 		writeBuf: make([]byte, MaxPacketSize),
+		logger:   logger,
 	}
 }
 
