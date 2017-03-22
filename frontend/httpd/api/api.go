@@ -68,7 +68,7 @@ func (_ *HandleSystemInfo) MakeHandler(logger lalog.Logger, _ *common.CommandPro
 		w.Write([]byte(fmt.Sprintf("Public IP: %s\n", env.GetPublicIP())))
 		w.Write([]byte(fmt.Sprintf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))))
 		w.Write([]byte("\nLog: \n"))
-		lalog.GlobalRingBuffer.Iterate(func(_ uint64, msg string) bool {
+		lalog.LatestLogEntries.Iterate(func(_ uint64, msg string) bool {
 			w.Write([]byte(fmt.Sprintf("%s\n", msg)))
 			return true
 		})

@@ -74,7 +74,7 @@ func (check *HealthCheck) Execute() bool {
 		}
 	}
 	mailMessage.WriteString("\nLogs:\n")
-	lalog.GlobalRingBuffer.Iterate(func(_ uint64, entry string) bool {
+	lalog.LatestLogEntries.Iterate(func(_ uint64, entry string) bool {
 		mailMessage.WriteString(entry + "\n")
 		return true
 	})

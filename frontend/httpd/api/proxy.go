@@ -38,7 +38,6 @@ function laitos_rewrite_url(before) {
     } else {
         after = laitos_proxy_scheme_host_handle_param + encodeURIComponent(laitos_browse_scheme_host + '/' + before);
     }
-    // console.log('before ' + before + ' after ' + after);
     return after;
 }
 
@@ -62,19 +61,33 @@ function laitos_replace_url(elem, attr) {
 
 function laitos_place_btns() {
     setTimeout(laitos_place_btns, 3000);
-    console.log('laitos_place_btns fired');
-    if (!document.getElementById('laitos_replace_few')) {
+    if (document.getElementById('laitos_replace_few1')) {
+        document.body.removeChild(document.getElementById('laitos_replace_few1'));
+    }
+    var positions = [
+        ['top', 'left'], ['bottom', 'left'], ['top', 'right'], ['bottom', 'right'],
+        ['top', 'left'], ['bottom', 'left'], ['top', 'right'], ['bottom', 'right'],
+    ];
+    for (i = 0; i < 4; i++) {
+        var id = 'laitos_xy_btn_' + i;
+        if (document.getElementById(id)) {
+            document.body.removeChild(document.getElementById(id));
+        }
         var btn = document.createElement('button');
-        btn.id = 'laitos_replace_few';
-        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 100px !important; zIndex: 9999 !important';
+        btn.id = id;
+        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; ' + positions[i][0] + ': 100px !important; ' + positions[i][1] + ': 100px !important; zIndex: 99999 !important';
         btn.onclick = laitos_replace_few;
         btn.appendChild(document.createTextNode('XY'));
         document.body.appendChild(btn);
     }
-    if (!document.getElementById('laitos_replace_many')) {
+    for (i = 4; i < 8; i++) {
+        var id = 'laitos_xy_btn_' + i;
+        if (document.getElementById(id)) {
+            document.body.removeChild(document.getElementById(id));
+        }
         var btn = document.createElement('button');
-        btn.id = 'laitos_replace_many';
-        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; top: 0px !important; left: 200px !important; zIndex: 9999 !important';
+        btn.id = id;
+        btn.style.cssText = 'font-size: 9px !important; position: fixed !important; ' + positions[i][0] + ': 100px !important; ' + positions[i][1] + ': 200px !important; zIndex: 99999 !important';
         btn.onclick = laitos_replace_many;
         btn.appendChild(document.createTextNode('XY-ALL'));
         document.body.appendChild(btn);
@@ -105,7 +118,7 @@ function laitos_replace_many() {
     }
 }
 
-laitos_place_btns();
+setTimeout(laitos_place_btns, 3000);
 
 window.onload = laitos_replace_many;
 </script>

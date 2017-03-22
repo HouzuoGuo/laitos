@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	NumLatestLogEntries = 1024
+	NumLatestLogEntries = 512 // Keep this number of latest log entries in memory
 )
 
-var GlobalRingBuffer = NewRingBuffer(NumLatestLogEntries) // Keep latest log entries in the buffer
+var LatestLogEntries = NewRingBuffer(NumLatestLogEntries) // Keep latest log entries in the buffer
 
 // Help to write log messages in a regular format.
 type Logger struct {
@@ -51,7 +51,7 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 
 func (logger *Logger) Printf(functionName, actorName string, err error, template string, values ...interface{}) {
 	msg := logger.Format(functionName, actorName, err, template, values...)
-	GlobalRingBuffer.Push(time.Now().Format("2006-01-02 15:04:05 ") + msg)
+	LatestLogEntries.Push(time.Now().Format("2006-01-02 15:04:05 ") + msg)
 	log.Print(msg)
 }
 

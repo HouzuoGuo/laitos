@@ -14,7 +14,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 )
 
@@ -193,7 +192,6 @@ type CipherConnection struct {
 	net.Conn
 	*Cipher
 	readBuf, writeBuf []byte
-	numActiveConns    int64
 	logger            lalog.Logger
 }
 
@@ -310,12 +308,9 @@ func (conn *CipherConnection) ParseRequest() (destAddr string, err error) {
 }
 
 func (conn *CipherConnection) HandleAndCloseConnection() {
-	numActiveConns := atomic.AddInt64(&conn.numActiveConns, 1)
 	remoteAddr := conn.RemoteAddr().String()
-	conn.logger.Printf("HandleAndCloseConnection", remoteAddr, nil, "there are now %d active connections", numActiveConns)
 
 	defer func() {
-		atomic.AddInt64(&conn.numActiveConns, -1)
 		conn.Close()
 	}()
 
