@@ -1,6 +1,7 @@
 package dnsd
 
 import (
+	"bytes"
 	"encoding/hex"
 	"net"
 	"strings"
@@ -83,7 +84,11 @@ func TestDNSD_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-	if _, err = clientConn.Read(packetBuf); err == nil {
-		t.Fatal("did not block")
+	respLen, err := clientConn.Read(packetBuf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) == -1 {
+		t.Fatal("did not answer black hole")
 	}
 }

@@ -145,6 +145,33 @@ func (dnsd *DNSD) InstallAdBlacklist() (int, error) {
 	return len(dnsd.BlackList), nil
 }
 
+var StandardResponseNoError = []byte{129, 128} // DNS response packet flag - standard response, no indication of error.
+
+//                            Domain     A    IN      TTL 1466  IPv4     0.0.0.0
+var BlackHoleAnswer = []byte{192, 12, 0, 1, 0, 1, 0, 0, 5, 186, 0, 4, 0, 0, 0, 0} // DNS answer 0.0.0.0
+
+// Respond to the DNS query with a black-hole answer to 0.0.0.0.
+func (dnsd *DNSD) RespondWith0(myServer *net.UDPConn, clientAddr *net.UDPAddr, queryPacket []byte) {
+	answerPacket := make([]byte, 2+2+len(queryPacket)-4+len(BlackHoleAnswer))
+	// Match transaction ID of original query
+	answerPacket[0] = queryPacket[0]
+	answerPacket[1] = queryPacket[1]
+	// 0x8180 - response is a standard query response, without indication of error.
+	copy(answerPacket[2:4], StandardResponseNoError)
+	// Copy of original query structure
+	copy(answerPacket[4:], queryPacket[4:])
+	// There is exactly one answer RR
+	answerPacket[6] = 0
+	answerPacket[7] = 1
+	// Answer 0.0.0.0 to the query
+	copy(answerPacket[len(answerPacket)-len(BlackHoleAnswer):], BlackHoleAnswer)
+	// Finally, respond!
+	myServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
+	if _, err := myServer.WriteTo(answerPacket, clientAddr); err != nil {
+		dnsd.Logger.Printf("RespondWith0", clientAddr.IP.String(), err, "IO failure")
+	}
+}
+
 /*
 You may call this function only after having called Initialise()!
 Start DNS daemon and block until this program exits.
@@ -225,10 +252,12 @@ func (dnsd *DNSD) StartAndBlock() error {
 			_, blacklisted := dnsd.BlackList[domainName]
 			dnsd.BlackListMutex.Unlock()
 			if blacklisted {
-				dnsd.Logger.Printf("Loop", clientIP, nil, "refuse to answer to black-listed domain \"%s\"", domainName)
+				dnsd.Logger.Printf("Loop", clientIP, nil, "answer to black-listed domain \"%s\"", domainName)
+				dnsd.RespondWith0(udpServer, clientAddr, forwardPacket)
 				continue
 			} else {
 				dnsd.Logger.Printf("Loop", clientIP, nil, "let forwarder %d handle domain \"%s\"", randForwarder, domainName)
+				// Forwarder queue will take care of this query
 			}
 		} else {
 			// If query is not about domain name, simply forward it without much concern.
