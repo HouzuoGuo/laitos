@@ -37,12 +37,8 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir"},
 		BaseRateLimit:    1,
 		SpecialHandlers: map[string]api.HandlerFactory{
-			"/":                &api.HandleHTMLDocument{HTMLFilePath: indexFile},
-			"/twilio_sms":      &api.HandleTwilioSMSHook{},
-			"/twilio_call":     &api.HandleTwilioCallHook{CallbackEndpoint: "/twilio_callback", CallGreeting: "hello"},
-			"/twilio_callback": &api.HandleTwilioCallCallback{MyEndpoint: "/twilio_callback"},
-			"/test":            &api.HandleFeatureSelfTest{},
-			"/proxy":           &api.HandleWebProxy{MyEndpoint: "/proxy"},
+			"/":     &api.HandleHTMLDocument{HTMLFilePath: indexFile},
+			"/test": &api.HandleFeatureSelfTest{},
 		},
 	}
 	// Must not initialise if command processor is insane

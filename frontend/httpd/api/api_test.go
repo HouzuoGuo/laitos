@@ -50,6 +50,13 @@ func TestAllHandlers(t *testing.T) {
 		t.Fatal(err)
 	}
 	handlers.HandleFunc("/cmd_form", cmdFormHandle)
+	// Gitlab browser
+	handle = &HandleGitlabBrowser{PrivateToken: "TestToken"}
+	gitlabHandle, err := handle.MakeHandler(logger, proc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handlers.HandleFunc("/gitlab", gitlabHandle)
 	// HTML document
 	// Create a temporary html file
 	indexFile := "/tmp/test-laitos-index.html"
@@ -151,8 +158,13 @@ func TestAllHandlers(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "bin") {
 		t.Fatal(err, string(resp.Body))
 	}
+	// Gitlab handle
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"gitlab")
+	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {
+		t.Fatal(err, string(resp.Body), resp)
+	}
 	// Index
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/html")
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"html")
 	expected = "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body), expected, resp)
@@ -176,7 +188,7 @@ func TestAllHandlers(t *testing.T) {
 	}
 	// Proxy (visit /html)
 	// Normally the proxy should inject javascript into the page, but the home page does not look like HTML so proxy won't do that.
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A34791%%2Fhtml")
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A34791%%2Fhtml")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.HasPrefix(string(resp.Body), "this is index") {
 		t.Fatal(err, string(resp.Body))
 	}

@@ -129,9 +129,9 @@ func main() {
 			daemons.Add(1)
 			go func() {
 				defer daemons.Done()
-				logger.Printf("main", "", nil, "going to start http80 daemon")
+				logger.Printf("main", "", nil, "going to start httpd80 daemon")
 				if err := config.GetHTTPD80().StartAndBlock(); err != nil {
-					logger.Fatalf("main", "", err, "failed to start http80 daemon")
+					logger.Fatalf("main", "", err, "failed to start httpd80 daemon")
 					return
 				}
 			}()

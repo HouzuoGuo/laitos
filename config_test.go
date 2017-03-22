@@ -24,144 +24,173 @@ import (
 // Pretty much copied from other test cases.
 func TestConfig(t *testing.T) {
 	js := `{
-	"Features": {
-		"Shell": {
-			"InterpreterPath": "/bin/bash"
-		}
-	},
-	"Mailer": {
-		"MailFrom": "howard@localhost",
-		"MTAHost": "127.0.0.1",
-		"MTAPort": 25
-	},
-
-	"DNSDaemon": {
-		"ListenAddress": "127.0.0.1",
-		"ListenPort": 61211,
-		"ForwardTo": "8.8.8.8",
-		"AllowQueryIPPrefixes": ["127.0"],
-		"PerIPLimit": 10
-	},
-
-	"HTTPDaemon": {
-		"ListenAddress": "127.0.0.1",
-		"ListenPort": 23486,
-		"BaseRateLimit":10,
-		"ServeDirectories": {
-			"/my/dir": "/tmp/test-laitos-dir2"
-		}
-	},
-	"HealthCheck": {
-		"TCPPorts": [9114],
-		"IntervalSec": 300,
-		"Recipients": ["howard@localhost"]
-	},
-	"HTTPBridges": {
-		"TranslateSequences": {
-			"Sequences": [
-				["alpha", "beta"]
-			]
-		},
-		"PINAndShortcuts": {
-			"PIN": "httpsecret",
-			"Shortcuts": {
-				"httpshortcut": ".secho httpshortcut"
-			}
-		},
-		"NotifyViaEmail": {
-			"Recipients": ["howard@localhost"]
-		},
-		"LintText": {
-			"TrimSpaces": true,
-			"CompressToSingleLine": true,
-			"KeepVisible7BitCharOnly": true,
-			"CompressSpaces": true,
-			"MaxLength": 35
-		}
-	},
-	"HTTPHandlers": {
-		"SelfTestEndpoint": "/test",
-		"InformationEndpoint": "/info",
-		"CommandFormEndpoint": "/cmd_form",
-		"IndexEndpoints": ["/", "/index.html"],
-		"IndexEndpointConfig": {
-			"HTMLFilePath": "/tmp/test-laitos-index2.html"
-		},
-		"MailMeEndpoint": "/mail_me",
-		"MailMeEndpointConfig": {
-			"Recipients": ["howard@localhost"]
-		},
-		"WebProxyEndpoint": "/proxy",
-		"TwilioSMSEndpoint": "/sms",
-		"TwilioCallEndpoint": "/call",
-		"TwilioCallEndpointConfig": {
-			"CallGreeting": "Hi there"
-		}
-	},
-
-	"MailDaemon": {
-		"ListenAddress": "127.0.0.1",
-		"ListenPort": 18573,
-		"PerIPLimit": 10,
-		"ForwardTo": ["howard@localhost", "root@localhost"]
-	},
-	"MailProcessor": {
-		"CommandTimeoutSec": 10
-	},
-	"MailProcessorBridges": {
-		"TranslateSequences": {
-		"Sequences": [
-				["aaa", "bbb"]
-			]
-		},
-		"PINAndShortcuts": {
-			"PIN": "mailsecret",
-			"Shortcuts": {
-				"mailshortcut": ".secho mailshortcut"
-			}
-		},
-		"NotifyViaEmail": {
-			"Recipients": ["howard@localhost"]
-		},
-		"LintText": {
-			"TrimSpaces": true,
-			"CompressToSingleLine": true,
-			"MaxLength": 70
-		}
-	},
-
-	"SockDaemon": {
-		"ListenAddress": "127.0.0.1",
-		"ListenPort": 6891,
-		"PerIPLimit": 10,
-		"Password": "1234567"
-	},
-
-	"TelegramBot": {
-		"AuthorizationToken": "intentionally-bad-token"
-	},
-	"TelegramBotBridges": {
-		"TranslateSequences": {
-		"Sequences": [
-				["123", "456"]
-			]
-		},
-		"PINAndShortcuts": {
-			"PIN": "telegramsecret",
-			"Shortcuts": {
-				"telegramshortcut": ".secho telegramshortcut"
-			}
-		},
-		"NotifyViaEmail": {
-			"Recipients": ["howard@localhost"]
-		},
-		"LintText": {
-			"TrimSpaces": true,
-			"CompressToSingleLine": true,
-			"MaxLength": 120
-		}
-	}
-}`
+  "Features": {
+    "Shell": {
+      "InterpreterPath": "/bin/bash"
+    }
+  },
+  "Mailer": {
+    "MailFrom": "howard@localhost",
+    "MTAHost": "127.0.0.1",
+    "MTAPort": 25
+  },
+  "DNSDaemon": {
+    "ListenAddress": "127.0.0.1",
+    "ListenPort": 61211,
+    "ForwardTo": "8.8.8.8",
+    "AllowQueryIPPrefixes": [
+      "127.0"
+    ],
+    "PerIPLimit": 10
+  },
+  "HTTPDaemon": {
+    "ListenAddress": "127.0.0.1",
+    "ListenPort": 23486,
+    "BaseRateLimit": 10,
+    "ServeDirectories": {
+      "/my/dir": "/tmp/test-laitos-dir2"
+    }
+  },
+  "HealthCheck": {
+    "TCPPorts": [
+      9114
+    ],
+    "IntervalSec": 300,
+    "Recipients": [
+      "howard@localhost"
+    ]
+  },
+  "HTTPBridges": {
+    "TranslateSequences": {
+      "Sequences": [
+        [
+          "alpha",
+          "beta"
+        ]
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "httpsecret",
+      "Shortcuts": {
+        "httpshortcut": ".secho httpshortcut"
+      }
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "howard@localhost"
+      ]
+    },
+    "LintText": {
+      "TrimSpaces": true,
+      "CompressToSingleLine": true,
+      "KeepVisible7BitCharOnly": true,
+      "CompressSpaces": true,
+      "MaxLength": 35
+    }
+  },
+  "HTTPHandlers": {
+    "SelfTestEndpoint": "/test",
+    "InformationEndpoint": "/info",
+    "CommandFormEndpoint": "/cmd_form",
+    "GitlabBrowserEndpoint": "/gitlab",
+    "GitlabBrowserEndpointConfig": {
+      "PrivateToken": "just a dummy token"
+    },
+    "IndexEndpoints": [
+      "/",
+      "/index.html"
+    ],
+    "IndexEndpointConfig": {
+      "HTMLFilePath": "/tmp/test-laitos-index2.html"
+    },
+    "MailMeEndpoint": "/mail_me",
+    "MailMeEndpointConfig": {
+      "Recipients": [
+        "howard@localhost"
+      ]
+    },
+    "WebProxyEndpoint": "/proxy",
+    "TwilioSMSEndpoint": "/sms",
+    "TwilioCallEndpoint": "/call",
+    "TwilioCallEndpointConfig": {
+      "CallGreeting": "Hi there"
+    }
+  },
+  "MailDaemon": {
+    "ListenAddress": "127.0.0.1",
+    "ListenPort": 18573,
+    "PerIPLimit": 10,
+    "ForwardTo": [
+      "howard@localhost",
+      "root@localhost"
+    ]
+  },
+  "MailProcessor": {
+    "CommandTimeoutSec": 10
+  },
+  "MailProcessorBridges": {
+    "TranslateSequences": {
+      "Sequences": [
+        [
+          "aaa",
+          "bbb"
+        ]
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "mailsecret",
+      "Shortcuts": {
+        "mailshortcut": ".secho mailshortcut"
+      }
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "howard@localhost"
+      ]
+    },
+    "LintText": {
+      "TrimSpaces": true,
+      "CompressToSingleLine": true,
+      "MaxLength": 70
+    }
+  },
+  "SockDaemon": {
+    "ListenAddress": "127.0.0.1",
+    "ListenPort": 6891,
+    "PerIPLimit": 10,
+    "Password": "1234567"
+  },
+  "TelegramBot": {
+    "AuthorizationToken": "intentionally-bad-token"
+  },
+  "TelegramBotBridges": {
+    "TranslateSequences": {
+      "Sequences": [
+        [
+          "123",
+          "456"
+        ]
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "telegramsecret",
+      "Shortcuts": {
+        "telegramshortcut": ".secho telegramshortcut"
+      }
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "howard@localhost"
+      ]
+    },
+    "LintText": {
+      "TrimSpaces": true,
+      "CompressToSingleLine": true,
+      "MaxLength": 120
+    }
+  }
+}
+`
 	var config Config
 	if err := config.DeserialiseFromJSON([]byte(js)); err != nil {
 		t.Fatal(err)
@@ -278,8 +307,8 @@ func TestConfig(t *testing.T) {
 
 	httpDaemon := config.GetHTTPD()
 
-	if len(httpDaemon.SpecialHandlers) != 10 {
-		// 1 x self test, 1 x sms, 2 x call, 1 x mail me, 1 x proxy, 2 x index, 1 x cmd form, 1 x info
+	if len(httpDaemon.SpecialHandlers) != 11 {
+		// 1 x self test, 1 x sms, 2 x call, 1 x gitlab, 1 x mail me, 1 x proxy, 2 x index, 1 x cmd form, 1 x info
 		t.Fatal(httpDaemon.SpecialHandlers)
 	}
 	// Find the randomly generated endpoint name for twilio call callback
@@ -293,6 +322,7 @@ func TestConfig(t *testing.T) {
 		case "/mail_me":
 		case "/proxy":
 		case "/info":
+		case "/gitlab":
 		case "/":
 		case "/index.html":
 		default:
@@ -366,6 +396,11 @@ func TestConfig(t *testing.T) {
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/info")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Public IP:") {
 		t.Fatal(err, string(resp.Body))
+	}
+	// Gitlab handle
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/gitlab")
+	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {
+		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Command Form
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/cmd_form")

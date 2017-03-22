@@ -23,7 +23,7 @@ const HandleCommandFormPage = `<!doctype html>
 </html>
 ` // Run Command page content
 
-const CommandFormTimeoutSec = 55 // Form commands may enjoy a less constrained timeout
+const CommandFormTimeoutSec = 110 // Form commands may enjoy a less constrained timeout
 
 type HandleCommandForm struct {
 }

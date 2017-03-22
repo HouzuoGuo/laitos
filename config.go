@@ -38,6 +38,9 @@ type HTTPHandlers struct {
 
 	CommandFormEndpoint string `json:"CommandFormEndpoint"`
 
+	GitlabBrowserEndpoint       string                  `json:"GitlabBrowserEndpoint"`
+	GitlabBrowserEndpointConfig api.HandleGitlabBrowser `json:"GitlabBrowserEndpointConfig"`
+
 	IndexEndpoints      []string               `json:"IndexEndpoints"`
 	IndexEndpointConfig api.HandleHTMLDocument `json:"IndexEndpointConfig"`
 
@@ -151,6 +154,9 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	}
 	if config.HTTPHandlers.CommandFormEndpoint != "" {
 		handlers[config.HTTPHandlers.CommandFormEndpoint] = &api.HandleCommandForm{}
+	}
+	if config.HTTPHandlers.GitlabBrowserEndpoint != "" {
+		handlers[config.HTTPHandlers.GitlabBrowserEndpoint] = &config.HTTPHandlers.GitlabBrowserEndpointConfig
 	}
 	if config.HTTPHandlers.IndexEndpoints != nil {
 		for _, location := range config.HTTPHandlers.IndexEndpoints {
