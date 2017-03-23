@@ -3,6 +3,7 @@ package dnsd
 import (
 	"bytes"
 	"encoding/hex"
+	"io/ioutil"
 	"net"
 	"reflect"
 	"strings"
@@ -17,7 +18,7 @@ func TestExtractDomainName(t *testing.T) {
 	if name := ExtractDomainName([]byte{}); name != "" {
 		t.Fatal(name)
 	}
-	if name := ExtractDomainName(githubComQuery); name == "" {
+	if name := ExtractDomainName(githubComUDPQuery); name != "github.com" {
 		t.Fatal(name)
 	}
 }
@@ -29,11 +30,11 @@ func TestRespondWith0(t *testing.T) {
 	if packet := RespondWith0([]byte{}); len(packet) != 0 {
 		t.Fatal(packet)
 	}
-	match, err := hex.DecodeString("97eb818000010001000000000667697468756203636f6d00000100010000291000000000000000c00c00010001000005ba000400000000")
+	match, err := hex.DecodeString("e575818000010001000000010667697468756203636f6d00000100010000291000000000000000c00c00010001000005ba000400000000")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if packet := RespondWith0(githubComQuery); !reflect.DeepEqual(packet, match) {
+	if packet := RespondWith0(githubComUDPQuery); !reflect.DeepEqual(packet, match) {
 		t.Fatal(hex.EncodeToString(packet))
 	}
 }
@@ -86,13 +87,12 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	packetBuf := make([]byte, MaxPacketSize)
 	clientConn, err := net.DialUDP("udp", nil, serverAddr)
 	// Try to reach rate limit
-	delete(daemon.BlackList, "github.com")
 	var success int
-	for i := 0; i < 100; i++ {
-		if _, err := clientConn.Write(githubComQuery); err != nil {
+	for i := 0; i < 20; i++ {
+		if _, err := clientConn.Write(githubComUDPQuery); err != nil {
 			t.Fatal(err)
 		}
-		clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		clientConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 		length, err := clientConn.Read(packetBuf)
 		if err == nil && length > 50 {
 			success++
@@ -105,10 +105,10 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	time.Sleep(RateLimitIntervalSec * time.Second)
 	// Blacklist github and see if query gets a black hole response
 	daemon.BlackList["github.com"] = struct{}{}
-	if _, err := clientConn.Write(githubComQuery); err != nil {
+	if _, err := clientConn.Write(githubComUDPQuery); err != nil {
 		t.Fatal(err)
 	}
-	clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	clientConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	respLen, err := clientConn.Read(packetBuf)
 	if err != nil {
 		t.Fatal(err)
@@ -147,36 +147,31 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// Update ad-server blacklist
-	if numEntries, err := daemon.InstallAdBlacklist(); err != nil || numEntries < 100 {
-		t.Fatal(err, numEntries)
-	}
 	// Server should start within two seconds
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
 	}()
-	time.Sleep(1000 * time.Second)
+	time.Sleep(2 * time.Second)
 
-	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:16321")
-	if err != nil {
-		t.Fatal(err)
-	}
 	packetBuf := make([]byte, MaxPacketSize)
-	clientConn, err := net.DialUDP("udp", nil, serverAddr)
-	// Try to reach rate limit
-	delete(daemon.BlackList, "github.com")
 	var success int
-	for i := 0; i < 100; i++ {
-		if _, err := clientConn.Write(githubComQuery); err != nil {
+	// Try to reach rate limit
+	for i := 0; i < 20; i++ {
+		clientConn, err := net.Dial("tcp", "127.0.0.1:16321")
+		if err != nil {
 			t.Fatal(err)
 		}
-		clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-		length, err := clientConn.Read(packetBuf)
-		if err == nil && length > 50 {
+		if _, err := clientConn.Write(githubComTCPQuery); err != nil {
+			t.Fatal(err)
+		}
+		clientConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+		resp, err := ioutil.ReadAll(clientConn)
+		if err == nil && len(resp) > 50 {
 			success++
 		}
+		clientConn.Close()
 	}
 	if success < 5 || success > 15 {
 		t.Fatal(success)
@@ -185,7 +180,11 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	time.Sleep(RateLimitIntervalSec * time.Second)
 	// Blacklist github and see if query gets a black hole response
 	daemon.BlackList["github.com"] = struct{}{}
-	if _, err := clientConn.Write(githubComQuery); err != nil {
+	clientConn, err := net.Dial("tcp", "127.0.0.1:16321")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := clientConn.Write(githubComTCPQuery); err != nil {
 		t.Fatal(err)
 	}
 	clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))

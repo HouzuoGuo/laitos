@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// Pretty much copied from other test cases.
+// Most of the daemon test cases are copied from their own unit tests.
 func TestConfig(t *testing.T) {
 	js := `{
   "Features": {
@@ -35,13 +35,16 @@ func TestConfig(t *testing.T) {
     "MTAPort": 25
   },
   "DNSDaemon": {
-    "ListenAddress": "127.0.0.1",
-    "ListenPort": 61211,
-    "UDPForwardTo": "8.8.8.8",
     "AllowQueryIPPrefixes": [
       "127.0"
     ],
-    "PerIPLimit": 10
+    "PerIPLimit": 10,
+    "TCPListenAddress": "127.0.0.1",
+    "TCPListenPort": 61211,
+    "TCPForwardTo": "8.8.8.8:53",
+    "UDPListenAddress": "127.0.0.1",
+    "UDPListenPort": 61211,
+    "UDPForwardTo": "8.8.8.8:53"
   },
   "HTTPDaemon": {
     "ListenAddress": "127.0.0.1",
@@ -120,7 +123,7 @@ func TestConfig(t *testing.T) {
     "ListenAddress": "127.0.0.1",
     "ListenPort": 18573,
     "PerIPLimit": 10,
-    "UDPForwardTo": [
+    "ForwardTo": [
       "howard@localhost",
       "root@localhost"
     ]
@@ -196,9 +199,23 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// ============ Test DNS daemon ============
-	// Update ad-server blacklist
+	DNSDaemonUDPTest(t, config)
+	DNSDaemonTCPTest(t, config)
+	HealthCheckTest(t, config)
+	HTTPDaemonTest(t, config)
+	MailProcessorTest(t, config)
+	SMTPDaemonTest(t, config)
+	SockDaeemonTest(t, config)
+	TelegramBotTest(t, config)
+}
+
+func DNSDaemonUDPTest(t *testing.T, config Config) {
+	githubComUDPQuery, err := hex.DecodeString("e575012000010000000000010667697468756203636f6d00000100010000291000000000000000")
+	if err != nil {
+		t.Fatal(err)
+	}
 	dnsDaemon := config.GetDNSD()
+	// Update ad-server blacklist
 	if numEntries, err := dnsDaemon.InstallAdBlacklist(); err != nil || numEntries < 100 {
 		t.Fatal(err, numEntries)
 	}
@@ -214,20 +231,15 @@ func TestConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	githubComQuery, err := hex.DecodeString("97eb010000010000000000000667697468756203636f6d0000010001")
-	if err != nil {
-		t.Fatal(err)
-	}
 	packetBuf := make([]byte, dnsd.MaxPacketSize)
 	clientConn, err := net.DialUDP("udp", nil, serverAddr)
 	// Try to reach rate limit
-	delete(dnsDaemon.BlackList, "github.com")
 	var success int
-	for i := 0; i < 100; i++ {
-		if _, err := clientConn.Write(githubComQuery); err != nil {
+	for i := 0; i < 20; i++ {
+		if _, err := clientConn.Write(githubComUDPQuery); err != nil {
 			t.Fatal(err)
 		}
-		clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		clientConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 		length, err := clientConn.Read(packetBuf)
 		if err == nil && length > 50 {
 			success++
@@ -240,7 +252,55 @@ func TestConfig(t *testing.T) {
 	time.Sleep(dnsd.RateLimitIntervalSec * time.Second)
 	// Blacklist github and see if query gets a black hole response
 	dnsDaemon.BlackList["github.com"] = struct{}{}
-	if _, err := clientConn.Write(githubComQuery); err != nil {
+	if _, err := clientConn.Write(githubComUDPQuery); err != nil {
+		t.Fatal(err)
+	}
+	clientConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	respLen, err := clientConn.Read(packetBuf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Index(packetBuf[:respLen], dnsd.BlackHoleAnswer) == -1 {
+		t.Fatal("did not answer black hole")
+	}
+}
+
+func DNSDaemonTCPTest(t *testing.T, config Config) {
+	githubComTCPQuery, err := hex.DecodeString("00274cc7012000010000000000010667697468756203636f6d00000100010000291000000000000000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dnsDaemon := config.GetDNSD()
+	packetBuf := make([]byte, dnsd.MaxPacketSize)
+	success := 0
+	// Try to reach rate limit
+	for i := 0; i < 20; i++ {
+		clientConn, err := net.Dial("tcp", "127.0.0.1:61211")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := clientConn.Write(githubComTCPQuery); err != nil {
+			t.Fatal(err)
+		}
+		clientConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+		resp, err := ioutil.ReadAll(clientConn)
+		if err == nil && len(resp) > 50 {
+			success++
+		}
+		clientConn.Close()
+	}
+	if success < 5 || success > 15 {
+		t.Fatal(success)
+	}
+	// Wait out rate limit
+	time.Sleep(dnsd.RateLimitIntervalSec * time.Second)
+	// Blacklist github and see if query gets a black hole response
+	dnsDaemon.BlackList["github.com"] = struct{}{}
+	clientConn, err := net.Dial("tcp", "127.0.0.1:61211")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := clientConn.Write(githubComTCPQuery); err != nil {
 		t.Fatal(err)
 	}
 	clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
@@ -251,9 +311,9 @@ func TestConfig(t *testing.T) {
 	if bytes.Index(packetBuf[:respLen], dnsd.BlackHoleAnswer) == -1 {
 		t.Fatal("did not answer black hole")
 	}
+}
 
-	// ============ Test health check ===========
-	// Port is now listening
+func HealthCheckTest(t *testing.T, config Config) {
 	go func() {
 		listener, err := net.Listen("tcp", "127.0.0.1:9114")
 		if err != nil {
@@ -265,6 +325,7 @@ func TestConfig(t *testing.T) {
 			}
 		}
 	}()
+	// Port is now listening
 	time.Sleep(1 * time.Second)
 	check := config.GetHealthCheck()
 	if !check.Execute() {
@@ -286,8 +347,9 @@ func TestConfig(t *testing.T) {
 		}
 	}()
 	time.Sleep(1 * time.Second)
+}
 
-	// ============ Test HTTP daemon ============
+func HTTPDaemonTest(t *testing.T, config Config) {
 	// (Essentially combine all cases of api_test.go and httpd_test.go)
 	// Create a temporary file for index
 	indexFile := "/tmp/test-laitos-index2.html"
@@ -369,7 +431,7 @@ func TestConfig(t *testing.T) {
 	}
 	// Test hitting rate limits
 	time.Sleep(httpd.RateLimitIntervalSec * time.Second)
-	success = 0
+	success := 0
 	for i := 0; i < 200; i++ {
 		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/")
 		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
@@ -502,8 +564,9 @@ func TestConfig(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body))
 	}
+}
 
-	// ============ Test mail processor ============
+func MailProcessorTest(t *testing.T, config Config) {
 	mailproc := config.GetMailProcessor()
 	pinMismatch := `From howard@localhost Sun Feb 26 18:17:34 2017
 Return-Path: <howard@localhost>
@@ -553,8 +616,9 @@ mailshortcut
 		}
 		t.Log("Check howard@localhost mailbox")
 	}
+}
 
-	// ============ Test SMTPD ============
+func SMTPDaemonTest(t *testing.T, config Config) {
 	mailDaemon := config.GetMailDaemon()
 	var mailDaemonStoppedNormally bool
 	go func() {
@@ -566,7 +630,7 @@ mailshortcut
 	time.Sleep(3 * time.Second) // this really should be env.HTTPPublicIPTimeout * time.Second
 	// Try to exceed rate limit
 	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
-	success = 0
+	success := 0
 	for i := 0; i < 100; i++ {
 		if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(testMessage)); err == nil {
 			success++
@@ -598,8 +662,9 @@ mailshortcut
 	if !mailDaemonStoppedNormally {
 		t.Fatal("did not stop")
 	}
+}
 
-	// ============ Test sock daemon ============
+func SockDaeemonTest(t *testing.T, config Config) {
 	sockDaemon := config.GetSockDaemon()
 	var stopped bool
 	go func() {
@@ -619,8 +684,9 @@ mailshortcut
 	if !stopped {
 		t.Fatal("did not stop")
 	}
+}
 
-	// ============ Test telegram bot ============
+func TelegramBotTest(t *testing.T, config Config) {
 	telegramBot := config.GetTelegramBot()
 	// It is really difficult to test the chat routine
 	// So I am going to only do the API test call
