@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/httpclient"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/ratelimit"
@@ -103,6 +104,14 @@ func (dnsd *DNSD) Initialise() error {
 		}
 		dnsd.UDPForwarderConns[i] = forwarderConn
 		dnsd.UDPForwarderQueues[i] = make(chan *UDPForwarderQuery, 16) // there really is no need for a deeper queue
+	}
+	// Always allow server to query itself
+	myPublicIP := env.GetPublicIP()
+	if myPublicIP == "" {
+		// Not a fatal error
+		dnsd.Logger.Printf("Initialise", "", nil, "unable to determine public IP address, the server will not be able to query itself.")
+	} else {
+		dnsd.AllowQueryIPPrefixes = append(dnsd.AllowQueryIPPrefixes, myPublicIP)
 	}
 	return nil
 }

@@ -68,6 +68,9 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	if len(daemon.AllowQueryIPPrefixes) != 2 {
+		t.Fatal("did not put my own IP into prefixes")
+	}
 	// Update ad-server blacklist
 	if numEntries, err := daemon.InstallAdBlacklist(); err != nil || numEntries < 100 {
 		t.Fatal(err, numEntries)
@@ -146,6 +149,9 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	daemon.AllowQueryIPPrefixes = []string{"127"}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
+	}
+	if len(daemon.AllowQueryIPPrefixes) != 2 {
+		t.Fatal("did not put my own IP into prefixes")
 	}
 	// Server should start within two seconds
 	go func() {
