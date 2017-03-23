@@ -54,7 +54,7 @@ func TestDNSD_StartAndBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	githubComQuery, err := hex.DecodeString("97eb010000010000000000000667697468756203636f6d0000010001")
+	githubComQuery, err := hex.DecodeString("97eb010000010000000000000667697468756203636f6d00000100010000291000000000000000")
 	if err != nil {
 		t.Fatal(err)
 	}

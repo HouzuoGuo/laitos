@@ -222,21 +222,20 @@ func (dnsd *DNSD) StartAndBlock() error {
 			}
 		}
 		if !prefixOK {
-			dnsd.Logger.Printf("Loop", clientIP, nil, "the IP is allowed by configuration")
+			dnsd.Logger.Printf("Loop", clientIP, nil, "client IP is not allowed by configuration")
 			continue
 		}
-		isDomainNameQuery := bytes.HasSuffix(packetBuf[:packetLength], []byte{0, 1, 0, 1})
+		indexTypeAClassIN := bytes.Index(packetBuf[:packetLength], []byte{0, 1, 0, 1})
 
 		// Prepare parameters for forwarding the query
 		randForwarder := rand.Intn(len(dnsd.ForwarderQueues))
 		forwardPacket := make([]byte, packetLength)
 		copy(forwardPacket, packetBuf[:packetLength])
 		var domainName string
-		// 12 bytes come before domain name, 5 bytes come after domain name
-		if isDomainNameQuery && packetLength > 18 {
+		if indexTypeAClassIN > 0 && indexTypeAClassIN > 14 {
 			// This is a domain name query, check the name against black list and then forward.
-			domainNameBytes := make([]byte, packetLength-5-13)
-			copy(domainNameBytes, packetBuf[13:packetLength-5])
+			domainNameBytes := make([]byte, indexTypeAClassIN-13-1)
+			copy(domainNameBytes, packetBuf[13:indexTypeAClassIN-1])
 			/*
 				Restore full-stops of the domain name portion so that it can be checked against black list.
 				Not sure why those byte ranges show up in place of full-stops, probably due to some RFCs.
