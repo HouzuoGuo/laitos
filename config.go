@@ -90,7 +90,7 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 // Construct a DNS daemon from configuration and return.
 func (config *Config) GetDNSD() *dnsd.DNSD {
 	ret := config.DNSDaemon
-	ret.Logger = lalog.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
+	ret.Logger = lalog.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d", ret.UDPListenAddress, ret.UDPListenPort)}
 	if err := ret.Initialise(); err != nil {
 		ret.Logger.Fatalf("GetDNSD", "Config", err, "failed to initialise")
 		return nil

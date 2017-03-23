@@ -37,7 +37,7 @@ func TestConfig(t *testing.T) {
   "DNSDaemon": {
     "ListenAddress": "127.0.0.1",
     "ListenPort": 61211,
-    "ForwardTo": "8.8.8.8",
+    "UDPForwardTo": "8.8.8.8",
     "AllowQueryIPPrefixes": [
       "127.0"
     ],
@@ -120,7 +120,7 @@ func TestConfig(t *testing.T) {
     "ListenAddress": "127.0.0.1",
     "ListenPort": 18573,
     "PerIPLimit": 10,
-    "ForwardTo": [
+    "UDPForwardTo": [
       "howard@localhost",
       "root@localhost"
     ]
