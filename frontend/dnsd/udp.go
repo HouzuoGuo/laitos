@@ -30,8 +30,6 @@ func (dnsd *DNSD) ForwarderQueueProcessor(myQueue chan *UDPForwarderQuery, forwa
 			dnsd.Logger.Printf("ForwarderQueueProcessor", "WriteResponse", err, "IO failure")
 			continue
 		}
-		dnsd.Logger.Printf("ForwarderQueueProcessor", query.ClientAddr.IP.String(), nil,
-			"successfully forwarded answer for \"%s\", backlog length %d", query.DomainName, len(myQueue))
 	}
 }
 
@@ -103,7 +101,7 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 
 				continue
 			} else {
-				dnsd.Logger.Printf("UDPLoop", clientIP, nil, "let forwarder %d handle domain \"%s\"", randForwarder, domainName)
+				dnsd.Logger.Printf("UDPLoop", clientIP, nil, "let forwarder %d handle domain \"%s\", backlog length %d", randForwarder, domainName, len(dnsd.UDPForwarderQueues[randForwarder]))
 				// Forwarder queue will take care of this query
 			}
 		}
