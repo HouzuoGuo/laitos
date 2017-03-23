@@ -225,14 +225,17 @@ func (dnsd *DNSD) StartAndBlock() error {
 			dnsd.Logger.Printf("Loop", clientIP, nil, "client IP is not allowed by configuration")
 			continue
 		}
-		indexTypeAClassIN := bytes.Index(packetBuf[:packetLength], []byte{0, 1, 0, 1})
 
 		// Prepare parameters for forwarding the query
+		indexTypeAClassIN := -1
+		if packetLength > 14 {
+			indexTypeAClassIN = 14 + bytes.Index(packetBuf[14:packetLength], []byte{0, 1, 0, 1})
+		}
 		randForwarder := rand.Intn(len(dnsd.ForwarderQueues))
 		forwardPacket := make([]byte, packetLength)
 		copy(forwardPacket, packetBuf[:packetLength])
 		var domainName string
-		if indexTypeAClassIN > 0 && indexTypeAClassIN > 14 {
+		if indexTypeAClassIN > 14 {
 			// This is a domain name query, check the name against black list and then forward.
 			domainNameBytes := make([]byte, indexTypeAClassIN-13-1)
 			copy(domainNameBytes, packetBuf[13:indexTypeAClassIN-1])
