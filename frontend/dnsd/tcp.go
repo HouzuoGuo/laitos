@@ -23,7 +23,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 		}
 	}
 	if !prefixOK {
-		dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "client IP is not allowed by configuration")
+		dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "client IP is not allowed to query")
 		return
 	}
 	// Read query length
@@ -31,7 +31,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	queryLenBuf := make([]byte, 2)
 	_, err := clientConn.Read(queryLenBuf)
 	if err != nil {
-		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "IO error when reading length from client")
+		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to read query length from client")
 		return
 	}
 	queryLen := int(queryLenBuf[0])*256 + int(queryLenBuf[1])
@@ -43,7 +43,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	queryBuf := make([]byte, queryLen)
 	_, err = clientConn.Read(queryBuf)
 	if err != nil {
-		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "IO error when reading query from client")
+		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to read query from client")
 		return
 	}
 	domainName := ExtractDomainName(queryBuf)
@@ -54,7 +54,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	var doForward bool
 	if domainName == "" {
 		// If I cannot figure out what domain is from the query, simply forward it without much concern.
-		dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "let forwarder handle non-name query")
+		dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle non-name query")
 		doForward = true
 	} else {
 		// This is a domain name query, check the name against black list and then forward.
@@ -62,14 +62,14 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 		_, blacklisted := dnsd.BlackList[domainName]
 		dnsd.BlackListMutex.Unlock()
 		if blacklisted {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "answer to black-listed domain \"%s\"", domainName)
+			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", domainName)
 			responseBuf = RespondWith0(queryBuf)
 			responseLen = len(responseBuf)
 			responseLenBuf = make([]byte, 2)
 			responseLenBuf[0] = byte(responseLen / 256)
 			responseLenBuf[1] = byte(responseLen % 256)
 		} else {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "let forwarder handle domain \"%s\"", domainName)
+			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", domainName)
 			doForward = true
 		}
 	}
@@ -77,7 +77,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	if doForward {
 		myForwarder, err := net.DialTimeout("tcp", dnsd.TCPForwardTo, IOTimeoutSec*time.Second)
 		if err != nil {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "IO error when connecting to forwarder")
+			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to connect to forwarder")
 			return
 		}
 		defer myForwarder.Close()
@@ -87,16 +87,16 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 		copy(combinedBuf[0:2], queryLenBuf)
 		copy(combinedBuf[2:], queryBuf)
 		if _, err = myForwarder.Write(combinedBuf); err != nil {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "IO error when writing length to forwarder")
+			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to write length to forwarder")
 			return
 		} else if _, err = myForwarder.Write(queryBuf); err != nil {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "IO error when writing query to forwarder")
+			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to write query to forwarder")
 			return
 		}
 		// Retrieve forwarder's response
 		responseLenBuf = make([]byte, 2)
 		if _, err = myForwarder.Read(responseLenBuf); err != nil {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "IO error when reading length from forwarder")
+			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to read length from forwarder")
 			return
 		}
 		responseLen = int(responseLenBuf[0])*256 + int(responseLenBuf[1])
@@ -106,16 +106,16 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 		}
 		responseBuf = make([]byte, responseLen)
 		if _, err = myForwarder.Read(responseBuf); err != nil {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "IO error when reading from forwarder")
+			dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to read response from forwarder")
 			return
 		}
 	}
 	// Send response to my client
 	if _, err = clientConn.Write(responseLenBuf); err != nil {
-		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "IO error when writing length to client")
+		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to answer length to client")
 		return
 	} else if _, err = clientConn.Write(responseBuf); err != nil {
-		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "IO error when writing response to client")
+		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "faile dto answer to client")
 		return
 	}
 	return

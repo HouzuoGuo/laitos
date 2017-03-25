@@ -9,25 +9,25 @@ import (
 )
 
 // Send forward queries to forwarder and forward the response to my DNS client.
-func (dnsd *DNSD) ForwarderQueueProcessor(myQueue chan *UDPForwarderQuery, forwarderConn net.Conn) {
+func (dnsd *DNSD) HandleUDPQueries(myQueue chan *UDPForwarderQuery, forwarderConn net.Conn) {
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
 		query := <-myQueue
 		// Set deadline for IO with forwarder
 		forwarderConn.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := forwarderConn.Write(query.QueryPacket); err != nil {
-			dnsd.Logger.Printf("ForwarderQueueProcessor", "Write", err, "IO failure")
+			dnsd.Logger.Printf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to write to forwarder")
 			continue
 		}
 		packetLength, err := forwarderConn.Read(packetBuf)
 		if err != nil {
-			dnsd.Logger.Printf("ForwarderQueueProcessor", "Read", err, "IO failure")
+			dnsd.Logger.Printf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to read from forwarder")
 			continue
 		}
 		// Set deadline for responding to my DNS client
 		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(packetBuf[:packetLength], query.ClientAddr); err != nil {
-			dnsd.Logger.Printf("ForwarderQueueProcessor", "WriteResponse", err, "IO failure")
+			dnsd.Logger.Printf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to answer to client")
 			continue
 		}
 	}
@@ -49,7 +49,7 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 	}
 	// Start forwarder queues that will forward client queries and respond to them
 	for i, queue := range dnsd.UDPForwarderQueues {
-		go dnsd.ForwarderQueueProcessor(queue, dnsd.UDPForwarderConns[i])
+		go dnsd.HandleUDPQueries(queue, dnsd.UDPForwarderConns[i])
 	}
 	// Dispatch queries to forwarder queues
 	packetBuf := make([]byte, MaxPacketSize)
@@ -73,7 +73,7 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 			}
 		}
 		if !prefixOK {
-			dnsd.Logger.Printf("UDPLoop", clientIP, nil, "client IP is not allowed by configuration")
+			dnsd.Logger.Printf("UDPLoop", clientIP, nil, "client IP is not allowed to query")
 			continue
 		}
 
@@ -84,7 +84,7 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 		domainName := ExtractDomainName(forwardPacket)
 		if domainName == "" {
 			// If I cannot figure out what domain is from the query, simply forward it without much concern.
-			dnsd.Logger.Printf("UDPLoop", clientIP, nil, "let forwarder %d handle non-name query", randForwarder)
+			dnsd.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil, "handle non-name query")
 
 		} else {
 			// This is a domain name query, check the name against black list and then forward.
@@ -92,7 +92,7 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 			_, blacklisted := dnsd.BlackList[domainName]
 			dnsd.BlackListMutex.Unlock()
 			if blacklisted {
-				dnsd.Logger.Printf("UDPLoop", clientIP, nil, "answer to black-listed domain \"%s\"", domainName)
+				dnsd.Logger.Printf("UDPLoop", clientIP, nil, "handle black-listed domain \"%s\"", domainName)
 				blackHoleAnswer := RespondWith0(forwardPacket)
 				udpServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 				if _, err := udpServer.WriteTo(blackHoleAnswer, clientAddr); err != nil {
@@ -101,7 +101,7 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 
 				continue
 			} else {
-				dnsd.Logger.Printf("UDPLoop", clientIP, nil, "let forwarder %d handle domain \"%s\", backlog length %d", randForwarder, domainName, len(dnsd.UDPForwarderQueues[randForwarder]))
+				dnsd.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil, "handle domain \"%s\" (backlog %d)", domainName, len(dnsd.UDPForwarderQueues[randForwarder]))
 				// Forwarder queue will take care of this query
 			}
 		}

@@ -118,10 +118,9 @@ func (smtpd *SMTPD) ProcessMail(fromAddr, mailBody string) {
 }
 
 // Converse with SMTP client to retrieve mail, then immediately process the retrieved mail. Finally close the connection.
-func (smtpd *SMTPD) ServeConn(clientConn net.Conn) {
+func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().String()[:strings.LastIndexByte(clientConn.RemoteAddr().String(), ':')]
-	smtpd.Logger.Printf("ServeConn", clientIP, nil, "connected")
 	var numConversations int
 	var finishedNormally bool
 	var finishReason string
@@ -164,11 +163,11 @@ conversationDone:
 	if fromAddr == "" || len(toAddrs) == 0 {
 		finishReason = "discarded malformed mail"
 	} else if finishedNormally {
-		smtpd.Logger.Printf("ServeConn", clientIP, nil, "got a mail from \"%s\" addressed to %v", fromAddr, toAddrs)
+		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "got a mail from \"%s\" addressed to %v", fromAddr, toAddrs)
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		smtpd.ProcessMail(fromAddr, mailBody)
 	}
-	smtpd.Logger.Printf("ServeConn", clientIP, nil, "%s after %d conversations", finishReason, numConversations)
+	smtpd.Logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations", finishReason, numConversations)
 }
 
 /*
@@ -191,7 +190,7 @@ func (smtpd *SMTPD) StartAndBlock() (err error) {
 				return fmt.Errorf("SMTPD.StartAndBlock: failed to accept new connection - %v", err)
 			}
 		}
-		go smtpd.ServeConn(clientConn)
+		go smtpd.HandleConnection(clientConn)
 	}
 	return nil
 }
