@@ -146,9 +146,6 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	}
 	// Make handler factories
 	handlers := map[string]api.HandlerFactory{}
-	if config.HTTPHandlers.SelfTestEndpoint != "" {
-		handlers[config.HTTPHandlers.SelfTestEndpoint] = &api.HandleFeatureSelfTest{}
-	}
 	if config.HTTPHandlers.InformationEndpoint != "" {
 		handlers[config.HTTPHandlers.InformationEndpoint] = &api.HandleSystemInfo{}
 	}

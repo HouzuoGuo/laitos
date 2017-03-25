@@ -6,12 +6,12 @@ import (
 )
 
 func TestFeatureSet_SelfTest(t *testing.T) {
-	// Initially, no feature other than shell is available from an empty feature set
+	// Initially, no feature other than shell and EnvInfo are available from an empty feature set
 	features := FeatureSet{}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 1 || features.LookupByTrigger[".s"] == nil {
+	if len(features.LookupByTrigger) != 2 || features.LookupByTrigger[".s"] == nil || features.LookupByTrigger[".e"] == nil {
 		t.Fatal(features.LookupByTrigger)
 	}
 	// Configure AES decrypt and see
@@ -19,26 +19,26 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 2 {
+	if len(features.LookupByTrigger) != 3 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if errs := features.SelfTest(); len(errs) != 0 {
 		t.Fatal(errs)
 	}
 	// Get triggers of configured features
-	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".a", ".s"}) {
+	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".a", ".e", ".s"}) {
 		t.Fatal(triggers)
 	}
 	// Configure all features via JSON and verify via self test
 	features = TestFeatureSet
 	features.Initialise()
-	if len(features.LookupByTrigger) != 8 {
+	if len(features.LookupByTrigger) != 9 {
 		t.Skip(features.LookupByTrigger)
 	}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 8 {
+	if len(features.LookupByTrigger) != 9 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if errs := features.SelfTest(); len(errs) != 0 {

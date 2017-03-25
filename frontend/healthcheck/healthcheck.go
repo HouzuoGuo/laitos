@@ -39,7 +39,6 @@ func (check *HealthCheck) Execute() bool {
 	for _, portNumber := range check.TCPPorts {
 		go func(portNumber int) {
 			conn, err := net.DialTimeout("tcp", "localhost:"+strconv.Itoa(portNumber), TCPConnectionTimeoutSec*time.Second)
-			fmt.Println("CONN ERR", conn, err)
 			checkTCPPorts[portNumber] = err == nil
 			allOK = allOK && checkTCPPorts[portNumber]
 			if err == nil {
@@ -55,10 +54,15 @@ func (check *HealthCheck) Execute() bool {
 	// Compose mail body
 	var mailMessage bytes.Buffer
 	if allOK {
-		mailMessage.WriteString("All OK\n\n")
+		mailMessage.WriteString("All OK\n")
 	} else {
-		mailMessage.WriteString("There are errors.\n\n")
+		mailMessage.WriteString("There are errors.\n")
 	}
+	// 0 - runtime info
+	mailMessage.WriteString("\nRuntime:\n")
+	mailMessage.WriteString(feature.GetRuntimeInfo())
+	// 1 - port checks
+	mailMessage.WriteString("\nPorts:\n")
 	for _, portNumber := range check.TCPPorts {
 		if checkTCPPorts[portNumber] {
 			mailMessage.WriteString(fmt.Sprintf("TCP %d: OK\n", portNumber))
@@ -66,6 +70,7 @@ func (check *HealthCheck) Execute() bool {
 			mailMessage.WriteString(fmt.Sprintf("TCP %d: Error\n", portNumber))
 		}
 	}
+	// 2 - feature checks
 	if len(featureErrs) == 0 {
 		mailMessage.WriteString("\nFeatures: OK\n")
 	} else {
@@ -73,11 +78,12 @@ func (check *HealthCheck) Execute() bool {
 			mailMessage.WriteString(fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
 		}
 	}
+	// 3 - logs
 	mailMessage.WriteString("\nLogs:\n")
-	lalog.LatestLogEntries.Iterate(func(_ uint64, entry string) bool {
-		mailMessage.WriteString(entry + "\n")
-		return true
-	})
+	mailMessage.WriteString(feature.GetLatestGlobalLog())
+	// 4 - stack traces
+	mailMessage.WriteString("\nStack traces:\n")
+	mailMessage.WriteString(feature.GetGoroutineStacktraces())
 	// Send away!
 	if allOK {
 		check.Logger.Printf("Execute", "", nil, "completed with everything being OK")

@@ -29,13 +29,7 @@ func TestAllHandlers(t *testing.T) {
 	// ============ Give handlers to HTTP server mux ============
 	handlers := http.NewServeMux()
 
-	// Self test
-	var handle HandlerFactory = &HandleFeatureSelfTest{}
-	selfTestHandle, err := handle.MakeHandler(logger, proc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	handlers.HandleFunc("/self_test", selfTestHandle)
+	var handle HandlerFactory
 	// System info
 	handle = &HandleSystemInfo{}
 	infoHandler, err := handle.MakeHandler(logger, proc)
@@ -122,26 +116,20 @@ func TestAllHandlers(t *testing.T) {
 
 	// ============ Use HTTP client to test each API ============
 	addr := "http://127.0.0.1:34791/"
-	// Self test
-	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"self_test")
-	expected := `All OK`
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+	// System information
+	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"info")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
 		t.Fatal(err, string(resp.Body))
 	}
-	// Self test - break shell and expect error
+	// Break shell and expect error from system information
 	oldShellInterpreter := proc.Features.Shell.InterpreterPath
 	proc.Features.Shell.InterpreterPath = ""
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"self_test")
-	expected = ".s: fork/exec : no such file or directory<br/>\n"
-	if err != nil || resp.StatusCode != http.StatusInternalServerError || string(resp.Body) != expected {
-		t.Fatal(err, "\n", string(resp.Body), "\n", expected)
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"info")
+	errMsg := ".s: fork/exec : no such file or directory"
+	if err != nil || resp.StatusCode != http.StatusInternalServerError || strings.Index(string(resp.Body), errMsg) == -1 {
+		t.Fatal(err, "\n", string(resp.Body))
 	}
 	proc.Features.Shell.InterpreterPath = oldShellInterpreter
-	// System information
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"info")
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Public IP:") {
-		t.Fatal(err, string(resp.Body))
-	}
 	// Command Form
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
@@ -165,7 +153,7 @@ func TestAllHandlers(t *testing.T) {
 	}
 	// Index
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"html")
-	expected = "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
+	expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body), expected, resp)
 	}

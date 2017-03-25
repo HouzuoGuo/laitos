@@ -44,7 +44,7 @@ func TestLogger_Printf(t *testing.T) {
 	logger.Printf("", "", nil, "")
 
 	count := 0
-	LatestLogEntries.Iterate(func(_ uint64, _ string) bool {
+	LatestLogEntries.Iterate(func(_ string) bool {
 		count++
 		return true
 	})

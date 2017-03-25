@@ -38,7 +38,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		BaseRateLimit:    1,
 		SpecialHandlers: map[string]api.HandlerFactory{
 			"/":     &api.HandleHTMLDocument{HTMLFilePath: indexFile},
-			"/test": &api.HandleFeatureSelfTest{},
+			"/info": &api.HandleSystemInfo{},
 		},
 	}
 	// Must not initialise if command processor is insane
@@ -101,9 +101,9 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	}
 	// Wait till rate limits reset
 	time.Sleep(RateLimitIntervalSec * time.Second)
-	// Specialised handle - self test (just an example)
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != api.FeatureSelfTestOK {
+	// Trigger a special handle to test routing
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/info")
+	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "All OK") == -1 {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 }

@@ -92,7 +92,6 @@ func TestConfig(t *testing.T) {
     }
   },
   "HTTPHandlers": {
-    "SelfTestEndpoint": "/test",
     "InformationEndpoint": "/info",
     "CommandFormEndpoint": "/cmd_form",
     "GitlabBrowserEndpoint": "/gitlab",
@@ -369,8 +368,8 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 
 	httpDaemon := config.GetHTTPD()
 
-	if len(httpDaemon.SpecialHandlers) != 11 {
-		// 1 x self test, 1 x sms, 2 x call, 1 x gitlab, 1 x mail me, 1 x proxy, 2 x index, 1 x cmd form, 1 x info
+	if len(httpDaemon.SpecialHandlers) != 10 {
+		// 1 x sms, 2 x call, 1 x gitlab, 1 x mail me, 1 x proxy, 2 x index, 1 x cmd form, 1 x info
 		t.Fatal(httpDaemon.SpecialHandlers)
 	}
 	// Find the randomly generated endpoint name for twilio call callback
@@ -379,7 +378,6 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 		switch endpoint {
 		case "/sms":
 		case "/call":
-		case "/test":
 		case "/cmd_form":
 		case "/mail_me":
 		case "/proxy":
@@ -444,21 +442,21 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	}
 	// Wait till rate limits reset
 	time.Sleep(httpd.RateLimitIntervalSec * time.Second)
-	// Feature self test
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/test")
-	if err != nil {
-		t.Fatal(err, string(resp.Body), resp)
-	}
-	// If feature self test fails, the failure would only occur in contacting mailer
-	mailFailure := ".m: dial tcp 127.0.0.1:25: getsockopt: connection refused<br/>\n"
-	if resp.StatusCode == http.StatusInternalServerError && string(resp.Body) != mailFailure {
-		t.Fatal(err, string(resp.Body), resp)
-	}
 	// System information
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/info")
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Public IP:") {
+	if err == nil && resp.StatusCode == http.StatusOK && strings.Index(string(resp.Body), "Stack traces:") == -1 {
 		t.Fatal(err, string(resp.Body))
 	}
+	// If system information tells about a feature failure, the failure would only originate from mailer
+	mailFailure := ".m: dial tcp 127.0.0.1:25: getsockopt: connection refused"
+	if resp.StatusCode == http.StatusInternalServerError && strings.Index(string(resp.Body), mailFailure) == -1 {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
+		t.Fatal(err, string(resp.Body))
+	}
+
 	// Gitlab handle
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/gitlab")
 	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {

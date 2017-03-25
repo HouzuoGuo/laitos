@@ -10,6 +10,7 @@ import (
 // Aggregate all available features together.
 type FeatureSet struct {
 	AESDecrypt      AESDecrypt          `json:"AESDecrypt"`
+	EnvInfo         EnvInfo             `json:"EnvInfo"`
 	Facebook        Facebook            `json:"Facebook"`
 	SendMail        SendMail            `json:"SendMail"`
 	Shell           Shell               `json:"Shell"`
@@ -27,6 +28,7 @@ func (fs *FeatureSet) Initialise() error {
 	fs.LookupByTrigger = map[Trigger]Feature{}
 	triggers := map[Trigger]Feature{
 		fs.AESDecrypt.Trigger():    &fs.AESDecrypt,
+		fs.EnvInfo.Trigger():       &fs.EnvInfo,
 		fs.Facebook.Trigger():      &fs.Facebook,
 		fs.SendMail.Trigger():      &fs.SendMail,
 		fs.Twilio.Trigger():        &fs.Twilio,
@@ -77,6 +79,7 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 	// Here are the feature keys
 	features := map[string]Feature{
 		"AESDecrypt":    &fs.AESDecrypt,
+		"EnvInfo":       &fs.EnvInfo,
 		"Facebook":      &fs.Facebook,
 		"SendMail":      &fs.SendMail,
 		"Shell":         &fs.Shell,
@@ -95,7 +98,7 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 	return nil
 }
 
-// Return all configured & initialised triggers.
+// Return all configured & initialised triggers, sorted in alphabetical order.
 func (fs *FeatureSet) GetTriggers() []string {
 	ret := make([]string, 0, 8)
 	if fs.LookupByTrigger == nil {
