@@ -59,14 +59,14 @@ Uptime: %s
 Number of CPUs: %d
 Number of Goroutines: %d
 GOMAXPROCS: %d
-Allocated memory: %d MBytes
+System memory usage: %d MBytes
 `,
 		env.GetPublicIP(),
 		time.Now().Sub(lalog.StartupTime).String(),
 		runtime.NumCPU(),
 		runtime.NumGoroutine(),
 		runtime.GOMAXPROCS(0),
-		memStats.Alloc/1024/1024)
+		memStats.Sys/1024/1024)
 }
 
 // Return latest log entries in a multi-line text, one log entry per line. Latest log entry comes first.
