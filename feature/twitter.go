@@ -29,7 +29,7 @@ type Twitter struct {
 	reqSigner         *oauth.AuthHead `json:"-"`
 }
 
-var TestTwitter = Twitter{} // API credentials are set by init_test.go
+var TestTwitter = Twitter{} // API credentials are set by init_feature_test.go
 
 func (twi *Twitter) IsConfigured() bool {
 	return twi.AccessToken != "" && twi.AccessTokenSecret != "" &&

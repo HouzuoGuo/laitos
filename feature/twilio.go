@@ -26,7 +26,7 @@ type Twilio struct {
 	TestPhoneNumber string `json:"-"` // Set by init_test.go for running test case, not a configuration.
 }
 
-var TestTwilio = Twilio{} // API credentials are set by init_test.go
+var TestTwilio = Twilio{} // API credentials are set by init_feature_test.go
 
 func (twi *Twilio) IsConfigured() bool {
 	return twi.PhoneNumber != "" && twi.AccountSID != "" && twi.AuthToken != ""

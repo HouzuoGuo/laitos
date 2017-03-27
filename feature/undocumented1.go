@@ -18,7 +18,7 @@ type Undocumented1 struct {
 	ID2   string `json:"ID2"`
 }
 
-var TestUndocumented1 = Undocumented1{} // Details are set by init_test.go
+var TestUndocumented1 = Undocumented1{} // Details are set by init_feature_test.go
 
 func (und *Undocumented1) IsConfigured() bool {
 	return und.URL != "" && und.Addr1 != "" && und.Addr2 != "" && und.ID1 != "" && und.ID2 != ""

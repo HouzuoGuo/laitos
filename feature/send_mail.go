@@ -20,7 +20,7 @@ type SendMail struct {
 	Mailer email.Mailer `json:"Mailer"`
 }
 
-var TestSendMail = SendMail{} // Details are set by init_test.go
+var TestSendMail = SendMail{} // Details are set by init_feature_test.go
 
 func (email *SendMail) IsConfigured() bool {
 	return email.Mailer.IsConfigured()

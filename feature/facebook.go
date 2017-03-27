@@ -13,7 +13,7 @@ type Facebook struct {
 	UserAccessToken string `json:"UserAccessToken"` // Facebook API user access token (not to be confused with App ID or App Secret)
 }
 
-var TestFacebook = Facebook{} // API access token is set by init_test.go
+var TestFacebook = Facebook{} // API access token is set by init_feature_test.go
 
 func (fb *Facebook) IsConfigured() bool {
 	return fb.UserAccessToken != ""

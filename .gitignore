@@ -1,9 +1,14 @@
+*.conf
 contact
+*.crt
+*.html
 .idea
-index.html
+*.json
+*.key
+laitos
 nohup.out
 pass
 *.swp
 .vscode
-laitos
-laitos.conf
+init_feature_test.go
+init_mail_test.go

@@ -13,7 +13,7 @@ type WolframAlpha struct {
 	AppID string `json:"AppID"` // WolframAlpha API AppID ("Developer Portal - My Apps - <name> - AppID")
 }
 
-var TestWolframAlpha = WolframAlpha{} // AppID is set by init_test.go
+var TestWolframAlpha = WolframAlpha{} // AppID is set by init_feature_test.go
 
 func (wa *WolframAlpha) IsConfigured() bool {
 	return wa.AppID != ""
