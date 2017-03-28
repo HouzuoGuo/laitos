@@ -24,7 +24,7 @@ const (
 var (
 	RegexMailboxAndNumber     = regexp.MustCompile(`(\w+)[^\w]+(\d+)`)            // Capture one mailbox shortcut name and a number
 	RegexMailboxAndTwoNumbers = regexp.MustCompile(`(\w+)[^\w]+(\d+)[^\d]+(\d+)`) // Capture one mailbox shortcut name and two numbers
-	ErrBadMailboxParam        = fmt.Errorf("Example: %s skip# count# | %s to-read#", MailboxList, MailboxRead)
+	ErrBadMailboxParam        = fmt.Errorf("Example: %s box skip# count# | %s box to-read#", MailboxList, MailboxRead)
 )
 
 // Retrieve emails via IMAPS.
@@ -35,7 +35,7 @@ type IMAPS struct {
 	InsecureSkipVerify bool   `json:"InsecureSkipVerify"` // Do not verify server name against its certificate
 	AuthUsername       string `json:"AuthUsername"`       // Username for plain authentication
 	AuthPassword       string `json:"AuthPassword"`       // Password for plain authentication
-	IOTimeoutSec       int    `json:"IOTimeoutSec"`       //
+	IOTimeoutSec       int    `json:"IOTimeoutSec"`       // Default IO conversation timeout in seconds
 
 	conn    net.Conn  `json:"-"`
 	tlsConn *tls.Conn `json:"-"`
@@ -102,20 +102,20 @@ badIO:
 	return
 }
 
-// Get number of messages in the mail box.
+// Get total number of messages in the mail box.
 func (mbox *IMAPS) GetNumberMessages() (int, error) {
-	_, body, err := mbox.Converse(fmt.Sprintf("STATUS %s (MESSAGES)", mbox.MailboxName))
+	_, body, err := mbox.Converse(fmt.Sprintf("EXAMINE \"%s\"", mbox.MailboxName))
 	if err != nil {
 		return 0, err
 	}
 	// Extract number of messages from response body
-	numberString := regexp.MustCompile(`\d+`).FindString(body)
-	if numberString == "" {
-		return 0, fmt.Errorf("STATUS command did not return a number in body - %s", body)
+	numberString := regexp.MustCompile(`(\d+) exists`).FindStringSubmatch(strings.ToLower(body))
+	if len(numberString) != 2 {
+		return 0, fmt.Errorf("EXAMINE command did not return a number in body - %s", body)
 	}
-	number, err := strconv.Atoi(numberString)
+	number, err := strconv.Atoi(numberString[1])
 	if err != nil || number < 0 {
-		return 0, fmt.Errorf("STATUS command did not return a valid positive integer in \"%s\" - %v", numberString, err)
+		return 0, fmt.Errorf("EXAMINE command did not return a valid positive integer in \"%s\" - %v", numberString[1], err)
 	}
 	return number, nil
 }
@@ -170,21 +170,8 @@ func (mbox *IMAPS) GetMessage(num int) (message string, err error) {
 		err = errors.New("Message number must be positive")
 		return
 	}
-	// Fetch the entire header section
-	headerSection, err := mbox.GetHeaders(num, num)
-	if err != nil {
-		return
-	}
-	entireHeader, found := headerSection[num]
-	if !found {
-		err = fmt.Errorf("Failed to retrieve message %d header", num)
-		return
-	}
-	// There is a "\r\n" in between header and body in a full message
 	var entireMessage bytes.Buffer
-	entireMessage.WriteString(entireHeader)
-	entireMessage.WriteString("\r\n")
-	_, body, err := mbox.Converse(fmt.Sprintf("FETCH %d BODY[TEXT]", num))
+	_, body, err := mbox.Converse(fmt.Sprintf("FETCH %d BODY[]", num))
 	for _, line := range strings.Split(body, "\n") {
 		if len(line) > 0 {
 			switch line[0] {
@@ -227,7 +214,7 @@ func (mbox *IMAPS) ConnectLoginSelect() (err error) {
 	if err != nil {
 		return fmt.Errorf("LOGIN command failed - %v", err)
 	}
-	_, _, err = mbox.Converse(fmt.Sprintf("SELECT %s", mbox.MailboxName))
+	_, _, err = mbox.Converse(fmt.Sprintf("SELECT \"%s\"", mbox.MailboxName))
 	if err != nil {
 		return fmt.Errorf("SELECT command failed - %v", err)
 	}
@@ -278,11 +265,6 @@ func (imap *IMAPAccounts) SelfTest() error {
 }
 
 func (imap *IMAPAccounts) Initialise() error {
-	for name, account := range imap.Accounts {
-		if err := account.ConnectLoginSelect(); err != nil {
-			return fmt.Errorf("Account \"%s\" connection error - %v", name, err)
-		}
-	}
 	return nil
 }
 
@@ -309,9 +291,6 @@ func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
 		return &Result{Error: ErrBadMailboxParam}
 	}
 	// Artificially do not allow retrieving more than 200 message headers at a time
-	if skip > 199 {
-		skip = 199
-	}
 	if skip < 0 {
 		skip = 0
 	}
@@ -334,6 +313,9 @@ func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
 	totalNumber, err := account.GetNumberMessages()
 	if err != nil {
 		return &Result{Error: err}
+	}
+	if skip+count > totalNumber {
+		return &Result{Error: fmt.Errorf("Max number is %d", totalNumber)}
 	}
 	fromNum := totalNumber - count - skip + 1
 	toNum := totalNumber - skip

@@ -20,7 +20,7 @@ const HandleGitlabPage = `<!doctype html>
 <body>
     <form action="#" method="get">
         <p>
-            Shortcut name: <input type="text" name="shortcut" value="%s" />
+            Shortcut name: <input type="password" name="shortcut" value="%s" />
             <br />
             Path: <input type="text" name="path" value="%s" />
             <input type="submit" name="submit" value="Go"/>

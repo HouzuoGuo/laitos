@@ -55,6 +55,13 @@ func TestIMAPS(t *testing.T) {
 	accountA.DisconnectLogout()
 }
 
+func TestIMAPAccounts_Initialise(t *testing.T) {
+	accounts := IMAPAccounts{}
+	if err := accounts.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestIMAPAccounts_Execute(t *testing.T) {
 	if !TestIMAPAccounts.IsConfigured() {
 		t.Skip()
@@ -89,16 +96,19 @@ func TestIMAPAccounts_Execute(t *testing.T) {
 	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "does_not_exist 1"}); strings.Index(ret.Error.Error(), "find box") == -1 {
 		t.Fatal(ret)
 	}
-	// List 5 latest messages
-	ret = TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 3, 5"})
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 100000000, 100"}); strings.Index(ret.Error.Error(), "Max number") == -1 {
+		t.Fatal(ret)
+	}
+	// List latest messages
+	ret = TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 10, 5"})
 	t.Log("List", ret.Output)
 	if ret.Error != nil || len(ret.Output) < 50 || len(ret.Output) > 1000 {
 		t.Fatal(ret)
 	}
 	// Read one message
-	ret = TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "a 1"})
-	t.Log("Read", ret.Output)
-	if ret.Error != nil || len(ret.Output) < 1 {
+	ret2 := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "a 2"})
+	t.Log("Read", ret2.Output)
+	if ret2.Error != nil || len(ret2.Output) < 1 {
 		t.Fatal(ret)
 	}
 }
