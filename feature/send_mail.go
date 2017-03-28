@@ -10,10 +10,11 @@ import (
 	"time"
 )
 
-// Captured into three groups, mail command looks like: address@domain.tld "this is email subject" this is email body
-var RegexMailCommand = regexp.MustCompile(`([a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+@[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+.[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+)\s*"(.*)"\s*(.*)`)
-
-var ErrBadSendMailParam = errors.New(`Example: addr@dom.tld "subj" body`)
+var (
+	// Captured into three groups, mail command looks like: address@domain.tld "this is email subject" this is email body
+	RegexMailCommand    = regexp.MustCompile(`([a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+@[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+.[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+)\s*"(.*)"\s*(.*)`)
+	ErrBadSendMailParam = errors.New(`Example: addr@dom.tld "subj" body`)
+)
 
 // Send outgoing emails.
 type SendMail struct {

@@ -3,7 +3,6 @@ package feature
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/httpclient"
 	"github.com/HouzuoGuo/laitos/oauth"
@@ -18,7 +17,10 @@ const (
 	TwitterPostTweet = "p"
 )
 
-var RegexTwoNumbers = regexp.MustCompile(`(\d+)[^\d]+(\d+)`) // Capture two groups of numbers
+var (
+	RegexTwoNumbers    = regexp.MustCompile(`(\d+)[^\d]+(\d+)`) // Capture two groups of numbers
+	ErrBadTwitterParam = fmt.Errorf("Example: %s skip# count# | %s content-to-post", TwitterGetFeeds, TwitterPostTweet)
+)
 
 // Use Twitter API to interact with user's time-line.
 type Twitter struct {
@@ -79,7 +81,7 @@ func (twi *Twitter) Execute(cmd Command) (ret *Result) {
 	} else if cmd.FindAndRemovePrefix(TwitterPostTweet) {
 		ret = twi.Tweet(cmd)
 	} else {
-		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TwitterGetFeeds, TwitterPostTweet)}
+		ret = &Result{Error: ErrBadTwitterParam}
 	}
 	return
 }
@@ -93,11 +95,11 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 		var intErr error
 		skip, intErr = strconv.Atoi(params[1])
 		if intErr != nil {
-			return &Result{Error: fmt.Errorf("First parameter '%s' is not a number", params[1])}
+			return &Result{Error: ErrBadTwitterParam}
 		}
 		count, intErr = strconv.Atoi(params[2])
 		if intErr != nil {
-			return &Result{Error: fmt.Errorf("Second parameter '%s' is not a number", params[2])}
+			return &Result{Error: ErrBadTwitterParam}
 		}
 	}
 	// If neither count nor skip was given in the input command, retrieve one latest tweet.
@@ -145,7 +147,7 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 func (twi *Twitter) Tweet(cmd Command) *Result {
 	tweet := cmd.Content
 	if tweet == "" {
-		return &Result{Error: errors.New("Post content is empty")}
+		return &Result{Error: ErrBadTwitterParam}
 	}
 
 	resp, err := httpclient.DoHTTP(httpclient.Request{

@@ -32,13 +32,13 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	// Configure all features via JSON and verify via self test
 	features = TestFeatureSet
 	features.Initialise()
-	if len(features.LookupByTrigger) != 9 {
+	if len(features.LookupByTrigger) != 10 {
 		t.Skip(features.LookupByTrigger)
 	}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 9 {
+	if len(features.LookupByTrigger) != 10 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if errs := features.SelfTest(); len(errs) != 0 {
@@ -47,6 +47,7 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	// Give every feature a configuration error and test again
 	features.AESDecrypt.EncryptedFiles["beta"].FilePath = "does not exist"
 	features.Facebook.UserAccessToken = "very bad"
+	features.IMAPAccounts.Accounts = nil
 	features.SendMail.Mailer.MTAHost = "very bad"
 	features.Shell.InterpreterPath = "very bad"
 	features.Twilio.AccountSID = "very bad"
@@ -55,7 +56,8 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	features.Undocumented1.URL = "very bad"
 	features.WolframAlpha.AppID = "very bad"
 	errs := features.SelfTest()
-	if len(errs) != 8 {
+	// There is no way to trigger a fault in env_info, hence there should be 9 failures instead of 10.
+	if len(errs) != 9 {
 		t.Fatal(len(errs), errs)
 	}
 }

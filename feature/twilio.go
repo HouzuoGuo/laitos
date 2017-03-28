@@ -1,7 +1,6 @@
 package feature
 
 import (
-	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/httpclient"
 	"net/http"
@@ -12,11 +11,14 @@ import (
 )
 
 const (
-	TwilioMakeCall = "c"
-	TwilioSendSMS  = "t"
+	TwilioMakeCall = "c" // Prefix string to trigger outgoing call
+	TwilioSendSMS  = "t" // Prefix string to trigger outgoing SMS
 )
 
-var RegexNumberAndMessage = regexp.MustCompile(`(\+\d+)[^\w]+(.*)`)
+var (
+	RegexPhoneNumberAndMessage = regexp.MustCompile(`(\+\d+)[^\w]+(.*)`) // Capture one phone number and one text message
+	ErrBadTwilioParam          = fmt.Errorf("Example: %s|%s +##number message", TwilioMakeCall, TwilioSendSMS)
+)
 
 type Twilio struct {
 	PhoneNumber string `json:"PhoneNumber"` // Twilio telephone country code and number (the number you purchased from Twilio)
@@ -60,8 +62,7 @@ func (twi *Twilio) Trigger() Trigger {
 
 func (twi *Twilio) Execute(cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
-		ret = errResult
-		return
+		return errResult
 	}
 
 	if strings.HasPrefix(cmd.Content, TwilioMakeCall) {
@@ -69,15 +70,15 @@ func (twi *Twilio) Execute(cmd Command) (ret *Result) {
 	} else if strings.HasPrefix(cmd.Content, TwilioSendSMS) {
 		ret = twi.SendSMS(cmd)
 	} else {
-		ret = &Result{Error: fmt.Errorf("Failed to find command prefix (either %s or %s)", TwilioMakeCall, TwilioSendSMS)}
+		ret = &Result{Error: ErrBadTwilioParam}
 	}
 	return
 }
 
 func (twi *Twilio) MakeCall(cmd Command) *Result {
-	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimPrefix(cmd.Content, TwilioMakeCall))
+	params := RegexPhoneNumberAndMessage.FindStringSubmatch(strings.TrimPrefix(cmd.Content, TwilioMakeCall))
 	if len(params) < 3 {
-		return &Result{Error: errors.New("Call parameters are missing")}
+		return &Result{Error: ErrBadTwilioParam}
 	}
 	toNumber := params[1]
 	message := params[2]
@@ -103,9 +104,9 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 }
 
 func (twi *Twilio) SendSMS(cmd Command) *Result {
-	params := RegexNumberAndMessage.FindStringSubmatch(strings.TrimSpace(strings.TrimPrefix(cmd.Content, TwilioMakeCall)))
+	params := RegexPhoneNumberAndMessage.FindStringSubmatch(strings.TrimSpace(strings.TrimPrefix(cmd.Content, TwilioMakeCall)))
 	if len(params) < 3 {
-		return &Result{Error: errors.New("SMS parameters are missing")}
+		return &Result{Error: ErrBadTwilioParam}
 	}
 	toNumber := params[1]
 	message := params[2]

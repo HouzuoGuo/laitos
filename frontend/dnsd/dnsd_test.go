@@ -111,7 +111,7 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if _, err := clientConn.Write(githubComUDPQuery); err != nil {
 		t.Fatal(err)
 	}
-	clientConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	clientConn.SetReadDeadline(time.Now().Add(2000 * time.Millisecond))
 	respLen, err := clientConn.Read(packetBuf)
 	if err != nil {
 		t.Fatal(err)
@@ -193,7 +193,7 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if _, err := clientConn.Write(githubComTCPQuery); err != nil {
 		t.Fatal(err)
 	}
-	clientConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	clientConn.SetReadDeadline(time.Now().Add(2000 * time.Millisecond))
 	respLen, err := clientConn.Read(packetBuf)
 	if err != nil {
 		t.Fatal(err)

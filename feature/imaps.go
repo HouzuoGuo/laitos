@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/email"
 	"log"
 	"math/rand"
 	"net"
@@ -13,6 +14,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	MailboxList = "l" // Prefix string to trigger listing messages
+	MailboxRead = "r" // Prefix string to trigger reading message body
+)
+
+var (
+	RegexMailboxAndNumber     = regexp.MustCompile(`(\w+)[^\w]+(\d+)`)            // Capture one mailbox shortcut name and a number
+	RegexMailboxAndTwoNumbers = regexp.MustCompile(`(\w+)[^\w]+(\d+)[^\d]+(\d+)`) // Capture one mailbox shortcut name and two numbers
+	ErrBadMailboxParam        = fmt.Errorf("Example: %s skip# count# | %s to-read#", MailboxList, MailboxRead)
 )
 
 // Retrieve emails via IMAPS.
@@ -232,7 +244,7 @@ func (mbox *IMAPS) DisconnectLogout() {
 
 // Correspond IMAP account connection details to account names.
 type IMAPAccounts struct {
-	Accounts map[string]*IMAPS `json:"Accounts"` // IMAP account name vs account connectivity details
+	Accounts map[string]IMAPS `json:"Accounts"` // IMAP account name vs account connectivity details
 }
 
 var TestIMAPAccounts = IMAPAccounts{} // Account details are set by init_feature_test.go
@@ -278,6 +290,131 @@ func (imap *IMAPAccounts) Trigger() Trigger {
 	return ".i"
 }
 
-func (imap *IMAPAccounts) Execute(cmd Command) *Result {
-	return nil
+func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
+	// Find one string parameter and two numeric parameters among the content
+	params := RegexMailboxAndTwoNumbers.FindStringSubmatch(cmd.Content)
+	if len(params) < 4 {
+		return &Result{Error: ErrBadMailboxParam}
+	}
+	var mbox string
+	var skip, count int
+	mbox = params[1]
+	var intErr error
+	skip, intErr = strconv.Atoi(params[2])
+	if intErr != nil {
+		return &Result{Error: ErrBadMailboxParam}
+	}
+	count, intErr = strconv.Atoi(params[3])
+	if intErr != nil {
+		return &Result{Error: ErrBadMailboxParam}
+	}
+	// Artificially do not allow retrieving more than 200 message headers at a time
+	if skip > 199 {
+		skip = 199
+	}
+	if skip < 0 {
+		skip = 0
+	}
+	if count > 200 {
+		count = 200
+	}
+	if count < 1 {
+		count = 1
+	}
+	// Let IMAP magic begin!
+	account, found := imap.Accounts[mbox]
+	if !found {
+		return &Result{Error: fmt.Errorf("Cannot find box \"%s\"", mbox)}
+	}
+	account.IOTimeoutSec = cmd.TimeoutSec // this is nowhere near good enough, but how to make it accurate and race-free?
+	if err := account.ConnectLoginSelect(); err != nil {
+		return &Result{Error: err}
+	}
+	defer account.DisconnectLogout()
+	totalNumber, err := account.GetNumberMessages()
+	if err != nil {
+		return &Result{Error: err}
+	}
+	fromNum := totalNumber - count - skip + 1
+	toNum := totalNumber - skip
+	headers, err := account.GetHeaders(fromNum, toNum)
+	if err != nil {
+		return &Result{Error: err}
+	}
+	var output bytes.Buffer
+	for i := toNum; i >= fromNum; i-- {
+		header, found := headers[i]
+		if !found {
+			continue
+		}
+		// Append \r\n\r\n to make it look like a complete message with empty body
+		prop, _, err := email.ReadMessage([]byte(header + "\r\n\r\n"))
+		if err != nil {
+			continue
+		}
+		output.WriteString(fmt.Sprintf("%d %s %s\n", i, prop.FromAddress, prop.Subject))
+	}
+	return &Result{Output: output.String()}
+}
+
+func (imap *IMAPAccounts) ReadMessage(cmd Command) *Result {
+	// Find one string parameter and one numeric parameter among the content
+	params := RegexMailboxAndNumber.FindStringSubmatch(cmd.Content)
+	if len(params) < 3 {
+		return &Result{Error: ErrBadMailboxParam}
+	}
+	var mbox string
+	var number int
+	mbox = params[1]
+	var intErr error
+	number, intErr = strconv.Atoi(params[2])
+	if intErr != nil {
+		return &Result{Error: ErrBadMailboxParam}
+	}
+	// Let IMAP magic begin!
+	account, found := imap.Accounts[mbox]
+	if !found {
+		return &Result{Error: fmt.Errorf("Cannot find box \"%s\"", mbox)}
+	}
+	account.IOTimeoutSec = cmd.TimeoutSec // this is nowhere near good enough, but how to make it accurate and race-free?
+	if err := account.ConnectLoginSelect(); err != nil {
+		return &Result{Error: err}
+	}
+	defer account.DisconnectLogout()
+	entireMessage, err := account.GetMessage(number)
+	if err != nil {
+		return &Result{Error: err}
+	}
+	// If mail is multi-part, prefer to retrieve the plain text mail body.
+	var anyText, plainText string
+	err = email.WalkMessage([]byte(entireMessage), func(prop email.BasicProperties, body []byte) (bool, error) {
+		if strings.Index(prop.ContentType, "plain") == -1 {
+			anyText = string(body)
+		} else {
+			plainText = string(body)
+		}
+		return true, nil
+	})
+	if err != nil {
+		return &Result{Error: err}
+	}
+	if plainText == "" {
+		return &Result{Output: anyText}
+	} else {
+		return &Result{Output: plainText}
+	}
+}
+
+func (imap *IMAPAccounts) Execute(cmd Command) (ret *Result) {
+	if errResult := cmd.Trim(); errResult != nil {
+		return errResult
+	}
+	if cmd.FindAndRemovePrefix(MailboxList) {
+		ret = imap.ListMails(cmd)
+	} else if cmd.FindAndRemovePrefix(MailboxRead) {
+		ret = imap.ReadMessage(cmd)
+	} else {
+		ret = &Result{Error: ErrBadMailboxParam}
+	}
+	return
 }

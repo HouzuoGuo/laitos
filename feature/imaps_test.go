@@ -2,6 +2,7 @@ package feature
 
 import (
 	"github.com/HouzuoGuo/laitos/email"
+	"strings"
 	"testing"
 )
 
@@ -55,5 +56,49 @@ func TestIMAPS(t *testing.T) {
 }
 
 func TestIMAPAccounts_Execute(t *testing.T) {
-
+	if !TestIMAPAccounts.IsConfigured() {
+		t.Skip()
+	}
+	if err := TestIMAPAccounts.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if err := TestIMAPAccounts.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
+	// Nothing to do
+	ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"})
+	if ret.Error != ErrBadMailboxParam {
+		t.Fatal(ret)
+	}
+	// Bad parameters
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList}); ret.Error != ErrBadMailboxParam {
+		t.Fatal(ret)
+	}
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 1, b"}); ret.Error != ErrBadMailboxParam {
+		t.Fatal(ret)
+	}
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead}); ret.Error != ErrBadMailboxParam {
+		t.Fatal(ret)
+	}
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "a b"}); ret.Error != ErrBadMailboxParam {
+		t.Fatal(ret)
+	}
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "does_not_exist 1, 2"}); strings.Index(ret.Error.Error(), "find box") == -1 {
+		t.Fatal(ret)
+	}
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "does_not_exist 1"}); strings.Index(ret.Error.Error(), "find box") == -1 {
+		t.Fatal(ret)
+	}
+	// List 5 latest messages
+	ret = TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 3, 5"})
+	t.Log("List", ret.Output)
+	if ret.Error != nil || len(ret.Output) < 50 || len(ret.Output) > 1000 {
+		t.Fatal(ret)
+	}
+	// Read one message
+	ret = TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "a 1"})
+	t.Log("Read", ret.Output)
+	if ret.Error != nil || len(ret.Output) < 1 {
+		t.Fatal(ret)
+	}
 }

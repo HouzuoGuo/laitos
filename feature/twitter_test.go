@@ -16,11 +16,16 @@ func TestTwitter_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Nothing to do
-	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"}); ret.Error == nil {
-		t.Fatal("did not error")
+	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"}); ret.Error != ErrBadTwitterParam {
+		t.Fatal(ret)
 	}
 	// Retrieve one latest tweet
 	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds}); ret.Error != nil ||
+		len(ret.Output) < 10 || len(ret.Output) > 200 {
+		t.Fatal(ret)
+	}
+	// Bad number - still retrieve one latest tweet
+	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "a, b"}); ret.Error != nil ||
 		len(ret.Output) < 10 || len(ret.Output) > 200 {
 		t.Fatal(ret)
 	}
@@ -30,8 +35,7 @@ func TestTwitter_Execute(t *testing.T) {
 		t.Fatal(ret)
 	}
 	// Posting an empty tweet should result in error
-	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterPostTweet + "  "}); ret.Error == nil ||
-		ret.ErrText() != "Post content is empty" {
+	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterPostTweet + "  "}); ret.Error != ErrBadTwitterParam {
 		t.Fatal(ret)
 	}
 	// Post a good tweet

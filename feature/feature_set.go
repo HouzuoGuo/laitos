@@ -12,6 +12,7 @@ type FeatureSet struct {
 	AESDecrypt      AESDecrypt          `json:"AESDecrypt"`
 	EnvInfo         EnvInfo             `json:"EnvInfo"`
 	Facebook        Facebook            `json:"Facebook"`
+	IMAPAccounts    IMAPAccounts        `json:"IMAPAccounts"`
 	SendMail        SendMail            `json:"SendMail"`
 	Shell           Shell               `json:"Shell"`
 	Twilio          Twilio              `json:"Twilio"`
@@ -30,6 +31,7 @@ func (fs *FeatureSet) Initialise() error {
 		fs.AESDecrypt.Trigger():    &fs.AESDecrypt,
 		fs.EnvInfo.Trigger():       &fs.EnvInfo,
 		fs.Facebook.Trigger():      &fs.Facebook,
+		fs.IMAPAccounts.Trigger():  &fs.IMAPAccounts,
 		fs.SendMail.Trigger():      &fs.SendMail,
 		fs.Twilio.Trigger():        &fs.Twilio,
 		fs.Shell.Trigger():         &fs.Shell,
@@ -81,6 +83,7 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 		"AESDecrypt":    &fs.AESDecrypt,
 		"EnvInfo":       &fs.EnvInfo,
 		"Facebook":      &fs.Facebook,
+		"IMAPAccounts":  &fs.IMAPAccounts,
 		"SendMail":      &fs.SendMail,
 		"Shell":         &fs.Shell,
 		"Twilio":        &fs.Twilio,
