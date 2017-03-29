@@ -515,7 +515,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 		Body:   strings.NewReader(url.Values{"Body": {"httpsecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+"/sms")
 	expected := `<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message>01234567890123456789012345678901234</Message></Response>
+<Response><Message><![CDATA[01234567890123456789012345678901234]]></Message></Response>
 `
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, resp)
@@ -525,7 +525,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	expected = fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say>Hi there</Say>
+        <Say><![CDATA[Hi there]]></Say>
     </Gather>
 </Response>
 `, twilioCallbackEndpoint)
@@ -555,7 +555,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	expected = fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say>EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.</Say>
+        <Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>
     </Gather>
 </Response>
 `, twilioCallbackEndpoint)
