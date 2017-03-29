@@ -3,7 +3,7 @@ Description=laitos Internet infrastructure
 After=network.target
 
 [Service]
-ExecStart=/usr/sbin/laitos -config=/root/laitos.conf
+ExecStart=/usr/sbin/laitos -config config.json -frontend dnsd,healthcheck,httpd,httpd80,smtpd,sockd,telegram
 User=root
 Group=root
 WorkingDirectory=/tmp

@@ -3,6 +3,7 @@ package httpd
 import (
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
+	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
 	"io/ioutil"
 	"net/http"
@@ -106,4 +107,14 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "All OK") == -1 {
 		t.Fatal(err, string(resp.Body), resp)
 	}
+
+	// Trigger emergency stop, HTTP endpoints shall respond with HTTP 200 and emergency stop message.
+	global.TriggerEmergencyStop()
+	for _, endpoint := range []string{"/", "/info"} {
+		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+endpoint)
+		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != global.ErrEmergencyStop.Error() {
+			t.Fatal(err, string(resp.Body), err != nil, resp.StatusCode, string(resp.Body) != global.ErrEmergencyStop.Error())
+		}
+	}
+	global.EmergencyStop = false
 }

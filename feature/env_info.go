@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-var ErrBadEnvInfoChoice = errors.New(`Choices: runtime, log, stack.`)
+var ErrBadEnvInfoChoice = errors.New(`emerstop | log | runtime | stack`)
 
-// Retrieve environment information - such as system information, logs, and stack traces.
+// Retrieve environment information and trigger emergency stop upon request.
 type EnvInfo struct {
 }
 
@@ -39,6 +39,9 @@ func (info *EnvInfo) Execute(cmd Command) *Result {
 		return errResult
 	}
 	switch strings.ToLower(cmd.Content) {
+	case "emerstop":
+		global.TriggerEmergencyStop()
+		return &Result{Output: "successfully triggered Emergency-Stop"}
 	case "runtime":
 		return &Result{Output: GetRuntimeInfo()}
 	case "log":

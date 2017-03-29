@@ -135,7 +135,7 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 				the program after consecutive HTTP failures, it would defeat the intention of emergency stop.
 				Hence the status code here is OK.
 			*/
-			http.Error(w, global.ErrEmergencyStop.Error(), http.StatusOK)
+			w.Write([]byte(global.ErrEmergencyStop.Error()))
 			return
 		}
 		urlFields := strings.FieldsFunc(r.URL.Path, IsSlash)

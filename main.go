@@ -98,7 +98,7 @@ func main() {
 				defer daemons.Done()
 				logger.Printf("main", "", nil, "going to start dns daemon")
 				if err := config.GetDNSD().StartAndBlock(); err != nil {
-					logger.Fatalf("main", "", err, "failed to start dns daemon")
+					logger.Printf("main", "", err, "dns daemon has failed")
 					return
 				}
 			}()
@@ -109,7 +109,7 @@ func main() {
 				defer daemons.Done()
 				logger.Printf("main", "", nil, "going to start health check")
 				if err := config.GetHealthCheck().StartAndBlock(); err != nil {
-					logger.Fatalf("main", "", err, "failed to start health check")
+					logger.Printf("main", "", err, "health check has failed")
 					return
 				}
 			}()
@@ -120,7 +120,7 @@ func main() {
 				defer daemons.Done()
 				logger.Printf("main", "", nil, "going to start http daemon")
 				if err := config.GetHTTPD().StartAndBlock(); err != nil {
-					logger.Fatalf("main", "", err, "failed to start http daemon")
+					logger.Printf("main", "", err, "http daemon has failed")
 					return
 				}
 			}()
@@ -131,7 +131,7 @@ func main() {
 				defer daemons.Done()
 				logger.Printf("main", "", nil, "going to start httpd80 daemon")
 				if err := config.GetHTTPD80().StartAndBlock(); err != nil {
-					logger.Fatalf("main", "", err, "failed to start httpd80 daemon")
+					logger.Printf("main", "", err, "httpd80 daemon has failed")
 					return
 				}
 			}()
@@ -151,7 +151,7 @@ func main() {
 				defer daemons.Done()
 				logger.Printf("main", "", nil, "going to start smtp daemon")
 				if err := config.GetMailDaemon().StartAndBlock(); err != nil {
-					logger.Fatalf("main", "", err, "failed to start smtp daemon")
+					logger.Printf("main", "", err, "smtp daemon has failed")
 					return
 				}
 			}()
@@ -162,7 +162,7 @@ func main() {
 				defer daemons.Done()
 				logger.Printf("main", "", nil, "going to start sock daemon")
 				if err := config.GetSockDaemon().StartAndBlock(); err != nil {
-					logger.Fatalf("main", "", err, "failed to start sock daemon")
+					logger.Printf("main", "", err, "sock daemon has failed")
 					return
 				}
 			}()
@@ -173,7 +173,7 @@ func main() {
 				defer daemons.Done()
 				logger.Printf("main", "", nil, "going to start telegram bot")
 				if err := config.GetTelegramBot().StartAndBlock(); err != nil {
-					logger.Fatalf("main", "", err, "failed to start telegram bot")
+					logger.Printf("main", "", err, "telegram bot has failed")
 					return
 				}
 			}()

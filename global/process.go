@@ -17,5 +17,10 @@ program keeps running.
 There is no way to turn off Emergency Stop other than restarting laitos process.
 */
 func TriggerEmergencyStop() {
+	emerLog := Logger{
+		ComponentID:   "Global",
+		ComponentName: "EmergencyStop",
+	}
+	emerLog.Printf("TriggerEmergencyStop", "", nil, "successfully triggered, most features will be disabled ASAP.")
 	EmergencyStop = true
 }
