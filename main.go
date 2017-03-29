@@ -4,7 +4,7 @@ import (
 	cryptoRand "crypto/rand"
 	"encoding/binary"
 	"flag"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"io/ioutil"
 	pseudoRand "math/rand"
 	"os"
@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var logger = lalog.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
+var logger = global.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
 
 // Re-seed global pseudo random generator using cryptographic random number generator.
 func ReseedPseudoRand() {

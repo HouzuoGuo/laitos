@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -129,7 +129,7 @@ type HandleWebProxy struct {
 	MyEndpoint string `json:"-"` // URL endpoint to the proxy itself, including prefix /.
 }
 
-func (xy *HandleWebProxy) MakeHandler(logger lalog.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
+func (xy *HandleWebProxy) MakeHandler(logger global.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
 	if xy.MyEndpoint == "" {
 		return nil, errors.New("HandleWebProxy.MakeHandler: own endpoint is empty")
 	}

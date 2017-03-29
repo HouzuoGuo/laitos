@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/HouzuoGuo/laitos/bridge"
 	"github.com/HouzuoGuo/laitos/feature"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"regexp"
 	"strconv"
 )
@@ -23,7 +23,7 @@ type CommandProcessor struct {
 	Features       *feature.FeatureSet
 	CommandBridges []bridge.CommandBridge
 	ResultBridges  []bridge.ResultBridge
-	Logger         lalog.Logger
+	Logger         global.Logger
 }
 
 /*
@@ -83,6 +83,9 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 }
 
 func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result) {
+	if global.EmergencyStop {
+		return &feature.Result{Error: global.ErrEmergencyStop}
+	}
 	var bridgeErr error
 	var matchedFeature feature.Feature
 	var overrideLintText bridge.LintText

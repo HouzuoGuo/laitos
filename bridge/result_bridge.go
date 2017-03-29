@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"regexp"
 	"strings"
 	"unicode"
@@ -97,9 +97,9 @@ func (lint *LintText) Transform(result *feature.Result) error {
 
 // Send email notification for command result.
 type NotifyViaEmail struct {
-	Recipients []string     `json:"Recipients"` // Email recipient addresses
-	Mailer     email.Mailer `json:"-"`          // MTA that delivers outgoing notification email
-	Logger     lalog.Logger `json:"-"`          // Logger
+	Recipients []string      `json:"Recipients"` // Email recipient addresses
+	Mailer     email.Mailer  `json:"-"`          // MTA that delivers outgoing notification email
+	Logger     global.Logger `json:"-"`          // Logger
 }
 
 // Return true only if all mail parameters are present.

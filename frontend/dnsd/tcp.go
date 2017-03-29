@@ -2,6 +2,7 @@ package dnsd
 
 import (
 	"fmt"
+	"github.com/HouzuoGuo/laitos/global"
 	"net"
 	"strings"
 	"time"
@@ -133,6 +134,9 @@ func (dnsd *DNSD) StartAndBlockTCP() error {
 	}
 	dnsd.Logger.Printf("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
 	for {
+		if global.EmergencyStop {
+			return global.ErrEmergencyStop
+		}
 		clientConn, err := listener.Accept()
 		if err != nil {
 			return err

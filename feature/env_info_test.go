@@ -1,7 +1,7 @@
 package feature
 
 import (
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"strings"
 	"testing"
 )
@@ -23,7 +23,7 @@ func TestEnvInfo_Execute(t *testing.T) {
 	if ret := info.Execute(Command{Content: "runtime"}); ret.Error != nil || strings.Index(ret.Output, "Public IP") == -1 {
 		t.Fatal(ret)
 	}
-	logger := lalog.Logger{}
+	logger := global.Logger{}
 	logger.Printf("envinfo test", "", nil, "")
 	if ret := info.Execute(Command{Content: "log"}); ret.Error != nil || strings.Index(ret.Output, "envinfo test") == -1 {
 		t.Fatal(ret)

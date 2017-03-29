@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"net"
 	"sort"
 	"strconv"
@@ -25,7 +25,7 @@ type HealthCheck struct {
 	Mailer      email.Mailer       `json:"Mailer"`      // Send notification mails via this mailer
 	Recipients  []string           `json:"Recipients"`  // Address of recipients of notification mails
 	Features    feature.FeatureSet `json:"-"`
-	Logger      lalog.Logger       `json:"-"`
+	Logger      global.Logger      `json:"-"`
 }
 
 // Check TCP ports and features, return all-OK or not.
@@ -109,6 +109,9 @@ Start health check loop and block until this program exits.
 func (check *HealthCheck) StartAndBlock() error {
 	sort.Ints(check.TCPPorts)
 	for {
+		if global.EmergencyStop {
+			return global.ErrEmergencyStop
+		}
 		time.Sleep(time.Duration(check.IntervalSec) * time.Second)
 		check.Execute()
 	}

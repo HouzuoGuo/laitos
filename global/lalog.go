@@ -1,4 +1,4 @@
-package lalog
+package global
 
 import (
 	"bytes"
@@ -12,7 +12,6 @@ const (
 )
 
 var LatestLogEntries = NewRingBuffer(NumLatestLogEntries) // Keep latest log entries in the buffer
-var StartupTime = time.Now()                              // Timestamp when this program started
 
 // Help to write log messages in a regular format.
 type Logger struct {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net/http"
 	"strings"
@@ -38,7 +38,7 @@ type HTTPD struct {
 	AllRateLimits   map[string]*ratelimit.RateLimit `json:"-"` // Aggregate all routes and their rate limit counters
 	Server          *http.Server                    `json:"-"` // Standard library HTTP server structure
 	Processor       *common.CommandProcessor        `json:"-"` // Feature command processor
-	Logger          lalog.Logger                    `json:"-"` // Logger
+	Logger          global.Logger                   `json:"-"` // Logger
 }
 
 // Check configuration and initialise internal states.
@@ -127,6 +127,17 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 		}
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
+		if global.EmergencyStop {
+			/*
+				An error response usually should carry status 5xx in this case, but the intention of
+				emergency stop is to disable the program rather than crashing it and relaunching it.
+				If an external trigger such as load balancer health check knocks on HTTP endpoint and relaunches
+				the program after consecutive HTTP failures, it would defeat the intention of emergency stop.
+				Hence the status code here is OK.
+			*/
+			http.Error(w, global.ErrEmergencyStop.Error(), http.StatusOK)
+			return
+		}
 		urlFields := strings.FieldsFunc(r.URL.Path, IsSlash)
 		// Retrieve part of requested URL that can be used to identify route
 		assembledPath := "/"

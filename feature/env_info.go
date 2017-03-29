@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/env"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"runtime"
 	"runtime/pprof"
 	"strings"
@@ -62,7 +62,7 @@ GOMAXPROCS: %d
 System memory usage: %d MBytes
 `,
 		env.GetPublicIP(),
-		time.Now().Sub(lalog.StartupTime).String(),
+		time.Now().Sub(global.StartupTime).String(),
 		runtime.NumCPU(),
 		runtime.NumGoroutine(),
 		runtime.GOMAXPROCS(0),
@@ -72,7 +72,7 @@ System memory usage: %d MBytes
 // Return latest log entries in a multi-line text, one log entry per line. Latest log entry comes first.
 func GetLatestGlobalLog() string {
 	buf := new(bytes.Buffer)
-	lalog.LatestLogEntries.Iterate(func(entry string) bool {
+	global.LatestLogEntries.Iterate(func(entry string) bool {
 		buf.WriteString(entry)
 		buf.WriteRune('\n')
 		return true

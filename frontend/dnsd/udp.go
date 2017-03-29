@@ -2,6 +2,7 @@ package dnsd
 
 import (
 	"fmt"
+	"github.com/HouzuoGuo/laitos/global"
 	"math/rand"
 	"net"
 	"strings"
@@ -55,6 +56,9 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 	packetBuf := make([]byte, MaxPacketSize)
 	dnsd.Logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
 	for {
+		if global.EmergencyStop {
+			return global.ErrEmergencyStop
+		}
 		packetLength, clientAddr, err := udpServer.ReadFromUDP(packetBuf)
 		if err != nil {
 			return err

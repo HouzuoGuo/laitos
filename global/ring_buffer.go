@@ -1,4 +1,4 @@
-package lalog
+package global
 
 import (
 	"sync/atomic"

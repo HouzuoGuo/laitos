@@ -3,7 +3,7 @@ package api
 import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -15,7 +15,7 @@ type HandleHTMLDocument struct {
 	HTMLFilePath string `json:"HTMLFilePath"`
 }
 
-func (index *HandleHTMLDocument) MakeHandler(logger lalog.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (index *HandleHTMLDocument) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	var err error
 	var contentBytes []byte
 	if contentBytes, err = ioutil.ReadFile(index.HTMLFilePath); err != nil {

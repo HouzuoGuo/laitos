@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/ratelimit"
 	"io"
 	"net"
@@ -44,7 +44,7 @@ type Sockd struct {
 	Password      string               `json:"Password"`
 	PerIPLimit    int                  `json:"PerIPLimit"`
 	Listener      net.Listener         `json:"-"`
-	Logger        lalog.Logger         `json:"-"`
+	Logger        global.Logger        `json:"-"`
 	cipher        *Cipher              `json:"-"`
 	rateLimit     *ratelimit.RateLimit `json:"-"`
 }
@@ -81,6 +81,9 @@ func (sock *Sockd) StartAndBlock() error {
 		return fmt.Errorf("Sockd.StartAndBlock: failed to listen on %s:%d - %v", sock.ListenAddress, sock.ListenPort, err)
 	}
 	for {
+		if global.EmergencyStop {
+			return global.ErrEmergencyStop
+		}
 		conn, err := sock.Listener.Accept()
 		if err != nil {
 			if strings.Contains(err.Error(), "closed") {
@@ -192,10 +195,10 @@ type CipherConnection struct {
 	net.Conn
 	*Cipher
 	readBuf, writeBuf []byte
-	logger            lalog.Logger
+	logger            global.Logger
 }
 
-func NewCipherConnection(netConn net.Conn, cip *Cipher, logger lalog.Logger) *CipherConnection {
+func NewCipherConnection(netConn net.Conn, cip *Cipher, logger global.Logger) *CipherConnection {
 	return &CipherConnection{
 		Conn:     netConn,
 		Cipher:   cip,

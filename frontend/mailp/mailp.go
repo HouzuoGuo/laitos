@@ -7,7 +7,7 @@ import (
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"strings"
 )
 
@@ -20,7 +20,7 @@ type MailProcessor struct {
 	CommandTimeoutSec int                      `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds
 	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
 	ReplyMailer       email.Mailer             `json:"-"`                 // To deliver Email replies
-	Logger            lalog.Logger             `json:"-"`                 // Logger
+	Logger            global.Logger            `json:"-"`                 // Logger
 }
 
 /*
@@ -29,6 +29,9 @@ Process only one command (if found) in the incoming mail. If reply addresses are
 to the specified addresses. If they are not specified, use the incoming mail sender's address as reply address.
 */
 func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...string) error {
+	if global.EmergencyStop {
+		return global.ErrEmergencyStop
+	}
 	if errs := mailproc.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("%+v", errs)
 	}

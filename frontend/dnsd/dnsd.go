@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/env"
+	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
-	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net"
 	"strings"
@@ -56,7 +56,7 @@ type DNSD struct {
 	RateLimit      *ratelimit.RateLimit `json:"-"` // Rate limit counter
 	BlackListMutex *sync.Mutex          `json:"-"` // Protect against concurrent access to black list
 	BlackList      map[string]struct{}  `json:"-"` // Do not answer to type A queries made toward these domains
-	Logger         lalog.Logger         `json:"-"` // Logger
+	Logger         global.Logger        `json:"-"` // Logger
 }
 
 // Check configuration and initialise internal states.

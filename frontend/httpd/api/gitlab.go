@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
-	"github.com/HouzuoGuo/laitos/lalog"
 	"net/http"
 	"sort"
 	"strings"
@@ -103,7 +103,7 @@ func (lab *HandleGitlabBrowser) DownloadGitBlob(projectID string, paths string, 
 	return
 }
 
-func (lab *HandleGitlabBrowser) MakeHandler(logger lalog.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (lab *HandleGitlabBrowser) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		shortcutName := strings.TrimSpace(r.FormValue("shortcut"))
 		browsePath := r.FormValue("path")

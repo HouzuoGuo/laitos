@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
-	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net/http"
 	"net/url"
@@ -68,7 +68,7 @@ type TelegramBot struct {
 	Stop          bool                     `json:"-"` // StartAndBlock function will exit soon after this flag is turned on.
 	MessageOffset uint64                   `json:"-"` // Process chat messages arrived after this point
 	UserRateLimit *ratelimit.RateLimit     `json:"-"` // Prevent user from flooding bot with new messages
-	Logger        lalog.Logger             `json:"-"` // Logger
+	Logger        global.Logger            `json:"-"` // Logger
 }
 
 // Send a text reply to the telegram chat.
@@ -145,6 +145,9 @@ func (bot *TelegramBot) StartAndBlock() error {
 	bot.Logger.Printf("StartAndBlock", "", nil, "going to poll for messages")
 	lastIdle := time.Now().Unix()
 	for {
+		if global.EmergencyStop {
+			return global.ErrEmergencyStop
+		}
 		if bot.Stop {
 			bot.Logger.Printf("StartAndBlock", "", nil, "going to stop now")
 			return nil

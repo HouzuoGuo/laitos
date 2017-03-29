@@ -8,7 +8,7 @@ import (
 	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd/smtp"
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net"
 	"strings"
@@ -39,7 +39,7 @@ type SMTPD struct {
 
 	MailProcessor *mailp.MailProcessor `json:"-"` // Process feature commands from incoming mails
 	RateLimit     *ratelimit.RateLimit `json:"-"` // Rate limit counter per IP address
-	Logger        lalog.Logger         `json:"-"` // Logger
+	Logger        global.Logger        `json:"-"` // Logger
 }
 
 // Check configuration and initialise internal states.
@@ -181,6 +181,9 @@ func (smtpd *SMTPD) StartAndBlock() (err error) {
 		return fmt.Errorf("SMTPD.StartAndBlock: failed to listen on %s:%d - %v", smtpd.ListenAddress, smtpd.ListenPort, err)
 	}
 	for {
+		if global.EmergencyStop {
+			return global.ErrEmergencyStop
+		}
 		clientConn, err := smtpd.Listener.Accept()
 		if err != nil {
 			// Listener is told to stop

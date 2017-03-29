@@ -1,7 +1,7 @@
 package ratelimit
 
 import (
-	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/global"
 	"sync"
 	"time"
 )
@@ -10,7 +10,7 @@ import (
 type RateLimit struct {
 	UnitSecs      int64
 	MaxCount      int
-	Logger        lalog.Logger
+	Logger        global.Logger
 	lastTimestamp int64
 	counter       map[string]int
 	logged        map[string]struct{}

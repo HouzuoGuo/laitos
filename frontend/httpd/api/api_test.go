@@ -3,8 +3,8 @@ package api
 import (
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
-	"github.com/HouzuoGuo/laitos/lalog"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -24,7 +24,7 @@ func TestXMLEscape(t *testing.T) {
 func TestAllHandlers(t *testing.T) {
 	// ============ All handlers are tested here ============
 	proc := common.GetTestCommandProcessor()
-	logger := lalog.Logger{}
+	logger := global.Logger{}
 
 	// ============ Give handlers to HTTP server mux ============
 	handlers := http.NewServeMux()
