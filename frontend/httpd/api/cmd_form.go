@@ -5,6 +5,7 @@ import (
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"html"
 	"net/http"
 )
 
@@ -42,7 +43,7 @@ func (_ *HandleCommandForm) MakeHandler(logger lalog.Logger, cmdProc *common.Com
 					Content:    cmd,
 					TimeoutSec: CommandFormTimeoutSec,
 				})
-				w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, result.CombinedOutput)))
+				w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, html.EscapeString(result.CombinedOutput))))
 			}
 		}
 	}
