@@ -115,7 +115,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to answer length to client")
 		return
 	} else if _, err = clientConn.Write(responseBuf); err != nil {
-		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "faile dto answer to client")
+		dnsd.Logger.Printf("HandleTCPQuery", clientIP, err, "failed to answer to client")
 		return
 	}
 	return
