@@ -194,7 +194,7 @@ func TestAllHandlers(t *testing.T) {
 		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+"sms")
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message>01234567890123456789012345678901234</Message></Response>
+<Response><Message><![CDATA[01234567890123456789012345678901234]]></Message></Response>
 `
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, resp)
@@ -204,7 +204,7 @@ func TestAllHandlers(t *testing.T) {
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="/test" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say>Hi there</Say>
+        <Say><![CDATA[Hi there]]></Say>
     </Gather>
 </Response>
 `
@@ -234,7 +234,7 @@ func TestAllHandlers(t *testing.T) {
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="/test" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say>EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.</Say>
+        <Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>
     </Gather>
 </Response>
 `

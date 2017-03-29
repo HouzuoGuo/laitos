@@ -31,7 +31,7 @@ func (hand *HandleTwilioSMSHook) MakeHandler(logger lalog.Logger, cmdProc *commo
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		w.Header().Set("Cache-Control", "must-revalidate")
 		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message>%s</Message></Response>
+<Response><Message><![CDATA[%s]]></Message></Response>
 `, XMLEscape(ret.CombinedOutput))))
 	}
 	return fun, nil
@@ -57,7 +57,7 @@ func (hand *HandleTwilioCallHook) MakeHandler(logger lalog.Logger, _ *common.Com
 		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say>%s</Say>
+        <Say><![CDATA[%s]]></Say>
     </Gather>
 </Response>
 `, hand.CallbackEndpoint, XMLEscape(hand.CallGreeting))))
@@ -99,7 +99,7 @@ func (hand *HandleTwilioCallCallback) MakeHandler(logger lalog.Logger, cmdProc *
 			w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say>%s, repeat again, %s, repeat again, %s, over.</Say>
+        <Say><![CDATA[%s, repeat again, %s, repeat again, %s, over.]]></Say>
     </Gather>
 </Response>
 `, hand.MyEndpoint, combinedOutput, combinedOutput, combinedOutput)))

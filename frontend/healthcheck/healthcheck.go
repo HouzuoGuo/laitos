@@ -56,10 +56,9 @@ func (check *HealthCheck) Execute() bool {
 	if allOK {
 		mailMessage.WriteString("All OK\n")
 	} else {
-		mailMessage.WriteString("There are errors.\n")
+		mailMessage.WriteString("There are errors!!!\n")
 	}
 	// 0 - runtime info
-	mailMessage.WriteString("\nRuntime:\n")
 	mailMessage.WriteString(feature.GetRuntimeInfo())
 	// 1 - port checks
 	mailMessage.WriteString("\nPorts:\n")

@@ -41,10 +41,9 @@ func (_ *HandleSystemInfo) MakeHandler(logger lalog.Logger, cmdProc *common.Comm
 			fmt.Fprint(w, "All OK.\n")
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, "There are errors.\n")
+			fmt.Fprint(w, "There are errors!!!\n")
 		}
 		// 0 - runtime info
-		fmt.Fprint(w, "\nRuntime:\n")
 		fmt.Fprint(w, feature.GetRuntimeInfo())
 		// 1 - feature checks
 		if len(featureErrs) == 0 {
