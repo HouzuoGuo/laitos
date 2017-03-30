@@ -104,6 +104,11 @@ func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 			}
 			continue
 		}
+		// Do not process messages that arrived prior to server startup
+		if ding.Message.Timestamp < global.StartupTime.Unix() {
+			bot.Logger.Printf("ProcessMessages", origin, nil, "ignore message from \"%s\" that arrived before server started up", ding.Message.Chat.UserName)
+			continue
+		}
 		// Do not process non-private chats
 		if ding.Message.Chat.Type != ChatTypePrivate {
 			bot.Logger.Printf("ProcessMessages", origin, nil, "ignore non-private chat %d", ding.Message.Chat.ID)
