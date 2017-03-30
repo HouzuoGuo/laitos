@@ -7,7 +7,7 @@ import (
 )
 
 func TestEnvInfo_Execute(t *testing.T) {
-	info := EnvInfo{}
+	info := EnvControl{}
 	if !info.IsConfigured() {
 		t.Fatal("not configured")
 	}

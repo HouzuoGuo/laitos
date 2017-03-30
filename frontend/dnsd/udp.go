@@ -56,8 +56,8 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 	packetBuf := make([]byte, MaxPacketSize)
 	dnsd.Logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
 	for {
-		if global.EmergencyStop {
-			return global.ErrEmergencyStop
+		if global.EmergencyLockDown {
+			return global.ErrEmergencyLockDown
 		}
 		packetLength, clientAddr, err := udpServer.ReadFromUDP(packetBuf)
 		if err != nil {

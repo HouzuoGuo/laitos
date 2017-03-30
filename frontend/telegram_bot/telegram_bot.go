@@ -145,8 +145,8 @@ func (bot *TelegramBot) StartAndBlock() error {
 	bot.Logger.Printf("StartAndBlock", "", nil, "going to poll for messages")
 	lastIdle := time.Now().Unix()
 	for {
-		if global.EmergencyStop {
-			return global.ErrEmergencyStop
+		if global.EmergencyLockDown {
+			return global.ErrEmergencyLockDown
 		}
 		if bot.Stop {
 			bot.Logger.Printf("StartAndBlock", "", nil, "going to stop now")

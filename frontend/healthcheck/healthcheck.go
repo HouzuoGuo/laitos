@@ -109,8 +109,8 @@ Start health check loop and block until this program exits.
 func (check *HealthCheck) StartAndBlock() error {
 	sort.Ints(check.TCPPorts)
 	for {
-		if global.EmergencyStop {
-			return global.ErrEmergencyStop
+		if global.EmergencyLockDown {
+			return global.ErrEmergencyLockDown
 		}
 		time.Sleep(time.Duration(check.IntervalSec) * time.Second)
 		check.Execute()

@@ -81,8 +81,8 @@ func (sock *Sockd) StartAndBlock() error {
 		return fmt.Errorf("Sockd.StartAndBlock: failed to listen on %s:%d - %v", sock.ListenAddress, sock.ListenPort, err)
 	}
 	for {
-		if global.EmergencyStop {
-			return global.ErrEmergencyStop
+		if global.EmergencyLockDown {
+			return global.ErrEmergencyLockDown
 		}
 		conn, err := sock.Listener.Accept()
 		if err != nil {

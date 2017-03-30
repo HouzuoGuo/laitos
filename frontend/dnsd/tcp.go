@@ -134,8 +134,8 @@ func (dnsd *DNSD) StartAndBlockTCP() error {
 	}
 	dnsd.Logger.Printf("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
 	for {
-		if global.EmergencyStop {
-			return global.ErrEmergencyStop
+		if global.EmergencyLockDown {
+			return global.ErrEmergencyLockDown
 		}
 		clientConn, err := listener.Accept()
 		if err != nil {

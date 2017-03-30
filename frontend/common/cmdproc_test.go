@@ -88,12 +88,12 @@ func TestCommandProcessor_Process(t *testing.T) {
 	}
 
 	// Trigger emergency stop and try
-	global.TriggerEmergencyStop()
+	global.TriggerEmergencyLockDown()
 	cmd = feature.Command{TimeoutSec: 1, Content: "mypin  .lpt  5, 2. 3  .s  sleep 2 && echo -n 0123456789 "}
-	if result := proc.Process(cmd); result.Error != global.ErrEmergencyStop {
+	if result := proc.Process(cmd); result.Error != global.ErrEmergencyLockDown {
 		t.Fatal(result)
 	}
-	global.EmergencyStop = false
+	global.EmergencyLockDown = false
 }
 
 func TestCommandProcessor_IsSane(t *testing.T) {

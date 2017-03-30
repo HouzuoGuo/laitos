@@ -12,36 +12,40 @@ import (
 	"time"
 )
 
-var ErrBadEnvInfoChoice = errors.New(`emerstop | log | runtime | stack`)
+var ErrBadEnvInfoChoice = errors.New(`elock | estop | log | runtime | stack`)
 
 // Retrieve environment information and trigger emergency stop upon request.
-type EnvInfo struct {
+type EnvControl struct {
 }
 
-func (info *EnvInfo) IsConfigured() bool {
+func (info *EnvControl) IsConfigured() bool {
 	return true
 }
 
-func (info *EnvInfo) SelfTest() error {
+func (info *EnvControl) SelfTest() error {
 	return nil
 }
 
-func (info *EnvInfo) Initialise() error {
+func (info *EnvControl) Initialise() error {
 	return nil
 }
 
-func (info *EnvInfo) Trigger() Trigger {
+func (info *EnvControl) Trigger() Trigger {
 	return ".e"
 }
 
-func (info *EnvInfo) Execute(cmd Command) *Result {
+func (info *EnvControl) Execute(cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}
 	switch strings.ToLower(cmd.Content) {
-	case "emerstop":
+	case "elock":
+		global.TriggerEmergencyLockDown()
+		return &Result{Output: "successfully triggered EmergencyLockDown"}
+	case "estop":
 		global.TriggerEmergencyStop()
-		return &Result{Output: "successfully triggered Emergency-Stop"}
+		// Not reachable
+		return &Result{Output: "successfully triggered EmergencyStop"}
 	case "runtime":
 		return &Result{Output: GetRuntimeInfo()}
 	case "log":

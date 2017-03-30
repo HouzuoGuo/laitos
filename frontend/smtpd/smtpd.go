@@ -181,8 +181,8 @@ func (smtpd *SMTPD) StartAndBlock() (err error) {
 		return fmt.Errorf("SMTPD.StartAndBlock: failed to listen on %s:%d - %v", smtpd.ListenAddress, smtpd.ListenPort, err)
 	}
 	for {
-		if global.EmergencyStop {
-			return global.ErrEmergencyStop
+		if global.EmergencyLockDown {
+			return global.ErrEmergencyLockDown
 		}
 		clientConn, err := smtpd.Listener.Accept()
 		if err != nil {

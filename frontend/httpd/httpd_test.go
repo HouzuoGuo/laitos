@@ -109,12 +109,12 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	}
 
 	// Trigger emergency stop, HTTP endpoints shall respond with HTTP 200 and emergency stop message.
-	global.TriggerEmergencyStop()
+	global.TriggerEmergencyLockDown()
 	for _, endpoint := range []string{"/", "/info"} {
 		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+endpoint)
-		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != global.ErrEmergencyStop.Error() {
-			t.Fatal(err, string(resp.Body), err != nil, resp.StatusCode, string(resp.Body) != global.ErrEmergencyStop.Error())
+		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != global.ErrEmergencyLockDown.Error() {
+			t.Fatal(err, string(resp.Body), err != nil, resp.StatusCode, string(resp.Body) != global.ErrEmergencyLockDown.Error())
 		}
 	}
-	global.EmergencyStop = false
+	global.EmergencyLockDown = false
 }

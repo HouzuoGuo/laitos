@@ -3,7 +3,9 @@ package main
 import (
 	cryptoRand "crypto/rand"
 	"encoding/binary"
+	"errors"
 	"flag"
+	"fmt"
 	"github.com/HouzuoGuo/laitos/global"
 	"io/ioutil"
 	pseudoRand "math/rand"
@@ -11,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -36,6 +39,30 @@ func ReseedPseudoRand() {
 		}
 	}
 	logger.Printf("ReseedPseudoRand", "", nil, "succeeded after %d attempt(s)", numAttempts)
+}
+
+// A daemon that starts and blocks.
+type Daemon interface {
+	StartAndBlock() error
+}
+
+// Start a daemon in a separate goroutine. If the daemon crashes, the goroutine logs an error message but does not crash the entire program.
+func StartDaemon(counter *int32, waitGroup *sync.WaitGroup, name string, daemon Daemon) {
+	atomic.AddInt32(counter, 1)
+	waitGroup.Add(1)
+	go func() {
+		defer waitGroup.Done()
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Printf("main", name, errors.New(fmt.Sprint(err)), "daemon crashed!")
+			}
+		}()
+		logger.Printf("main", name, nil, "going to start daemon")
+		if err := daemon.StartAndBlock(); err != nil {
+			logger.Printf("main", name, err, "daemon has failed")
+			return
+		}
+	}()
 }
 
 func main() {
@@ -87,54 +114,18 @@ func main() {
 	}
 
 	// Start frontent daemons
-	daemons := &sync.WaitGroup{}
-	var numDaemons int
+	waitGroup := &sync.WaitGroup{}
+	var numDaemons int32
 	for _, frontendName := range frontends {
 		switch frontendName {
 		case "dnsd":
-			numDaemons++
-			daemons.Add(1)
-			go func() {
-				defer daemons.Done()
-				logger.Printf("main", "", nil, "going to start dns daemon")
-				if err := config.GetDNSD().StartAndBlock(); err != nil {
-					logger.Printf("main", "", err, "dns daemon has failed")
-					return
-				}
-			}()
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetDNSD())
 		case "healthcheck":
-			numDaemons++
-			daemons.Add(1)
-			go func() {
-				defer daemons.Done()
-				logger.Printf("main", "", nil, "going to start health check")
-				if err := config.GetHealthCheck().StartAndBlock(); err != nil {
-					logger.Printf("main", "", err, "health check has failed")
-					return
-				}
-			}()
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHealthCheck())
 		case "httpd":
-			numDaemons++
-			daemons.Add(1)
-			go func() {
-				defer daemons.Done()
-				logger.Printf("main", "", nil, "going to start http daemon")
-				if err := config.GetHTTPD().StartAndBlock(); err != nil {
-					logger.Printf("main", "", err, "http daemon has failed")
-					return
-				}
-			}()
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHTTPD())
 		case "httpd80":
-			numDaemons++
-			daemons.Add(1)
-			go func() {
-				defer daemons.Done()
-				logger.Printf("main", "", nil, "going to start httpd80 daemon")
-				if err := config.GetHTTPD80().StartAndBlock(); err != nil {
-					logger.Printf("main", "", err, "httpd80 daemon has failed")
-					return
-				}
-			}()
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHTTPD80())
 		case "mailp":
 			mailContent, err := ioutil.ReadAll(os.Stdin)
 			if err != nil {
@@ -145,38 +136,11 @@ func main() {
 				logger.Fatalf("main", "", err, "failed to process mail")
 			}
 		case "smtpd":
-			numDaemons++
-			daemons.Add(1)
-			go func() {
-				defer daemons.Done()
-				logger.Printf("main", "", nil, "going to start smtp daemon")
-				if err := config.GetMailDaemon().StartAndBlock(); err != nil {
-					logger.Printf("main", "", err, "smtp daemon has failed")
-					return
-				}
-			}()
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetMailDaemon())
 		case "sockd":
-			numDaemons++
-			daemons.Add(1)
-			go func() {
-				defer daemons.Done()
-				logger.Printf("main", "", nil, "going to start sock daemon")
-				if err := config.GetSockDaemon().StartAndBlock(); err != nil {
-					logger.Printf("main", "", err, "sock daemon has failed")
-					return
-				}
-			}()
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetSockDaemon())
 		case "telegram":
-			numDaemons++
-			daemons.Add(1)
-			go func() {
-				defer daemons.Done()
-				logger.Printf("main", "", nil, "going to start telegram bot")
-				if err := config.GetTelegramBot().StartAndBlock(); err != nil {
-					logger.Printf("main", "", err, "telegram bot has failed")
-					return
-				}
-			}()
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetTelegramBot())
 		default:
 			logger.Fatalf("main", "", err, "unknown frontend name \"%s\"", frontendName)
 		}
@@ -185,5 +149,5 @@ func main() {
 		logger.Printf("main", "", nil, "started %d daemons", numDaemons)
 	}
 	// Daemons are not really supposed to quit
-	daemons.Wait()
+	waitGroup.Wait()
 }

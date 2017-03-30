@@ -29,8 +29,8 @@ Process only one command (if found) in the incoming mail. If reply addresses are
 to the specified addresses. If they are not specified, use the incoming mail sender's address as reply address.
 */
 func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...string) error {
-	if global.EmergencyStop {
-		return global.ErrEmergencyStop
+	if global.EmergencyLockDown {
+		return global.ErrEmergencyLockDown
 	}
 	if errs := mailproc.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("%+v", errs)

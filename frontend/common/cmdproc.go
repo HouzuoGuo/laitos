@@ -83,8 +83,8 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 }
 
 func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result) {
-	if global.EmergencyStop {
-		return &feature.Result{Error: global.ErrEmergencyStop}
+	if global.EmergencyLockDown {
+		return &feature.Result{Error: global.ErrEmergencyLockDown}
 	}
 	var bridgeErr error
 	var matchedFeature feature.Feature

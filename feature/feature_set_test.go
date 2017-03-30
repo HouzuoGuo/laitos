@@ -6,7 +6,7 @@ import (
 )
 
 func TestFeatureSet_SelfTest(t *testing.T) {
-	// Initially, no feature other than shell and EnvInfo are available from an empty feature set
+	// Initially, no feature other than shell and EnvControl are available from an empty feature set
 	features := FeatureSet{}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)

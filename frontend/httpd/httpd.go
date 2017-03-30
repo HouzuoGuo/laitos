@@ -127,7 +127,7 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 		}
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		if global.EmergencyStop {
+		if global.EmergencyLockDown {
 			/*
 				An error response usually should carry status 5xx in this case, but the intention of
 				emergency stop is to disable the program rather than crashing it and relaunching it.
@@ -135,7 +135,7 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 				the program after consecutive HTTP failures, it would defeat the intention of emergency stop.
 				Hence the status code here is OK.
 			*/
-			w.Write([]byte(global.ErrEmergencyStop.Error()))
+			w.Write([]byte(global.ErrEmergencyLockDown.Error()))
 			return
 		}
 		urlFields := strings.FieldsFunc(r.URL.Path, IsSlash)
