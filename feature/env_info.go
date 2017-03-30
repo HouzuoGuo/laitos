@@ -44,7 +44,6 @@ func (info *EnvControl) Execute(cmd Command) *Result {
 		return &Result{Output: "successfully triggered EmergencyLockDown"}
 	case "estop":
 		global.TriggerEmergencyStop()
-		// Not reachable
 		return &Result{Output: "successfully triggered EmergencyStop"}
 	case "runtime":
 		return &Result{Output: GetRuntimeInfo()}

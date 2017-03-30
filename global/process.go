@@ -25,11 +25,15 @@ func TriggerEmergencyLockDown() {
 	EmergencyLockDown = true
 }
 
-// Log a message and then immediately crash the entire program.
+// Log a message and then crash the entire program after 30 seconds.
 func TriggerEmergencyStop() {
 	emerLog := Logger{
 		ComponentID:   "Global",
 		ComponentName: "EmergencyStop",
 	}
-	emerLog.Fatalf("TriggerEmergencyStop", "", nil, "successfully triggered, program now crashes.")
+	emerLog.Printf("TriggerEmergencyStop", "", nil, "successfully triggered, program will crash in 30 seconds.")
+	go func() {
+		time.Sleep(30 * time.Second)
+		emerLog.Fatalf("TriggerEmergencyStop", "", nil, "program crashes now")
+	}()
 }
