@@ -18,6 +18,9 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/sockd"
 	"github.com/HouzuoGuo/laitos/frontend/telegram_bot"
 	"github.com/HouzuoGuo/laitos/global"
+	"os"
+	"strconv"
+	"strings"
 )
 
 // Configuration of a standard set of bridges that are useful to both HTTP daemon and mail processor.
@@ -205,25 +208,39 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 	return &ret
 }
 
-// Return an alternative HTTP daemon that only serves index pages without TLS and listens on port 80.
-func (config *Config) GetHTTPD80() *httpd.HTTPD {
-	ret := config.HTTPDaemon
-	ret.ListenPort = 80
+/*
+Return an alternative HTTP daemon that only serves index pages and info page. It listens on port number specified
+in environment variable "PORT", or on port 80 if the variable is not defined (i.e. value is empty).
+*/
+func (config *Config) GetLightHTTPD() *httpd.HTTPD {
+	ret := config.GetHTTPD()
 	ret.TLSCertPath = ""
 	ret.TLSKeyPath = ""
-	ret.Logger = global.Logger{ComponentName: "HTTPD80", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
-
-	// Make handler factories
+	ret.Logger = global.Logger{ComponentName: "LightHTTPD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
+	if envPort := strings.TrimSpace(os.Getenv("PORT")); envPort == "" {
+		ret.ListenPort = 80
+	} else {
+		iPort, err := strconv.Atoi(envPort)
+		if err != nil {
+			ret.Logger.Fatalf("GetLightHTTPD", "Config", err, "environment variable PORT value is not an integer")
+			return nil
+		}
+		ret.ListenPort = iPort
+	}
+	// Unlike ordinary HTTPD, the light edition only serves index pages and information page
 	handlers := map[string]api.HandlerFactory{}
 	if config.HTTPHandlers.IndexEndpoints != nil {
 		for _, location := range config.HTTPHandlers.IndexEndpoints {
 			handlers[location] = &config.HTTPHandlers.IndexEndpointConfig
 		}
 	}
+	if config.HTTPHandlers.InformationEndpoint != "" {
+		handlers[config.HTTPHandlers.InformationEndpoint] = &api.HandleSystemInfo{}
+	}
 	ret.SpecialHandlers = handlers
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetHTTPD80", "Config", err, "failed to initialise")
+		ret.Logger.Fatalf("GetLightHTTPD", "Config", err, "failed to initialise")
 		return nil
 	}
 	for route := range ret.AllRoutes {
@@ -231,9 +248,9 @@ func (config *Config) GetHTTPD80() *httpd.HTTPD {
 		if len(route) > 12 {
 			shortRoute = route[0:12] + "..."
 		}
-		ret.Logger.Printf("GetHTTPD80", "Config", nil, "installed route %s", shortRoute)
+		ret.Logger.Printf("GetLightHTTPD", "Config", nil, "installed route %s", shortRoute)
 	}
-	return &ret
+	return ret
 }
 
 /*

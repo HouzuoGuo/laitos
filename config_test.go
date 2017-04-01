@@ -202,6 +202,7 @@ func TestConfig(t *testing.T) {
 	DNSDaemonTCPTest(t, config)
 	HealthCheckTest(t, config)
 	HTTPDaemonTest(t, config)
+	LightHTTPDaemonTest(t, config)
 	MailProcessorTest(t, config)
 	SMTPDaemonTest(t, config)
 	SockDaeemonTest(t, config)
@@ -598,6 +599,71 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 </Response>
 `, twilioCallbackEndpoint)
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+		t.Fatal(err, string(resp.Body))
+	}
+}
+
+func LightHTTPDaemonTest(t *testing.T, config Config) {
+	// Create a temporary file for index
+	indexFile := "/tmp/test-laitos-index2.html"
+	defer os.Remove(indexFile)
+	if err := ioutil.WriteFile(indexFile, []byte("this is index #LAITOS_CLIENTADDR #LAITOS_3339TIME"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Create a temporary directory of file
+	htmlDir := "/tmp/test-laitos-dir2"
+	if err := os.MkdirAll(htmlDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(htmlDir)
+	if err := ioutil.WriteFile(htmlDir+"/a.html", []byte("a html"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	os.Setenv("PORT", "23487")
+	httpDaemon := config.GetLightHTTPD()
+
+	if len(httpDaemon.SpecialHandlers) != 3 {
+		// 2 x index, 1 x info
+		t.Fatal(httpDaemon.SpecialHandlers)
+	}
+	go func() {
+		if err := httpDaemon.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	addr := "http://127.0.0.1:23487"
+	time.Sleep(2 * time.Second)
+
+	// Index handle
+	for _, location := range []string{"/", "/index.html"} {
+		resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+location)
+		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
+		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+			t.Fatal(err, string(resp.Body), resp)
+		}
+	}
+	// Non-existent paths
+	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir/doesnotexist.html")
+	if err != nil || resp.StatusCode != http.StatusNotFound {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/doesnotexist")
+	if err != nil || resp.StatusCode != http.StatusNotFound {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	// System information
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/info")
+	if err == nil && resp.StatusCode == http.StatusOK && strings.Index(string(resp.Body), "Stack traces:") == -1 {
+		t.Fatal(err, string(resp.Body))
+	}
+	// If system information tells about a feature failure, the failure would only originate from mailer
+	mailFailure := ".m: dial tcp 127.0.0.1:25: getsockopt: connection refused"
+	if resp.StatusCode == http.StatusInternalServerError && strings.Index(string(resp.Body), mailFailure) == -1 {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
 		t.Fatal(err, string(resp.Body))
 	}
 }

@@ -47,7 +47,7 @@ func StopConflictingDaemons() {
 	if os.Getuid() != 0 {
 		logger.Fatalf("StopConflictingDaemons", "", nil, "you must run laitos as root user if you wish to automatically disable conflicting daemons")
 	}
-	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "nginx", "postfix", "sendmail"}
+	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "postfix", "sendmail"}
 	waitGroup := new(sync.WaitGroup)
 	waitGroup.Add(len(list))
 	for _, name := range list {
@@ -128,7 +128,7 @@ func main() {
 	var configFile, frontend string
 	var conflictFree bool
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, httpd80, mailp, smtpd, sockd, telegram)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, lighthttpd, mailp, smtpd, sockd, telegram)")
 	flag.BoolVar(&conflictFree, "conflictfree", false, "(Optional) automatically stop and disable system daemons that may run into port conflict with laitos")
 	flag.Parse()
 
@@ -169,8 +169,8 @@ func main() {
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHealthCheck())
 		case "httpd":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHTTPD())
-		case "httpd80":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHTTPD80())
+		case "lighthttpd":
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetLightHTTPD())
 		case "mailp":
 			mailContent, err := ioutil.ReadAll(os.Stdin)
 			if err != nil {
