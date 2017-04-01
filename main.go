@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	pseudoRand "math/rand"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"sync"
@@ -39,6 +40,45 @@ func ReseedPseudoRand() {
 		}
 	}
 	logger.Printf("ReseedPseudoRand", "", nil, "succeeded after %d attempt(s)", numAttempts)
+}
+
+// Stop and disable daemons that may run into port usage conflicts with laitos.
+func StopConflictingDaemons() {
+	if os.Getuid() != 0 {
+		logger.Fatalf("StopConflictingDaemons", "", nil, "you must run laitos as root user if you wish to automatically disable conflicting daemons")
+	}
+	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "nginx", "postfix", "sendmail"}
+	waitGroup := new(sync.WaitGroup)
+	waitGroup.Add(len(list))
+	for _, name := range list {
+		go func(name string) {
+			defer waitGroup.Done()
+			var success bool
+			// Disable+stop intensifies three times...
+			for i := 0; i < 3; i++ {
+				// Some hosting platforms out there still have not yet used systemd
+				cmds := []*exec.Cmd{
+					exec.Command("/etc/init.d/"+name, "stop"),
+					exec.Command("chkconfig", name, "off"),
+					exec.Command("chmod", "0000", "/etc/init,d/"+name),
+					exec.Command("systemctl", "stop", name),
+					exec.Command("systemctl", "disable", name),
+					exec.Command("systemctl", "mask", name),
+				}
+				for _, cmd := range cmds {
+					if _, err := cmd.CombinedOutput(); err == nil {
+						success = true
+						// Continue to run subsequent commands to further disable the service
+					}
+				}
+				time.Sleep(1 * time.Second)
+			}
+			if success {
+				logger.Printf("StopConflictingDaemons", name, nil, "the daemon has been successfully stopped and disabled")
+			}
+		}(name)
+	}
+	waitGroup.Wait()
 }
 
 // A daemon that starts and blocks.
@@ -86,8 +126,10 @@ func main() {
 
 	// Process command line flags
 	var configFile, frontend string
+	var conflictFree bool
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, httpd80, mailp, smtpd, sockd, telegram)")
+	flag.BoolVar(&conflictFree, "conflictfree", false, "(Optional) automatically stop and disable system daemons that may run into port conflict with laitos")
 	flag.Parse()
 
 	if configFile == "" {
@@ -114,6 +156,9 @@ func main() {
 	}
 
 	// Start frontent daemons
+	if conflictFree {
+		StopConflictingDaemons()
+	}
 	waitGroup := &sync.WaitGroup{}
 	var numDaemons int32
 	for _, frontendName := range frontends {
