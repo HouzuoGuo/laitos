@@ -1,0 +1,1 @@
+laitos: ./laitos -conflictfree -config config.json -frontend dnsd,healthcheck,httpd,lighthttpd,smtpd,sockd,telegram

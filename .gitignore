@@ -1,8 +1,11 @@
 *.conf
 contact
 *.crt
+elasticbeanstalk-bundle.zip
 *.html
 .idea
+init_feature_test.go
+init_mail_test.go
 *.json
 *.key
 laitos
@@ -10,5 +13,3 @@ nohup.out
 pass
 *.swp
 .vscode
-init_feature_test.go
-init_mail_test.go
