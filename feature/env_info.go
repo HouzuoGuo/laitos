@@ -61,6 +61,7 @@ func GetRuntimeInfo() string {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	return fmt.Sprintf(`Public IP: %s
+System time: %s
 Uptime: %s
 Number of CPUs: %d
 Number of Goroutines: %d
@@ -68,6 +69,7 @@ GOMAXPROCS: %d
 System memory usage: %d MBytes
 `,
 		env.GetPublicIP(),
+		time.Now().String(),
 		time.Now().Sub(global.StartupTime).String(),
 		runtime.NumCPU(),
 		runtime.NumGoroutine(),
