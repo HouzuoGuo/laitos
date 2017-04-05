@@ -1,37 +1,64 @@
 [![Build Status](https://travis-ci.org/HouzuoGuo/laitos.svg?branch=master)](https://travis-ci.org/HouzuoGuo/laitos)
 
-laitos
-=====
-laitos has many Internet infrastructure daemons built into a single executable, they also enable users to access Internet features via alternative means such as PSTN (telephone), GSM (SMS), and satellite messaging.
+# laitos - empower your personal web server
+Want to host a simple website, Email server, or ad-blocking DNS server? Skip those scary tutorials you find online!
 
-laitos was called "websh" before 13th March 2017.
+<strong>laitos</strong> has all your needs covered - plus, it offers You access to mails and social networks via fun ways such as telephone call, SMS, Telegram chat, and even satellite messenger!
 
-The latest daemon features are:
-- Generic purpose HTTP daemon serves static HTML pages, directories, Twilio hooks, and more.
-- Telegram bot serves Internet features via telegram chats.
+## Highlights
 
-The latest Internet features are:
-- Decrypt and find lines among AES-encrypted content.
-- Post to Facebook.
-- Send Emails.
-- Run shell commands.
-- Call a phone number and speak some texts.
-- Send text message to a mobile phone number.
-- Post to Twitter.
-- Retrieve latest tweets.
-- Run WolframAlpha queries.
+- <strong>Powerful</strong> - web, mail and DNS servers beautifully re-invented in just 9K lines of code.
+- <strong>Fun</strong> - access your personal mails and social networks via telephone and satellite!
+- <strong>Hyped by Buzzwords</strong> - certified to run in any container, PaaS, IaaS, *aaS.
+- <strong>Lightweight</strong> - uses as little as 64MB of memory and 16MB of disk.
+- <strong>Portable</strong> - runs on any flavour of Linux, Unix, and Windows.
+- <strong>Independent</strong> - reliably operates without needing additional software or libraries.
+- laitos was called ["websh"](https://github.com/HouzuoGuo/websh) before (12+1)th March 2017. 
 
-You must exercise _extreme caution_ when using this software program, inappropriate configuration will severely compromise the security of the host computer. I am not responsible for any damage/potential damage caused to your computers.
+## Build & Enjoy
+Check out the source code under your `$GOPATH` directory and run `go build`.
 
-Build
-=====
-Simply check out the source code under your `$GOPATH` directory and run `go build`.
+The friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configuration) page will then get you started.
 
-The program only uses Go's standard library, it does not depend on 3rd party libraries.
+## Features (TODO: move this away from homepage)
 
-Configuration
-=============
-TODO
+### For Fun
+- Decrypt AES-encrypted files and search for specific lines among them.
+- Inspect program environment such as public IP address, memory usage, latest log entries, and stack traces.
+- Post updates to Facebook.
+- List and read mails from personal mailboxes via IMAPS.
+- Send mails to friends.
+- Run operating system commands (shell commands).
+- Send text message to friend's mobile number.
+- Call friend's mobile number and speak a short message.
+- Read Twitter home time-line.
+- Post updates to Twitter.
+- Ask about weather and all sorts of questions on WolframAlpha.
+
+### Daemon services
+- Web server
+  * Host static HTML home pages (index pages).
+  * Host directory of static HTML files and other assets.
+- More web services
+  * Retrieve environment information (IP address, memory usage, log entries, etc).
+  * Use fun features in an interactive web form.
+  * Browse and download files from personal Gitlab projects.
+  * Web proxy for viewing simple web pages.
+  * API hook for Twilio telephone call and Twilio SMS.
+- Periodic health check
+  * Check that features' API credentials are working.
+  * Check that daemon ports are still listened on.
+  * Send health reports at regular interval via Email.
+- DNS server
+  * Automatically tracks advertising domains list.
+  * Block ads by refusing to answer to their names.
+  * Forward other queries to a well-known DNS server of your choice.
+- Mail server
+  * Support TLS for communication secrecy.
+  * Forward arriving Emails to your personal addresses.
+- Telegram bot
+  * Use fun features in an interactive chat.
+  * Retrieve daemon health information.
 
 Copyright
 ====================
