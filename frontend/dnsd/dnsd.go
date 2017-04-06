@@ -27,14 +27,12 @@ const (
 type UDPForwarderQuery struct {
 	MyServer    *net.UDPConn
 	ClientAddr  *net.UDPAddr
-	DomainName  string
 	QueryPacket []byte
 }
 
 // A query to forward to DNS forwarder via TCP.
 type TCPForwarderQuery struct {
 	MyServer    *net.Conn
-	DomainName  string
 	QueryPacket []byte
 }
 
@@ -166,14 +164,21 @@ func RespondWith0(queryNoLength []byte) []byte {
 	return answerPacket
 }
 
-// Extract domain name from type A class IN query. Return empty string if query packet does not look like A-IN query.
-func ExtractDomainName(packet []byte) string {
+/*
+Extract domain name asked by the DNS query. Return the domain name itself, and then with leading components removed.
+E.g. for a query packet that asks for "a.b.github.com", the function returns:
+- a.b.github.com
+- b.github.com
+- github.com
+*/
+func ExtractDomainName(packet []byte) (ret []string) {
+	ret = make([]string, 0, 8)
 	if packet == nil || len(packet) < MinNameQuerySize {
-		return ""
+		return
 	}
 	indexTypeAClassIN := bytes.Index(packet[13:], []byte{0, 1, 0, 1})
 	if indexTypeAClassIN < 1 {
-		return ""
+		return
 	}
 	indexTypeAClassIN += 13
 	// The byte right before Type-A Class-IN is an empty byte to be discarded
@@ -188,7 +193,23 @@ func ExtractDomainName(packet []byte) string {
 			domainNameBytes[i] = '.'
 		}
 	}
-	return string(domainNameBytes)
+	// First return value is domain name unchanged
+	domainName := string(domainNameBytes)
+	if len(domainName) > 1024 {
+		// Domain name is unrealistically long
+		return
+	}
+	ret = append(ret, domainName)
+	// Append more of the same domain name, each with leading component removed.
+	for {
+		index := strings.IndexRune(domainName, '.')
+		if index < 1 || index == len(domainName)-1 {
+			break
+		}
+		domainName = domainName[index+1:]
+		ret = append(ret, domainName)
+	}
+	return
 }
 
 /*
@@ -223,4 +244,18 @@ func (dnsd *DNSD) StartAndBlock() error {
 		}()
 	}
 	return <-errChan
+}
+
+// Return true if any of the input domain names is black listed.
+func (dnsd *DNSD) NamesAreBlackListed(names []string) bool {
+	dnsd.BlackListMutex.Lock()
+	defer dnsd.BlackListMutex.Unlock()
+	var blacklisted bool
+	for _, name := range names {
+		_, blacklisted = dnsd.BlackList[name]
+		if blacklisted {
+			return true
+		}
+	}
+	return false
 }

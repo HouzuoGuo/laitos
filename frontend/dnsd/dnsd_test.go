@@ -13,13 +13,13 @@ import (
 )
 
 func TestExtractDomainName(t *testing.T) {
-	if name := ExtractDomainName(nil); name != "" {
+	if name := ExtractDomainName(nil); !reflect.DeepEqual(name, []string{}) {
 		t.Fatal(name)
 	}
-	if name := ExtractDomainName([]byte{}); name != "" {
+	if name := ExtractDomainName([]byte{}); !reflect.DeepEqual(name, []string{}) {
 		t.Fatal(name)
 	}
-	if name := ExtractDomainName(githubComUDPQuery); name != "github.com" {
+	if name := ExtractDomainName(githubComUDPQuery); !reflect.DeepEqual(name, []string{"github.com", "com"}) {
 		t.Fatal(name)
 	}
 }

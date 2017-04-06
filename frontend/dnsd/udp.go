@@ -86,23 +86,19 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 		forwardPacket := make([]byte, packetLength)
 		copy(forwardPacket, packetBuf[:packetLength])
 		domainName := ExtractDomainName(forwardPacket)
-		if domainName == "" {
+		if len(domainName) == 0 {
 			// If I cannot figure out what domain is from the query, simply forward it without much concern.
 			dnsd.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil, "handle non-name query")
 
 		} else {
 			// This is a domain name query, check the name against black list and then forward.
-			dnsd.BlackListMutex.Lock()
-			_, blacklisted := dnsd.BlackList[domainName]
-			dnsd.BlackListMutex.Unlock()
-			if blacklisted {
+			if dnsd.NamesAreBlackListed(domainName) {
 				dnsd.Logger.Printf("UDPLoop", clientIP, nil, "handle black-listed domain \"%s\"", domainName)
 				blackHoleAnswer := RespondWith0(forwardPacket)
 				udpServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 				if _, err := udpServer.WriteTo(blackHoleAnswer, clientAddr); err != nil {
 					dnsd.Logger.Printf("UDPLoop", clientAddr.IP.String(), err, "IO failure")
 				}
-
 				continue
 			} else {
 				dnsd.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil, "handle domain \"%s\" (backlog %d)", domainName, len(dnsd.UDPForwarderQueues[randForwarder]))
@@ -111,7 +107,6 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 		}
 		dnsd.UDPForwarderQueues[randForwarder] <- &UDPForwarderQuery{
 			ClientAddr:  clientAddr,
-			DomainName:  domainName,
 			MyServer:    udpServer,
 			QueryPacket: forwardPacket,
 		}
