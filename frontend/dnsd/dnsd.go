@@ -24,7 +24,7 @@ const (
 )
 
 // A query to forward to DNS forwarder via DNS.
-type UDPForwarderQuery struct {
+type UDPQuery struct {
 	MyServer    *net.UDPConn
 	ClientAddr  *net.UDPAddr
 	QueryPacket []byte
@@ -38,11 +38,12 @@ type TCPForwarderQuery struct {
 
 // A DNS forwarder daemon that selectively refuse to answer certain A record requests made against advertisement servers.
 type DNSD struct {
-	UDPListenAddress   string                    `json:"UDPListenAddress"` // UDP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	UDPListenPort      int                       `json:"UDPListenPort"`    // UDP port to listen on
-	UDPForwardTo       string                    `json:"UDPForwardTo"`     // Forward UDP DNS queries to this address (IP:Port)
-	UDPForwarderConns  []net.Conn                `json:"-"`                // UDP connections made toward forwarder
-	UDPForwarderQueues []chan *UDPForwarderQuery `json:"-"`                // Processing queues that handle UDP forward queries
+	UDPListenAddress   string           `json:"UDPListenAddress"` // UDP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
+	UDPListenPort      int              `json:"UDPListenPort"`    // UDP port to listen on
+	UDPForwardTo       string           `json:"UDPForwardTo"`     // Forward UDP DNS queries to this address (IP:Port)
+	UDPForwarderConns  []net.Conn       `json:"-"`                // UDP connections made toward forwarder
+	UDPForwarderQueues []chan *UDPQuery `json:"-"`                // Processing queues that handle UDP forward queries
+	UDPBlackHoleQueues []chan *UDPQuery `json:"-"`                // Processing queues that handle UDP black-list answers
 
 	TCPListenAddress string `json:"TCPListenAddress"` // TCP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
 	TCPListenPort    int    `json:"TCPListenPort"`    // TCP port to listen on
@@ -90,7 +91,8 @@ func (dnsd *DNSD) Initialise() error {
 	// Create a number of forwarder queues to handle incoming UDP DNS queries
 	numQueues := dnsd.PerIPLimit / NumQueueRatio
 	dnsd.UDPForwarderConns = make([]net.Conn, numQueues)
-	dnsd.UDPForwarderQueues = make([]chan *UDPForwarderQuery, numQueues)
+	dnsd.UDPForwarderQueues = make([]chan *UDPQuery, numQueues)
+	dnsd.UDPBlackHoleQueues = make([]chan *UDPQuery, numQueues)
 	for i := 0; i < numQueues; i++ {
 		forwarderAddr, err := net.ResolveUDPAddr("udp", dnsd.UDPForwardTo)
 		if err != nil {
@@ -101,8 +103,10 @@ func (dnsd *DNSD) Initialise() error {
 			return fmt.Errorf("DNSD.Initialise: failed to connect to forwarder - %v", err)
 		}
 		dnsd.UDPForwarderConns[i] = forwarderConn
-		dnsd.UDPForwarderQueues[i] = make(chan *UDPForwarderQuery, 16) // there really is no need for a deeper queue
+		dnsd.UDPForwarderQueues[i] = make(chan *UDPQuery, 16) // there really is no need for a deeper queue
+		dnsd.UDPBlackHoleQueues[i] = make(chan *UDPQuery, 4)  // there is also no need for a deeper queue here
 	}
+	// TCP queries are not handled by queues
 	// Always allow server to query itself
 	myPublicIP := env.GetPublicIP()
 	if myPublicIP == "" {

@@ -10,7 +10,7 @@ import (
 )
 
 // Send forward queries to forwarder and forward the response to my DNS client.
-func (dnsd *DNSD) HandleUDPQueries(myQueue chan *UDPForwarderQuery, forwarderConn net.Conn) {
+func (dnsd *DNSD) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net.Conn) {
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
 		query := <-myQueue
@@ -34,6 +34,19 @@ func (dnsd *DNSD) HandleUDPQueries(myQueue chan *UDPForwarderQuery, forwarderCon
 	}
 }
 
+// Send blackhole answer to my DNS client.
+func (dnsd *DNSD) HandleBlackHoleAnswer(myQueue chan *UDPQuery) {
+	for {
+		query := <-myQueue
+		// Set deadline for responding to my DNS client
+		blackHoleAnswer := RespondWith0(query.QueryPacket)
+		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
+		if _, err := query.MyServer.WriteTo(blackHoleAnswer, query.ClientAddr); err != nil {
+			dnsd.Logger.Printf("HandleUDPQueries", query.ClientAddr.String(), err, "IO failure")
+		}
+	}
+}
+
 /*
 You may call this function only after having called Initialise()!
 Start DNS daemon to listen on UDP port only. Block caller.
@@ -48,9 +61,12 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 	if err != nil {
 		return err
 	}
-	// Start forwarder queues that will forward client queries and respond to them
+	// Start queues that will respond to DNS clients
 	for i, queue := range dnsd.UDPForwarderQueues {
 		go dnsd.HandleUDPQueries(queue, dnsd.UDPForwarderConns[i])
+	}
+	for _, queue := range dnsd.UDPBlackHoleQueues {
+		go dnsd.HandleBlackHoleAnswer(queue)
 	}
 	// Dispatch queries to forwarder queues
 	packetBuf := make([]byte, MaxPacketSize)
@@ -88,27 +104,32 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 		domainName := ExtractDomainName(forwardPacket)
 		if len(domainName) == 0 {
 			// If I cannot figure out what domain is from the query, simply forward it without much concern.
-			dnsd.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil, "handle non-name query")
-
-		} else {
-			// This is a domain name query, check the name against black list and then forward.
-			if dnsd.NamesAreBlackListed(domainName) {
-				dnsd.Logger.Printf("UDPLoop", clientIP, nil, "handle black-listed domain \"%s\"", domainName)
-				blackHoleAnswer := RespondWith0(forwardPacket)
-				udpServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
-				if _, err := udpServer.WriteTo(blackHoleAnswer, clientAddr); err != nil {
-					dnsd.Logger.Printf("UDPLoop", clientAddr.IP.String(), err, "IO failure")
-				}
-				continue
-			} else {
-				dnsd.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil, "handle domain \"%s\" (backlog %d)", domainName, len(dnsd.UDPForwarderQueues[randForwarder]))
-				// Forwarder queue will take care of this query
+			dnsd.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
+				"handle non-name query (backlog %d)", len(dnsd.UDPForwarderQueues[randForwarder]))
+			dnsd.UDPForwarderQueues[randForwarder] <- &UDPQuery{
+				ClientAddr:  clientAddr,
+				MyServer:    udpServer,
+				QueryPacket: forwardPacket,
 			}
-		}
-		dnsd.UDPForwarderQueues[randForwarder] <- &UDPForwarderQuery{
-			ClientAddr:  clientAddr,
-			MyServer:    udpServer,
-			QueryPacket: forwardPacket,
+		} else if dnsd.NamesAreBlackListed(domainName) {
+			// Requested domain name is black-listed
+			randBlackListResponder := rand.Intn(len(dnsd.UDPBlackHoleQueues))
+			dnsd.Logger.Printf(fmt.Sprintf("UDP-%d", randBlackListResponder), clientIP, nil,
+				"handle black-listed domain \"%s\" (backlog %d)", domainName[0], len(dnsd.UDPBlackHoleQueues[randBlackListResponder]))
+			dnsd.UDPBlackHoleQueues[randBlackListResponder] <- &UDPQuery{
+				ClientAddr:  clientAddr,
+				MyServer:    udpServer,
+				QueryPacket: forwardPacket,
+			}
+		} else {
+			// This is a normal domain name query and not black-listed
+			dnsd.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
+				"handle domain \"%s\" (backlog %d)", domainName[0], len(dnsd.UDPForwarderQueues[randForwarder]))
+			dnsd.UDPForwarderQueues[randForwarder] <- &UDPQuery{
+				ClientAddr:  clientAddr,
+				MyServer:    udpServer,
+				QueryPacket: forwardPacket,
+			}
 		}
 	}
 }
