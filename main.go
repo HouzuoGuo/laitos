@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -117,19 +118,14 @@ func main() {
 		logger.Printf("main", "", nil, "program is not running as root (UID 0) hence memory is not locked, your private information will leak into swap.")
 	}
 
-	// Re-seed pseudo random number generator once a while
-	ReseedPseudoRand()
-	go func() {
-		ReseedPseudoRand()
-		time.Sleep(2 * time.Minute)
-	}()
-
 	// Process command line flags
 	var configFile, frontend string
 	var conflictFree bool
+	var gomaxprocs int
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, lighthttpd, mailp, smtpd, sockd, telegram)")
 	flag.BoolVar(&conflictFree, "conflictfree", false, "(Optional) automatically stop and disable system daemons that may run into port conflict with laitos")
+	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
 	flag.Parse()
 
 	if configFile == "" {
@@ -155,9 +151,22 @@ func main() {
 		return
 	}
 
+	// Re-seed pseudo random number generator once a while
+	ReseedPseudoRand()
+	go func() {
+		ReseedPseudoRand()
+		time.Sleep(2 * time.Minute)
+	}()
+
 	// Start frontent daemons
 	if conflictFree {
 		StopConflictingDaemons()
+	}
+	if gomaxprocs > 0 {
+		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
+		logger.Printf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
+	} else {
+		logger.Printf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
 	}
 	waitGroup := &sync.WaitGroup{}
 	var numDaemons int32
