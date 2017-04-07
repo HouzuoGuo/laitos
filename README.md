@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/cosmetic/poster.png" alt="poster image" align="right" />
+
 [![Build Status](https://travis-ci.org/HouzuoGuo/laitos.svg?branch=master)](https://travis-ci.org/HouzuoGuo/laitos)
 
 # laitos - empower your personal web server
@@ -13,12 +15,15 @@ Want to host a simple website, Email server, or ad-blocking DNS server? Skip tho
 - <strong>Lightweight</strong> - uses as little as 64MB of memory and 16MB of disk.
 - <strong>Portable</strong> - runs on any flavour of Linux, Unix, and Windows.
 - <strong>Independent</strong> - reliably operates without needing additional software or libraries.
-- laitos was called ["websh"](https://github.com/HouzuoGuo/websh) before (12+1)th March 2017. 
+
+Check out [Feature List](https://github.com/HouzuoGuo/laitos/wiki/Feature-List) for the full list of features!
 
 ## Build & Enjoy
 Check out the source code under your `$GOPATH` directory and run `go build`.
 
 The friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configuration) page will then get you started.
+
+
 
 ## Features (TODO: move this away from homepage)
 
@@ -72,3 +77,6 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY o
 See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program.
 If not, see <http://www.gnu.org/licenses/>.
+
+The Go gopher was designed by Renee French. (http://reneefrench.blogspot.com/).
+The Go gopher is covered by the [Creative Commons Attribution 3.0][Creative Commons Attribution 3.0] license.
