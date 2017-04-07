@@ -60,14 +60,14 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	} else {
 		// This is a domain name query, check the name against black list and then forward.
 		if dnsd.NamesAreBlackListed(domainName) {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", domainName)
+			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", domainName[0])
 			responseBuf = RespondWith0(queryBuf)
 			responseLen = len(responseBuf)
 			responseLenBuf = make([]byte, 2)
 			responseLenBuf[0] = byte(responseLen / 256)
 			responseLenBuf[1] = byte(responseLen % 256)
 		} else {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", domainName)
+			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", domainName[0])
 			doForward = true
 		}
 	}
