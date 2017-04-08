@@ -91,7 +91,7 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 }
 
 // Construct a DNS daemon from configuration and return.
-func (config *Config) GetDNSD() *dnsd.DNSD {
+func (config Config) GetDNSD() *dnsd.DNSD {
 	ret := config.DNSDaemon
 	ret.Logger = global.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d", ret.UDPListenAddress, ret.UDPListenPort)}
 	if err := ret.Initialise(); err != nil {
@@ -102,7 +102,7 @@ func (config *Config) GetDNSD() *dnsd.DNSD {
 }
 
 // Construct a health checker and return.
-func (config *Config) GetHealthCheck() *healthcheck.HealthCheck {
+func (config Config) GetHealthCheck() *healthcheck.HealthCheck {
 	ret := config.HealthCheck
 	ret.Logger = global.Logger{ComponentName: "HealthCheck", ComponentID: "Global"}
 	ret.Features = config.Features
@@ -119,7 +119,7 @@ func (config *Config) GetHealthCheck() *healthcheck.HealthCheck {
 }
 
 // Construct an HTTP daemon from configuration and return.
-func (config *Config) GetHTTPD() *httpd.HTTPD {
+func (config Config) GetHTTPD() *httpd.HTTPD {
 	ret := config.HTTPDaemon
 	ret.Logger = global.Logger{ComponentName: "HTTPD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 
@@ -188,7 +188,9 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 		callbackEndpoint := "/" + hex.EncodeToString(randBytes)
 		// The greeting handler will use the callback endpoint to handle command
 		config.HTTPHandlers.TwilioCallEndpointConfig.CallbackEndpoint = callbackEndpoint
-		handlers[config.HTTPHandlers.TwilioCallEndpoint] = &config.HTTPHandlers.TwilioCallEndpointConfig
+		callEndpointConfig := config.HTTPHandlers.TwilioCallEndpointConfig
+		callEndpointConfig.CallbackEndpoint = callbackEndpoint
+		handlers[config.HTTPHandlers.TwilioCallEndpoint] = &callEndpointConfig
 		// The callback handler will use the callback point that points to itself to carry on with phone conversation
 		handlers[callbackEndpoint] = &api.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
 	}
@@ -212,7 +214,7 @@ func (config *Config) GetHTTPD() *httpd.HTTPD {
 Return an alternative HTTP daemon that only serves index pages and info page. It listens on port number specified
 in environment variable "PORT", or on port 80 if the variable is not defined (i.e. value is empty).
 */
-func (config *Config) GetLightHTTPD() *httpd.HTTPD {
+func (config Config) GetLightHTTPD() *httpd.HTTPD {
 	ret := config.GetHTTPD()
 	ret.TLSCertPath = ""
 	ret.TLSKeyPath = ""
@@ -259,7 +261,7 @@ Mail processor is usually built into laitos' own SMTP daemon to process feature 
 independent mail process is useful in certain scenarios, such as integrating with postfix's "forward-mail-to-program"
 mechanism.
 */
-func (config *Config) GetMailProcessor() *mailp.MailProcessor {
+func (config Config) GetMailProcessor() *mailp.MailProcessor {
 	ret := config.MailProcessor
 	ret.Logger = global.Logger{ComponentName: "MailProcessor", ComponentID: ret.ReplyMailer.MTAHost}
 
@@ -295,7 +297,7 @@ func (config *Config) GetMailProcessor() *mailp.MailProcessor {
 Construct an SMTP daemon together with its mail command processor.
 Both SMTP daemon and mail command processor will use the common mailer to forward mails and send replies.
 */
-func (config *Config) GetMailDaemon() *smtpd.SMTPD {
+func (config Config) GetMailDaemon() *smtpd.SMTPD {
 	ret := config.MailDaemon
 	ret.Logger = global.Logger{ComponentName: "SMTPD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 	ret.MailProcessor = config.GetMailProcessor()
@@ -308,7 +310,7 @@ func (config *Config) GetMailDaemon() *smtpd.SMTPD {
 }
 
 // Intentionally undocumented
-func (config *Config) GetSockDaemon() *sockd.Sockd {
+func (config Config) GetSockDaemon() *sockd.Sockd {
 	ret := config.SockDaemon
 	ret.Logger = global.Logger{ComponentName: "Sockd", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 	if err := ret.Initialise(); err != nil {
@@ -319,7 +321,7 @@ func (config *Config) GetSockDaemon() *sockd.Sockd {
 }
 
 // Construct a telegram bot from configuration and return.
-func (config *Config) GetTelegramBot() *telegram.TelegramBot {
+func (config Config) GetTelegramBot() *telegram.TelegramBot {
 	ret := config.TelegramBot
 	ret.Logger = global.Logger{ComponentName: "TelegramBot"}
 
