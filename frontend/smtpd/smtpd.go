@@ -191,9 +191,13 @@ func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
 		}
 	}
 conversationDone:
-	if (fromAddr == "" || len(toAddrs) == 0) && finishReason == "" {
-		finishReason = "discarded malformed mail"
-	} else if finishedNormally {
+	if fromAddr == "" || len(toAddrs) == 0 {
+		finishedNormally = false
+		if finishReason == "" {
+			finishReason = "discarded malformed mail"
+		}
+	}
+	if finishedNormally {
 		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "got a mail from \"%s\" addressed to %v", fromAddr, toAddrs)
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		smtpd.ProcessMail(fromAddr, mailBody)
