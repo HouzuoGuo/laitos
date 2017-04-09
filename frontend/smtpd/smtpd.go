@@ -26,13 +26,15 @@ type SMTPD struct {
 	ListenAddress string   `json:"ListenAddress"` // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
 	ListenPort    int      `json:"ListenPort"`    // Port number to listen on
 	TLSCertPath   string   `json:"TLSCertPath"`   // (Optional) serve StartTLS via this certificate
-	TLSKeyPath    string   `json:"TLSKeyPath"`    // (Optional) serve StartTLS via this certificte (key)
+	TLSKeyPath    string   `json:"TLSKeyPath"`    // (Optional) serve StartTLS via this certificate (key)
 	PerIPLimit    int      `json:"PerIPLimit"`    // How many times in 10 seconds interval an IP may deliver an email to this server
+	MyDomains     []string `json:"MyDomains"`     // Only accept mails addressed to these domain names
 	ForwardTo     []string `json:"ForwardTo"`     // Forward received mails to these addresses
 
-	ForwardMailer email.Mailer `json:"-"` // Use this mailer to forward arrived mails
-	SMTPConfig    smtp.Config  `json:"-"` // SMTP processor configuration
-	MyPublicIP    string       `json:"-"` // My public IP address as discovered by external services
+	MyDomainsHash map[string]struct{} `json:"-"` // "MyDomains" values in map keys
+	ForwardMailer email.Mailer        `json:"-"` // Use this mailer to forward arrived mails
+	SMTPConfig    smtp.Config         `json:"-"` // SMTP processor configuration
+	MyPublicIP    string              `json:"-"` // My public IP address as discovered by external services
 
 	Listener       net.Listener    `json:"-"` // Once daemon is started, this is its TCP listener.
 	TLSCertificate tls.Certificate `json:"-"` // TLS certificate read from the certificate and key files
@@ -56,6 +58,9 @@ func (smtpd *SMTPD) Initialise() error {
 	if smtpd.ForwardTo == nil || len(smtpd.ForwardTo) == 0 || !smtpd.ForwardMailer.IsConfigured() {
 		return errors.New("SMTPD.Initialise: the server is not useful if forward addresses/forward mailer are not configured")
 	}
+	if smtpd.MyDomains == nil || len(smtpd.MyDomains) == 0 {
+		return errors.New("SMTPD.Initialise: my domain names must be configured")
+	}
 	if smtpd.TLSCertPath != "" || smtpd.TLSKeyPath != "" {
 		if smtpd.TLSCertPath == "" || smtpd.TLSKeyPath == "" {
 			return errors.New("SMTPD.Initialise: if TLS is to be enabled, both TLS certificate and key path must be present.")
@@ -66,7 +71,7 @@ func (smtpd *SMTPD) Initialise() error {
 			return fmt.Errorf("SMTPD.Initialise: failed to read TLS certificate - %v", err)
 		}
 	}
-	// Initialise SMTP processor configuration
+	// Public IP is used to to greet SMTP client
 	smtpd.MyPublicIP = env.GetPublicIP()
 	if smtpd.MyPublicIP == "" {
 		// Not a fatal error
@@ -98,6 +103,21 @@ func (smtpd *SMTPD) Initialise() error {
 	if (strings.HasPrefix(smtpd.MailProcessor.ReplyMailer.MTAHost, "127.") || smtpd.MailProcessor.ReplyMailer.MTAHost == smtpd.MyPublicIP) &&
 		smtpd.MailProcessor.ReplyMailer.MTAPort == smtpd.ListenPort {
 		return errors.New("SMTPD.Initialise: mail processor's reply MTA must not be myself")
+	}
+	// Construct a hash of MyDomains addresses for fast lookup
+	smtpd.MyDomainsHash = map[string]struct{}{}
+	for _, recv := range smtpd.MyDomains {
+		smtpd.MyDomainsHash[recv] = struct{}{}
+	}
+	// Make sure that none of the forward addresses carries the domain name of MyDomains
+	for _, fwd := range smtpd.ForwardTo {
+		atSign := strings.IndexRune(fwd, '@')
+		if atSign == -1 {
+			return fmt.Errorf("SMTPD.Initialise: forward address \"%s\" must have an at sign", fwd)
+		}
+		if _, exists := smtpd.MyDomainsHash[fwd[atSign+1:]]; exists {
+			return fmt.Errorf("SMTPD.Initialise: forward address \"%s\" must not loop back to this mail server's domain", fwd)
+		}
 	}
 	return nil
 }
@@ -153,6 +173,17 @@ func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
 			case smtp.MAILFROM:
 				fromAddr = ev.Arg
 			case smtp.RCPTTO:
+				atSign := strings.IndexRune(ev.Arg, '@')
+				if atSign == -1 {
+					finishReason = "rejected for malformed address"
+					smtpConn.Reject()
+					goto conversationDone
+				}
+				if _, exists := smtpd.MyDomainsHash[ev.Arg[atSign+1:]]; !exists {
+					finishReason = "rejected for wrong domain"
+					smtpConn.Reject()
+					goto conversationDone
+				}
 				toAddrs = append(toAddrs, ev.Arg)
 			}
 		case smtp.GOTDATA:
@@ -160,7 +191,7 @@ func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
 		}
 	}
 conversationDone:
-	if fromAddr == "" || len(toAddrs) == 0 {
+	if (fromAddr == "" || len(toAddrs) == 0) && finishReason == "" {
 		finishReason = "discarded malformed mail"
 	} else if finishedNormally {
 		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "got a mail from \"%s\" addressed to %v", fromAddr, toAddrs)

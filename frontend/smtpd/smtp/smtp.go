@@ -350,18 +350,9 @@ type EventInfo struct {
 	Arg  string
 }
 
-func (c *Conn) log(dir string, format string, elems ...interface{}) {
-	if c.logger == nil {
-		return
-	}
-	msg := fmt.Sprintf(format, elems...)
-	c.logger.Write([]byte(fmt.Sprintf("%s %s\n", dir, msg)))
-}
-
 func (c *Conn) reply(format string, elems ...interface{}) {
 	var err error
 	s := fmt.Sprintf(format, elems...)
-	c.log("w", s)
 	b := []byte(s + "\r\n")
 	// we can ignore the length returned, because Write()'s contract
 	// is that it returns a non-nil err if n < len(b).
@@ -369,7 +360,6 @@ func (c *Conn) reply(format string, elems ...interface{}) {
 	c.conn.SetWriteDeadline(time.Now().Add(c.Config.Limits.IOTimeout))
 	_, err = c.conn.Write(b)
 	if err != nil {
-		c.log("!", "reply abort: %v", err)
 		c.state = sAbort
 	}
 }
@@ -421,10 +411,6 @@ func (c *Conn) readCmd() string {
 	if err != nil || c.lr.N == 0 {
 		c.state = sAbort
 		line = ""
-		c.log("!", "command abort %s err: %v",
-			fmtBytesLeft(2048, c.lr.N), err)
-	} else {
-		c.log("r", line)
 	}
 	return line
 }
@@ -436,10 +422,6 @@ func (c *Conn) readData() string {
 	if err != nil || c.lr.N == 0 {
 		c.state = sAbort
 		b = nil
-		c.log("!", "DATA abort %s err: %v",
-			fmtBytesLeft(c.Config.Limits.MsgSize, c.lr.N), err)
-	} else {
-		c.log("r", ". <end of data>")
 	}
 	return string(b)
 }
@@ -564,7 +546,6 @@ func (c *Conn) Next() EventInfo {
 	if c.state == sStartup {
 		c.state = sInitial
 		// log preceeds the banner in case the banner hits an error.
-		c.log("#", "remote %v", c.conn.RemoteAddr())
 		c.replyMulti(220, "%s ESMTP", c.Config.ServerName)
 	}
 
@@ -653,7 +634,6 @@ func (c *Conn) Next() EventInfo {
 				tlsConn := tls.Server(c.conn, c.Config.TLSConfig)
 				err := tlsConn.Handshake()
 				if err != nil {
-					c.log("!", "TLS setup failed: %v", err)
 					c.state = sAbort
 					evt.What = TLSERROR
 					evt.Arg = fmt.Sprintf("%v", err)
@@ -668,11 +648,6 @@ func (c *Conn) Next() EventInfo {
 				c.setupConn(tlsConn)
 				c.TLSOn = true
 				c.TLSState = tlsConn.ConnectionState()
-				if c.TLSState.ServerName != "" {
-					c.log("!", "TLS negociated with cipher 0x%04x protocol 0x%04x server name '%s'", c.TLSState.CipherSuite, c.TLSState.Version, c.TLSState.ServerName)
-				} else {
-					c.log("!", "TLS negociated with cipher 0x%04x protocol 0x%04x", c.TLSState.CipherSuite, c.TLSState.Version)
-				}
 				// By the STARTTLS RFC, we return to our state
 				// immediately after the greeting banner
 				// and clients must re-EHLO.
@@ -718,10 +693,8 @@ func (c *Conn) Next() EventInfo {
 	}
 	if c.state == sQuit {
 		evt.What = DONE
-		c.log("#", "finished")
 	} else {
 		evt.What = ABORT
-		c.log("#", "abort at")
 	}
 	return evt
 }

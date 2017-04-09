@@ -125,6 +125,10 @@ func TestConfig(t *testing.T) {
     "ForwardTo": [
       "howard@localhost",
       "root@localhost"
+    ],
+    "MyDomains": [
+      "example.com",
+      "howard.name"
     ]
   },
   "MailProcessor": {
@@ -722,19 +726,19 @@ mailshortcut
 
 func SMTPDaemonTest(t *testing.T, config Config) {
 	mailDaemon := config.GetMailDaemon()
-	var mailDaemonStoppedNormally bool
+	var stoppedNormally bool
 	go func() {
 		if err := mailDaemon.StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
-		mailDaemonStoppedNormally = true
+		stoppedNormally = true
 	}()
 	time.Sleep(3 * time.Second) // this really should be env.HTTPPublicIPTimeout * time.Second
 	// Try to exceed rate limit
 	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
 	success := 0
 	for i := 0; i < 100; i++ {
-		if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(testMessage)); err == nil {
+		if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err == nil {
 			success++
 		}
 	}
@@ -743,25 +747,25 @@ func SMTPDaemonTest(t *testing.T, config Config) {
 	}
 	time.Sleep(smtpd.RateLimitIntervalSec * time.Second)
 	// Send an ordinary mail to the daemon
-	mailMsg := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
-	if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(mailMsg)); err != nil {
-		if err != nil {
-			t.Fatal(err)
-		}
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
+		t.Fatal(err)
+	}
+	// Send a mail that does not belong to this server's domain
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@not-my-domain"}, []byte(testMessage)); strings.Index(err.Error(), "Bad address") == -1 {
+		t.Fatal(err)
 	}
 	// Try run a command via email
-	mailMsg = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\nmailsecret.s echo hi"
-	if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@localhost"}, []byte(mailMsg)); err != nil {
-		if err != nil {
-			t.Fatal(err)
-		}
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\nverysecret.s echo hi"
+	if err := smtp.SendMail("127.0.0.1:18573", nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err != nil {
+		t.Fatal(err)
 	}
-	time.Sleep(3 * time.Second)
 	t.Log("Check howard@localhost and root@localhost mailbox")
 	// Daemon must stop in a second
 	mailDaemon.Stop()
 	time.Sleep(1 * time.Second)
-	if !mailDaemonStoppedNormally {
+	if !stoppedNormally {
 		t.Fatal("did not stop")
 	}
 }
