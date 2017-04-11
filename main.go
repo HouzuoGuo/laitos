@@ -11,8 +11,10 @@ import (
 	pseudoRand "math/rand"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
 	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -120,26 +122,27 @@ func main() {
 
 	// Process command line flags
 	var configFile, frontend string
-	var conflictFree bool
+	var conflictFree, debug bool
 	var gomaxprocs int
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, lighthttpd, mailp, smtpd, sockd, telegram)")
 	flag.BoolVar(&conflictFree, "conflictfree", false, "(Optional) automatically stop and disable system daemons that may run into port conflict with laitos")
+	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
 	flag.Parse()
 
-	if configFile == "" {
-		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
-		return
-	}
-	frontendList := regexp.MustCompile(`\w+`)
-	frontends := frontendList.FindAllString(frontend, -1)
-	if frontends == nil || len(frontends) == 0 {
-		logger.Fatalf("main", "", nil, "please provide comma-separated list of frontend services to start (-frontend).")
-		return
+	// Dump goroutine stacktraces upon receiving interrupt signal
+	if debug {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		go func() {
+			for range c {
+				pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+			}
+		}()
 	}
 
-	// Deserialise configuration file
+	// Deserialise JSON configuration file
 	var config Config
 	configBytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
@@ -150,24 +153,40 @@ func main() {
 		logger.Fatalf("main", "", err, "failed to deserialise config file \"%s\"", configFile)
 		return
 	}
+	if configFile == "" {
+		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
+		return
+	}
+
+	// Figure out what daemons are to be started
+	frontendList := regexp.MustCompile(`\w+`)
+	frontends := frontendList.FindAllString(frontend, -1)
+	if frontends == nil || len(frontends) == 0 {
+		logger.Fatalf("main", "", nil, "please provide comma-separated list of frontend services to start (-frontend).")
+		return
+	}
 
 	// Re-seed pseudo random number generator once a while
 	ReseedPseudoRand()
 	go func() {
-		ReseedPseudoRand()
 		time.Sleep(2 * time.Minute)
+		ReseedPseudoRand()
 	}()
 
-	// Start frontent daemons
-	if conflictFree {
-		StopConflictingDaemons()
-	}
+	// Configure gomaxprocs to help laitos daemons
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
 		logger.Printf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
 	} else {
 		logger.Printf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
 	}
+
+	// Stop certain daemons to increase chance of successful launch of laitos daemons
+	if conflictFree {
+		StopConflictingDaemons()
+	}
+
+	// Finally laitos daemon start
 	waitGroup := &sync.WaitGroup{}
 	var numDaemons int32
 	for _, frontendName := range frontends {
