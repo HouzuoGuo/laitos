@@ -73,8 +73,11 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 		t.Fatal("did not put my own IP into prefixes")
 	}
 	// Update ad-server blacklist
-	if numEntries, err := daemon.InstallAdBlacklist(); err != nil || numEntries < 100 {
-		t.Fatal(err, numEntries)
+	if entries, err := daemon.GetAdBlacklistPGL(); err != nil || len(entries) < 100 {
+		t.Fatal(err, entries)
+	}
+	if entries, err := daemon.GetAdBlacklistMVPS(); err != nil || len(entries) < 100 {
+		t.Fatal(err, entries)
 	}
 	// Server should start within two seconds
 	go func() {

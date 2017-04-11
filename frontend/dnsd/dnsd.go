@@ -21,6 +21,10 @@ const (
 	NumQueueRatio              = 10   // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
 	BlacklistUpdateIntervalSec = 7200 // Update ad-server blacklist at this interval
 	MinNameQuerySize           = 14   // If a query packet is shorter than this length, it cannot possibly be a name query.
+	MVPSLicense                = `Disclaimer: this file is free to use for personal use only. Furthermore it is NOT permitted to ` +
+		`copy any of the contents or host on any other site without permission or meeting the full criteria of the below license ` +
+		` terms. This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike License. ` +
+		` http://creativecommons.org/licenses/by-nc-sa/4.0/ License info for commercial purposes contact Winhelp2002`
 )
 
 // A query to forward to DNS forwarder via DNS.
@@ -118,27 +122,61 @@ func (dnsd *DNSD) Initialise() error {
 	return nil
 }
 
-// Download ad-servers list from yoyo.org and put them into blacklist.
-func (dnsd *DNSD) InstallAdBlacklist() (int, error) {
-	yoyo := "http://pgl.yoyo.org/adservers/serverlist.php?hostformat=nohtml&showintro=0&mimetype=plaintext"
+// Download ad-servers list from pgl.yoyo.org and return those domain names.
+func (dnsd *DNSD) GetAdBlacklistPGL() ([]string, error) {
+	yoyo := "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=nohtml&showintro=0&mimetype=plaintext"
 	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: 30}, yoyo)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	if statusErr := resp.Non2xxToError(); statusErr != nil {
-		return 0, statusErr
+		return nil, statusErr
 	}
-	adServerNames := strings.Split(string(resp.Body), "\n")
-	if len(adServerNames) < 100 {
-		return 0, fmt.Errorf("yoyo's ad-server list is suspiciously short at only %d lines", len(adServerNames))
+	lines := strings.Split(string(resp.Body), "\n")
+	if len(lines) < 100 {
+		return nil, fmt.Errorf("PGL's ad-server list is suspiciously short at only %d lines", len(lines))
 	}
-	dnsd.BlackListMutex.Lock()
-	defer dnsd.BlackListMutex.Unlock()
-	dnsd.BlackList = make(map[string]struct{})
-	for _, name := range adServerNames {
-		dnsd.BlackList[strings.TrimSpace(name)] = struct{}{}
+	names := make([]string, 0, len(lines))
+	for _, line := range lines {
+		names = append(names, strings.TrimSpace(line))
 	}
-	return len(dnsd.BlackList), nil
+	return names, nil
+}
+
+// Download ad-servers list from winhelp2002.mvps.org and return those domain names.
+func (dnsd *DNSD) GetAdBlacklistMVPS() ([]string, error) {
+	yoyo := "http://winhelp2002.mvps.org/hosts.txt"
+	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: 30}, yoyo)
+	if err != nil {
+		return nil, err
+	}
+	if statusErr := resp.Non2xxToError(); statusErr != nil {
+		return nil, statusErr
+	}
+	// Collect host names from the hosts file content
+	names := make([]string, 0, 16384)
+	for _, line := range strings.Split(string(resp.Body), "\n") {
+		indexZero := strings.Index(line, "0.0.0.0")
+		nameEnd := strings.IndexRune(line, '#')
+		if indexZero == -1 {
+			// Skip lines that do not have a host name
+			continue
+		}
+		if nameEnd == -1 {
+			nameEnd = len(line)
+		}
+		nameBegin := indexZero + len("0.0.0.0")
+		if nameBegin >= nameEnd {
+			// The line looks like # this is a comment 0.0.0.0
+
+			continue
+		}
+		names = append(names, strings.TrimSpace(line[nameBegin:nameEnd]))
+	}
+	if len(names) < 100 {
+		return nil, fmt.Errorf("MVPS' ad-server list is suspiciously short at only %d lines", len(names))
+	}
+	return names, nil
 }
 
 var StandardResponseNoError = []byte{129, 128} // DNS response packet flag - standard response, no indication of error.
@@ -224,11 +262,33 @@ func (dnsd *DNSD) StartAndBlock() error {
 	// Keep updating ad-block black list in background
 	go func() {
 		for {
-			if numEntries, err := dnsd.InstallAdBlacklist(); err == nil {
-				dnsd.Logger.Printf("InstallAdBlacklist", "", nil, "successfully updated ad-blacklist with %d entries", numEntries)
+			pglEntries, pglErr := dnsd.GetAdBlacklistPGL()
+			if pglErr == nil {
+				dnsd.Logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
 			} else {
-				dnsd.Logger.Printf("InstallAdBlacklist", "", err, "failed to update ad-blacklist")
+				dnsd.Logger.Printf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
 			}
+			mvpsEntries, mvpsErr := dnsd.GetAdBlacklistMVPS()
+			if mvpsErr == nil {
+				dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
+				dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following liences for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
+			} else {
+				dnsd.Logger.Printf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
+			}
+			dnsd.BlackListMutex.Lock()
+			dnsd.BlackList = make(map[string]struct{})
+			if pglErr == nil {
+				for _, name := range pglEntries {
+					dnsd.BlackList[name] = struct{}{}
+				}
+			}
+			if mvpsErr == nil {
+				for _, name := range mvpsEntries {
+					dnsd.BlackList[name] = struct{}{}
+				}
+			}
+			dnsd.Logger.Printf("StartAndBlock", "", nil, "ad-blacklist now has %d entries", len(dnsd.BlackList))
+			dnsd.BlackListMutex.Unlock()
 			time.Sleep(BlacklistUpdateIntervalSec * time.Second)
 		}
 	}()
