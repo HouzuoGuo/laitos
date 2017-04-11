@@ -220,8 +220,11 @@ func DNSDaemonUDPTest(t *testing.T, config Config) {
 	}
 	dnsDaemon := config.GetDNSD()
 	// Update ad-server blacklist
-	if numEntries, err := dnsDaemon.GetAdBlacklistPGL(); err != nil || numEntries < 100 {
-		t.Fatal(err, numEntries)
+	if entries, err := dnsDaemon.GetAdBlacklistPGL(); err != nil || len(entries) < 100 {
+		t.Fatal(err, entries)
+	}
+	if entries, err := dnsDaemon.GetAdBlacklistMVPS(); err != nil || len(entries) < 100 {
+		t.Fatal(err, entries)
 	}
 	// Server should start within two seconds
 	go func() {
