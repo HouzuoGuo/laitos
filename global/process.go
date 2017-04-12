@@ -21,7 +21,7 @@ func TriggerEmergencyLockDown() {
 		ComponentID:   "Global",
 		ComponentName: "EmergencyLockDown",
 	}
-	emerLog.Printf("TriggerEmergencyLockDown", "", nil, "successfully triggered, most features will be disabled ASAP.")
+	emerLog.Warningf("TriggerEmergencyLockDown", "", nil, "successfully triggered, most features will be disabled ASAP.")
 	EmergencyLockDown = true
 }
 
@@ -31,7 +31,7 @@ func TriggerEmergencyStop() {
 		ComponentID:   "Global",
 		ComponentName: "EmergencyStop",
 	}
-	emerLog.Printf("TriggerEmergencyStop", "", nil, "successfully triggered, program will crash in 30 seconds.")
+	emerLog.Warningf("TriggerEmergencyStop", "", nil, "successfully triggered, program will crash in 30 seconds.")
 	go func() {
 		time.Sleep(30 * time.Second)
 		emerLog.Fatalf("TriggerEmergencyStop", "", nil, "program crashes now")

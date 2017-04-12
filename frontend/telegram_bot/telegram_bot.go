@@ -100,18 +100,18 @@ func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 		}
 		if !bot.UserRateLimit.Add(origin, true) {
 			if err := bot.ReplyTo(ding.Message.Chat.ID, "rate limited"); err != nil {
-				bot.Logger.Printf("ProcessMessages", origin, err, "failed to send message reply")
+				bot.Logger.Warningf("ProcessMessages", origin, err, "failed to send message reply")
 			}
 			continue
 		}
 		// Do not process messages that arrived prior to server startup
 		if ding.Message.Timestamp < global.StartupTime.Unix() {
-			bot.Logger.Printf("ProcessMessages", origin, nil, "ignore message from \"%s\" that arrived before server started up", ding.Message.Chat.UserName)
+			bot.Logger.Warningf("ProcessMessages", origin, nil, "ignore message from \"%s\" that arrived before server started up", ding.Message.Chat.UserName)
 			continue
 		}
 		// Do not process non-private chats
 		if ding.Message.Chat.Type != ChatTypePrivate {
-			bot.Logger.Printf("ProcessMessages", origin, nil, "ignore non-private chat %d", ding.Message.Chat.ID)
+			bot.Logger.Warningf("ProcessMessages", origin, nil, "ignore non-private chat %d", ding.Message.Chat.ID)
 			continue
 		}
 		// /start is not a command
@@ -123,7 +123,7 @@ func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 		go func(ding APIUpdate) {
 			result := bot.Processor.Process(feature.Command{TimeoutSec: CommandTimeoutSec, Content: ding.Message.Text})
 			if err := bot.ReplyTo(ding.Message.Chat.ID, result.CombinedOutput); err != nil {
-				bot.Logger.Printf("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
+				bot.Logger.Warningf("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
 			}
 		}(ding)
 	}
@@ -154,7 +154,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 			return global.ErrEmergencyLockDown
 		}
 		if bot.Stop {
-			bot.Logger.Printf("StartAndBlock", "", nil, "going to stop now")
+			bot.Logger.Warningf("StartAndBlock", "", nil, "going to stop now")
 			return nil
 		}
 		// Log a message if the loop has not processed messages for a while (multiplier 200 is an arbitrary choice)
@@ -167,16 +167,16 @@ func (bot *TelegramBot) StartAndBlock() error {
 			"https://api.telegram.org/bot%s/getUpdates?offset=%s", bot.AuthorizationToken, bot.MessageOffset)
 		var newMessages APIUpdates
 		if updatesErr != nil || updatesResp.StatusCode/200 != 1 {
-			bot.Logger.Printf("Loop", "", updatesErr, "failed to poll due to HTTP %d %s", updatesResp.StatusCode, string(updatesResp.Body))
+			bot.Logger.Warningf("Loop", "", updatesErr, "failed to poll due to HTTP %d %s", updatesResp.StatusCode, string(updatesResp.Body))
 			goto sleepAndContinue
 		}
 		// Deserialise new messages
 		if err := json.Unmarshal(updatesResp.Body, &newMessages); err != nil {
-			bot.Logger.Printf("Loop", "", err, "failed to decode response JSON")
+			bot.Logger.Warningf("Loop", "", err, "failed to decode response JSON")
 			goto sleepAndContinue
 		}
 		if !newMessages.OK {
-			bot.Logger.Printf("Loop", "", nil, "API response is not OK - %s", string(updatesResp.Body))
+			bot.Logger.Warningf("Loop", "", nil, "API response is not OK - %s", string(updatesResp.Body))
 			goto sleepAndContinue
 		}
 		// Process new messages

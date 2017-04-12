@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	NumLatestLogEntries = 512 // Keep this number of latest log entries in memory
+	NumLatestLogEntries = 384 // Keep this number of latest log entries in memory
 )
 
-var LatestLogEntries = NewRingBuffer(NumLatestLogEntries) // Keep latest log entries in the buffer
+var LatestLogs = NewRingBuffer(NumLatestLogEntries)     // Keep latest log entry of all kinds in the buffer
+var LatestWarnings = NewRingBuffer(NumLatestLogEntries) // Keep latest warnings and log entries that come with error in the buffer
 
 // Help to write log messages in a regular format.
 type Logger struct {
@@ -49,9 +50,21 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 	return msg.String()
 }
 
+// Print a log message and keep the message in warnings buffer.
+func (logger *Logger) Warningf(functionName, actorName string, err error, template string, values ...interface{}) {
+	msg := logger.Format(functionName, actorName, err, template, values...)
+	LatestWarnings.Push(time.Now().Format("2006-01-02 15:04:05 ") + msg)
+	log.Print(msg)
+}
+
+// Print a log message and keep the message in latest log buffer. If there is an error, also keep the message in warnings buffer.
 func (logger *Logger) Printf(functionName, actorName string, err error, template string, values ...interface{}) {
 	msg := logger.Format(functionName, actorName, err, template, values...)
-	LatestLogEntries.Push(time.Now().Format("2006-01-02 15:04:05 ") + msg)
+	msg = time.Now().Format("2006-01-02 15:04:05 ") + msg
+	LatestLogs.Push(msg)
+	if err != nil {
+		LatestWarnings.Push(msg)
+	}
 	log.Print(msg)
 }
 

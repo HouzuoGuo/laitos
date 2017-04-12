@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var ErrBadEnvInfoChoice = errors.New(`elock | estop | log | runtime | stack`)
+var ErrBadEnvInfoChoice = errors.New(`elock | estop | log | warn | runtime | stack`)
 
 // Retrieve environment information and trigger emergency stop upon request.
 type EnvControl struct {
@@ -48,7 +48,9 @@ func (info *EnvControl) Execute(cmd Command) *Result {
 	case "runtime":
 		return &Result{Output: GetRuntimeInfo()}
 	case "log":
-		return &Result{Output: GetLatestGlobalLog()}
+		return &Result{Output: GetLatestLog()}
+	case "warn":
+		return &Result{Output: GetLatestWarnings()}
 	case "stack":
 		return &Result{Output: GetGoroutineStacktraces()}
 	default:
@@ -77,10 +79,21 @@ System memory usage: %d MBytes
 		memStats.Sys/1024/1024)
 }
 
-// Return latest log entries in a multi-line text, one log entry per line. Latest log entry comes first.
-func GetLatestGlobalLog() string {
+// Return latest log entry of all kinds in a multi-line text, one log entry per line. Latest log entry comes first.
+func GetLatestLog() string {
 	buf := new(bytes.Buffer)
-	global.LatestLogEntries.Iterate(func(entry string) bool {
+	global.LatestLogs.Iterate(func(entry string) bool {
+		buf.WriteString(entry)
+		buf.WriteRune('\n')
+		return true
+	})
+	return buf.String()
+}
+
+// Return latest warning entries in a multi-line text, one log entry per line. Latest entry comes first.
+func GetLatestWarnings() string {
+	buf := new(bytes.Buffer)
+	global.LatestWarnings.Iterate(func(entry string) bool {
 		buf.WriteString(entry)
 		buf.WriteRune('\n')
 		return true

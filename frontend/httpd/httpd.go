@@ -162,7 +162,7 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 		} else {
 			// Route is not found
 			if httpd.AllRateLimits[RateLimit404Key].Add(remoteIP, true) {
-				httpd.Logger.Printf("Handle", remoteIP, nil, "NotFound %s %s", r.Method, assembledPath)
+				httpd.Logger.Warningf("Handle", remoteIP, nil, "NotFound %s %s", r.Method, assembledPath)
 				http.Error(w, "", http.StatusNotFound)
 			} else {
 				http.Error(w, "", http.StatusTooManyRequests)

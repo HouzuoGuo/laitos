@@ -104,7 +104,7 @@ func (sock *Sockd) StartAndBlock() error {
 func (sock *Sockd) Stop() {
 	if sock.Listener != nil {
 		if err := sock.Listener.Close(); err != nil {
-			sock.Logger.Printf("Stop", "", err, "failed to close listener")
+			sock.Logger.Warningf("Stop", "", err, "failed to close listener")
 		}
 	}
 }
@@ -320,16 +320,16 @@ func (conn *CipherConnection) HandleAndCloseConnection() {
 
 	destAddr, err := conn.ParseRequest()
 	if err != nil {
-		conn.logger.Printf("HandleAndCloseConnection", remoteAddr, err, "failed to get destination address")
+		conn.logger.Warningf("HandleAndCloseConnection", remoteAddr, err, "failed to get destination address")
 		return
 	}
 	if strings.ContainsRune(destAddr, 0x00) {
-		conn.logger.Printf("HandleAndCloseConnection", remoteAddr, err, "will not serve invalid destination address with 0 in it")
+		conn.logger.Warningf("HandleAndCloseConnection", remoteAddr, err, "will not serve invalid destination address with 0 in it")
 		return
 	}
 	dest, err := net.DialTimeout("tcp", destAddr, IOTimeoutSec)
 	if err != nil {
-		conn.logger.Printf("HandleAndCloseConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
+		conn.logger.Warningf("HandleAndCloseConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
 		return
 	}
 	defer dest.Close()

@@ -43,13 +43,65 @@ func TestLogger_Printf(t *testing.T) {
 	logger.Printf("", "", nil, "")
 	logger.Printf("", "", nil, "")
 
-	count := 0
-	LatestLogEntries.Iterate(func(_ string) bool {
-		count++
+	var countLog, countWarn int
+	LatestLogs.Iterate(func(_ string) bool {
+		countLog++
 		return true
 	})
-
-	if count != 2 {
-		t.Fatal(count)
+	LatestWarnings.Iterate(func(_ string) bool {
+		countWarn++
+		return true
+	})
+	if countLog != 2 {
+		t.Fatal(countLog, countWarn)
 	}
+
+	logger.Printf("", "", errors.New(""), "")
+	logger.Printf("", "", errors.New(""), "")
+
+	countLog = 0
+	countWarn = 0
+	LatestLogs.Iterate(func(_ string) bool {
+		countLog++
+		return true
+	})
+	LatestWarnings.Iterate(func(_ string) bool {
+		countWarn++
+		return true
+	})
+	// Depending on the test case execution order, the count may be higher if Warningf test has already run.
+	if countLog < 4 || countWarn < 2 {
+		t.Fatal(countLog, countWarn)
+	}
+
+}
+
+func TestLogger_Warningf(t *testing.T) {
+	logger := Logger{}
+	logger.Warningf("", "", nil, "")
+	logger.Warningf("", "", nil, "")
+
+	var countWarn int
+	LatestWarnings.Iterate(func(_ string) bool {
+		countWarn++
+		return true
+	})
+	// Depending on the test case execution order, the count may be higher if Printf test has already run.
+	if countWarn < 2 {
+		t.Fatal(countWarn)
+	}
+
+	logger.Warningf("", "", errors.New(""), "")
+	logger.Warningf("", "", errors.New(""), "")
+
+	countWarn = 0
+	LatestWarnings.Iterate(func(_ string) bool {
+		countWarn++
+		return true
+	})
+	// Depending on the test case execution order, the count may be higher if Printf test has already run.
+	if countWarn < 4 {
+		t.Fatal(countWarn)
+	}
+
 }

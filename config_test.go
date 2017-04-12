@@ -270,7 +270,7 @@ func DNSDaemonUDPTest(t *testing.T, config Config) {
 	dnsDaemon.BlackList["github.com"] = struct{}{}
 	// This test is flaky and I do not understand why
 	var blackListSuccess bool
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		clientConn, err := net.DialUDP("udp", nil, serverAddr)
 		if err != nil {
 			t.Fatal(err)
@@ -333,7 +333,7 @@ func DNSDaemonTCPTest(t *testing.T, config Config) {
 	dnsDaemon.BlackList["github.com"] = struct{}{}
 	// This test is flaky and I do not understand why
 	var blackListSuccess bool
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		clientConn, err := net.Dial("tcp", "127.0.0.1:61211")
 		if err != nil {
 			t.Fatal(err)

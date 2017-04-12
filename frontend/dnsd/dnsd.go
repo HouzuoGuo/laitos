@@ -115,7 +115,7 @@ func (dnsd *DNSD) Initialise() error {
 	myPublicIP := env.GetPublicIP()
 	if myPublicIP == "" {
 		// Not a fatal error
-		dnsd.Logger.Printf("Initialise", "", nil, "unable to determine public IP address, the server will not be able to query itself.")
+		dnsd.Logger.Warningf("Initialise", "", nil, "unable to determine public IP address, the server will not be able to query itself.")
 	} else {
 		dnsd.AllowQueryIPPrefixes = append(dnsd.AllowQueryIPPrefixes, myPublicIP)
 	}
@@ -266,14 +266,14 @@ func (dnsd *DNSD) StartAndBlock() error {
 			if pglErr == nil {
 				dnsd.Logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
 			} else {
-				dnsd.Logger.Printf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
+				dnsd.Logger.Warningf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
 			}
 			mvpsEntries, mvpsErr := dnsd.GetAdBlacklistMVPS()
 			if mvpsErr == nil {
 				dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
 				dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following liences for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
 			} else {
-				dnsd.Logger.Printf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
+				dnsd.Logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
 			}
 			dnsd.BlackListMutex.Lock()
 			dnsd.BlackList = make(map[string]struct{})

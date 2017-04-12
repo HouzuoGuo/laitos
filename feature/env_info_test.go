@@ -24,8 +24,12 @@ func TestEnvInfo_Execute(t *testing.T) {
 		t.Fatal(ret)
 	}
 	logger := global.Logger{}
-	logger.Printf("envinfo test", "", nil, "")
-	if ret := info.Execute(Command{Content: "log"}); ret.Error != nil || strings.Index(ret.Output, "envinfo test") == -1 {
+	logger.Printf("envinfo printf test", "", nil, "")
+	logger.Warningf("envinfo warningf test", "", nil, "")
+	if ret := info.Execute(Command{Content: "log"}); ret.Error != nil || strings.Index(ret.Output, "envinfo printf test") == -1 {
+		t.Fatal(ret)
+	}
+	if ret := info.Execute(Command{Content: "warn"}); ret.Error != nil || strings.Index(ret.Output, "envinfo warningf test") == -1 {
 		t.Fatal(ret)
 	}
 	if ret := info.Execute(Command{Content: "stack"}); ret.Error != nil || strings.Index(ret.Output, "routine") == -1 {

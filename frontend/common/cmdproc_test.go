@@ -72,24 +72,24 @@ func TestCommandProcessor_Process(t *testing.T) {
 		t.Fatalf("%+v", result)
 	}
 
-	// Override LPT but LPT parameter values are not given
-	cmd = feature.Command{TimeoutSec: 5, Content: "mypin  .lpt   sadf asdf "}
+	// Override PLT but PLT parameter values are not given
+	cmd = feature.Command{TimeoutSec: 5, Content: "mypin  .plt   sadf asdf "}
 	result = proc.Process(cmd)
-	if !reflect.DeepEqual(result.Command, feature.Command{TimeoutSec: 5, Content: ".lpt   sadf asdf"}) ||
-		result.Error != ErrBadLPT || result.Output != "" || result.CombinedOutput != ErrBadLPT.Error()[0:2] {
+	if !reflect.DeepEqual(result.Command, feature.Command{TimeoutSec: 5, Content: ".plt   sadf asdf"}) ||
+		result.Error != ErrBadPLT || result.Output != "" || result.CombinedOutput != ErrBadPLT.Error()[0:2] {
 		t.Fatalf("'%v' '%v' '%v' '%v'", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
-	// Override LPT using good LPT parameter values
-	cmd = feature.Command{TimeoutSec: 1, Content: "mypin  .lpt  5, 2. 3  .s  sleep 2 && echo -n 0123456789 "}
+	// Override PLT using good PLT parameter values
+	cmd = feature.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 3  .s  sleep 2 && echo -n 0123456789 "}
 	result = proc.Process(cmd)
-	if !reflect.DeepEqual(result.Command, feature.Command{TimeoutSec: 3, Content: ".lpt  5, 2. 3  .s  sleep 2 && echo -n 0123456789"}) ||
+	if !reflect.DeepEqual(result.Command, feature.Command{TimeoutSec: 3, Content: ".plt  2, 5. 3  .s  sleep 2 && echo -n 0123456789"}) ||
 		result.Error != nil || result.Output != "0123456789" || result.CombinedOutput != "23456" {
 		t.Fatalf("'%v' '%v' '%v' '%+v'", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
 
-	// Trigger emergency stop and try
+	// Trigger emergency lock down and try
 	global.TriggerEmergencyLockDown()
-	cmd = feature.Command{TimeoutSec: 1, Content: "mypin  .lpt  5, 2. 3  .s  sleep 2 && echo -n 0123456789 "}
+	cmd = feature.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 3  .s  sleep 2 && echo -n 0123456789 "}
 	if result := proc.Process(cmd); result.Error != global.ErrEmergencyLockDown {
 		t.Fatal(result)
 	}

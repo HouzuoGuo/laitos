@@ -77,20 +77,23 @@ func (check *HealthCheck) Execute() bool {
 			mailMessage.WriteString(fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
 		}
 	}
-	// 3 - logs
+	// 3 - warnings
+	mailMessage.WriteString("\nWarnings:\n")
+	mailMessage.WriteString(feature.GetLatestWarnings())
+	// 4 - logs
 	mailMessage.WriteString("\nLogs:\n")
-	mailMessage.WriteString(feature.GetLatestGlobalLog())
-	// 4 - stack traces
+	mailMessage.WriteString(feature.GetLatestLog())
+	// 5 - stack traces
 	mailMessage.WriteString("\nStack traces:\n")
 	mailMessage.WriteString(feature.GetGoroutineStacktraces())
 	// Send away!
 	if allOK {
 		check.Logger.Printf("Execute", "", nil, "completed with everything being OK")
 	} else {
-		check.Logger.Printf("Execute", "", nil, "completed with some errors")
+		check.Logger.Warningf("Execute", "", nil, "completed with some errors")
 	}
 	if err := check.Mailer.Send(email.OutgoingMailSubjectKeyword+"-healthcheck", mailMessage.String(), check.Recipients...); err == nil {
-		check.Logger.Printf("Execute", "", err, "failed to send notification mail")
+		check.Logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
 	return allOK
 }

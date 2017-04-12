@@ -53,10 +53,13 @@ func (_ *HandleSystemInfo) MakeHandler(logger global.Logger, cmdProc *common.Com
 				fmt.Fprint(w, fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
 			}
 		}
-		// 2 - logs
+		// 2 - warnings
+		fmt.Fprint(w, "\nWarnings:\n")
+		fmt.Fprint(w, feature.GetLatestWarnings())
+		// 3 - logs
 		fmt.Fprint(w, "\nLogs:\n")
-		fmt.Fprint(w, feature.GetLatestGlobalLog())
-		// 3 - stack traces
+		fmt.Fprint(w, feature.GetLatestLog())
+		// 4 - stack traces
 		fmt.Fprint(w, "\nStack traces:\n")
 		fmt.Fprint(w, feature.GetGoroutineStacktraces())
 	}

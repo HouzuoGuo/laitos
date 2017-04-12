@@ -75,7 +75,7 @@ func (smtpd *SMTPD) Initialise() error {
 	smtpd.MyPublicIP = env.GetPublicIP()
 	if smtpd.MyPublicIP == "" {
 		// Not a fatal error
-		smtpd.Logger.Printf("Initialise", "", nil, "unable to determine public IP address, some SMTP conversations will be off-standard.")
+		smtpd.Logger.Warningf("Initialise", "", nil, "unable to determine public IP address, some SMTP conversations will be off-standard.")
 	}
 	smtpd.SMTPConfig = smtp.Config{
 		Limits: &smtp.Limits{
@@ -129,11 +129,11 @@ func (smtpd *SMTPD) ProcessMail(fromAddr, mailBody string) {
 	if err := smtpd.ForwardMailer.SendRaw(smtpd.ForwardMailer.MailFrom, bodyBytes, smtpd.ForwardTo...); err == nil {
 		smtpd.Logger.Printf("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", smtpd.ForwardTo)
 	} else {
-		smtpd.Logger.Printf("ProcessMail", fromAddr, err, "failed to forward email")
+		smtpd.Logger.Warningf("ProcessMail", fromAddr, err, "failed to forward email")
 	}
 	// Run feature command from mail body
 	if err := smtpd.MailProcessor.Process(bodyBytes, smtpd.ForwardTo...); err != nil {
-		smtpd.Logger.Printf("ProcessMail", fromAddr, err, "failed to process feature command")
+		smtpd.Logger.Warningf("ProcessMail", fromAddr, err, "failed to process feature command")
 	}
 }
 
@@ -201,8 +201,10 @@ conversationDone:
 		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "got a mail from \"%s\" addressed to %v", fromAddr, toAddrs)
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		smtpd.ProcessMail(fromAddr, mailBody)
+		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations", finishReason, numConversations)
+	} else {
+		smtpd.Logger.Warningf("HandleConnection", clientIP, nil, "%s after %d conversations", finishReason, numConversations)
 	}
-	smtpd.Logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations", finishReason, numConversations)
 }
 
 /*
@@ -237,7 +239,7 @@ func (smtpd *SMTPD) StartAndBlock() (err error) {
 func (smtpd *SMTPD) Stop() {
 	if smtpd.Listener != nil {
 		if err := smtpd.Listener.Close(); err != nil {
-			smtpd.Logger.Printf("Stop", "", err, "failed to close listener")
+			smtpd.Logger.Warningf("Stop", "", err, "failed to close listener")
 		}
 	}
 }

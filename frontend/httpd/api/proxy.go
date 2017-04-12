@@ -152,13 +152,13 @@ func (xy *HandleWebProxy) MakeHandler(logger global.Logger, _ *common.CommandPro
 			return
 		}
 		if len(browseURL) > 1024 {
-			logger.Printf("Proxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes")
+			logger.Warningf("Proxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		urlParts, err := url.Parse(browseURL)
 		if err != nil {
-			logger.Printf("Proxy", browseURL, err, "failed to parse proxy URL")
+			logger.Warningf("Proxy", browseURL, err, "failed to parse proxy URL")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -172,7 +172,7 @@ func (xy *HandleWebProxy) MakeHandler(logger global.Logger, _ *common.CommandPro
 
 		myReq, err := http.NewRequest(r.Method, browseSchemeHostPathQuery, r.Body)
 		if err != nil {
-			logger.Printf("Proxy", browseSchemeHostPathQuery, err, "failed to create request to URL")
+			logger.Warningf("Proxy", browseSchemeHostPathQuery, err, "failed to create request to URL")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -185,13 +185,13 @@ func (xy *HandleWebProxy) MakeHandler(logger global.Logger, _ *common.CommandPro
 		client := http.Client{}
 		remoteResp, err := client.Do(myReq)
 		if err != nil {
-			logger.Printf("Proxy", browseSchemeHostPathQuery, err, "failed to send request")
+			logger.Warningf("Proxy", browseSchemeHostPathQuery, err, "failed to send request")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 		remoteRespBody, err := ioutil.ReadAll(remoteResp.Body)
 		if err != nil {
-			logger.Printf("Proxy", browseSchemeHostPathQuery, err, "failed to download the URL")
+			logger.Warningf("Proxy", browseSchemeHostPathQuery, err, "failed to download the URL")
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}

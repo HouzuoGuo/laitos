@@ -11,12 +11,12 @@ import (
 
 const (
 	ErrBadProcessorConfig = "Insane configuration: " // Prefix errors in function IsSaneForInternet
-	PrefixCommandLPT      = ".lpt"                   // A command input prefix that temporary overrides output length, position, and timeout.
+	PrefixCommandPLT      = ".plt"                   // A command input prefix that temporary overrides output position, length, and timeout.
 )
 
 var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")              // Returned if input command does not contain valid feature trigger
-var ErrBadLPT = errors.New(PrefixCommandLPT + " L P T command")                       // Return LPT invocation example in an error
-var RegexCommandWithLPT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`) // Parse L.P.T. and command content
+var ErrBadPLT = errors.New(PrefixCommandPLT + " P L T command")                       // Return PLT invocation example in an error
+var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`) // Parse PLT and command content
 
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
@@ -105,8 +105,8 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 	}
 	// If bridges did not throw an error, they should have got rid of bits and pieces of command content that must not be logged.
 	logCommandContent = cmd.Content
-	// Look for LPT (length, position, timeout) override, it is going to affect LintText bridge.
-	if cmd.FindAndRemovePrefix(PrefixCommandLPT) {
+	// Look for PLT (position, length, timeout) override, it is going to affect LintText bridge.
+	if cmd.FindAndRemovePrefix(PrefixCommandPLT) {
 		// Find the configured LintText bridge
 		for _, resultBridge := range proc.ResultBridges {
 			if aBridge, isLintText := resultBridge.(*bridge.LintText); isLintText {
@@ -116,31 +116,31 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 			}
 		}
 		if !hasOverrideLintText {
-			ret = &feature.Result{Error: errors.New("LPT is not available because LintText is not used")}
+			ret = &feature.Result{Error: errors.New("PLT is not available because LintText is not used")}
 			goto result
 		}
 		// Parse L. P. T. <cmd> parameters
-		lptParams := RegexCommandWithLPT.FindStringSubmatch(cmd.Content)
-		if len(lptParams) != 5 { // 4 groups + 1
-			ret = &feature.Result{Error: ErrBadLPT}
+		pltParams := RegexCommandWithPLT.FindStringSubmatch(cmd.Content)
+		if len(pltParams) != 5 { // 4 groups + 1
+			ret = &feature.Result{Error: ErrBadPLT}
 			goto result
 		}
 		var intErr error
-		if overrideLintText.MaxLength, intErr = strconv.Atoi(lptParams[1]); intErr != nil {
-			ret = &feature.Result{Error: ErrBadLPT}
+		if overrideLintText.BeginPosition, intErr = strconv.Atoi(pltParams[1]); intErr != nil {
+			ret = &feature.Result{Error: ErrBadPLT}
 			goto result
 		}
-		if overrideLintText.BeginPosition, intErr = strconv.Atoi(lptParams[2]); intErr != nil {
-			ret = &feature.Result{Error: ErrBadLPT}
+		if overrideLintText.MaxLength, intErr = strconv.Atoi(pltParams[2]); intErr != nil {
+			ret = &feature.Result{Error: ErrBadPLT}
 			goto result
 		}
-		if cmd.TimeoutSec, intErr = strconv.Atoi(lptParams[3]); intErr != nil {
-			ret = &feature.Result{Error: ErrBadLPT}
+		if cmd.TimeoutSec, intErr = strconv.Atoi(pltParams[3]); intErr != nil {
+			ret = &feature.Result{Error: ErrBadPLT}
 			goto result
 		}
-		cmd.Content = lptParams[4]
+		cmd.Content = pltParams[4]
 		if cmd.Content == "" {
-			ret = &feature.Result{Error: ErrBadLPT}
+			ret = &feature.Result{Error: ErrBadPLT}
 			goto result
 		}
 	}

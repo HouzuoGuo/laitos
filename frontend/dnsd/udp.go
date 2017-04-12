@@ -17,18 +17,18 @@ func (dnsd *DNSD) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net.Con
 		// Set deadline for IO with forwarder
 		forwarderConn.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := forwarderConn.Write(query.QueryPacket); err != nil {
-			dnsd.Logger.Printf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to write to forwarder")
+			dnsd.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to write to forwarder")
 			continue
 		}
 		packetLength, err := forwarderConn.Read(packetBuf)
 		if err != nil {
-			dnsd.Logger.Printf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to read from forwarder")
+			dnsd.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to read from forwarder")
 			continue
 		}
 		// Set deadline for responding to my DNS client
 		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(packetBuf[:packetLength], query.ClientAddr); err != nil {
-			dnsd.Logger.Printf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to answer to client")
+			dnsd.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to answer to client")
 			continue
 		}
 	}
@@ -42,7 +42,7 @@ func (dnsd *DNSD) HandleBlackHoleAnswer(myQueue chan *UDPQuery) {
 		blackHoleAnswer := RespondWith0(query.QueryPacket)
 		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(blackHoleAnswer, query.ClientAddr); err != nil {
-			dnsd.Logger.Printf("HandleUDPQueries", query.ClientAddr.String(), err, "IO failure")
+			dnsd.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "IO failure")
 		}
 	}
 }
@@ -93,7 +93,7 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 			}
 		}
 		if !prefixOK {
-			dnsd.Logger.Printf("UDPLoop", clientIP, nil, "client IP is not allowed to query")
+			dnsd.Logger.Warningf("UDPLoop", clientIP, nil, "client IP is not allowed to query")
 			continue
 		}
 

@@ -97,12 +97,12 @@ func StartDaemon(counter *int32, waitGroup *sync.WaitGroup, name string, daemon 
 		defer waitGroup.Done()
 		defer func() {
 			if err := recover(); err != nil {
-				logger.Printf("main", name, errors.New(fmt.Sprint(err)), "daemon crashed!")
+				logger.Warningf("main", name, errors.New(fmt.Sprint(err)), "daemon crashed!")
 			}
 		}()
 		logger.Printf("main", name, nil, "going to start daemon")
 		if err := daemon.StartAndBlock(); err != nil {
-			logger.Printf("main", name, err, "daemon has failed")
+			logger.Warningf("main", name, err, "daemon failed")
 			return
 		}
 	}()
@@ -115,9 +115,9 @@ func main() {
 			logger.Fatalf("main", "", err, "failed to lock memory")
 			return
 		}
-		logger.Printf("main", "", nil, "program has been locked into memory for safety reasons")
+		logger.Warningf("main", "", nil, "program has been locked into memory for safety reasons")
 	} else {
-		logger.Printf("main", "", nil, "program is not running as root (UID 0) hence memory is not locked, your private information will leak into swap.")
+		logger.Warningf("main", "", nil, "program is not running as root (UID 0) hence memory is not locked, your private information will leak into swap.")
 	}
 
 	// Process command line flags
@@ -176,9 +176,9 @@ func main() {
 	// Configure gomaxprocs to help laitos daemons
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
-		logger.Printf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
+		logger.Warningf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
 	} else {
-		logger.Printf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
+		logger.Warningf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
 	}
 
 	// Stop certain daemons to increase chance of successful launch of laitos daemons

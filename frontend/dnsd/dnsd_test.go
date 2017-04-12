@@ -123,7 +123,7 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	daemon.BlackList["github.com"] = struct{}{}
 	// This test is flaky and I do not understand why
 	var blackListSuccess bool
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		clientConn, err := net.DialUDP("udp", nil, serverAddr)
 		if err != nil {
 			t.Fatal(err)
@@ -220,7 +220,7 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	daemon.BlackList["github.com"] = struct{}{}
 	// This test is flaky and I do not understand why
 	var blackListSuccess bool
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		clientConn, err := net.Dial("tcp", "127.0.0.1:16321")
 		if err != nil {
 			t.Fatal(err)

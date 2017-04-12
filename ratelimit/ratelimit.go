@@ -39,7 +39,7 @@ func (limit *RateLimit) Add(actor string, logIfLimitHit bool) bool {
 	if count, exists := limit.counter[actor]; exists {
 		if count >= limit.MaxCount {
 			if _, hasLogged := limit.logged[actor]; !hasLogged && logIfLimitHit {
-				limit.Logger.Printf("Add", "RateLimit", nil, "%s exceeded limit of %d hits per %d seconds", actor, limit.MaxCount, limit.UnitSecs)
+				limit.Logger.Warningf("Add", "RateLimit", nil, "%s exceeded limit of %d hits per %d seconds", actor, limit.MaxCount, limit.UnitSecs)
 				limit.logged[actor] = struct{}{}
 			}
 			limit.counterMutex.Unlock()
