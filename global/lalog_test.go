@@ -81,27 +81,35 @@ func TestLogger_Warningf(t *testing.T) {
 	logger.Warningf("", "", nil, "")
 	logger.Warningf("", "", nil, "")
 
-	var countWarn int
+	var countLog, countWarn int
+	LatestLogs.Iterate(func(_ string) bool {
+		countLog++
+		return true
+	})
 	LatestWarnings.Iterate(func(_ string) bool {
 		countWarn++
 		return true
 	})
 	// Depending on the test case execution order, the count may be higher if Printf test has already run.
-	if countWarn < 2 {
-		t.Fatal(countWarn)
+	if countLog < 2 || countWarn < 2 {
+		t.Fatal(countLog, countWarn)
 	}
 
 	logger.Warningf("", "", errors.New(""), "")
 	logger.Warningf("", "", errors.New(""), "")
 
 	countWarn = 0
+	countLog = 0
+	LatestLogs.Iterate(func(_ string) bool {
+		countLog++
+		return true
+	})
 	LatestWarnings.Iterate(func(_ string) bool {
 		countWarn++
 		return true
 	})
 	// Depending on the test case execution order, the count may be higher if Printf test has already run.
-	if countWarn < 4 {
-		t.Fatal(countWarn)
+	if countLog < 4 || countWarn < 4 {
+		t.Fatal(countLog, countWarn)
 	}
-
 }

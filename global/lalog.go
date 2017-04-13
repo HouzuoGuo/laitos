@@ -53,7 +53,9 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 // Print a log message and keep the message in warnings buffer.
 func (logger *Logger) Warningf(functionName, actorName string, err error, template string, values ...interface{}) {
 	msg := logger.Format(functionName, actorName, err, template, values...)
-	LatestWarnings.Push(time.Now().Format("2006-01-02 15:04:05 ") + msg)
+	msg = time.Now().Format("2006-01-02 15:04:05 ") + msg
+	LatestLogs.Push(msg)
+	LatestWarnings.Push(msg)
 	log.Print(msg)
 }
 
