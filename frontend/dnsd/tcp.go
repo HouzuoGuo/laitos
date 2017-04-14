@@ -81,10 +81,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 		defer myForwarder.Close()
 		// Send original query to forwarder without modification
 		myForwarder.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
-		combinedBuf := make([]byte, len(queryLenBuf)+len(queryBuf))
-		copy(combinedBuf[0:2], queryLenBuf)
-		copy(combinedBuf[2:], queryBuf)
-		if _, err = myForwarder.Write(combinedBuf); err != nil {
+		if _, err = myForwarder.Write(queryLenBuf); err != nil {
 			dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to write length to forwarder")
 			return
 		} else if _, err = myForwarder.Write(queryBuf); err != nil {
