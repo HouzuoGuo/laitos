@@ -18,7 +18,7 @@ const HandleCommandFormPage = `<!doctype html>
 <body>
     <form action="#" method="post">
         <p><input type="password" name="cmd" /><input type="submit" value="Exec"/></p>
-        <textarea rows="12", cols="80">%s</textarea>
+        <textarea rows="12" cols="80">%s</textarea>
     </form>
 </body>
 </html>
