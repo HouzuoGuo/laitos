@@ -32,7 +32,7 @@ type HandleCommandForm struct {
 func (_ *HandleCommandForm) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "must-revalidate")
+		NoCache(w)
 		if r.Method == http.MethodGet {
 			w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, "")))
 		} else if r.Method == http.MethodPost {

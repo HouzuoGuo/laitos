@@ -14,7 +14,7 @@ type Request struct {
 	TimeoutSec  int                       // Read timeout for response (default to 30)
 	Method      string                    // HTTP method (default to GET)
 	Header      http.Header               // Additional request header (default to nil)
-	ContentType string                    // Content type header (default to "application/x-www-form-urlencoded; charset=UTF-8")
+	ContentType string                    // Content type header (default to "application/x-www-form-urlencoded")
 	Body        io.Reader                 // Request body (default to nil)
 	RequestFunc func(*http.Request) error // Manipulate the HTTP request at will (default to nil)
 }
@@ -28,7 +28,7 @@ func (req *Request) FillBlanks() {
 		req.Method = "GET"
 	}
 	if req.ContentType == "" {
-		req.ContentType = "application/x-www-form-urlencoded; charset=UTF-8"
+		req.ContentType = "application/x-www-form-urlencoded"
 	}
 }
 

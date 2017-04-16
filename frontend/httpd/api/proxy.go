@@ -211,6 +211,7 @@ func (xy *HandleWebProxy) MakeHandler(logger global.Logger, _ *common.CommandPro
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Expose-Headers", "Content-Type, Authorization")
+		NoCache(w)
 		// Rewrite HTML response to insert javascript
 		w.WriteHeader(remoteResp.StatusCode)
 		if strings.HasPrefix(remoteResp.Header.Get("Content-Type"), "text/html") {

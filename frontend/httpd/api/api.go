@@ -26,6 +26,11 @@ func XMLEscape(in string) string {
 	return escapeOutput.String()
 }
 
+// Set response headers to prevent client from caching HTTP request or response.
+func NoCache(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+}
+
 // Inspect system and environment and return their information in text form. Double as a health check endpoint.
 type HandleSystemInfo struct {
 }
@@ -34,7 +39,7 @@ func (_ *HandleSystemInfo) MakeHandler(logger global.Logger, cmdProc *common.Com
 	// Somewhat similar to healthcheck frontend
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("Cache-Control", "must-revalidate")
+		NoCache(w)
 		// Check features
 		featureErrs := cmdProc.Features.SelfTest()
 		if len(featureErrs) == 0 {

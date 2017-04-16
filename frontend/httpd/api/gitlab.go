@@ -110,7 +110,7 @@ func (lab *HandleGitlabBrowser) MakeHandler(logger global.Logger, cmdProc *commo
 		fileName := strings.TrimSpace(r.FormValue("file"))
 		submitAction := r.FormValue("submit")
 
-		w.Header().Set("Cache-Control", "must-revalidate")
+		NoCache(w)
 		switch submitAction {
 		case "Go":
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")

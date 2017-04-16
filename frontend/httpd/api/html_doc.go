@@ -25,6 +25,7 @@ func (index *HandleHTMLDocument) MakeHandler(logger global.Logger, cmdProc *comm
 	// Inject browser client IP and current time into index document and return.
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		NoCache(w)
 		page := strings.Replace(contentStr, "#LAITOS_3339TIME", time.Now().Format(time.RFC3339), -1)
 		page = strings.Replace(page, "#LAITOS_CLIENTADDR", r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')], -1)
 		w.Write([]byte(page))

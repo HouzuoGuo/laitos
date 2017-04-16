@@ -29,7 +29,7 @@ func (hand *HandleTwilioSMSHook) MakeHandler(logger global.Logger, cmdProc *comm
 		}
 		// Generate normal XML response
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-		w.Header().Set("Cache-Control", "must-revalidate")
+		NoCache(w)
 		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response><Message><![CDATA[%s]]></Message></Response>
 `, XMLEscape(ret.CombinedOutput))))
@@ -53,7 +53,7 @@ func (hand *HandleTwilioCallHook) MakeHandler(logger global.Logger, _ *common.Co
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// The greeting XML tells Twilio to ask user for DTMF input, and direct the input to another URL endpoint.
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-		w.Header().Set("Cache-Control", "must-revalidate")
+		NoCache(w)
 		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
@@ -84,7 +84,7 @@ func (hand *HandleTwilioCallCallback) MakeHandler(logger global.Logger, cmdProc 
 			Content:    DTMFDecode(r.FormValue("Digits")),
 		})
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-		w.Header().Set("Cache-Control", "must-revalidate")
+		NoCache(w)
 		// Say sorry and hang up in case of incorrect PIN/shortcut
 		if ret.Error == bridge.ErrPINAndShortcutNotFound {
 			w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
