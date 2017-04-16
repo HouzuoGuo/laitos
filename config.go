@@ -39,6 +39,8 @@ type HTTPHandlers struct {
 	SelfTestEndpoint    string `json:"SelfTestEndpoint"`
 	InformationEndpoint string `json:"InformationEndpoint"`
 
+	BrowserEndpoint string `json:"BrowserEndpoint"`
+
 	CommandFormEndpoint string `json:"CommandFormEndpoint"`
 
 	GitlabBrowserEndpoint       string                  `json:"GitlabBrowserEndpoint"`
@@ -151,6 +153,21 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 	handlers := map[string]api.HandlerFactory{}
 	if config.HTTPHandlers.InformationEndpoint != "" {
 		handlers[config.HTTPHandlers.InformationEndpoint] = &api.HandleSystemInfo{}
+	}
+	if config.HTTPHandlers.BrowserEndpoint != "" {
+		/*
+		 Configure a browser image endpoint for browser page.
+		 The endpoint name is automatically generated from random bytes.
+		*/
+		randBytes := make([]byte, 32)
+		_, err := rand.Read(randBytes)
+		if err != nil {
+			ret.Logger.Panicf("GetHTTPD", "Config", err, "failed to read random number")
+			return nil
+		}
+		imageEndpoint := "/" + hex.EncodeToString(randBytes)
+		handlers[imageEndpoint] = &api.HandleBrowserImage{}
+		handlers[config.HTTPHandlers.BrowserEndpoint] = &api.HandleBrowser{ImageEndpoint: imageEndpoint}
 	}
 	if config.HTTPHandlers.CommandFormEndpoint != "" {
 		handlers[config.HTTPHandlers.CommandFormEndpoint] = &api.HandleCommandForm{}
