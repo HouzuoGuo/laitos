@@ -82,7 +82,7 @@ func (bot *TelegramBot) ReplyTo(chatID uint64, text string) error {
 		}.Encode()),
 	}, "https://api.telegram.org/bot%s/sendMessage", bot.AuthorizationToken)
 	if err != nil || resp.StatusCode/200 != 1 {
-		return fmt.Errorf("failed to send telegram message to chat %d - HTTP %d - %v %s", chatID, resp.StatusCode, err, string(resp.Body))
+		return fmt.Errorf("TelegramBot.ReplyTo: failed to reply to %d - HTTP %d - %v %s", chatID, resp.StatusCode, err, string(resp.Body))
 	}
 	return nil
 }

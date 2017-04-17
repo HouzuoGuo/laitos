@@ -134,7 +134,7 @@ func (dnsd *DNSD) GetAdBlacklistPGL() ([]string, error) {
 	}
 	lines := strings.Split(string(resp.Body), "\n")
 	if len(lines) < 100 {
-		return nil, fmt.Errorf("PGL's ad-server list is suspiciously short at only %d lines", len(lines))
+		return nil, fmt.Errorf("DNSD.GetAdBlacklistPGL: PGL's ad-server list is suspiciously short at only %d lines", len(lines))
 	}
 	names := make([]string, 0, len(lines))
 	for _, line := range lines {
@@ -174,7 +174,7 @@ func (dnsd *DNSD) GetAdBlacklistMVPS() ([]string, error) {
 		names = append(names, strings.TrimSpace(line[nameBegin:nameEnd]))
 	}
 	if len(names) < 100 {
-		return nil, fmt.Errorf("MVPS' ad-server list is suspiciously short at only %d lines", len(names))
+		return nil, fmt.Errorf("DNSD.GetAdBlacklistMVPS: MVPS' ad-server list is suspiciously short at only %d lines", len(names))
 	}
 	return names, nil
 }

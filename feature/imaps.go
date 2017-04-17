@@ -77,7 +77,7 @@ func (mbox *IMAPS) Converse(action string) (status, body string, err error) {
 			afterStatusWord := strings.IndexRune(withoutChallenge, ' ')
 			if afterStatusWord == -1 {
 				status = withoutChallenge
-				err = fmt.Errorf("Cannot find status word among line - %s", withoutChallenge)
+				err = fmt.Errorf("IMAPS.Converse: cannot find status word among line - %s", withoutChallenge)
 				goto badIO
 			}
 			statusWord := withoutChallenge[:afterStatusWord]
@@ -85,7 +85,7 @@ func (mbox *IMAPS) Converse(action string) (status, body string, err error) {
 				status = withoutChallenge[afterStatusWord:]
 			}
 			if statusWord != "ok" {
-				err = fmt.Errorf("Bad status - %s", status)
+				err = fmt.Errorf("IMAPS.Converse: bad response status - %s", status)
 			}
 			return
 		} else {
@@ -111,11 +111,11 @@ func (mbox *IMAPS) GetNumberMessages() (int, error) {
 	// Extract number of messages from response body
 	numberString := regexp.MustCompile(`(\d+) exists`).FindStringSubmatch(strings.ToLower(body))
 	if len(numberString) != 2 {
-		return 0, fmt.Errorf("EXAMINE command did not return a number in body - %s", body)
+		return 0, fmt.Errorf("IMAPS.GetNumberMessages: EXAMINE command did not return a number in body - %s", body)
 	}
 	number, err := strconv.Atoi(numberString[1])
 	if err != nil || number < 0 {
-		return 0, fmt.Errorf("EXAMINE command did not return a valid positive integer in \"%s\" - %v", numberString[1], err)
+		return 0, fmt.Errorf("IMAPS.GetNumberMessages: EXAMINE command did not return a valid positive integer in \"%s\" - %v", numberString[1], err)
 	}
 	return number, nil
 }
@@ -194,29 +194,29 @@ func (mbox *IMAPS) ConnectLoginSelect() (err error) {
 		fmt.Sprintf("%s:%d", mbox.Host, mbox.Port),
 		time.Duration(mbox.IOTimeoutSec)*time.Second)
 	if err != nil {
-		return fmt.Errorf("Connection error - %v", err)
+		return fmt.Errorf("IMAPS.ConnectLoginSelect: connection error - %v", err)
 	}
 	mbox.tlsConn = tls.Client(mbox.conn, &tls.Config{
 		ServerName:         mbox.Host,
 		InsecureSkipVerify: mbox.InsecureSkipVerify,
 	})
 	if err = mbox.tlsConn.Handshake(); err != nil {
-		return fmt.Errorf("TLS connection error - %v", err)
+		return fmt.Errorf("IMAPS.ConnectLoginSelect: TLS connection error - %v", err)
 	}
 	// Absorb the connection greeting message sent by server
 	reader := bufio.NewReader(mbox.tlsConn)
 	_, _, err = reader.ReadLine()
 	if err != nil {
-		return fmt.Errorf("Failed to read server greeting - %v", err)
+		return fmt.Errorf("IMAPS.ConnectLoginSelect: failed to read server greeting - %v", err)
 	}
 	// LOGIN && SELECT
 	_, _, err = mbox.Converse(fmt.Sprintf("LOGIN %s %s", mbox.AuthUsername, mbox.AuthPassword))
 	if err != nil {
-		return fmt.Errorf("LOGIN command failed - %v", err)
+		return fmt.Errorf("IMAPS.ConnectLoginSelect: LOGIN command failed - %v", err)
 	}
 	_, _, err = mbox.Converse(fmt.Sprintf("SELECT \"%s\"", mbox.MailboxName))
 	if err != nil {
-		return fmt.Errorf("SELECT command failed - %v", err)
+		return fmt.Errorf("IMAPS.ConnectLoginSelect: SELECT command failed - %v", err)
 	}
 	return
 }
@@ -254,11 +254,11 @@ func (imap *IMAPAccounts) SelfTest() error {
 	}
 	for name, account := range imap.Accounts {
 		if err := account.ConnectLoginSelect(); err != nil {
-			return fmt.Errorf("Account \"%s\" connection error - %v", name, err)
+			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" has connection error - %v", name, err)
 		}
 		defer account.DisconnectLogout()
 		if _, err := account.GetNumberMessages(); err != nil {
-			return fmt.Errorf("Account \"%s\" test error - %v", name, err)
+			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" test error - %v", name, err)
 		}
 	}
 	return nil
@@ -303,7 +303,7 @@ func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
 	// Let IMAP magic begin!
 	account, found := imap.Accounts[mbox]
 	if !found {
-		return &Result{Error: fmt.Errorf("Cannot find box \"%s\"", mbox)}
+		return &Result{Error: fmt.Errorf("IMAPAccounts.ListMails: cannot find box \"%s\"", mbox)}
 	}
 	account.IOTimeoutSec = cmd.TimeoutSec // this is nowhere near good enough, but how to make it accurate and race-free?
 	if err := account.ConnectLoginSelect(); err != nil {
@@ -315,7 +315,7 @@ func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
 		return &Result{Error: err}
 	}
 	if skip+count > totalNumber {
-		return &Result{Error: fmt.Errorf("Max number is %d", totalNumber)}
+		return &Result{Error: fmt.Errorf("IMAPAccounts.ListMails: skip+count should be less or equal to %d", totalNumber)}
 	}
 	fromNum := totalNumber - count - skip + 1
 	toNum := totalNumber - skip
@@ -356,7 +356,7 @@ func (imap *IMAPAccounts) ReadMessage(cmd Command) *Result {
 	// Let IMAP magic begin!
 	account, found := imap.Accounts[mbox]
 	if !found {
-		return &Result{Error: fmt.Errorf("Cannot find box \"%s\"", mbox)}
+		return &Result{Error: fmt.Errorf("IMAPAccounts.ReadMessage: cannot find box \"%s\"", mbox)}
 	}
 	account.IOTimeoutSec = cmd.TimeoutSec // this is nowhere near good enough, but how to make it accurate and race-free?
 	if err := account.ConnectLoginSelect(); err != nil {

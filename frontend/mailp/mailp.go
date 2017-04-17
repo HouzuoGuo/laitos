@@ -33,7 +33,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...str
 		return global.ErrEmergencyLockDown
 	}
 	if errs := mailproc.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("%+v", errs)
+		return fmt.Errorf("MailProcessor.Proces: %+v", errs)
 	}
 	var commandIsProcessed bool
 	walkErr := email.WalkMessage(mailContent, func(prop email.BasicProperties, body []byte) (bool, error) {

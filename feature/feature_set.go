@@ -107,7 +107,7 @@ func (fs *FeatureSet) GetTriggers() []string {
 	if fs.LookupByTrigger == nil {
 		return ret
 	}
-	for trigger, _ := range fs.LookupByTrigger {
+	for trigger := range fs.LookupByTrigger {
 		ret = append(ret, string(trigger))
 	}
 	sort.Strings(ret)

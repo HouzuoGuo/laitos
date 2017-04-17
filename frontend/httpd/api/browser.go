@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
@@ -144,6 +145,7 @@ func (browser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *common.
 				"sample text"))
 		} else if r.Method == http.MethodPost {
 			viewWidth, viewHeight, userAgent, pageUrl, pointerX, pointerY, typeText := browser.parseSubmission(r)
+
 			switch r.FormValue("action") {
 			case "Redraw":
 				// There is no javascript action required here
@@ -195,12 +197,37 @@ func (browser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *common.
 					}.Encode())}, "http://127.0.0.1:12345/pointer")
 				logger.Printf("right click", "", err, "resp body is: %s", string(resp.Body))
 			case "Backspace":
+				resp, err := httpclient.DoHTTP(httpclient.Request{
+					Method: http.MethodPost, Body: strings.NewReader(url.Values{
+						"key_code": []string{"16777219"},
+					}.Encode())}, "http://127.0.0.1:12345/type")
+				logger.Printf("backspace", "", err, "resp body is: %s", string(resp.Body))
 			case "Enter":
+				resp, err := httpclient.DoHTTP(httpclient.Request{
+					Method: http.MethodPost, Body: strings.NewReader(url.Values{
+						"key_code": []string{"16777221"},
+					}.Encode())}, "http://127.0.0.1:12345/type")
+				logger.Printf("enter", "", err, "resp body is: %s", string(resp.Body))
 			case "Type":
+				resp, err := httpclient.DoHTTP(httpclient.Request{
+					Method: http.MethodPost, Body: strings.NewReader(url.Values{
+						"key_string": []string{typeText},
+					}.Encode())}, "http://127.0.0.1:12345/type")
+				logger.Printf("type", "", err, "resp body is: %s", string(resp.Body))
 			}
-			w.Write(browser.renderPage("Empty Title", "Empty Output",
+			var info struct {
+				Title   string `json:"title"`
+				PageURL string `json:"page_url"`
+			}
+			resp, err := httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, "http://127.0.0.1:12345/info")
+			logger.Printf("info", "", err, "resp body is: %s", string(resp.Body))
+			if err := json.Unmarshal(resp.Body, &info); err != nil {
+				logger.Printf("info", "", err, "failed to unmarshal")
+			}
+
+			w.Write(browser.renderPage(info.Title, "Empty Output",
 				viewWidth, viewHeight,
-				userAgent, pageUrl,
+				userAgent, info.PageURL,
 				pointerX, pointerY,
 				typeText))
 		}

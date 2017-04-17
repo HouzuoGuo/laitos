@@ -290,7 +290,7 @@ func (conn *CipherConnection) ParseRequest() (destAddr string, err error) {
 		}
 		reqStart, reqEnd = DMPacketIndex, DMPacketIndex+int(buf[DMPacketLength])+DMPacketPaddingLength
 	default:
-		err = fmt.Errorf("Unknown type %d", maskedType)
+		err = fmt.Errorf("CipherConnection.ParseRequest: unknown mask type %d", maskedType)
 		return
 	}
 

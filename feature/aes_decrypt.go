@@ -47,7 +47,7 @@ func (crypt *AESDecrypt) SelfTest() error {
 	}
 	for _, file := range crypt.EncryptedFiles {
 		if _, err := os.Stat(file.FilePath); err != nil {
-			return fmt.Errorf("AES-encrypted file \"%s\" is no longer readable - %v", err)
+			return fmt.Errorf("AESDecrypt.SelfTest: file \"%s\" is no longer readable - %v", file.FilePath, err)
 		}
 	}
 	return nil
@@ -57,20 +57,20 @@ func (crypt *AESDecrypt) Initialise() error {
 	// Read every single encrypted file
 	for _, file := range crypt.EncryptedFiles {
 		if file.HexIV == "" || file.FilePath == "" || file.HexKeyPrefix == "" {
-			return fmt.Errorf("AES-encrypted file \"%s\" is missing key parameters", file.FilePath)
+			return fmt.Errorf("AESDecrypt.Initialise: file \"%s\" is missing configuration", file.FilePath)
 		}
 		var err error
 		if file.FileContent, err = ioutil.ReadFile(file.FilePath); err != nil {
-			return fmt.Errorf("Failed to read AES encrypted file \"%s\" - %v", file.FilePath, err)
+			return fmt.Errorf("AESDecrypt.Initialise: failed to read AES encrypted file \"%s\" - %v", file.FilePath, err)
 		}
 		if len(file.FileContent) <= OPENSSL_SALTED_CONTENT_OFFSET {
-			return fmt.Errorf("\"%s\" does not appear to be a file salted & encrypted by openssl")
+			return fmt.Errorf("AESDecrypt.Initialise: \"%s\" does not appear to be a file salted & encrypted by openssl", file.FilePath)
 		}
 		if file.IV, err = hex.DecodeString(file.HexIV); err != nil {
-			return fmt.Errorf("Failed to decode IV of file \"%s\" - %v", file.FilePath, err)
+			return fmt.Errorf("AESDecrypt.Initialise: failed to decode IV of file \"%s\" - %v", file.FilePath, err)
 		}
 		if file.KeyPrefix, err = hex.DecodeString(file.HexKeyPrefix); err != nil {
-			return fmt.Errorf("Failed to decide key prefix of file \"%s\" - %v", file.FilePath, err)
+			return fmt.Errorf("AESDecrypt.Initialise: failed to decide key prefix of file \"%s\" - %v", file.FilePath, err)
 		}
 	}
 	return nil
@@ -147,12 +147,12 @@ func GetTestAESDecrypt() AESDecrypt {
 	}
 	return AESDecrypt{
 		EncryptedFiles: map[string]*AESEncryptedFile{
-			"alpha": &AESEncryptedFile{
+			"alpha": {
 				FilePath:     filePath,
 				HexIV:        "A28DB439E2D112AB6E9FC2B09A73B605",
 				HexKeyPrefix: "F2A515CDDC967C5B0C73FD09264BF67F08A6E1BD273A598F013F6691AAF1",
 			},
-			"beta": &AESEncryptedFile{
+			"beta": {
 				FilePath:     filePath,
 				HexIV:        "A28DB439E2D112AB6E9FC2B09A73B605",
 				HexKeyPrefix: "F2A515CDDC967C5B0C73FD09264BF67F08A6E1BD273A598F013F6691AAF1",
