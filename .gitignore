@@ -1,7 +1,6 @@
 *.conf
 contact
 *.crt
-elasticbeanstalk-bundle.zip
 *.html
 .idea
 init_feature_test.go

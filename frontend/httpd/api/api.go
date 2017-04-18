@@ -21,7 +21,7 @@ type HandlerFactory interface {
 func XMLEscape(in string) string {
 	var escapeOutput bytes.Buffer
 	if err := xml.EscapeText(&escapeOutput, []byte(in)); err != nil {
-		log.Printf("XMLEscape: failed - %v", err)
+		log.Printf("XMLEscape: failed to escape input string - %v", err)
 	}
 	return escapeOutput.String()
 }
