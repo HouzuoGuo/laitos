@@ -1,7 +1,8 @@
 #!/bin/sh
 
 config_dir=$1
-[ -z "$config_dir" ] && echo Usage: $0 configuration_dir && exit 1
+[ -z "$config_dir" ] && echo "Usage: $0 configuration_dir" && exit 1
+[ ! -d "$config_dir" ] && echo "Configuration directory $config_dir does not exist" && exit 1
 
 set -e
 

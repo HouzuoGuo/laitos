@@ -143,6 +143,10 @@ func main() {
 	}
 
 	// Deserialise JSON configuration file
+	if configFile == "" {
+		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
+		return
+	}
 	var config Config
 	configBytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
@@ -151,10 +155,6 @@ func main() {
 	}
 	if err := config.DeserialiseFromJSON(configBytes); err != nil {
 		logger.Fatalf("main", "", err, "failed to deserialise config file \"%s\"", configFile)
-		return
-	}
-	if configFile == "" {
-		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
 		return
 	}
 
