@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/httpd/api/browser"
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
 	"io/ioutil"
@@ -13,6 +14,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -33,7 +36,8 @@ const (
 </head>
 <body>
 <form action="#" method="post">
-    <input type="hidden" name="browser_id" value=""/>
+    <input type="hidden" name="instance_index" value="%d"/>
+    <input type="hidden" name="instance_tag" value="%d"/>
     <table>
         <tr>
             <th>Debug</th>
@@ -80,23 +84,28 @@ const (
 </form>
 </body>
 </html>` // Browser page content
-	BrowserMinWidth  = 1280
-	BrowserMinHeight = 3 * 720
+	BrowserMinWidth  = 1280    // Default browser width in pixels
+	BrowserMinHeight = 3 * 720 // Default browser height in pixels
 	BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36"
 )
 
-var browserStarted bool
-
+// Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowser struct {
-	ImageEndpoint string `json:"-"`
+	ImageEndpoint string                  `json:"-"`
+	Browsers      browser.ServerInstances `json:"Browsers"`
 }
 
-func (browser *HandleBrowser) renderPage(title, debugOut string,
+func (browser *HandleBrowser) renderPage(title string,
+	instanceIndex, instanceTag int64,
+	debugOut string,
 	viewWidth, viewHeight int,
 	userAgent, pageUrl string,
 	pointerX, pointerY int,
 	typeText string) []byte {
-	return []byte(fmt.Sprintf(HandleBrowserPage, title, debugOut,
+	return []byte(fmt.Sprintf(HandleBrowserPage,
+		title,
+		instanceIndex, instanceTag,
+		debugOut,
 		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight),
 		userAgent, pageUrl,
 		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
@@ -104,7 +113,9 @@ func (browser *HandleBrowser) renderPage(title, debugOut string,
 		browser.ImageEndpoint))
 }
 
-func (browser *HandleBrowser) parseSubmission(r *http.Request) (viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
+func (browser *HandleBrowser) parseSubmission(r *http.Request) (instanceIndex, instanceTag int64, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
+	instanceIndex, _ = strconv.ParseInt(r.FormValue("instance_index"), 10, 64)
+	instanceTag, _ = strconv.ParseInt(r.FormValue("instance_tag"), 10, 64)
 	viewWidth, _ = strconv.Atoi(r.FormValue("view_width"))
 	viewHeight, _ = strconv.Atoi(r.FormValue("view_height"))
 	if viewWidth < BrowserMinWidth {
@@ -122,22 +133,11 @@ func (browser *HandleBrowser) parseSubmission(r *http.Request) (viewWidth, viewH
 }
 func (browser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
-		if !browserStarted {
-			os.Remove("/home/howard/page.png")
-			go func() {
-				cmd := exec.Command("/home/howard/gopath/src/github.com/HouzuoGuo/laitos/phantomjs-2.1.1-linux-x86_64/bin/phantomjs", "/home/howard/gopath/src/github.com/HouzuoGuo/laitos/phantomjs-2.1.1-linux-x86_64/bin/main.js")
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				if err := cmd.Start(); err != nil {
-					logger.Fatalf("browser", "browser", err, "failed to start browser")
-				}
-			}()
-			// Give javascript a second to start
-			time.Sleep(1 * time.Second)
-		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		NoCache(w)
 		if r.Method == http.MethodGet {
+			// Start a new browser instance
+
 			w.Write(browser.renderPage("Empty Title", "Empty Output",
 				BrowserMinWidth, BrowserMinHeight, BrowserUserAgent,
 				"https://www.google.com",

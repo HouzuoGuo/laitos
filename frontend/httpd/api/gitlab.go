@@ -36,7 +36,7 @@ const HandleGitlabPage = `<!doctype html>
 
 const GitlabAPITimeoutSec = 110 // Timeout for outgoing API calls made to gitlab
 
-// Implement a handler that browses gitlab repositories.
+// Browse gitlab repositories and download repository files.
 type HandleGitlabBrowser struct {
 	PrivateToken string            `json:"PrivateToken"` // Gitlab user private token
 	Projects     map[string]string `json:"Projects"`     // Project shortcut name VS "gitlab project ID"

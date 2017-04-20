@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Implement a HTML page handler that has client IP and current time injected into the content.
+// Render an HTML page that has client IP and current time injected into the content.
 type HandleHTMLDocument struct {
 	HTMLFilePath string `json:"HTMLFilePath"`
 }

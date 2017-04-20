@@ -124,7 +124,7 @@ window.onload = laitos_replace_many;
 </script>
 ` // Snippet of Javascript that has to be injected into proxied web page
 
-// Implement handler for sending Howard an email. The text on the page is deliberately written in Chinese.
+// Dumb web page proxy.
 type HandleWebProxy struct {
 	MyEndpoint string `json:"-"` // URL endpoint to the proxy itself, including prefix /.
 }

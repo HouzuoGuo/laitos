@@ -25,7 +25,7 @@ const HandleMailMePage = `<!doctype html>
 </html>
 ` // Mail Me page content
 
-// Implement handler for sending Howard an email. The text on the page is deliberately written in Chinese.
+// Send Howard an email in a simple web form. The text on the page is deliberately written in Chinese.
 type HandleMailMe struct {
 	Recipients []string     `json:"Recipients"` // Recipients of these mail messages
 	Mailer     email.Mailer `json:"-"`

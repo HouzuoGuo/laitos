@@ -12,7 +12,7 @@ import (
 
 const TwilioHandlerTimeoutSec = 14 // as of 2017-02-23, the timeout is required by Twilio on both SMS and call hooks.
 
-// Implement handler for Twilio phone number's SMS hook.
+// Handle Twilio phone number's SMS hook.
 type HandleTwilioSMSHook struct {
 }
 
@@ -40,7 +40,7 @@ func (hand *HandleTwilioSMSHook) GetRateLimitFactor() int {
 	return 1
 }
 
-// Implement handler for Twilio phone number's telephone hook.
+// Say a greeting in Twilio phone number's telephone call hook.
 type HandleTwilioCallHook struct {
 	CallGreeting     string `json:"CallGreeting"` // a message to speak upon picking up a call
 	CallbackEndpoint string `json:"-"`            // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
@@ -68,7 +68,7 @@ func (hand *HandleTwilioCallHook) GetRateLimitFactor() int {
 	return 10
 }
 
-// Implement handler for Twilio phone number's telephone callback (triggered by response of TwilioCallHook).
+// Carry on with command processing in Twilio telephone call conversation.
 type HandleTwilioCallCallback struct {
 	MyEndpoint string `json:"-"` // URL endpoint to the callback itself, including prefix /.
 }

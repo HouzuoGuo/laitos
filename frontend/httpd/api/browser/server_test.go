@@ -1,4 +1,4 @@
-package headless_browser
+package browser
 
 import (
 	"io/ioutil"
@@ -18,9 +18,10 @@ func TestBrowserServer_Start(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	browser := BrowserServer{
+	renderOutput.Close()
+	browser := Server{
 		PhantomJSExecPath: phantomJSPath,
-		RenderImagePath:   renderOutput.Name(),
+		RenderImagePath:   renderOutput.Name() + ".png",
 		Port:              41599,
 	}
 	if err := browser.Start(); err != nil {
@@ -34,17 +35,23 @@ func TestBrowserServer_Start(t *testing.T) {
 		"view_height": 768,
 		"page_url":    "https://www.google.com",
 	}, &result); err != nil || !result {
-		t.Fatal(err, false, browser.GetDebugOutput())
+		t.Fatal(err, browser.GetDebugOutput(1000))
 	}
-	// Expect page to open within 3 seconds
-	time.Sleep(3 * time.Second)
+	// Expect page to open within 5 seconds
+	time.Sleep(5 * time.Second)
 	if err := browser.SendRequest("redraw", nil, &result); err != nil {
-		t.Fatal(err, false, browser.GetDebugOutput())
+		t.Fatal(err, browser.GetDebugOutput(1000))
 	}
-	// Expect page to render within 3 seconds
-	time.Sleep(3 * time.Second)
-	if stat, err := os.Stat(renderOutput.Name()); err != nil || stat.Size() < 1024 {
-		t.Fatal(err, stat.Size(), browser.GetDebugOutput())
+	// Expect page to render within 5 seconds
+	time.Sleep(5 * time.Second)
+	if stat, err := os.Stat(browser.RenderImagePath); err != nil || stat.Size() < 1024 {
+		t.Fatal(err, stat.Size(), browser.GetDebugOutput(1000))
 	}
-	os.Remove(renderOutput.Name())
+	os.Remove(browser.RenderImagePath)
+	// Expect some output to be already present in output buffer
+	t.Log(browser.GetDebugOutput(1000))
+	// Last line should be "POST /redraw - {}: true\n"
+	if out := browser.GetDebugOutput(5); out != "true\n" {
+		t.Fatalf(out)
+	}
 }
