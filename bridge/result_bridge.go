@@ -18,6 +18,7 @@ result bridges directly manipulate the result record.
 */
 type ResultBridge interface {
 	Transform(*feature.Result) error // Operate on the command result. Return an error if no further transformation shall be done.
+	SetLogger(global.Logger)         // Assign a logger to use
 }
 
 // Call "ResetCombinedText()" function on the command result, so that the text will be available for further manipulation.
@@ -28,6 +29,9 @@ func (_ *ResetCombinedText) Transform(result *feature.Result) error {
 	// This looks dumb
 	result.ResetCombinedText()
 	return nil
+}
+
+func (_ *ResetCombinedText) SetLogger(_ global.Logger) {
 }
 
 /*
@@ -95,6 +99,9 @@ func (lint *LintText) Transform(result *feature.Result) error {
 	return nil
 }
 
+func (_ *LintText) SetLogger(_ global.Logger) {
+}
+
 // Send email notification for command result.
 type NotifyViaEmail struct {
 	Recipients []string      `json:"Recipients"` // Email recipient addresses
@@ -112,11 +119,15 @@ func (notify *NotifyViaEmail) Transform(result *feature.Result) error {
 		go func() {
 			subject := email.OutgoingMailSubjectKeyword + "-notify-" + result.Command.Content
 			if err := notify.Mailer.Send(subject, result.CombinedOutput, notify.Recipients...); err != nil {
-				notify.Logger.Warningf("Transform", "NotifyViaEmail", err, "failed to send notification for command \"%s\"", result.Command.Content)
+				notify.Logger.Warningf("Transform", "", err, "failed to send notification for command \"%s\"", result.Command.Content)
 			}
 		}()
 	}
 	return nil
+}
+
+func (notify *NotifyViaEmail) SetLogger(logger global.Logger) {
+	notify.Logger = logger
 }
 
 // If there is no graph character among the combined output, replace it by "EMPTY OUTPUT".
@@ -131,4 +142,7 @@ func (empty *SayEmptyOutput) Transform(result *feature.Result) error {
 		result.CombinedOutput = EmptyOutputText
 	}
 	return nil
+}
+
+func (_ *SayEmptyOutput) SetLogger(_ global.Logger) {
 }

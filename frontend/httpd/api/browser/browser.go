@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	BrowserServerCodeTemplate = `var browser;
+	JSCodeTemplate = `var browser;
 
 var b_redraw = function () {
     if (!browser) {
@@ -145,60 +145,61 @@ var server = require('webserver').create().listen('127.0.0.1:%d', function (req,
 var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
 
 // An instance of headless browser server that acts on commands received via HTTP.
-type Server struct {
+type Browser struct {
 	PhantomJSExecPath  string        // Absolute or relative path to PhantomJS executable
-	DebugOutput        *bytes.Buffer // Store standard output and error from PhantomJS executable
 	RenderImagePath    string        // Place to store rendered web page image
 	Port               int           // Port number for headless server to listen for commands on
 	AutoKillTimeoutSec int           // Process is unconditionally killed after the time elapses
 	Tag                string        // Uniquely identifies this browser server after it is started
+	DebugOutput        *bytes.Buffer // Store standard output and error from PhantomJS executable
+	JSTmpFilePath      string        // Path to temporary file that stores PhantomJS server code
+	JSProc             *exec.Cmd     // Headless server process
+	JSProcMutex        *sync.Mutex   // Protect against concurrent access to server process
 	Logger             global.Logger
-	jsTmpFilePath      string      // Path to temporary file that stores PhantomJS server code
-	procMutex          *sync.Mutex // Protect against concurrent access to server process
-	serverProc         *exec.Cmd   // Headless server process
 }
 
 // Produce javascript code for browser server and then launch its process in background.
-func (browser *Server) Start() error {
-	// Server is an internal API, hence its parameters are not validated before use.
-	browser.procMutex = new(sync.Mutex)
+func (browser *Browser) Start() error {
+	// Browser is an internal API, hence its parameters are not validated before use.
+	browser.JSProcMutex = new(sync.Mutex)
 	browser.DebugOutput = new(bytes.Buffer)
 	browser.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
+	browser.Logger = global.Logger{ComponentID: fmt.Sprintf("%s-%s", time.Now().Format(time.Kitchen), browser.Tag), ComponentName: "Browser"}
 	// Store server javascript into a temporary file
 	serverJS, err := ioutil.TempFile("", "laitos-browser")
 	if err != nil {
-		return fmt.Errorf("Server.Start: failed to create temporary file for PhantomJS code - %v", err)
+		return fmt.Errorf("Browser.Start: failed to create temporary file for PhantomJS code - %v", err)
 	}
-	if _, err := serverJS.Write([]byte(fmt.Sprintf(BrowserServerCodeTemplate, browser.RenderImagePath, browser.Port))); err != nil {
-		return fmt.Errorf("Server.Start: failed to write PhantomJS server code - %v", err)
+	if _, err := serverJS.Write([]byte(fmt.Sprintf(JSCodeTemplate, browser.RenderImagePath, browser.Port))); err != nil {
+		return fmt.Errorf("Browser.Start: failed to write PhantomJS server code - %v", err)
 	} else if err := serverJS.Sync(); err != nil {
-		return fmt.Errorf("Server.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("Browser.Start: failed to write PhantomJS server code - %v", err)
 	} else if err := serverJS.Close(); err != nil {
-		return fmt.Errorf("Server.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("Browser.Start: failed to write PhantomJS server code - %v", err)
 	}
 	// Start server process
-	browser.serverProc = exec.Command(browser.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
-	browser.serverProc.Stdout = browser.DebugOutput
-	browser.serverProc.Stderr = browser.DebugOutput
+	browser.JSProc = exec.Command(browser.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
+	browser.JSProc.Stdout = browser.DebugOutput
+	browser.JSProc.Stderr = browser.DebugOutput
+	//browser.JSProc.Stdout = os.Stderr
+	//browser.JSProc.Stderr = os.Stderr
 	processErrChan := make(chan error, 1)
 	go func() {
-		fmt.Println("About to start")
-		if err := browser.serverProc.Start(); err != nil {
-			fmt.Println("Startup error", err)
+		if err := browser.JSProc.Start(); err != nil {
 			processErrChan <- err
 		}
 	}()
 	// Expect server process to remain running for at least a second for a successful start
 	select {
 	case err := <-processErrChan:
-		return fmt.Errorf("Server.Start: PhantomJS process failed - %v", err)
+		return fmt.Errorf("Browser.Start: PhantomJS process failed - %v", err)
 	case <-time.After(1 * time.Second):
 	}
 	// Unconditionally kill the server process after a period of time
 	go func() {
 		select {
 		case err := <-processErrChan:
-			log.Printf("Server.Start: PhantomJS process has quit, status - %v", err)
+			log.Printf("Browser.Start: PhantomJS process has quit, status - %v", err)
 		case <-time.After(time.Duration(browser.AutoKillTimeoutSec) * time.Second):
 		}
 		browser.Stop()
@@ -214,13 +215,13 @@ func (browser *Server) Start() error {
 	}
 	if !portIsOpen {
 		browser.Stop()
-		return errors.New("Server.Start: port is not listening after multiple atempts")
+		return errors.New("Browser.Start: port is not listening after multiple atempts")
 	}
 	return nil
 }
 
 // Return last N bytes of text from debug output buffer.
-func (browser *Server) GetDebugOutput(lastNBytes int) string {
+func (browser *Browser) GetDebugOutput(lastNBytes int) string {
 	all := browser.DebugOutput.Bytes()
 	if len(all) > lastNBytes {
 		return string(all[len(all)-lastNBytes:])
@@ -230,7 +231,7 @@ func (browser *Server) GetDebugOutput(lastNBytes int) string {
 }
 
 // Send a control request via HTTP to the browser server, optionally deserialise the response into receiver.
-func (browser *Server) SendRequest(actionName string, params map[string]interface{}, jsonReceiver interface{}) error {
+func (browser *Browser) SendRequest(actionName string, params map[string]interface{}, jsonReceiver interface{}) (err error) {
 	body := url.Values{}
 	if params != nil {
 		for key, val := range params {
@@ -241,30 +242,61 @@ func (browser *Server) SendRequest(actionName string, params map[string]interfac
 		Method: http.MethodPost,
 		Body:   strings.NewReader(body.Encode()),
 	}, fmt.Sprintf("http://127.0.0.1:%d/%s", browser.Port, actionName))
-	if err != nil {
-		return fmt.Errorf("Server.SendRequest: IO failure - %v", err)
-	} else if resp.StatusCode/200 != 1 {
-		return fmt.Errorf("Server.SendRequest: HTTP failure - %v", err)
-	}
-	if jsonReceiver != nil {
-		if err := json.Unmarshal(resp.Body, &jsonReceiver); err != nil {
-			return fmt.Errorf("Server.SendRequest: - %v", err)
+	if err == nil {
+		if resp.StatusCode/200 != 1 {
+			err = fmt.Errorf("Browser.SendRequest: HTTP failure - %v", string(resp.Body))
+		}
+		if jsonReceiver != nil {
+			if jsonErr := json.Unmarshal(resp.Body, &jsonReceiver); jsonErr != nil {
+				err = fmt.Errorf("Browser.SendRequest: - %v", jsonErr)
+			}
 		}
 	}
-	return nil
+	browser.Logger.Printf("SendRequest", "", err, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
+	return
+}
+
+// Tell browser to render page and wait up to 3 seconds for render to finish.
+func (browser *Browser) RenderPage() error {
+	if err := os.Remove(browser.RenderImagePath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err := browser.SendRequest("redraw", nil, nil); err != nil {
+		return err
+	}
+	var fileSize int64
+	var unchanging int
+	for i := 0; i < 60; i++ {
+		// See whether image file is already being written into
+		if info, err := os.Stat(browser.RenderImagePath); err == nil && info.Size() > 0 {
+			if fileSize == info.Size() {
+				unchanging++
+				if unchanging >= 4 {
+					// If size looks identical to last four checks, the render is considered done.
+					return nil
+				}
+			} else {
+				// Size is changing, so render is not yet completed.
+				unchanging = 0
+				fileSize = info.Size()
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return errors.New("Browser.RenderPage: render is not completed")
 }
 
 // Kill browser server process and delete rendered web page image.
-func (browser *Server) Stop() {
-	browser.procMutex.Lock()
-	defer browser.procMutex.Unlock()
-	if browser.serverProc != nil {
+func (browser *Browser) Stop() {
+	browser.JSProcMutex.Lock()
+	defer browser.JSProcMutex.Unlock()
+	if browser.JSProc != nil {
 		if err := os.Remove(browser.RenderImagePath); err != nil {
-			browser.Logger.Warningf("Stop", browser.Tag, err, "failed to delete rendered web page at \"%s\"", browser.RenderImagePath)
+			browser.Logger.Warningf("Stop", "", err, "failed to delete rendered web page at \"%s\"", browser.RenderImagePath)
 		}
-		if err := browser.serverProc.Process.Kill(); err != nil {
-			browser.Logger.Warningf("Stop", browser.Tag, err, "failed to kill PhantomJS process")
+		if err := browser.JSProc.Process.Kill(); err != nil {
+			browser.Logger.Warningf("Stop", "", err, "failed to kill PhantomJS process")
 		}
-		browser.serverProc = nil
+		browser.JSProc = nil
 	}
 }

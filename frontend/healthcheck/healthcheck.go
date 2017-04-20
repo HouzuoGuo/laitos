@@ -99,8 +99,9 @@ func (check *HealthCheck) Execute() bool {
 }
 
 func (check *HealthCheck) Initialise() error {
-	if check.IntervalSec < 30 {
-		return errors.New("HealthCheck.StartAndBlock: IntervalSec must be above 29")
+	check.Logger = global.Logger{ComponentName: "HealthCheck", ComponentID: strconv.Itoa(check.IntervalSec)}
+	if check.IntervalSec < 120 {
+		return errors.New("HealthCheck.StartAndBlock: IntervalSec must be above 119")
 	}
 	return nil
 }

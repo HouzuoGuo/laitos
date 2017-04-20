@@ -50,6 +50,7 @@ type Sockd struct {
 }
 
 func (sock *Sockd) Initialise() error {
+	sock.Logger = global.Logger{ComponentName: "Sockd", ComponentID: fmt.Sprintf("%s:%d", sock.ListenAddress, sock.ListenPort)}
 	if sock.ListenAddress == "" {
 		return errors.New("Sockd.Initialise: listen address must not be empty")
 	}

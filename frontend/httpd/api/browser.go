@@ -1,22 +1,13 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api/browser"
 	"github.com/HouzuoGuo/laitos/global"
-	"github.com/HouzuoGuo/laitos/httpclient"
 	"io/ioutil"
 	"net/http"
-	"net/url"
-	"os"
-	"os/exec"
 	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const (
@@ -37,7 +28,7 @@ const (
 <body>
 <form action="#" method="post">
     <input type="hidden" name="instance_index" value="%d"/>
-    <input type="hidden" name="instance_tag" value="%d"/>
+    <input type="hidden" name="instance_tag" value="%s"/>
     <table>
         <tr>
             <th>Debug</th>
@@ -80,23 +71,24 @@ const (
             </td>
         </tr>
     </table>
-    <p><img src="%s" onclick="set_pointer_coord(event, this);"/></p>
+    <p><img src="%s?instance_index=%d&instance_tag=%s" onclick="set_pointer_coord(event, this);"/></p>
 </form>
 </body>
 </html>` // Browser page content
-	BrowserMinWidth  = 1280    // Default browser width in pixels
-	BrowserMinHeight = 3 * 720 // Default browser height in pixels
-	BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36"
+	BrowserDebugOutputLen = 1024    // Display this much debug output on page
+	BrowserMinWidth       = 1280    // Default browser width in pixels
+	BrowserMinHeight      = 3 * 720 // Default browser height in pixels
+	BrowserUserAgent      = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36"
 )
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowser struct {
-	ImageEndpoint string                  `json:"-"`
-	Browsers      browser.ServerInstances `json:"Browsers"`
+	ImageEndpoint string           `json:"-"`
+	Browsers      browser.Browsers `json:"Browsers"`
 }
 
-func (browser *HandleBrowser) renderPage(title string,
-	instanceIndex, instanceTag int64,
+func (remoteBrowser *HandleBrowser) renderPage(title string,
+	instanceIndex int, instanceTag string,
 	debugOut string,
 	viewWidth, viewHeight int,
 	userAgent, pageUrl string,
@@ -110,12 +102,12 @@ func (browser *HandleBrowser) renderPage(title string,
 		userAgent, pageUrl,
 		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
 		typeText,
-		browser.ImageEndpoint))
+		remoteBrowser.ImageEndpoint, instanceIndex, instanceTag))
 }
 
-func (browser *HandleBrowser) parseSubmission(r *http.Request) (instanceIndex, instanceTag int64, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
-	instanceIndex, _ = strconv.ParseInt(r.FormValue("instance_index"), 10, 64)
-	instanceTag, _ = strconv.ParseInt(r.FormValue("instance_tag"), 10, 64)
+func (remoteBrowser *HandleBrowser) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
+	instanceIndex, _ = strconv.Atoi(r.FormValue("instance_index"))
+	instanceTag = r.FormValue("instance_tag")
 	viewWidth, _ = strconv.Atoi(r.FormValue("view_width"))
 	viewHeight, _ = strconv.Atoi(r.FormValue("view_height"))
 	if viewWidth < BrowserMinWidth {
@@ -131,103 +123,134 @@ func (browser *HandleBrowser) parseSubmission(r *http.Request) (instanceIndex, i
 	typeText = r.FormValue("type_text")
 	return
 }
-func (browser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		NoCache(w)
 		if r.Method == http.MethodGet {
 			// Start a new browser instance
-
-			w.Write(browser.renderPage("Empty Title", "Empty Output",
+			index, instance, err := remoteBrowser.Browsers.Acquire()
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
+				return
+			}
+			w.Write(remoteBrowser.renderPage(
+				"Empty Browser",
+				index, instance.Tag,
+				instance.GetDebugOutput(BrowserDebugOutputLen),
 				BrowserMinWidth, BrowserMinHeight, BrowserUserAgent,
 				"https://www.google.com",
 				0, 0,
-				"sample text"))
+				""))
 		} else if r.Method == http.MethodPost {
-			viewWidth, viewHeight, userAgent, pageUrl, pointerX, pointerY, typeText := browser.parseSubmission(r)
-
+			index, tag, viewWidth, viewHeight, userAgent, pageUrl, pointerX, pointerY, typeText := remoteBrowser.parseSubmission(r)
+			instance := remoteBrowser.Browsers.Retrieve(index, tag)
+			if instance == nil {
+				// Old instance is no longer there, so start a new browser instance
+				index, instance, err := remoteBrowser.Browsers.Acquire()
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
+					return
+				}
+				w.Write(remoteBrowser.renderPage(
+					"Empty Browser",
+					index, instance.Tag,
+					instance.GetDebugOutput(BrowserDebugOutputLen),
+					BrowserMinWidth, BrowserMinHeight, BrowserUserAgent,
+					"https://www.google.com",
+					0, 0,
+					""))
+				return
+			}
+			// Process action on the retrieved browser instance
 			switch r.FormValue("action") {
 			case "Redraw":
 				// There is no javascript action required here
 			case "Back":
-				resp, err := httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, "http://127.0.0.1:12345/back")
-				logger.Printf("back", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("back", nil, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			case "Forward":
-				resp, err := httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, "http://127.0.0.1:12345/forward")
-				logger.Printf("forward", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("forward", nil, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			case "Reload":
-				resp, err := httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, "http://127.0.0.1:12345/reload")
-				logger.Printf("reload", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("reload", nil, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			case "Go To":
-				resp, err := httpclient.DoHTTP(httpclient.Request{
-					Method: http.MethodPost,
-					Body: strings.NewReader(url.Values{
-						"user_agent":  []string{userAgent},
-						"page_url":    []string{pageUrl},
-						"view_width":  []string{strconv.Itoa(viewWidth)},
-						"view_height": []string{strconv.Itoa(viewHeight)},
-					}.Encode()),
-				}, "http://127.0.0.1:12345/goto")
-				logger.Printf("goto", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("goto", map[string]interface{}{
+					"user_agent":  userAgent,
+					"page_url":    pageUrl,
+					"view_width":  viewWidth,
+					"view_height": viewHeight,
+				}, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			case "Left Click":
-				resp, err := httpclient.DoHTTP(httpclient.Request{
-					Method: http.MethodPost, Body: strings.NewReader(url.Values{
-						"type":   []string{"click"},
-						"x":      []string{strconv.Itoa(pointerX)},
-						"y":      []string{strconv.Itoa(pointerY)},
-						"button": []string{"left"},
-					}.Encode())}, "http://127.0.0.1:12345/pointer")
-				logger.Printf("left click", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("pointer", map[string]interface{}{
+					"type":   "click",
+					"x":      pointerX,
+					"y":      pointerY,
+					"button": "left",
+				}, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			case "Right Click":
-				resp, err := httpclient.DoHTTP(httpclient.Request{
-					Method: http.MethodPost, Body: strings.NewReader(url.Values{
-						"type":   []string{"click"},
-						"x":      []string{strconv.Itoa(pointerX)},
-						"y":      []string{strconv.Itoa(pointerY)},
-						"button": []string{"right"},
-					}.Encode())}, "http://127.0.0.1:12345/pointer")
-				logger.Printf("right click", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("pointer", map[string]interface{}{
+					"type":   "click",
+					"x":      pointerX,
+					"y":      pointerY,
+					"button": "right",
+				}, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			case "Move To":
-				resp, err := httpclient.DoHTTP(httpclient.Request{
-					Method: http.MethodPost, Body: strings.NewReader(url.Values{
-						"type":   []string{"mousemove"},
-						"x":      []string{strconv.Itoa(pointerX)},
-						"y":      []string{strconv.Itoa(pointerY)},
-						"button": []string{"left"},
-					}.Encode())}, "http://127.0.0.1:12345/pointer")
-				logger.Printf("right click", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("pointer", map[string]interface{}{
+					"type":   "mosuemove",
+					"x":      pointerX,
+					"y":      pointerY,
+					"button": "left",
+				}, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			case "Backspace":
-				resp, err := httpclient.DoHTTP(httpclient.Request{
-					Method: http.MethodPost, Body: strings.NewReader(url.Values{
-						"key_code": []string{"16777219"},
-					}.Encode())}, "http://127.0.0.1:12345/type")
-				logger.Printf("backspace", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("type", map[string]interface{}{"key_code": "16777219"}, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			case "Enter":
-				resp, err := httpclient.DoHTTP(httpclient.Request{
-					Method: http.MethodPost, Body: strings.NewReader(url.Values{
-						"key_code": []string{"16777221"},
-					}.Encode())}, "http://127.0.0.1:12345/type")
-				logger.Printf("enter", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("type", map[string]interface{}{"key_code": "16777221"}, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			case "Type":
-				resp, err := httpclient.DoHTTP(httpclient.Request{
-					Method: http.MethodPost, Body: strings.NewReader(url.Values{
-						"key_string": []string{typeText},
-					}.Encode())}, "http://127.0.0.1:12345/type")
-				logger.Printf("type", "", err, "resp body is: %s", string(resp.Body))
+				if err := instance.SendRequest("type", map[string]interface{}{"key_string": typeText}, nil); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			}
-			var info struct {
+			var remotePageInfo struct {
 				Title   string `json:"title"`
 				PageURL string `json:"page_url"`
 			}
-			resp, err := httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, "http://127.0.0.1:12345/info")
-			logger.Printf("info", "", err, "resp body is: %s", string(resp.Body))
-			if err := json.Unmarshal(resp.Body, &info); err != nil {
-				logger.Printf("info", "", err, "failed to unmarshal")
+			if err := instance.SendRequest("info", nil, &remotePageInfo); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
-
-			w.Write(browser.renderPage(info.Title, "Empty Output",
+			w.Write(remoteBrowser.renderPage(
+				remotePageInfo.Title,
+				index, instance.Tag,
+				instance.GetDebugOutput(BrowserDebugOutputLen),
 				viewWidth, viewHeight,
-				userAgent, info.PageURL,
+				userAgent, remotePageInfo.PageURL,
 				pointerX, pointerY,
 				typeText))
 		}
@@ -235,29 +258,39 @@ func (browser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *common.
 	return fun, nil
 }
 
-func (_ *HandleBrowser) GetRateLimitFactor() int {
+func (remoteBrowser *HandleBrowser) GetRateLimitFactor() int {
 	return 10
 }
 
 type HandleBrowserImage struct {
+	Browsers *browser.Browsers
 }
 
-func (_ *HandleBrowserImage) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (remoteBrowserImage *HandleBrowserImage) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/png")
 		NoCache(w)
-		time.Sleep(100 * time.Millisecond)
-		resp, err := httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, "http://127.0.0.1:12345/redraw")
-		logger.Printf("capture", "capture", err, "resp body is: %s", string(resp.Body))
-		if err == nil {
-			time.Sleep(100 * time.Millisecond)
-			pngFile, err := ioutil.ReadFile("/home/howard/page.png")
-			w.Header().Set("Content-Length", strconv.Itoa(len(pngFile)))
-			if err != nil {
-				logger.Printf("capture", "capture", err, "failed to open png file")
-			}
-			w.Write(pngFile)
+		index, err := strconv.Atoi(r.FormValue("instance_index"))
+		if err != nil {
+			http.Error(w, "Bad instance_index", http.StatusBadRequest)
+			return
 		}
+		instance := remoteBrowserImage.Browsers.Retrieve(index, r.FormValue("instance_tag"))
+		if instance == nil {
+			http.Error(w, "That browser session expired", http.StatusBadRequest)
+			return
+		}
+		if err := instance.RenderPage(); err != nil {
+			http.Error(w, "Render error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		pngFile, err := ioutil.ReadFile(instance.RenderImagePath)
+		if err != nil {
+			http.Error(w, "File IO error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Content-Length", strconv.Itoa(len(pngFile)))
+		w.Write(pngFile)
 	}
 	return fun, nil
 }

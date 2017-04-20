@@ -8,6 +8,7 @@ import (
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
+	"strconv"
 	"strings"
 )
 
@@ -29,6 +30,8 @@ Process only one command (if found) in the incoming mail. If reply addresses are
 to the specified addresses. If they are not specified, use the incoming mail sender's address as reply address.
 */
 func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...string) error {
+	mailproc.Logger = global.Logger{ComponentName: "MailProcessor", ComponentID: strconv.Itoa(mailproc.CommandTimeoutSec)}
+	mailproc.Processor.SetLogger(mailproc.Logger)
 	if global.EmergencyLockDown {
 		return global.ErrEmergencyLockDown
 	}

@@ -46,6 +46,7 @@ type SMTPD struct {
 
 // Check configuration and initialise internal states.
 func (smtpd *SMTPD) Initialise() error {
+	smtpd.Logger = global.Logger{ComponentName: "SMTPD", ComponentID: fmt.Sprintf("%s:%d", smtpd.ListenAddress, smtpd.ListenPort)}
 	if !smtpd.MailProcessor.ReplyMailer.IsConfigured() {
 		return errors.New("SMTPD.Initialise: mail processor's reply mailer must be configured")
 	}

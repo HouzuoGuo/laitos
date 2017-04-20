@@ -43,7 +43,9 @@ type HTTPD struct {
 
 // Check configuration and initialise internal states.
 func (httpd *HTTPD) Initialise() error {
+	httpd.Logger = global.Logger{ComponentName: "HTTPD", ComponentID: fmt.Sprintf("%s:%d", httpd.ListenAddress, httpd.ListenPort)}
 	if httpd.Processor != nil {
+		httpd.Processor.SetLogger(httpd.Logger)
 		if errs := httpd.Processor.IsSaneForInternet(); len(errs) > 0 {
 			return fmt.Errorf("HTTPD.Initialise: %+v", errs)
 		}

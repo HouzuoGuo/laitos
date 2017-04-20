@@ -6,7 +6,6 @@ import (
 	"path"
 	"runtime"
 	"testing"
-	"time"
 )
 
 func TestBrowserServer_Start(t *testing.T) {
@@ -18,11 +17,11 @@ func TestBrowserServer_Start(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	renderOutput.Close()
-	browser := Server{
-		PhantomJSExecPath: phantomJSPath,
-		RenderImagePath:   renderOutput.Name() + ".png",
-		Port:              41599,
+	browser := Browser{
+		PhantomJSExecPath:  phantomJSPath,
+		RenderImagePath:    renderOutput.Name() + ".png",
+		Port:               41599,
+		AutoKillTimeoutSec: 30,
 	}
 	if err := browser.Start(); err != nil {
 		t.Fatal(err)
@@ -37,13 +36,9 @@ func TestBrowserServer_Start(t *testing.T) {
 	}, &result); err != nil || !result {
 		t.Fatal(err, browser.GetDebugOutput(1000))
 	}
-	// Expect page to open within 5 seconds
-	time.Sleep(5 * time.Second)
-	if err := browser.SendRequest("redraw", nil, &result); err != nil {
-		t.Fatal(err, browser.GetDebugOutput(1000))
+	if err := browser.RenderPage(); err != nil {
+		t.Fatal(err)
 	}
-	// Expect page to render within 5 seconds
-	time.Sleep(5 * time.Second)
 	if stat, err := os.Stat(browser.RenderImagePath); err != nil || stat.Size() < 1024 {
 		t.Fatal(err, stat.Size(), browser.GetDebugOutput(1000))
 	}

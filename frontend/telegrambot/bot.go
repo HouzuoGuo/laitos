@@ -1,7 +1,8 @@
-package telegram
+package telegrambot
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
@@ -71,6 +72,18 @@ type TelegramBot struct {
 	Logger        global.Logger            `json:"-"` // Logger
 }
 
+func (bot *TelegramBot) Initialise() error {
+	bot.Logger = global.Logger{ComponentName: "TelegramBot", ComponentID: ""}
+	bot.Processor.SetLogger(bot.Logger)
+	if errs := bot.Processor.IsSaneForInternet(); len(errs) > 0 {
+		return fmt.Errorf("TelegramBot.Initialise: %+v", errs)
+	}
+	if bot.AuthorizationToken == "" {
+		return errors.New("TelegramBot.Initialise: AuthorizationToken must not be empty")
+	}
+	return nil
+}
+
 // Send a text reply to the telegram chat.
 func (bot *TelegramBot) ReplyTo(chatID uint64, text string) error {
 	resp, err := httpclient.DoHTTP(httpclient.Request{
@@ -131,9 +144,6 @@ func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 
 // Immediately begin processing incoming chat messages. Block caller indefinitely.
 func (bot *TelegramBot) StartAndBlock() error {
-	if errs := bot.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("%+v", errs)
-	}
 	// Configure rate limit
 	bot.UserRateLimit = &ratelimit.RateLimit{
 		UnitSecs: PollIntervalSec,

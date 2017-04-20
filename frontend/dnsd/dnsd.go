@@ -64,6 +64,7 @@ type DNSD struct {
 
 // Check configuration and initialise internal states.
 func (dnsd *DNSD) Initialise() error {
+	dnsd.Logger = global.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d&%s:%d", dnsd.TCPListenAddress, dnsd.TCPListenPort, dnsd.UDPListenAddress, dnsd.UDPListenPort)}
 	if dnsd.UDPListenAddress == "" && dnsd.TCPListenAddress == "" {
 		return errors.New("DNSD.Initialise: listen address must not be empty")
 	}

@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"github.com/HouzuoGuo/laitos/bridge"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
@@ -16,7 +15,7 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd"
 	"github.com/HouzuoGuo/laitos/frontend/sockd"
-	"github.com/HouzuoGuo/laitos/frontend/telegram_bot"
+	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
 	"github.com/HouzuoGuo/laitos/global"
 	"os"
 	"strconv"
@@ -39,7 +38,8 @@ type HTTPHandlers struct {
 	SelfTestEndpoint    string `json:"SelfTestEndpoint"`
 	InformationEndpoint string `json:"InformationEndpoint"`
 
-	BrowserEndpoint string `json:"BrowserEndpoint"`
+	BrowserEndpoint       string            `json:"BrowserEndpoint"`
+	BrowserEndpointConfig api.HandleBrowser `json:"BrowserEndpointConfig"`
 
 	CommandFormEndpoint string `json:"CommandFormEndpoint"`
 
@@ -80,12 +80,15 @@ type Config struct {
 
 	SockDaemon sockd.Sockd `json:"SockDaemon"` // Intentionally undocumented
 
-	TelegramBot        telegram.TelegramBot `json:"TelegramBot"`        // Telegram bot configuration
-	TelegramBotBridges StandardBridges      `json:"TelegramBotBridges"` // Telegram bot bridge configuration
+	TelegramBot        telegrambot.TelegramBot `json:"TelegramBot"`        // Telegram bot configuration
+	TelegramBotBridges StandardBridges         `json:"TelegramBotBridges"` // Telegram bot bridge configuration
+
+	Logger global.Logger `json:"-"` // Log config related messages
 }
 
 // Deserialise JSON data into config structures.
 func (config *Config) DeserialiseFromJSON(in []byte) error {
+	config.Logger = global.Logger{ComponentName: "Config"}
 	if err := json.Unmarshal(in, config); err != nil {
 		return err
 	}
@@ -95,9 +98,8 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 // Construct a DNS daemon from configuration and return.
 func (config Config) GetDNSD() *dnsd.DNSD {
 	ret := config.DNSDaemon
-	ret.Logger = global.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d", ret.UDPListenAddress, ret.UDPListenPort)}
 	if err := ret.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetDNSD", "Config", err, "failed to initialise")
+		config.Logger.Fatalf("GetDNSD", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -106,15 +108,14 @@ func (config Config) GetDNSD() *dnsd.DNSD {
 // Construct a health checker and return.
 func (config Config) GetHealthCheck() *healthcheck.HealthCheck {
 	ret := config.HealthCheck
-	ret.Logger = global.Logger{ComponentName: "HealthCheck", ComponentID: "Global"}
 	ret.Features = config.Features
 	if err := ret.Features.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetHealthCheck", "Config", err, "failed to initialise features")
+		config.Logger.Fatalf("GetHealthCheck", "", err, "failed to initialise features")
 		return nil
 	}
 	ret.Mailer = config.Mailer
 	if err := ret.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetHealthCheck", "Config", err, "failed to initialise")
+		config.Logger.Fatalf("GetHealthCheck", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -123,18 +124,16 @@ func (config Config) GetHealthCheck() *healthcheck.HealthCheck {
 // Construct an HTTP daemon from configuration and return.
 func (config Config) GetHTTPD() *httpd.HTTPD {
 	ret := config.HTTPDaemon
-	ret.Logger = global.Logger{ComponentName: "HTTPD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 
 	mailNotification := config.HTTPBridges.NotifyViaEmail
 	mailNotification.Mailer = config.Mailer
-	mailNotification.Logger = ret.Logger
 
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetHTTPD", "Config", err, "failed to initialise features")
+		config.Logger.Fatalf("GetHTTPD", "", err, "failed to initialise features")
 		return nil
 	}
-	ret.Logger.Printf("GetHTTPD", "Config", nil, "enabled features are - %v", features.GetTriggers())
+	config.Logger.Printf("GetHTTPD", "", nil, "enabled features are - %v", features.GetTriggers())
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
@@ -162,12 +161,21 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 		randBytes := make([]byte, 32)
 		_, err := rand.Read(randBytes)
 		if err != nil {
-			ret.Logger.Panicf("GetHTTPD", "Config", err, "failed to read random number")
+			config.Logger.Panicf("GetHTTPD", "", err, "failed to read random number")
 			return nil
 		}
+		// Image handler needs to operate on browser handler's browser instances
+		browserImageHandler := &api.HandleBrowserImage{}
+		browserHandler := config.HTTPHandlers.BrowserEndpointConfig
+		if err := browserHandler.Browsers.Initialise(); err != nil {
+			config.Logger.Panicf("GetHTTPD", "", err, "failed to initialise browser handlers")
+		}
 		imageEndpoint := "/" + hex.EncodeToString(randBytes)
-		handlers[imageEndpoint] = &api.HandleBrowserImage{}
-		handlers[config.HTTPHandlers.BrowserEndpoint] = &api.HandleBrowser{ImageEndpoint: imageEndpoint}
+		handlers[imageEndpoint] = browserImageHandler
+		// Browser handler needs to use image handler's path
+		browserHandler.ImageEndpoint = imageEndpoint
+		browserImageHandler.Browsers = &browserHandler.Browsers
+		handlers[config.HTTPHandlers.BrowserEndpoint] = &browserHandler
 	}
 	if config.HTTPHandlers.CommandFormEndpoint != "" {
 		handlers[config.HTTPHandlers.CommandFormEndpoint] = &api.HandleCommandForm{}
@@ -199,7 +207,7 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 		randBytes := make([]byte, 32)
 		_, err := rand.Read(randBytes)
 		if err != nil {
-			ret.Logger.Panicf("GetHTTPD", "Config", err, "failed to read random number")
+			config.Logger.Panicf("GetHTTPD", "", err, "failed to read random number")
 			return nil
 		}
 		callbackEndpoint := "/" + hex.EncodeToString(randBytes)
@@ -214,7 +222,7 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 	ret.SpecialHandlers = handlers
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetHTTPD", "Config", err, "failed to initialise")
+		config.Logger.Fatalf("GetHTTPD", "", err, "failed to initialise")
 		return nil
 	}
 	for route := range ret.AllRoutes {
@@ -222,7 +230,7 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 		if len(route) > 12 {
 			shortRoute = route[0:12] + "..."
 		}
-		ret.Logger.Printf("GetHTTPD", "Config", nil, "installed route %s", shortRoute)
+		config.Logger.Printf("GetHTTPD", "", nil, "installed route %s", shortRoute)
 	}
 	return &ret
 }
@@ -235,13 +243,12 @@ func (config Config) GetLightHTTPD() *httpd.HTTPD {
 	ret := config.GetHTTPD()
 	ret.TLSCertPath = ""
 	ret.TLSKeyPath = ""
-	ret.Logger = global.Logger{ComponentName: "LightHTTPD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 	if envPort := strings.TrimSpace(os.Getenv("PORT")); envPort == "" {
 		ret.ListenPort = 80
 	} else {
 		iPort, err := strconv.Atoi(envPort)
 		if err != nil {
-			ret.Logger.Fatalf("GetLightHTTPD", "Config", err, "environment variable PORT value is not an integer")
+			config.Logger.Fatalf("GetLightHTTPD", "", err, "environment variable PORT value is not an integer")
 			return nil
 		}
 		ret.ListenPort = iPort
@@ -259,7 +266,7 @@ func (config Config) GetLightHTTPD() *httpd.HTTPD {
 	ret.SpecialHandlers = handlers
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetLightHTTPD", "Config", err, "failed to initialise")
+		config.Logger.Fatalf("GetLightHTTPD", "", err, "failed to initialise")
 		return nil
 	}
 	for route := range ret.AllRoutes {
@@ -267,7 +274,7 @@ func (config Config) GetLightHTTPD() *httpd.HTTPD {
 		if len(route) > 12 {
 			shortRoute = route[0:12] + "..."
 		}
-		ret.Logger.Printf("GetLightHTTPD", "Config", nil, "installed route %s", shortRoute)
+		config.Logger.Printf("GetLightHTTPD", "", nil, "installed route %s", shortRoute)
 	}
 	return ret
 }
@@ -280,18 +287,16 @@ mechanism.
 */
 func (config Config) GetMailProcessor() *mailp.MailProcessor {
 	ret := config.MailProcessor
-	ret.Logger = global.Logger{ComponentName: "MailProcessor", ComponentID: ret.ReplyMailer.MTAHost}
 
 	mailNotification := config.MailProcessorBridges.NotifyViaEmail
 	mailNotification.Mailer = config.Mailer
-	mailNotification.Logger = ret.Logger
 
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetMailProcessor", "Config", err, "failed to initialise features")
+		config.Logger.Fatalf("GetMailProcessor", "", err, "failed to initialise features")
 		return nil
 	}
-	ret.Logger.Printf("GetMailProcessor", "Config", nil, "enabled features are - %v", features.GetTriggers())
+	config.Logger.Printf("GetMailProcessor", "", nil, "enabled features are - %v", features.GetTriggers())
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
@@ -316,11 +321,10 @@ Both SMTP daemon and mail command processor will use the common mailer to forwar
 */
 func (config Config) GetMailDaemon() *smtpd.SMTPD {
 	ret := config.MailDaemon
-	ret.Logger = global.Logger{ComponentName: "SMTPD", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 	ret.MailProcessor = config.GetMailProcessor()
 	ret.ForwardMailer = config.Mailer
 	if err := ret.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetMailDaemon", "Config", err, "failed to initialise")
+		config.Logger.Fatalf("GetMailDaemon", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -329,29 +333,26 @@ func (config Config) GetMailDaemon() *smtpd.SMTPD {
 // Intentionally undocumented
 func (config Config) GetSockDaemon() *sockd.Sockd {
 	ret := config.SockDaemon
-	ret.Logger = global.Logger{ComponentName: "Sockd", ComponentID: fmt.Sprintf("%s:%d", ret.ListenAddress, ret.ListenPort)}
 	if err := ret.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetSockDaemon", "Config", err, "failed to initialise")
+		config.Logger.Fatalf("GetSockDaemon", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
 }
 
 // Construct a telegram bot from configuration and return.
-func (config Config) GetTelegramBot() *telegram.TelegramBot {
+func (config Config) GetTelegramBot() *telegrambot.TelegramBot {
 	ret := config.TelegramBot
-	ret.Logger = global.Logger{ComponentName: "TelegramBot"}
 
 	mailNotification := config.TelegramBotBridges.NotifyViaEmail
 	mailNotification.Mailer = config.Mailer
-	mailNotification.Logger = ret.Logger
 
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		ret.Logger.Fatalf("GetTelegramBot", "Config", err, "failed to initialise features")
+		config.Logger.Fatalf("GetTelegramBot", "", err, "failed to initialise features")
 		return nil
 	}
-	ret.Logger.Printf("GetTelegramBot", "Config", nil, "enabled features are - %v", features.GetTriggers())
+	config.Logger.Printf("GetTelegramBot", "", nil, "enabled features are - %v", features.GetTriggers())
 	// Assemble telegram bot from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,

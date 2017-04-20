@@ -26,6 +26,14 @@ type CommandProcessor struct {
 	Logger         global.Logger
 }
 
+// Assign a logger to command processor itself as well as all bridges that use a logger.
+func (proc *CommandProcessor) SetLogger(logger global.Logger) {
+	proc.Logger = logger
+	for _, b := range proc.ResultBridges {
+		b.SetLogger(logger)
+	}
+}
+
 /*
 From the prospect of Internet-facing mail processor and Twilio hooks, check that parameters are within sane range.
 Return a zero-length slice if everything looks OK.
