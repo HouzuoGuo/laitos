@@ -416,6 +416,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 
 	if len(httpDaemon.SpecialHandlers) != 10 {
 		// 1 x sms, 2 x call, 1 x gitlab, 1 x mail me, 1 x proxy, 2 x index, 1 x cmd form, 1 x info
+		// Sorry, have to skip browser and browser image tests without a good excuse.
 		t.Fatal(httpDaemon.SpecialHandlers)
 	}
 	// Find the randomly generated endpoint name for twilio call callback

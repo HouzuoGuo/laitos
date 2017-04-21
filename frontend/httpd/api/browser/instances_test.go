@@ -3,12 +3,16 @@ package browser
 import (
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestBrowserInstances(t *testing.T) {
-	instances := Browsers{}
+	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
+		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
+	}
+	instances := Renderers{}
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "cannot find PhantomJS") {
 		t.Fatal(err)
 	}
@@ -28,34 +32,39 @@ func TestBrowserInstances(t *testing.T) {
 	if err := instances.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	defer instances.StopAll()
+	defer instances.KillAll()
 
 	i0, b0, err := instances.Acquire()
-	if i0 != 0 || b0.Tag != "1" || err != nil {
+	if i0 != 0 || b0.Tag == "" || err != nil {
 		t.Fatal(i0, b0, err)
 	}
 	i1, b1, err := instances.Acquire()
-	if i1 != 1 || b1.Tag != "2" || err != nil {
+	if i1 != 1 || b1.Tag == "" || err != nil {
 		t.Fatal(i1, b1, err)
 	}
 	i2, b2, err := instances.Acquire()
-	if i2 != 0 || b2.Tag != "3" || err != nil {
+	if i2 != 0 || b2.Tag == "" || err != nil {
 		t.Fatal(i2, b2, err)
 	}
 	i3, b3, err := instances.Acquire()
-	if i3 != 1 || b3.Tag != "4" || err != nil {
+	if i3 != 1 || b3.Tag == "" || err != nil {
 		t.Fatal(i3, b3, err)
 	}
-	if b := instances.Retrieve(0, "1"); b != nil {
+	if b := instances.Retrieve(0, "wrong tag"); b != nil {
 		t.Fatal("did not reject")
 	}
-	if b := instances.Retrieve(1, "2"); b != nil {
+	if b := instances.Retrieve(1, "wrong tag"); b != nil {
 		t.Fatal("did not reject")
 	}
-	if b := instances.Retrieve(0, "3"); b == nil {
+	if b := instances.Retrieve(0, b2.Tag); b == nil {
 		t.Fatal("did not retrieve")
 	}
-	if b := instances.Retrieve(1, "4"); b == nil {
+	if b := instances.Retrieve(1, b3.Tag); b == nil {
 		t.Fatal("did not retrieve")
 	}
+
+	// Repeatedly stopping instance should have no negative consequence
+	instances.KillAll()
+	instances.KillAll()
+	instances.KillAll()
 }

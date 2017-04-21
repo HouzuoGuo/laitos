@@ -41,9 +41,13 @@ func TestSockd_StartAndBlock(t *testing.T) {
 	} else if n, err := conn.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}); err != nil && n != 10 {
 		t.Fatal(err, n)
 	}
+	// Daemon should stop within a second
 	daemon.Stop()
 	time.Sleep(1 * time.Second)
 	if !stopped {
 		t.Fatal("did not stop")
 	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	daemon.Stop()
+	daemon.Stop()
 }

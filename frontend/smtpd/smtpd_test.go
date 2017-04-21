@@ -133,4 +133,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	if !stoppedNormally {
 		t.Fatal("did not stop")
 	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	daemon.Stop()
+	daemon.Stop()
 }

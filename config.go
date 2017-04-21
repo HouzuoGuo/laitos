@@ -167,9 +167,6 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 		// Image handler needs to operate on browser handler's browser instances
 		browserImageHandler := &api.HandleBrowserImage{}
 		browserHandler := config.HTTPHandlers.BrowserEndpointConfig
-		if err := browserHandler.Browsers.Initialise(); err != nil {
-			config.Logger.Panicf("GetHTTPD", "", err, "failed to initialise browser handlers")
-		}
 		imageEndpoint := "/" + hex.EncodeToString(randBytes)
 		handlers[imageEndpoint] = browserImageHandler
 		// Browser handler needs to use image handler's path

@@ -17,36 +17,40 @@ func TestBrowserServer_Start(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	browser := Browser{
+	instance := &Renderer{
 		PhantomJSExecPath:  phantomJSPath,
 		RenderImagePath:    renderOutput.Name() + ".png",
 		Port:               41599,
 		AutoKillTimeoutSec: 30,
 	}
-	if err := browser.Start(); err != nil {
+	if err := instance.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer browser.Stop()
+	defer instance.Kill()
 	var result bool
-	if err := browser.SendRequest("goto", map[string]interface{}{
+	if err := instance.SendRequest("goto", map[string]interface{}{
 		"user_agent":  "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36",
 		"view_width":  1280,
 		"view_height": 768,
 		"page_url":    "https://www.google.com",
 	}, &result); err != nil || !result {
-		t.Fatal(err, browser.GetDebugOutput(1000))
+		t.Fatal(err, instance.GetDebugOutput(1000))
 	}
-	if err := browser.RenderPage(); err != nil {
+	if err := instance.RenderPage(); err != nil {
 		t.Fatal(err)
 	}
-	if stat, err := os.Stat(browser.RenderImagePath); err != nil || stat.Size() < 1024 {
-		t.Fatal(err, stat.Size(), browser.GetDebugOutput(1000))
+	if stat, err := os.Stat(instance.RenderImagePath); err != nil || stat.Size() < 1024 {
+		t.Fatal(err, stat.Size(), instance.GetDebugOutput(1000))
 	}
-	os.Remove(browser.RenderImagePath)
+	os.Remove(instance.RenderImagePath)
 	// Expect some output to be already present in output buffer
-	t.Log(browser.GetDebugOutput(1000))
+	t.Log(instance.GetDebugOutput(1000))
 	// Last line should be "POST /redraw - {}: true\n"
-	if out := browser.GetDebugOutput(5); out != "true\n" {
+	if out := instance.GetDebugOutput(5); out != "true\n" {
 		t.Fatalf(out)
 	}
+	// Repeatedly stopping instance should have no negative consequence
+	instance.Kill()
+	instance.Kill()
+	instance.Kill()
 }

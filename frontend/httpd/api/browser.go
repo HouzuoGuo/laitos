@@ -37,6 +37,7 @@ const (
         <tr>
             <th>View</th>
             <td><input type="submit" name="action" value="Redraw"/></td>
+            <td><input type="submit" name="action" value="Kill All"/></td>
             <td>Width: <input type="text" name="view_width" value="%s" size="5"/></td>
             <td>Height: <input type="text" name="view_height" value="%s" size="5"/></td>
             <td>User Agent: <input type="text" name="user_agent" value="%s" size="50"/></td>
@@ -46,7 +47,7 @@ const (
             <td><input type="submit" name="action" value="Back"/></td>
             <td><input type="submit" name="action" value="Forward"/></td>
             <td><input type="submit" name="action" value="Reload"/></td>
-            <td>
+            <td colspan="2">
                 <input type="submit" name="action" value="Go To"/>
                 <input type="text" name="page_url" value="%s" size="60"/>
             </td>
@@ -56,17 +57,15 @@ const (
             <td><input type="submit" name="action" value="Left Click"/></td>
             <td><input type="submit" name="action" value="Right Click"/></td>
             <td><input type="submit" name="action" value="Move To"/></td>
-            <td>
-                X: <input type="text" id="pointer_x" name="pointer_x" value="%s" size="5"/>&nbsp;
-                Y: <input type="text" id="pointer_y" name="pointer_y" value="%s" size="5"/>
-            </td>
+            <td>X: <input type="text" id="pointer_x" name="pointer_x" value="%s" size="5"/></td>
+            <td>Y: <input type="text" id="pointer_y" name="pointer_y" value="%s" size="5"/></td>
         </tr>
         <tr>
             <th>Keyboard</th>
             <td><input type="submit" name="action" value="Backspace"/></td>
             <td><input type="submit" name="action" value="Enter"/></td>
+            <td><input type="submit" name="action" value="Type"/></td>
             <td colspan="2">
-                <input type="submit" name="action" value="Type"/>
                 <input type="text" name="type_text" value="%s"/>
             </td>
         </tr>
@@ -83,11 +82,11 @@ const (
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowser struct {
-	ImageEndpoint string           `json:"-"`
-	Browsers      browser.Browsers `json:"Browsers"`
+	ImageEndpoint string            `json:"-"`
+	Browsers      browser.Renderers `json:"Browsers"`
 }
 
-func (remoteBrowser *HandleBrowser) renderPage(title string,
+func (remoteBrowser *HandleBrowser) RenderPage(title string,
 	instanceIndex int, instanceTag string,
 	debugOut string,
 	viewWidth, viewHeight int,
@@ -105,7 +104,7 @@ func (remoteBrowser *HandleBrowser) renderPage(title string,
 		remoteBrowser.ImageEndpoint, instanceIndex, instanceTag))
 }
 
-func (remoteBrowser *HandleBrowser) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
+func (remoteBrowser *HandleBrowser) ParseSubmission(r *http.Request) (instanceIndex int, instanceTag string, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
 	instanceIndex, _ = strconv.Atoi(r.FormValue("instance_index"))
 	instanceTag = r.FormValue("instance_tag")
 	viewWidth, _ = strconv.Atoi(r.FormValue("view_width"))
@@ -123,7 +122,10 @@ func (remoteBrowser *HandleBrowser) parseSubmission(r *http.Request) (instanceIn
 	typeText = r.FormValue("type_text")
 	return
 }
-func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
+func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
+	if err := remoteBrowser.Browsers.Initialise(); err != nil {
+		return nil, err
+	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		NoCache(w)
@@ -134,7 +136,7 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *c
 				http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 				return
 			}
-			w.Write(remoteBrowser.renderPage(
+			w.Write(remoteBrowser.RenderPage(
 				"Empty Browser",
 				index, instance.Tag,
 				instance.GetDebugOutput(BrowserDebugOutputLen),
@@ -143,7 +145,7 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *c
 				0, 0,
 				""))
 		} else if r.Method == http.MethodPost {
-			index, tag, viewWidth, viewHeight, userAgent, pageUrl, pointerX, pointerY, typeText := remoteBrowser.parseSubmission(r)
+			index, tag, viewWidth, viewHeight, userAgent, pageUrl, pointerX, pointerY, typeText := remoteBrowser.ParseSubmission(r)
 			instance := remoteBrowser.Browsers.Retrieve(index, tag)
 			if instance == nil {
 				// Old instance is no longer there, so start a new browser instance
@@ -152,7 +154,7 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *c
 					http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 					return
 				}
-				w.Write(remoteBrowser.renderPage(
+				w.Write(remoteBrowser.RenderPage(
 					"Empty Browser",
 					index, instance.Tag,
 					instance.GetDebugOutput(BrowserDebugOutputLen),
@@ -166,6 +168,8 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *c
 			switch r.FormValue("action") {
 			case "Redraw":
 				// There is no javascript action required here
+			case "Kill All":
+				remoteBrowser.Browsers.KillAll()
 			case "Back":
 				if err := instance.SendRequest("back", nil, nil); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -245,7 +249,7 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, cmdProc *c
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			w.Write(remoteBrowser.renderPage(
+			w.Write(remoteBrowser.RenderPage(
 				remotePageInfo.Title,
 				index, instance.Tag,
 				instance.GetDebugOutput(BrowserDebugOutputLen),
@@ -263,7 +267,7 @@ func (remoteBrowser *HandleBrowser) GetRateLimitFactor() int {
 }
 
 type HandleBrowserImage struct {
-	Browsers *browser.Browsers
+	Browsers *browser.Renderers `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
 func (remoteBrowserImage *HandleBrowserImage) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {

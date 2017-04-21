@@ -38,5 +38,4 @@ func TestTelegramBot_StartAndBock(t *testing.T) {
 	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {
 		t.Fatal(err)
 	}
-
 }
