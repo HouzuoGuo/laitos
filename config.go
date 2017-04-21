@@ -364,5 +364,9 @@ func (config Config) GetTelegramBot() *telegrambot.TelegramBot {
 			&mailNotification,
 		},
 	}
+	if err := ret.Initialise(); err != nil {
+		config.Logger.Fatalf("GetTelegramBot", "", err, "failed to initialise")
+		return nil
+	}
 	return &ret
 }
