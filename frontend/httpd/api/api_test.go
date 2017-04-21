@@ -131,20 +131,6 @@ func TestAllHandlers(t *testing.T) {
 		t.Fatal(err, "\n", string(resp.Body))
 	}
 	proc.Features.Shell.InterpreterPath = oldShellInterpreter
-	// Browser
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"browser")
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Forward") {
-		t.Fatal(err, string(resp.Body))
-	}
-	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, addr+"browser")
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Forward") {
-		t.Fatal(err, string(resp.Body))
-	}
-	// Browser image
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"browser_img?instance_index=0&instance_tag=a")
-	if err != nil || resp.StatusCode != http.StatusBadRequest || !strings.Contains(string(resp.Body), "session expired") {
-		t.Fatal(err, string(resp.Body))
-	}
 	// Command Form
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
