@@ -797,10 +797,11 @@ func SockDaeemonTest(t *testing.T, config Config) {
 }
 
 func TelegramBotTest(t *testing.T, config Config) {
-	telegramBot := config.GetTelegramBot()
-	// It is really difficult to test the chat routine
-	// So I am going to only do the API test call
-	if err := telegramBot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {
+	bot := config.GetTelegramBot()
+	if err := bot.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {
 		t.Fatal(err)
 	}
 }
