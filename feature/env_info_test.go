@@ -20,7 +20,7 @@ func TestEnvInfo_Execute(t *testing.T) {
 	if ret := info.Execute(Command{Content: "wrong"}); ret.Error != ErrBadEnvInfoChoice {
 		t.Fatal(ret)
 	}
-	if ret := info.Execute(Command{Content: "runtime"}); ret.Error != nil || strings.Index(ret.Output, "Public IP") == -1 {
+	if ret := info.Execute(Command{Content: "runtime"}); ret.Error != nil || strings.Index(ret.Output, "IP") == -1 {
 		t.Fatal(ret)
 	}
 	logger := global.Logger{}

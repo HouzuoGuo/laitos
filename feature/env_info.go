@@ -60,23 +60,20 @@ func (info *EnvControl) Execute(cmd Command) *Result {
 
 // Return runtime information (uptime, CPUs, goroutines, memory usage) in a multi-line text.
 func GetRuntimeInfo() string {
-	var memStats runtime.MemStats
-	runtime.ReadMemStats(&memStats)
-	return fmt.Sprintf(`Public IP: %s
-System time: %s
-Uptime: %s
-Number of CPUs: %d
-Number of Goroutines: %d
-GOMAXPROCS: %d
-System memory usage: %d MBytes
+	usedMem, totalMem := env.GetSystemMemoryUsageKB()
+	return fmt.Sprintf(`IP: %s
+Clock: %s
+Sys/prog uptime: %s / %s
+Total/used/prog mem: %d / %d / %d MB
+Sys load: %s
+Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
 `,
 		env.GetPublicIP(),
 		time.Now().String(),
-		time.Now().Sub(global.StartupTime).String(),
-		runtime.NumCPU(),
-		runtime.NumGoroutine(),
-		runtime.GOMAXPROCS(0),
-		memStats.Sys/1024/1024)
+		time.Duration(env.GetSystemUptimeSec()*int(time.Second)).String(), time.Now().Sub(global.StartupTime).String(),
+		totalMem/1024, usedMem/1024, env.GetProgramMemoryUsageKB()/1024,
+		env.GetSystemLoad(),
+		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine())
 }
 
 // Return latest log entry of all kinds in a multi-line text, one log entry per line. Latest log entry comes first.
