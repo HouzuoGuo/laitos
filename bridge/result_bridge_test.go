@@ -16,7 +16,7 @@ func TestLintText_Transform(t *testing.T) {
 		t.Fatal(err, result.CombinedOutput)
 	}
 
-	mixedString := "abc  def 123 \r\t\n @#$<>\r\t\n 任意的"
+	mixedString := "abc \r\n\t def 123\t456 @#$<>\r\t\n 任意的"
 	result.CombinedOutput = mixedString
 	if err := lint.Transform(result); err != nil || result.CombinedOutput != mixedString {
 		t.Fatal(err, result.CombinedOutput)
@@ -28,7 +28,7 @@ func TestLintText_Transform(t *testing.T) {
 	lint.KeepVisible7BitCharOnly = true
 	lint.CompressSpaces = true
 	lint.BeginPosition = 2
-	lint.MaxLength = 14
+	lint.MaxLength = 200
 	result.CombinedOutput = ""
 	if err := lint.Transform(result); err != nil || result.CombinedOutput != "" {
 		t.Fatal(err, result.CombinedOutput)
@@ -38,7 +38,11 @@ func TestLintText_Transform(t *testing.T) {
 		t.Fatal(err, result.CombinedOutput)
 	}
 	result.CombinedOutput = mixedString
-	if err := lint.Transform(result); err != nil || result.CombinedOutput != "c def 123;@#$<" {
+	if err := lint.Transform(result); err != nil || result.CombinedOutput != "c;def 123 456 @#$<>;" {
+		t.Fatal(err, result.CombinedOutput)
+	}
+	lint.MaxLength = 10
+	if err := lint.Transform(result); err != nil || result.CombinedOutput != "def 123 45" {
 		t.Fatal(err, result.CombinedOutput)
 	}
 }

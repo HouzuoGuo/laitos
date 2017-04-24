@@ -194,9 +194,7 @@ func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
 conversationDone:
 	if fromAddr == "" || len(toAddrs) == 0 {
 		finishedNormally = false
-		if finishReason == "" {
-			finishReason = "discarded malformed mail"
-		}
+		finishReason = "discarded malformed mail"
 	}
 	if finishedNormally {
 		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "got a mail from \"%s\" addressed to %v", fromAddr, toAddrs)

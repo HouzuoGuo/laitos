@@ -71,7 +71,7 @@ func (lint *LintText) Transform(result *feature.Result) error {
 	if lint.KeepVisible7BitCharOnly {
 		var out bytes.Buffer
 		for _, r := range ret {
-			if r < 128 && unicode.IsPrint(r) {
+			if r < 128 && (unicode.IsPrint(r) || unicode.IsSpace(r)) {
 				out.WriteRune(r)
 			}
 		}
