@@ -2,6 +2,7 @@ package global
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -25,6 +26,9 @@ func TestLogger_Format(t *testing.T) {
 	}
 	logger.ComponentName = "comp"
 	if msg := logger.Format("fun", "act", errors.New("test"), "a"); msg != "comp[ha].fun(act): Error \"test\" - a" {
+		t.Fatal(msg)
+	}
+	if msg := logger.Format("fun", "act", errors.New("test"), strings.Repeat("a", MaxLogMessageLen)); len(msg) != MaxLogMessageLen {
 		t.Fatal(msg)
 	}
 }

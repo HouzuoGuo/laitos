@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	NumLatestLogEntries = 384 // Keep this number of latest log entries in memory
+	NumLatestLogEntries = 384  // Keep this number of latest log entries in memory
+	MaxLogMessageLen    = 1024 // Truncate long log messages to this length
 )
 
 var LatestLogs = NewRingBuffer(NumLatestLogEntries)     // Keep latest log entry of all kinds in the buffer
@@ -47,6 +48,9 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 		msg.WriteString(fmt.Sprintf("Error \"%v\" - ", err))
 	}
 	msg.WriteString(fmt.Sprintf(template, values...))
+	if msg.Len() > MaxLogMessageLen {
+		msg.Truncate(MaxLogMessageLen)
+	}
 	return msg.String()
 }
 

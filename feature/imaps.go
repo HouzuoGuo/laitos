@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/email"
-	"log"
 	"math/rand"
 	"net"
 	"regexp"
@@ -222,9 +221,7 @@ func (mbox *IMAPS) ConnectLoginSelect() (err error) {
 }
 
 func (mbox *IMAPS) DisconnectLogout() {
-	if _, _, err := mbox.Converse("LOGOUT"); err != nil {
-		log.Printf("IMAPS.DisconnectLogout: LOGOUT command failed - %v", err)
-	}
+	mbox.Converse("LOGOUT") // intentionally ignore conversation error
 	mbox.tlsConn.Close()
 	mbox.conn.Close()
 }
