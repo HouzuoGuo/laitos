@@ -33,14 +33,17 @@ func (check *HealthCheck) Execute() bool {
 	check.Logger.Printf("Execute", "", nil, "running now")
 	allOK := true
 	// Check TCP ports in parallel
-	checkTCPPorts := make(map[int]bool)
+	portCheckResult := make(map[int]bool)
+	portCheckMutex := new(sync.Mutex)
 	waitPorts := new(sync.WaitGroup)
 	waitPorts.Add(len(check.TCPPorts))
 	for _, portNumber := range check.TCPPorts {
 		go func(portNumber int) {
 			conn, err := net.DialTimeout("tcp", "localhost:"+strconv.Itoa(portNumber), TCPConnectionTimeoutSec*time.Second)
-			checkTCPPorts[portNumber] = err == nil
-			allOK = allOK && checkTCPPorts[portNumber]
+			portCheckMutex.Lock()
+			portCheckResult[portNumber] = err == nil
+			allOK = allOK && portCheckResult[portNumber]
+			portCheckMutex.Unlock()
 			if err == nil {
 				conn.Close()
 			}
@@ -63,7 +66,7 @@ func (check *HealthCheck) Execute() bool {
 	// 1 - port checks
 	mailMessage.WriteString("\nPorts:\n")
 	for _, portNumber := range check.TCPPorts {
-		if checkTCPPorts[portNumber] {
+		if portCheckResult[portNumber] {
 			mailMessage.WriteString(fmt.Sprintf("TCP %d: OK\n", portNumber))
 		} else {
 			mailMessage.WriteString(fmt.Sprintf("TCP %d: Error\n", portNumber))
