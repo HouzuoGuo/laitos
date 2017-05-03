@@ -10,53 +10,38 @@ Want to host a simple website, Email server, or ad-blocking DNS server? Skip tho
 ## Highlights
 
 - <strong>Powerful</strong> - web, mail and DNS servers beautifully re-invented in just 9K lines of code.
-- <strong>Fun</strong> - access your personal mails and social networks via telephone and satellite!
+- <strong>Fun</strong> - access your personal mails and social networks via telephone, SMS, and more!
 - <strong>Hyped by Buzzwords</strong> - certified to run in any container, PaaS, IaaS, *aaS.
 - <strong>Lightweight</strong> - uses as little as 64MB of memory and 16MB of disk.
 - <strong>Portable</strong> - runs on any flavour of Linux, Unix, and Windows.
-- <strong>Independent</strong> - reliably operates without needing additional software or libraries.
+- <strong>Independent</strong> - reliably operates without additional software or libraries.
 
 Check out [Feature List](https://github.com/HouzuoGuo/laitos/wiki/Feature-List) for the full list of features!
 
 ## Build & Enjoy
 Check out the source code under your `$GOPATH` directory and run `go build`.
 
-The friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configuration) page will then get you started.
-
-
+Then the friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configuration) page will help you to craft your own server.
 
 ## Features (TODO: move this away from homepage)
 
-### For Fun
-- Decrypt AES-encrypted files and search for specific lines among them.
-- Inspect program environment such as public IP address, memory usage, latest log entries, and stack traces.
+### Fun features for telephone/SMS/telegram and more
+- Decrypt AES-encrypted files and search for keywords among the content.
+- Retrieve environment information such as IP address, memory usage, log entries, and more.
 - Post updates to Facebook.
-- List and read mails from personal mailboxes via IMAPS.
+- List and read mails from personal mailboxes via IMAP.
 - Send mails to friends.
 - Run operating system commands (shell commands).
 - Send text message to friend's mobile number.
-- Call friend's mobile number and speak a short message.
+- Call friend's mobile number to speak a short message.
 - Read Twitter home time-line.
 - Post updates to Twitter.
 - Ask about weather and all sorts of questions on WolframAlpha.
 
-### Daemon services
-- Web server
-  * Host static HTML home pages (index pages).
-  * Host directory of static HTML files and other assets.
-- More web services
-  * Retrieve environment information (IP address, memory usage, log entries, etc).
-  * Use fun features in an interactive web form.
-  * Browse and download files from personal Gitlab projects.
-  * Web proxy for viewing simple web pages.
-  * API hook for Twilio telephone call and Twilio SMS.
-- Periodic health check
-  * Check that features' API credentials are working.
-  * Check that daemon ports are still listened on.
-  * Send health reports at regular interval via Email.
+### Web services
 - DNS server
-  * Automatically tracks advertising domains list.
-  * Block ads by refusing to answer to their names.
+  * Automatically updates advertising domains list.
+  * Block ads by refusing to answer to their domain names.
   * Forward other queries to a well-known DNS server of your choice.
 - Mail server
   * Support TLS for communication secrecy.
@@ -64,6 +49,20 @@ The friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configurat
 - Telegram bot
   * Use fun features in an interactive chat.
   * Retrieve daemon health information.
+- Web server
+  * Host static HTML pages such as home page.
+  * Host file directories.
+- More web services
+  * Use fun features in an interactive web form.
+  * Retrieve environment information such as IP address, memory usage, log entries and more.
+  * Browse and download files from personal Gitlab projects.
+  * Browse websites via server-side renderer (browser-in-browser).
+  * Visit simple websites via a web proxy.
+  * API hook for Twilio telephone call and Twilio SMS.
+- Periodic health check
+  * Validate API credentials used by social networks.
+  * Verify that servers are still healthy and running.
+  * Send health reports at regular interval via Email.
 
 Copyright
 ====================
@@ -78,5 +77,4 @@ See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program.
 If not, see <http://www.gnu.org/licenses/>.
 
-The Go gopher was designed by Renee French. (http://reneefrench.blogspot.com/).
-The Go gopher is covered by the [Creative Commons Attribution 3.0][Creative Commons Attribution 3.0] license.
+The Go gopher was designed by [Renee French](http://reneefrench.blogspot.com/). The Go gopher is covered by the "Creative Commons Attribution 3.0" license.
