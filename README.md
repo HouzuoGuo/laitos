@@ -23,6 +23,8 @@ Check out the source code under your `$GOPATH` directory and run `go build`.
 
 Then the friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configuration) page will help you to craft your own server.
 
+Check out [Deployment](https://github.com/HouzuoGuo/laitos/wiki/Deployment) page for tips on AWS and Google Cloud deployment.
+
 ## Features (TODO: move this away from homepage)
 
 ### Fun features for telephone/SMS/telegram and more
@@ -77,4 +79,4 @@ See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program.
 If not, see <http://www.gnu.org/licenses/>.
 
-The Go gopher was designed by [Renee French](http://reneefrench.blogspot.com/). The Go gopher is covered by the "Creative Commons Attribution 3.0" license.
+The Golang mascot "gopher" is designed by [Renee French](http://reneefrench.blogspot.com). The gopher side portrait is designed by [Takuya Ueda](https://twitter.com/tenntenn), licensed under the "Creative Commons Attribution 3.0" license.
