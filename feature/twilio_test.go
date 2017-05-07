@@ -24,7 +24,7 @@ func TestTwilio_Execute(t *testing.T) {
 		t.Fatal(ret)
 	}
 	// Send an SMS
-	message := "test pls ignore"
+	message := "laitos twilio test pls ignore"
 	expectedOutput := strconv.Itoa(len(TestTwilio.TestPhoneNumber) + len(message))
 	if ret := TestTwilio.Execute(Command{TimeoutSec: 30, Content: TwilioSendSMS + TestTwilio.TestPhoneNumber + "," + message}); ret.Error != nil || ret.Output != expectedOutput {
 		t.Fatal(ret)

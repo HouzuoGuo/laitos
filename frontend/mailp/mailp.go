@@ -99,5 +99,6 @@ func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...str
 	return nil
 }
 
-var TestUndocumented1Message = ""               // Content is set by init_mail_test.go
-var TestUndocumented1 = feature.Undocumented1{} // Details are set by init_mail_test.go
+var TestUndocumented1Message = ""                     // Content is set by init_mail_test.go
+var TestUndocumented1 = feature.Undocumented1{}       // Details are set by init_mail_test.go
+var TestUndocumented1Wolfram = feature.WolframAlpha{} // Details are set by init_mail_test.go

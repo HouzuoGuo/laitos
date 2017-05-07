@@ -17,7 +17,7 @@ func TestUndocumented1_Execute(t *testing.T) {
 		t.Fatal("did not error")
 	}
 	// Do something
-	if ret := TestUndocumented1.Execute(Command{TimeoutSec: 30, Content: "testtest123"}); ret.Error != nil {
+	if ret := TestUndocumented1.Execute(Command{TimeoutSec: 30, Content: "laitos undocumented1 test"}); ret.Error != nil {
 		t.Fatal(ret.Error)
 	}
 }

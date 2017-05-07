@@ -21,7 +21,7 @@ func TestFacebook_Execute(t *testing.T) {
 		t.Fatal(ret)
 	}
 	// Post a good tweet
-	message := "test pls ignore"
+	message := "laitos facebook test pls ignore"
 	if ret := TestFacebook.Execute(Command{TimeoutSec: 30, Content: message}); ret.Error != nil ||
 		ret.Output != strconv.Itoa(len(message)) {
 		t.Fatal(ret)

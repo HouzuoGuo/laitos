@@ -96,7 +96,7 @@ func TestIMAPAccounts_Execute(t *testing.T) {
 	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "does_not_exist 1"}); strings.Index(ret.Error.Error(), "find box") == -1 {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 100000000, 100"}); strings.Index(ret.Error.Error(), "Max number") == -1 {
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 100000000, 100"}); strings.Index(ret.Error.Error(), "skip+count") == -1 {
 		t.Fatal(ret)
 	}
 	// List latest messages

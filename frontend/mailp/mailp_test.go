@@ -100,6 +100,9 @@ func TestMailProcessor_Process_Undocument1Reply(t *testing.T) {
 	mailproc.Processor = common.GetTestCommandProcessor()
 	mailproc.Processor.Features.Undocumented1 = TestUndocumented1
 	mailproc.Processor.Features.LookupByTrigger[TestUndocumented1.Trigger()] = &TestUndocumented1
+	mailproc.Processor.Features.WolframAlpha = TestUndocumented1Wolfram
+	mailproc.Processor.Features.LookupByTrigger[TestUndocumented1Wolfram.Trigger()] = &TestUndocumented1Wolfram
+
 	if err := mailproc.Process([]byte(TestUndocumented1Message)); err != nil {
 		t.Fatal(err)
 	}

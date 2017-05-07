@@ -39,7 +39,7 @@ func TestTwitter_Execute(t *testing.T) {
 		t.Fatal(ret)
 	}
 	// Post a good tweet
-	tweet := "test pls ignore"
+	tweet := "laitos twitter test pls ignore"
 	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterPostTweet + tweet}); ret.Error != nil ||
 		ret.Output != strconv.Itoa(len(tweet)) {
 		t.Fatal(ret)
