@@ -11,6 +11,7 @@ import (
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/ratelimit"
 	"io"
+	mathRand "math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -312,6 +313,10 @@ func (conn *CipherConnection) ParseRequest() (destAddr string, err error) {
 	return
 }
 
+func (conn *CipherConnection) SleepRand() {
+	time.Sleep(time.Duration(mathRand.Intn(3000)) * time.Millisecond)
+}
+
 func (conn *CipherConnection) HandleAndCloseConnection() {
 	remoteAddr := conn.RemoteAddr().String()
 
@@ -322,15 +327,18 @@ func (conn *CipherConnection) HandleAndCloseConnection() {
 	destAddr, err := conn.ParseRequest()
 	if err != nil {
 		conn.logger.Warningf("HandleAndCloseConnection", remoteAddr, err, "failed to get destination address")
+		conn.SleepRand()
 		return
 	}
 	if strings.ContainsRune(destAddr, 0x00) {
 		conn.logger.Warningf("HandleAndCloseConnection", remoteAddr, err, "will not serve invalid destination address with 0 in it")
+		conn.SleepRand()
 		return
 	}
 	dest, err := net.DialTimeout("tcp", destAddr, IOTimeoutSec)
 	if err != nil {
 		conn.logger.Warningf("HandleAndCloseConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
+		conn.SleepRand()
 		return
 	}
 	defer dest.Close()
