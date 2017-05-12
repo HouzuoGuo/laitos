@@ -9,7 +9,7 @@ config_dir=$1
 set -e
 
 pushd ../../
-go build
+env CGO_ENABLED=0 go build
 popd
 
 rm -rf bundle/
