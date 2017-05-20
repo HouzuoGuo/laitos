@@ -10,6 +10,7 @@ import (
 	"github.com/HouzuoGuo/laitos/global"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 /*
@@ -19,9 +20,40 @@ postfix's "forward-mail-to-program" mechanism.
 */
 type MailProcessor struct {
 	CommandTimeoutSec int                      `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds
+	Undocumented1     Undocumented1            `json:"Undocumented1"`     // Intentionally undocumented he he he he
 	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
 	ReplyMailer       email.Mailer             `json:"-"`                 // To deliver Email replies
 	Logger            global.Logger            `json:"-"`                 // Logger
+}
+
+// Run a health check on mailer and "undocumented" things.
+func (mailproc *MailProcessor) SelfTest() error {
+	ret := make([]error, 0, 0)
+	retMutex := &sync.Mutex{}
+	wait := &sync.WaitGroup{}
+	// One mailer and one undocumented
+	wait.Add(2)
+	go func() {
+		err := mailproc.ReplyMailer.SelfTest()
+		if err != nil {
+			retMutex.Lock()
+			ret = append(ret, err)
+			retMutex.Unlock()
+		}
+	}()
+	go func() {
+		err := mailproc.Undocumented1.SelfTest()
+		if err != nil {
+			retMutex.Lock()
+			ret = append(ret, err)
+			retMutex.Unlock()
+		}
+	}()
+	wait.Done()
+	if len(ret) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%v", ret)
 }
 
 /*
@@ -36,7 +68,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...str
 		return global.ErrEmergencyLockDown
 	}
 	if errs := mailproc.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("MailProcessor.Proces: %+v", errs)
+		return fmt.Errorf("MailProcessor.Process: %+v", errs)
 	}
 	var commandIsProcessed bool
 	walkErr := email.WalkMessage(mailContent, func(prop email.BasicProperties, body []byte) (bool, error) {
@@ -60,22 +92,15 @@ func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...str
 		}
 		// A command has been processed, now work on the reply.
 		commandIsProcessed = true
-		// Normally the result should be sent as Email reply, but there is an undocumented scenario.
-		tmpUndoc1 := feature.Undocumented1{}
-		undoc1, isConfigured := mailproc.Processor.Features.LookupByTrigger[tmpUndoc1.Trigger()]
-		if isConfigured {
-			undoc1T := undoc1.(*feature.Undocumented1)
+		// Normally the result should be sent as Email reply, but there are undocumented scenarios.
+		if mailproc.Undocumented1.IsConfigured() {
 			// The undocumented scenario is triggered by an Email address suffix
-			if undoc1T.Addr1 != "" && strings.HasSuffix(prop.ReplyAddress, undoc1T.Addr1) {
+			if mailproc.Undocumented1.Addr1 != "" && strings.HasSuffix(prop.ReplyAddress, mailproc.Undocumented1.Addr1) {
 				// Let the undocumented scenario take care of delivering the result
-				undoc1Result := undoc1T.Execute(feature.Command{
-					Content:    result.CombinedOutput,
-					TimeoutSec: mailproc.CommandTimeoutSec,
-				})
-				if undoc1Result.Error == nil {
+				if undoc1Err := mailproc.Undocumented1.SendMessage(result.CombinedOutput); undoc1Err == nil {
 					return false, nil
 				} else {
-					return false, undoc1Result.Error
+					return false, undoc1Err
 				}
 			}
 		}
@@ -100,5 +125,4 @@ func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...str
 }
 
 var TestUndocumented1Message = ""                     // Content is set by init_mail_test.go
-var TestUndocumented1 = feature.Undocumented1{}       // Details are set by init_mail_test.go
 var TestUndocumented1Wolfram = feature.WolframAlpha{} // Details are set by init_mail_test.go

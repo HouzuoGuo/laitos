@@ -108,8 +108,10 @@ func (config Config) GetDNSD() *dnsd.DNSD {
 // Construct a health checker and return.
 func (config Config) GetHealthCheck() *healthcheck.HealthCheck {
 	ret := config.HealthCheck
-	ret.Features = config.Features
-	if err := ret.Features.Initialise(); err != nil {
+	ret.FeaturesToCheck = &config.Features
+	// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
+	ret.MailpToCheck = config.GetMailProcessor()
+	if err := ret.FeaturesToCheck.Initialise(); err != nil {
 		config.Logger.Fatalf("GetHealthCheck", "", err, "failed to initialise features")
 		return nil
 	}
@@ -151,7 +153,11 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 	// Make handler factories
 	handlers := map[string]api.HandlerFactory{}
 	if config.HTTPHandlers.InformationEndpoint != "" {
-		handlers[config.HTTPHandlers.InformationEndpoint] = &api.HandleSystemInfo{}
+		handlers[config.HTTPHandlers.InformationEndpoint] = &api.HandleSystemInfo{
+			FeaturesToCheck: &config.Features,
+			// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
+			MailpToCheck: config.GetMailProcessor(),
+		}
 	}
 	if config.HTTPHandlers.BrowserEndpoint != "" {
 		/*

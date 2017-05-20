@@ -377,11 +377,11 @@ func HealthCheckTest(t *testing.T, config Config) {
 		t.Fatal("some check failed")
 	}
 	// Break a feature
-	check.Features.LookupByTrigger[".s"] = &feature.Shell{}
+	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{}
 	if check.Execute() {
 		t.Fatal("did not fail")
 	}
-	check.Features.LookupByTrigger[".s"] = &feature.Shell{InterpreterPath: "/bin/bash"}
+	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{InterpreterPath: "/bin/bash"}
 	// Expect checks to begin within a second
 	if err := check.Initialise(); err != nil {
 		t.Fatal(err)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
+	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"github.com/HouzuoGuo/laitos/global"
 	"net"
 	"sort"
@@ -20,12 +21,13 @@ const (
 
 // Periodically check TCP ports and feature set, send notification mail along with latest log entries.
 type HealthCheck struct {
-	TCPPorts    []int              `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
-	IntervalSec int                `json:"IntervalSec"` // Check TCP ports and features at this interval
-	Mailer      email.Mailer       `json:"Mailer"`      // Send notification mails via this mailer
-	Recipients  []string           `json:"Recipients"`  // Address of recipients of notification mails
-	Features    feature.FeatureSet `json:"-"`
-	Logger      global.Logger      `json:"-"`
+	TCPPorts        []int                `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
+	IntervalSec     int                  `json:"IntervalSec"` // Check TCP ports and features at this interval
+	Mailer          email.Mailer         `json:"Mailer"`      // Send notification mails via this mailer
+	Recipients      []string             `json:"Recipients"`  // Address of recipients of notification mails
+	FeaturesToCheck *feature.FeatureSet  `json:"-"`           // Health check subject - features and their API keys
+	MailpToCheck    *mailp.MailProcessor `json:"-"`           // Health check subject - mail processor and its mailer
+	Logger          global.Logger        `json:"-"`
 }
 
 // Check TCP ports and features, return all-OK or not.
@@ -51,9 +53,16 @@ func (check *HealthCheck) Execute() bool {
 		}(portNumber)
 	}
 	waitPorts.Wait()
-	// Check features
-	featureErrs := check.Features.SelfTest()
-	allOK = allOK && len(featureErrs) == 0
+	// Check features and mail processor
+	featureErrs := make(map[feature.Trigger]error)
+	if check.FeaturesToCheck != nil {
+		featureErrs = check.FeaturesToCheck.SelfTest()
+	}
+	var mailpErr error
+	if check.MailpToCheck != nil {
+		mailpErr = check.MailpToCheck.SelfTest()
+	}
+	allOK = allOK && len(featureErrs) == 0 && mailpErr == nil
 	// Compose mail body
 	var mailMessage bytes.Buffer
 	if allOK {
@@ -80,13 +89,19 @@ func (check *HealthCheck) Execute() bool {
 			mailMessage.WriteString(fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
 		}
 	}
-	// 3 - warnings
+	// 3 - mail processor checks
+	if mailpErr == nil {
+		mailMessage.WriteString("\nMail processor: OK\n")
+	} else {
+		mailMessage.WriteString(fmt.Sprintf("\nMail processor: %v\n", mailpErr))
+	}
+	// 4 - warnings
 	mailMessage.WriteString("\nWarnings:\n")
 	mailMessage.WriteString(feature.GetLatestWarnings())
-	// 4 - logs
+	// 5 - logs
 	mailMessage.WriteString("\nLogs:\n")
 	mailMessage.WriteString(feature.GetLatestLog())
-	// 5 - stack traces
+	// 6 - stack traces
 	mailMessage.WriteString("\nStack traces:\n")
 	mailMessage.WriteString(feature.GetGoroutineStacktraces())
 	// Send away!

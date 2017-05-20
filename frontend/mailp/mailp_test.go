@@ -18,6 +18,7 @@ func TestMailProcessor_Process_MailReply(t *testing.T) {
 			MTAPort:  25,
 			MailFrom: "howard@localhost",
 		},
+		Undocumented1: TestUndocumented1,
 	}
 	// Processor has insane configuration
 	if err := mailproc.Process([]byte("test body")); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
@@ -25,8 +26,13 @@ func TestMailProcessor_Process_MailReply(t *testing.T) {
 	}
 	// Prepare a good processor
 	mailproc.Processor = common.GetTestCommandProcessor()
-	mailproc.Processor.Features.Undocumented1 = TestUndocumented1
-	mailproc.Processor.Features.LookupByTrigger[TestUndocumented1.Trigger()] = &TestUndocumented1
+	// Real MTA is required for the test from now on
+	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
+		t.Skip()
+	}
+	if err := mailproc.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
 	// PIN mismatch
 	pinMismatch := `From howard@localhost Sun Feb 26 18:17:34 2017
 Return-Path: <howard@localhost>
@@ -48,10 +54,6 @@ Status: R
 PIN mismatch`
 	if err := mailproc.Process([]byte(pinMismatch)); err != bridge.ErrPINAndShortcutNotFound {
 		t.Fatal(err)
-	}
-	// Real MTA is required for the following tests
-	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
-		t.Skip()
 	}
 	// PIN matches
 	pinMatch := `From howard@localhost Sun Feb 26 18:17:34 2017
@@ -95,14 +97,19 @@ func TestMailProcessor_Process_Undocument1Reply(t *testing.T) {
 			MTAPort:  25,
 			MailFrom: "howard@localhost",
 		},
+		Undocumented1: TestUndocumented1,
 	}
 	// Prepare a good processor
 	mailproc.Processor = common.GetTestCommandProcessor()
-	mailproc.Processor.Features.Undocumented1 = TestUndocumented1
-	mailproc.Processor.Features.LookupByTrigger[TestUndocumented1.Trigger()] = &TestUndocumented1
 	mailproc.Processor.Features.WolframAlpha = TestUndocumented1Wolfram
 	mailproc.Processor.Features.LookupByTrigger[TestUndocumented1Wolfram.Trigger()] = &TestUndocumented1Wolfram
-
+	// Real MTA is required for the test from now on
+	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
+		t.Skip()
+	}
+	if err := mailproc.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
 	if err := mailproc.Process([]byte(TestUndocumented1Message)); err != nil {
 		t.Fatal(err)
 	}

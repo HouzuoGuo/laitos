@@ -32,18 +32,19 @@ func TestHealthCheck_Execute(t *testing.T) {
 			MTAHost:  "localhost",
 			MTAPort:  25,
 		},
-		Recipients: []string{"howard@localhost"},
-		Features:   *features,
+		Recipients:      []string{"howard@localhost"},
+		FeaturesToCheck: features,
+		MailpToCheck:    nil, // deliberately nil
 	}
 	if !check.Execute() {
 		t.Fatal("some check failed")
 	}
 	// Break a feature
-	check.Features.LookupByTrigger[".s"] = &feature.Shell{}
+	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{}
 	if check.Execute() {
 		t.Fatal("did not fail")
 	}
-	check.Features.LookupByTrigger[".s"] = &feature.Shell{InterpreterPath: "/bin/bash"}
+	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{InterpreterPath: "/bin/bash"}
 	if err := check.Initialise(); err == nil || strings.Index(err.Error(), "IntervalSec") == -1 {
 		t.Fatal("did not error")
 	}

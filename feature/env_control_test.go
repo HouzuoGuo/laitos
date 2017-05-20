@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestEnvInfo_Execute(t *testing.T) {
+func TestEnvControl_Execute(t *testing.T) {
 	info := EnvControl{}
 	if !info.IsConfigured() {
 		t.Fatal("not configured")

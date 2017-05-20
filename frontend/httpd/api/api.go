@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"github.com/HouzuoGuo/laitos/global"
 	"log"
 	"net/http"
@@ -33,19 +34,29 @@ func NoCache(w http.ResponseWriter) {
 
 // Inspect system and environment and return their information in text form. Double as a health check endpoint.
 type HandleSystemInfo struct {
+	FeaturesToCheck *feature.FeatureSet  `json:"-"` // Health check subject - features and their API keys
+	MailpToCheck    *mailp.MailProcessor `json:"-"` // Health check subject - mail processor and its mailer
 }
 
-func (_ *HandleSystemInfo) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
-	// Somewhat similar to healthcheck frontend
+func (info *HandleSystemInfo) MakeHandler(logger global.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
+	// Somewhat similar to health-check frontend
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		NoCache(w)
-		// Check features
-		featureErrs := cmdProc.Features.SelfTest()
-		if len(featureErrs) == 0 {
-			fmt.Fprint(w, "All OK.\n")
+		// Check features and mail processor
+		featureErrs := make(map[feature.Trigger]error)
+		if info.FeaturesToCheck != nil {
+			featureErrs = info.FeaturesToCheck.SelfTest()
+		}
+		var mailpErr error
+		if info.MailpToCheck != nil {
+			mailpErr = info.MailpToCheck.SelfTest()
+		}
+		allOK := len(featureErrs) == 0 && mailpErr == nil
+		// Compose mail body
+		if allOK {
+			fmt.Fprint(w, "All OK\n")
 		} else {
-			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, "There are errors!!!\n")
 		}
 		// 0 - runtime info
@@ -55,16 +66,22 @@ func (_ *HandleSystemInfo) MakeHandler(logger global.Logger, cmdProc *common.Com
 			fmt.Fprint(w, "\nFeatures: OK\n")
 		} else {
 			for trigger, err := range featureErrs {
-				fmt.Fprint(w, fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
+				fmt.Fprintf(w, "\nFeatures %s: %+v\n", trigger, err)
 			}
 		}
-		// 2 - warnings
+		// 2 - mail processor checks
+		if mailpErr == nil {
+			fmt.Fprint(w, "\nMail processor: OK\n")
+		} else {
+			fmt.Fprintf(w, "\nMail processor: %v\n", mailpErr)
+		}
+		// 3 - warnings
 		fmt.Fprint(w, "\nWarnings:\n")
 		fmt.Fprint(w, feature.GetLatestWarnings())
-		// 3 - logs
+		// 4 - logs
 		fmt.Fprint(w, "\nLogs:\n")
 		fmt.Fprint(w, feature.GetLatestLog())
-		// 4 - stack traces
+		// 5 - stack traces
 		fmt.Fprint(w, "\nStack traces:\n")
 		fmt.Fprint(w, feature.GetGoroutineStacktraces())
 	}

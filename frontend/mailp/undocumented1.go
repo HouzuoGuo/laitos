@@ -1,15 +1,18 @@
-package feature
+package mailp
 
 import (
 	"errors"
+	"fmt"
+	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/httpclient"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 )
 
-// An undocumented way to send message to myself.
+const Undocumented1HTTPTimeoutSec = 30
+
+// Intentionally undocumented he he he.
 type Undocumented1 struct {
 	URL   string `json:"URL"`
 	Addr1 string `json:"Addr1"`
@@ -18,7 +21,7 @@ type Undocumented1 struct {
 	ID2   string `json:"ID2"`
 }
 
-var TestUndocumented1 = Undocumented1{} // Details are set by init_feature_test.go
+var TestUndocumented1 = Undocumented1{} // Details are set by init_mail_test.go
 
 func (und *Undocumented1) IsConfigured() bool {
 	return und.URL != "" && und.Addr1 != "" && und.Addr2 != "" && und.ID1 != "" && und.ID2 != ""
@@ -26,39 +29,32 @@ func (und *Undocumented1) IsConfigured() bool {
 
 func (und *Undocumented1) SelfTest() error {
 	if !und.IsConfigured() {
-		return ErrIncompleteConfig
+		return feature.ErrIncompleteConfig
 	}
-	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: TestTimeoutSec}, und.URL)
+	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: feature.TestTimeoutSec}, und.URL)
 	// Only consider IO error and 404 response to be actual errors
 	if err != nil {
 		return err
 	} else if resp.StatusCode == http.StatusNotFound {
-		return errors.New("URL responsed with status 404")
+		return errors.New("URL is not found")
 	}
 	return nil
 }
 
-func (und *Undocumented1) Initialise() error {
-	return nil
-}
-
-func (und *Undocumented1) Trigger() Trigger {
-	return "NOT-TO-BE-TRIGGERED-MANUALLY-UNDOCUMENTED1"
-}
-
-func (und *Undocumented1) Execute(cmd Command) *Result {
-	if errResult := cmd.Trim(); errResult != nil {
-		return errResult
+func (und *Undocumented1) SendMessage(message string) error {
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return errors.New("Undocumented1.SendMessage: message is empty")
 	}
 
 	resp, err := httpclient.DoHTTP(httpclient.Request{
-		TimeoutSec: cmd.TimeoutSec,
+		TimeoutSec: Undocumented1HTTPTimeoutSec,
 		Method:     http.MethodPost,
 		Body: strings.NewReader(url.Values{
 			"MessageId":    {und.ID1},
 			"Guid":         {und.ID2},
 			"ReplyAddress": {und.Addr2},
-			"ReplyMessage": {cmd.Content},
+			"ReplyMessage": {message},
 		}.Encode()),
 		RequestFunc: func(req *http.Request) error {
 			req.Header.Set("X-Requested-With", "XMLHttpRequest")
@@ -66,10 +62,10 @@ func (und *Undocumented1) Execute(cmd Command) *Result {
 			return nil
 		},
 	}, und.URL)
-	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
-		return errResult
+	if err != nil {
+		return fmt.Errorf("Undocumented1.SendMessage: HTTP failure - %v", err)
+	} else if respErr := resp.Non2xxToError(); respErr != nil {
+		return fmt.Errorf("Undocumented1.SendMessage: bad response - %v", respErr)
 	}
-	// The OK output is simply the length message
-	return &Result{Error: nil, Output: strconv.Itoa(len(cmd.Content))}
-
+	return nil
 }

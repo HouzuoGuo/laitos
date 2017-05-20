@@ -31,7 +31,7 @@ func TestAllHandlers(t *testing.T) {
 
 	var handle HandlerFactory
 	// System info
-	handle = &HandleSystemInfo{}
+	handle = &HandleSystemInfo{FeaturesToCheck: proc.Features}
 	infoHandler, err := handle.MakeHandler(logger, proc)
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestAllHandlers(t *testing.T) {
 	proc.Features.Shell.InterpreterPath = ""
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"info")
 	errMsg := ".s: fork/exec : no such file or directory"
-	if err != nil || resp.StatusCode != http.StatusInternalServerError || strings.Index(string(resp.Body), errMsg) == -1 {
+	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), errMsg) == -1 {
 		t.Fatal(err, "\n", string(resp.Body))
 	}
 	proc.Features.Shell.InterpreterPath = oldShellInterpreter

@@ -32,13 +32,13 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	// Configure all features via JSON and verify via self test
 	features = TestFeatureSet
 	features.Initialise()
-	if len(features.LookupByTrigger) != 10 {
+	if len(features.LookupByTrigger) != 9 {
 		t.Skip(features.LookupByTrigger)
 	}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 10 {
+	if len(features.LookupByTrigger) != 9 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if errs := features.SelfTest(); len(errs) != 0 {
@@ -53,11 +53,10 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	features.Twilio.AccountSID = "very bad"
 	features.Twitter.AccessToken = "very bad"
 	features.Twitter.reqSigner.AccessToken = "very bad"
-	features.Undocumented1.URL = "very bad"
 	features.WolframAlpha.AppID = "very bad"
 	errs := features.SelfTest()
-	// There is no way to trigger a fault in env_info, hence there should be 9 failures instead of 10.
-	if len(errs) != 9 {
+	// There is no way to trigger a fault in env_info, hence there should be 8 failures instead of 9.
+	if len(errs) != 8 {
 		t.Fatal(len(errs), errs)
 	}
 }

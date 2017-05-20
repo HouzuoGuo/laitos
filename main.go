@@ -193,8 +193,6 @@ func main() {
 		switch frontendName {
 		case "dnsd":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetDNSD())
-		case "healthcheck":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHealthCheck())
 		case "httpd":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHTTPD())
 		case "lighthttpd":
@@ -214,6 +212,9 @@ func main() {
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetSockDaemon())
 		case "telegram":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetTelegramBot())
+		case "healthcheck":
+			// Health check must start last
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHealthCheck())
 		default:
 			logger.Fatalf("main", "", err, "unknown frontend name \"%s\"", frontendName)
 		}

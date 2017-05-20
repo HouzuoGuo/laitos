@@ -18,7 +18,6 @@ type FeatureSet struct {
 	Twilio          Twilio              `json:"Twilio"`
 	Twitter         Twitter             `json:"Twitter"`
 	WolframAlpha    WolframAlpha        `json:"WolframAlpha"`
-	Undocumented1   Undocumented1       `json:"Undocumented1"`
 	LookupByTrigger map[Trigger]Feature `json:"-"`
 }
 
@@ -28,16 +27,15 @@ var TestFeatureSet = FeatureSet{} // Features are assigned by init_test.go
 func (fs *FeatureSet) Initialise() error {
 	fs.LookupByTrigger = map[Trigger]Feature{}
 	triggers := map[Trigger]Feature{
-		fs.AESDecrypt.Trigger():    &fs.AESDecrypt,
-		fs.EnvControl.Trigger():    &fs.EnvControl,
-		fs.Facebook.Trigger():      &fs.Facebook,
-		fs.IMAPAccounts.Trigger():  &fs.IMAPAccounts,
-		fs.SendMail.Trigger():      &fs.SendMail,
-		fs.Twilio.Trigger():        &fs.Twilio,
-		fs.Shell.Trigger():         &fs.Shell,
-		fs.Twitter.Trigger():       &fs.Twitter,
-		fs.WolframAlpha.Trigger():  &fs.WolframAlpha,
-		fs.Undocumented1.Trigger(): &fs.Undocumented1,
+		fs.AESDecrypt.Trigger():   &fs.AESDecrypt,
+		fs.EnvControl.Trigger():   &fs.EnvControl,
+		fs.Facebook.Trigger():     &fs.Facebook,
+		fs.IMAPAccounts.Trigger(): &fs.IMAPAccounts,
+		fs.SendMail.Trigger():     &fs.SendMail,
+		fs.Twilio.Trigger():       &fs.Twilio,
+		fs.Shell.Trigger():        &fs.Shell,
+		fs.Twitter.Trigger():      &fs.Twitter,
+		fs.WolframAlpha.Trigger(): &fs.WolframAlpha,
 	}
 	for trigger, featureRef := range triggers {
 		if featureRef.IsConfigured() {
@@ -80,16 +78,15 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 	}
 	// Here are the feature keys
 	features := map[string]Feature{
-		"AESDecrypt":    &fs.AESDecrypt,
-		"EnvControl":    &fs.EnvControl,
-		"Facebook":      &fs.Facebook,
-		"IMAPAccounts":  &fs.IMAPAccounts,
-		"SendMail":      &fs.SendMail,
-		"Shell":         &fs.Shell,
-		"Twilio":        &fs.Twilio,
-		"Twitter":       &fs.Twitter,
-		"WolframAlpha":  &fs.WolframAlpha,
-		"Undocumented1": &fs.Undocumented1,
+		"AESDecrypt":   &fs.AESDecrypt,
+		"EnvControl":   &fs.EnvControl,
+		"Facebook":     &fs.Facebook,
+		"IMAPAccounts": &fs.IMAPAccounts,
+		"SendMail":     &fs.SendMail,
+		"Shell":        &fs.Shell,
+		"Twilio":       &fs.Twilio,
+		"Twitter":      &fs.Twitter,
+		"WolframAlpha": &fs.WolframAlpha,
 	}
 	for featureKey, featureRef := range features {
 		if featureJSON, exists := configMap[featureKey]; exists {

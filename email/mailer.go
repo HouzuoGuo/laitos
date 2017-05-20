@@ -2,11 +2,16 @@ package email
 
 import (
 	"fmt"
+	"net"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
-const OutgoingMailSubjectKeyword = "laitos" // Outgoing emails are encouraged to carry this string in their subject
+const (
+	OutgoingMailSubjectKeyword = "laitos" // Outgoing emails are encouraged to carry this string in their subject
+	SelfTestTimeoutSec         = 10       // Timeout seconds for contacting MTA
+)
 
 // Send emails via SMTP.
 type Mailer struct {
@@ -41,4 +46,14 @@ func (mailer *Mailer) SendRaw(fromAddr string, rawMailBody []byte, recipients ..
 		auth = smtp.PlainAuth("", mailer.AuthUsername, mailer.AuthPassword, mailer.MTAHost)
 	}
 	return smtp.SendMail(fmt.Sprintf("%s:%d", mailer.MTAHost, mailer.MTAPort), auth, fromAddr, recipients, rawMailBody)
+}
+
+// Try to contact MTA and see if connection is possible.
+func (mailer *Mailer) SelfTest() error {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", mailer.MTAHost, mailer.MTAPort), 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("Mailer.SelfTest: connection test failed - %v", err)
+	}
+	conn.Close()
+	return nil
 }
