@@ -40,6 +40,7 @@ func (mailproc *MailProcessor) SelfTest() error {
 			ret = append(ret, err)
 			retMutex.Unlock()
 		}
+		wait.Done()
 	}()
 	go func() {
 		err := mailproc.Undocumented1.SelfTest()
@@ -48,8 +49,9 @@ func (mailproc *MailProcessor) SelfTest() error {
 			ret = append(ret, err)
 			retMutex.Unlock()
 		}
+		wait.Done()
 	}()
-	wait.Done()
+	wait.Wait()
 	if len(ret) == 0 {
 		return nil
 	}
