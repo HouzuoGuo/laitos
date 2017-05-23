@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -69,7 +70,8 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(daemon.AllowQueryIPPrefixes) != 2 {
+	// If run on Travis, my own IP won't be put into allowed query prefixes.
+	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 2 {
 		t.Fatal("did not put my own IP into prefixes")
 	}
 	// Update ad-server blacklist
@@ -177,7 +179,8 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(daemon.AllowQueryIPPrefixes) != 2 {
+	// If run on Travis, my own IP won't be put into allowed query prefixes.
+	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 2 {
 		t.Fatal("did not put my own IP into prefixes")
 	}
 	// Server should start within two seconds

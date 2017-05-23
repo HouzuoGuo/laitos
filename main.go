@@ -190,9 +190,12 @@ func main() {
 	waitGroup := &sync.WaitGroup{}
 	var numDaemons int32
 	for _, frontendName := range frontends {
+		// Daemons are started all at once, the order of startup does not matter.
 		switch frontendName {
 		case "dnsd":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetDNSD())
+		case "healthcheck":
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHealthCheck())
 		case "httpd":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHTTPD())
 		case "lighthttpd":
@@ -212,9 +215,6 @@ func main() {
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetSockDaemon())
 		case "telegram":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetTelegramBot())
-		case "healthcheck":
-			// Health check must start last
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHealthCheck())
 		default:
 			logger.Fatalf("main", "", err, "unknown frontend name \"%s\"", frontendName)
 		}
