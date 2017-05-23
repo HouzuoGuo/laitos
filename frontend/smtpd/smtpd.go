@@ -76,6 +76,8 @@ func (smtpd *SMTPD) Initialise() error {
 	smtpd.MyPublicIP = env.GetPublicIP()
 	if smtpd.MyPublicIP == "" {
 		// Not a fatal error
+		// Although "localhost" is not an IP address, it really is only used as a greeting banner, so it won't matter.
+		smtpd.MyPublicIP = "localhost"
 		smtpd.Logger.Warningf("Initialise", "", nil, "unable to determine public IP address, some SMTP conversations will be off-standard.")
 	}
 	smtpd.SMTPConfig = smtp.Config{
