@@ -31,7 +31,7 @@ type HealthCheck struct {
 }
 
 // Check TCP ports and features, return all-OK or not.
-func (check *HealthCheck) Execute() bool {
+func (check *HealthCheck) Execute() (string, bool) {
 	check.Logger.Printf("Execute", "", nil, "running now")
 	allOK := true
 	// Check TCP ports in parallel
@@ -64,56 +64,57 @@ func (check *HealthCheck) Execute() bool {
 	}
 	allOK = allOK && len(featureErrs) == 0 && mailpErr == nil
 	// Compose mail body
-	var mailMessage bytes.Buffer
+	var result bytes.Buffer
 	if allOK {
-		mailMessage.WriteString("All OK\n")
+		result.WriteString("All OK\n")
 	} else {
-		mailMessage.WriteString("There are errors!!!\n")
+		result.WriteString("There are errors!!!\n")
 	}
 	// 0 - runtime info
-	mailMessage.WriteString(feature.GetRuntimeInfo())
+	result.WriteString(feature.GetRuntimeInfo())
 	// 1 - port checks
-	mailMessage.WriteString("\nPorts:\n")
+	result.WriteString("\nPorts:\n")
 	for _, portNumber := range check.TCPPorts {
 		if portCheckResult[portNumber] {
-			mailMessage.WriteString(fmt.Sprintf("TCP %d: OK\n", portNumber))
+			result.WriteString(fmt.Sprintf("TCP %d: OK\n", portNumber))
 		} else {
-			mailMessage.WriteString(fmt.Sprintf("TCP %d: Error\n", portNumber))
+			result.WriteString(fmt.Sprintf("TCP %d: Error\n", portNumber))
 		}
 	}
 	// 2 - feature checks
 	if len(featureErrs) == 0 {
-		mailMessage.WriteString("\nFeatures: OK\n")
+		result.WriteString("\nFeatures: OK\n")
 	} else {
 		for trigger, err := range featureErrs {
-			mailMessage.WriteString(fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
+			result.WriteString(fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
 		}
 	}
 	// 3 - mail processor checks
 	if mailpErr == nil {
-		mailMessage.WriteString("\nMail processor: OK\n")
+		result.WriteString("\nMail processor: OK\n")
 	} else {
-		mailMessage.WriteString(fmt.Sprintf("\nMail processor: %v\n", mailpErr))
+		result.WriteString(fmt.Sprintf("\nMail processor: %v\n", mailpErr))
 	}
 	// 4 - warnings
-	mailMessage.WriteString("\nWarnings:\n")
-	mailMessage.WriteString(feature.GetLatestWarnings())
+	result.WriteString("\nWarnings:\n")
+	result.WriteString(feature.GetLatestWarnings())
 	// 5 - logs
-	mailMessage.WriteString("\nLogs:\n")
-	mailMessage.WriteString(feature.GetLatestLog())
+	result.WriteString("\nLogs:\n")
+	result.WriteString(feature.GetLatestLog())
 	// 6 - stack traces
-	mailMessage.WriteString("\nStack traces:\n")
-	mailMessage.WriteString(feature.GetGoroutineStacktraces())
+	result.WriteString("\nStack traces:\n")
+	result.WriteString(feature.GetGoroutineStacktraces())
 	// Send away!
 	if allOK {
 		check.Logger.Printf("Execute", "", nil, "completed with everything being OK")
 	} else {
+		fmt.Println(result.String())
 		check.Logger.Warningf("Execute", "", nil, "completed with some errors")
 	}
-	if err := check.Mailer.Send(email.OutgoingMailSubjectKeyword+"-healthcheck", mailMessage.String(), check.Recipients...); err == nil {
+	if err := check.Mailer.Send(email.OutgoingMailSubjectKeyword+"-healthcheck", result.String(), check.Recipients...); err == nil {
 		check.Logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
-	return allOK
+	return result.String(), allOK
 }
 
 func (check *HealthCheck) Initialise() error {

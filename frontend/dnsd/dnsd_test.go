@@ -208,6 +208,7 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 				t.Fatal(err)
 			}
 			resp, err := ioutil.ReadAll(clientConn)
+			clientConn.Close()
 			fmt.Println("Read result", len(resp), err)
 			if err == nil && len(resp) > 50 {
 				success++
@@ -238,6 +239,7 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		clientConn.Close()
 		if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) != -1 {
 			blackListSuccess = true
 			break

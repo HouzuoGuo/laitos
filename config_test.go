@@ -285,6 +285,7 @@ func DNSDaemonUDPTest(t *testing.T, config Config) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		clientConn.Close()
 		if bytes.Index(packetBuf[:respLen], dnsd.BlackHoleAnswer) != -1 {
 			blackListSuccess = true
 			break
@@ -348,6 +349,7 @@ func DNSDaemonTCPTest(t *testing.T, config Config) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		clientConn.Close()
 		if bytes.Index(packetBuf[:respLen], dnsd.BlackHoleAnswer) != -1 {
 			blackListSuccess = true
 			break
@@ -373,13 +375,14 @@ func HealthCheckTest(t *testing.T, config Config) {
 	// Port is now listening
 	time.Sleep(1 * time.Second)
 	check := config.GetHealthCheck()
-	if !check.Execute() {
-		t.Fatal("some check failed")
+	// If it fails, the failure could only come from mailer of mail processor.
+	if result, ok := check.Execute(); !ok && !strings.Contains(result, "Mailer.SelfTest") {
+		t.Fatal("health check failure", result)
 	}
 	// Break a feature
 	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{}
-	if check.Execute() {
-		t.Fatal("did not fail")
+	if result, ok := check.Execute(); ok || !strings.Contains(result, ".s") {
+		t.Fatal("health check failure", result)
 	}
 	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{InterpreterPath: "/bin/bash"}
 	// Expect checks to begin within a second
