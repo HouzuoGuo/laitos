@@ -58,7 +58,7 @@ func (und *Undocumented1) SendMessage(message string) error {
 		}.Encode()),
 		RequestFunc: func(req *http.Request) error {
 			req.Header.Set("X-Requested-With", "XMLHttpRequest")
-			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36")
+			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36")
 			return nil
 		},
 	}, und.URL)

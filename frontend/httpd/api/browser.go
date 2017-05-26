@@ -77,7 +77,7 @@ const (
 	BrowserDebugOutputLen = 1024    // Display this much debug output on page
 	BrowserMinWidth       = 1280    // Default browser width in pixels
 	BrowserMinHeight      = 3 * 720 // Default browser height in pixels
-	BrowserUserAgent      = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36"
+	BrowserUserAgent      = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36"
 )
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
