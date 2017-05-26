@@ -116,39 +116,41 @@ func TestAllHandlers(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// ============ Use HTTP client to test each API ============
+	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
 	addr := "http://127.0.0.1:34791/"
 	// System information
-	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"info")
+	resp, err := httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"info")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Break shell and expect error from system information
 	oldShellInterpreter := proc.Features.Shell.InterpreterPath
 	proc.Features.Shell.InterpreterPath = ""
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"info")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"info")
 	errMsg := ".s: fork/exec : no such file or directory"
 	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), errMsg) == -1 {
 		t.Fatal(err, "\n", string(resp.Body))
 	}
 	proc.Features.Shell.InterpreterPath = oldShellInterpreter
 	// Command Form
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"cmd_form")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, addr+"cmd_form")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost, Header: basicAuth}, addr+"cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"cmd": {"verysecret.sls /"}}.Encode()),
 	}, addr+"cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "bin") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Gitlab handle
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"gitlab")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"gitlab")
 	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {
 		t.Fatal(err, string(resp.Body), resp)
 	}
@@ -159,16 +161,17 @@ func TestAllHandlers(t *testing.T) {
 		t.Fatal(err, string(resp.Body), expected, resp)
 	}
 	// MailMe
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"mail_me")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, addr+"mail_me")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost, Header: basicAuth}, addr+"mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
 	}, addr+"mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK ||
@@ -177,13 +180,14 @@ func TestAllHandlers(t *testing.T) {
 	}
 	// Proxy (visit /html)
 	// Normally the proxy should inject javascript into the page, but the home page does not look like HTML so proxy won't do that.
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A34791%%2Fhtml")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A34791%%2Fhtml")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.HasPrefix(string(resp.Body), "this is index") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - exchange SMS with bad PIN
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"pin mismatch"}}.Encode()),
 	}, addr+"sms")
 	if err != nil || resp.StatusCode != http.StatusNotFound {
@@ -192,6 +196,7 @@ func TestAllHandlers(t *testing.T) {
 	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+"sms")
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
@@ -201,7 +206,7 @@ func TestAllHandlers(t *testing.T) {
 		t.Fatal(err, resp)
 	}
 	// Twilio - check phone call greeting
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"call_greeting")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"call_greeting")
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="/test" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
@@ -215,6 +220,7 @@ func TestAllHandlers(t *testing.T) {
 	// Twilio - check phone call response to DTMF
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {"0000000"}}.Encode()),
 	}, addr+"call_command")
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
@@ -229,6 +235,7 @@ func TestAllHandlers(t *testing.T) {
 	// Twilio - check phone call response to command
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		//                                             v  e r  y  s   e c  r  e t .   s    tr  u e
 		Body: strings.NewReader(url.Values{"Digits": {"88833777999777733222777338014207777087778833"}}.Encode()),
 	}, addr+"call_command")

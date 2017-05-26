@@ -103,7 +103,8 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	// Wait till rate limits reset
 	time.Sleep(RateLimitIntervalSec * time.Second)
 	// Trigger a special handle to test routing
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/info")
+	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/info")
 	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "All OK") == -1 {
 		t.Fatal(err, string(resp.Body), resp)
 	}

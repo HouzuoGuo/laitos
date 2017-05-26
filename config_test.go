@@ -206,7 +206,7 @@ func TestConfig(t *testing.T) {
 	DNSDaemonTCPTest(t, config)
 	HealthCheckTest(t, config)
 	HTTPDaemonTest(t, config)
-	LightHTTPDaemonTest(t, config)
+	InsecureHTTPDaemonTest(t, config)
 	MailProcessorTest(t, config)
 	SMTPDaemonTest(t, config)
 	SockDaeemonTest(t, config)
@@ -490,7 +490,8 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	// Wait till rate limits reset
 	time.Sleep(httpd.RateLimitIntervalSec * time.Second)
 	// System information
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/info")
+	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/info")
 	if err == nil && resp.StatusCode == http.StatusOK && strings.Index(string(resp.Body), "Stack traces:") == -1 {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -505,12 +506,12 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	}
 
 	// Gitlab handle
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/gitlab")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/gitlab")
 	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Command Form
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/cmd_form")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -520,22 +521,24 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	}
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"cmd": {"httpsecret.sls /"}}.Encode()),
 	}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "bin") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// MailMe
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/mail_me")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, addr+"/mail_me")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost, Header: basicAuth}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
 	}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK ||
@@ -544,13 +547,14 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	}
 	// Web proxy
 	// Normally the proxy should inject javascript into the page, but the home page does not look like HTML so proxy won't do that.
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A23486%%2F")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/proxy?u=http%%3A%%2F%%2F127.0.0.1%%3A23486%%2F")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.HasPrefix(string(resp.Body), "this is index") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - exchange SMS with bad PIN
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"pin mismatch"}}.Encode()),
 	}, addr+"/sms")
 	if err != nil || resp.StatusCode != http.StatusNotFound {
@@ -559,6 +563,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"httpsecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+"/sms")
 	expected := `<?xml version="1.0" encoding="UTF-8"?>
@@ -568,7 +573,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 		t.Fatal(err, resp)
 	}
 	// Twilio - check phone call greeting
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/call")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/call")
 	expected = fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
@@ -582,6 +587,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	// Twilio - check phone call response to DTMF
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {"0000000"}}.Encode()),
 	}, addr+twilioCallbackEndpoint)
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
@@ -596,6 +602,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	// Twilio - check phone call response to command
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
+		Header: basicAuth,
 		//                                             h t tp s   e c  r  e t .   s    tr  u e
 		Body: strings.NewReader(url.Values{"Digits": {"4480870777733222777338014207777087778833"}}.Encode()),
 	}, addr+twilioCallbackEndpoint)
@@ -611,7 +618,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	}
 }
 
-func LightHTTPDaemonTest(t *testing.T, config Config) {
+func InsecureHTTPDaemonTest(t *testing.T, config Config) {
 	// Create a temporary file for index
 	indexFile := "/tmp/test-laitos-index2.html"
 	defer os.Remove(indexFile)
@@ -629,10 +636,12 @@ func LightHTTPDaemonTest(t *testing.T, config Config) {
 	}
 
 	os.Setenv("PORT", "23487")
-	httpDaemon := config.GetLightHTTPD()
+	httpDaemon := config.GetInsecureHTTPD()
 
-	if len(httpDaemon.SpecialHandlers) != 3 {
-		// 2 x index, 1 x info
+	// This daemon is not much different from the ordinary HTTP daemon, so just copy over some of the test cases.
+	if len(httpDaemon.SpecialHandlers) != 10 {
+		// 1 x sms, 2 x call, 1 x gitlab, 1 x mail me, 1 x proxy, 2 x index, 1 x cmd form, 1 x info
+		// Sorry, have to skip browser and browser image tests without a good excuse.
 		t.Fatal(httpDaemon.SpecialHandlers)
 	}
 	go func() {
@@ -663,15 +672,6 @@ func LightHTTPDaemonTest(t *testing.T, config Config) {
 	// System information
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/info")
 	if err == nil && resp.StatusCode == http.StatusOK && strings.Index(string(resp.Body), "Stack traces:") == -1 {
-		t.Fatal(err, string(resp.Body))
-	}
-	// If system information tells about a feature failure, the failure would only originate from mailer
-	mailFailure := ".m: dial tcp 127.0.0.1:25: getsockopt: connection refused"
-	if resp.StatusCode == http.StatusInternalServerError && strings.Index(string(resp.Body), mailFailure) == -1 {
-		t.Fatal(err, string(resp.Body), resp)
-	}
-
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
 		t.Fatal(err, string(resp.Body))
 	}
 }

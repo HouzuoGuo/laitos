@@ -198,8 +198,8 @@ func main() {
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHealthCheck())
 		case "httpd":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHTTPD())
-		case "lighthttpd":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetLightHTTPD())
+		case "insecurehttpd":
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetInsecureHTTPD())
 		case "mailp":
 			mailContent, err := ioutil.ReadAll(os.Stdin)
 			if err != nil {

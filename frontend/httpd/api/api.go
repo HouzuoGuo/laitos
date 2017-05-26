@@ -32,6 +32,22 @@ func NoCache(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 }
 
+/*
+If request came in HTTP instead of HTTPS, asks client to confirm the request via a dummy basic authentication request.
+Return true only if caller should continue processing the request.
+*/
+func WarnIfNoHTTPS(r *http.Request, w http.ResponseWriter) bool {
+	if r.URL.Scheme != "https" {
+		if _, _, ok := r.BasicAuth(); !ok {
+			w.Header().Set("WWW-Authenticate", `Basic realm="You are not using HTTPS. Enter any user/password to continue."`)
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte{})
+			return false
+		}
+	}
+	return true
+}
+
 // Inspect system and environment and return their information in text form. Double as a health check endpoint.
 type HandleSystemInfo struct {
 	FeaturesToCheck *feature.FeatureSet  `json:"-"` // Health check subject - features and their API keys
@@ -43,6 +59,9 @@ func (info *HandleSystemInfo) MakeHandler(logger global.Logger, _ *common.Comman
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		NoCache(w)
+		if !WarnIfNoHTTPS(r, w) {
+			return
+		}
 		// Check features and mail processor
 		featureErrs := make(map[feature.Trigger]error)
 		if info.FeaturesToCheck != nil {

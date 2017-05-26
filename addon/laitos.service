@@ -3,7 +3,7 @@ Description=laitos - personal Internet infrastructure
 After=network.target
 
 [Service]
-ExecStart=/root/laitos/laitos -conflictfree -gomaxprocs 4 -config config.json -frontend dnsd,healthcheck,httpd,lighthttpd,smtpd,sockd,telegram
+ExecStart=/root/laitos/laitos -conflictfree -gomaxprocs 4 -config config.json -frontend dnsd,healthcheck,httpd,insecurehttpd,smtpd,sockd,telegram
 User=root
 Group=root
 WorkingDirectory=/root/laitos

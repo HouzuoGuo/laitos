@@ -129,6 +129,9 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, _ *common.
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		NoCache(w)
+		if !WarnIfNoHTTPS(r, w) {
+			return
+		}
 		if r.Method == http.MethodGet {
 			// Start a new browser instance
 			index, instance, err := remoteBrowser.Browsers.Acquire()
@@ -273,6 +276,9 @@ type HandleBrowserImage struct {
 func (remoteBrowserImage *HandleBrowserImage) MakeHandler(logger global.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		NoCache(w)
+		if !WarnIfNoHTTPS(r, w) {
+			return
+		}
 		index, err := strconv.Atoi(r.FormValue("instance_index"))
 		if err != nil {
 			http.Error(w, "Bad instance_index", http.StatusBadRequest)

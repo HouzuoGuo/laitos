@@ -111,6 +111,9 @@ func (lab *HandleGitlabBrowser) MakeHandler(logger global.Logger, cmdProc *commo
 		submitAction := r.FormValue("submit")
 
 		NoCache(w)
+		if !WarnIfNoHTTPS(r, w) {
+			return
+		}
 		switch submitAction {
 		case "Go":
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")

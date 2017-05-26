@@ -239,10 +239,10 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 }
 
 /*
-Return an alternative HTTP daemon that only serves index pages and info page. It listens on port number specified
-in environment variable "PORT", or on port 80 if the variable is not defined (i.e. value is empty).
+Return another HTTP daemon that serves all handlers without TLS. It listens on port number specified in environment
+variable "PORT", or on port 80 if the variable is not defined (i.e. value is empty).
 */
-func (config Config) GetLightHTTPD() *httpd.HTTPD {
+func (config Config) GetInsecureHTTPD() *httpd.HTTPD {
 	ret := config.GetHTTPD()
 	ret.TLSCertPath = ""
 	ret.TLSKeyPath = ""
@@ -251,25 +251,14 @@ func (config Config) GetLightHTTPD() *httpd.HTTPD {
 	} else {
 		iPort, err := strconv.Atoi(envPort)
 		if err != nil {
-			config.Logger.Fatalf("GetLightHTTPD", "", err, "environment variable PORT value is not an integer")
+			config.Logger.Fatalf("GetInsecureHTTPD", "", err, "environment variable PORT value is not an integer")
 			return nil
 		}
 		ret.ListenPort = iPort
 	}
-	// Unlike ordinary HTTPD, the light edition only serves index pages and information page
-	handlers := map[string]api.HandlerFactory{}
-	if config.HTTPHandlers.IndexEndpoints != nil {
-		for _, location := range config.HTTPHandlers.IndexEndpoints {
-			handlers[location] = &config.HTTPHandlers.IndexEndpointConfig
-		}
-	}
-	if config.HTTPHandlers.InformationEndpoint != "" {
-		handlers[config.HTTPHandlers.InformationEndpoint] = &api.HandleSystemInfo{}
-	}
-	ret.SpecialHandlers = handlers
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetLightHTTPD", "", err, "failed to initialise")
+		config.Logger.Fatalf("GetInsecureHTTPD", "", err, "failed to initialise")
 		return nil
 	}
 	for route := range ret.AllRoutes {
@@ -277,7 +266,7 @@ func (config Config) GetLightHTTPD() *httpd.HTTPD {
 		if len(route) > 12 {
 			shortRoute = route[0:12] + "..."
 		}
-		config.Logger.Printf("GetLightHTTPD", "", nil, "installed route %s", shortRoute)
+		config.Logger.Printf("GetInsecureHTTPD", "", nil, "installed route %s", shortRoute)
 	}
 	return ret
 }

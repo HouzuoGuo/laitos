@@ -34,6 +34,9 @@ func (_ *HandleCommandForm) MakeHandler(logger global.Logger, cmdProc *common.Co
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		NoCache(w)
+		if !WarnIfNoHTTPS(r, w) {
+			return
+		}
 		if r.Method == http.MethodGet {
 			w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, "")))
 		} else if r.Method == http.MethodPost {

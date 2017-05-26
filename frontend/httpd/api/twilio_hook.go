@@ -30,6 +30,9 @@ func (hand *HandleTwilioSMSHook) MakeHandler(logger global.Logger, cmdProc *comm
 		// Generate normal XML response
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		NoCache(w)
+		if !WarnIfNoHTTPS(r, w) {
+			return
+		}
 		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response><Message><![CDATA[%s]]></Message></Response>
 `, XMLEscape(ret.CombinedOutput))))
@@ -54,6 +57,9 @@ func (hand *HandleTwilioCallHook) MakeHandler(logger global.Logger, _ *common.Co
 		// The greeting XML tells Twilio to ask user for DTMF input, and direct the input to another URL endpoint.
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		NoCache(w)
+		if !WarnIfNoHTTPS(r, w) {
+			return
+		}
 		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
@@ -85,6 +91,9 @@ func (hand *HandleTwilioCallCallback) MakeHandler(logger global.Logger, cmdProc 
 		})
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		NoCache(w)
+		if !WarnIfNoHTTPS(r, w) {
+			return
+		}
 		// Say sorry and hang up in case of incorrect PIN/shortcut
 		if ret.Error == bridge.ErrPINAndShortcutNotFound {
 			w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
