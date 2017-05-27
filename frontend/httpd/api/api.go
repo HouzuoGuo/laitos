@@ -37,7 +37,7 @@ If request came in HTTP instead of HTTPS, asks client to confirm the request via
 Return true only if caller should continue processing the request.
 */
 func WarnIfNoHTTPS(r *http.Request, w http.ResponseWriter) bool {
-	if r.URL.Scheme != "https" {
+	if r.TLS == nil {
 		if _, _, ok := r.BasicAuth(); !ok {
 			w.Header().Set("WWW-Authenticate", `Basic realm="You are not using HTTPS. Enter any user/password to continue."`)
 			w.WriteHeader(http.StatusUnauthorized)
