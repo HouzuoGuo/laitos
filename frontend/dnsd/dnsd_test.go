@@ -123,23 +123,28 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	}
 	// Blacklist github and see if query gets a black hole response
 	daemon.BlackList["github.com"] = struct{}{}
-	// This test is flaky and I do not understand why
+	// This test is flaky and I do not understand why, is it throttled by google dns?
 	var blackListSuccess bool
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
+		time.Sleep(1 * time.Second)
 		clientConn, err := net.DialUDP("udp", nil, serverAddr)
 		if err != nil {
-			t.Fatal(err)
+			continue
 		}
 		if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		if _, err := clientConn.Write(githubComUDPQuery); err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		respLen, err := clientConn.Read(packetBuf)
 		if err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
+		clientConn.Close()
 		if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) != -1 {
 			blackListSuccess = true
 			break
@@ -222,22 +227,26 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	}
 	// Blacklist github and see if query gets a black hole response
 	daemon.BlackList["github.com"] = struct{}{}
-	// This test is flaky and I do not understand why
+	// This test is flaky and I do not understand why, is it throttled by google dns?
 	var blackListSuccess bool
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
+		time.Sleep(1 * time.Second)
 		clientConn, err := net.Dial("tcp", "127.0.0.1:16321")
 		if err != nil {
-			t.Fatal(err)
+			continue
 		}
 		if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		if _, err := clientConn.Write(githubComTCPQuery); err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		respLen, err := clientConn.Read(packetBuf)
 		if err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		clientConn.Close()
 		if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) != -1 {

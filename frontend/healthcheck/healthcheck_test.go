@@ -36,13 +36,13 @@ func TestHealthCheck_Execute(t *testing.T) {
 		FeaturesToCheck: features,
 		MailpToCheck:    nil, // deliberately nil
 	}
-	if !check.Execute() {
-		t.Fatal("some check failed")
+	if result, ok := check.Execute(); !ok {
+		t.Fatal(result)
 	}
 	// Break a feature
 	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{}
-	if check.Execute() {
-		t.Fatal("did not fail")
+	if result, ok := check.Execute(); ok || !strings.Contains(result, ".s") {
+		t.Fatal(result)
 	}
 	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{InterpreterPath: "/bin/bash"}
 	if err := check.Initialise(); err == nil || strings.Index(err.Error(), "IntervalSec") == -1 {

@@ -268,22 +268,26 @@ func DNSDaemonUDPTest(t *testing.T, config Config) {
 	}
 	// Blacklist github and see if query gets a black hole response
 	dnsDaemon.BlackList["github.com"] = struct{}{}
-	// This test is flaky and I do not understand why
+	// This test is flaky and I do not understand why, is it throttled by google dns?
 	var blackListSuccess bool
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
+		time.Sleep(1 * time.Second)
 		clientConn, err := net.DialUDP("udp", nil, serverAddr)
 		if err != nil {
-			t.Fatal(err)
+			continue
 		}
 		if err := clientConn.SetDeadline(time.Now().Add((dnsd.RateLimitIntervalSec - 1) * time.Second)); err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		if _, err := clientConn.Write(githubComUDPQuery); err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		respLen, err := clientConn.Read(packetBuf)
 		if err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		clientConn.Close()
 		if bytes.Index(packetBuf[:respLen], dnsd.BlackHoleAnswer) != -1 {
@@ -332,22 +336,26 @@ func DNSDaemonTCPTest(t *testing.T, config Config) {
 	}
 	// Blacklist github and see if query gets a black hole response
 	dnsDaemon.BlackList["github.com"] = struct{}{}
-	// This test is flaky and I do not understand why
+	// This test is flaky and I do not understand why, is it throttled by google dns?
 	var blackListSuccess bool
-	for i := 0; i < 10; i++ {
-		clientConn, err := net.Dial("tcp", "127.0.0.1:61211")
+	for i := 0; i < 30; i++ {
+		time.Sleep(1 * time.Second)
+		clientConn, err := net.Dial("tcp", "127.0.0.1:16321")
 		if err != nil {
-			t.Fatal(err)
+			continue
 		}
 		if err := clientConn.SetDeadline(time.Now().Add((dnsd.RateLimitIntervalSec - 1) * time.Second)); err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		if _, err := clientConn.Write(githubComTCPQuery); err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		respLen, err := clientConn.Read(packetBuf)
 		if err != nil {
-			t.Fatal(err)
+			continue
+			clientConn.Close()
 		}
 		clientConn.Close()
 		if bytes.Index(packetBuf[:respLen], dnsd.BlackHoleAnswer) != -1 {
@@ -377,12 +385,12 @@ func HealthCheckTest(t *testing.T, config Config) {
 	check := config.GetHealthCheck()
 	// If it fails, the failure could only come from mailer of mail processor.
 	if result, ok := check.Execute(); !ok && !strings.Contains(result, "Mailer.SelfTest") {
-		t.Fatal("health check failure", result)
+		t.Fatal(result)
 	}
 	// Break a feature
 	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{}
 	if result, ok := check.Execute(); ok || !strings.Contains(result, ".s") {
-		t.Fatal("health check failure", result)
+		t.Fatal(result)
 	}
 	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{InterpreterPath: "/bin/bash"}
 	// Expect checks to begin within a second
@@ -518,7 +526,7 @@ func HTTPDaemonTest(t *testing.T, config Config) {
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost}, addr+"/cmd_form")
+	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost, Header: basicAuth}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
