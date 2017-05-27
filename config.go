@@ -184,6 +184,7 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 		handlers[config.HTTPHandlers.CommandFormEndpoint] = &api.HandleCommandForm{}
 	}
 	if config.HTTPHandlers.GitlabBrowserEndpoint != "" {
+		config.HTTPHandlers.GitlabBrowserEndpointConfig.Mailer = config.Mailer
 		handlers[config.HTTPHandlers.GitlabBrowserEndpoint] = &config.HTTPHandlers.GitlabBrowserEndpointConfig
 	}
 	if config.HTTPHandlers.IndexEndpoints != nil {

@@ -29,6 +29,9 @@ func (mailer *Mailer) IsConfigured() bool {
 
 // Deliver mail to all recipients. Block until mail is sent or an error has occurred.
 func (mailer *Mailer) Send(subject string, textBody string, recipients ...string) error {
+	if recipients == nil || len(recipients) == 0 {
+		return fmt.Errorf("No recipient specified for mail \"%s\"", subject)
+	}
 	var auth smtp.Auth
 	if mailer.AuthUsername != "" {
 		auth = smtp.PlainAuth("", mailer.AuthUsername, mailer.AuthPassword, mailer.MTAHost)
@@ -41,6 +44,9 @@ func (mailer *Mailer) Send(subject string, textBody string, recipients ...string
 
 // Deliver unmodified mail body to all recipients. Block until mail is sent or an error has occurred.
 func (mailer *Mailer) SendRaw(fromAddr string, rawMailBody []byte, recipients ...string) error {
+	if recipients == nil || len(recipients) == 0 {
+		return fmt.Errorf("No recipient specified for mail from \"%s\"", fromAddr)
+	}
 	var auth smtp.Auth
 	if mailer.AuthUsername != "" {
 		auth = smtp.PlainAuth("", mailer.AuthUsername, mailer.AuthPassword, mailer.MTAHost)

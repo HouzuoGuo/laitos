@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
@@ -40,6 +41,8 @@ const GitlabAPITimeoutSec = 110 // Timeout for outgoing API calls made to gitlab
 type HandleGitlabBrowser struct {
 	PrivateToken string            `json:"PrivateToken"` // Gitlab user private token
 	Projects     map[string]string `json:"Projects"`     // Project shortcut name VS "gitlab project ID"
+	Recipients   []string          `json:"Recipients"`   // Recipients of notification emails
+	Mailer       email.Mailer      `json:"-"`            // MTA that delivers file download notification email
 }
 
 // An element of gitlab API "/repository/tree" response array.
@@ -82,7 +85,7 @@ func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string) (
 }
 
 // Call gitlab API to download a file form git project.
-func (lab *HandleGitlabBrowser) DownloadGitBlob(projectID string, paths string, fileName string) (content []byte, err error) {
+func (lab *HandleGitlabBrowser) DownloadGitBlob(logger global.Logger, remoteAddr, projectID string, paths string, fileName string) (content []byte, err error) {
 	// Call tree API to determine object ID
 	_, fileIDName, err := lab.ListGitObjects(projectID, paths)
 	if err != nil {
@@ -100,6 +103,14 @@ func (lab *HandleGitlabBrowser) DownloadGitBlob(projectID string, paths string, 
 		return
 	}
 	content = resp.Body
+	if lab.Recipients != nil && len(lab.Recipients) > 0 && lab.Mailer.IsConfigured() {
+		go func() {
+			subject := email.OutgoingMailSubjectKeyword + "-gitlab-download-" + fileName
+			if err := lab.Mailer.Send(subject, fmt.Sprintf("File \"%s\" has been downloaded by %s", paths+fileName, remoteAddr), lab.Recipients...); err != nil {
+				logger.Warningf("DownloadGitBlob", "", err, "failed to send notification for file \"%s\"", fileName)
+			}
+		}()
+	}
 	return
 }
 
@@ -147,7 +158,7 @@ func (lab *HandleGitlabBrowser) MakeHandler(logger global.Logger, cmdProc *commo
 				w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 				return
 			}
-			content, err := lab.DownloadGitBlob(projectID, browsePath, fileName)
+			content, err := lab.DownloadGitBlob(logger, r.RemoteAddr, projectID, browsePath, fileName)
 			if err != nil {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "Error: "+err.Error())))
