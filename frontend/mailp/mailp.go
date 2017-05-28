@@ -21,6 +21,7 @@ postfix's "forward-mail-to-program" mechanism.
 type MailProcessor struct {
 	CommandTimeoutSec int                      `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds
 	Undocumented1     Undocumented1            `json:"Undocumented1"`     // Intentionally undocumented he he he he
+	Undocumented2     Undocumented2            `json:"Undocumented2"`     // Intentionally undocumented he he he he
 	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
 	ReplyMailer       email.Mailer             `json:"-"`                 // To deliver Email replies
 	Logger            global.Logger            `json:"-"`                 // Logger
@@ -32,7 +33,7 @@ func (mailproc *MailProcessor) SelfTest() error {
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
 	// One mailer and one undocumented
-	wait.Add(2)
+	wait.Add(3)
 	go func() {
 		err := mailproc.ReplyMailer.SelfTest()
 		if err != nil {
@@ -43,11 +44,24 @@ func (mailproc *MailProcessor) SelfTest() error {
 		wait.Done()
 	}()
 	go func() {
-		err := mailproc.Undocumented1.SelfTest()
-		if err != nil {
-			retMutex.Lock()
-			ret = append(ret, err)
-			retMutex.Unlock()
+		if mailproc.Undocumented1.IsConfigured() {
+			err := mailproc.Undocumented1.SelfTest()
+			if err != nil {
+				retMutex.Lock()
+				ret = append(ret, err)
+				retMutex.Unlock()
+			}
+		}
+		wait.Done()
+	}()
+	go func() {
+		if mailproc.Undocumented2.IsConfigured() {
+			err := mailproc.Undocumented2.SelfTest()
+			if err != nil {
+				retMutex.Lock()
+				ret = append(ret, err)
+				retMutex.Unlock()
+			}
 		}
 		wait.Done()
 	}()
@@ -95,15 +109,18 @@ func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...str
 		// A command has been processed, now work on the reply.
 		commandIsProcessed = true
 		// Normally the result should be sent as Email reply, but there are undocumented scenarios.
-		if mailproc.Undocumented1.IsConfigured() {
-			// The undocumented scenario is triggered by an Email address suffix
-			if mailproc.Undocumented1.Addr1 != "" && strings.HasSuffix(prop.ReplyAddress, mailproc.Undocumented1.Addr1) {
-				// Let the undocumented scenario take care of delivering the result
-				if undoc1Err := mailproc.Undocumented1.SendMessage(result.CombinedOutput); undoc1Err == nil {
-					return false, nil
-				} else {
-					return false, undoc1Err
-				}
+		if mailproc.Undocumented1.MayReplyTo(prop) {
+			if undoc1Err := mailproc.Undocumented1.SendMessage(result.CombinedOutput); undoc1Err == nil {
+				return false, nil
+			} else {
+				return false, undoc1Err
+			}
+		}
+		if mailproc.Undocumented2.MayReplyTo(prop) {
+			if undoc1Err := mailproc.Undocumented2.SendMessage(result.CombinedOutput); undoc1Err == nil {
+				return false, nil
+			} else {
+				return false, undoc1Err
 			}
 		}
 		// The Email address suffix did not satisfy undocumented scenario, so send the result as a normal Email reply.
@@ -126,5 +143,6 @@ func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...str
 	return nil
 }
 
-var TestUndocumented1Message = ""                     // Content is set by init_mail_test.go
-var TestUndocumented1Wolfram = feature.WolframAlpha{} // Details are set by init_mail_test.go
+var TestUndocumented1Message = ""             // Content is set by init_mail_test.go
+var TestWolframAlpha = feature.WolframAlpha{} // Details are set by init_mail_test.go
+var TestUndocumented2Message = ""             // Content is set by init_mail_test.go

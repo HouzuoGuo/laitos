@@ -29,7 +29,7 @@ func TestBrowserServer_Start(t *testing.T) {
 	defer instance.Kill()
 	var result bool
 	if err := instance.SendRequest("goto", map[string]interface{}{
-		"user_agent":  "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36",
+		"user_agent":  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36",
 		"view_width":  1280,
 		"view_height": 768,
 		"page_url":    "https://www.google.com",

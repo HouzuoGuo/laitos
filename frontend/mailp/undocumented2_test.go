@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestUndocumented1_MayReplyTo(t *testing.T) {
-	und := Undocumented1{}
+func TestUndocumented2_MayReplyTo(t *testing.T) {
+	und := Undocumented2{}
 	if und.MayReplyTo(email.BasicProperties{}) {
 		t.Fatal("wrong")
 	}
@@ -17,18 +17,18 @@ func TestUndocumented1_MayReplyTo(t *testing.T) {
 	if und.MayReplyTo(email.BasicProperties{ReplyAddress: "a@b.c"}) {
 		t.Fatal("wrong")
 	}
-	und = Undocumented1{URL: "https://github.com", MailAddrSuffix: "@b.c", ReplyAddress: "b", MessageID: "c", GUID: "d"}
+	und = Undocumented2{URL: "https://github.com", MailAddrSuffix: "@b.c", MsisDN: "b", From: "c"}
 	if !und.MayReplyTo(email.BasicProperties{ReplyAddress: "a@b.c"}) {
 		t.Fatal("wrong")
 	}
 }
 
-func TestUndocumented1_SelfTest(t *testing.T) {
-	und := Undocumented1{}
+func TestUndocumented2_SelfTest(t *testing.T) {
+	und := Undocumented2{}
 	if err := und.SelfTest(); err == nil {
 		t.Fatal("did not error")
 	}
-	und = Undocumented1{URL: "https://github.com", MailAddrSuffix: "a", ReplyAddress: "b", MessageID: "c", GUID: "d"}
+	und = Undocumented2{URL: "https://github.com", MailAddrSuffix: "@b.c", MsisDN: "b", From: "c"}
 	if err := und.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
@@ -38,19 +38,19 @@ func TestUndocumented1_SelfTest(t *testing.T) {
 	}
 }
 
-func TestUndocumented1_Execute(t *testing.T) {
-	if !TestUndocumented1.IsConfigured() {
+func TestUndocumented2_Execute(t *testing.T) {
+	if !TestUndocumented2.IsConfigured() {
 		t.Skip()
 	}
-	if err := TestUndocumented1.SelfTest(); err != nil {
+	if err := TestUndocumented2.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
 	// Nothing to do
-	if err := TestUndocumented1.SendMessage("   \r\t\n   "); err == nil {
+	if err := TestUndocumented2.SendMessage("   \r\t\n   "); err == nil {
 		t.Fatal("did not error")
 	}
 	// Do something
-	if err := TestUndocumented1.SendMessage("laitos undocumented1 test"); err != nil {
+	if err := TestUndocumented2.SendMessage("laitos undocumented2 test"); err != nil {
 		t.Fatal(err)
 	}
 }
