@@ -14,4 +14,5 @@ cp -R "$dir"/* /root/laitos/
 cp "$dir"/laitos.service /etc/systemd/system/
 
 systemctl daemon-reload
+systemctl enable laitos
 systemctl restart laitos
