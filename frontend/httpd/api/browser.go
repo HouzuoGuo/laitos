@@ -16,10 +16,10 @@ const (
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>%s</title>
-    <script type="application/javascript">
-        var set_pointer_coord = function (ev, img) {
-            var pointer_x = ev.offsetX ? (ev.offsetX) : ev.pageX - img.offsetLeft;
-            var pointer_y = ev.offsetY ? (ev.offsetY) : ev.pageY - img.offsetTop;
+    <script type="text/javascript">
+        function set_pointer_coord(ev) {
+            var pointer_x = ev.offsetX ? (ev.offsetX) : ev.pageX - document.getElementById('render').offsetLeft;
+            var pointer_y = ev.offsetY ? (ev.offsetY) : ev.pageY - document.getElementById('render').offsetTop;
             document.getElementById('pointer_x').value = pointer_x;
             document.getElementById('pointer_y').value = pointer_y;
         };
@@ -70,7 +70,7 @@ const (
             </td>
         </tr>
     </table>
-    <p><img src="%s?instance_index=%d&instance_tag=%s" onclick="set_pointer_coord(event, this);"/></p>
+    <p><img id="render" src="%s?instance_index=%d&instance_tag=%s" alt="rendered page" onclick="set_pointer_coord(event);"/></p>
 </form>
 </body>
 </html>` // Browser page content
