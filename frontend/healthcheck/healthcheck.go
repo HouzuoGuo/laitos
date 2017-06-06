@@ -110,7 +110,7 @@ func (check *HealthCheck) Execute() (string, bool) {
 	} else {
 		check.Logger.Warningf("Execute", "", nil, "completed with some errors")
 	}
-	if err := check.Mailer.Send(email.OutgoingMailSubjectKeyword+"-healthcheck", result.String(), check.Recipients...); err == nil {
+	if err := check.Mailer.Send(email.OutgoingMailSubjectKeyword+"-healthcheck", result.String(), check.Recipients...); err != nil {
 		check.Logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
 	return result.String(), allOK
