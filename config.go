@@ -35,7 +35,6 @@ type StandardBridges struct {
 
 // Configure path to HTTP handlers and handler themselves.
 type HTTPHandlers struct {
-	SelfTestEndpoint    string `json:"SelfTestEndpoint"`
 	InformationEndpoint string `json:"InformationEndpoint"`
 
 	BrowserEndpoint       string            `json:"BrowserEndpoint"`
