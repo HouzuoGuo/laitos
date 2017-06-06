@@ -12,7 +12,7 @@ Want to host a simple website, Email server, or ad-blocking DNS server? Skip tho
 - <strong>Powerful</strong> - web, mail and DNS servers beautifully re-invented in just 9K lines of code.
 - <strong>Fun</strong> - access your personal mails and social networks via telephone, SMS, and more!
 - <strong>Hyped by Buzzwords</strong> - certified to run in any container, PaaS, IaaS, *aaS.
-- <strong>Lightweight</strong> - uses as little as 64MB of memory and 8MB of disk.
+- <strong>Lightweight</strong> - uses as little as 14MB of memory and 8MB of disk.
 - <strong>Portable</strong> - runs on any flavour of Linux, Unix, and Windows.
 - <strong>Independent</strong> - reliably operates without additional software or libraries.
 
