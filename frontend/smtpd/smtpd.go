@@ -59,6 +59,9 @@ func (smtpd *SMTPD) Initialise() error {
 	if smtpd.ListenPort < 1 {
 		return errors.New("SMTPD.Initialise: listen port must be greater than 0")
 	}
+	if smtpd.PerIPLimit < 1 {
+		return errors.New("SMTPD.Initialise: PerIPLimit must be greater than 0")
+	}
 	if smtpd.ForwardTo == nil || len(smtpd.ForwardTo) == 0 || !smtpd.ForwardMailer.IsConfigured() {
 		return errors.New("SMTPD.Initialise: the server is not useful if forward addresses/forward mailer are not configured")
 	}

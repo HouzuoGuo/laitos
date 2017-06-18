@@ -17,7 +17,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	daemon := SMTPD{
 		ListenAddress: "127.0.0.1",
 		ListenPort:    61358, // hard coded port is a random choice
-		PerIPLimit:    10,
+		PerIPLimit:    0,
 		MailProcessor: &mailp.MailProcessor{
 			CommandTimeoutSec: 10,
 			Processor:         common.GetTestCommandProcessor(),
@@ -31,6 +31,11 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon.MailProcessor.ReplyMailer = goodMailer
+	// Must not initialise if per IP limit is too small
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "PerIPLimit") {
+		t.Fatal(err)
+	}
+	daemon.PerIPLimit = 10
 	// Must not intialise if forward-to addresses are not there
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "forward address") {
 		t.Fatal(err)

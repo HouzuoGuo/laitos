@@ -35,7 +35,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		ListenPort:       1024 + rand.Intn(65535-1024),
 		Processor:        &common.CommandProcessor{},
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir"},
-		BaseRateLimit:    10, // good enough for both HTTPD and API tests
+		BaseRateLimit:    0,
 		SpecialHandlers: map[string]api.HandlerFactory{
 			"/": &api.HandleHTMLDocument{HTMLFilePath: indexFile},
 		},
@@ -45,6 +45,12 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		t.Fatal("did not error due to insane CommandProcessor")
 	}
 	daemon.Processor = common.GetTestCommandProcessor()
+	// Must not initialise if rate limit is too small
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "BaseRateLimit") {
+		t.Fatal(err)
+	}
+	daemon.BaseRateLimit = 10 // good enough for both sets of test cases
+
 	// Set up API handlers
 	daemon.Processor = common.GetTestCommandProcessor()
 	daemon.SpecialHandlers["/info"] = &api.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
