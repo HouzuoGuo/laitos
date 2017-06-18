@@ -11,7 +11,9 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
+	"testing"
 	"time"
 )
 
@@ -137,4 +139,40 @@ func (check *HealthCheck) StartAndBlock() error {
 		time.Sleep(time.Duration(check.IntervalSec) * time.Second)
 		check.Execute()
 	}
+}
+
+// Run unit tests on the health checker. See TestHealthCheck_Execute for daemon setup.
+func TestHealthCheck(check *HealthCheck, t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	go func() {
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Accept exactly one connection that is from health checker
+		listener.Accept()
+	}()
+	// Port should be now listening
+	time.Sleep(1 * time.Second)
+	check.TCPPorts = []int{listener.Addr().(*net.TCPAddr).Port}
+	// If it fails, the failure could only come from mailer of mail processor.
+	if result, ok := check.Execute(); !ok && !strings.Contains(result, "Mailer.SelfTest") {
+		t.Fatal(result)
+	}
+	// Break a feature
+	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{}
+	if result, ok := check.Execute(); ok || !strings.Contains(result, ".s") {
+		t.Fatal(result)
+	}
+	check.FeaturesToCheck.LookupByTrigger[".s"] = &feature.Shell{InterpreterPath: "/bin/bash"}
+	// Expect checks to begin within a second
+	if err := check.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		if err := check.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	// Health check should successfully start within two seconds
+	time.Sleep(2 * time.Second)
 }

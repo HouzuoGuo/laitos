@@ -1,11 +1,14 @@
 package dnsd
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/global"
 	"math/rand"
 	"net"
+	"strconv"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -131,5 +134,86 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 				QueryPacket: forwardPacket,
 			}
 		}
+	}
+}
+
+// Run unit tests on DNS UDP daemon. See TestDNSD_StartAndBlockUDP for daemon setup.
+func TestUDPQueries(dnsd *DNSD, t *testing.T) {
+	// Prevent daemon from listening to TCP queries in this UDP test case
+	tcpListenPort := dnsd.TCPListenPort
+	dnsd.TCPListenPort = 0
+	defer func() {
+		dnsd.TCPListenPort = tcpListenPort
+	}()
+	// Server should start within two seconds
+	go func() {
+		if err := dnsd.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	time.Sleep(2 * time.Second)
+
+	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(dnsd.UDPListenPort))
+	if err != nil {
+		t.Fatal(err)
+	}
+	packetBuf := make([]byte, MaxPacketSize)
+	// Try to reach rate limit
+	var success int
+	for i := 0; i < 40; i++ {
+		go func() {
+			clientConn, err := net.DialUDP("udp", nil, serverAddr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer clientConn.Close()
+			if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := clientConn.Write(githubComUDPQuery); err != nil {
+				t.Fatal(err)
+			}
+			length, err := clientConn.Read(packetBuf)
+			if err == nil && length > 50 {
+				success++
+			}
+		}()
+	}
+	// Wait out rate limit
+	time.Sleep(RateLimitIntervalSec * time.Second)
+	if success < 5 || success > 15 {
+		t.Fatal(success)
+	}
+	// Blacklist github and see if query gets a black hole response
+	dnsd.BlackList["github.com"] = struct{}{}
+	// This test is flaky and I do not understand why, is it throttled by google dns?
+	var blackListSuccess bool
+	for i := 0; i < 30; i++ {
+		time.Sleep(1 * time.Second)
+		clientConn, err := net.DialUDP("udp", nil, serverAddr)
+		if err != nil {
+			continue
+		}
+		if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
+			continue
+			clientConn.Close()
+		}
+		if _, err := clientConn.Write(githubComUDPQuery); err != nil {
+			continue
+			clientConn.Close()
+		}
+		respLen, err := clientConn.Read(packetBuf)
+		if err != nil {
+			continue
+			clientConn.Close()
+		}
+		clientConn.Close()
+		if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) != -1 {
+			blackListSuccess = true
+			break
+		}
+	}
+	if !blackListSuccess {
+		t.Fatal("did not answer to blacklist domain")
 	}
 }

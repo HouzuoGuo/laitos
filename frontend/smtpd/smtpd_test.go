@@ -4,10 +4,8 @@ import (
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
-	"net/smtp"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestSMTPD_StartAndBlock(t *testing.T) {
@@ -84,56 +82,5 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	}
 	daemon.ForwardTo = []string{"howard@localhost"}
 
-	/*
-		SMTP daemon is expected to start in a few seconds, it may take a short while because
-		the daemon has to figure out its public IP address.
-	*/
-	if err := daemon.Initialise(); err != nil {
-		t.Fatal(err)
-	}
-	var stoppedNormally bool
-	go func() {
-		if err := daemon.StartAndBlock(); err != nil {
-			t.Fatal(err)
-		}
-		stoppedNormally = true
-	}()
-	time.Sleep(3 * time.Second) // this really should be env.HTTPPublicIPTimeout * time.Second
-	// Try to exceed rate limit
-	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
-	success := 0
-	for i := 0; i < 100; i++ {
-		if err := smtp.SendMail("127.0.0.1:61358", nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err == nil {
-			success++
-		}
-	}
-	if success < 5 || success > 15 {
-		t.Fatal("delivered", success)
-	}
-	time.Sleep(RateLimitIntervalSec * time.Second)
-	// Send an ordinary mail to the daemon
-	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
-	if err := smtp.SendMail("127.0.0.1:61358", nil, "ClientFrom@localhost", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
-		t.Fatal(err)
-	}
-	// Send a mail that does not belong to this server's domain
-	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
-	if err := smtp.SendMail("127.0.0.1:61358", nil, "ClientFrom@localhost", []string{"ClientTo@not-my-domain"}, []byte(testMessage)); strings.Index(err.Error(), "Bad address") == -1 {
-		t.Fatal(err)
-	}
-	// Try run a command via email
-	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\nverysecret.s echo hi"
-	if err := smtp.SendMail("127.0.0.1:61358", nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err != nil {
-		t.Fatal(err)
-	}
-	t.Log("Check howard@localhost and root@localhost mailbox")
-	// Daemon must stop in a second
-	daemon.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
-	// Repeatedly stopping the daemon should have no negative consequence
-	daemon.Stop()
-	daemon.Stop()
+	TestSMTPD(&daemon, t)
 }

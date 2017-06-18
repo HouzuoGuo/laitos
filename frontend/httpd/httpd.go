@@ -6,9 +6,15 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/httpclient"
 	"github.com/HouzuoGuo/laitos/ratelimit"
+	"io/ioutil"
 	"net/http"
+	"net/url"
+	"os"
+	"reflect"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -39,6 +45,17 @@ type HTTPD struct {
 	Server          *http.Server                    `json:"-"` // Standard library HTTP server structure
 	Processor       *common.CommandProcessor        `json:"-"` // Feature command processor
 	Logger          global.Logger                   `json:"-"` // Logger
+}
+
+// Return path to HandlerFactory among special handlers that matches the specified type. Primarily used by test case code.
+func (httpd *HTTPD) GetHandlerByFactoryType(match api.HandlerFactory) string {
+	matchTypeString := reflect.TypeOf(match).String()
+	for path, handler := range httpd.SpecialHandlers {
+		if reflect.TypeOf(handler).String() == matchTypeString {
+			return path
+		}
+	}
+	return ""
 }
 
 // Check configuration and initialise internal states.
@@ -191,4 +208,188 @@ func (httpd *HTTPD) StartAndBlock() error {
 	}
 	// Never reached
 	return nil
+}
+
+// Run unit tests on API handlers of an already started HTTP daemon all API handlers. Essentially, it tests "api" package.
+func TestAPIHandlers(httpd *HTTPD, t *testing.T) {
+	// When accesses via HTTP, API handlers warn user about safety concern via a authorization prompt.
+	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
+	addr := fmt.Sprintf("http://%s:%d", httpd.ListenAddress, httpd.ListenPort)
+	// System information
+	resp, err := httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/info")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Command Form
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/cmd_form")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost, Header: basicAuth}, addr+"/cmd_form")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		Body:   strings.NewReader(url.Values{"cmd": {"verysecret.sls /"}}.Encode()),
+	}, addr+"/cmd_form")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "bin") {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Gitlab handle
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/gitlab")
+	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	// HTML file
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/html")
+	expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+		t.Fatal(err, string(resp.Body), expected, resp)
+	}
+	// MailMe
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/mail_me")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{Method: http.MethodPost, Header: basicAuth}, addr+"/mail_me")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
+	}, addr+"/mail_me")
+	if err != nil || resp.StatusCode != http.StatusOK ||
+		(!strings.Contains(string(resp.Body), "发不出去") && !strings.Contains(string(resp.Body), "发出去了")) {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Proxy (visit https://github.com)
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/proxy?u=https%%3A%%2F%%2Fgithub.com")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "github") || !strings.Contains(string(resp.Body), "laitos_rewrite_url") {
+		t.Fatal(err, resp.StatusCode, string(resp.Body))
+	}
+
+	// Twilio - exchange SMS with bad PIN
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		Body:   strings.NewReader(url.Values{"Body": {"pin mismatch"}}.Encode()),
+	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioSMSHook{}))
+	if err != nil || resp.StatusCode != http.StatusNotFound {
+		t.Fatal(err, resp)
+	}
+	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
+	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioSMSHook{}))
+	expected = `<?xml version="1.0" encoding="UTF-8"?>
+<Response><Message><![CDATA[01234567890123456789012345678901234]]></Message></Response>
+`
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+		t.Fatal(err, resp)
+	}
+	// Twilio - check phone call greeting
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/call_greeting")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Twilio - check phone call response to DTMF
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		Body:   strings.NewReader(url.Values{"Digits": {"0000000"}}.Encode()),
+	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+	expected = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+	<Say>Sorry</Say>
+	<Hangup/>
+</Response>
+`
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Twilio - check phone call response to command
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		//                                             v  e r  y  s   e c  r  e t .   s    tr  u e
+		Body: strings.NewReader(url.Values{"Digits": {"88833777999777733222777338014207777087778833"}}.Encode()),
+	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+	sayResp := `<Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>`
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), sayResp) {
+		t.Fatal(err, string(resp.Body))
+	}
+}
+
+// Start HTTP daemon and run unit tests on it. See TestHTTPD_StartAndBlock for daemon setup.
+func TestHTTPD(httpd *HTTPD, t *testing.T) {
+	// Create a temporary directory of file
+	// Caller is supposed to set up the handler on /my/dir
+	htmlDir := "/tmp/test-laitos-dir"
+	if err := os.MkdirAll(htmlDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(htmlDir+"/a.html", []byte("a html"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// HTTP daemon is expected to start in two seconds
+	go func() {
+		if err := httpd.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	time.Sleep(2 * time.Second)
+
+	addr := fmt.Sprintf("http://%s:%d", httpd.ListenAddress, httpd.ListenPort)
+
+	// Directory handle
+	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
+<a href="a.html">a.html</a>
+</pre>
+` {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir/a.html")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	// Non-existent paths
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir/doesnotexist.html")
+	if err != nil || resp.StatusCode != http.StatusNotFound {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/doesnotexist")
+	if err != nil || resp.StatusCode != http.StatusNotFound {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	// Test hitting rate limits
+	time.Sleep(RateLimitIntervalSec * time.Second)
+	success := 0
+	for i := 0; i < httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor*2; i++ {
+		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir")
+		if err == nil && resp.StatusCode == http.StatusOK {
+			success++
+		}
+	}
+	// Assume HTTPD's BaseRateLimit is 10
+	if success > httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor*3/2 ||
+		success < httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor/2 {
+		t.Fatal(success)
+	}
+	// Wait till rate limits reset
+	time.Sleep(RateLimitIntervalSec * time.Second)
+	// Visit page again after rate limit resets
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
+<a href="a.html">a.html</a>
+</pre>
+` {
+		t.Fatal(err, string(resp.Body), resp)
+	}
 }

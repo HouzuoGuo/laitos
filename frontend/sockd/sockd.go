@@ -15,6 +15,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -363,4 +364,29 @@ func PipeAndCloseConnection(fromConn, toConn net.Conn) {
 			return
 		}
 	}
+}
+
+func TestSockd(sockd *Sockd, t *testing.T) {
+	var stopped bool
+	go func() {
+		if err := sockd.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+		stopped = true
+	}()
+	time.Sleep(2 * time.Second)
+	if conn, err := net.Dial("tcp", sockd.ListenAddress+":"+strconv.Itoa(sockd.ListenPort)); err != nil {
+		t.Fatal(err)
+	} else if n, err := conn.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}); err != nil && n != 10 {
+		t.Fatal(err, n)
+	}
+	// Daemon should stop within a second
+	sockd.Stop()
+	time.Sleep(1 * time.Second)
+	if !stopped {
+		t.Fatal("did not stop")
+	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	sockd.Stop()
+	sockd.Stop()
 }

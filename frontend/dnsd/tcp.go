@@ -1,13 +1,18 @@
 package dnsd
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/global"
+	"io/ioutil"
 	"net"
+	"strconv"
 	"strings"
+	"testing"
 	"time"
 )
 
+// FIXME: avoid opening new TCP connection for every query
 func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	defer clientConn.Close()
 	// Check address against rate limit
@@ -138,4 +143,82 @@ func (dnsd *DNSD) StartAndBlockTCP() error {
 		go dnsd.HandleTCPQuery(clientConn)
 	}
 
+}
+
+// Run unit tests on DNS TCP daemon. See TestDNSD_StartAndBlockTCP for daemon setup.
+func TestTCPQueries(dnsd *DNSD, t *testing.T) {
+	// Prevent daemon from listening to UDP queries in this TCP test case
+	dnsd.UDPListenPort = 0
+	udpListenPort := dnsd.UDPListenPort
+	dnsd.UDPListenPort = 0
+	defer func() {
+		dnsd.UDPListenPort = udpListenPort
+	}()
+	// Server should start within two seconds
+	go func() {
+		if err := dnsd.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	time.Sleep(2 * time.Second)
+
+	packetBuf := make([]byte, MaxPacketSize)
+	success := 0
+	// Try to reach rate limit
+	for i := 0; i < 40; i++ {
+		go func() {
+			clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(dnsd.TCPListenPort))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer clientConn.Close()
+			if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := clientConn.Write(githubComTCPQuery); err != nil {
+				t.Fatal(err)
+			}
+			resp, err := ioutil.ReadAll(clientConn)
+			if err == nil && len(resp) > 50 {
+				success++
+			}
+		}()
+	}
+	// Wait out rate limit
+	time.Sleep(RateLimitIntervalSec * time.Second)
+	if success < 5 || success > 15 {
+		t.Fatal(success)
+	}
+	// Blacklist github and see if query gets a black hole response
+	dnsd.BlackList["github.com"] = struct{}{}
+	// This test is flaky and I do not understand why, is it throttled by google dns?
+	var blackListSuccess bool
+	for i := 0; i < 30; i++ {
+		time.Sleep(1 * time.Second)
+		clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(dnsd.TCPListenPort))
+		if err != nil {
+			continue
+		}
+		if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
+			continue
+			clientConn.Close()
+		}
+		if _, err := clientConn.Write(githubComTCPQuery); err != nil {
+			continue
+			clientConn.Close()
+		}
+		respLen, err := clientConn.Read(packetBuf)
+		if err != nil {
+			continue
+			clientConn.Close()
+		}
+		clientConn.Close()
+		if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) != -1 {
+			blackListSuccess = true
+			break
+		}
+	}
+	if !blackListSuccess {
+		t.Fatal("did not answer to blacklist domain")
+	}
 }

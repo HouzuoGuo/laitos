@@ -1,23 +1,20 @@
 package httpd
 
 import (
+	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
-	"github.com/HouzuoGuo/laitos/global"
-	"github.com/HouzuoGuo/laitos/httpclient"
 	"io/ioutil"
-	"net/http"
+	"math/rand"
 	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
-// TODO: upgrade to go 1.8 and implement graceful httpd shutdown.
 func TestHTTPD_StartAndBlock(t *testing.T) {
 	// Create a temporary file for index
 	indexFile := "/tmp/test-laitos-index.html"
-	defer os.Remove(indexFile)
 	if err := ioutil.WriteFile(indexFile, []byte("this is index #LAITOS_CLIENTADDR #LAITOS_3339TIME"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -31,15 +28,16 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	rand.Seed(time.Now().UnixNano())
+
 	daemon := HTTPD{
 		ListenAddress:    "127.0.0.1",
-		ListenPort:       13589, // hard coded port is a random choice
+		ListenPort:       1024 + rand.Intn(65535-1024),
 		Processor:        &common.CommandProcessor{},
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir"},
-		BaseRateLimit:    1,
+		BaseRateLimit:    10, // good enough for both HTTPD and API tests
 		SpecialHandlers: map[string]api.HandlerFactory{
-			"/":     &api.HandleHTMLDocument{HTMLFilePath: indexFile},
-			"/info": &api.HandleSystemInfo{},
+			"/": &api.HandleHTMLDocument{HTMLFilePath: indexFile},
 		},
 	}
 	// Must not initialise if command processor is insane
@@ -47,75 +45,28 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		t.Fatal("did not error due to insane CommandProcessor")
 	}
 	daemon.Processor = common.GetTestCommandProcessor()
+	// Set up API handlers
+	daemon.Processor = common.GetTestCommandProcessor()
+	daemon.SpecialHandlers["/info"] = &api.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
+	daemon.SpecialHandlers["/cmd_form"] = &api.HandleCommandForm{}
+	daemon.SpecialHandlers["/gitlab"] = &api.HandleGitlabBrowser{PrivateToken: "token-does-not-matter-in-this-test"}
+	daemon.SpecialHandlers["/html"] = &api.HandleHTMLDocument{HTMLFilePath: indexFile}
+	daemon.SpecialHandlers["/mail_me"] = &api.HandleMailMe{
+		Recipients: []string{"howard@localhost"},
+		Mailer: email.Mailer{
+			MailFrom: "howard@localhost",
+			MTAHost:  "localhost",
+			MTAPort:  25,
+		},
+	}
+	daemon.SpecialHandlers["/proxy"] = &api.HandleWebProxy{MyEndpoint: "/proxy"}
+	daemon.SpecialHandlers["/sms"] = &api.HandleTwilioSMSHook{}
+	daemon.SpecialHandlers["/call_greeting"] = &api.HandleTwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}
+	daemon.SpecialHandlers["/call_command"] = &api.HandleTwilioCallCallback{MyEndpoint: "/endpoint-does-not-matter-in-this-test"}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// HTTP daemon is expected to start in two seconds
-	go func() {
-		if err := daemon.StartAndBlock(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	time.Sleep(2 * time.Second)
-
-	addr := "http://127.0.0.1:13589"
-
-	// Index handle
-	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"/")
-	expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
-		t.Fatal(err, string(resp.Body), expected, resp)
-	}
-	// Directory handle
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
-<a href="a.html">a.html</a>
-</pre>
-` {
-		t.Fatal(err, string(resp.Body), resp)
-	}
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir/a.html")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
-		t.Fatal(err, string(resp.Body), resp)
-	}
-	// Non-existent paths
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir/doesnotexist.html")
-	if err != nil || resp.StatusCode != http.StatusNotFound {
-		t.Fatal(err, string(resp.Body), resp)
-	}
-	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/doesnotexist")
-	if err != nil || resp.StatusCode != http.StatusNotFound {
-		t.Fatal(err, string(resp.Body), resp)
-	}
-	// Test hitting rate limits
-	time.Sleep(RateLimitIntervalSec * time.Second)
-	success := 0
-	for i := 0; i < 100; i++ {
-		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/")
-		expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
-		if err == nil && resp.StatusCode == http.StatusOK && string(resp.Body) == expected {
-			success++
-		}
-	}
-	if success > 15 || success < 5 {
-		t.Fatal(success)
-	}
-	// Wait till rate limits reset
-	time.Sleep(RateLimitIntervalSec * time.Second)
-	// Trigger a special handle to test routing
-	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
-	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/info")
-	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "All OK") == -1 {
-		t.Fatal(err, string(resp.Body), resp)
-	}
-
-	// Trigger emergency stop, HTTP endpoints shall respond with HTTP 200 and emergency stop message.
-	global.TriggerEmergencyLockDown()
-	for _, endpoint := range []string{"/", "/info"} {
-		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+endpoint)
-		if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != global.ErrEmergencyLockDown.Error() {
-			t.Fatal(err, string(resp.Body), err != nil, resp.StatusCode, string(resp.Body) != global.ErrEmergencyLockDown.Error())
-		}
-	}
-	global.EmergencyLockDown = false
+	// Run tests now
+	TestHTTPD(&daemon, t)
+	TestAPIHandlers(&daemon, t)
 }

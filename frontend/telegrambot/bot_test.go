@@ -27,7 +27,7 @@ func TestTelegramBot_StartAndBock(t *testing.T) {
 	}
 
 	// Well then it is really difficult to test the chat routine
-	// So I am going to only do an HTTP API call that's definitely going to fail
+	// So I am going to only going to start the daemon using invalid configuration, which is definitely failing.
 	bot = TelegramBot{
 		AuthorizationToken: "dummy",
 		Processor:          cmdproc,
@@ -35,7 +35,6 @@ func TestTelegramBot_StartAndBock(t *testing.T) {
 	if err := bot.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {
-		t.Fatal(err)
-	}
+
+	TestTelegramBot(&bot, t)
 }

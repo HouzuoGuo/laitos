@@ -1,10 +1,8 @@
 package sockd
 
 import (
-	"net"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestSockd_StartAndBlock(t *testing.T) {
@@ -28,26 +26,6 @@ func TestSockd_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	var stopped bool
-	go func() {
-		if err := daemon.StartAndBlock(); err != nil {
-			t.Fatal(err)
-		}
-		stopped = true
-	}()
-	time.Sleep(2 * time.Second)
-	if conn, err := net.Dial("tcp", "127.0.0.1:8720"); err != nil {
-		t.Fatal(err)
-	} else if n, err := conn.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}); err != nil && n != 10 {
-		t.Fatal(err, n)
-	}
-	// Daemon should stop within a second
-	daemon.Stop()
-	time.Sleep(1 * time.Second)
-	if !stopped {
-		t.Fatal("did not stop")
-	}
-	// Repeatedly stopping the daemon should have no negative consequence
-	daemon.Stop()
-	daemon.Stop()
+
+	TestSockd(&daemon, t)
 }

@@ -1,16 +1,11 @@
 package dnsd
 
 import (
-	"bytes"
 	"encoding/hex"
-	"fmt"
-	"io/ioutil"
-	"net"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestExtractDomainName(t *testing.T) {
@@ -41,6 +36,16 @@ func TestRespondWith0(t *testing.T) {
 	}
 }
 
+func TestDNSD_DownloadBlacklists(t *testing.T) {
+	daemon := DNSD{}
+	if entries, err := daemon.GetAdBlacklistPGL(); err != nil || len(entries) < 100 {
+		t.Fatal(err, entries)
+	}
+	if entries, err := daemon.GetAdBlacklistMVPS(); err != nil || len(entries) < 100 {
+		t.Fatal(err, entries)
+	}
+}
+
 func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	daemon := DNSD{}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
@@ -50,7 +55,7 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
 		t.Fatal(err)
 	}
-	daemon.UDPListenPort = 16321
+	daemon.UDPListenPort = 62151
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "ForwardTo") == -1 {
 		t.Fatal(err)
 	}
@@ -74,85 +79,7 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 2 {
 		t.Fatal("did not put my own IP into prefixes")
 	}
-	// Update ad-server blacklist
-	if entries, err := daemon.GetAdBlacklistPGL(); err != nil || len(entries) < 100 {
-		t.Fatal(err, entries)
-	}
-	if entries, err := daemon.GetAdBlacklistMVPS(); err != nil || len(entries) < 100 {
-		t.Fatal(err, entries)
-	}
-	// Server should start within two seconds
-	go func() {
-		if err := daemon.StartAndBlock(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	time.Sleep(2 * time.Second)
-
-	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:16321")
-	if err != nil {
-		t.Fatal(err)
-	}
-	packetBuf := make([]byte, MaxPacketSize)
-	// Try to reach rate limit
-	var success int
-	for i := 0; i < 40; i++ {
-		go func() {
-			clientConn, err := net.DialUDP("udp", nil, serverAddr)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer clientConn.Close()
-			if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := clientConn.Write(githubComUDPQuery); err != nil {
-				t.Fatal(err)
-			}
-			length, err := clientConn.Read(packetBuf)
-			fmt.Println("Read result", length, err)
-			if err == nil && length > 50 {
-				success++
-			}
-		}()
-	}
-	// Wait out rate limit
-	time.Sleep(RateLimitIntervalSec * time.Second)
-	if success < 5 || success > 15 {
-		t.Fatal(success)
-	}
-	// Blacklist github and see if query gets a black hole response
-	daemon.BlackList["github.com"] = struct{}{}
-	// This test is flaky and I do not understand why, is it throttled by google dns?
-	var blackListSuccess bool
-	for i := 0; i < 30; i++ {
-		time.Sleep(1 * time.Second)
-		clientConn, err := net.DialUDP("udp", nil, serverAddr)
-		if err != nil {
-			continue
-		}
-		if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
-			continue
-			clientConn.Close()
-		}
-		if _, err := clientConn.Write(githubComUDPQuery); err != nil {
-			continue
-			clientConn.Close()
-		}
-		respLen, err := clientConn.Read(packetBuf)
-		if err != nil {
-			continue
-			clientConn.Close()
-		}
-		clientConn.Close()
-		if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) != -1 {
-			blackListSuccess = true
-			break
-		}
-	}
-	if !blackListSuccess {
-		t.Fatal("did not answer to blacklist domain")
-	}
+	TestUDPQueries(&daemon, t)
 }
 
 func TestDNSD_StartAndBlockTCP(t *testing.T) {
@@ -164,7 +91,7 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
 		t.Fatal(err)
 	}
-	daemon.TCPListenPort = 16321
+	daemon.TCPListenPort = 18519
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "ForwardTo") == -1 {
 		t.Fatal(err)
 	}
@@ -188,73 +115,5 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 2 {
 		t.Fatal("did not put my own IP into prefixes")
 	}
-	// Server should start within two seconds
-	go func() {
-		if err := daemon.StartAndBlock(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	time.Sleep(2 * time.Second)
-
-	packetBuf := make([]byte, MaxPacketSize)
-	var success int
-	// Try to reach rate limit
-	for i := 0; i < 40; i++ {
-		go func() {
-			clientConn, err := net.Dial("tcp", "127.0.0.1:16321")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer clientConn.Close()
-			if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := clientConn.Write(githubComTCPQuery); err != nil {
-				t.Fatal(err)
-			}
-			resp, err := ioutil.ReadAll(clientConn)
-			clientConn.Close()
-			fmt.Println("Read result", len(resp), err)
-			if err == nil && len(resp) > 50 {
-				success++
-			}
-		}()
-	}
-	// Wait out rate limit
-	time.Sleep(RateLimitIntervalSec * time.Second)
-	if success < 5 || success > 15 {
-		t.Fatal(success)
-	}
-	// Blacklist github and see if query gets a black hole response
-	daemon.BlackList["github.com"] = struct{}{}
-	// This test is flaky and I do not understand why, is it throttled by google dns?
-	var blackListSuccess bool
-	for i := 0; i < 30; i++ {
-		time.Sleep(1 * time.Second)
-		clientConn, err := net.Dial("tcp", "127.0.0.1:16321")
-		if err != nil {
-			continue
-		}
-		if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
-			continue
-			clientConn.Close()
-		}
-		if _, err := clientConn.Write(githubComTCPQuery); err != nil {
-			continue
-			clientConn.Close()
-		}
-		respLen, err := clientConn.Read(packetBuf)
-		if err != nil {
-			continue
-			clientConn.Close()
-		}
-		clientConn.Close()
-		if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) != -1 {
-			blackListSuccess = true
-			break
-		}
-	}
-	if !blackListSuccess {
-		t.Fatal("did not answer to blacklist domain")
-	}
+	TestTCPQueries(&daemon, t)
 }

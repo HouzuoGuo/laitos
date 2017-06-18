@@ -2,6 +2,7 @@ package dnsd
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/env"
@@ -255,42 +256,52 @@ func ExtractDomainName(packet []byte) (ret []string) {
 	return
 }
 
+func (dnsd *DNSD) UpdatedAdBlockLists() {
+	pglEntries, pglErr := dnsd.GetAdBlacklistPGL()
+	if pglErr == nil {
+		dnsd.Logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
+	} else {
+		dnsd.Logger.Warningf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
+	}
+	mvpsEntries, mvpsErr := dnsd.GetAdBlacklistMVPS()
+	if mvpsErr == nil {
+		dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
+		dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following liences for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
+	} else {
+		dnsd.Logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
+	}
+	dnsd.BlackListMutex.Lock()
+	dnsd.BlackList = make(map[string]struct{})
+	if pglErr == nil {
+		for _, name := range pglEntries {
+			dnsd.BlackList[name] = struct{}{}
+		}
+	}
+	if mvpsErr == nil {
+		for _, name := range mvpsEntries {
+			dnsd.BlackList[name] = struct{}{}
+		}
+	}
+	dnsd.BlackListMutex.Unlock()
+	dnsd.Logger.Printf("UpdatedAdBlockLists", "", nil, "ad-blacklist now has %d entries", len(dnsd.BlackList))
+}
+
 /*
 You may call this function only after having called Initialise()!
 Start DNS daemon on both UDP and TCP ports, block until this program exits.
 */
 func (dnsd *DNSD) StartAndBlock() error {
 	// Keep updating ad-block black list in background
+	stopAdBlockUpdater := make(chan bool, 1)
 	go func() {
+		dnsd.UpdatedAdBlockLists()
 		for {
-			pglEntries, pglErr := dnsd.GetAdBlacklistPGL()
-			if pglErr == nil {
-				dnsd.Logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
-			} else {
-				dnsd.Logger.Warningf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
+			select {
+			case <-stopAdBlockUpdater:
+				return
+			case <-time.After(BlacklistUpdateIntervalSec * time.Second):
+				dnsd.UpdatedAdBlockLists()
 			}
-			mvpsEntries, mvpsErr := dnsd.GetAdBlacklistMVPS()
-			if mvpsErr == nil {
-				dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
-				dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following liences for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
-			} else {
-				dnsd.Logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
-			}
-			dnsd.BlackListMutex.Lock()
-			dnsd.BlackList = make(map[string]struct{})
-			if pglErr == nil {
-				for _, name := range pglEntries {
-					dnsd.BlackList[name] = struct{}{}
-				}
-			}
-			if mvpsErr == nil {
-				for _, name := range mvpsEntries {
-					dnsd.BlackList[name] = struct{}{}
-				}
-			}
-			dnsd.Logger.Printf("StartAndBlock", "", nil, "ad-blacklist now has %d entries", len(dnsd.BlackList))
-			dnsd.BlackListMutex.Unlock()
-			time.Sleep(BlacklistUpdateIntervalSec * time.Second)
 		}
 	}()
 	errChan := make(chan error, 2)
@@ -298,6 +309,7 @@ func (dnsd *DNSD) StartAndBlock() error {
 		go func() {
 			if err := dnsd.StartAndBlockUDP(); err != nil {
 				errChan <- err
+				stopAdBlockUpdater <- true
 			}
 		}()
 	}
@@ -305,6 +317,7 @@ func (dnsd *DNSD) StartAndBlock() error {
 		go func() {
 			if err := dnsd.StartAndBlockTCP(); err != nil {
 				errChan <- err
+				stopAdBlockUpdater <- true
 			}
 		}()
 	}
@@ -323,4 +336,19 @@ func (dnsd *DNSD) NamesAreBlackListed(names []string) bool {
 		}
 	}
 	return false
+}
+
+var githubComTCPQuery, githubComUDPQuery []byte // Sample queries for composing test cases
+
+func init() {
+	var err error
+	// Prepare two A queries on "github.com" for test cases
+	githubComTCPQuery, err = hex.DecodeString("00274cc7012000010000000000010667697468756203636f6d00000100010000291000000000000000")
+	if err != nil {
+		panic(err)
+	}
+	githubComUDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f6d00000100010000291000000000000000")
+	if err != nil {
+		panic(err)
+	}
 }

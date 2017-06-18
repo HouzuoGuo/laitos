@@ -11,7 +11,10 @@ import (
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net"
+	netSMTP "net/smtp"
+	"strconv"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -243,4 +246,60 @@ func (smtpd *SMTPD) Stop() {
 			smtpd.Logger.Warningf("Stop", "", err, "failed to close listener")
 		}
 	}
+}
+
+// Run unit tests on SMTPD. See TestSMTPD_StartAndBlock for daemon setup.
+func TestSMTPD(smtpd *SMTPD, t *testing.T) {
+	/*
+		SMTP daemon is expected to start in a few seconds, it may take a short while because
+		the daemon has to figure out its public IP address.
+	*/
+	var stoppedNormally bool
+	go func() {
+		if err := smtpd.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+		stoppedNormally = true
+	}()
+	addr := smtpd.ListenAddress + ":" + strconv.Itoa(smtpd.ListenPort)
+	// This really should be env.HTTPPublicIPTimeout * time.Second, but that would be too long.
+	time.Sleep(3 * time.Second)
+	// Try to exceed rate limit
+	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	success := 0
+	for i := 0; i < 100; i++ {
+		if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err == nil {
+			success++
+		}
+	}
+	if success < 5 || success > 15 {
+		t.Fatal("delivered", success)
+	}
+	// Wait till rate limit expires
+	time.Sleep(RateLimitIntervalSec * time.Second)
+	// Send an ordinary mail to the daemon
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
+		t.Fatal(err)
+	}
+	// Send a mail that does not belong to this server's domain
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@not-my-domain"}, []byte(testMessage)); strings.Index(err.Error(), "Bad address") == -1 {
+		t.Fatal(err)
+	}
+	// Try run a command via email
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\nverysecret.s echo hi"
+	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err != nil {
+		t.Fatal(err)
+	}
+	t.Log("Check howard@localhost and root@localhost mailbox")
+	// Daemon must stop in a second
+	smtpd.Stop()
+	time.Sleep(1 * time.Second)
+	if !stoppedNormally {
+		t.Fatal("did not stop")
+	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	smtpd.Stop()
+	smtpd.Stop()
 }

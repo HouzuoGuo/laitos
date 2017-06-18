@@ -230,8 +230,8 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 	}
 	for route := range ret.AllRoutes {
 		shortRoute := route
-		if len(route) > 12 {
-			shortRoute = route[0:12] + "..."
+		if len(route) > 190 {
+			shortRoute = route[0:190] + "..."
 		}
 		config.Logger.Printf("GetHTTPD", "", nil, "installed route %s", shortRoute)
 	}

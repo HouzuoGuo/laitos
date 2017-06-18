@@ -148,18 +148,18 @@ func (xy *HandleWebProxy) MakeHandler(logger global.Logger, _ *common.CommandPro
 		// Figure out where user wants to go
 		browseURL := r.FormValue("u")
 		if browseURL == "" {
-			http.Error(w, "", http.StatusInternalServerError)
+			http.Error(w, "URL is empty", http.StatusInternalServerError)
 			return
 		}
 		if len(browseURL) > 1024 {
 			logger.Warningf("Proxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes")
-			http.Error(w, "", http.StatusInternalServerError)
+			http.Error(w, "URL is unusually long", http.StatusInternalServerError)
 			return
 		}
 		urlParts, err := url.Parse(browseURL)
 		if err != nil {
 			logger.Warningf("Proxy", browseURL, err, "failed to parse proxy URL")
-			http.Error(w, "", http.StatusInternalServerError)
+			http.Error(w, "Failed to parse proxy URL", http.StatusInternalServerError)
 			return
 		}
 
@@ -173,7 +173,7 @@ func (xy *HandleWebProxy) MakeHandler(logger global.Logger, _ *common.CommandPro
 		myReq, err := http.NewRequest(r.Method, browseSchemeHostPathQuery, r.Body)
 		if err != nil {
 			logger.Warningf("Proxy", browseSchemeHostPathQuery, err, "failed to create request to URL")
-			http.Error(w, "", http.StatusInternalServerError)
+			http.Error(w, "Failed to create request to URL", http.StatusInternalServerError)
 			return
 		}
 		// Remove request headers that are not necessary
@@ -186,13 +186,13 @@ func (xy *HandleWebProxy) MakeHandler(logger global.Logger, _ *common.CommandPro
 		remoteResp, err := client.Do(myReq)
 		if err != nil {
 			logger.Warningf("Proxy", browseSchemeHostPathQuery, err, "failed to send request")
-			http.Error(w, "", http.StatusInternalServerError)
+			http.Error(w, "Failed to send request", http.StatusInternalServerError)
 			return
 		}
 		remoteRespBody, err := ioutil.ReadAll(remoteResp.Body)
 		if err != nil {
 			logger.Warningf("Proxy", browseSchemeHostPathQuery, err, "failed to download the URL")
-			http.Error(w, "", http.StatusInternalServerError)
+			http.Error(w, "Failed to download URL", http.StatusInternalServerError)
 			return
 		}
 		// Copy headers from remote response

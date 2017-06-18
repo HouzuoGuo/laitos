@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -196,5 +197,14 @@ func (bot *TelegramBot) StartAndBlock() error {
 		}
 	sleepAndContinue:
 		time.Sleep(PollIntervalSec * time.Second)
+	}
+}
+
+// Run unit tests on telegram bot. See TestSMTPD_StartAndBlock for bot setup.
+func TestTelegramBot(bot *TelegramBot, t *testing.T) {
+	// Well then it is really difficult to test the chat routine
+	// So I am going to only going to start the daemon using invalid configuration, which is definitely failing.
+	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {
+		t.Fatal(err)
 	}
 }
