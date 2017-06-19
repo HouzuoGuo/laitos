@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/global"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -73,7 +74,9 @@ func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *
 		// Read one line of command
 		line, _, err := reader.ReadLine()
 		if err != nil {
-			server.Logger.Warningf("HandleUDPConnection", clientIP, err, "received packet is malformed")
+			if err != io.EOF {
+				server.Logger.Warningf("HandleUDPConnection", clientIP, err, "failed to read received packet")
+			}
 			return
 		}
 		// Check against conversation rate limit

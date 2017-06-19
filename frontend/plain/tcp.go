@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/global"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -55,7 +56,9 @@ func (server *PlainTextDaemon) HandleTCPConnection(clientConn net.Conn) {
 		clientConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		line, _, err := reader.ReadLine()
 		if err != nil {
-			server.Logger.Warningf("HandleTCPConnection", clientIP, err, "failed to read from client")
+			if err != io.EOF {
+				server.Logger.Warningf("HandleTCPConnection", clientIP, err, "failed to read from client")
+			}
 			return
 		}
 		// Check against conversation rate limit
