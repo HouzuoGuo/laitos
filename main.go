@@ -125,7 +125,7 @@ func main() {
 	var conflictFree, debug bool
 	var gomaxprocs int
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, lighthttpd, mailp, smtpd, sockd, telegram)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, insecurehttpd, mailp, plaintext, smtpd, sockd, telegram)")
 	flag.BoolVar(&conflictFree, "conflictfree", false, "(Optional) automatically stop and disable system daemons that may run into port conflict with laitos")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
@@ -209,6 +209,8 @@ func main() {
 			if err := config.GetMailProcessor().Process(mailContent); err != nil {
 				logger.Fatalf("main", "", err, "failed to process mail")
 			}
+		case "plaintext":
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetPlainTextDaemon())
 		case "smtpd":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetMailDaemon())
 		case "sockd":

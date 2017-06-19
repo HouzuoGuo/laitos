@@ -5,6 +5,7 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/healthcheck"
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
+	"github.com/HouzuoGuo/laitos/frontend/plain"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd"
 	"github.com/HouzuoGuo/laitos/frontend/sockd"
 	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
@@ -121,7 +122,7 @@ func TestConfig(t *testing.T) {
   "MailProcessor": {
     "CommandTimeoutSec": 10
   },
-  "MailProcessorBridges": {
+  "MailBridges": {
     "LintText": {
       "CompressToSingleLine": true,
       "MaxLength": 70,
@@ -152,6 +153,39 @@ func TestConfig(t *testing.T) {
     "MTAPort": 25,
     "MailFrom": "howard@localhost"
   },
+  "PlainTextDaemon": {
+    "PerIPLimit": 10,
+    "TCPListenAddress": "127.0.0.1",
+    "TCPListenPort": 17011,
+    "UDPListenAddress": "127.0.0.1",
+    "UDPListenPort": 43915
+  },
+  "PlainTextBridges": {
+    "LintText": {
+      "CompressToSingleLine": false,
+      "MaxLength": 120,
+      "TrimSpaces": true
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "howard@localhost"
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "verysecret",
+      "Shortcuts": {
+        "telegramshortcut": ".secho plaintextshortcut"
+      }
+    },
+    "TranslateSequences": {
+      "Sequences": [
+        [
+          "iii",
+          "jjj"
+        ]
+      ]
+    }
+  },
   "SockDaemon": {
     "ListenAddress": "127.0.0.1",
     "ListenPort": 6891,
@@ -161,7 +195,7 @@ func TestConfig(t *testing.T) {
   "TelegramBot": {
     "AuthorizationToken": "intentionally-bad-token"
   },
-  "TelegramBotBridges": {
+  "TelegramBridges": {
     "LintText": {
       "CompressToSingleLine": true,
       "MaxLength": 120,
@@ -235,6 +269,9 @@ func TestConfig(t *testing.T) {
 	mailp.TestMailp(config.GetMailProcessor(), t)
 
 	smtpd.TestSMTPD(config.GetMailDaemon(), t)
+
+	plain.TestTCPServer(config.GetPlainTextDaemon(), t)
+	plain.TestUDPServer(config.GetPlainTextDaemon(), t)
 
 	sockd.TestSockd(config.GetSockDaemon(), t)
 

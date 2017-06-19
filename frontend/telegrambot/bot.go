@@ -77,6 +77,9 @@ type TelegramBot struct {
 
 func (bot *TelegramBot) Initialise() error {
 	bot.Logger = global.Logger{ComponentName: "TelegramBot", ComponentID: ""}
+	if bot.Processor == nil {
+		bot.Processor = common.GetEmptyCommandProcessor()
+	}
 	bot.Processor.SetLogger(bot.Logger)
 	if errs := bot.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("TelegramBot.Initialise: %+v", errs)

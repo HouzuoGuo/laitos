@@ -157,7 +157,23 @@ func TestCommandProcessor_IsSane(t *testing.T) {
 func TestGetTestCommandProcessor(t *testing.T) {
 	if proc := GetTestCommandProcessor(); proc == nil {
 		t.Fatal("did not return")
-	} else if errs := proc.Features.SelfTest(); len(errs) != 0 {
-		t.Fatal(errs)
+	} else if testErrs := proc.Features.SelfTest(); len(testErrs) != 0 {
+		t.Fatal(testErrs)
+	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
+		t.Fatal(saneErrs)
+	} else if result := proc.Process(feature.Command{Content: "verysecret .elog", TimeoutSec: 10}); result.Error != nil {
+		t.Fatal(result.Error)
+	}
+}
+
+func TestGetEmptyCommandProcessor(t *testing.T) {
+	if proc := GetEmptyCommandProcessor(); proc == nil {
+		t.Fatal("did not return")
+	} else if testErrs := proc.Features.SelfTest(); len(testErrs) != 0 {
+		t.Fatal(testErrs)
+	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
+		t.Fatal(saneErrs)
+	} else if result := proc.Process(feature.Command{Content: "verysecret .elog", TimeoutSec: 10}); result.Error == nil {
+		t.Fatal("did not error")
 	}
 }

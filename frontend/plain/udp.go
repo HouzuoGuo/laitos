@@ -7,6 +7,7 @@ import (
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/global"
 	"net"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ const (
 You may call this function only after having called Initialise()!
 Start UDP daemon and block until daemon is told to stop.
 */
-func (server *PlainText) StartAndBlockUDP() error {
+func (server *PlainTextDaemon) StartAndBlockUDP() error {
 	listenAddr := fmt.Sprintf("%s:%d", server.UDPListenAddress, server.UDPListenPort)
 	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
@@ -32,7 +33,7 @@ func (server *PlainText) StartAndBlockUDP() error {
 	}
 	defer udpServer.Close()
 	server.UDPListener = udpServer
-	server.Logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
+	server.Logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for commands")
 	// Process incoming requests
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
@@ -44,7 +45,7 @@ func (server *PlainText) StartAndBlockUDP() error {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("PlainText.StartAndBlockUDP: failed to accept new connection - %v", err)
+			return fmt.Errorf("PlainTextDaemon.StartAndBlockUDP: failed to accept new connection - %v", err)
 		}
 		// Check address against rate limit
 		clientIP := clientAddr.IP.String()
@@ -59,22 +60,20 @@ func (server *PlainText) StartAndBlockUDP() error {
 }
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
-func (server *PlainText) HandleUDPConnection(clientIP string, clientAddr *net.UDPAddr, packet []byte) {
+func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAddr, packet []byte) {
 	listener := server.UDPListener
 	if listener == nil {
 		server.Logger.Warningf("HandleUDPConnection", clientIP, nil, "listener is closed before request can be processed")
 		return
 	}
-	// Check connection against rate limit even before reading a line of command
-	if !server.RateLimit.Add(clientIP, true) {
-		return
-	}
+	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
+	server.Logger.Printf("HandleUDPConnection", clientIP, nil, "working on the connection")
 	reader := bufio.NewReader(bytes.NewReader(packet))
 	for {
 		// Read one line of command
 		line, _, err := reader.ReadLine()
 		if err != nil {
-			server.Logger.Warningf("HandleUDPConnection", clientIP, err, "impossible has happened - byte reader failed")
+			server.Logger.Warningf("HandleUDPConnection", clientIP, err, "received packet is malformed")
 			return
 		}
 		// Check against conversation rate limit
@@ -82,15 +81,15 @@ func (server *PlainText) HandleUDPConnection(clientIP string, clientAddr *net.UD
 			return
 		}
 		// Process line of command and respond
-		result := server.Processor.Process(feature.Command{Content: string(line), TimeoutSec: server.CommandTimeoutSec})
-		server.UDPListener.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+		result := server.Processor.Process(feature.Command{Content: string(line), TimeoutSec: CommandTimeoutSec})
+		server.UDPListener.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		server.UDPListener.WriteToUDP([]byte(result.CombinedOutput), clientAddr)
 		server.UDPListener.WriteToUDP([]byte("\r\n"), clientAddr)
 	}
 }
 
-// Run unit tests on the UDP server. See TestPlainText_StartAndBlockUDP for daemon setup.
-func TestPlainUDPServer(server *PlainText, t *testing.T) {
+// Run unit tests on the UDP server. See TestPlainTextProt_StartAndBlockUDP for daemon setup.
+func TestUDPServer(server *PlainTextDaemon, t *testing.T) {
 	// Prevent daemon from listening to TCP connections in this UDP test case
 	tcpListenPort := server.TCPListenPort
 	server.TCPListenPort = 0
@@ -106,6 +105,66 @@ func TestPlainUDPServer(server *PlainText, t *testing.T) {
 		stoppedNormally = true
 	}()
 	time.Sleep(2 * time.Second)
+
+	// Try to exceed rate limit
+	success := 0
+	for i := 0; i < 30; i++ {
+		clientConn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(server.UDPListenPort))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = clientConn.Write([]byte("verysecret .s echo hi\r\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		clientConn.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+		goodPINResp, _, err := bufio.NewReader(clientConn).ReadLine()
+		if err != nil {
+			continue
+		}
+		if string(goodPINResp) != "hi" {
+			t.Fatal(string(goodPINResp))
+		}
+		clientConn.Close()
+		success++
+	}
+	if success < 5 || success > 15 {
+		t.Fatal("succeeded", success)
+	}
+	// Wait till rate limit expires
+	time.Sleep(RateLimitIntervalSec * time.Second)
+
+	// Make two normal conversations
+	clientConn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(server.UDPListenPort))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientConn.Close()
+	reader := bufio.NewReader(clientConn)
+	// Command with bad PIN
+	_, err = clientConn.Write([]byte("pin mismatch\r\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	badPINResp, _, err := reader.ReadLine()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(badPINResp) != "Failed to match PIN/shortcut" {
+		t.Fatal(string(badPINResp))
+	}
+	// With good PIN
+	_, err = clientConn.Write([]byte("verysecret .s echo hi\r\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	goodPINResp, _, err := reader.ReadLine()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(goodPINResp) != "hi" {
+		t.Fatal(string(goodPINResp))
+	}
 
 	// Daemon should stop within a second
 	server.Stop()

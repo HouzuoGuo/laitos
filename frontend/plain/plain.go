@@ -7,16 +7,16 @@ import (
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net"
-	"time"
 )
 
 const (
-	IOTimeoutSec         = 120 * time.Second // If a conversation goes silent for this many seconds, the connection is terminated.
-	RateLimitIntervalSec = 10                // Rate limit is calculated at 10 seconds interval
+	IOTimeoutSec         = 120              // If a conversation goes silent for this many seconds, the connection is terminated.
+	CommandTimeoutSec    = IOTimeoutSec - 1 // Command execution times out after this manys econds
+	RateLimitIntervalSec = 10               // Rate limit is calculated at 10 seconds interval
 )
 
 // Provide access to features via plain unencrypted TCP and UDP connections.
-type PlainText struct {
+type PlainTextDaemon struct {
 	TCPListenAddress string       `json:"TCPListenAddress"` // TCP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
 	TCPListenPort    int          `json:"TCPListenPort"`    // TCP port to listen on
 	TCPListener      net.Listener `json:"-"`                // Once TCP daemon is started, this is its listener.
@@ -25,29 +25,34 @@ type PlainText struct {
 	UDPListenPort    int          `json:"UDPListenPort"`    // UDP port to listen on
 	UDPListener      *net.UDPConn `json:"-"`                // Once UDP daemon is started, this is its listener.
 
-	CommandTimeoutSec int `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds
-	PerIPLimit        int `json:"PerIPLimit"`        // How many times in 10 seconds interval a client IP may converse (connect/run feature) with server
+	PerIPLimit int `json:"PerIPLimit"` // How many times in 10 seconds interval a client IP may converse (connect/run feature) with server
 
 	Processor *common.CommandProcessor `json:"-"` // Feature command processor
-	Listener  net.Listener             `json:"-"` // Once daemon is started, this is its TCP listener.
 	RateLimit *ratelimit.RateLimit     `json:"-"` // Rate limit counter per IP address
 	Logger    global.Logger            `json:"-"` // Logger
 }
 
 // Check configuration and initialise internal states.
-func (server *PlainText) Initialise() error {
+func (server *PlainTextDaemon) Initialise() error {
 	server.Logger = global.Logger{
-		ComponentName: "PlainText",
+		ComponentName: "PlainTextDaemon",
 		ComponentID:   fmt.Sprintf("%s:%d&%s:%d", server.TCPListenAddress, server.TCPListenPort, server.UDPListenAddress, server.UDPListenPort),
 	}
+	if server.Processor == nil {
+		server.Processor = common.GetEmptyCommandProcessor()
+	}
+	server.Processor.SetLogger(server.Logger)
 	if errs := server.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("PlainText.Initialise: %+v", errs)
+		return fmt.Errorf("PlainTextDaemon.Initialise: %+v", errs)
 	}
 	if server.UDPListenAddress == "" && server.TCPListenAddress == "" {
-		return errors.New("PlainText.Initialise: listen address must not be empty")
+		return errors.New("PlainTextDaemon.Initialise: listen address must not be empty")
 	}
 	if server.UDPListenPort < 1 && server.TCPListenPort < 1 {
-		return errors.New("PlainText.Initialise: listen port must be greater than 0")
+		return errors.New("PlainTextDaemon.Initialise: listen port must be greater than 0")
+	}
+	if server.PerIPLimit < 1 {
+		return errors.New("PlainTextDaemon.Initialise: PerIPLimit must be greater than 0")
 	}
 	server.RateLimit = &ratelimit.RateLimit{
 		MaxCount: server.PerIPLimit,
@@ -62,7 +67,7 @@ func (server *PlainText) Initialise() error {
 You may call this function only after having called Initialise()!
 Start plain text service on configured TCP and UDP ports. Block caller.
 */
-func (server *PlainText) StartAndBlock() error {
+func (server *PlainTextDaemon) StartAndBlock() error {
 	numListeners := 0
 	errChan := make(chan error, 2)
 	if server.TCPListenPort != 0 {
@@ -80,7 +85,7 @@ func (server *PlainText) StartAndBlock() error {
 		}()
 	}
 	if numListeners == 0 {
-		return fmt.Errorf("PlainText.StartAndBlock: neither UDP nor TCP listen port is defined, the daemon will not start.")
+		return fmt.Errorf("PlainTextDaemon.StartAndBlock: neither UDP nor TCP listen port is defined, the daemon will not start.")
 	}
 	for i := 0; i < numListeners; i++ {
 		if err := <-errChan; err != nil {
@@ -92,7 +97,7 @@ func (server *PlainText) StartAndBlock() error {
 }
 
 // Close all of open TCP and UDP listeners so that they will cease processing incoming connections.
-func (server *PlainText) Stop() {
+func (server *PlainTextDaemon) Stop() {
 	if listener := server.TCPListener; listener != nil {
 		if err := listener.Close(); err != nil {
 			server.Logger.Warningf("Stop", "", err, "failed to close TCP listener")

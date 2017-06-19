@@ -13,6 +13,7 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
+	"github.com/HouzuoGuo/laitos/frontend/plain"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd"
 	"github.com/HouzuoGuo/laitos/frontend/sockd"
 	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
@@ -73,14 +74,17 @@ type Config struct {
 
 	HTTPIndexOnlyOn80 bool `json:"HTTPHomepageOn80"` // If TLS is enabled in HTTP daemon, serve only index pages via HTTP on port 80.
 
-	MailDaemon           smtpd.SMTPD         `json:"MailDaemon"`           // SMTP daemon configuration
-	MailProcessor        mailp.MailProcessor `json:"MailProcessor"`        // Incoming mail processor configuration
-	MailProcessorBridges StandardBridges     `json:"MailProcessorBridges"` // Incoming mail processor bridge configuration
+	MailDaemon    smtpd.SMTPD         `json:"MailDaemon"`    // SMTP daemon configuration
+	MailProcessor mailp.MailProcessor `json:"MailProcessor"` // Incoming mail processor configuration
+	MailBridges   StandardBridges     `json:"MailBridges"`   // Incoming mail processor bridge configuration
+
+	PlainTextDaemon  plain.PlainTextDaemon `json:"PlainTextDaemon"`  // Plain text protocol TCP and UDP daemon configuration
+	PlainTextBridges StandardBridges       `json:"PlainTextBridges"` // Plain text daemon bridge configuration
 
 	SockDaemon sockd.Sockd `json:"SockDaemon"` // Intentionally undocumented
 
-	TelegramBot        telegrambot.TelegramBot `json:"TelegramBot"`        // Telegram bot configuration
-	TelegramBotBridges StandardBridges         `json:"TelegramBotBridges"` // Telegram bot bridge configuration
+	TelegramBot     telegrambot.TelegramBot `json:"TelegramBot"`     // Telegram bot configuration
+	TelegramBridges StandardBridges         `json:"TelegramBridges"` // Telegram bot bridge configuration
 
 	Logger global.Logger `json:"-"` // Log config related messages
 }
@@ -280,7 +284,7 @@ mechanism.
 func (config Config) GetMailProcessor() *mailp.MailProcessor {
 	ret := config.MailProcessor
 
-	mailNotification := config.MailProcessorBridges.NotifyViaEmail
+	mailNotification := config.MailBridges.NotifyViaEmail
 	mailNotification.Mailer = config.Mailer
 
 	features := config.Features
@@ -293,12 +297,12 @@ func (config Config) GetMailProcessor() *mailp.MailProcessor {
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
 		CommandBridges: []bridge.CommandBridge{
-			&config.MailProcessorBridges.PINAndShortcuts,
-			&config.MailProcessorBridges.TranslateSequences,
+			&config.MailBridges.PINAndShortcuts,
+			&config.MailBridges.TranslateSequences,
 		},
 		ResultBridges: []bridge.ResultBridge{
 			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.MailProcessorBridges.LintText,
+			&config.MailBridges.LintText,
 			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
@@ -322,6 +326,44 @@ func (config Config) GetMailDaemon() *smtpd.SMTPD {
 	return &ret
 }
 
+/*
+Construct a plain text protocol TCP&UDP daemon and return.
+It will use common mailer for sending outgoing emails.
+*/
+func (config Config) GetPlainTextDaemon() *plain.PlainTextDaemon {
+	ret := config.PlainTextDaemon
+
+	mailNotification := config.PlainTextBridges.NotifyViaEmail
+	mailNotification.Mailer = config.Mailer
+
+	features := config.Features
+	if err := features.Initialise(); err != nil {
+		config.Logger.Fatalf("GetPlainTextDaemon", "", err, "failed to initialise features")
+		return nil
+	}
+	config.Logger.Printf("GetPlainTextDaemon", "", nil, "enabled features are - %v", features.GetTriggers())
+	// Assemble command processor from features and bridges
+	ret.Processor = &common.CommandProcessor{
+		Features: &features,
+		CommandBridges: []bridge.CommandBridge{
+			&config.PlainTextBridges.PINAndShortcuts,
+			&config.PlainTextBridges.TranslateSequences,
+		},
+		ResultBridges: []bridge.ResultBridge{
+			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+			&config.PlainTextBridges.LintText,
+			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+			&mailNotification,
+		},
+	}
+	// Call initialise so that daemon is ready to start
+	if err := ret.Initialise(); err != nil {
+		config.Logger.Fatalf("GetPlainTextDaemon", "", err, "failed to initialise")
+		return nil
+	}
+	return &ret
+}
+
 // Intentionally undocumented
 func (config Config) GetSockDaemon() *sockd.Sockd {
 	ret := config.SockDaemon
@@ -336,7 +378,7 @@ func (config Config) GetSockDaemon() *sockd.Sockd {
 func (config Config) GetTelegramBot() *telegrambot.TelegramBot {
 	ret := config.TelegramBot
 
-	mailNotification := config.TelegramBotBridges.NotifyViaEmail
+	mailNotification := config.TelegramBridges.NotifyViaEmail
 	mailNotification.Mailer = config.Mailer
 
 	features := config.Features
@@ -349,12 +391,12 @@ func (config Config) GetTelegramBot() *telegrambot.TelegramBot {
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
 		CommandBridges: []bridge.CommandBridge{
-			&config.TelegramBotBridges.PINAndShortcuts,
-			&config.TelegramBotBridges.TranslateSequences,
+			&config.TelegramBridges.PINAndShortcuts,
+			&config.TelegramBridges.TranslateSequences,
 		},
 		ResultBridges: []bridge.ResultBridge{
 			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.TelegramBotBridges.LintText,
+			&config.TelegramBridges.LintText,
 			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},

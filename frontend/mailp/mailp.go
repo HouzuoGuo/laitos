@@ -80,11 +80,14 @@ Process only one command (if found) in the incoming mail. If reply addresses are
 to the specified addresses. If they are not specified, use the incoming mail sender's address as reply address.
 */
 func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...string) error {
-	mailproc.Logger = global.Logger{ComponentName: "MailProcessor", ComponentID: strconv.Itoa(mailproc.CommandTimeoutSec)}
-	mailproc.Processor.SetLogger(mailproc.Logger)
 	if global.EmergencyLockDown {
 		return global.ErrEmergencyLockDown
 	}
+	mailproc.Logger = global.Logger{ComponentName: "MailProcessor", ComponentID: strconv.Itoa(mailproc.CommandTimeoutSec)}
+	if mailproc.Processor == nil {
+		mailproc.Processor = common.GetEmptyCommandProcessor()
+	}
+	mailproc.Processor.SetLogger(mailproc.Logger)
 	if errs := mailproc.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("MailProcessor.Process: %+v", errs)
 	}

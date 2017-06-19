@@ -1,6 +1,8 @@
 package common
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"github.com/HouzuoGuo/laitos/bridge"
 	"github.com/HouzuoGuo/laitos/feature"
@@ -216,5 +218,28 @@ func GetTestCommandProcessor() *CommandProcessor {
 		Features:       features,
 		CommandBridges: commandBridges,
 		ResultBridges:  resultBridges,
+	}
+}
+
+// Return a do-nothing yet sane command processor that has a random long password, rendering it unable to invoke any feature.
+func GetEmptyCommandProcessor() *CommandProcessor {
+	features := &feature.FeatureSet{}
+	if err := features.Initialise(); err != nil {
+		panic(err)
+	}
+	randPIN := make([]byte, 128)
+	if _, err := rand.Read(randPIN); err != nil {
+		panic(err)
+	}
+	return &CommandProcessor{
+		Features: features,
+		CommandBridges: []bridge.CommandBridge{
+			&bridge.PINAndShortcuts{PIN: hex.EncodeToString(randPIN)},
+		},
+		ResultBridges: []bridge.ResultBridge{
+			&bridge.ResetCombinedText{},
+			&bridge.LintText{MaxLength: 35},
+			&bridge.SayEmptyOutput{},
+		},
 	}
 }
