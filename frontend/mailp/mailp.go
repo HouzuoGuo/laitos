@@ -153,7 +153,8 @@ var TestUndocumented2Message = ""             // Content is set by init_mail_tes
 func TestMailp(mailp *MailProcessor, t *testing.T) {
 	// Real MTA is required to run the tests
 	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
-		t.Skip("there is no mta running on 127.0.0.1")
+		fmt.Println("there is no mta running on 127.0.0.1")
+		return
 	}
 	if err := mailp.SelfTest(); err != nil {
 		t.Fatal(err)

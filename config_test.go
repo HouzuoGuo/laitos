@@ -9,6 +9,7 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/sockd"
 	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
 	"testing"
+	"time"
 )
 
 // Most of the daemon test cases are copied from their own unit tests.
@@ -200,6 +201,13 @@ func TestConfig(t *testing.T) {
 	healthcheck.TestHealthCheck(config.GetHealthCheck(), t)
 
 	httpDaemon := config.GetHTTPD()
+	// HTTP daemon is expected to start in two seconds
+	go func() {
+		if err := httpDaemon.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	time.Sleep(2 * time.Second)
 	httpd.TestHTTPD(httpDaemon, t)
 	httpd.TestAPIHandlers(httpDaemon, t)
 
@@ -214,6 +222,13 @@ func TestConfig(t *testing.T) {
 	if err := insecureHTTPDaemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	// Insecure HTTP daemon is expected to start in two seconds
+	go func() {
+		if err := insecureHTTPDaemon.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	time.Sleep(2 * time.Second)
 	httpd.TestHTTPD(insecureHTTPDaemon, t)
 	httpd.TestAPIHandlers(insecureHTTPDaemon, t)
 

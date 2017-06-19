@@ -77,12 +77,14 @@ func (sock *Sockd) Initialise() error {
 }
 
 func (sock *Sockd) StartAndBlock() error {
-	sock.Logger.Printf("StartAndBlock", "", nil, "going to listen for connections")
 	var err error
-	sock.Listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", sock.ListenAddress, sock.ListenPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", sock.ListenAddress, sock.ListenPort))
 	if err != nil {
 		return fmt.Errorf("Sockd.StartAndBlock: failed to listen on %s:%d - %v", sock.ListenAddress, sock.ListenPort, err)
 	}
+	defer listener.Close()
+	sock.Logger.Printf("StartAndBlock", "", nil, "going to listen for connections")
+	sock.Listener = listener
 	for {
 		if global.EmergencyLockDown {
 			return global.ErrEmergencyLockDown
@@ -105,8 +107,8 @@ func (sock *Sockd) StartAndBlock() error {
 }
 
 func (sock *Sockd) Stop() {
-	if sock.Listener != nil {
-		if err := sock.Listener.Close(); err != nil {
+	if listener := sock.Listener; listener != nil {
+		if err := listener.Close(); err != nil {
 			sock.Logger.Warningf("Stop", "", err, "failed to close listener")
 		}
 	}
@@ -319,12 +321,8 @@ func (conn *CipherConnection) SleepRand() {
 }
 
 func (conn *CipherConnection) HandleAndCloseConnection() {
+	defer conn.Close()
 	remoteAddr := conn.RemoteAddr().String()
-
-	defer func() {
-		conn.Close()
-	}()
-
 	destAddr, err := conn.ParseRequest()
 	if err != nil {
 		conn.logger.Warningf("HandleAndCloseConnection", remoteAddr, err, "failed to get destination address")

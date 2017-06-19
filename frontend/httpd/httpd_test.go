@@ -72,7 +72,26 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// Run tests now
+	// Start server and run tests
+	// HTTP daemon is expected to start in two seconds
+	var stoppedNormally bool
+	go func() {
+		if err := daemon.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+		stoppedNormally = true
+	}()
+	time.Sleep(2 * time.Second)
 	TestHTTPD(&daemon, t)
 	TestAPIHandlers(&daemon, t)
+
+	// Daemon must stop in a second
+	daemon.Stop()
+	time.Sleep(1 * time.Second)
+	if !stoppedNormally {
+		t.Fatal("did not stop")
+	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	daemon.Stop()
+	daemon.Stop()
 }

@@ -52,7 +52,7 @@ func (dnsd *DNSD) HandleBlackHoleAnswer(myQueue chan *UDPQuery) {
 
 /*
 You may call this function only after having called Initialise()!
-Start DNS daemon to listen on UDP port only. Block caller.
+Start DNS daemon to listen on UDP port only, until daemon is told to stop.
 */
 func (dnsd *DNSD) StartAndBlockUDP() error {
 	listenAddr := fmt.Sprintf("%s:%d", dnsd.UDPListenAddress, dnsd.UDPListenPort)
@@ -64,6 +64,9 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 	if err != nil {
 		return err
 	}
+	defer udpServer.Close()
+	dnsd.UDPListener = udpServer
+	dnsd.Logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
 	// Start queues that will respond to DNS clients
 	for i, queue := range dnsd.UDPForwarderQueues {
 		go dnsd.HandleUDPQueries(queue, dnsd.UDPForwarderConns[i])
@@ -73,14 +76,16 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 	}
 	// Dispatch queries to forwarder queues
 	packetBuf := make([]byte, MaxPacketSize)
-	dnsd.Logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
 	for {
 		if global.EmergencyLockDown {
 			return global.ErrEmergencyLockDown
 		}
 		packetLength, clientAddr, err := udpServer.ReadFromUDP(packetBuf)
 		if err != nil {
-			return err
+			if strings.Contains(err.Error(), "closed") {
+				return nil
+			}
+			return fmt.Errorf("DNSD.StartAndBlockUDP: failed to accept new connection - %v", err)
 		}
 		// Check address against rate limit
 		clientIP := clientAddr.IP.String()
@@ -146,10 +151,12 @@ func TestUDPQueries(dnsd *DNSD, t *testing.T) {
 		dnsd.TCPListenPort = tcpListenPort
 	}()
 	// Server should start within two seconds
+	var stoppedNormally bool
 	go func() {
 		if err := dnsd.StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
+		stoppedNormally = true
 	}()
 	time.Sleep(2 * time.Second)
 
@@ -216,4 +223,13 @@ func TestUDPQueries(dnsd *DNSD, t *testing.T) {
 	if !blackListSuccess {
 		t.Fatal("did not answer to blacklist domain")
 	}
+	// Daemon must stop in a second
+	dnsd.Stop()
+	time.Sleep(10 * time.Second)
+	if !stoppedNormally {
+		t.Fatal("did not stop")
+	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	dnsd.Stop()
+	dnsd.Stop()
 }

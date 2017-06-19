@@ -1,6 +1,7 @@
 package httpd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/frontend/common"
@@ -195,22 +196,35 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 
 /*
 You may call this function only after having called Initialise()!
-Start HTTP daemon and block until this program exits.
+Start HTTP daemon and block caller until Stop function is called.
 */
 func (httpd *HTTPD) StartAndBlock() error {
 	if httpd.TLSCertPath == "" {
 		httpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTP connections")
 		if err := httpd.Server.ListenAndServe(); err != nil {
+			if strings.Contains(err.Error(), "closed") {
+				return nil
+			}
 			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
 		}
 	} else {
 		httpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTPS connections")
 		if err := httpd.Server.ListenAndServeTLS(httpd.TLSCertPath, httpd.TLSKeyPath); err != nil {
+			if strings.Contains(err.Error(), "closed") {
+				return nil
+			}
 			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
 		}
 	}
-	// Never reached
 	return nil
+}
+
+// Stop HTTP daemon.
+func (httpd *HTTPD) Stop() {
+	constraints, _ := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
+	if err := httpd.Server.Shutdown(constraints); err != nil {
+		httpd.Logger.Warningf("Stop", "", err, "failed to shutdown")
+	}
 }
 
 // Run unit tests on API handlers of an already started HTTP daemon all API handlers. Essentially, it tests "api" package.
@@ -329,7 +343,7 @@ func TestAPIHandlers(httpd *HTTPD, t *testing.T) {
 	}
 }
 
-// Start HTTP daemon and run unit tests on it. See TestHTTPD_StartAndBlock for daemon setup.
+// Run unit test on HTTP daemon. See TestHTTPD_StartAndBlock for daemon setup.
 func TestHTTPD(httpd *HTTPD, t *testing.T) {
 	// Create a temporary directory of file
 	// Caller is supposed to set up the handler on /my/dir
@@ -340,13 +354,6 @@ func TestHTTPD(httpd *HTTPD, t *testing.T) {
 	if err := ioutil.WriteFile(htmlDir+"/a.html", []byte("a html"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	// HTTP daemon is expected to start in two seconds
-	go func() {
-		if err := httpd.StartAndBlock(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	time.Sleep(2 * time.Second)
 
 	addr := fmt.Sprintf("http://%s:%d", httpd.ListenAddress, httpd.ListenPort)
 

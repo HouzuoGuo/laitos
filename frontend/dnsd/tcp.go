@@ -123,7 +123,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 
 /*
 You may call this function only after having called Initialise()!
-Start DNS daemon to listen on TCP port only. Block caller.
+Start DNS daemon to listen on TCP port only, until daemon is told to stop.
 */
 func (dnsd *DNSD) StartAndBlockTCP() error {
 	listenAddr := fmt.Sprintf("%s:%d", dnsd.TCPListenAddress, dnsd.TCPListenPort)
@@ -131,6 +131,9 @@ func (dnsd *DNSD) StartAndBlockTCP() error {
 	if err != nil {
 		return err
 	}
+	defer listener.Close()
+	dnsd.TCPListener = listener
+	// Process incoming TCP DNS queries
 	dnsd.Logger.Printf("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
 	for {
 		if global.EmergencyLockDown {
@@ -138,7 +141,10 @@ func (dnsd *DNSD) StartAndBlockTCP() error {
 		}
 		clientConn, err := listener.Accept()
 		if err != nil {
-			return err
+			if strings.Contains(err.Error(), "closed") {
+				return nil
+			}
+			return fmt.Errorf("DNSD.StartAndBlockTCP: failed to accept new connection - %v", err)
 		}
 		go dnsd.HandleTCPQuery(clientConn)
 	}
@@ -155,10 +161,12 @@ func TestTCPQueries(dnsd *DNSD, t *testing.T) {
 		dnsd.UDPListenPort = udpListenPort
 	}()
 	// Server should start within two seconds
+	var stoppedNormally bool
 	go func() {
 		if err := dnsd.StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
+		stoppedNormally = true
 	}()
 	time.Sleep(2 * time.Second)
 
@@ -221,4 +229,13 @@ func TestTCPQueries(dnsd *DNSD, t *testing.T) {
 	if !blackListSuccess {
 		t.Fatal("did not answer to blacklist domain")
 	}
+	// Daemon must stop in a second
+	dnsd.Stop()
+	time.Sleep(1 * time.Second)
+	if !stoppedNormally {
+		t.Fatal("did not stop")
+	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	dnsd.Stop()
+	dnsd.Stop()
 }

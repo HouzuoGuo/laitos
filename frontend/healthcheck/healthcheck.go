@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -21,7 +22,10 @@ const (
 	TCPConnectionTimeoutSec = 10
 )
 
-// Periodically check TCP ports and feature set, send notification mail along with latest log entries.
+/*
+Periodically check TCP ports and feature set, send notification mail along with latest log entries.
+TODO: implement a channel that stops the health check.
+*/
 type HealthCheck struct {
 	TCPPorts        []int                `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
 	IntervalSec     int                  `json:"IntervalSec"` // Check TCP ports and features at this interval
@@ -29,7 +33,9 @@ type HealthCheck struct {
 	Recipients      []string             `json:"Recipients"`  // Address of recipients of notification mails
 	FeaturesToCheck *feature.FeatureSet  `json:"-"`           // Health check subject - features and their API keys
 	MailpToCheck    *mailp.MailProcessor `json:"-"`           // Health check subject - mail processor and its mailer
-	Logger          global.Logger        `json:"-"`
+	Logger          global.Logger        `json:"-"`           // Logger
+	loopIsRunning   int32                // Value is 1 only when health check loop is running
+	stop            chan bool            // Signal health check loop to stop
 }
 
 // Check TCP ports and features, return all-OK or not.
@@ -123,12 +129,13 @@ func (check *HealthCheck) Initialise() error {
 	if check.IntervalSec < 120 {
 		return errors.New("HealthCheck.StartAndBlock: IntervalSec must be above 119")
 	}
+	check.stop = make(chan bool)
 	return nil
 }
 
 /*
 You may call this function only after having called Initialise()!
-Start health check loop and block until this program exits.
+Start health check loop and block caller until Stop function is called.
 */
 func (check *HealthCheck) StartAndBlock() error {
 	sort.Ints(check.TCPPorts)
@@ -136,8 +143,20 @@ func (check *HealthCheck) StartAndBlock() error {
 		if global.EmergencyLockDown {
 			return global.ErrEmergencyLockDown
 		}
-		time.Sleep(time.Duration(check.IntervalSec) * time.Second)
-		check.Execute()
+		atomic.StoreInt32(&check.loopIsRunning, 1)
+		select {
+		case <-check.stop:
+			return nil
+		case <-time.After(time.Duration(check.IntervalSec) * time.Second):
+			check.Execute()
+		}
+	}
+}
+
+// Stop previously started health check loop.
+func (check *HealthCheck) Stop() {
+	if atomic.CompareAndSwapInt32(&check.loopIsRunning, 1, 0) {
+		check.stop <- true
 	}
 }
 
@@ -168,11 +187,22 @@ func TestHealthCheck(check *HealthCheck, t *testing.T) {
 	if err := check.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	// Health check should successfully start within two seconds
+	var stoppedNormally bool
 	go func() {
 		if err := check.StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
+		stoppedNormally = true
 	}()
-	// Health check should successfully start within two seconds
 	time.Sleep(2 * time.Second)
+	// Daemon must stop in a second
+	check.Stop()
+	time.Sleep(1 * time.Second)
+	if !stoppedNormally {
+		t.Fatal("did not stop")
+	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	check.Stop()
+	check.Stop()
 }

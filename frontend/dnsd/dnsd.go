@@ -49,10 +49,12 @@ type DNSD struct {
 	UDPForwarderConns  []net.Conn       `json:"-"`                // UDP connections made toward forwarder
 	UDPForwarderQueues []chan *UDPQuery `json:"-"`                // Processing queues that handle UDP forward queries
 	UDPBlackHoleQueues []chan *UDPQuery `json:"-"`                // Processing queues that handle UDP black-list answers
+	UDPListener        *net.UDPConn     `json:"-"`                // Once UDP daemon is started, this is its listener.
 
-	TCPListenAddress string `json:"TCPListenAddress"` // TCP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	TCPListenPort    int    `json:"TCPListenPort"`    // TCP port to listen on
-	TCPForwardTo     string `json:"TCPForwardTo"`     // Forward TCP DNS queries to this address (IP:Port)
+	TCPListenAddress string       `json:"TCPListenAddress"` // TCP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
+	TCPListenPort    int          `json:"TCPListenPort"`    // TCP port to listen on
+	TCPForwardTo     string       `json:"TCPForwardTo"`     // Forward TCP DNS queries to this address (IP:Port)
+	TCPListener      net.Listener `json:"-"`                // Once TCP daemon is started, this is its listener.
 
 	AllowQueryIPPrefixes []string `json:"AllowQueryIPPrefixes"` // Only allow queries from IP addresses that carry any of the prefixes
 	PerIPLimit           int      `json:"PerIPLimit"`           // How many times in 10 seconds interval an IP may send DNS request
@@ -288,7 +290,8 @@ func (dnsd *DNSD) UpdatedAdBlockLists() {
 
 /*
 You may call this function only after having called Initialise()!
-Start DNS daemon on both UDP and TCP ports, block until this program exits.
+Start DNS daemon on configured TCP and UDP ports. Block caller until both listeners are told to stop.
+If either TCP or UDP port fails to listen, all listeners are closed and an error is returned.
 */
 func (dnsd *DNSD) StartAndBlock() error {
 	// Keep updating ad-block black list in background
@@ -304,24 +307,48 @@ func (dnsd *DNSD) StartAndBlock() error {
 			}
 		}
 	}()
+	numListeners := 0
 	errChan := make(chan error, 2)
 	if dnsd.UDPListenPort != 0 {
+		numListeners++
 		go func() {
-			if err := dnsd.StartAndBlockUDP(); err != nil {
-				errChan <- err
-				stopAdBlockUpdater <- true
-			}
+			err := dnsd.StartAndBlockUDP()
+			errChan <- err
+			stopAdBlockUpdater <- true
 		}()
 	}
 	if dnsd.TCPListenPort != 0 {
+		numListeners++
 		go func() {
-			if err := dnsd.StartAndBlockTCP(); err != nil {
-				errChan <- err
-				stopAdBlockUpdater <- true
-			}
+			err := dnsd.StartAndBlockTCP()
+			errChan <- err
+			stopAdBlockUpdater <- true
 		}()
 	}
-	return <-errChan
+	if numListeners == 0 {
+		return fmt.Errorf("DNSD.StartAndBlock: neither UDP nor TCP listen port is defined, the daemon will not start.")
+	}
+	for i := 0; i < numListeners; i++ {
+		if err := <-errChan; err != nil {
+			dnsd.Stop()
+			return err
+		}
+	}
+	return nil
+}
+
+// Close all of open TCP and UDP listeners so that they will cease processing incoming connections.
+func (dnsd *DNSD) Stop() {
+	if listener := dnsd.TCPListener; listener != nil {
+		if err := listener.Close(); err != nil {
+			dnsd.Logger.Warningf("Stop", "", err, "failed to close TCP listener")
+		}
+	}
+	if listener := dnsd.UDPListener; listener != nil {
+		if err := listener.Close(); err != nil {
+			dnsd.Logger.Warningf("Stop", "", err, "failed to close UDP listener")
+		}
+	}
 }
 
 // Return true if any of the input domain names is black listed.

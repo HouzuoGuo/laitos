@@ -219,23 +219,24 @@ You may call this function only after having called Initialise()!
 Start SMTP daemon and block until daemon is told to stop.
 */
 func (smtpd *SMTPD) StartAndBlock() (err error) {
-	smtpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for connections")
-	smtpd.Listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", smtpd.ListenAddress, smtpd.ListenPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", smtpd.ListenAddress, smtpd.ListenPort))
 	if err != nil {
 		return fmt.Errorf("SMTPD.StartAndBlock: failed to listen on %s:%d - %v", smtpd.ListenAddress, smtpd.ListenPort, err)
 	}
+	defer listener.Close()
+	smtpd.Listener = listener
+	// Process incoming TCP connections
+	smtpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for connections")
 	for {
 		if global.EmergencyLockDown {
 			return global.ErrEmergencyLockDown
 		}
 		clientConn, err := smtpd.Listener.Accept()
 		if err != nil {
-			// Listener is told to stop
 			if strings.Contains(err.Error(), "closed") {
 				return nil
-			} else {
-				return fmt.Errorf("SMTPD.StartAndBlock: failed to accept new connection - %v", err)
 			}
+			return fmt.Errorf("SMTPD.StartAndBlock: failed to accept new connection - %v", err)
 		}
 		go smtpd.HandleConnection(clientConn)
 	}
@@ -244,8 +245,8 @@ func (smtpd *SMTPD) StartAndBlock() (err error) {
 
 // If SMTP daemon has started (i.e. listener is set), close the listener so that its connection loop will terminate.
 func (smtpd *SMTPD) Stop() {
-	if smtpd.Listener != nil {
-		if err := smtpd.Listener.Close(); err != nil {
+	if listener := smtpd.Listener; listener != nil {
+		if err := listener.Close(); err != nil {
 			smtpd.Logger.Warningf("Stop", "", err, "failed to close listener")
 		}
 	}

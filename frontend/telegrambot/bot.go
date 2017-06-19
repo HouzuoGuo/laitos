@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -67,10 +68,11 @@ type TelegramBot struct {
 	AuthorizationToken string `json:"AuthorizationToken"` // Telegram bot API auth token
 
 	Processor     *common.CommandProcessor `json:"-"` // Feature command processor
-	Stop          bool                     `json:"-"` // StartAndBlock function will exit soon after this flag is turned on.
 	MessageOffset uint64                   `json:"-"` // Process chat messages arrived after this point
 	UserRateLimit *ratelimit.RateLimit     `json:"-"` // Prevent user from flooding bot with new messages
 	Logger        global.Logger            `json:"-"` // Logger
+	loopIsRunning int32                    // Value is 1 only when message loop is running
+	stop          chan bool                // Signal message loop to stop
 }
 
 func (bot *TelegramBot) Initialise() error {
@@ -164,10 +166,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 		if global.EmergencyLockDown {
 			return global.ErrEmergencyLockDown
 		}
-		if bot.Stop {
-			bot.Logger.Warningf("StartAndBlock", "", nil, "going to stop now")
-			return nil
-		}
+		atomic.StoreInt32(&bot.loopIsRunning, 1)
 		// Log a message if the loop has not processed messages for a while (multiplier 200 is an arbitrary choice)
 		if idleMax := int64(200 * PollIntervalSec); time.Now().Unix()-lastIdle > idleMax {
 			bot.Logger.Printf("Loop", "", nil, "has been idling for %d seconds", idleMax)
@@ -196,7 +195,18 @@ func (bot *TelegramBot) StartAndBlock() error {
 			bot.ProcessMessages(newMessages)
 		}
 	sleepAndContinue:
-		time.Sleep(PollIntervalSec * time.Second)
+		select {
+		case <-bot.stop:
+			return nil
+		case <-time.After(PollIntervalSec * time.Second):
+		}
+	}
+}
+
+// Stop previously started message handling loop.
+func (bot *TelegramBot) Stop() {
+	if atomic.CompareAndSwapInt32(&bot.loopIsRunning, 1, 0) {
+		bot.stop <- true
 	}
 }
 
@@ -207,4 +217,7 @@ func TestTelegramBot(bot *TelegramBot, t *testing.T) {
 	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {
 		t.Fatal(err)
 	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	bot.Stop()
+	bot.Stop()
 }
