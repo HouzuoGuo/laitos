@@ -1,1 +1,1 @@
-laitos: ./laitos -conflictfree -gomaxprocs 4 -config config.json -frontend dnsd,healthcheck,httpd,insecurehttpd,smtpd,sockd,telegram
+laitos: ./laitos -conflictfree -gomaxprocs 8 -config config.json -frontend dnsd,healthcheck,httpd,insecurehttpd,plaintext,smtpd,sockd,telegram
