@@ -74,9 +74,9 @@ const (
 </form>
 </body>
 </html>` // Browser page content
-	BrowserDebugOutputLen = 1024    // Display this much debug output on page
-	BrowserMinWidth       = 1280    // Default browser width in pixels
-	BrowserMinHeight      = 3 * 720 // Default browser height in pixels
+	BrowserDebugOutputLen = 1024 // Display this much debug output on page
+	BrowserMinWidth       = 1024 // Default browser width in pixels
+	BrowserMinHeight      = 1024 // Default browser height in pixels
 	BrowserUserAgent      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
 )
 
