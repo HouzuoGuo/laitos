@@ -173,7 +173,7 @@ func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
 		if pathLen := len(assembledPath); pathLen != 1 && assembledPath[pathLen-1] == '/' {
 			assembledPath = assembledPath[0 : pathLen-1]
 		}
-		remoteIP := r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')]
+		remoteIP := api.GetRealClientIP(r)
 		// Apply rate limit
 		if limit, routeFound := httpd.AllRateLimits[assembledPath]; routeFound {
 			if limit.Add(remoteIP, true) {
