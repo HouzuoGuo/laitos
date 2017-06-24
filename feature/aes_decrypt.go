@@ -13,10 +13,13 @@ import (
 	"strings"
 )
 
-var RegexAESShortcutKeySearch = regexp.MustCompile(`(\w+)[^\w]+(\w+)[^\w]+(.*)`) // Find file shortcut, key, and search word
-var ErrBadAESDecryptParam = errors.New(`Example: shortcut key to_search`)
+var (
+	// RegexAESShortcutKeySearch finds a shortcut name, encryption key, and search string.
+	RegexAESShortcutKeySearch = regexp.MustCompile(`(\w+)[^\w]+(\w+)[^\w]+(.*)`)
+	ErrBadAESDecryptParam     = errors.New(`Example: shortcut key to_search`)
+)
 
-const OPENSSL_SALTED_CONTENT_OFFSET = 16 // openssl writes down irrelevant salt in position 8:16
+const OpensslSaltedContentOffset = 16 // openssl writes down irrelevant salt in position 8:16
 
 /*
 Attributes about an AES-256-CBC encrypted file.
@@ -30,6 +33,21 @@ type AESEncryptedFile struct {
 	IV           []byte `json:"-"`            // IV in bytes
 	HexKeyPrefix string `json:"HexKeyPrefix"` // Hex-encoded encryption key, to be prepended to the key given in the command.
 	KeyPrefix    []byte `json:"-"`            // Key prefix in bytes
+}
+
+// Decrypt uses combination of encryption key from configuration and parameter to decrypt the entire file.
+func (encrypted *AESEncryptedFile) Decrypt(keySuffix []byte) (plainContent []byte, err error) {
+	keyTogether := make([]byte, len(encrypted.KeyPrefix)+len(keySuffix))
+	copy(keyTogether, encrypted.KeyPrefix[:])
+	copy(keyTogether[len(encrypted.KeyPrefix):], keySuffix[:])
+	aesCipher, err := aes.NewCipher(keyTogether)
+	if err != nil {
+		return
+	}
+	decryptor := cipher.NewCBCDecrypter(aesCipher, encrypted.IV)
+	plainContent = make([]byte, len(encrypted.FileContent))
+	decryptor.CryptBlocks(plainContent, encrypted.FileContent[16:])
+	return
 }
 
 // Decrypt AES-encrypted file and return lines sought by incoming command.
@@ -63,7 +81,7 @@ func (crypt *AESDecrypt) Initialise() error {
 		if file.FileContent, err = ioutil.ReadFile(file.FilePath); err != nil {
 			return fmt.Errorf("AESDecrypt.Initialise: failed to read AES encrypted file \"%s\" - %v", file.FilePath, err)
 		}
-		if len(file.FileContent) <= OPENSSL_SALTED_CONTENT_OFFSET {
+		if len(file.FileContent) <= OpensslSaltedContentOffset {
 			return fmt.Errorf("AESDecrypt.Initialise: \"%s\" does not appear to be a file salted & encrypted by openssl", file.FilePath)
 		}
 		if file.IV, err = hex.DecodeString(file.HexIV); err != nil {
@@ -90,33 +108,30 @@ func (crypt *AESDecrypt) Execute(cmd Command) (ret *Result) {
 	}
 	shortcutName := params[1]
 	hexKeySuffix := params[2]
+	// Use combination of configured key and input suffix key to decrypt the entire file
 	keySuffix, err := hex.DecodeString(hexKeySuffix)
 	if err != nil {
 		return &Result{Error: errors.New("Cannot decode hex key")}
 	}
 	searchString := strings.ToLower(params[3])
-	// Let Go do the decryption
 	file, found := crypt.EncryptedFiles[shortcutName]
 	if !found {
 		return &Result{Error: errors.New("Cannot find " + shortcutName)}
 	}
-	keyTogether := make([]byte, len(file.KeyPrefix)+len(keySuffix))
-	copy(keyTogether, file.KeyPrefix[:])
-	copy(keyTogether[len(file.KeyPrefix):], keySuffix[:])
-	aesCipher, err := aes.NewCipher(keyTogether)
-	decryptor := cipher.NewCBCDecrypter(aesCipher, file.IV)
-	decryptedContent := make([]byte, len(file.FileContent))
-	decryptor.CryptBlocks(decryptedContent, file.FileContent[16:])
-	// Search for the string and return the matching line
+	plainContent, err := file.Decrypt(keySuffix)
+	if err != nil {
+		return &Result{Error: err}
+	}
+	// Conduct case insensitive search for the specified text among all lines of decrypted file
 	var match bytes.Buffer
 	var numMatch int
-	for _, line := range strings.Split(string(decryptedContent), "\n") {
+	for _, line := range strings.Split(string(plainContent), "\n") {
 		if strings.Contains(strings.ToLower(line), searchString) {
 			match.WriteString(line)
 			numMatch++
 		}
 	}
-	// Output is number of matching lines followed by matching lines
+	// Output is number of matched lines followed by the lines
 	return &Result{Output: fmt.Sprintf("%d %s", numMatch, match.String())}
 }
 

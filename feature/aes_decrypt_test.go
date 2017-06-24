@@ -12,7 +12,7 @@ func TestAESDecrypt_Execute(t *testing.T) {
 		t.Fatal("not right")
 	}
 	decrypt.EncryptedFiles = map[string]*AESEncryptedFile{
-		"alpha": &AESEncryptedFile{
+		"alpha": {
 			FilePath:     "",
 			HexIV:        "",
 			HexKeyPrefix: "",
