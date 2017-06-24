@@ -35,18 +35,39 @@ type AESEncryptedFile struct {
 	KeyPrefix    []byte `json:"-"`            // Key prefix in bytes
 }
 
+// Initialise reads encrypted file into memory.
+func (file *AESEncryptedFile) Initialise() error {
+	if file.HexIV == "" || file.FilePath == "" || file.HexKeyPrefix == "" {
+		return fmt.Errorf("AESEncryptedFile.Initialise: file \"%s\" is missing configuration", file.FilePath)
+	}
+	var err error
+	if file.FileContent, err = ioutil.ReadFile(file.FilePath); err != nil {
+		return fmt.Errorf("AESEncryptedFile.Initialise: failed to read AES encrypted file \"%s\" - %v", file.FilePath, err)
+	}
+	if len(file.FileContent) <= OpensslSaltedContentOffset {
+		return fmt.Errorf("AESEncryptedFile.Initialise: \"%s\" does not appear to be a file encrypted by openssl", file.FilePath)
+	}
+	if file.IV, err = hex.DecodeString(file.HexIV); err != nil {
+		return fmt.Errorf("AESEncryptedFile.Initialise: failed to decode IV of file \"%s\" - %v", file.FilePath, err)
+	}
+	if file.KeyPrefix, err = hex.DecodeString(file.HexKeyPrefix); err != nil {
+		return fmt.Errorf("AESEncryptedFile.Initialise: failed to decide key prefix of file \"%s\" - %v", file.FilePath, err)
+	}
+	return nil
+}
+
 // Decrypt uses combination of encryption key from configuration and parameter to decrypt the entire file.
-func (encrypted *AESEncryptedFile) Decrypt(keySuffix []byte) (plainContent []byte, err error) {
-	keyTogether := make([]byte, len(encrypted.KeyPrefix)+len(keySuffix))
-	copy(keyTogether, encrypted.KeyPrefix[:])
-	copy(keyTogether[len(encrypted.KeyPrefix):], keySuffix[:])
+func (file *AESEncryptedFile) Decrypt(keySuffix []byte) (plainContent []byte, err error) {
+	keyTogether := make([]byte, len(file.KeyPrefix)+len(keySuffix))
+	copy(keyTogether, file.KeyPrefix[:])
+	copy(keyTogether[len(file.KeyPrefix):], keySuffix[:])
 	aesCipher, err := aes.NewCipher(keyTogether)
 	if err != nil {
 		return
 	}
-	decryptor := cipher.NewCBCDecrypter(aesCipher, encrypted.IV)
-	plainContent = make([]byte, len(encrypted.FileContent))
-	decryptor.CryptBlocks(plainContent, encrypted.FileContent[16:])
+	decryptor := cipher.NewCBCDecrypter(aesCipher, file.IV)
+	plainContent = make([]byte, len(file.FileContent))
+	decryptor.CryptBlocks(plainContent, file.FileContent[16:])
 	return
 }
 
@@ -72,23 +93,10 @@ func (crypt *AESDecrypt) SelfTest() error {
 }
 
 func (crypt *AESDecrypt) Initialise() error {
-	// Read every single encrypted file
-	for _, file := range crypt.EncryptedFiles {
-		if file.HexIV == "" || file.FilePath == "" || file.HexKeyPrefix == "" {
-			return fmt.Errorf("AESDecrypt.Initialise: file \"%s\" is missing configuration", file.FilePath)
-		}
-		var err error
-		if file.FileContent, err = ioutil.ReadFile(file.FilePath); err != nil {
-			return fmt.Errorf("AESDecrypt.Initialise: failed to read AES encrypted file \"%s\" - %v", file.FilePath, err)
-		}
-		if len(file.FileContent) <= OpensslSaltedContentOffset {
-			return fmt.Errorf("AESDecrypt.Initialise: \"%s\" does not appear to be a file salted & encrypted by openssl", file.FilePath)
-		}
-		if file.IV, err = hex.DecodeString(file.HexIV); err != nil {
-			return fmt.Errorf("AESDecrypt.Initialise: failed to decode IV of file \"%s\" - %v", file.FilePath, err)
-		}
-		if file.KeyPrefix, err = hex.DecodeString(file.HexKeyPrefix); err != nil {
-			return fmt.Errorf("AESDecrypt.Initialise: failed to decide key prefix of file \"%s\" - %v", file.FilePath, err)
+	// Read all encrypted files into memory
+	for _, encrypted := range crypt.EncryptedFiles {
+		if err := encrypted.Initialise(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -135,17 +143,17 @@ func (crypt *AESDecrypt) Execute(cmd Command) (ret *Result) {
 	return &Result{Output: fmt.Sprintf("%d %s", numMatch, match.String())}
 }
 
-// Return a configured but uninitialised AESDecryptor.
+// Return a configured but uninitialised AESDecrypt.
 func GetTestAESDecrypt() AESDecrypt {
 	/*
-		Generated sample encrypted file via:
+		Generate sample encrypted file via:
 		openssl enc -aes256 -in myinput -out mysample
 
-		openssl enc -aes256 -in mysample -d -p says:
+		openssl enc -aes256 -in mysample -d -p then says:
 		salt=B332DF2D2F95A86B
 		key=F2A515CDDC967C5B0C73FD09264BF67F08A6E1BD273A598F013F6691AAF144A4
 		iv =A28DB439E2D112AB6E9FC2B09A73B605
-		( ^^^ encryption parameters)
+		( ^^^ decryption parameters)
 		abc
 		def
 		ghi

@@ -9,16 +9,17 @@ import (
 
 // Aggregate all available features together.
 type FeatureSet struct {
-	AESDecrypt      AESDecrypt          `json:"AESDecrypt"`
-	EnvControl      EnvControl          `json:"EnvControl"`
-	Facebook        Facebook            `json:"Facebook"`
-	IMAPAccounts    IMAPAccounts        `json:"IMAPAccounts"`
-	SendMail        SendMail            `json:"SendMail"`
-	Shell           Shell               `json:"Shell"`
-	Twilio          Twilio              `json:"Twilio"`
-	Twitter         Twitter             `json:"Twitter"`
-	WolframAlpha    WolframAlpha        `json:"WolframAlpha"`
-	LookupByTrigger map[Trigger]Feature `json:"-"`
+	AESDecrypt         AESDecrypt          `json:"AESDecrypt"`
+	EnvControl         EnvControl          `json:"EnvControl"`
+	Facebook           Facebook            `json:"Facebook"`
+	IMAPAccounts       IMAPAccounts        `json:"IMAPAccounts"`
+	SendMail           SendMail            `json:"SendMail"`
+	Shell              Shell               `json:"Shell"`
+	Twilio             Twilio              `json:"Twilio"`
+	Twitter            Twitter             `json:"Twitter"`
+	TwoFACodeGenerator TwoFACodeGenerator  `json:"TwoFACodeGenerator"`
+	WolframAlpha       WolframAlpha        `json:"WolframAlpha"`
+	LookupByTrigger    map[Trigger]Feature `json:"-"`
 }
 
 var TestFeatureSet = FeatureSet{} // Features are assigned by init_test.go
@@ -27,15 +28,16 @@ var TestFeatureSet = FeatureSet{} // Features are assigned by init_test.go
 func (fs *FeatureSet) Initialise() error {
 	fs.LookupByTrigger = map[Trigger]Feature{}
 	triggers := map[Trigger]Feature{
-		fs.AESDecrypt.Trigger():   &fs.AESDecrypt,
-		fs.EnvControl.Trigger():   &fs.EnvControl,
-		fs.Facebook.Trigger():     &fs.Facebook,
-		fs.IMAPAccounts.Trigger(): &fs.IMAPAccounts,
-		fs.SendMail.Trigger():     &fs.SendMail,
-		fs.Twilio.Trigger():       &fs.Twilio,
-		fs.Shell.Trigger():        &fs.Shell,
-		fs.Twitter.Trigger():      &fs.Twitter,
-		fs.WolframAlpha.Trigger(): &fs.WolframAlpha,
+		fs.AESDecrypt.Trigger():         &fs.AESDecrypt,
+		fs.EnvControl.Trigger():         &fs.EnvControl,
+		fs.Facebook.Trigger():           &fs.Facebook,
+		fs.IMAPAccounts.Trigger():       &fs.IMAPAccounts,
+		fs.SendMail.Trigger():           &fs.SendMail,
+		fs.Shell.Trigger():              &fs.Shell,
+		fs.Twilio.Trigger():             &fs.Twilio,
+		fs.Twitter.Trigger():            &fs.Twitter,
+		fs.TwoFACodeGenerator.Trigger(): &fs.TwoFACodeGenerator,
+		fs.WolframAlpha.Trigger():       &fs.WolframAlpha,
 	}
 	for trigger, featureRef := range triggers {
 		if featureRef.IsConfigured() {
@@ -78,15 +80,16 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 	}
 	// Here are the feature keys
 	features := map[string]Feature{
-		"AESDecrypt":   &fs.AESDecrypt,
-		"EnvControl":   &fs.EnvControl,
-		"Facebook":     &fs.Facebook,
-		"IMAPAccounts": &fs.IMAPAccounts,
-		"SendMail":     &fs.SendMail,
-		"Shell":        &fs.Shell,
-		"Twilio":       &fs.Twilio,
-		"Twitter":      &fs.Twitter,
-		"WolframAlpha": &fs.WolframAlpha,
+		"AESDecrypt":         &fs.AESDecrypt,
+		"EnvControl":         &fs.EnvControl,
+		"Facebook":           &fs.Facebook,
+		"IMAPAccounts":       &fs.IMAPAccounts,
+		"SendMail":           &fs.SendMail,
+		"Shell":              &fs.Shell,
+		"Twilio":             &fs.Twilio,
+		"Twitter":            &fs.Twitter,
+		"TwoFACodeGenerator": &fs.TwoFACodeGenerator,
+		"WolframAlpha":       &fs.WolframAlpha,
 	}
 	for featureKey, featureRef := range features {
 		if featureJSON, exists := configMap[featureKey]; exists {
