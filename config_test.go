@@ -179,7 +179,7 @@ func TestConfig(t *testing.T) {
     }
   },
   "PlainTextDaemon": {
-    "ListenAddress": "127.0.0.1",
+    "Address": "127.0.0.1",
     "PerIPLimit": 10,
     "TCPPort": 17011,
     "UDPPort": 43915
