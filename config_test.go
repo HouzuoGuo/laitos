@@ -18,16 +18,15 @@ func TestConfig(t *testing.T) {
 	js := `
 {
   "DNSDaemon": {
+    "Address": "127.0.0.1",
     "AllowQueryIPPrefixes": [
       "127.0"
     ],
     "PerIPLimit": 10,
-    "TCPForwardTo": "8.8.8.8:53",
-    "TCPListenAddress": "127.0.0.1",
-    "TCPListenPort": 45115,
-    "UDPForwardTo": "8.8.8.8:53",
-    "UDPListenAddress": "127.0.0.1",
-    "UDPListenPort": 23518
+    "TCPForwarder": "8.8.8.8:53",
+    "TCPPort": 45115,
+    "UDPForwarder": "8.8.8.8:53",
+    "UDPPort": 23518
   },
   "Features": {
     "Shell": {
@@ -63,9 +62,9 @@ func TestConfig(t *testing.T) {
     }
   },
   "HTTPDaemon": {
+    "Address": "127.0.0.1",
     "BaseRateLimit": 10,
-    "ListenAddress": "127.0.0.1",
-    "ListenPort": 23486,
+    "Port": 23486,
     "ServeDirectories": {
       "/my/dir": "/tmp/test-laitos-dir"
     }
@@ -106,22 +105,6 @@ func TestConfig(t *testing.T) {
       9114
     ]
   },
-  "MailDaemon": {
-    "ForwardTo": [
-      "howard@localhost",
-      "root@localhost"
-    ],
-    "ListenAddress": "127.0.0.1",
-    "ListenPort": 18573,
-    "MyDomains": [
-      "example.com",
-      "howard.name"
-    ],
-    "PerIPLimit": 10
-  },
-  "MailProcessor": {
-    "CommandTimeoutSec": 10
-  },
   "MailBridges": {
     "LintText": {
       "CompressToSingleLine": true,
@@ -148,17 +131,26 @@ func TestConfig(t *testing.T) {
       ]
     }
   },
+  "MailDaemon": {
+    "Address": "127.0.0.1",
+    "ForwardTo": [
+      "howard@localhost",
+      "root@localhost"
+    ],
+    "MyDomains": [
+      "example.com",
+      "howard.name"
+    ],
+    "PerIPLimit": 10,
+    "Port": 18573
+  },
+  "MailProcessor": {
+    "CommandTimeoutSec": 10
+  },
   "Mailer": {
     "MTAHost": "127.0.0.1",
     "MTAPort": 25,
     "MailFrom": "howard@localhost"
-  },
-  "PlainTextDaemon": {
-    "PerIPLimit": 10,
-    "TCPListenAddress": "127.0.0.1",
-    "TCPListenPort": 17011,
-    "UDPListenAddress": "127.0.0.1",
-    "UDPListenPort": 43915
   },
   "PlainTextBridges": {
     "LintText": {
@@ -186,11 +178,18 @@ func TestConfig(t *testing.T) {
       ]
     }
   },
-  "SockDaemon": {
+  "PlainTextDaemon": {
     "ListenAddress": "127.0.0.1",
-    "ListenPort": 6891,
+    "PerIPLimit": 10,
+    "TCPPort": 17011,
+    "UDPPort": 43915
+  },
+  "SockDaemon": {
+    "Address": "127.0.0.1",
     "Password": "1234567",
-    "PerIPLimit": 10
+    "PerIPLimit": 10,
+    "TCPPort": 6891,
+    "UDPPort": 9122
   },
   "TelegramBot": {
     "AuthorizationToken": "intentionally-bad-token"
@@ -247,11 +246,11 @@ func TestConfig(t *testing.T) {
 
 	insecureHTTPDaemon := config.GetInsecureHTTPD()
 	// Insecure HTTP daemon should listen on port 80 in deployment
-	if insecureHTTPDaemon.ListenPort != 80 {
+	if insecureHTTPDaemon.Port != 80 {
 		t.Fatal("wrong port for insecure HTTP daemon to listen on")
 	}
 	// However, this test case does not run as root, so give it an unprivileged port.
-	insecureHTTPDaemon.ListenPort = 51991
+	insecureHTTPDaemon.Port = 51991
 	// Re-initialise internal states to make new port number effective
 	if err := insecureHTTPDaemon.Initialise(); err != nil {
 		t.Fatal(err)

@@ -26,13 +26,13 @@ const (
 
 // An SMTP daemon that receives mails addressed to its domain name, and optionally forward the received mails to other addresses.
 type SMTPD struct {
-	ListenAddress string   `json:"ListenAddress"` // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	ListenPort    int      `json:"ListenPort"`    // Port number to listen on
-	TLSCertPath   string   `json:"TLSCertPath"`   // (Optional) serve StartTLS via this certificate
-	TLSKeyPath    string   `json:"TLSKeyPath"`    // (Optional) serve StartTLS via this certificate (key)
-	PerIPLimit    int      `json:"PerIPLimit"`    // How many times in 10 seconds interval an IP may deliver an email to this server
-	MyDomains     []string `json:"MyDomains"`     // Only accept mails addressed to these domain names
-	ForwardTo     []string `json:"ForwardTo"`     // Forward received mails to these addresses
+	Address     string   `json:"Address"`     // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
+	Port        int      `json:"Port"`        // Port number to listen on
+	TLSCertPath string   `json:"TLSCertPath"` // (Optional) serve StartTLS via this certificate
+	TLSKeyPath  string   `json:"TLSKeyPath"`  // (Optional) serve StartTLS via this certificate (key)
+	PerIPLimit  int      `json:"PerIPLimit"`  // How many times in 10 seconds interval an IP may deliver an email to this server
+	MyDomains   []string `json:"MyDomains"`   // Only accept mails addressed to these domain names
+	ForwardTo   []string `json:"ForwardTo"`   // Forward received mails to these addresses
 
 	MyDomainsHash map[string]struct{} `json:"-"` // "MyDomains" values in map keys
 	ForwardMailer email.Mailer        `json:"-"` // Use this mailer to forward arrived mails
@@ -49,14 +49,14 @@ type SMTPD struct {
 
 // Check configuration and initialise internal states.
 func (smtpd *SMTPD) Initialise() error {
-	smtpd.Logger = global.Logger{ComponentName: "SMTPD", ComponentID: fmt.Sprintf("%s:%d", smtpd.ListenAddress, smtpd.ListenPort)}
+	smtpd.Logger = global.Logger{ComponentName: "SMTPD", ComponentID: fmt.Sprintf("%s:%d", smtpd.Address, smtpd.Port)}
 	if !smtpd.MailProcessor.ReplyMailer.IsConfigured() {
 		return errors.New("SMTPD.Initialise: mail processor's reply mailer must be configured")
 	}
-	if smtpd.ListenAddress == "" {
+	if smtpd.Address == "" {
 		return errors.New("SMTPD.Initialise: listen address must not be empty")
 	}
-	if smtpd.ListenPort < 1 {
+	if smtpd.Port < 1 {
 		return errors.New("SMTPD.Initialise: listen port must be greater than 0")
 	}
 	if smtpd.PerIPLimit < 1 {
@@ -105,12 +105,12 @@ func (smtpd *SMTPD) Initialise() error {
 	smtpd.RateLimit.Initialise()
 	// Do not allow forward to this daemon itself
 	if (strings.HasPrefix(smtpd.ForwardMailer.MTAHost, "127.") || smtpd.ForwardMailer.MTAHost == smtpd.MyPublicIP) &&
-		smtpd.ForwardMailer.MTAPort == smtpd.ListenPort {
+		smtpd.ForwardMailer.MTAPort == smtpd.Port {
 		return errors.New("SMTPD.Initialise: forward MTA must not be myself")
 	}
 	// Do not allow mail processor to reply to this daemon itself
 	if (strings.HasPrefix(smtpd.MailProcessor.ReplyMailer.MTAHost, "127.") || smtpd.MailProcessor.ReplyMailer.MTAHost == smtpd.MyPublicIP) &&
-		smtpd.MailProcessor.ReplyMailer.MTAPort == smtpd.ListenPort {
+		smtpd.MailProcessor.ReplyMailer.MTAPort == smtpd.Port {
 		return errors.New("SMTPD.Initialise: mail processor's reply MTA must not be myself")
 	}
 	// Construct a hash of MyDomains addresses for fast lookup
@@ -219,9 +219,9 @@ You may call this function only after having called Initialise()!
 Start SMTP daemon and block until daemon is told to stop.
 */
 func (smtpd *SMTPD) StartAndBlock() (err error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", smtpd.ListenAddress, smtpd.ListenPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", smtpd.Address, smtpd.Port))
 	if err != nil {
-		return fmt.Errorf("SMTPD.StartAndBlock: failed to listen on %s:%d - %v", smtpd.ListenAddress, smtpd.ListenPort, err)
+		return fmt.Errorf("SMTPD.StartAndBlock: failed to listen on %s:%d - %v", smtpd.Address, smtpd.Port, err)
 	}
 	defer listener.Close()
 	smtpd.Listener = listener
@@ -265,7 +265,7 @@ func TestSMTPD(smtpd *SMTPD, t *testing.T) {
 		}
 		stoppedNormally = true
 	}()
-	addr := smtpd.ListenAddress + ":" + strconv.Itoa(smtpd.ListenPort)
+	addr := smtpd.Address + ":" + strconv.Itoa(smtpd.Port)
 	// This really should be env.HTTPPublicIPTimeout * time.Second, but that would be too long.
 	time.Sleep(3 * time.Second)
 	// Try to exceed rate limit

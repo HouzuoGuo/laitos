@@ -17,13 +17,11 @@ const (
 
 // Provide access to features via plain unencrypted TCP and UDP connections.
 type PlainTextDaemon struct {
-	TCPListenAddress string       `json:"TCPListenAddress"` // TCP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	TCPListenPort    int          `json:"TCPListenPort"`    // TCP port to listen on
-	TCPListener      net.Listener `json:"-"`                // Once TCP daemon is started, this is its listener.
-
-	UDPListenAddress string       `json:"UDPListenAddress"` // UDP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	UDPListenPort    int          `json:"UDPListenPort"`    // UDP port to listen on
-	UDPListener      *net.UDPConn `json:"-"`                // Once UDP daemon is started, this is its listener.
+	Address     string       `json:"Address"` // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
+	TCPPort     int          `json:"TCPPort"` // TCP port to listen on
+	UDPPort     int          `json:"UDPPort"` // UDP port to listen on
+	TCPListener net.Listener `json:"-"`       // Once TCP daemon is started, this is its listener.
+	UDPListener *net.UDPConn `json:"-"`       // Once UDP daemon is started, this is its listener.
 
 	PerIPLimit int `json:"PerIPLimit"` // How many times in 10 seconds interval a client IP may converse (connect/run feature) with server
 
@@ -36,7 +34,7 @@ type PlainTextDaemon struct {
 func (server *PlainTextDaemon) Initialise() error {
 	server.Logger = global.Logger{
 		ComponentName: "PlainTextDaemon",
-		ComponentID:   fmt.Sprintf("%s:%d&%s:%d", server.TCPListenAddress, server.TCPListenPort, server.UDPListenAddress, server.UDPListenPort),
+		ComponentID:   fmt.Sprintf("%s:%d&%d", server.Address, server.TCPPort, server.UDPPort),
 	}
 	if server.Processor == nil {
 		server.Processor = common.GetEmptyCommandProcessor()
@@ -45,10 +43,10 @@ func (server *PlainTextDaemon) Initialise() error {
 	if errs := server.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("PlainTextDaemon.Initialise: %+v", errs)
 	}
-	if server.UDPListenAddress == "" && server.TCPListenAddress == "" {
+	if server.Address == "" {
 		return errors.New("PlainTextDaemon.Initialise: listen address must not be empty")
 	}
-	if server.UDPListenPort < 1 && server.TCPListenPort < 1 {
+	if server.UDPPort < 1 && server.TCPPort < 1 {
 		return errors.New("PlainTextDaemon.Initialise: listen port must be greater than 0")
 	}
 	if server.PerIPLimit < 1 {
@@ -70,14 +68,14 @@ Start plain text service on configured TCP and UDP ports. Block caller.
 func (server *PlainTextDaemon) StartAndBlock() error {
 	numListeners := 0
 	errChan := make(chan error, 2)
-	if server.TCPListenPort != 0 {
+	if server.TCPPort != 0 {
 		numListeners++
 		go func() {
 			err := server.StartAndBlockTCP()
 			errChan <- err
 		}()
 	}
-	if server.UDPListenPort != 0 {
+	if server.UDPPort != 0 {
 		numListeners++
 		go func() {
 			err := server.StartAndBlockUDP()
@@ -85,7 +83,7 @@ func (server *PlainTextDaemon) StartAndBlock() error {
 		}()
 	}
 	if numListeners == 0 {
-		return fmt.Errorf("PlainTextDaemon.StartAndBlock: neither UDP nor TCP listen port is defined, the daemon will not start.")
+		return fmt.Errorf("PlainTextDaemon.StartAndBlock: neither TCP nor UDP listen port is defined, the daemon will not start.")
 	}
 	for i := 0; i < numListeners; i++ {
 		if err := <-errChan; err != nil {
@@ -100,12 +98,12 @@ func (server *PlainTextDaemon) StartAndBlock() error {
 func (server *PlainTextDaemon) Stop() {
 	if listener := server.TCPListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			server.Logger.Warningf("Stop", "", err, "failed to close TCP listener")
+			server.Logger.Warningf("Stop", "", err, "failed to close TCP server")
 		}
 	}
 	if listener := server.UDPListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			server.Logger.Warningf("Stop", "", err, "failed to close UDP listener")
+			server.Logger.Warningf("Stop", "", err, "failed to close UDP server")
 		}
 	}
 }

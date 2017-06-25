@@ -78,7 +78,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	}
 	// If queried domain is not black listed, forward the query to forwarder.
 	if doForward {
-		myForwarder, err := net.DialTimeout("tcp", dnsd.TCPForwardTo, IOTimeoutSec*time.Second)
+		myForwarder, err := net.DialTimeout("tcp", dnsd.TCPForwarder, IOTimeoutSec*time.Second)
 		if err != nil {
 			dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to connect to forwarder")
 			return
@@ -126,7 +126,7 @@ You may call this function only after having called Initialise()!
 Start DNS daemon to listen on TCP port only, until daemon is told to stop.
 */
 func (dnsd *DNSD) StartAndBlockTCP() error {
-	listenAddr := fmt.Sprintf("%s:%d", dnsd.TCPListenAddress, dnsd.TCPListenPort)
+	listenAddr := fmt.Sprintf("%s:%d", dnsd.Address, dnsd.TCPPort)
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return err
@@ -154,11 +154,11 @@ func (dnsd *DNSD) StartAndBlockTCP() error {
 // Run unit tests on DNS TCP daemon. See TestDNSD_StartAndBlockTCP for daemon setup.
 func TestTCPQueries(dnsd *DNSD, t *testing.T) {
 	// Prevent daemon from listening to UDP queries in this TCP test case
-	dnsd.UDPListenPort = 0
-	udpListenPort := dnsd.UDPListenPort
-	dnsd.UDPListenPort = 0
+	dnsd.UDPPort = 0
+	udpListenPort := dnsd.UDPPort
+	dnsd.UDPPort = 0
 	defer func() {
-		dnsd.UDPListenPort = udpListenPort
+		dnsd.UDPPort = udpListenPort
 	}()
 	// Server should start within two seconds
 	var stoppedNormally bool
@@ -175,7 +175,7 @@ func TestTCPQueries(dnsd *DNSD, t *testing.T) {
 	// Try to reach rate limit
 	for i := 0; i < 40; i++ {
 		go func() {
-			clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(dnsd.TCPListenPort))
+			clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(dnsd.TCPPort))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -203,7 +203,7 @@ func TestTCPQueries(dnsd *DNSD, t *testing.T) {
 	var blackListSuccess bool
 	for i := 0; i < 30; i++ {
 		time.Sleep(1 * time.Second)
-		clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(dnsd.TCPListenPort))
+		clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(dnsd.TCPPort))
 		if err != nil {
 			continue
 		}

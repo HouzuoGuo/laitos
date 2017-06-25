@@ -33,8 +33,8 @@ func IsSlash(c rune) bool {
 
 // Generic HTTP daemon.
 type HTTPD struct {
-	ListenAddress    string            `json:"ListenAddress"`    // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	ListenPort       int               `json:"ListenPort"`       // Port number to listen on
+	Address          string            `json:"Address"`          // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
+	Port             int               `json:"Port"`             // Port number to listen on
 	TLSCertPath      string            `json:"TLSCertPath"`      // (Optional) serve HTTPS via this certificate
 	TLSKeyPath       string            `json:"TLSKeyPath"`       // (Optional) serve HTTPS via this certificate (key)
 	BaseRateLimit    int               `json:"BaseRateLimit"`    // How many times in 5 seconds interval the most expensive HTTP handler may be invoked by an IP
@@ -61,7 +61,7 @@ func (httpd *HTTPD) GetHandlerByFactoryType(match api.HandlerFactory) string {
 
 // Check configuration and initialise internal states.
 func (httpd *HTTPD) Initialise() error {
-	httpd.Logger = global.Logger{ComponentName: "HTTPD", ComponentID: fmt.Sprintf("%s:%d", httpd.ListenAddress, httpd.ListenPort)}
+	httpd.Logger = global.Logger{ComponentName: "HTTPD", ComponentID: fmt.Sprintf("%s:%d", httpd.Address, httpd.Port)}
 	if httpd.Processor == nil {
 		httpd.Processor = common.GetEmptyCommandProcessor()
 	}
@@ -69,10 +69,10 @@ func (httpd *HTTPD) Initialise() error {
 	if errs := httpd.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("HTTPD.Initialise: %+v", errs)
 	}
-	if httpd.ListenAddress == "" {
+	if httpd.Address == "" {
 		return errors.New("HTTPD.Initialise: listen address is empty")
 	}
-	if httpd.ListenPort < 1 {
+	if httpd.Port < 1 {
 		return errors.New("HTTPD.Initialise: listen port must be greater than 0")
 	}
 	if httpd.BaseRateLimit < 1 {
@@ -130,7 +130,7 @@ func (httpd *HTTPD) Initialise() error {
 	muxHandlers.HandleFunc("/", rootHandler)
 	// Configure server with rather generous and sane defaults
 	httpd.Server = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", httpd.ListenAddress, httpd.ListenPort),
+		Addr:         fmt.Sprintf("%s:%d", httpd.Address, httpd.Port),
 		Handler:      muxHandlers,
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,
@@ -206,7 +206,7 @@ func (httpd *HTTPD) StartAndBlock() error {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
+			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.Address, httpd.Port, err)
 		}
 	} else {
 		httpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTPS connections")
@@ -214,7 +214,7 @@ func (httpd *HTTPD) StartAndBlock() error {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.ListenAddress, httpd.ListenPort, err)
+			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.Address, httpd.Port, err)
 		}
 	}
 	return nil
@@ -232,7 +232,7 @@ func (httpd *HTTPD) Stop() {
 func TestAPIHandlers(httpd *HTTPD, t *testing.T) {
 	// When accesses via HTTP, API handlers warn user about safety concern via a authorization prompt.
 	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
-	addr := fmt.Sprintf("http://%s:%d", httpd.ListenAddress, httpd.ListenPort)
+	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
 	// System information
 	resp, err := httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/info")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
@@ -356,7 +356,7 @@ func TestHTTPD(httpd *HTTPD, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr := fmt.Sprintf("http://%s:%d", httpd.ListenAddress, httpd.ListenPort)
+	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
 
 	// Directory handle
 	resp, err := httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir")

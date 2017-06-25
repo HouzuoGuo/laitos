@@ -31,8 +31,8 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
 	daemon := HTTPD{
-		ListenAddress:    "127.0.0.1",
-		ListenPort:       1024 + rand.Intn(65535-1024),
+		Address:          "127.0.0.1",
+		Port:             1024 + rand.Intn(65535-1024),
 		Processor:        &common.CommandProcessor{},
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir"},
 		BaseRateLimit:    0,

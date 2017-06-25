@@ -55,7 +55,7 @@ You may call this function only after having called Initialise()!
 Start DNS daemon to listen on UDP port only, until daemon is told to stop.
 */
 func (dnsd *DNSD) StartAndBlockUDP() error {
-	listenAddr := fmt.Sprintf("%s:%d", dnsd.UDPListenAddress, dnsd.UDPListenPort)
+	listenAddr := fmt.Sprintf("%s:%d", dnsd.Address, dnsd.UDPPort)
 	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
 		return err
@@ -145,10 +145,10 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 // Run unit tests on DNS UDP daemon. See TestDNSD_StartAndBlockUDP for daemon setup.
 func TestUDPQueries(dnsd *DNSD, t *testing.T) {
 	// Prevent daemon from listening to TCP queries in this UDP test case
-	tcpListenPort := dnsd.TCPListenPort
-	dnsd.TCPListenPort = 0
+	tcpListenPort := dnsd.TCPPort
+	dnsd.TCPPort = 0
 	defer func() {
-		dnsd.TCPListenPort = tcpListenPort
+		dnsd.TCPPort = tcpListenPort
 	}()
 	// Server should start within two seconds
 	var stoppedNormally bool
@@ -160,7 +160,7 @@ func TestUDPQueries(dnsd *DNSD, t *testing.T) {
 	}()
 	time.Sleep(2 * time.Second)
 
-	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(dnsd.UDPListenPort))
+	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(dnsd.UDPPort))
 	if err != nil {
 		t.Fatal(err)
 	}

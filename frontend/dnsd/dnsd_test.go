@@ -51,15 +51,15 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}
-	daemon.UDPListenAddress = "127.0.0.1"
+	daemon.Address = "127.0.0.1"
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
 		t.Fatal(err)
 	}
-	daemon.UDPListenPort = 62151
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "ForwardTo") == -1 {
+	daemon.UDPPort = 62151
+	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "UDPForwarder") == -1 {
 		t.Fatal(err)
 	}
-	daemon.UDPForwardTo = "8.8.8.8:53"
+	daemon.UDPForwarder = "8.8.8.8:53"
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}
@@ -87,15 +87,15 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}
-	daemon.TCPListenAddress = "127.0.0.1"
+	daemon.Address = "127.0.0.1"
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
 		t.Fatal(err)
 	}
-	daemon.TCPListenPort = 18519
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "ForwardTo") == -1 {
+	daemon.TCPPort = 18519
+	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "UDPForwarder") == -1 {
 		t.Fatal(err)
 	}
-	daemon.TCPForwardTo = "8.8.8.8:53"
+	daemon.TCPForwarder = "8.8.8.8:53"
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}

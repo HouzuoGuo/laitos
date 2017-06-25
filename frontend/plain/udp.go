@@ -23,7 +23,7 @@ You may call this function only after having called Initialise()!
 Start UDP daemon and block until daemon is told to stop.
 */
 func (server *PlainTextDaemon) StartAndBlockUDP() error {
-	listenAddr := fmt.Sprintf("%s:%d", server.UDPListenAddress, server.UDPListenPort)
+	listenAddr := fmt.Sprintf("%s:%d", server.Address, server.UDPPort)
 	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
 		return err
@@ -94,10 +94,10 @@ func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *
 // Run unit tests on the UDP server. See TestPlainTextProt_StartAndBlockUDP for daemon setup.
 func TestUDPServer(server *PlainTextDaemon, t *testing.T) {
 	// Prevent daemon from listening to TCP connections in this UDP test case
-	tcpListenPort := server.TCPListenPort
-	server.TCPListenPort = 0
+	tcpListenPort := server.TCPPort
+	server.TCPPort = 0
 	defer func() {
-		server.TCPListenPort = tcpListenPort
+		server.TCPPort = tcpListenPort
 	}()
 	// Server should start within two seconds
 	var stoppedNormally bool
@@ -112,7 +112,7 @@ func TestUDPServer(server *PlainTextDaemon, t *testing.T) {
 	// Try to exceed rate limit
 	success := 0
 	for i := 0; i < 30; i++ {
-		clientConn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(server.UDPListenPort))
+		clientConn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(server.UDPPort))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -138,7 +138,7 @@ func TestUDPServer(server *PlainTextDaemon, t *testing.T) {
 	time.Sleep(RateLimitIntervalSec * time.Second)
 
 	// Make two normal conversations
-	clientConn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(server.UDPListenPort))
+	clientConn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(server.UDPPort))
 	if err != nil {
 		t.Fatal(err)
 	}

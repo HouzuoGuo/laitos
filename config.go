@@ -251,14 +251,14 @@ func (config Config) GetInsecureHTTPD() *httpd.HTTPD {
 	ret.TLSCertPath = ""
 	ret.TLSKeyPath = ""
 	if envPort := strings.TrimSpace(os.Getenv("PORT")); envPort == "" {
-		ret.ListenPort = 80
+		ret.Port = 80
 	} else {
 		iPort, err := strconv.Atoi(envPort)
 		if err != nil {
 			config.Logger.Fatalf("GetInsecureHTTPD", "", err, "environment variable PORT value is not an integer")
 			return nil
 		}
-		ret.ListenPort = iPort
+		ret.Port = iPort
 	}
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {

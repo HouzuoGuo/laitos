@@ -15,9 +15,9 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 		MTAPort:  25,
 	}
 	daemon := SMTPD{
-		ListenAddress: "127.0.0.1",
-		ListenPort:    61358, // hard coded port is a random choice
-		PerIPLimit:    0,
+		Address:    "127.0.0.1",
+		Port:       61358, // hard coded port is a random choice
+		PerIPLimit: 0,
 		MailProcessor: &mailp.MailProcessor{
 			CommandTimeoutSec: 10,
 			Processor:         common.GetTestCommandProcessor(),

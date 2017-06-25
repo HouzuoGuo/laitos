@@ -43,18 +43,17 @@ type TCPForwarderQuery struct {
 
 // A DNS forwarder daemon that selectively refuse to answer certain A record requests made against advertisement servers.
 type DNSD struct {
-	UDPListenAddress   string           `json:"UDPListenAddress"` // UDP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	UDPListenPort      int              `json:"UDPListenPort"`    // UDP port to listen on
-	UDPForwardTo       string           `json:"UDPForwardTo"`     // Forward UDP DNS queries to this address (IP:Port)
-	UDPForwarderConns  []net.Conn       `json:"-"`                // UDP connections made toward forwarder
-	UDPForwarderQueues []chan *UDPQuery `json:"-"`                // Processing queues that handle UDP forward queries
-	UDPBlackHoleQueues []chan *UDPQuery `json:"-"`                // Processing queues that handle UDP black-list answers
-	UDPListener        *net.UDPConn     `json:"-"`                // Once UDP daemon is started, this is its listener.
+	Address            string           `json:"Address"`      // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
+	UDPPort            int              `json:"UDPPort"`      // UDP port to listen on
+	UDPForwarder       string           `json:"UDPForwarder"` // Forward UDP DNS queries to this address (IP:Port)
+	UDPForwarderConns  []net.Conn       `json:"-"`            // UDP connections made toward forwarder
+	UDPForwarderQueues []chan *UDPQuery `json:"-"`            // Processing queues that handle UDP forward queries
+	UDPBlackHoleQueues []chan *UDPQuery `json:"-"`            // Processing queues that handle UDP black-list answers
+	UDPListener        *net.UDPConn     `json:"-"`            // Once UDP daemon is started, this is its listener.
 
-	TCPListenAddress string       `json:"TCPListenAddress"` // TCP network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	TCPListenPort    int          `json:"TCPListenPort"`    // TCP port to listen on
-	TCPForwardTo     string       `json:"TCPForwardTo"`     // Forward TCP DNS queries to this address (IP:Port)
-	TCPListener      net.Listener `json:"-"`                // Once TCP daemon is started, this is its listener.
+	TCPPort      int          `json:"TCPPort"`      // TCP port to listen on
+	TCPForwarder string       `json:"TCPForwarder"` // Forward TCP DNS queries to this address (IP:Port)
+	TCPListener  net.Listener `json:"-"`            // Once TCP daemon is started, this is its listener.
 
 	AllowQueryIPPrefixes []string `json:"AllowQueryIPPrefixes"` // Only allow queries from IP addresses that carry any of the prefixes
 	PerIPLimit           int      `json:"PerIPLimit"`           // How many times in 10 seconds interval an IP may send DNS request
@@ -67,15 +66,15 @@ type DNSD struct {
 
 // Check configuration and initialise internal states.
 func (dnsd *DNSD) Initialise() error {
-	dnsd.Logger = global.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d&%s:%d", dnsd.TCPListenAddress, dnsd.TCPListenPort, dnsd.UDPListenAddress, dnsd.UDPListenPort)}
-	if dnsd.UDPListenAddress == "" && dnsd.TCPListenAddress == "" {
+	dnsd.Logger = global.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d&%d", dnsd.Address, dnsd.TCPPort, dnsd.UDPPort)}
+	if dnsd.Address == "" {
 		return errors.New("DNSD.Initialise: listen address must not be empty")
 	}
-	if dnsd.UDPListenPort < 1 && dnsd.TCPListenPort < 1 {
+	if dnsd.UDPPort < 1 && dnsd.TCPPort < 1 {
 		return errors.New("DNSD.Initialise: listen port must be greater than 0")
 	}
-	if dnsd.UDPForwardTo == "" && dnsd.TCPForwardTo == "" {
-		return errors.New("DNSD.Initialise: the server is not useful if UDPForwardTo address is empty")
+	if dnsd.UDPForwarder == "" && dnsd.TCPForwarder == "" {
+		return errors.New("DNSD.Initialise: the server is not useful if UDPForwarder address is empty")
 	}
 	if dnsd.PerIPLimit < 10 {
 		return errors.New("DNSD.Initialise: PerIPLimit must be greater than 9")
@@ -102,7 +101,7 @@ func (dnsd *DNSD) Initialise() error {
 	dnsd.UDPForwarderQueues = make([]chan *UDPQuery, numQueues)
 	dnsd.UDPBlackHoleQueues = make([]chan *UDPQuery, numQueues)
 	for i := 0; i < numQueues; i++ {
-		forwarderAddr, err := net.ResolveUDPAddr("udp", dnsd.UDPForwardTo)
+		forwarderAddr, err := net.ResolveUDPAddr("udp", dnsd.UDPForwarder)
 		if err != nil {
 			return fmt.Errorf("DNSD.Initialise: failed to resolve address - %v", err)
 		}
@@ -309,7 +308,7 @@ func (dnsd *DNSD) StartAndBlock() error {
 	}()
 	numListeners := 0
 	errChan := make(chan error, 2)
-	if dnsd.UDPListenPort != 0 {
+	if dnsd.UDPPort != 0 {
 		numListeners++
 		go func() {
 			err := dnsd.StartAndBlockUDP()
@@ -317,7 +316,7 @@ func (dnsd *DNSD) StartAndBlock() error {
 			stopAdBlockUpdater <- true
 		}()
 	}
-	if dnsd.TCPListenPort != 0 {
+	if dnsd.TCPPort != 0 {
 		numListeners++
 		go func() {
 			err := dnsd.StartAndBlockTCP()

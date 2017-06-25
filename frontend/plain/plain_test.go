@@ -6,16 +6,16 @@ import (
 	"testing"
 )
 
-func TestPlainTextProt_StartAndBlockTCP(t *testing.T) {
+func TestPlainTextDaemon_StartAndBlockTCP(t *testing.T) {
 	daemon := PlainTextDaemon{Processor: common.GetTestCommandProcessor()}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}
-	daemon.TCPListenAddress = "127.0.0.1"
+	daemon.Address = "127.0.0.1"
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
 		t.Fatal(err)
 	}
-	daemon.TCPListenPort = 32789
+	daemon.TCPPort = 32789
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}
@@ -26,16 +26,16 @@ func TestPlainTextProt_StartAndBlockTCP(t *testing.T) {
 	TestTCPServer(&daemon, t)
 }
 
-func TestPlainTextProt_StartAndBlockUDP(t *testing.T) {
+func TestPlainTextDaemon_StartAndBlockUDP(t *testing.T) {
 	daemon := PlainTextDaemon{Processor: common.GetTestCommandProcessor()}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}
-	daemon.UDPListenAddress = "127.0.0.1"
+	daemon.Address = "127.0.0.1"
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
 		t.Fatal(err)
 	}
-	daemon.UDPListenPort = 15890
+	daemon.UDPPort = 15890
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}

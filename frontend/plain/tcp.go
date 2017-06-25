@@ -18,9 +18,9 @@ You may call this function only after having called Initialise()!
 Start TCP daemon and block until daemon is told to stop.
 */
 func (server *PlainTextDaemon) StartAndBlockTCP() (err error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.TCPListenAddress, server.TCPListenPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.Address, server.TCPPort))
 	if err != nil {
-		return fmt.Errorf("PlainTextDaemon.StartAndBlock: failed to listen on %s:%d - %v", server.TCPListenAddress, server.TCPListenPort, err)
+		return fmt.Errorf("PlainTextDaemon.StartAndBlock: failed to listen on %s:%d - %v", server.Address, server.TCPPort, err)
 	}
 	defer listener.Close()
 	server.TCPListener = listener
@@ -76,10 +76,10 @@ func (server *PlainTextDaemon) HandleTCPConnection(clientConn net.Conn) {
 // Run unit tests on the TCP server. See TestPlainTextProt_StartAndBlockUDP for daemon setup.
 func TestTCPServer(server *PlainTextDaemon, t *testing.T) {
 	// Prevent daemon from listening to UDP connections in this TCP test case
-	udpListenPort := server.UDPListenPort
-	server.UDPListenPort = 0
+	udpListenPort := server.UDPPort
+	server.UDPPort = 0
 	defer func() {
-		server.UDPListenPort = udpListenPort
+		server.UDPPort = udpListenPort
 	}()
 	// Server should start within two seconds
 	var stoppedNormally bool
@@ -94,7 +94,7 @@ func TestTCPServer(server *PlainTextDaemon, t *testing.T) {
 	// Try to exceed rate limit
 	success := 0
 	for i := 0; i < 100; i++ {
-		clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(server.TCPListenPort))
+		clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(server.TCPPort))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -119,7 +119,7 @@ func TestTCPServer(server *PlainTextDaemon, t *testing.T) {
 	time.Sleep(RateLimitIntervalSec * time.Second)
 
 	// Make two normal conversations
-	clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(server.TCPListenPort))
+	clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(server.TCPPort))
 	if err != nil {
 		t.Fatal(err)
 	}
