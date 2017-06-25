@@ -10,11 +10,11 @@ func TestSockd_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}
-	daemon.ListenAddress = "127.0.0.1"
+	daemon.Address = "127.0.0.1"
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
 		t.Fatal(err)
 	}
-	daemon.ListenPort = 8720
+	daemon.TCPPort = 8720
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "password") == -1 {
 		t.Fatal(err)
 	}
