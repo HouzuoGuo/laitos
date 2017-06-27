@@ -179,6 +179,9 @@ func (sock *Sockd) StartAndBlockUDP() error {
 			select {
 			case <-time.After(BacklogClearInterval):
 				sock.UDPBacklog.Clear()
+			case <-time.After(30 * time.Minute):
+				sock.Logger.Printf("StartAndBlockUDP", "", nil, "current backlog size %d, connection table size %d",
+					sock.UDPBacklog.Len(), sock.UDPTable.Len())
 			case <-sock.stopUDP:
 				return
 			}
@@ -191,10 +194,6 @@ func (sock *Sockd) StartAndBlockUDP() error {
 			return global.ErrEmergencyLockDown
 		}
 		atomic.StoreInt32(&sock.udpLoopIsRunning, 1)
-		if time.Now().Minute()%29 == 1 {
-			sock.Logger.Printf("StartAndBlockUDP", "", nil, "current packet backlog size %d, connection table size %d",
-				sock.UDPBacklog.Len(), sock.UDPTable.Len())
-		}
 		packetBuf := make([]byte, MaxPacketSize)
 		packetLength, clientAddr, err := udpEncryptedServer.ReadFrom(packetBuf)
 		if err != nil {
