@@ -1,10 +1,14 @@
 package env
 
 import (
+	"bytes"
+	"errors"
 	"io/ioutil"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var RegexVmRss = regexp.MustCompile(`VmRSS:\s*(\d+)\s*kB`)               // Parse VmRss value from /proc/*/status line
@@ -67,4 +71,36 @@ func GetSystemUptimeSec() int {
 		return 0
 	}
 	return FindNumInRegexGroup(RegexTotalUptimeSec, string(content), 1)
+}
+
+/*
+InvokeShell launches an external shell process with time constraints to run a piece of code.
+Returns shell stdout+stderr output combined and error if there is any.
+*/
+func InvokeShell(interpreter string, timeoutSec int, content string) (out string, err error) {
+	// Collect stdout and stderr all together in a single buffer
+	var outBuf bytes.Buffer
+	proc := exec.Command(interpreter, "-c", content)
+	proc.Stdout = &outBuf
+	proc.Stderr = &outBuf
+	// Run the shell command in a separate routine in order to monitor for timeout
+	procRunChan := make(chan error, 1)
+	go func() {
+		procRunChan <- proc.Run()
+	}()
+	select {
+	case procErr := <-procRunChan:
+		// Upon process completion, retrieve result.
+		out = outBuf.String()
+		err = procErr
+	case <-time.After(time.Duration(timeoutSec) * time.Second):
+		// If timeout is reached yet the process still has not completed, kill it.
+		out = outBuf.String()
+		if proc.Process != nil {
+			if err = proc.Process.Kill(); err == nil {
+				err = errors.New("Shell command timed out")
+			}
+		}
+	}
+	return
 }

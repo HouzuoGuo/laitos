@@ -6,11 +6,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/global"
 	"io/ioutil"
 	pseudoRand "math/rand"
 	"os"
-	"os/exec"
 	"os/signal"
 	"regexp"
 	"runtime"
@@ -50,7 +50,7 @@ func StopConflictingDaemons() {
 	if os.Getuid() != 0 {
 		logger.Fatalf("StopConflictingDaemons", "", nil, "you must run laitos as root user if you wish to automatically disable conflicting daemons")
 	}
-	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "postfix", "sendmail"}
+	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
 	waitGroup := new(sync.WaitGroup)
 	waitGroup.Add(len(list))
 	for _, name := range list {
@@ -59,21 +59,23 @@ func StopConflictingDaemons() {
 			var success bool
 			// Disable+stop intensifies three times...
 			for i := 0; i < 3; i++ {
-				// Some hosting platforms out there still have not yet used systemd
-				cmds := []*exec.Cmd{
-					exec.Command("/etc/init.d/"+name, "stop"),
-					exec.Command("chkconfig", name, "off"),
-					exec.Command("chmod", "0000", "/etc/init,d/"+name),
-					exec.Command("systemctl", "stop", name),
-					exec.Command("systemctl", "disable", name),
-					exec.Command("systemctl", "mask", name),
+				cmds := []string{
+					// Some hosting providers still do not use systemd, an example is Amazon Elastic Beanstalk.
+					fmt.Sprintf("/etc/init.d/%s stop", name),
+					fmt.Sprintf("chkconfig %s off", name),
+					fmt.Sprintf("chmod 0000 /etc/init.d/%s", name),
+
+					fmt.Sprintf("systemctl stop %s", name),
+					fmt.Sprintf("systemctl disable %s", name),
+					fmt.Sprintf("systemctl mask %s", name),
 				}
 				for _, cmd := range cmds {
-					if _, err := cmd.CombinedOutput(); err == nil {
+					if _, err := env.InvokeShell("/bin/sh", 5, cmd); err == nil {
 						success = true
 						// Continue to run subsequent commands to further disable the service
 					}
 				}
+				// Do not overwhelm system with too many consecutive commands
 				time.Sleep(1 * time.Second)
 			}
 			if success {

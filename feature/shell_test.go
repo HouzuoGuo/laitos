@@ -3,6 +3,7 @@ package feature
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -53,10 +54,9 @@ func TestShell_Execute(t *testing.T) {
 	}
 	defer os.Remove(tmpFile.Name())
 	ret = sh.Execute(Command{TimeoutSec: 2, Content: `echo -n abc && sleep 4 && rm ` + tmpFile.Name()})
-	if ret.Error != ErrExecTimeout ||
-		ret.ErrText() != ErrExecTimeout.Error() ||
+	if !strings.Contains(ret.Error.Error(), "timed out") ||
 		ret.Output != "abc" ||
-		ret.ResetCombinedText() != ErrExecTimeout.Error()+CombinedTextSeparator+"abc" {
+		!strings.Contains(ret.ResetCombinedText(), "timed out") || !strings.Contains(ret.ResetCombinedText(), CombinedTextSeparator+"abc") {
 		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
 	}
 	// If the command was truly killed, the file would still remain.
