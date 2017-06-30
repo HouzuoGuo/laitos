@@ -71,7 +71,7 @@ func (hand *HandleTwilioCallHook) MakeHandler(logger global.Logger, _ *common.Co
 	return fun, nil
 }
 func (hand *HandleTwilioCallHook) GetRateLimitFactor() int {
-	return 10
+	return 1
 }
 
 // Carry on with command processing in Twilio telephone call conversation.

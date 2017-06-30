@@ -66,6 +66,7 @@ type APIUpdates struct {
 // Process feature commands from incoming telegram messages, reply to the chats with command results.
 type TelegramBot struct {
 	AuthorizationToken string `json:"AuthorizationToken"` // Telegram bot API auth token
+	RateLimit          int    `json:"RateLimit"`          // RateLimit determines how many messages may be processed per chat at a regular interval
 
 	Processor     *common.CommandProcessor `json:"-"` // Feature command processor
 	MessageOffset uint64                   `json:"-"` // Process chat messages arrived after this point
@@ -87,6 +88,16 @@ func (bot *TelegramBot) Initialise() error {
 	if bot.AuthorizationToken == "" {
 		return errors.New("TelegramBot.Initialise: AuthorizationToken must not be empty")
 	}
+	if bot.RateLimit < 1 {
+		return errors.New("TelegramBot.Initialise: RateLimit must be greater than 0")
+	}
+	// Configure rate limit
+	bot.UserRateLimit = &ratelimit.RateLimit{
+		UnitSecs: PollIntervalSec,
+		MaxCount: bot.RateLimit,
+		Logger:   bot.Logger,
+	}
+	bot.UserRateLimit.Initialise()
 	return nil
 }
 
@@ -150,13 +161,6 @@ func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 
 // Immediately begin processing incoming chat messages. Block caller indefinitely.
 func (bot *TelegramBot) StartAndBlock() error {
-	// Configure rate limit
-	bot.UserRateLimit = &ratelimit.RateLimit{
-		UnitSecs: PollIntervalSec,
-		MaxCount: 1,
-		Logger:   bot.Logger,
-	}
-	bot.UserRateLimit.Initialise()
 	// Make a test API call
 	testResp, testErr := httpclient.DoHTTP(httpclient.Request{TimeoutSec: APICallTimeoutSec},
 		"https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)

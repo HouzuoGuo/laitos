@@ -21,7 +21,7 @@ import (
 
 const (
 	DirectoryHandlerRateLimitFactor = 10             // 9 times less expensive than the most expensive handler
-	RateLimitIntervalSec            = 5              // Rate limit is calculated at 5 seconds interval
+	RateLimitIntervalSec            = 10             // Rate limit is calculated at 10 seconds interval
 	RateLimit404Key                 = "RATELIMIT404" // Fake endpoint name for rate limit on 404 handler
 	IOTimeoutSec                    = 120            // IO timeout for both read and write operations
 )
@@ -37,7 +37,7 @@ type HTTPD struct {
 	Port             int               `json:"Port"`             // Port number to listen on
 	TLSCertPath      string            `json:"TLSCertPath"`      // (Optional) serve HTTPS via this certificate
 	TLSKeyPath       string            `json:"TLSKeyPath"`       // (Optional) serve HTTPS via this certificate (key)
-	BaseRateLimit    int               `json:"BaseRateLimit"`    // How many times in 5 seconds interval the most expensive HTTP handler may be invoked by an IP
+	BaseRateLimit    int               `json:"BaseRateLimit"`    // How many times in 10 seconds interval the most expensive HTTP handler may be invoked by an IP
 	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
 
 	SpecialHandlers map[string]api.HandlerFactory   `json:"-"` // Specialised handlers that implement api.HandlerFactory interface

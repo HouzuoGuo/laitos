@@ -16,7 +16,6 @@ func TestTelegramBot_StartAndBock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Must not start if auth token is empty
 	cmdproc := common.GetTestCommandProcessor()
 	bot = TelegramBot{
 		AuthorizationToken: "",
@@ -25,13 +24,12 @@ func TestTelegramBot_StartAndBock(t *testing.T) {
 	if err := bot.Initialise(); !strings.Contains(err.Error(), "Token") {
 		t.Fatal(err)
 	}
-
-	// Well then it is really difficult to test the chat routine
-	// So I am going to only going to start the daemon using invalid configuration, which is definitely failing.
-	bot = TelegramBot{
-		AuthorizationToken: "dummy",
-		Processor:          cmdproc,
+	bot.AuthorizationToken = "dummy"
+	if err := bot.Initialise(); !strings.Contains(err.Error(), "RateLimit") {
+		t.Fatal(err)
 	}
+
+	bot.RateLimit = 10
 	if err := bot.Initialise(); err != nil {
 		t.Fatal(err)
 	}

@@ -109,7 +109,7 @@ func (info *HandleSystemInfo) MakeHandler(logger global.Logger, _ *common.Comman
 }
 
 func (_ *HandleSystemInfo) GetRateLimitFactor() int {
-	return 1
+	return 2
 }
 
 /*

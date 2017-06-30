@@ -192,7 +192,8 @@ func TestConfig(t *testing.T) {
     "UDPPort": 9122
   },
   "TelegramBot": {
-    "AuthorizationToken": "intentionally-bad-token"
+    "AuthorizationToken": "intentionally-bad-token",
+    "RateLimit": 10
   },
   "TelegramBridges": {
     "LintText": {

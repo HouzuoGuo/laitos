@@ -55,5 +55,5 @@ func (_ *HandleCommandForm) MakeHandler(logger global.Logger, cmdProc *common.Co
 }
 
 func (_ *HandleCommandForm) GetRateLimitFactor() int {
-	return 1
+	return 2
 }
