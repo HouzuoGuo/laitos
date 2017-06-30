@@ -175,11 +175,13 @@ func (sock *Sockd) StartAndBlockUDP() error {
 	sock.UDPBacklog = &UDPBackLog{backlog: map[string]([]byte){}, mutex: new(sync.Mutex)}
 	sock.UDPTable = &UDPTable{connections: map[string]net.PacketConn{}, mutex: new(sync.Mutex)}
 	go func() {
+		intervalTick := time.NewTicker(BacklogClearInterval).C
+		loggerTick := time.NewTicker(15 * time.Minute).C
 		for {
 			select {
-			case <-time.After(BacklogClearInterval):
+			case <-intervalTick:
 				sock.UDPBacklog.Clear()
-			case <-time.After(10 * time.Minute):
+			case <-loggerTick:
 				sock.Logger.Printf("StartAndBlockUDP", "", nil, "current backlog length %d, connection table length %d",
 					sock.UDPBacklog.Len(), sock.UDPTable.Len())
 			case <-sock.stopUDP:
