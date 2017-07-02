@@ -174,9 +174,9 @@ func (bot *TelegramBot) StartAndBlock() error {
 			return global.ErrEmergencyLockDown
 		}
 		atomic.StoreInt32(&bot.loopIsRunning, 1)
-		// Log a message if the loop has not processed messages for a while (multiplier 200 is an arbitrary choice)
-		if idleMax := int64(200 * PollIntervalSec); time.Now().Unix()-lastIdle > idleMax {
-			bot.Logger.Printf("Loop", "", nil, "has been idling for %d seconds", idleMax)
+		// Log a message if the loop has not processed messages for a while
+		if time.Now().Unix()-lastIdle > 1800 {
+			bot.Logger.Printf("Loop", "", nil, "has been idle for %d seconds", 1800)
 			lastIdle = time.Now().Unix()
 		}
 		// Poll for new messages
