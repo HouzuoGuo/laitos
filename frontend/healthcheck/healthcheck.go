@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode"
 )
 
 const (
@@ -121,7 +122,14 @@ func (check *HealthCheck) Execute() (string, bool) {
 	if err := check.Mailer.Send(email.OutgoingMailSubjectKeyword+"-healthcheck", result.String(), check.Recipients...); err != nil {
 		check.Logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
-	return result.String(), allOK
+	// Remove weird characters that may appear and cause email display to squeeze all lines together
+	var cleanedResult bytes.Buffer
+	for _, r := range result.String() {
+		if r < 128 && (unicode.IsPrint(r) || unicode.IsSpace(r)) {
+			cleanedResult.WriteRune(r)
+		}
+	}
+	return cleanedResult.String(), allOK
 }
 
 func (check *HealthCheck) Initialise() error {
