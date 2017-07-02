@@ -1,6 +1,7 @@
 package feature
 
 import (
+	"fmt"
 	"github.com/HouzuoGuo/laitos/global"
 	"strings"
 	"testing"
@@ -33,6 +34,11 @@ func TestEnvControl_Execute(t *testing.T) {
 		t.Fatal(ret)
 	}
 	if ret := info.Execute(Command{Content: "stack"}); ret.Error != nil || strings.Index(ret.Output, "routine") == -1 {
+		t.Fatal(ret)
+	}
+	ret := info.Execute(Command{Content: "tune"})
+	fmt.Println(ret.Output)
+	if ret.Error != nil {
 		t.Fatal(ret)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/env"
+	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/global"
 	"io/ioutil"
 	pseudoRand "math/rand"
@@ -46,9 +47,9 @@ func ReseedPseudoRand() {
 }
 
 // Stop and disable daemons that may run into port usage conflicts with laitos.
-func StopConflictingDaemons() {
+func DisableConflictingDaemons() {
 	if os.Getuid() != 0 {
-		logger.Fatalf("StopConflictingDaemons", "", nil, "you must run laitos as root user if you wish to automatically disable conflicting daemons")
+		logger.Fatalf("DisableConflictingDaemons", "", nil, "you must run laitos as root user if you wish to automatically disable conflicting daemons")
 	}
 	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
 	waitGroup := new(sync.WaitGroup)
@@ -79,7 +80,7 @@ func StopConflictingDaemons() {
 				time.Sleep(1 * time.Second)
 			}
 			if success {
-				logger.Printf("StopConflictingDaemons", name, nil, "the daemon has been successfully stopped and disabled")
+				logger.Printf("DisableConflictingDaemons", name, nil, "the daemon has been successfully stopped and disabled")
 			}
 		}(name)
 	}
@@ -124,11 +125,12 @@ func main() {
 
 	// Process command line flags
 	var configFile, frontend string
-	var conflictFree, debug bool
+	var disableConflicts, tuneSystem, debug bool
 	var gomaxprocs int
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, insecurehttpd, mailp, plaintext, smtpd, sockd, telegram)")
-	flag.BoolVar(&conflictFree, "conflictfree", false, "(Optional) automatically stop and disable system daemons that may run into port conflict with laitos")
+	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
+	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
 	flag.Parse()
@@ -184,8 +186,13 @@ func main() {
 	}
 
 	// Stop certain daemons to increase chance of successful launch of laitos daemons
-	if conflictFree {
-		StopConflictingDaemons()
+	if disableConflicts {
+		DisableConflictingDaemons()
+	}
+
+	// Tune operating system parameters for optimal performance and better resource utilisation
+	if tuneSystem {
+		logger.Warningf("main", "", nil, "System tuning result is: \n%s", feature.TuneLinux())
 	}
 
 	// Finally laitos daemon start

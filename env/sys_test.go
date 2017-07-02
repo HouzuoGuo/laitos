@@ -2,6 +2,7 @@ package env
 
 import (
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -49,5 +50,24 @@ func TestGetSystemUptimeSec(t *testing.T) {
 	uptime := GetSystemUptimeSec()
 	if uptime < 10 {
 		t.Fatal(uptime)
+	}
+}
+
+func TestGetSysctl(t *testing.T) {
+	key := "vm.max_map_count"
+	if runtime.GOOS != "linux" {
+		// Just make sure the function does not crash
+		GetSysctlInt(key)
+		GetSysctlStr(key)
+		return
+	}
+	if val, err := GetSysctlStr(key); err != nil || val == "" {
+		t.Fatal(val, err)
+	}
+	if val, err := GetSysctlInt(key); err != nil || val < 1 {
+		t.Fatal(val, err)
+	}
+	if old, err := IncreaseSysctlInt(key, 65535); old == 0 || (err != nil && !strings.Contains(err.Error(), "permission")) {
+		t.Fatal(err)
 	}
 }

@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var ErrBadEnvInfoChoice = errors.New(`elock | estop | log | warn | runtime | stack`)
+var ErrBadEnvInfoChoice = errors.New(`elock | estop | log | warn | runtime | stack | tune`)
 
 // Retrieve environment information and trigger emergency stop upon request.
 type EnvControl struct {
@@ -53,6 +53,8 @@ func (info *EnvControl) Execute(cmd Command) *Result {
 		return &Result{Output: GetLatestWarnings()}
 	case "stack":
 		return &Result{Output: GetGoroutineStacktraces()}
+	case "tune":
+		return &Result{Output: TuneLinux()}
 	default:
 		return &Result{Error: ErrBadEnvInfoChoice}
 	}
@@ -103,4 +105,78 @@ func GetGoroutineStacktraces() string {
 	buf := new(bytes.Buffer)
 	pprof.Lookup("goroutine").WriteTo(buf, 1)
 	return buf.String()
+}
+
+/*
+TuneLinux tweaks Linux-specific system parameters to ensure optimal operation and
+maximum utilisation of system resources. Return human-readable description of how values
+have been tweaked (i.e. the differences).
+*/
+func TuneLinux() string {
+	// The following settings have little influence on system resources
+	assignment := map[string]string{
+		"net.ipv4.ip_forward":                   "0",
+		"net.ipv6.ip_forward":                   "0",
+		"net.ipv4.conf.all.mc_forwarding":       "0",
+		"net.ipv6.conf.all.mc_forwarding":       "0",
+		"net.ipv4.conf.all.accept_redirects":    "0",
+		"net.ipv6.conf.all.accept_redirects":    "0",
+		"net.ipv4.conf.all.accept_source_route": "0",
+		"net.ipv6.conf.all.accept_source_route": "0",
+		"net.ipv4.conf.all.secure_redirects":    "0",
+		"net.ipv6.conf.all.secure_redirects":    "0",
+		"net.ipv4.conf.all.send_redirects":      "0",
+		"net.ipv6.conf.all.send_redirects":      "0",
+
+		"net.ipv4.icmp_echo_ignore_broadcasts":       "1",
+		"net.ipv4.icmp_ignore_bogus_error_responses": "1",
+		"net.ipv4.tcp_syncookies":                    "1",
+		"net.ipv4.conf.default.rp_filter":            "1",
+
+		"net.ipv4.tcp_mtu_probing":      "2",
+		"net.ipv4.tcp_base_mss":         "1024",
+		"net.ipv4.tcp_keepalive_time":   "120",
+		"net.ipv4.tcp_keepalive_intvl":  "30",
+		"net.ipv4.tcp_keepalive_probes": "4",
+
+		"net.ipv4.tcp_congestion_control": "hybla",
+		"net.ipv4.tcp_tw_recycle":         "0",
+		"net.ipv4.tcp_tw_reuse":           "1",
+		"net.ipv4.tcp_fastopen":           "3",
+		"net.ipv4.ip_local_port_range":    "2048 65535",
+
+		"kernel.sysrq": "0",
+		"kernel.panic": "10",
+	}
+	// The following settings have greater influence on system resources
+	_, memSizeKB := env.GetSystemMemoryUsageKB()
+	atLeast := map[string]int{
+		"net.core.somaxconn":           memSizeKB / 1024 / 512 * 256,  // 256 per 512MB of mem
+		"net.ipv4.tcp_max_syn_backlog": memSizeKB / 1024 / 512 * 512,  // 512 per 512MB of mem
+		"net.core.netdev_max_backlog":  memSizeKB / 1024 / 512 * 1024, // 1024 per 512MB of mem
+		"net.ipv4.tcp_max_tw_buckets":  memSizeKB / 1024 / 512 * 2048, // 2048 per 512MB of mem
+	}
+	// Apply the optimal and return human-readable tuning result
+	var ret bytes.Buffer
+	for key, val := range assignment {
+		old, err := env.SetSysctl(key, val)
+		if err == nil {
+			if old != val {
+				ret.WriteString(fmt.Sprintf("%s: %v -> %v\n", key, old, val))
+			}
+		} else {
+			ret.WriteString(fmt.Sprintf("Failed to set %s - %v\n", key, err))
+		}
+	}
+	for key, val := range atLeast {
+		old, err := env.IncreaseSysctlInt(key, val)
+		if err == nil {
+			if old < val {
+				ret.WriteString(fmt.Sprintf("%s: %v -> %v\n", key, old, val))
+			}
+		} else {
+			ret.WriteString(fmt.Sprintf("Failed to set %s - %v\n", key, err))
+		}
+	}
+	return ret.String()
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os/exec"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -101,6 +102,43 @@ func InvokeShell(interpreter string, timeoutSec int, content string) (out string
 				err = errors.New("Shell command timed out")
 			}
 		}
+	}
+	return
+}
+
+// GetSysctlStr returns string value of a sysctl parameter corresponding to the input key.
+func GetSysctlStr(key string) (string, error) {
+	content, err := ioutil.ReadFile(path.Join("/proc/sys/", strings.Replace(key, ".", "/", -1)))
+	return strings.TrimSpace(string(content)), err
+}
+
+// GetSysctlInt return integer value of a sysctl parameter corresponding to the input key.
+func GetSysctlInt(key string) (int, error) {
+	val, err := GetSysctlStr(key)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(val)
+}
+
+// SetSysctl writes a new value into sysctl parameter.
+func SetSysctl(key, value string) (old string, err error) {
+	filePath := path.Join("/proc/sys/", strings.Replace(key, ".", "/", -1))
+	if old, err = GetSysctlStr(key); err != nil {
+		return
+	}
+	err = ioutil.WriteFile(filePath, []byte(strings.TrimSpace(value)), 0644)
+	return
+}
+
+// IncreaseSysctlInt increases sysctl parameter to the specified value. If value already exceeds, it is left untouched.
+func IncreaseSysctlInt(key string, atLeast int) (old int, err error) {
+	old, err = GetSysctlInt(key)
+	if err != nil {
+		return
+	}
+	if old < atLeast {
+		_, err = SetSysctl(key, strconv.Itoa(atLeast))
 	}
 	return
 }
