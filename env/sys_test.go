@@ -67,7 +67,8 @@ func TestGetSysctl(t *testing.T) {
 	if val, err := GetSysctlInt(key); err != nil || val < 1 {
 		t.Fatal(val, err)
 	}
-	if old, err := IncreaseSysctlInt(key, 65535); old == 0 || (err != nil && !strings.Contains(err.Error(), "permission")) {
+	if old, err := IncreaseSysctlInt(key, 65535); old == 0 ||
+		(err != nil && !strings.Contains(err.Error(), "permission") && !strings.Contains(err.Error(), "read-only")) {
 		t.Fatal(err)
 	}
 }
