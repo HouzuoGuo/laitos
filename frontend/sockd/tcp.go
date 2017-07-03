@@ -1,6 +1,7 @@
 package sockd
 
 import (
+	cryptRand "crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/global"
@@ -51,7 +52,7 @@ func (sock *Sockd) StartAndBlockTCP() error {
 			}
 		}
 		clientIP := conn.RemoteAddr().String()[:strings.LastIndexByte(conn.RemoteAddr().String(), ':')]
-		if sock.rateLimit.Add(clientIP, true) {
+		if sock.rateLimitTCP.Add(clientIP, true) {
 			go NewTCPCipherConnection(conn, sock.cipher.Copy(), sock.Logger).HandleTCPConnection()
 		} else {
 			conn.Close()
@@ -179,8 +180,17 @@ func (conn *TCPCipherConnection) ParseRequest() (destAddr string, err error) {
 	return
 }
 
-func (conn *TCPCipherConnection) SleepRand() {
-	time.Sleep(time.Duration(rand.Intn(3000)) * time.Millisecond)
+func (conn *TCPCipherConnection) WriteRand() {
+	randBuf := make([]byte, rand.Intn(1024))
+	_, err := cryptRand.Read(randBuf)
+	if err != nil {
+		conn.logger.Warningf("WriteRand", conn.Conn.RemoteAddr().String(), err, "ran out of randomness")
+		return
+	}
+	conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+	if _, err := conn.Write(randBuf); err != nil {
+		conn.logger.Warningf("WriteRand", conn.Conn.RemoteAddr().String(), err, "failed to write random TCP response")
+	}
 }
 
 func (conn *TCPCipherConnection) HandleTCPConnection() {
@@ -189,18 +199,18 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	destAddr, err := conn.ParseRequest()
 	if err != nil {
 		conn.logger.Warningf("HandleTCPConnection", remoteAddr, err, "failed to get destination address")
-		conn.SleepRand()
+		conn.WriteRand()
 		return
 	}
 	if strings.ContainsRune(destAddr, 0x00) {
 		conn.logger.Warningf("HandleTCPConnection", remoteAddr, nil, "will not serve invalid destination address with 0 in it")
-		conn.SleepRand()
+		conn.WriteRand()
 		return
 	}
 	dest, err := net.DialTimeout("tcp", destAddr, IOTimeoutSec)
 	if err != nil {
 		conn.logger.Warningf("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
-		conn.SleepRand()
+		conn.WriteRand()
 		return
 	}
 	defer dest.Close()

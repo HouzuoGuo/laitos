@@ -1,9 +1,11 @@
 package sockd
 
 import (
+	cryptRand "crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/global"
+	"math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -99,40 +101,53 @@ type UDPCipherConnection struct {
 	logger global.Logger
 }
 
-func (c *UDPCipherConnection) Close() error {
-	return c.PacketConn.Close()
+func (conn *UDPCipherConnection) Close() error {
+	return conn.PacketConn.Close()
 }
 
-func (c *UDPCipherConnection) ReadFrom(b []byte) (n int, src net.Addr, err error) {
-	cipher := c.Copy()
+func (conn *UDPCipherConnection) ReadFrom(b []byte) (n int, src net.Addr, err error) {
+	cipher := conn.Copy()
 	buf := make([]byte, MaxPacketSize)
-	n, src, err = c.PacketConn.ReadFrom(buf)
+	n, src, err = conn.PacketConn.ReadFrom(buf)
 	if err != nil {
 		return
 	}
-	if n < c.IVLength {
+	if n < conn.IVLength {
 		return 0, nil, ErrMalformedUDPPacket
 	}
 
-	iv := make([]byte, c.IVLength)
-	copy(iv, buf[:c.IVLength])
+	iv := make([]byte, conn.IVLength)
+	copy(iv, buf[:conn.IVLength])
 	cipher.InitDecryptionStream(iv)
-	cipher.Decrypt(b[0:], buf[c.IVLength:n])
+	cipher.Decrypt(b[0:], buf[conn.IVLength:n])
 
-	n -= c.IVLength
+	n -= conn.IVLength
 	return
 }
 
-func (c *UDPCipherConnection) WriteTo(b []byte, dst net.Addr) (n int, err error) {
-	cipher := c.Copy()
+func (conn *UDPCipherConnection) WriteTo(b []byte, dest net.Addr) (n int, err error) {
+	cipher := conn.Copy()
 	iv := cipher.InitEncryptionStream()
 	packetLen := len(b) + len(iv)
 	cipherData := make([]byte, packetLen)
 	copy(cipherData, iv)
 
 	cipher.Encrypt(cipherData[len(iv):], b)
-	n, err = c.PacketConn.WriteTo(cipherData, dst)
+	n, err = conn.PacketConn.WriteTo(cipherData, dest)
 	return
+}
+
+func (conn *UDPCipherConnection) WriteRand(dest net.Addr) {
+	randBuf := make([]byte, rand.Intn(1024))
+	_, err := cryptRand.Read(randBuf)
+	if err != nil {
+		conn.logger.Warningf("WriteRand", dest.String(), err, "ran out of randomness")
+		return
+	}
+	conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+	if _, err := conn.WriteTo(randBuf, dest); err != nil {
+		conn.logger.Warningf("WriteRand", dest.String(), err, "failed to write random UDP response")
+	}
 }
 
 func MakeUDPRequestHeader(addr net.Addr) ([]byte, int) {
@@ -162,11 +177,11 @@ func (sock *Sockd) StartAndBlockUDP() error {
 	listenAddr := fmt.Sprintf("%s:%d", sock.Address, sock.UDPPort)
 	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
-		return fmt.Errorf("Sockd.StartAndBlockTCP: failed to resolve address %d - %v", listenAddr, err)
+		return fmt.Errorf("Sockd.StartAndBlockUDP: failed to resolve address %d - %v", listenAddr, err)
 	}
 	udpServer, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		return fmt.Errorf("Sockd.StartAndBlockTCP: failed to listen on %d - %v", listenAddr, err)
+		return fmt.Errorf("Sockd.StartAndBlockUDP: failed to listen on %d - %v", listenAddr, err)
 	}
 	defer udpServer.Close()
 	sock.UDPListener = udpServer
@@ -208,7 +223,11 @@ func (sock *Sockd) StartAndBlockUDP() error {
 		udpClientAddr := clientAddr.(*net.UDPAddr)
 		clientPacket := make([]byte, packetLength)
 		copy(clientPacket, packetBuf[:packetLength])
-		go sock.HandleUDPConnection(udpEncryptedServer, packetLength, udpClientAddr, packetBuf)
+
+		clientIP := udpClientAddr.String()[:strings.LastIndexByte(udpClientAddr.String(), ':')]
+		if sock.rateLimitUDP.Add(clientIP, true) {
+			go sock.HandleUDPConnection(udpEncryptedServer, packetLength, udpClientAddr, packetBuf)
+		}
 	}
 }
 
@@ -223,6 +242,7 @@ func (sock *Sockd) HandleUDPConnection(server *UDPCipherConnection, n int, clien
 		packetLen = UDPIPv4PacketLength
 		if len(packet) < packetLen {
 			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			server.WriteRand(clientAddr)
 			return
 		}
 		destIP = net.IP(packet[UDPIPAddrIndex : UDPIPAddrIndex+net.IPv4len])
@@ -230,6 +250,7 @@ func (sock *Sockd) HandleUDPConnection(server *UDPCipherConnection, n int, clien
 		packetLen = UDPIPv6PacketLength
 		if len(packet) < packetLen {
 			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			server.WriteRand(clientAddr)
 			return
 		}
 		destIP = net.IP(packet[UDPIPAddrIndex : UDPIPAddrIndex+net.IPv6len])
@@ -237,21 +258,25 @@ func (sock *Sockd) HandleUDPConnection(server *UDPCipherConnection, n int, clien
 		packetLen = int(packet[DMAddrLengthIndex]) + DMHeaderLength
 		if len(packet) < packetLen {
 			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			server.WriteRand(clientAddr)
 			return
 		}
 		resolveName := string(packet[DMAddrHeaderLength : DMAddrHeaderLength+int(packet[DMAddrLengthIndex])])
 		if strings.ContainsRune(resolveName, 0x00) {
 			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "dm address contains invalid byte 0")
+			server.WriteRand(clientAddr)
 			return
 		}
 		resolveDestIP, err := net.ResolveIPAddr("ip", resolveName)
 		if err != nil {
 			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to resolve domain name \"%s\"", resolveName)
+			server.WriteRand(clientAddr)
 			return
 		}
 		destIP = resolveDestIP.IP
 	default:
 		sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "unknown mask type %d", maskedType)
+		server.WriteRand(clientAddr)
 		return
 	}
 	destAddr := &net.UDPAddr{

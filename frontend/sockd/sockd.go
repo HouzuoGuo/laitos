@@ -41,7 +41,8 @@ type Sockd struct {
 
 	Logger           global.Logger        `json:"-"`
 	cipher           *Cipher              `json:"-"`
-	rateLimit        *ratelimit.RateLimit `json:"-"`
+	rateLimitTCP     *ratelimit.RateLimit `json:"-"`
+	rateLimitUDP     *ratelimit.RateLimit `json:"-"`
 	udpLoopIsRunning int32
 	stopUDP          chan bool
 }
@@ -60,12 +61,18 @@ func (sock *Sockd) Initialise() error {
 	if sock.PerIPLimit < 10 {
 		return errors.New("Sockd.Initialise: PerIPLimit must be greater than 9")
 	}
-	sock.rateLimit = &ratelimit.RateLimit{
+	sock.rateLimitTCP = &ratelimit.RateLimit{
 		Logger:   sock.Logger,
 		MaxCount: sock.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
 	}
-	sock.rateLimit.Initialise()
+	sock.rateLimitTCP.Initialise()
+	sock.rateLimitUDP = &ratelimit.RateLimit{
+		Logger:   sock.Logger,
+		MaxCount: sock.PerIPLimit * 100,
+		UnitSecs: RateLimitIntervalSec,
+	}
+	sock.rateLimitUDP.Initialise()
 
 	sock.cipher = &Cipher{}
 	sock.cipher.Initialise(sock.Password)
