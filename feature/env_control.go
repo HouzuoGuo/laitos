@@ -143,7 +143,7 @@ func TuneLinux() string {
 		"net.ipv4.tcp_tw_recycle":         "0",
 		"net.ipv4.tcp_tw_reuse":           "1",
 		"net.ipv4.tcp_fastopen":           "3",
-		"net.ipv4.ip_local_port_range":    "2048 65535",
+		"net.ipv4.ip_local_port_range":    "2048\t65535",
 
 		"kernel.sysrq": "0",
 		"kernel.panic": "10",
