@@ -73,6 +73,8 @@ func (lint *LintText) Transform(result *feature.Result) error {
 		for _, r := range ret {
 			if r < 128 && (unicode.IsPrint(r) || unicode.IsSpace(r)) {
 				out.WriteRune(r)
+			} else {
+				out.WriteRune('?')
 			}
 		}
 		ret = out.String()

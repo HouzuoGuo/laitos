@@ -38,7 +38,7 @@ func TestLintText_Transform(t *testing.T) {
 		t.Fatal(err, result.CombinedOutput)
 	}
 	result.CombinedOutput = mixedString
-	if err := lint.Transform(result); err != nil || result.CombinedOutput != "c;def 123 456 @#$<>;" {
+	if err := lint.Transform(result); err != nil || result.CombinedOutput != "c;def 123 456 @#$<>;???" {
 		t.Fatal(err, result.CombinedOutput)
 	}
 	lint.MaxLength = 10
