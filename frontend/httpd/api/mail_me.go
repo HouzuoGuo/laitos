@@ -14,10 +14,24 @@ const HandleMailMePage = `<!doctype html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>给厚佐写信</title>
+    <style>
+    	textarea {
+    		font-size: 20px;
+    		font-weight: bold;
+    	}
+    	p {
+    		font-size: 20px;
+    		font-weight: bold;
+    	}
+    	input {
+    		font-size: 20px;
+    		font-weight: bold;
+    	}
+    </style>
 </head>
 <body>
     <form action="#" method="post">
-        <p><textarea name="msg" cols="60" rows="12"></textarea></p>
+        <p><textarea name="msg" cols="30" rows="4"></textarea></p>
         <p><input type="submit" value="发出去"/></p>
         <p>%s</p>
     </form>
@@ -52,6 +66,8 @@ func (mm *HandleMailMe) MakeHandler(logger global.Logger, _ *common.CommandProce
 				prompt := "出问题了，发不出去。"
 				if err := mm.Mailer.Send(email.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
 					prompt = "发出去了。可以接着写。"
+				} else {
+					logger.Warningf("HandleMailMe", r.RemoteAddr, err, "failed to deliver mail")
 				}
 				w.Write([]byte(fmt.Sprintf(HandleMailMePage, prompt)))
 			}
