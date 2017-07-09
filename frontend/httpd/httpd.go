@@ -20,16 +20,10 @@ import (
 )
 
 const (
-	DirectoryHandlerRateLimitFactor = 10             // 9 times less expensive than the most expensive handler
-	RateLimitIntervalSec            = 10             // Rate limit is calculated at 10 seconds interval
-	RateLimit404Key                 = "RATELIMIT404" // Fake endpoint name for rate limit on 404 handler
-	IOTimeoutSec                    = 120            // IO timeout for both read and write operations
+	DirectoryHandlerRateLimitFactor = 10  // 9 times less expensive than the most expensive handler
+	RateLimitIntervalSec            = 10  // Rate limit is calculated at 10 seconds interval
+	IOTimeoutSec                    = 120 // IO timeout for both read and write operations
 )
-
-// Return true if input character is a forward ot backward slash.
-func IsSlash(c rune) bool {
-	return c == '\\' || c == '/'
-}
 
 // Generic HTTP daemon.
 type HTTPD struct {
@@ -41,7 +35,6 @@ type HTTPD struct {
 	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
 
 	SpecialHandlers map[string]api.HandlerFactory   `json:"-"` // Specialised handlers that implement api.HandlerFactory interface
-	AllRoutes       map[string]http.HandlerFunc     `json:"-"` // Aggregate all routes from all handlers
 	AllRateLimits   map[string]*ratelimit.RateLimit `json:"-"` // Aggregate all routes and their rate limit counters
 	Server          *http.Server                    `json:"-"` // Standard library HTTP server structure
 	Processor       *common.CommandProcessor        `json:"-"` // Feature command processor
@@ -57,6 +50,31 @@ func (httpd *HTTPD) GetHandlerByFactoryType(match api.HandlerFactory) string {
 		}
 	}
 	return ""
+}
+
+// RateLimitMiddleware checks client request against rate limit and global lockdown.
+func (httpd *HTTPD) Middleware(ratelimit *ratelimit.RateLimit, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if global.EmergencyLockDown {
+			/*
+				An error response usually should carry status 5xx in this case, but the intention of
+				emergency stop is to disable the program rather than crashing it and relaunching it.
+				If an external trigger such as load balancer health check knocks on HTTP endpoint and relaunches
+				the program after consecutive HTTP failures, it would defeat the intention of emergency stop.
+				Hence the status code here is OK.
+			*/
+			w.Write([]byte(global.ErrEmergencyLockDown.Error()))
+			return
+		}
+		// Check client IP against rate limit
+		remoteIP := api.GetRealClientIP(r)
+		if ratelimit.Add(remoteIP, true) {
+			httpd.Logger.Printf("Handle", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
+			next(w, r)
+		} else {
+			http.Error(w, "", http.StatusTooManyRequests)
+		}
+	}
 }
 
 // Check configuration and initialise internal states.
@@ -81,24 +99,28 @@ func (httpd *HTTPD) Initialise() error {
 	if (httpd.TLSCertPath != "" || httpd.TLSKeyPath != "") && (httpd.TLSCertPath == "" || httpd.TLSKeyPath == "") {
 		return errors.New("HTTPD.Initialise: if TLS is to be enabled, both TLS certificate and key path must be present.")
 	}
-	// Work around Go's inability to serve a handler on / and only /
-	httpd.AllRoutes = map[string]http.HandlerFunc{}
+	// Install handlers with rate-limiting middleware
+	mux := new(http.ServeMux)
 	httpd.AllRateLimits = map[string]*ratelimit.RateLimit{}
 	// Collect directory handlers
 	if httpd.ServeDirectories != nil {
 		for urlLocation, dirPath := range httpd.ServeDirectories {
-			if len(urlLocation) == 0 {
+			if urlLocation == "" || dirPath == "" {
 				continue
 			}
 			if urlLocation[0] != '/' {
 				urlLocation = "/" + urlLocation
 			}
-			httpd.AllRoutes[urlLocation] = http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)
-			httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{
+			if urlLocation[len(urlLocation)-1] != '/' {
+				urlLocation += "/"
+			}
+			rl := &ratelimit.RateLimit{
 				UnitSecs: RateLimitIntervalSec,
 				MaxCount: DirectoryHandlerRateLimitFactor * httpd.BaseRateLimit,
 				Logger:   httpd.Logger,
 			}
+			httpd.AllRateLimits[urlLocation] = rl
+			mux.HandleFunc(urlLocation, httpd.Middleware(rl, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
 		}
 	}
 	// Collect specialised handlers
@@ -107,92 +129,26 @@ func (httpd *HTTPD) Initialise() error {
 		if err != nil {
 			return err
 		}
-		httpd.AllRoutes[urlLocation] = fun
-		httpd.AllRateLimits[urlLocation] = &ratelimit.RateLimit{
+		rl := &ratelimit.RateLimit{
 			UnitSecs: RateLimitIntervalSec,
 			MaxCount: handler.GetRateLimitFactor() * httpd.BaseRateLimit,
 			Logger:   httpd.Logger,
 		}
-	}
-	// There is a rate limit for 404 that does not allow frequent hits
-	httpd.AllRateLimits[RateLimit404Key] = &ratelimit.RateLimit{
-		UnitSecs: RateLimitIntervalSec,
-		MaxCount: httpd.BaseRateLimit,
-		Logger:   httpd.Logger,
+		httpd.AllRateLimits[urlLocation] = rl
+		mux.HandleFunc(urlLocation, httpd.Middleware(rl, fun))
 	}
 	// Initialise all rate limits
 	for _, limit := range httpd.AllRateLimits {
 		limit.Initialise()
 	}
-	// Install all handlers
-	rootHandler := httpd.MakeRootHandlerFunc()
-	muxHandlers := http.NewServeMux()
-	muxHandlers.HandleFunc("/", rootHandler)
 	// Configure server with rather generous and sane defaults
 	httpd.Server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", httpd.Address, httpd.Port),
-		Handler:      muxHandlers,
+		Handler:      mux,
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,
 	}
 	return nil
-}
-
-/*
-Create a handler func that serves all of the input routes.
-Input routes must use forward slash in URL.
-This function exists to work around Go's inability to serve an independent handler on /.
-*/
-func (httpd *HTTPD) MakeRootHandlerFunc() http.HandlerFunc {
-	maxURLFields := 0
-	for urlLocation := range httpd.AllRoutes {
-		if num := len(strings.FieldsFunc(urlLocation, IsSlash)); num > maxURLFields {
-			maxURLFields = num
-		}
-	}
-	return func(w http.ResponseWriter, r *http.Request) {
-		if global.EmergencyLockDown {
-			/*
-				An error response usually should carry status 5xx in this case, but the intention of
-				emergency stop is to disable the program rather than crashing it and relaunching it.
-				If an external trigger such as load balancer health check knocks on HTTP endpoint and relaunches
-				the program after consecutive HTTP failures, it would defeat the intention of emergency stop.
-				Hence the status code here is OK.
-			*/
-			w.Write([]byte(global.ErrEmergencyLockDown.Error()))
-			return
-		}
-		urlFields := strings.FieldsFunc(r.URL.Path, IsSlash)
-		// Retrieve part of requested URL that can be used to identify route
-		assembledPath := "/"
-		if len(urlFields) >= maxURLFields {
-			assembledPath += strings.Join(urlFields[0:maxURLFields], "/")
-		} else {
-			assembledPath += strings.Join(urlFields, "/")
-		}
-		if pathLen := len(assembledPath); pathLen != 1 && assembledPath[pathLen-1] == '/' {
-			assembledPath = assembledPath[0 : pathLen-1]
-		}
-		remoteIP := api.GetRealClientIP(r)
-		// Apply rate limit
-		if limit, routeFound := httpd.AllRateLimits[assembledPath]; routeFound {
-			if limit.Add(remoteIP, true) {
-				// Look up the partial URL to find handler function
-				httpd.Logger.Printf("Handle", remoteIP, nil, "%s %s", r.Method, assembledPath)
-				httpd.AllRoutes[assembledPath](w, r)
-			} else {
-				http.Error(w, "", http.StatusTooManyRequests)
-			}
-		} else {
-			// Route is not found
-			if httpd.AllRateLimits[RateLimit404Key].Add(remoteIP, true) {
-				httpd.Logger.Warningf("Handle", remoteIP, nil, "NotFound %s %s", r.Method, assembledPath)
-				http.Error(w, "", http.StatusNotFound)
-			} else {
-				http.Error(w, "", http.StatusTooManyRequests)
-			}
-		}
-	}
 }
 
 /*
@@ -370,20 +326,32 @@ func TestHTTPD(httpd *HTTPD, t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	// Non-existent paths
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/dir")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
+<a href="a.html">a.html</a>
+</pre>
+` {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/dir/a.html")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	// Non-existent path in directory
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir/doesnotexist.html")
 	if err != nil || resp.StatusCode != http.StatusNotFound {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/doesnotexist")
-	if err != nil || resp.StatusCode != http.StatusNotFound {
+	// Non-existent path, but go is quite stupid that it produces response of /
+	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Test hitting rate limits
 	time.Sleep(RateLimitIntervalSec * time.Second)
 	success := 0
 	for i := 0; i < httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor*2; i++ {
-		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir")
+		resp, err = httpclient.DoHTTP(httpclient.Request{}, addr+"/my/dir/a.html")
 		if err == nil && resp.StatusCode == http.StatusOK {
 			success++
 		}

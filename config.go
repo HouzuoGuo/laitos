@@ -232,7 +232,7 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 		config.Logger.Fatalf("GetHTTPD", "", err, "failed to initialise")
 		return nil
 	}
-	for route := range ret.AllRoutes {
+	for route := range ret.AllRateLimits {
 		shortRoute := route
 		if len(route) > 10 {
 			shortRoute = route[0:10] + "..."
@@ -265,7 +265,7 @@ func (config Config) GetInsecureHTTPD() *httpd.HTTPD {
 		config.Logger.Fatalf("GetInsecureHTTPD", "", err, "failed to initialise")
 		return nil
 	}
-	for route := range ret.AllRoutes {
+	for route := range ret.AllRateLimits {
 		shortRoute := route
 		if len(route) > 12 {
 			shortRoute = route[0:12] + "..."

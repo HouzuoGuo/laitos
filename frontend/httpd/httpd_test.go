@@ -1,6 +1,7 @@
 package httpd
 
 import (
+	"fmt"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
@@ -34,7 +35,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		Address:          "127.0.0.1",
 		Port:             1024 + rand.Intn(65535-1024),
 		Processor:        &common.CommandProcessor{},
-		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir"},
+		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir", "dir": "/tmp/test-laitos-dir"},
 		BaseRateLimit:    0,
 		SpecialHandlers: map[string]api.HandlerFactory{
 			"/": &api.HandleHTMLDocument{HTMLFilePath: indexFile},
@@ -71,6 +72,9 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.SpecialHandlers["/call_command"] = &api.HandleTwilioCallCallback{MyEndpoint: "/endpoint-does-not-matter-in-this-test"}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
+	}
+	for route := range daemon.AllRateLimits {
+		fmt.Println("install route", route)
 	}
 	// Start server and run tests
 	// HTTP daemon is expected to start in two seconds

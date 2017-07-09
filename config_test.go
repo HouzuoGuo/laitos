@@ -66,7 +66,8 @@ func TestConfig(t *testing.T) {
     "BaseRateLimit": 10,
     "Port": 23486,
     "ServeDirectories": {
-      "/my/dir": "/tmp/test-laitos-dir"
+      "/my/dir": "/tmp/test-laitos-dir",
+      "/dir": "/tmp/test-laitos-dir"
     }
   },
   "HTTPHandlers": {
