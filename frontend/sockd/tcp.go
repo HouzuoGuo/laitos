@@ -180,8 +180,10 @@ func (conn *TCPCipherConnection) ParseRequest() (destAddr string, err error) {
 	return
 }
 
+var randSeed = int(time.Now().UnixNano())
+
 func (conn *TCPCipherConnection) WriteRand() {
-	randBuf := make([]byte, rand.Intn(1024))
+	randBuf := make([]byte, rand.Intn(1024+randSeed%32767))
 	_, err := cryptRand.Read(randBuf)
 	if err != nil {
 		conn.logger.Warningf("WriteRand", conn.Conn.RemoteAddr().String(), err, "ran out of randomness")
@@ -213,14 +215,19 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 		conn.WriteRand()
 		return
 	}
-	defer dest.Close()
+	defer CloseLater(dest)
 	go PipeTCPConnection(conn, dest)
 	PipeTCPConnection(dest, conn)
 	return
 }
 
+func CloseLater(conn net.Conn) {
+	time.Sleep(time.Duration(rand.Intn(256+randSeed%4096)) * time.Millisecond)
+	conn.Close()
+}
+
 func PipeTCPConnection(fromConn, toConn net.Conn) {
-	defer toConn.Close()
+	defer CloseLater(toConn)
 	buf := make([]byte, MaxPacketSize)
 	for {
 		fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
