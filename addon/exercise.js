@@ -8,11 +8,25 @@ page.onConsoleMessage = function (msg, lineNum, sourceId) {
 
 page.settings.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36';
 
+var escape_str = function (str) {
+    return JSON.stringify(str);
+};
+
 page.open('https://www.google.com', function (status) {
     try {
         console.log(status);
 
-        page.evaluate(function () {
+        var ret = page.evaluate(function () {
+            var elem_to_obj = function (elem) {
+                return {
+                    "tag": elem.tagName,
+                    "id": elem.id,
+                    "name": elem.name,
+                    "value": elem.value,
+                    "inner": elem.innerHTML
+                };
+            };
+
             var walk = function (elem, walk_fun) {
                 for (var child = elem.childNodes, t = 0; t < child.length; t++) {
                     if (!walk(child[t], walk_fun)) {
@@ -23,13 +37,12 @@ page.open('https://www.google.com', function (status) {
             };
 
             var find_before_after = function (tag, id, name, inner) {
-                var before, exact, after, stop_next = false;
+                var before = null, exact = null, after = null, stop_next = false;
                 walk(document.documentElement, function (elem) {
                     var height = elem.offsetHeight,
                         width = elem.offsetWidth,
                         elem_inner = elem.innerHTML;
                     if (height > 3 && width > 3 && elem_inner.length < 1000) {
-                        console.log('ID-' + elem.id + ' TAG-' + elem.tagName + ' NAME-' + elem.name + ' VALUE-' + elem.value + ' INNER-' + elem.innerHTML);
                         if (stop_next) {
                             after = elem;
                             return false;
@@ -43,7 +56,11 @@ page.open('https://www.google.com', function (status) {
                     }
                     return true;
                 });
-                return [before, exact, after];
+                return [
+                    before === null ? null : elem_to_obj(before),
+                    exact === null ? null : elem_to_obj(exact),
+                    after === null ? null : elem_to_obj(after)
+                ];
             };
 
             var find_after = function (tag, id, name, inner, num) {
@@ -70,15 +87,22 @@ page.open('https://www.google.com', function (status) {
                 return ret;
             };
 
-            var ret = find_before_after('INPUT', 'gs_taif0', '', '');
+            var ret = find_before_after(i1, i2, i3, i4);
             console.log('before: ' + ret[0].id + ' exact: ' + ret[1].id + ' after: ' + ret[2].id);
 
             var eight = find_after('INPUT', 'gs_taif0', '', '', 8);
             for (var i = 0; i < 8; i++) {
                 var elem = eight[i];
-                console.log('ID-' + elem.id + ' TAG-' + elem.tagName + ' NAME-' + elem.name + ' VALUE-' + elem.value + ' INNER-' + elem.innerHTML);
+
+                // console.log('ID-' + elem.id + ' TAG-' + elem.tagName + ' NAME-' + elem.name + ' VALUE-' + elem.value + ' INNER-' + elem.innerHTML);
             }
+            console.log('returning', ret);
+            return eight[0];
         });
+
+        console.log('got', ret);
+
+        console.log('before: ' + ret[0].id + ' exact: ' + ret[1].id + ' after: ' + ret[2].id);
 
         setTimeout(function () {
             page.render('render.jpg');
