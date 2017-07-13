@@ -174,90 +174,67 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, _ *common.
 			case "Kill All":
 				remoteBrowser.Browsers.KillAll()
 			case "Back":
-				if err := instance.SendRequest("back", nil, nil); err != nil {
+				if err := instance.GoBack(); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			case "Forward":
-				if err := instance.SendRequest("forward", nil, nil); err != nil {
+				if err := instance.GoForward(); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			case "Reload":
-				if err := instance.SendRequest("reload", nil, nil); err != nil {
+				if err := instance.Reload(); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			case "Go To":
-				if err := instance.SendRequest("goto", map[string]interface{}{
-					"user_agent":  userAgent,
-					"page_url":    pageUrl,
-					"view_width":  viewWidth,
-					"view_height": viewHeight,
-				}, nil); err != nil {
+				if err := instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			case "Left Click":
-				if err := instance.SendRequest("pointer", map[string]interface{}{
-					"type":   "click",
-					"x":      pointerX,
-					"y":      pointerY,
-					"button": "left",
-				}, nil); err != nil {
+				if err := instance.Pointer(browser.PointerTypeClick, browser.PointerButtonLeft, pointerX, pointerY); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			case "Right Click":
-				if err := instance.SendRequest("pointer", map[string]interface{}{
-					"type":   "click",
-					"x":      pointerX,
-					"y":      pointerY,
-					"button": "right",
-				}, nil); err != nil {
+				if err := instance.Pointer(browser.PointerTypeClick, browser.PointerButtonRight, pointerX, pointerY); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			case "Move To":
-				if err := instance.SendRequest("pointer", map[string]interface{}{
-					"type":   "mosuemove",
-					"x":      pointerX,
-					"y":      pointerY,
-					"button": "left",
-				}, nil); err != nil {
+				if err := instance.Pointer(browser.PointerTypeMove, browser.PointerButtonLeft, pointerX, pointerY); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			case "Backspace":
-				if err := instance.SendRequest("type", map[string]interface{}{"key_code": "16777219"}, nil); err != nil {
+				if err := instance.SendKey("", browser.KeyCodeBackspace); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			case "Enter":
-				if err := instance.SendRequest("type", map[string]interface{}{"key_code": "16777221"}, nil); err != nil {
+				if err := instance.SendKey("", browser.KeyCodeEnter); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			case "Type":
-				if err := instance.SendRequest("type", map[string]interface{}{"key_string": typeText}, nil); err != nil {
+				if err := instance.SendKey(typeText, 0); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			}
-			var remotePageInfo struct {
-				Title   string `json:"title"`
-				PageURL string `json:"page_url"`
-			}
-			if err := instance.SendRequest("info", nil, &remotePageInfo); err != nil {
+			pageInfo, err := instance.GetPageInfo()
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			w.Write(remoteBrowser.RenderPage(
-				remotePageInfo.Title,
+				pageInfo.Title,
 				index, instance.Tag,
 				instance.GetDebugOutput(BrowserDebugOutputLen),
 				viewWidth, viewHeight,
-				userAgent, remotePageInfo.PageURL,
+				userAgent, pageInfo.URL,
 				pointerX, pointerY,
 				typeText))
 		}

@@ -57,9 +57,9 @@ page.open('https://www.google.com', function (status) {
                     return true;
                 });
                 return [
-                    before === null ? null : elem_to_obj(before),
-                    exact === null ? null : elem_to_obj(exact),
-                    after === null ? null : elem_to_obj(after)
+                    before === null ? null : laitos_pjs_elem_to_obj(before),
+                    exact === null ? null : laitos_pjs_elem_to_obj(exact),
+                    after === null ? null : laitos_pjs_elem_to_obj(after)
                 ];
             };
 
@@ -87,7 +87,7 @@ page.open('https://www.google.com', function (status) {
                 return ret;
             };
 
-            var ret = find_before_after(i1, i2, i3, i4);
+            var ret = laitos_pjs_find_before_after(i1, i2, i3, i4);
             console.log('before: ' + ret[0].id + ' exact: ' + ret[1].id + ' after: ' + ret[2].id);
 
             var eight = find_after('INPUT', 'gs_taif0', '', '', 8);
