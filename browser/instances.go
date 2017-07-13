@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Manage lifecycle of a fixed number of instance server instances.
+// Renderes manages lifecycle of a fixed number of browser server instances.
 type Renderers struct {
 	PhantomJSExecPath string        `json:"PhantomJSExecPath"` // Absolute or relative path to PhantomJS executable
 	MaxInstances      int           `json:"MaxInstances"`      // Maximum number of instances

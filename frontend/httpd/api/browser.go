@@ -2,8 +2,8 @@ package api
 
 import (
 	"fmt"
+	"github.com/HouzuoGuo/laitos/browser"
 	"github.com/HouzuoGuo/laitos/frontend/common"
-	"github.com/HouzuoGuo/laitos/frontend/httpd/api/browser"
 	"github.com/HouzuoGuo/laitos/global"
 	"io/ioutil"
 	"net/http"
@@ -77,7 +77,6 @@ const (
 	BrowserDebugOutputLen = 1024 // Display this much debug output on page
 	BrowserMinWidth       = 1024 // Default browser width in pixels
 	BrowserMinHeight      = 1024 // Default browser height in pixels
-	BrowserUserAgent      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
 )
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.

@@ -32,7 +32,7 @@ const (
         if (!browser) {
             return false;
         }
-        browser.render('render.jpg');
+        browser.render('%s');
         return true;
     };
 
@@ -126,7 +126,7 @@ const (
     };
 
     // Run a web server that receives commands from HTTP clients.
-    var server = require('webserver').create().listen('127.0.0.1:12345', function (req, resp) {
+    var server = require('webserver').create().listen('127.0.0.1:%d', function (req, resp) {
         resp.statusCode = 200;
         resp.headers = {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -171,6 +171,9 @@ const (
         } else if (req.url === '/lo_pointer') {
             // curl -X POST --data 'type=click&button=left' 'localhost:12345/lo_pointer'
             ret = b_lo_pointer(req.post);
+        } else if (req.url === '/lo_set_val') {
+            // curl -X POST --data 'value=ABCDEFG' 'localhost:12345/lo_set_val'
+            ret = b_lo_set_val(req.post);
         }
         console.log(req.method + ' ' + req.url + ' - ' + JSON.stringify(req.post) + ': ' + JSON.stringify(ret));
         resp.write(JSON.stringify(ret));
@@ -236,6 +239,7 @@ const (
                 after === null ? null : laitos_pjs_elem_to_obj(after)
             ];
         };
+
         // Turn a DOM element into an object that describes several of its details.
         window.laitos_pjs_elem_to_obj = function (elem) {
             return {
@@ -246,6 +250,7 @@ const (
                 "inner": elem.innerHTML
             };
         };
+
         // Walk through DOM elements.
         window.laitos_pjs_walk = function (elem, walk_fun) {
             if (!elem) {
@@ -259,6 +264,7 @@ const (
             }
             return walk_fun(elem);
         };
+
         // Find elements that are immediately adjacent to the one described in parameters. Give the very last one to focus.
         window.laitos_pjs_find_after = function (tag, id, name, inner, num) {
             var ret = [], matched = false;
@@ -291,11 +297,21 @@ const (
         };
     };
 
-    // Reset previous element information, so that the next "next" action will find the first element.
+    // Reset recorded element information so that next DOM navigation will find the first element on page.
     var b_lo_reset = function () {
         before_info = null;
         exact_info = null;
         after_info = null;
+    };
+
+    // PhantomJS has a weird bug, if in page context a null value is returned to phantomJS caller, the value turns into an empty string.
+    var empty_str_to_null = function (array) {
+        for (var i = 0; i < array.length; i++) {
+            if (array[i] === "") {
+                array[i] = null;
+            }
+        }
+        return array;
     };
 
     // Navigate to the next element.
@@ -321,9 +337,9 @@ const (
 
             }
         }
-        var ret = browser.evaluate(function () {
+        var ret = empty_str_to_null(browser.evaluate(function () {
             return laitos_pjs_find_before_after(laitos_pjs_tag, laitos_pjs_id, laitos_pjs_name, laitos_pjs_inner);
-        });
+        }));
         before_info = ret[0];
         exact_info = ret[1];
         after_info = ret[2];
@@ -339,9 +355,9 @@ const (
 
         // If before_info is null, it will naturally visit the first element of the page.
         browser.evaluateJavaScript(elem_info_to_stmt(before_info));
-        var ret = browser.evaluate(function () {
+        var ret = empty_str_to_null(browser.evaluate(function () {
             return laitos_pjs_find_before_after(laitos_pjs_tag, laitos_pjs_id, laitos_pjs_name, laitos_pjs_inner);
-        });
+        }));
 
         before_info = ret[0];
         exact_info = ret[1];
@@ -362,9 +378,9 @@ const (
         browser.evaluateJavaScript(elem_info_to_stmt(exact_info));
         browser.evaluateJavaScript("function(){window.laitos_pjs_next_n=" + param.n + ";}");
 
-        var ret = browser.evaluate(function () {
+        var ret = empty_str_to_null(browser.evaluate(function () {
             return laitos_pjs_find_after(laitos_pjs_tag, laitos_pjs_id, laitos_pjs_name, laitos_pjs_inner, laitos_pjs_next_n);
-        });
+        }));
 
         if (ret.length > 0) {
             before_info = exact_info;
@@ -404,15 +420,35 @@ const (
         });
     };
 
+    // Set a value to the currently focused element.
+    var b_lo_set_val = function (param) {
+        if (!browser) {
+            return false;
+        }
+        browser.evaluate(lo_install_func);
+        browser.evaluateJavaScript("function(){window.laitos_pjs_set_value_to=" + JSON.stringify(param.value) + ";}");
+
+        // Give the currently focused element a new value.
+        return browser.evaluate(function () {
+            if (!laitos_pjs_current_elem) {
+                return false;
+            }
+            return laitos_pjs_current_elem.getBoundingClientRect().left + window.scrollX;
+        });
+    };
+
 } catch
     (err) {
-    var msg = "\nJavascript Program Exception";
+    var msg = "\nPhantomJS Javascript Exception";
     msg += "\nError: " + err.toString();
     for (var p in err) {
         msg += "\n" + p.toUpperCase() + ": " + ex[p];
     }
     console.log(msg);
 }` // Template javascript code that runs on headless browser server
+
+	// BrowserUserAgent is the recommended user agent string for rendering all pages
+	BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
 )
 
 var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
@@ -454,8 +490,8 @@ func (instance *Renderer) Start() error {
 	instance.JSProc = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
 	instance.JSProc.Stdout = instance.DebugOutput
 	instance.JSProc.Stderr = instance.DebugOutput
-	//browser.JSProc.Stdout = os.Stderr
-	//browser.JSProc.Stderr = os.Stderr
+	instance.JSProc.Stdout = os.Stderr
+	instance.JSProc.Stderr = os.Stderr
 	processErrChan := make(chan error, 1)
 	go func() {
 		if err := instance.JSProc.Start(); err != nil {
@@ -591,12 +627,20 @@ func (instance *Renderer) Reload() error {
 
 // GoTo navigates to a new URL.
 func (instance *Renderer) GoTo(userAgent, pageURL string, width, height int) error {
-	return instance.SendRequest("goto", map[string]interface{}{
+	var result bool
+	err := instance.SendRequest("goto", map[string]interface{}{
 		"user_agent":  userAgent,
 		"page_url":    pageURL,
 		"view_width":  width,
 		"view_height": height,
-	}, nil)
+	}, &result)
+	if err != nil {
+		return err
+	}
+	if !result {
+		return errors.New("Renderer.GoTo: result is false")
+	}
+	return nil
 }
 
 const (
@@ -641,4 +685,52 @@ type RemotePageInfo struct {
 func (instance *Renderer) GetPageInfo() (info RemotePageInfo, err error) {
 	err = instance.SendRequest("info", nil, &info)
 	return
+}
+
+// LOReset (line-oriented browser) resets recorded element information so that next DOM navigation will find the first element on page.
+func (instance *Renderer) LOResetNavigation() error {
+	return instance.SendRequest("lo_reset", nil, nil)
+}
+
+// ElementInfo tells about an element encountered while navigating around DOM in line-oriented browser.
+type ElementInfo struct {
+	TagName   string      `json:"tag"`   // TagName is the HTML tag name.
+	ID        string      `json:"id"`    // ID is DOM element's ID.
+	Name      string      `json:"name"`  // Name is DOM element's name.
+	Value     interface{} `json:"value"` // Value is DOM element's value.
+	InnerHTML string      `json:"inner"` // InnerHTML is DOM element's inner HTML.
+}
+
+// LONext (line-oriented browser) navigates to the next element in DOM. Return information of previous, current, and next element after the action.
+func (instance *Renderer) LONextElement() (elements []ElementInfo, err error) {
+	elements = make([]ElementInfo, 3)
+	err = instance.SendRequest("lo_next", nil, &elements)
+	return
+}
+
+// LONext (line-oriented browser) navigates to the previous element in DOM.  Return information of previous, current, and next element after the action.
+func (instance *Renderer) LOPreviousElement() (elements []ElementInfo, err error) {
+	elements = make([]ElementInfo, 3)
+	err = instance.SendRequest("lo_prev", nil, &elements)
+	return
+}
+
+// LONext (line-oriented browser) navigates to the previous element in DOM. Return information of next N elements.
+func (instance *Renderer) LONextNElements(n int) (elements []ElementInfo, err error) {
+	elements = make([]ElementInfo, 0, n)
+	err = instance.SendRequest("lo_next_n", map[string]interface{}{"n": n}, &elements)
+	return
+}
+
+// LONext (line-oriented browser) sends pointer to click/move to at coordinate of the currently focused element.
+func (instance *Renderer) LOPointer(actionType, button string) error {
+	return instance.SendRequest("lo_pointer", map[string]interface{}{
+		"type":   actionType,
+		"button": button,
+	}, nil)
+}
+
+// LONext (line-oriented browser) sets the value of currently focused element.
+func (instance *Renderer) LOSetValue(value string) error {
+	return instance.SendRequest("lo_set_val", map[string]interface{}{"value": value}, nil)
 }
