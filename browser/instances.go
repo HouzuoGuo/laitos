@@ -57,6 +57,7 @@ func (instances *Renderers) Acquire() (index int, browser *Renderer, err error) 
 		RenderImagePath:    path.Join(os.TempDir(), fmt.Sprintf("laitos-browser-instance-render-%d-%d.png", time.Now().Unix(), index)),
 		Port:               instances.BasePortNumber + int(index),
 		AutoKillTimeoutSec: instances.MaxLifetimeSec,
+		Index:              index,
 	}
 	instances.Browsers[index] = browser
 	err = browser.Start()

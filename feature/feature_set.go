@@ -10,6 +10,7 @@ import (
 // Aggregate all available features together.
 type FeatureSet struct {
 	AESDecrypt         AESDecrypt          `json:"AESDecrypt"`
+	Browser            Browser             `json:"Browser"`
 	EnvControl         EnvControl          `json:"EnvControl"`
 	Facebook           Facebook            `json:"Facebook"`
 	IMAPAccounts       IMAPAccounts        `json:"IMAPAccounts"`
@@ -29,6 +30,7 @@ func (fs *FeatureSet) Initialise() error {
 	fs.LookupByTrigger = map[Trigger]Feature{}
 	triggers := map[Trigger]Feature{
 		fs.AESDecrypt.Trigger():         &fs.AESDecrypt,
+		fs.Browser.Trigger():            &fs.Browser,
 		fs.EnvControl.Trigger():         &fs.EnvControl,
 		fs.Facebook.Trigger():           &fs.Facebook,
 		fs.IMAPAccounts.Trigger():       &fs.IMAPAccounts,
@@ -81,6 +83,7 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 	// Here are the feature keys
 	features := map[string]Feature{
 		"AESDecrypt":         &fs.AESDecrypt,
+		"Browser":            &fs.Browser,
 		"EnvControl":         &fs.EnvControl,
 		"Facebook":           &fs.Facebook,
 		"IMAPAccounts":       &fs.IMAPAccounts,

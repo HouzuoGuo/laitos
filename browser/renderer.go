@@ -447,8 +447,8 @@ const (
     console.log(msg);
 }` // Template javascript code that runs on headless browser server
 
-	// BrowserUserAgent is the recommended user agent string for rendering all pages
-	BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+	// GoodUserAgent is the recommended user agent string for rendering all pages
+	GoodUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
 )
 
 var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
@@ -464,6 +464,7 @@ type Renderer struct {
 	JSTmpFilePath      string        // Path to temporary file that stores PhantomJS server code
 	JSProc             *exec.Cmd     // Headless server process
 	JSProcMutex        *sync.Mutex   // Protect against concurrent access to server process
+	Index              int           // Index is the instance number assigned by renderer lifecycle management.
 	Logger             global.Logger
 }
 
@@ -490,8 +491,8 @@ func (instance *Renderer) Start() error {
 	instance.JSProc = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
 	instance.JSProc.Stdout = instance.DebugOutput
 	instance.JSProc.Stderr = instance.DebugOutput
-	instance.JSProc.Stdout = os.Stderr
-	instance.JSProc.Stderr = os.Stderr
+	//instance.JSProc.Stdout = os.Stderr
+	//instance.JSProc.Stderr = os.Stderr
 	processErrChan := make(chan error, 1)
 	go func() {
 		if err := instance.JSProc.Start(); err != nil {

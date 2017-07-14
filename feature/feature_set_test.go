@@ -33,13 +33,13 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	// Configure all features via JSON and verify via self test
 	features = TestFeatureSet
 	features.Initialise()
-	if len(features.LookupByTrigger) != 10 {
+	if len(features.LookupByTrigger) != 11 {
 		t.Skip(features.LookupByTrigger)
 	}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 10 {
+	if len(features.LookupByTrigger) != 11 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if errs := features.SelfTest(); len(errs) != 0 {

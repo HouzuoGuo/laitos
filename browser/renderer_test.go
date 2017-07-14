@@ -30,11 +30,11 @@ func TestInteractiveBrowser(t *testing.T) {
 	}
 	defer instance.Kill()
 	// Browse microsoft home page
-	if err := instance.GoTo(BrowserUserAgent, "https://www.microsoft.com", 1024, 1024); err != nil {
+	if err := instance.GoTo(GoodUserAgent, "https://www.microsoft.com", 1024, 1024); err != nil {
 		t.Fatal(err, instance.GetDebugOutput(1000))
 	}
-	// Expect page to be ready in two seconds
-	time.Sleep(2 * time.Second)
+	// Expect page to be ready in three seconds
+	time.Sleep(3 * time.Second)
 	if err := instance.RenderPage(); err != nil {
 		t.Fatal(err)
 	}
@@ -91,12 +91,12 @@ func TestLineOrientedBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer instance.Kill()
-	// Browse microsoft home page
-	if err := instance.GoTo(BrowserUserAgent, "https://github.com", 1024, 1024); err != nil {
+	// Browse github home page
+	if err := instance.GoTo(GoodUserAgent, "https://github.com", 1024, 1024); err != nil {
 		t.Fatal(err, instance.GetDebugOutput(1000))
 	}
-	// Expect page to be ready in two seconds
-	time.Sleep(2 * time.Second)
+	// Expect page to be ready in three seconds
+	time.Sleep(3 * time.Second)
 	// Navigate to first element
 	firstElements, err := instance.LONextElement()
 	if err != nil || len(firstElements) != 3 {

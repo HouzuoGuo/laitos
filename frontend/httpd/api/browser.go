@@ -142,7 +142,7 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, _ *common.
 				"Empty Browser",
 				index, instance.Tag,
 				instance.GetDebugOutput(BrowserDebugOutputLen),
-				BrowserMinWidth, BrowserMinHeight, BrowserUserAgent,
+				BrowserMinWidth, BrowserMinHeight, browser.GoodUserAgent,
 				"https://www.google.com",
 				0, 0,
 				""))
@@ -160,7 +160,7 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger global.Logger, _ *common.
 					"Empty Browser",
 					index, instance.Tag,
 					instance.GetDebugOutput(BrowserDebugOutputLen),
-					BrowserMinWidth, BrowserMinHeight, BrowserUserAgent,
+					BrowserMinWidth, BrowserMinHeight, browser.GoodUserAgent,
 					"https://www.google.com",
 					0, 0,
 					""))
