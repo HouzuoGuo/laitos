@@ -262,7 +262,7 @@ const (
                 }
             }
             // Only invoke function on leaf nodes
-            if (elem.childNodes.length == 0) {
+            if (elem.childNodes.length <= 1) {
                 return walk_fun(elem);
             }
             return true;

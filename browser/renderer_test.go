@@ -97,6 +97,9 @@ func TestLineOrientedBrowser(t *testing.T) {
 	}
 	// Expect page to be ready in three seconds
 	time.Sleep(3 * time.Second)
+	delay := func() {
+		time.Sleep(2 * time.Second)
+	}
 	// Navigate to first element
 	firstElements, err := instance.LONextElement()
 	if err != nil || len(firstElements) != 3 {
@@ -106,29 +109,35 @@ func TestLineOrientedBrowser(t *testing.T) {
 	if firstElements[0].TagName != "" || firstElements[1].TagName == "" || firstElements[2].TagName == "" {
 		t.Fatal(err, firstElements)
 	}
+	delay()
 	// Navigate to second element
 	secondElements, err := instance.LONextElement()
 	if err != nil || len(secondElements) != 3 {
 		t.Fatal(err, secondElements)
 	}
+	delay()
 	// [0] should match the previous element's next element
 	if secondElements[0].TagName != firstElements[2].TagName || secondElements[1].TagName == "" || secondElements[2].TagName == "" {
 		t.Fatal(err, secondElements)
 	}
+	delay()
 	// Navigate all the way to the bottom
 	elements, err := instance.LONextNElements(10000)
 	if err != nil || len(elements) < 30 {
 		t.Fatal(err, elements)
 	}
+	delay()
 	// After having reached the bottom, calling next should continue to stay at the bottom.
 	lastElements, err := instance.LONextElement()
 	if err != nil || lastElements[1].TagName != elements[len(elements)-1].TagName {
 		t.Fatal(err, lastElements)
 	}
+	delay()
 	// Go back to the start
 	if err := instance.LOResetNavigation(); err != nil {
 		t.Fatal(err)
 	}
+	delay()
 	revisitFirstElements, err := instance.LONextElement()
 	if err != nil || len(revisitFirstElements) != 3 ||
 		revisitFirstElements[0].TagName != "" ||
@@ -136,13 +145,16 @@ func TestLineOrientedBrowser(t *testing.T) {
 		revisitFirstElements[2].TagName != firstElements[2].TagName {
 		t.Fatal(err, revisitFirstElements, firstElements)
 	}
+	delay()
 	// Try pointer and value actions
 	if err := instance.LOPointer(PointerTypeMove, PointerButtonLeft); err != nil {
 		t.Fatal(err)
 	}
+	delay()
 	if err := instance.LOSetValue("test value"); err != nil {
 		t.Fatal(err)
 	}
+	delay()
 	// Re-visit the second element
 	revisitSecondElements, err := instance.LONextElement()
 	if err != nil || len(revisitSecondElements) != 3 ||
