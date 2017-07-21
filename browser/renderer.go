@@ -254,7 +254,6 @@ const (
         // Walk through DOM elements.
         window.laitos_pjs_walk = function (elem, walk_fun) {
             if (!elem) {
-                // Continue
                 return true;
             }
             for (var child = elem.childNodes, t = 0; t < child.length; t++) {
@@ -262,7 +261,11 @@ const (
                     return false;
                 }
             }
-            return walk_fun(elem);
+            // Only invoke function on leaf nodes
+            if (elem.childNodes.length == 0) {
+                return walk_fun(elem);
+            }
+            return true;
         };
 
         // Find elements that are immediately adjacent to the one described in parameters. Give the very last one to focus.

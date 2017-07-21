@@ -129,6 +129,8 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 	case "k":
 		// Kill browser
 		bro.renderer.Kill()
+		bro.renderer = nil
+		output = "killed"
 	case "g":
 		// Go to new URL
 		if len(params) < 3 {

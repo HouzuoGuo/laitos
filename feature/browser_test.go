@@ -99,7 +99,7 @@ func TestBrowser_Execute(t *testing.T) {
 		fmt.Println(ret.Output)
 	}
 	// Kill browser finally
-	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "k"}); ret.Error != nil || !strings.Contains(ret.Output, "github") {
+	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "k"}); ret.Error != nil || !strings.Contains(ret.Output, "killed") {
 		t.Fatal(ret.Error)
 	} else {
 		fmt.Println(ret.Output)
