@@ -22,6 +22,7 @@ const (
 	NumQueueRatio              = 10   // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
 	BlacklistUpdateIntervalSec = 7200 // Update ad-server blacklist at this interval
 	MinNameQuerySize           = 14   // If a query packet is shorter than this length, it cannot possibly be a name query.
+	PublicIPRefreshIntervalSec = 1800 // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
 	MVPSLicense                = `Disclaimer: this file is free to use for personal use only. Furthermore it is NOT permitted to ` +
 		`copy any of the contents or host on any other site without permission or meeting the full criteria of the below license ` +
 		` terms. This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike License. ` +
@@ -55,13 +56,15 @@ type DNSD struct {
 	TCPForwarder string       `json:"TCPForwarder"` // Forward TCP DNS queries to this address (IP:Port)
 	TCPListener  net.Listener `json:"-"`            // Once TCP daemon is started, this is its listener.
 
-	AllowQueryIPPrefixes []string `json:"AllowQueryIPPrefixes"` // Only allow queries from IP addresses that carry any of the prefixes
-	PerIPLimit           int      `json:"PerIPLimit"`           // How many times in 10 seconds interval an IP may send DNS request
+	AllowQueryIPPrefixes []string    `json:"AllowQueryIPPrefixes"` // Only allow queries from IP addresses that carry any of the prefixes
+	allowQueryMutex      *sync.Mutex `json:"-"`                    // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
+	allowQueryLastUpdate int64       `json:"-"`                    // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
 
-	RateLimit      *ratelimit.RateLimit `json:"-"` // Rate limit counter
-	BlackListMutex *sync.Mutex          `json:"-"` // Protect against concurrent access to black list
-	BlackList      map[string]struct{}  `json:"-"` // Do not answer to type A queries made toward these domains
-	Logger         global.Logger        `json:"-"` // Logger
+	PerIPLimit     int                  `json:"PerIPLimit"` // How many times in 10 seconds interval an IP may send DNS request
+	RateLimit      *ratelimit.RateLimit `json:"-"`          // Rate limit counter
+	BlackListMutex *sync.Mutex          `json:"-"`          // Protect against concurrent access to black list
+	BlackList      map[string]struct{}  `json:"-"`          // Do not answer to type A queries made toward these domains
+	Logger         global.Logger        `json:"-"`          // Logger
 }
 
 // Check configuration and initialise internal states.
@@ -87,8 +90,11 @@ func (dnsd *DNSD) Initialise() error {
 			return errors.New("DNSD.Initialise: any allowable IP prefixes must not be empty string")
 		}
 	}
+
+	dnsd.allowQueryMutex = new(sync.Mutex)
 	dnsd.BlackListMutex = new(sync.Mutex)
 	dnsd.BlackList = make(map[string]struct{})
+
 	dnsd.RateLimit = &ratelimit.RateLimit{
 		MaxCount: dnsd.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
@@ -114,15 +120,55 @@ func (dnsd *DNSD) Initialise() error {
 		dnsd.UDPBlackHoleQueues[i] = make(chan *UDPQuery, 4)  // there is also no need for a deeper queue here
 	}
 	// TCP queries are not handled by queues
-	// Always allow server to query itself
-	myPublicIP := env.GetPublicIP()
-	if myPublicIP == "" {
-		// Not a fatal error
-		dnsd.Logger.Warningf("Initialise", "", nil, "unable to determine public IP address, the server will not be able to query itself.")
-	} else {
-		dnsd.AllowQueryIPPrefixes = append(dnsd.AllowQueryIPPrefixes, myPublicIP)
-	}
+	// Always allow server to query itself via public IP
+	dnsd.allowMyPublicIP()
 	return nil
+}
+
+// allowMyPublicIP places the computer's public IP address into the array of IPs allowed to query the server.
+func (dnsd *DNSD) allowMyPublicIP() {
+	if dnsd.allowQueryLastUpdate+PublicIPRefreshIntervalSec >= time.Now().Unix() {
+		return
+	}
+	dnsd.allowQueryMutex.Lock()
+	defer dnsd.allowQueryMutex.Unlock()
+	defer func() {
+		// This routine runs periodically no matter it succeeded or failed in retrieving latest public IP
+		dnsd.allowQueryLastUpdate = time.Now().Unix()
+	}()
+	latestIP := env.GetPublicIP()
+	if latestIP == "" {
+		// Not a fatal error if IP cannot be determined
+		dnsd.Logger.Warningf("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
+		return
+	}
+	foundMyIP := false
+	for _, allowedIP := range dnsd.AllowQueryIPPrefixes {
+		if allowedIP == latestIP {
+			foundMyIP = true
+			break
+		}
+	}
+	if !foundMyIP {
+		// Place latest IP into the array, but do not erase the old IP entries.
+		dnsd.AllowQueryIPPrefixes = append(dnsd.AllowQueryIPPrefixes, latestIP)
+		dnsd.Logger.Printf("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", latestIP)
+	}
+}
+
+// checkAllowClientIP returns true only if the input IP address is among the allowed addresses.
+func (dnsd *DNSD) checkAllowClientIP(clientIP string) bool {
+	// At regular time interval, make sure that the latest public IP is allowed to query.
+	dnsd.allowMyPublicIP()
+
+	dnsd.allowQueryMutex.Lock()
+	defer dnsd.allowQueryMutex.Unlock()
+	for _, prefix := range dnsd.AllowQueryIPPrefixes {
+		if strings.HasPrefix(clientIP, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // Download ad-servers list from pgl.yoyo.org and return those domain names.

@@ -87,20 +87,12 @@ func (dnsd *DNSD) StartAndBlockUDP() error {
 			}
 			return fmt.Errorf("DNSD.StartAndBlockUDP: failed to accept new connection - %v", err)
 		}
-		// Check address against rate limit
+		// Check address against rate limit and allowed IP prefixes
 		clientIP := clientAddr.IP.String()
 		if !dnsd.RateLimit.Add(clientIP, true) {
 			continue
 		}
-		// Check address against allowed IP prefixes
-		var prefixOK bool
-		for _, prefix := range dnsd.AllowQueryIPPrefixes {
-			if strings.HasPrefix(clientIP, prefix) {
-				prefixOK = true
-				break
-			}
-		}
-		if !prefixOK {
+		if !dnsd.checkAllowClientIP(clientIP) {
 			dnsd.Logger.Warningf("UDPLoop", clientIP, nil, "client IP is not allowed to query")
 			continue
 		}

@@ -113,7 +113,7 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	}
 	// If run on Travis, my own IP won't be put into allowed query prefixes.
 	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 2 {
-		t.Fatal("did not put my own IP into prefixes")
+		t.Fatal("did not put my own IP into prefixes", daemon.AllowQueryIPPrefixes)
 	}
 	TestTCPQueries(&daemon, t)
 }

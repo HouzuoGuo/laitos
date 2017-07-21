@@ -37,7 +37,6 @@ type SMTPD struct {
 	MyDomainsHash map[string]struct{} `json:"-"` // "MyDomains" values in map keys
 	ForwardMailer email.Mailer        `json:"-"` // Use this mailer to forward arrived mails
 	SMTPConfig    smtp.Config         `json:"-"` // SMTP processor configuration
-	MyPublicIP    string              `json:"-"` // My public IP address as discovered by external services
 
 	Listener       net.Listener    `json:"-"` // Once daemon is started, this is its TCP listener.
 	TLSCertificate tls.Certificate `json:"-"` // TLS certificate read from the certificate and key files
@@ -78,21 +77,14 @@ func (smtpd *SMTPD) Initialise() error {
 			return fmt.Errorf("SMTPD.Initialise: failed to read TLS certificate - %v", err)
 		}
 	}
-	// Public IP is used to to greet SMTP client
-	smtpd.MyPublicIP = env.GetPublicIP()
-	if smtpd.MyPublicIP == "" {
-		// Not a fatal error
-		// Although "localhost" is not an IP address, it really is only used as a greeting banner, so it won't matter.
-		smtpd.MyPublicIP = "localhost"
-		smtpd.Logger.Warningf("Initialise", "", nil, "unable to determine public IP address, some SMTP conversations will be off-standard.")
-	}
 	smtpd.SMTPConfig = smtp.Config{
 		Limits: &smtp.Limits{
 			MsgSize:   2 * 1024 * 1024,            // Accept mails up to 2 MB large
 			IOTimeout: IOTimeoutSec * time.Second, // IO timeout is a reasonable minute
 			BadCmds:   64,                         // Abort connection after consecutive bad commands
 		},
-		ServerName: smtpd.MyPublicIP,
+		// Greet SMTP clients with a list of domain names that this server receives emails for
+		ServerName: strings.Join(smtpd.MyDomains, " "),
 	}
 	if smtpd.TLSCertPath != "" {
 		smtpd.SMTPConfig.TLSConfig = &tls.Config{Certificates: []tls.Certificate{smtpd.TLSCertificate}}
@@ -104,12 +96,13 @@ func (smtpd *SMTPD) Initialise() error {
 	}
 	smtpd.RateLimit.Initialise()
 	// Do not allow forward to this daemon itself
-	if (strings.HasPrefix(smtpd.ForwardMailer.MTAHost, "127.") || smtpd.ForwardMailer.MTAHost == smtpd.MyPublicIP) &&
+	myPublicIP := env.GetPublicIP()
+	if (strings.HasPrefix(smtpd.ForwardMailer.MTAHost, "127.") || smtpd.ForwardMailer.MTAHost == myPublicIP) &&
 		smtpd.ForwardMailer.MTAPort == smtpd.Port {
 		return errors.New("SMTPD.Initialise: forward MTA must not be myself")
 	}
 	// Do not allow mail processor to reply to this daemon itself
-	if (strings.HasPrefix(smtpd.MailProcessor.ReplyMailer.MTAHost, "127.") || smtpd.MailProcessor.ReplyMailer.MTAHost == smtpd.MyPublicIP) &&
+	if (strings.HasPrefix(smtpd.MailProcessor.ReplyMailer.MTAHost, "127.") || smtpd.MailProcessor.ReplyMailer.MTAHost == myPublicIP) &&
 		smtpd.MailProcessor.ReplyMailer.MTAPort == smtpd.Port {
 		return errors.New("SMTPD.Initialise: mail processor's reply MTA must not be myself")
 	}
@@ -266,7 +259,7 @@ func TestSMTPD(smtpd *SMTPD, t *testing.T) {
 		stoppedNormally = true
 	}()
 	addr := smtpd.Address + ":" + strconv.Itoa(smtpd.Port)
-	// This really should be env.HTTPPublicIPTimeout * time.Second, but that would be too long.
+	// This really should be env.HTTPPublicIPTimeoutSec * time.Second, but that would be too long.
 	time.Sleep(3 * time.Second)
 	// Try to exceed rate limit
 	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"

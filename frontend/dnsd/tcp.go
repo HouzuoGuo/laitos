@@ -12,23 +12,14 @@ import (
 	"time"
 )
 
-// FIXME: avoid opening new TCP connection for every query
 func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	defer clientConn.Close()
-	// Check address against rate limit
+	// Check address against rate limit and allowed IP prefixes
 	clientIP := clientConn.RemoteAddr().String()[:strings.LastIndexByte(clientConn.RemoteAddr().String(), ':')]
 	if !dnsd.RateLimit.Add(clientIP, true) {
 		return
 	}
-	// Check address against allowed IP prefixes
-	var prefixOK bool
-	for _, prefix := range dnsd.AllowQueryIPPrefixes {
-		if strings.HasPrefix(clientIP, prefix) {
-			prefixOK = true
-			break
-		}
-	}
-	if !prefixOK {
+	if !dnsd.checkAllowClientIP(clientIP) {
 		dnsd.Logger.Warningf("HandleTCPQuery", clientIP, nil, "client IP is not allowed to query")
 		return
 	}
