@@ -44,7 +44,7 @@ func (server *PlainTextDaemon) StartAndBlockTCP() (err error) {
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
 func (server *PlainTextDaemon) HandleTCPConnection(clientConn net.Conn) {
 	defer clientConn.Close()
-	clientIP := clientConn.RemoteAddr().String()[:strings.LastIndexByte(clientConn.RemoteAddr().String(), ':')]
+	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	// Check connection against rate limit even before reading a line of command
 	if !server.RateLimit.Add(clientIP, true) {
 		return

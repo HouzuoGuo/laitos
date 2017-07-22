@@ -224,7 +224,7 @@ func (sock *Sockd) StartAndBlockUDP() error {
 		clientPacket := make([]byte, packetLength)
 		copy(clientPacket, packetBuf[:packetLength])
 
-		clientIP := udpClientAddr.String()[:strings.LastIndexByte(udpClientAddr.String(), ':')]
+		clientIP := udpClientAddr.IP.String()
 		if sock.rateLimitUDP.Add(clientIP, true) {
 			go sock.HandleUDPConnection(udpEncryptedServer, packetLength, udpClientAddr, packetBuf)
 		}

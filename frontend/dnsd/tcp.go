@@ -15,7 +15,7 @@ import (
 func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	defer clientConn.Close()
 	// Check address against rate limit and allowed IP prefixes
-	clientIP := clientConn.RemoteAddr().String()[:strings.LastIndexByte(clientConn.RemoteAddr().String(), ':')]
+	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	if !dnsd.RateLimit.Add(clientIP, true) {
 		return
 	}

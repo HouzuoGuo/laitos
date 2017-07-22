@@ -51,7 +51,7 @@ func (sock *Sockd) StartAndBlockTCP() error {
 				return fmt.Errorf("Sockd.StartAndBlockTCP: failed to accept new connection - %v", err)
 			}
 		}
-		clientIP := conn.RemoteAddr().String()[:strings.LastIndexByte(conn.RemoteAddr().String(), ':')]
+		clientIP := conn.RemoteAddr().(*net.TCPAddr).IP.String()
 		if sock.rateLimitTCP.Add(clientIP, true) {
 			go NewTCPCipherConnection(conn, sock.cipher.Copy(), sock.Logger).HandleTCPConnection()
 		} else {
