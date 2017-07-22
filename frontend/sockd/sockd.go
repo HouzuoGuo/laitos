@@ -7,8 +7,8 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/global"
-	"github.com/HouzuoGuo/laitos/ratelimit"
 	"io"
 	"net"
 	"strconv"
@@ -39,10 +39,10 @@ type Sockd struct {
 	UDPListener *net.UDPConn `json:"-"`
 	UDPTable    *UDPTable    `json:"-"`
 
-	Logger           global.Logger        `json:"-"`
-	cipher           *Cipher              `json:"-"`
-	rateLimitTCP     *ratelimit.RateLimit `json:"-"`
-	rateLimitUDP     *ratelimit.RateLimit `json:"-"`
+	Logger           global.Logger  `json:"-"`
+	cipher           *Cipher        `json:"-"`
+	rateLimitTCP     *env.RateLimit `json:"-"`
+	rateLimitUDP     *env.RateLimit `json:"-"`
 	udpLoopIsRunning int32
 	stopUDP          chan bool
 }
@@ -61,13 +61,13 @@ func (sock *Sockd) Initialise() error {
 	if sock.PerIPLimit < 10 {
 		return errors.New("Sockd.Initialise: PerIPLimit must be greater than 9")
 	}
-	sock.rateLimitTCP = &ratelimit.RateLimit{
+	sock.rateLimitTCP = &env.RateLimit{
 		Logger:   sock.Logger,
 		MaxCount: sock.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
 	}
 	sock.rateLimitTCP.Initialise()
-	sock.rateLimitUDP = &ratelimit.RateLimit{
+	sock.rateLimitUDP = &env.RateLimit{
 		Logger:   sock.Logger,
 		MaxCount: sock.PerIPLimit * 100,
 		UnitSecs: RateLimitIntervalSec,

@@ -8,7 +8,6 @@ import (
 	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
-	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net"
 	"strings"
 	"sync"
@@ -60,11 +59,11 @@ type DNSD struct {
 	allowQueryMutex      *sync.Mutex `json:"-"`                    // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
 	allowQueryLastUpdate int64       `json:"-"`                    // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
 
-	PerIPLimit     int                  `json:"PerIPLimit"` // How many times in 10 seconds interval an IP may send DNS request
-	RateLimit      *ratelimit.RateLimit `json:"-"`          // Rate limit counter
-	BlackListMutex *sync.Mutex          `json:"-"`          // Protect against concurrent access to black list
-	BlackList      map[string]struct{}  `json:"-"`          // Do not answer to type A queries made toward these domains
-	Logger         global.Logger        `json:"-"`          // Logger
+	PerIPLimit     int                 `json:"PerIPLimit"` // How many times in 10 seconds interval an IP may send DNS request
+	RateLimit      *env.RateLimit      `json:"-"`          // Rate limit counter
+	BlackListMutex *sync.Mutex         `json:"-"`          // Protect against concurrent access to black list
+	BlackList      map[string]struct{} `json:"-"`          // Do not answer to type A queries made toward these domains
+	Logger         global.Logger       `json:"-"`          // Logger
 }
 
 // Check configuration and initialise internal states.
@@ -95,7 +94,7 @@ func (dnsd *DNSD) Initialise() error {
 	dnsd.BlackListMutex = new(sync.Mutex)
 	dnsd.BlackList = make(map[string]struct{})
 
-	dnsd.RateLimit = &ratelimit.RateLimit{
+	dnsd.RateLimit = &env.RateLimit{
 		MaxCount: dnsd.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
 		Logger:   dnsd.Logger,

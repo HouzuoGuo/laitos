@@ -1,4 +1,4 @@
-package ratelimit
+package env
 
 import (
 	"github.com/HouzuoGuo/laitos/global"

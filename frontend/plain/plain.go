@@ -3,9 +3,9 @@ package plain
 import (
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
-	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net"
 )
 
@@ -26,7 +26,7 @@ type PlainTextDaemon struct {
 	PerIPLimit int `json:"PerIPLimit"` // How many times in 10 seconds interval a client IP may converse (connect/run feature) with server
 
 	Processor *common.CommandProcessor `json:"-"` // Feature command processor
-	RateLimit *ratelimit.RateLimit     `json:"-"` // Rate limit counter per IP address
+	RateLimit *env.RateLimit           `json:"-"` // Rate limit counter per IP address
 	Logger    global.Logger            `json:"-"` // Logger
 }
 
@@ -52,7 +52,7 @@ func (server *PlainTextDaemon) Initialise() error {
 	if server.PerIPLimit < 1 {
 		return errors.New("PlainTextDaemon.Initialise: PerIPLimit must be greater than 0")
 	}
-	server.RateLimit = &ratelimit.RateLimit{
+	server.RateLimit = &env.RateLimit{
 		MaxCount: server.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
 		Logger:   server.Logger,

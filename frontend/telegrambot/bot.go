@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
-	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -70,7 +70,7 @@ type TelegramBot struct {
 
 	Processor     *common.CommandProcessor `json:"-"` // Feature command processor
 	MessageOffset uint64                   `json:"-"` // Process chat messages arrived after this point
-	UserRateLimit *ratelimit.RateLimit     `json:"-"` // Prevent user from flooding bot with new messages
+	UserRateLimit *env.RateLimit           `json:"-"` // Prevent user from flooding bot with new messages
 	Logger        global.Logger            `json:"-"` // Logger
 	loopIsRunning int32                    // Value is 1 only when message loop is running
 	stop          chan bool                // Signal message loop to stop
@@ -92,7 +92,7 @@ func (bot *TelegramBot) Initialise() error {
 		return errors.New("TelegramBot.Initialise: RateLimit must be greater than 0")
 	}
 	// Configure rate limit
-	bot.UserRateLimit = &ratelimit.RateLimit{
+	bot.UserRateLimit = &env.RateLimit{
 		UnitSecs: PollIntervalSec,
 		MaxCount: bot.RateLimit,
 		Logger:   bot.Logger,

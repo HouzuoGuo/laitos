@@ -9,7 +9,6 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd/smtp"
 	"github.com/HouzuoGuo/laitos/global"
-	"github.com/HouzuoGuo/laitos/ratelimit"
 	"net"
 	netSMTP "net/smtp"
 	"strconv"
@@ -42,7 +41,7 @@ type SMTPD struct {
 	TLSCertificate tls.Certificate `json:"-"` // TLS certificate read from the certificate and key files
 
 	MailProcessor *mailp.MailProcessor `json:"-"` // Process feature commands from incoming mails
-	RateLimit     *ratelimit.RateLimit `json:"-"` // Rate limit counter per IP address
+	RateLimit     *env.RateLimit       `json:"-"` // Rate limit counter per IP address
 	Logger        global.Logger        `json:"-"` // Logger
 }
 
@@ -89,7 +88,7 @@ func (smtpd *SMTPD) Initialise() error {
 	if smtpd.TLSCertPath != "" {
 		smtpd.SMTPConfig.TLSConfig = &tls.Config{Certificates: []tls.Certificate{smtpd.TLSCertificate}}
 	}
-	smtpd.RateLimit = &ratelimit.RateLimit{
+	smtpd.RateLimit = &env.RateLimit{
 		MaxCount: smtpd.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
 		Logger:   smtpd.Logger,

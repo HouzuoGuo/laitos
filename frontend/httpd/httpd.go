@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
-	"github.com/HouzuoGuo/laitos/ratelimit"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -34,11 +34,11 @@ type HTTPD struct {
 	BaseRateLimit    int               `json:"BaseRateLimit"`    // How many times in 10 seconds interval the most expensive HTTP handler may be invoked by an IP
 	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
 
-	SpecialHandlers map[string]api.HandlerFactory   `json:"-"` // Specialised handlers that implement api.HandlerFactory interface
-	AllRateLimits   map[string]*ratelimit.RateLimit `json:"-"` // Aggregate all routes and their rate limit counters
-	Server          *http.Server                    `json:"-"` // Standard library HTTP server structure
-	Processor       *common.CommandProcessor        `json:"-"` // Feature command processor
-	Logger          global.Logger                   `json:"-"` // Logger
+	SpecialHandlers map[string]api.HandlerFactory `json:"-"` // Specialised handlers that implement api.HandlerFactory interface
+	AllRateLimits   map[string]*env.RateLimit     `json:"-"` // Aggregate all routes and their rate limit counters
+	Server          *http.Server                  `json:"-"` // Standard library HTTP server structure
+	Processor       *common.CommandProcessor      `json:"-"` // Feature command processor
+	Logger          global.Logger                 `json:"-"` // Logger
 }
 
 // Return path to HandlerFactory among special handlers that matches the specified type. Primarily used by test case code.
@@ -53,7 +53,7 @@ func (httpd *HTTPD) GetHandlerByFactoryType(match api.HandlerFactory) string {
 }
 
 // RateLimitMiddleware checks client request against rate limit and global lockdown.
-func (httpd *HTTPD) Middleware(ratelimit *ratelimit.RateLimit, next http.HandlerFunc) http.HandlerFunc {
+func (httpd *HTTPD) Middleware(ratelimit *env.RateLimit, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if global.EmergencyLockDown {
 			/*
@@ -101,7 +101,7 @@ func (httpd *HTTPD) Initialise() error {
 	}
 	// Install handlers with rate-limiting middleware
 	mux := new(http.ServeMux)
-	httpd.AllRateLimits = map[string]*ratelimit.RateLimit{}
+	httpd.AllRateLimits = map[string]*env.RateLimit{}
 	// Collect directory handlers
 	if httpd.ServeDirectories != nil {
 		for urlLocation, dirPath := range httpd.ServeDirectories {
@@ -114,7 +114,7 @@ func (httpd *HTTPD) Initialise() error {
 			if urlLocation[len(urlLocation)-1] != '/' {
 				urlLocation += "/"
 			}
-			rl := &ratelimit.RateLimit{
+			rl := &env.RateLimit{
 				UnitSecs: RateLimitIntervalSec,
 				MaxCount: DirectoryHandlerRateLimitFactor * httpd.BaseRateLimit,
 				Logger:   httpd.Logger,
@@ -129,7 +129,7 @@ func (httpd *HTTPD) Initialise() error {
 		if err != nil {
 			return err
 		}
-		rl := &ratelimit.RateLimit{
+		rl := &env.RateLimit{
 			UnitSecs: RateLimitIntervalSec,
 			MaxCount: handler.GetRateLimitFactor() * httpd.BaseRateLimit,
 			Logger:   httpd.Logger,

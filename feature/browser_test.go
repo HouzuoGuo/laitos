@@ -76,6 +76,12 @@ func TestBrowser_Execute(t *testing.T) {
 		fmt.Println(ret.Output)
 	}
 	delay()
+	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "0"}); ret.Error != nil || len(ret.Output) < 20 {
+		t.Fatal(ret.Error)
+	} else {
+		fmt.Println(ret.Output)
+	}
+	delay()
 	// Reload and get page info
 	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "r"}); ret.Error != nil || !strings.Contains(ret.Output, "github") {
 		t.Fatal(ret.Error)

@@ -116,9 +116,9 @@ func TestLineOrientedBrowser(t *testing.T) {
 		t.Fatal(err, secondElements)
 	}
 	delay()
-	// [0] should match the previous element's next element
-	if secondElements[0].TagName != firstElements[2].TagName || secondElements[1].TagName == "" || secondElements[2].TagName == "" {
-		t.Fatal(err, secondElements)
+	// [1] should match the previous element's next element
+	if secondElements[1].TagName != firstElements[2].TagName || secondElements[1].TagName == "" || secondElements[2].TagName == "" {
+		t.Fatal(err, secondElements[1].TagName, firstElements[2].TagName, secondElements)
 	}
 	delay()
 	// Navigate all the way to the bottom
