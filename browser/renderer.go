@@ -217,7 +217,7 @@ const (
                     width = elem.offsetWidth,
                     elem_inner = elem.innerHTML;
                 // Only consider elements that are at least 9 square pixels large and content does not look exceedingly long
-                if (height > 3 && width > 3 && elem_inner && elem_inner.length < 1000) {
+                if (height > 3 && width > 3 && (!elem_inner || elem_inner && elem_inner.length < 1000)) {
                     if (stop_next) {
                         after = elem;
                         return false;
@@ -261,11 +261,7 @@ const (
                     return false;
                 }
             }
-            // Only invoke function on leaf nodes
-            if (elem.childNodes.length <= 1) {
-                return walk_fun(elem);
-            }
-            return true;
+            return walk_fun(elem);
         };
 
         // Find elements that are immediately adjacent to the one described in parameters. Give the very last one to focus.
@@ -279,7 +275,7 @@ const (
                     width = elem.offsetWidth,
                     elem_inner = elem.innerHTML;
                 // Only consider elements that are at least 9 square pixels large and content does not look exceedingly long
-                if (height > 3 && width > 3 && elem_inner && elem_inner.length < 1000) {
+                if (height > 3 && width > 3 && (!elem_inner || elem_inner && elem_inner.length < 1000)) {
                     if (elem.tagName === tag && elem.id === id && elem.name === name && elem_inner === inner) {
                         matched = true;
                         return true;

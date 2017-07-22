@@ -177,11 +177,11 @@ func (sock *Sockd) StartAndBlockUDP() error {
 	listenAddr := fmt.Sprintf("%s:%d", sock.Address, sock.UDPPort)
 	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
-		return fmt.Errorf("Sockd.StartAndBlockUDP: failed to resolve address %d - %v", listenAddr, err)
+		return fmt.Errorf("Sockd.StartAndBlockUDP: failed to resolve address %s - %v", listenAddr, err)
 	}
 	udpServer, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		return fmt.Errorf("Sockd.StartAndBlockUDP: failed to listen on %d - %v", listenAddr, err)
+		return fmt.Errorf("Sockd.StartAndBlockUDP: failed to listen on %s - %v", listenAddr, err)
 	}
 	defer udpServer.Close()
 	sock.UDPListener = udpServer

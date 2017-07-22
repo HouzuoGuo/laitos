@@ -15,7 +15,7 @@ import (
 var (
 	// RegexBrowserCommandAndParam finds a browser command and an optional parameter.
 	RegexBrowserCommandAndParam = regexp.MustCompile(`(\w+)[^\w]*(.*)?`)
-	ErrBadBrowserParam          = errors.New(`(f/b,p/n/nn,r/k,g/i,ptr,val,e/enter/backsp) [param..]`)
+	ErrBadBrowserParam          = errors.New(`(f/b,p/n/nn/0,r/k,g/i,ptr,val,e/enter/backsp) [param..]`)
 )
 
 // Browser offers remote control to phantomJS page.
@@ -123,6 +123,9 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 		var elements []browser.ElementInfo
 		elements, err = bro.renderer.LONextNElements(n)
 		output = FormatElementInfoArray(elements)
+	case "0":
+		// Reset navigation back to the first DOM element
+		err = bro.renderer.LOResetNavigation()
 	case "r":
 		// Reload current page
 		err = bro.renderer.Reload()
@@ -137,7 +140,7 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 			return &Result{Error: errors.New("Usage g: url")}
 		}
 		// Hard code dimension for now, it does not really matter.
-		err = bro.renderer.GoTo(browser.GoodUserAgent, params[2], 1280, 768)
+		err = bro.renderer.GoTo(browser.GoodUserAgent, params[2], 2560, 1440)
 	case "i":
 		// Get page info
 		var info browser.RemotePageInfo
@@ -173,6 +176,9 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 	case "backsp":
 		// Press backspace key on currently focused element
 		err = bro.renderer.SendKey("", browser.KeyCodeBackspace)
+	case "render":
+		// For debugging purpose, render the page screenshot.
+		err = bro.renderer.RenderPage()
 	default:
 		err = ErrBadBrowserParam
 	}
