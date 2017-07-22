@@ -22,7 +22,7 @@ func GetPublicIP() string {
 		defer wg.Done()
 		resp, err := httpclient.DoHTTP(httpclient.Request{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
-			Header:     map[string][]string{"Metadata-Flavor": []string{"Google"}},
+			Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
 		}, "http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
 		if err == nil && resp.StatusCode/200 == 1 {
 			ipChan <- strings.TrimSpace(string(resp.Body))

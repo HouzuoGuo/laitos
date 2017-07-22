@@ -495,9 +495,9 @@ func (c *Conn) Reject() {
 	c.replied = true
 }
 
-// Inform sender to slow down by replying a temporary failure code and then abort the sequence.
-func (c *Conn) ReplyRateExceeded() {
-	c.reply("451 Try again later rate limit exceeded")
+// Reply451 sends a 451 status response and tells client that rate/conversation limit may have been exceeded.
+func (c *Conn) Reply451() {
+	c.reply("451 Try again later rate limit exceeded or too many conversations")
 	c.replied = true
 	c.state = sAbort
 }

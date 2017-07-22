@@ -139,37 +139,42 @@ func (smtpd *SMTPD) ProcessMail(fromAddr, mailBody string) {
 	}
 }
 
-// Converse with SMTP client to retrieve mail, then immediately process the retrieved mail. Finally close the connection.
+// HandleConnection converses in SMTP over the connection, process retrieved email, and eventually close the connection.
 func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
 	defer clientConn.Close()
-	clientIP := clientConn.RemoteAddr().String()[:strings.LastIndexByte(clientConn.RemoteAddr().String(), ':')]
+	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	var numConversations int
 	var finishedNormally bool
-	var finishReason string
-	// SMTP conversation will tell from/to addresses and mail mailBody
+	var lastConversation, finishReason string
+	// The SMTP conversation carried out by client will fill in these mail parameters
 	var fromAddr, mailBody string
 	toAddrs := make([]string, 0, 4)
+
 	smtpConn := smtp.NewConn(clientConn, smtpd.SMTPConfig, nil)
 	rateLimitOK := smtpd.RateLimit.Add(clientIP, true)
-	for ; numConversations < MaxConversationLength; numConversations++ {
-		ev := smtpConn.Next()
-		// Politely reject the mail if rate is exceeded
-		if !rateLimitOK {
-			smtpConn.ReplyRateExceeded()
-			return
+	for {
+		// Politely reject the mail if rate limit is exceeded or too many conversations have taken place
+		if !rateLimitOK || numConversations >= MaxConversationLength {
+			smtpConn.Reply451()
+			finishReason = "rate limit exceeded or too many conversations"
+			goto done
 		}
-		// Converse with the client to retrieve mail
+		// Continue conversation to retrieve incoming mail
+		numConversations++
+		ev := smtpConn.Next()
+		// Remember the latest conversation for logging purpose
+		lastConversation = fmt.Sprintf("%v[%v]:%v", ev.What, ev.Cmd, ev.Arg)
 		switch ev.What {
 		case smtp.DONE:
-			finishReason = "finished normally"
+			finishReason = "done"
 			finishedNormally = true
-			goto conversationDone
+			goto done
 		case smtp.ABORT:
 			finishReason = "aborted"
-			goto conversationDone
+			goto done
 		case smtp.TLSERROR:
 			finishReason = "TLS error"
-			goto conversationDone
+			goto done
 		case smtp.COMMAND:
 			switch ev.Cmd {
 			case smtp.MAILFROM:
@@ -177,14 +182,14 @@ func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
 			case smtp.RCPTTO:
 				atSign := strings.IndexRune(ev.Arg, '@')
 				if atSign == -1 {
-					finishReason = "rejected for malformed address"
+					finishReason = fmt.Sprintf("rejected address \"%s\" does not contain at-sign", ev.Arg)
 					smtpConn.Reject()
-					goto conversationDone
+					goto done
 				}
-				if _, exists := smtpd.MyDomainsHash[ev.Arg[atSign+1:]]; !exists {
-					finishReason = "rejected for wrong domain"
+				if domain, exists := smtpd.MyDomainsHash[ev.Arg[atSign+1:]]; !exists {
+					finishReason = fmt.Sprintf("rejected domain \"%s\" that is not among my accepted domains", domain)
 					smtpConn.Reject()
-					goto conversationDone
+					goto done
 				}
 				toAddrs = append(toAddrs, ev.Arg)
 			}
@@ -192,18 +197,19 @@ func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
 			mailBody = ev.Arg
 		}
 	}
-conversationDone:
+done:
 	if fromAddr == "" || len(toAddrs) == 0 {
 		finishedNormally = false
-		finishReason = "discarded malformed mail"
+		finishReason = "rejected mail due to missing parameters"
+		smtpConn.Reject()
 	}
 	if finishedNormally {
-		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "got a mail from \"%s\" addressed to %v", fromAddr, toAddrs)
+		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %v", fromAddr, toAddrs)
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		smtpd.ProcessMail(fromAddr, mailBody)
-		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations", finishReason, numConversations)
+		smtpd.Logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is %s", finishReason, numConversations, lastConversation)
 	} else {
-		smtpd.Logger.Warningf("HandleConnection", clientIP, nil, "%s after %d conversations", finishReason, numConversations)
+		smtpd.Logger.Warningf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is %s", finishReason, numConversations, lastConversation)
 	}
 }
 
