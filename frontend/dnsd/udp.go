@@ -3,6 +3,7 @@ package dnsd
 import (
 	"bytes"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/global"
 	"math/rand"
 	"net"
@@ -12,26 +13,33 @@ import (
 	"time"
 )
 
+var UDPDurationStats = env.NewStats(0.01) // UDPDurationStats stores statistics of duration of all UDP DNS queries.
+
 // Send forward queries to forwarder and forward the response to my DNS client.
 func (dnsd *DNSD) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net.Conn) {
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
 		query := <-myQueue
+		// Put query duration (including IO time) into statistics
+		beginTimeNano := time.Now().UnixNano()
 		// Set deadline for IO with forwarder
 		forwarderConn.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := forwarderConn.Write(query.QueryPacket); err != nil {
 			dnsd.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to write to forwarder")
+			UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 			continue
 		}
 		packetLength, err := forwarderConn.Read(packetBuf)
 		if err != nil {
 			dnsd.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to read from forwarder")
+			UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 			continue
 		}
 		// Set deadline for responding to my DNS client
 		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(packetBuf[:packetLength], query.ClientAddr); err != nil {
 			dnsd.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to answer to client")
+			UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 			continue
 		}
 	}
@@ -41,12 +49,15 @@ func (dnsd *DNSD) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net.Con
 func (dnsd *DNSD) HandleBlackHoleAnswer(myQueue chan *UDPQuery) {
 	for {
 		query := <-myQueue
+		// Put query duration (including IO time) into statistics
+		beginTimeNano := time.Now().UnixNano()
 		// Set deadline for responding to my DNS client
 		blackHoleAnswer := RespondWith0(query.QueryPacket)
 		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(blackHoleAnswer, query.ClientAddr); err != nil {
 			dnsd.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "IO failure")
 		}
+		UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 	}
 }
 

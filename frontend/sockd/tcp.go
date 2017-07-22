@@ -4,6 +4,7 @@ import (
 	cryptRand "crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/global"
 	"io"
 	"math/rand"
@@ -28,6 +29,8 @@ const (
 	DMAddrLengthIndex  = 1
 	DMAddrHeaderLength = 2
 )
+
+var TCPDurationStats = env.NewStats(0.01)
 
 func (sock *Sockd) StartAndBlockTCP() error {
 	var err error
@@ -196,6 +199,8 @@ func (conn *TCPCipherConnection) WriteRand() {
 }
 
 func (conn *TCPCipherConnection) HandleTCPConnection() {
+	beginTimeNano := time.Now().UnixNano()
+	defer TCPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 	defer conn.Close()
 	remoteAddr := conn.RemoteAddr().String()
 	destAddr, err := conn.ParseRequest()

@@ -25,6 +25,8 @@ const (
 	CommandTimeoutSec = 30        // Command execution is constrained by this timeout
 )
 
+var DurationStats = env.NewStats(0.01) // DurationStats stores statistics of duration of all chat conversations served.
+
 // Telegram API entity - user
 type APIUser struct {
 	ID        uint64 `json:"id"`
@@ -120,6 +122,8 @@ func (bot *TelegramBot) ReplyTo(chatID uint64, text string) error {
 // Process incoming chat messages and reply command results to chat initiators.
 func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 	for _, ding := range updates.Updates {
+		// Put processing duration (including API time) into statistics
+		beginTimeNano := time.Now().UnixNano()
 		if bot.MessageOffset <= ding.ID {
 			bot.MessageOffset = ding.ID + 1
 		}
@@ -150,12 +154,13 @@ func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 			continue
 		}
 		// Find and run command in background
-		go func(ding APIUpdate) {
+		go func(ding APIUpdate, beginTimeNano int64) {
 			result := bot.Processor.Process(feature.Command{TimeoutSec: CommandTimeoutSec, Content: ding.Message.Text})
 			if err := bot.ReplyTo(ding.Message.Chat.ID, result.CombinedOutput); err != nil {
 				bot.Logger.Warningf("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
 			}
-		}(ding)
+			DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+		}(ding, beginTimeNano)
 	}
 }
 

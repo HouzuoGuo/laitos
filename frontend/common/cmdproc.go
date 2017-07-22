@@ -5,10 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/HouzuoGuo/laitos/bridge"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/global"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 const (
@@ -19,6 +21,8 @@ const (
 var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")              // Returned if input command does not contain valid feature trigger
 var ErrBadPLT = errors.New(PrefixCommandPLT + " P L T command")                       // Return PLT invocation example in an error
 var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`) // Parse PLT and command content
+
+var DurationStats = env.NewStats(0.01) // DurationStats stores statistics of duration of all executed commands.
 
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
@@ -93,6 +97,12 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 }
 
 func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result) {
+	// Put execution duration into statistics
+	beginTimeNano := time.Now().UnixNano()
+	defer func() {
+		DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+	}()
+	// Do not execute a command if global lock down is effective
 	if global.EmergencyLockDown {
 		return &feature.Result{Error: global.ErrEmergencyLockDown}
 	}

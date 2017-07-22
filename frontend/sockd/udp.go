@@ -4,6 +4,7 @@ import (
 	cryptRand "crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/global"
 	"math/rand"
 	"net"
@@ -24,6 +25,7 @@ const (
 var (
 	ErrMalformedUDPPacket = fmt.Errorf("Received packet is abnormally small")
 	BacklogClearInterval  = 2 * IOTimeoutSec
+	UDPDurationStats      = env.NewStats(0.01)
 )
 
 type UDPBackLog struct {
@@ -232,6 +234,8 @@ func (sock *Sockd) StartAndBlockUDP() error {
 }
 
 func (sock *Sockd) HandleUDPConnection(server *UDPCipherConnection, n int, clientAddr *net.UDPAddr, packet []byte) {
+	beginTimeNano := time.Now().UnixNano()
+	defer UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 	var destIP net.IP
 	var packetLen int
 	addrType := packet[AddressTypeIndex]

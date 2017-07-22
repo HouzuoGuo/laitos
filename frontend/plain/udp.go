@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/global"
 	"io"
@@ -17,6 +18,8 @@ import (
 const (
 	MaxPacketSize = 9038 // Maximum acceptable UDP packet size
 )
+
+var UDPDurationStats = env.NewStats(0.01) // UDPDurationStats stores statistics of duration of all UDP conversations.
 
 /*
 You may call this function only after having called Initialise()!
@@ -48,7 +51,7 @@ func (server *PlainTextDaemon) StartAndBlockUDP() error {
 			}
 			return fmt.Errorf("PlainTextDaemon.StartAndBlockUDP: failed to accept new connection - %v", err)
 		}
-		// Check address against rate limit
+		// Check IP address against (connection) rate limit
 		clientIP := clientAddr.IP.String()
 		if !server.RateLimit.Add(clientIP, true) {
 			continue
@@ -67,6 +70,9 @@ func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *
 		server.Logger.Warningf("HandleUDPConnection", clientIP, nil, "listener is closed before request can be processed")
 		return
 	}
+	// Put processing duration (including IO time) into statistics
+	beginTimeNano := time.Now().UnixNano()
+	defer UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
 	server.Logger.Printf("HandleUDPConnection", clientIP, nil, "working on the connection")
 	reader := bufio.NewReader(bytes.NewReader(packet))
@@ -81,6 +87,7 @@ func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *
 		}
 		// Check against conversation rate limit
 		if !server.RateLimit.Add(clientIP, true) {
+
 			return
 		}
 		// Process line of command and respond

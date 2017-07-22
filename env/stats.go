@@ -2,28 +2,31 @@ package env
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
 
 // Stats collect counter and aggregated numeric data from a stream of triggers.
 type Stats struct {
-	count uint64      // count is the number of times trigger has occured.
-	mutex *sync.Mutex // mutex protects structure from concurrent modifications
+	count           uint64      // count is the number of times trigger has occurred.
+	lowestThreshold float64     // lowestThreshold is the threshold quantity below which the lowest recorded value will no longer be updated.
+	mutex           *sync.Mutex // mutex protects structure from concurrent modifications.
 
 	lowest, highest, average, total float64
 }
 
 // NewStats returns an initialised stats structure.
-func NewStats() *Stats {
-	return &Stats{
-		mutex: new(sync.Mutex),
+func NewStats(lowestThreshold float64) *Stats {
+	if lowestThreshold <= 0 {
+		log.Panicf("NewStats: lowestThreshold %f is too low, it must be above 0.", lowestThreshold)
 	}
+	return &Stats{lowestThreshold: lowestThreshold, mutex: new(sync.Mutex)}
 }
 
 // Trigger increases counter by one and places the input quantity into numeric statistics.
 func (s *Stats) Trigger(qty float64) {
 	s.mutex.Lock()
-	if s.lowest == 0 || s.lowest > qty {
+	if qty > s.lowestThreshold && (s.lowest == 0 || s.lowest > qty) {
 		s.lowest = qty
 	}
 	if s.highest == 0 || s.highest < qty {

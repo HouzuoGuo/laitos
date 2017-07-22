@@ -23,6 +23,8 @@ const (
 	MaxConversationLength = 64  // Only converse up to this number of messages in an SMTP connection
 )
 
+var DurationStats = env.NewStats(0.01) // DurationStats stores statistics of duration of all SMTP conversations.
+
 // An SMTP daemon that receives mails addressed to its domain name, and optionally forward the received mails to other addresses.
 type SMTPD struct {
 	Address     string   `json:"Address"`     // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
@@ -140,6 +142,9 @@ func (smtpd *SMTPD) ProcessMail(fromAddr, mailBody string) {
 
 // HandleConnection converses in SMTP over the connection, process retrieved email, and eventually close the connection.
 func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
+	// Put conversation duration (including IO time) into statistics
+	beginTimeNano := time.Now().UnixNano()
+	defer DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	var numConversations int

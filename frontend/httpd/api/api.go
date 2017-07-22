@@ -4,14 +4,27 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/dnsd"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
+	"github.com/HouzuoGuo/laitos/frontend/plain"
+	"github.com/HouzuoGuo/laitos/frontend/smtpd"
+	"github.com/HouzuoGuo/laitos/frontend/sockd"
+	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
 	"github.com/HouzuoGuo/laitos/global"
 	"log"
 	"net/http"
 	"strings"
 )
+
+/*
+DurationStats stores statistics of duration of all HTTP requests served.
+This definition should have stayed in httpd.go of httpd package, however, due to inevitable
+cyclic import, the definition is made here in api package.
+*/
+var DurationStats = env.NewStats(0.01)
 
 // An HTTP handler function factory.
 type HandlerFactory interface {
@@ -55,6 +68,32 @@ type HandleSystemInfo struct {
 	MailpToCheck    *mailp.MailProcessor `json:"-"` // Health check subject - mail processor and its mailer
 }
 
+/*
+GetLatestStats returns statistic information from all front-end daemons, each on their own line.
+Due to inevitable cyclic import, this function is defined twice, once in api.go of api package, the other in
+healthcheck.go of healthcheck package.
+*/
+func GetLatestStats() string {
+	numDecimals := 2
+	return fmt.Sprintf(`CmdProc: %s
+DNSD TCP/UDP: %s/%s
+HTTPD: %s
+MAILP: %s
+PLAIN TCP/UDP: %s%s
+SMTPD: %s
+SOCKD TCP/UDP: %s/%s
+TELEGRAM BOT: %s
+`,
+		common.DurationStats.Format(numDecimals),
+		dnsd.TCPDurationStats.Format(numDecimals), dnsd.UDPDurationStats.Format(numDecimals),
+		DurationStats.Format(numDecimals),
+		mailp.DurationStats.Format(numDecimals),
+		plain.TCPDurationStats.Format(numDecimals), plain.UDPDurationStats.Format(numDecimals),
+		smtpd.DurationStats.Format(numDecimals),
+		sockd.TCPDurationStats.Format(numDecimals), sockd.UDPDurationStats.Format(numDecimals),
+		telegrambot.DurationStats.Format(numDecimals))
+}
+
 func (info *HandleSystemInfo) MakeHandler(logger global.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
 	// Somewhat similar to health-check frontend
 	fun := func(w http.ResponseWriter, r *http.Request) {
@@ -79,9 +118,12 @@ func (info *HandleSystemInfo) MakeHandler(logger global.Logger, _ *common.Comman
 		} else {
 			fmt.Fprint(w, "There are errors!!!\n")
 		}
-		// 0 - runtime info
+		// Runtime info
 		fmt.Fprint(w, feature.GetRuntimeInfo())
-		// 1 - feature checks
+		// Statistics
+		fmt.Fprint(w, "\nStatistics low/avg/high/total(count) millisec:\n")
+		fmt.Fprint(w, GetLatestStats())
+		// Feature checks
 		if len(featureErrs) == 0 {
 			fmt.Fprint(w, "\nFeatures: OK\n")
 		} else {
@@ -89,19 +131,17 @@ func (info *HandleSystemInfo) MakeHandler(logger global.Logger, _ *common.Comman
 				fmt.Fprintf(w, "\nFeatures %s: %+v\n", trigger, err)
 			}
 		}
-		// 2 - mail processor checks
+		// Mail processor checks
 		if mailpErr == nil {
 			fmt.Fprint(w, "\nMail processor: OK\n")
 		} else {
 			fmt.Fprintf(w, "\nMail processor: %v\n", mailpErr)
 		}
-		// 3 - warnings
+		// Warnings, logs, and stack traces
 		fmt.Fprint(w, "\nWarnings:\n")
 		fmt.Fprint(w, feature.GetLatestWarnings())
-		// 4 - logs
 		fmt.Fprint(w, "\nLogs:\n")
 		fmt.Fprint(w, feature.GetLatestLog())
-		// 5 - stack traces
 		fmt.Fprint(w, "\nStack traces:\n")
 		fmt.Fprint(w, feature.GetGoroutineStacktraces())
 	}

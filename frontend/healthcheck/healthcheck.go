@@ -6,7 +6,14 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/feature"
+	"github.com/HouzuoGuo/laitos/frontend/common"
+	"github.com/HouzuoGuo/laitos/frontend/dnsd"
+	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
+	"github.com/HouzuoGuo/laitos/frontend/plain"
+	"github.com/HouzuoGuo/laitos/frontend/smtpd"
+	"github.com/HouzuoGuo/laitos/frontend/sockd"
+	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
 	"github.com/HouzuoGuo/laitos/global"
 	"net"
 	"sort"
@@ -25,7 +32,6 @@ const (
 
 /*
 Periodically check TCP ports and feature set, send notification mail along with latest log entries.
-TODO: implement a channel that stops the health check.
 */
 type HealthCheck struct {
 	TCPPorts        []int                `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
@@ -37,6 +43,32 @@ type HealthCheck struct {
 	Logger          global.Logger        `json:"-"`           // Logger
 	loopIsRunning   int32                // Value is 1 only when health check loop is running
 	stop            chan bool            // Signal health check loop to stop
+}
+
+/*
+GetLatestStats returns statistic information from all front-end daemons, each on their own line.
+Due to inevitable cyclic import, this function is defined twice, once in api.go of api package, the other in
+healthcheck.go of healthcheck package.
+*/
+func GetLatestStats() string {
+	numDecimals := 2
+	return fmt.Sprintf(`CmdProc: %s
+DNSD TCP/UDP: %s/%s
+HTTPD: %s
+MAILP: %s
+PLAIN TCP/UDP: %s%s
+SMTPD: %s
+SOCKD TCP/UDP: %s/%s
+TELEGRAM BOT: %s
+`,
+		common.DurationStats.Format(numDecimals),
+		dnsd.TCPDurationStats.Format(numDecimals), dnsd.UDPDurationStats.Format(numDecimals),
+		api.DurationStats.Format(numDecimals),
+		mailp.DurationStats.Format(numDecimals),
+		plain.TCPDurationStats.Format(numDecimals), plain.UDPDurationStats.Format(numDecimals),
+		smtpd.DurationStats.Format(numDecimals),
+		sockd.TCPDurationStats.Format(numDecimals), sockd.UDPDurationStats.Format(numDecimals),
+		telegrambot.DurationStats.Format(numDecimals))
 }
 
 // Check TCP ports and features, return all-OK or not.
@@ -79,18 +111,22 @@ func (check *HealthCheck) Execute() (string, bool) {
 	} else {
 		result.WriteString("There are errors!!!\n")
 	}
-	// 0 - runtime info
+	// Runtime info
 	result.WriteString(feature.GetRuntimeInfo())
-	// 1 - port checks
+	// Statistics
+	result.WriteString("\nStatistics (ms):\n")
+	result.WriteString(GetLatestStats())
+	// Port checks
 	result.WriteString("\nPorts:\n")
 	for _, portNumber := range check.TCPPorts {
 		if portCheckResult[portNumber] {
-			result.WriteString(fmt.Sprintf("TCP %d: OK\n", portNumber))
+			result.WriteString(fmt.Sprintf("%d-OK ", portNumber))
 		} else {
-			result.WriteString(fmt.Sprintf("TCP %d: Error\n", portNumber))
+			result.WriteString(fmt.Sprintf("%d-Error ", portNumber))
 		}
 	}
-	// 2 - feature checks
+	result.WriteRune('\n')
+	// Feature checks
 	if len(featureErrs) == 0 {
 		result.WriteString("\nFeatures: OK\n")
 	} else {
@@ -98,19 +134,17 @@ func (check *HealthCheck) Execute() (string, bool) {
 			result.WriteString(fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
 		}
 	}
-	// 3 - mail processor checks
+	// Mail processor checks
 	if mailpErr == nil {
 		result.WriteString("\nMail processor: OK\n")
 	} else {
 		result.WriteString(fmt.Sprintf("\nMail processor: %v\n", mailpErr))
 	}
-	// 4 - warnings
+	// Warnings, logs, and stack traces
 	result.WriteString("\nWarnings:\n")
 	result.WriteString(feature.GetLatestWarnings())
-	// 5 - logs
 	result.WriteString("\nLogs:\n")
 	result.WriteString(feature.GetLatestLog())
-	// 6 - stack traces
 	result.WriteString("\nStack traces:\n")
 	result.WriteString(feature.GetGoroutineStacktraces())
 	// Send away!
@@ -127,6 +161,8 @@ func (check *HealthCheck) Execute() (string, bool) {
 	for _, r := range result.String() {
 		if r < 128 && (unicode.IsPrint(r) || unicode.IsSpace(r)) {
 			cleanedResult.WriteRune(r)
+		} else {
+			cleanedResult.WriteRune('?')
 		}
 	}
 	return cleanedResult.String(), allOK

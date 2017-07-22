@@ -3,6 +3,7 @@ package plain
 import (
 	"bufio"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/global"
 	"io"
@@ -12,6 +13,8 @@ import (
 	"testing"
 	"time"
 )
+
+var TCPDurationStats = env.NewStats(0.01) // TCPDurationStats stores statistics of duration of all TCP conversations.
 
 /*
 You may call this function only after having called Initialise()!
@@ -43,6 +46,9 @@ func (server *PlainTextDaemon) StartAndBlockTCP() (err error) {
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
 func (server *PlainTextDaemon) HandleTCPConnection(clientConn net.Conn) {
+	// Put processing duration (including IO time) into statistics
+	beginTimeNano := time.Now().UnixNano()
+	defer TCPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	// Check connection against rate limit even before reading a line of command

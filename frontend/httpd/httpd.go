@@ -55,6 +55,8 @@ func (httpd *HTTPD) GetHandlerByFactoryType(match api.HandlerFactory) string {
 // RateLimitMiddleware checks client request against rate limit and global lockdown.
 func (httpd *HTTPD) Middleware(ratelimit *env.RateLimit, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Put query duration (including IO time) into statistics
+		beginTimeNano := time.Now().UnixNano()
 		if global.EmergencyLockDown {
 			/*
 				An error response usually should carry status 5xx in this case, but the intention of
@@ -64,6 +66,7 @@ func (httpd *HTTPD) Middleware(ratelimit *env.RateLimit, next http.HandlerFunc) 
 				Hence the status code here is OK.
 			*/
 			w.Write([]byte(global.ErrEmergencyLockDown.Error()))
+			api.DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 			return
 		}
 		// Check client IP against rate limit
@@ -74,6 +77,7 @@ func (httpd *HTTPD) Middleware(ratelimit *env.RateLimit, next http.HandlerFunc) 
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
 		}
+		api.DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 	}
 }
 

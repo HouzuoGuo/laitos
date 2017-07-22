@@ -3,6 +3,7 @@ package dnsd
 import (
 	"bytes"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/global"
 	"io/ioutil"
 	"net"
@@ -12,7 +13,12 @@ import (
 	"time"
 )
 
+var TCPDurationStats = env.NewStats(0.01) // TCPDurationStats stores statistics of duration of all TCP DNS queries.
+
 func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
+	// Put query duration (including IO time) into statistics
+	beginTimeNano := time.Now().UnixNano()
+	defer TCPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 	defer clientConn.Close()
 	// Check address against rate limit and allowed IP prefixes
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
