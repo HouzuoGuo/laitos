@@ -23,7 +23,7 @@ const (
 	MaxConversationLength = 64  // Only converse up to this number of messages in an SMTP connection
 )
 
-var DurationStats = env.NewStats(0.01) // DurationStats stores statistics of duration of all SMTP conversations.
+var DurationStats = env.NewStats() // DurationStats stores statistics of duration of all SMTP conversations.
 
 // An SMTP daemon that receives mails addressed to its domain name, and optionally forward the received mails to other addresses.
 type SMTPD struct {

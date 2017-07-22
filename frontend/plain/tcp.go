@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-var TCPDurationStats = env.NewStats(0.01) // TCPDurationStats stores statistics of duration of all TCP conversations.
+var TCPDurationStats = env.NewStats() // TCPDurationStats stores statistics of duration of all TCP conversations.
 
 /*
 You may call this function only after having called Initialise()!

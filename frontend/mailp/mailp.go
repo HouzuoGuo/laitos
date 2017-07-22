@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-var DurationStats = env.NewStats(0.01) // DurationStats stores statistics of duration of all processed mails.
+var DurationStats = env.NewStats() // DurationStats stores statistics of duration of all processed mails.
 
 /*
 Look for feature commands from an incoming mail, run them and reply the sender with command results.

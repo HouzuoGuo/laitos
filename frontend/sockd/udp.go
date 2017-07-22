@@ -25,7 +25,7 @@ const (
 var (
 	ErrMalformedUDPPacket = fmt.Errorf("Received packet is abnormally small")
 	BacklogClearInterval  = 2 * IOTimeoutSec
-	UDPDurationStats      = env.NewStats(0.01)
+	UDPDurationStats      = env.NewStats()
 )
 
 type UDPBackLog struct {

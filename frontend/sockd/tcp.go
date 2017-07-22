@@ -30,7 +30,7 @@ const (
 	DMAddrHeaderLength = 2
 )
 
-var TCPDurationStats = env.NewStats(0.01)
+var TCPDurationStats = env.NewStats()
 
 func (sock *Sockd) StartAndBlockTCP() error {
 	var err error

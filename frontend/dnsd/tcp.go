@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var TCPDurationStats = env.NewStats(0.01) // TCPDurationStats stores statistics of duration of all TCP DNS queries.
+var TCPDurationStats = env.NewStats() // TCPDurationStats stores statistics of duration of all TCP DNS queries.
 
 func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	// Put query duration (including IO time) into statistics

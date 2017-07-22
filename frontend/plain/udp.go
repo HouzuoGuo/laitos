@@ -19,7 +19,7 @@ const (
 	MaxPacketSize = 9038 // Maximum acceptable UDP packet size
 )
 
-var UDPDurationStats = env.NewStats(0.01) // UDPDurationStats stores statistics of duration of all UDP conversations.
+var UDPDurationStats = env.NewStats() // UDPDurationStats stores statistics of duration of all UDP conversations.
 
 /*
 You may call this function only after having called Initialise()!

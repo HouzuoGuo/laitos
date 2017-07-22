@@ -25,7 +25,7 @@ const (
 	CommandTimeoutSec = 30        // Command execution is constrained by this timeout
 )
 
-var DurationStats = env.NewStats(0.01) // DurationStats stores statistics of duration of all chat conversations served.
+var DurationStats = env.NewStats() // DurationStats stores statistics of duration of all chat conversations served.
 
 // Telegram API entity - user
 type APIUser struct {

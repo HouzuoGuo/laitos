@@ -24,7 +24,7 @@ DurationStats stores statistics of duration of all HTTP requests served.
 This definition should have stayed in httpd.go of httpd package, however, due to inevitable
 cyclic import, the definition is made here in api package.
 */
-var DurationStats = env.NewStats(0.01)
+var DurationStats = env.NewStats()
 
 // An HTTP handler function factory.
 type HandlerFactory interface {

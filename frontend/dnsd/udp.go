@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var UDPDurationStats = env.NewStats(0.01) // UDPDurationStats stores statistics of duration of all UDP DNS queries.
+var UDPDurationStats = env.NewStats() // UDPDurationStats stores statistics of duration of all UDP DNS queries.
 
 // Send forward queries to forwarder and forward the response to my DNS client.
 func (dnsd *DNSD) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net.Conn) {

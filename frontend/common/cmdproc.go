@@ -22,7 +22,7 @@ var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")        
 var ErrBadPLT = errors.New(PrefixCommandPLT + " P L T command")                       // Return PLT invocation example in an error
 var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`) // Parse PLT and command content
 
-var DurationStats = env.NewStats(0.01) // DurationStats stores statistics of duration of all executed commands.
+var DurationStats = env.NewStats() // DurationStats stores statistics of duration of all executed commands.
 
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
