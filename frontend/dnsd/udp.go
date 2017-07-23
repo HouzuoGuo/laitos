@@ -42,6 +42,7 @@ func (dnsd *DNSD) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net.Con
 			UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 			continue
 		}
+		UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
 	}
 }
 

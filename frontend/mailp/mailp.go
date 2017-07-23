@@ -86,7 +86,9 @@ to the specified addresses. If they are not specified, use the incoming mail sen
 func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...string) error {
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
-	defer DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+	defer func() {
+		DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+	}()
 	if global.EmergencyLockDown {
 		return global.ErrEmergencyLockDown
 	}

@@ -235,7 +235,9 @@ func (sock *Sockd) StartAndBlockUDP() error {
 
 func (sock *Sockd) HandleUDPConnection(server *UDPCipherConnection, n int, clientAddr *net.UDPAddr, packet []byte) {
 	beginTimeNano := time.Now().UnixNano()
-	defer UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+	defer func() {
+		UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+	}()
 	var destIP net.IP
 	var packetLen int
 	addrType := packet[AddressTypeIndex]

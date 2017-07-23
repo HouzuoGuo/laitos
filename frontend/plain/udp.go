@@ -72,7 +72,9 @@ func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *
 	}
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
-	defer UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+	defer func() {
+		UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+	}()
 	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
 	server.Logger.Printf("HandleUDPConnection", clientIP, nil, "working on the connection")
 	reader := bufio.NewReader(bytes.NewReader(packet))
@@ -87,14 +89,19 @@ func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *
 		}
 		// Check against conversation rate limit
 		if !server.RateLimit.Add(clientIP, true) {
-
 			return
 		}
 		// Process line of command and respond
 		result := server.Processor.Process(feature.Command{Content: string(line), TimeoutSec: CommandTimeoutSec})
 		server.UDPListener.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
-		server.UDPListener.WriteToUDP([]byte(result.CombinedOutput), clientAddr)
-		server.UDPListener.WriteToUDP([]byte("\r\n"), clientAddr)
+		if _, err := server.UDPListener.WriteToUDP([]byte(result.CombinedOutput), clientAddr); err != nil {
+			server.Logger.Warningf("HandleUDPConnection", clientIP, err, "failed to write response")
+			return
+		}
+		if _, err := server.UDPListener.WriteToUDP([]byte("\r\n"), clientAddr); err != nil {
+			server.Logger.Warningf("HandleUDPConnection", clientIP, err, "failed to write response")
+			return
+		}
 	}
 }
 

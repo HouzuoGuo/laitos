@@ -48,7 +48,9 @@ func (server *PlainTextDaemon) StartAndBlockTCP() (err error) {
 func (server *PlainTextDaemon) HandleTCPConnection(clientConn net.Conn) {
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
-	defer TCPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+	defer func() {
+		TCPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+	}()
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	// Check connection against rate limit even before reading a line of command
