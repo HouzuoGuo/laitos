@@ -1,4 +1,4 @@
-package healthcheck
+package maintenance
 
 import (
 	"github.com/HouzuoGuo/laitos/email"
@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-func TestHealthCheck_Execute(t *testing.T) {
+func TestMaintenance_Execute(t *testing.T) {
 	features := common.GetTestCommandProcessor().Features
-	check := HealthCheck{
+	check := Maintenance{
 		IntervalSec: 10,
 		Mailer: email.Mailer{
 			MailFrom: "howard@localhost",
@@ -26,5 +26,5 @@ func TestHealthCheck_Execute(t *testing.T) {
 	}
 
 	check.IntervalSec = 3600
-	TestHealthCheck(&check, t)
+	TestMaintenance(&check, t)
 }

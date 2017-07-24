@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/HouzuoGuo/laitos/frontend/dnsd"
-	"github.com/HouzuoGuo/laitos/frontend/healthcheck"
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
+	"github.com/HouzuoGuo/laitos/frontend/maintenance"
 	"github.com/HouzuoGuo/laitos/frontend/plain"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd"
 	"github.com/HouzuoGuo/laitos/frontend/sockd"
@@ -97,7 +97,7 @@ func TestConfig(t *testing.T) {
     "TwilioSMSEndpoint": "/sms",
     "WebProxyEndpoint": "/proxy"
   },
-  "HealthCheck": {
+  "Maintenance": {
     "IntervalSec": 300,
     "Recipients": [
       "howard@localhost"
@@ -233,7 +233,7 @@ func TestConfig(t *testing.T) {
 	dnsd.TestUDPQueries(dnsDaemon, t)
 	dnsd.TestTCPQueries(dnsDaemon, t)
 
-	healthcheck.TestHealthCheck(config.GetHealthCheck(), t)
+	maintenance.TestMaintenance(config.GetMaintenance(), t)
 
 	httpDaemon := config.GetHTTPD()
 	// HTTP daemon is expected to start in two seconds

@@ -71,7 +71,7 @@ type HandleSystemInfo struct {
 /*
 GetLatestStats returns statistic information from all front-end daemons, each on their own line.
 Due to inevitable cyclic import, this function is defined twice, once in api.go of api package, the other in
-healthcheck.go of healthcheck package.
+maintenance.go of maintenance package.
 */
 func GetLatestStats() string {
 	numDecimals := 2

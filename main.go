@@ -128,7 +128,7 @@ func main() {
 	var disableConflicts, tuneSystem, debug bool
 	var gomaxprocs int
 	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, healthcheck, httpd, insecurehttpd, mailp, plaintext, smtpd, sockd, telegram)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, insecurehttpd, mailp, maintenance, plaintext, smtpd, sockd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
@@ -203,8 +203,6 @@ func main() {
 		switch frontendName {
 		case "dnsd":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetDNSD())
-		case "healthcheck":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHealthCheck())
 		case "httpd":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHTTPD())
 		case "insecurehttpd":
@@ -218,6 +216,8 @@ func main() {
 			if err := config.GetMailProcessor().Process(mailContent); err != nil {
 				logger.Fatalf("main", "", err, "failed to process mail")
 			}
+		case "maintenance":
+			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetMaintenance())
 		case "plaintext":
 			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetPlainTextDaemon())
 		case "smtpd":

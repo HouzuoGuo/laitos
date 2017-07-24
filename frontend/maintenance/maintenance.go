@@ -1,4 +1,4 @@
-package healthcheck
+package maintenance
 
 import (
 	"bytes"
@@ -31,9 +31,13 @@ const (
 )
 
 /*
-Periodically check TCP ports and feature set, send notification mail along with latest log entries.
+Maintenance is a daemon that triggers health check and system maintenance periodically. Health check comprises port
+checks, API key checks, and a lot more. System maintenance ensures that system packages are up to date and dependencies
+of this program are installed and up to date.
+The result of each run is is sent to designated email addresses, along with latest environment information such as
+latest logs and warnings.
 */
-type HealthCheck struct {
+type Maintenance struct {
 	TCPPorts        []int                `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
 	IntervalSec     int                  `json:"IntervalSec"` // Check TCP ports and features at this interval
 	Mailer          email.Mailer         `json:"Mailer"`      // Send notification mails via this mailer
@@ -48,7 +52,7 @@ type HealthCheck struct {
 /*
 GetLatestStats returns statistic information from all front-end daemons, each on their own line.
 Due to inevitable cyclic import, this function is defined twice, once in api.go of api package, the other in
-healthcheck.go of healthcheck package.
+maintenance.go of maintenance package.
 */
 func GetLatestStats() string {
 	numDecimals := 2
@@ -72,7 +76,7 @@ TELEGRAM BOT: %s
 }
 
 // Check TCP ports and features, return all-OK or not.
-func (check *HealthCheck) Execute() (string, bool) {
+func (check *Maintenance) Execute() (string, bool) {
 	check.Logger.Printf("Execute", "", nil, "running now")
 	allOK := true
 	// Check TCP ports in parallel
@@ -153,7 +157,7 @@ func (check *HealthCheck) Execute() (string, bool) {
 	} else {
 		check.Logger.Warningf("Execute", "", nil, "completed with some errors")
 	}
-	if err := check.Mailer.Send(email.OutgoingMailSubjectKeyword+"-healthcheck", result.String(), check.Recipients...); err != nil {
+	if err := check.Mailer.Send(email.OutgoingMailSubjectKeyword+"-maintenance", result.String(), check.Recipients...); err != nil {
 		check.Logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
 	// Remove weird characters that may appear and cause email display to squeeze all lines together
@@ -168,10 +172,10 @@ func (check *HealthCheck) Execute() (string, bool) {
 	return cleanedResult.String(), allOK
 }
 
-func (check *HealthCheck) Initialise() error {
-	check.Logger = global.Logger{ComponentName: "HealthCheck", ComponentID: strconv.Itoa(check.IntervalSec)}
+func (check *Maintenance) Initialise() error {
+	check.Logger = global.Logger{ComponentName: "Maintenance", ComponentID: strconv.Itoa(check.IntervalSec)}
 	if check.IntervalSec < 120 {
-		return errors.New("HealthCheck.StartAndBlock: IntervalSec must be above 119")
+		return errors.New("Maintenance.StartAndBlock: IntervalSec must be above 119")
 	}
 	check.stop = make(chan bool)
 	return nil
@@ -181,7 +185,7 @@ func (check *HealthCheck) Initialise() error {
 You may call this function only after having called Initialise()!
 Start health check loop and block caller until Stop function is called.
 */
-func (check *HealthCheck) StartAndBlock() error {
+func (check *Maintenance) StartAndBlock() error {
 	sort.Ints(check.TCPPorts)
 	for {
 		if global.EmergencyLockDown {
@@ -198,14 +202,14 @@ func (check *HealthCheck) StartAndBlock() error {
 }
 
 // Stop previously started health check loop.
-func (check *HealthCheck) Stop() {
+func (check *Maintenance) Stop() {
 	if atomic.CompareAndSwapInt32(&check.loopIsRunning, 1, 0) {
 		check.stop <- true
 	}
 }
 
-// Run unit tests on the health checker. See TestHealthCheck_Execute for daemon setup.
-func TestHealthCheck(check *HealthCheck, t *testing.T) {
+// Run unit tests on the health checker. See TestMaintenance_Execute for daemon setup.
+func TestMaintenance(check *Maintenance, t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	go func() {
 		if err != nil {

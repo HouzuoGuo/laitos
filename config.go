@@ -9,10 +9,10 @@ import (
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/dnsd"
-	"github.com/HouzuoGuo/laitos/frontend/healthcheck"
 	"github.com/HouzuoGuo/laitos/frontend/httpd"
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
+	"github.com/HouzuoGuo/laitos/frontend/maintenance"
 	"github.com/HouzuoGuo/laitos/frontend/plain"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd"
 	"github.com/HouzuoGuo/laitos/frontend/sockd"
@@ -64,7 +64,7 @@ type Config struct {
 	Features feature.FeatureSet `json:"Features"` // Feature configuration is shared by all services
 	Mailer   email.Mailer       `json:"Mailer"`   // Mail configuration for notifications and mail processor results
 
-	HealthCheck healthcheck.HealthCheck `json:"HealthCheck"` // Periodic self health check
+	Maintenance maintenance.Maintenance `json:"Maintenance"` // Maintenance configures behaviour of periodic health-check/system maintenance
 
 	DNSDaemon dnsd.DNSD `json:"DNSDaemon"` // DNS daemon configuration
 
@@ -108,19 +108,19 @@ func (config Config) GetDNSD() *dnsd.DNSD {
 	return &ret
 }
 
-// Construct a health checker and return.
-func (config Config) GetHealthCheck() *healthcheck.HealthCheck {
-	ret := config.HealthCheck
+// GetMaintenance constructs a system maintenance / health check daemon from configuration and return.
+func (config Config) GetMaintenance() *maintenance.Maintenance {
+	ret := config.Maintenance
 	ret.FeaturesToCheck = &config.Features
 	// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
 	ret.MailpToCheck = config.GetMailProcessor()
 	if err := ret.FeaturesToCheck.Initialise(); err != nil {
-		config.Logger.Fatalf("GetHealthCheck", "", err, "failed to initialise features")
+		config.Logger.Fatalf("GetMaintenance", "", err, "failed to initialise features")
 		return nil
 	}
 	ret.Mailer = config.Mailer
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetHealthCheck", "", err, "failed to initialise")
+		config.Logger.Fatalf("GetMaintenance", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
