@@ -17,6 +17,7 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
 	"github.com/HouzuoGuo/laitos/global"
 	"net"
+	"os"
 	"path"
 	"sort"
 	"strconv"
@@ -78,15 +79,18 @@ TELEGRAM BOT: %s
 }
 
 // Check TCP ports and features, return all-OK or not.
-func (check *Maintenance) Execute() (string, bool) {
-	check.Logger.Printf("Execute", "", nil, "running now")
+func (maint *Maintenance) Execute() (string, bool) {
+	maint.Logger.Printf("Execute", "", nil, "running now")
+	// Conduct system maintenance first to ensure an accurate reading of runtime information later on
+	maintResult := maint.SystemMaintenance()
+	// allOK is true only if all port and feature checks pass, system maintenance always succeeds.
 	allOK := true
 	// Check TCP ports in parallel
 	portCheckResult := make(map[int]bool)
 	portCheckMutex := new(sync.Mutex)
 	waitPorts := new(sync.WaitGroup)
-	waitPorts.Add(len(check.TCPPorts))
-	for _, portNumber := range check.TCPPorts {
+	waitPorts.Add(len(maint.TCPPorts))
+	for _, portNumber := range maint.TCPPorts {
 		go func(portNumber int) {
 			conn, err := net.DialTimeout("tcp", "localhost:"+strconv.Itoa(portNumber), TCPConnectionTimeoutSec*time.Second)
 			portCheckMutex.Lock()
@@ -102,12 +106,12 @@ func (check *Maintenance) Execute() (string, bool) {
 	waitPorts.Wait()
 	// Check features and mail processor
 	featureErrs := make(map[feature.Trigger]error)
-	if check.FeaturesToCheck != nil {
-		featureErrs = check.FeaturesToCheck.SelfTest()
+	if maint.FeaturesToCheck != nil {
+		featureErrs = maint.FeaturesToCheck.SelfTest()
 	}
 	var mailpErr error
-	if check.MailpToCheck != nil {
-		mailpErr = check.MailpToCheck.SelfTest()
+	if maint.MailpToCheck != nil {
+		mailpErr = maint.MailpToCheck.SelfTest()
 	}
 	allOK = allOK && len(featureErrs) == 0 && mailpErr == nil
 	// Compose mail body
@@ -124,7 +128,7 @@ func (check *Maintenance) Execute() (string, bool) {
 	result.WriteString(GetLatestStats())
 	// Port checks
 	result.WriteString("\nPorts:\n")
-	for _, portNumber := range check.TCPPorts {
+	for _, portNumber := range maint.TCPPorts {
 		if portCheckResult[portNumber] {
 			result.WriteString(fmt.Sprintf("%d-OK ", portNumber))
 		} else {
@@ -146,21 +150,23 @@ func (check *Maintenance) Execute() (string, bool) {
 	} else {
 		result.WriteString(fmt.Sprintf("\nMail processor: %v\n", mailpErr))
 	}
-	// Warnings, logs, and stack traces
+	// Warnings, logs, system maintenance results, and stack traces, in that order.
 	result.WriteString("\nWarnings:\n")
 	result.WriteString(feature.GetLatestWarnings())
 	result.WriteString("\nLogs:\n")
 	result.WriteString(feature.GetLatestLog())
+	result.WriteString("\nSystem maintenance:\n")
+	result.WriteString(maintResult)
 	result.WriteString("\nStack traces:\n")
 	result.WriteString(feature.GetGoroutineStacktraces())
 	// Send away!
 	if allOK {
-		check.Logger.Printf("Execute", "", nil, "completed with everything being OK")
+		maint.Logger.Printf("Execute", "", nil, "completed with everything being OK")
 	} else {
-		check.Logger.Warningf("Execute", "", nil, "completed with some errors")
+		maint.Logger.Warningf("Execute", "", nil, "completed with some errors")
 	}
-	if err := check.Mailer.Send(email.OutgoingMailSubjectKeyword+"-maintenance", result.String(), check.Recipients...); err != nil {
-		check.Logger.Warningf("Execute", "", err, "failed to send notification mail")
+	if err := maint.Mailer.Send(email.OutgoingMailSubjectKeyword+"-maintenance", result.String(), maint.Recipients...); err != nil {
+		maint.Logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
 	// Remove weird characters that may appear and cause email display to squeeze all lines together
 	var cleanedResult bytes.Buffer
@@ -174,12 +180,12 @@ func (check *Maintenance) Execute() (string, bool) {
 	return cleanedResult.String(), allOK
 }
 
-func (check *Maintenance) Initialise() error {
-	check.Logger = global.Logger{ComponentName: "Maintenance", ComponentID: strconv.Itoa(check.IntervalSec)}
-	if check.IntervalSec < 120 {
+func (maint *Maintenance) Initialise() error {
+	maint.Logger = global.Logger{ComponentName: "Maintenance", ComponentID: strconv.Itoa(maint.IntervalSec)}
+	if maint.IntervalSec < 120 {
 		return errors.New("Maintenance.StartAndBlock: IntervalSec must be above 119")
 	}
-	check.stop = make(chan bool)
+	maint.stop = make(chan bool)
 	return nil
 }
 
@@ -187,82 +193,131 @@ func (check *Maintenance) Initialise() error {
 You may call this function only after having called Initialise()!
 Start health check loop and block caller until Stop function is called.
 */
-func (check *Maintenance) StartAndBlock() error {
-	sort.Ints(check.TCPPorts)
+func (maint *Maintenance) StartAndBlock() error {
+	// Sort port numbers so that their check results look nicer in the final report
+	sort.Ints(maint.TCPPorts)
+	firstTime := true
 	for {
 		if global.EmergencyLockDown {
 			return global.ErrEmergencyLockDown
 		}
-		atomic.StoreInt32(&check.loopIsRunning, 1)
+		// The very first health check is executed soon (10 minutes) after health check daemon starts up
+		var waitDuration time.Duration
+		if firstTime {
+			waitDuration = 10 * time.Minute
+			firstTime = false
+		} else {
+			waitDuration = time.Duration(maint.IntervalSec) * time.Second
+		}
+		atomic.StoreInt32(&maint.loopIsRunning, 1)
 		select {
-		case <-check.stop:
+		case <-maint.stop:
 			return nil
-		case <-time.After(time.Duration(check.IntervalSec) * time.Second):
-			check.Execute()
+		case <-time.After(waitDuration):
+			maint.Execute()
 		}
 	}
 }
 
 // Stop previously started health check loop.
-func (check *Maintenance) Stop() {
-	if atomic.CompareAndSwapInt32(&check.loopIsRunning, 1, 0) {
-		check.stop <- true
+func (maint *Maintenance) Stop() {
+	if atomic.CompareAndSwapInt32(&maint.loopIsRunning, 1, 0) {
+		maint.stop <- true
 	}
 }
 
 /*
-UpgradeSystem uses Linux package manager to ensure that all system packages are up to date and laitos dependencies
+SystemMaintenance uses Linux package manager to ensure that all system packages are up to date and laitos dependencies
 are installed and up to date. Returns human-readable result output.
 */
-func (check *Maintenance) UpgradeSystem() string {
-	/*
-		Debian and derivatives:
-		# apt-get update
-		# DEBIAN_FRONTEND=noninteractive apt-get -q -y -f -m -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" upgrade
-		# DEBIAN_FRONTEND=noninteractive apt-get -q -y -f -m -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install
-		AWS Linux, Centos, and more:
-		# yum -y -t --skip-broken update
-		# yum -y -t --skip-broken install
-		openSUSE:
-		# zypper --non-interactive update --recommends --auto-agree-with-licenses --skip-interactive --replacefiles --force-resolution
-		# zypper --non-interactive install --recommends --auto-agree-with-licenses --replacefiles --force-resolution
-
-		Packages:
-		zlib  zlib1g lib64z1
-		fontconfig libfontconfig1
-		libfreetype6 freetype
-		libexpat1 expat
-		libbz2-1 bzip2-libs libbz2-1.0
-		libpng16-16 libpng libpng16-16
-		busybox
-	*/
+func (maint *Maintenance) SystemMaintenance() string {
 	ret := new(bytes.Buffer)
-	/*
-		laitos itself does not rely on any third-party library or program to run, however, the PhantomJS component requires
-		these packages to run. Busybox is not required by PhantomJS, but it is included just for fun.
-		Some of the packages are repeated under different names to accommodate the differences in naming convention among distributions.
-	*/
-	//pkgs := []string{"busybox", "bzip2-libs", "expat", "fontconfig", "freetype", "lib64z1", "libbz2-1", "libbz2-1.0", "libexpat1", "libfontconfig1", "libfreetype6", "libpng", "libpng16-16", "zlib", "zlib1g"}
+	ret.WriteString("--- Conducting system maintenance...\n")
 	// Find a system package manager
 	var pkgManagerPath, pkgManagerName string
 	for _, binPrefix := range []string{"/sbin", "/bin", "/usr/sbin", "/usr/bin", "/usr/sbin/local", "/usr/bin/local"} {
-		for _, execName := range []string{"yum", "apt-get", "zypper"} {
+		// Prefer zypper over apt-get bacause opensuse has a weird "apt-get wrapper" that is not remotely functional
+		for _, execName := range []string{"yum", "zypper", "apt-get"} {
 			pkgManagerPath = path.Join(binPrefix, execName)
-			pkgManagerName = execName
-			break
+			if _, err := os.Stat(pkgManagerPath); err == nil {
+				pkgManagerName = execName
+				break
+			}
 		}
 		if pkgManagerName != "" {
 			break
 		}
 	}
-	// apt-get is too old to be convenient
-	var aptEnvVars []string
-	if pkgManagerName == "apt-get" {
-		ret.WriteString("Calling apt-get update...\n")
-		aptEnvVars = []string{"DEBIAN_FRONTEND=noninteractive"}
-		result, err := env.InvokeProgram(aptEnvVars, 180, pkgManagerPath, "update")
-		fmt.Fprintf(ret, "apt-get update result: %s\napt-get update error: %v\n", result, err)
+	if pkgManagerName == "" {
+		ret.WriteString("--- Cannot find a compatible package manager, abort.\n")
+		return ret.String()
+	} else {
+		fmt.Fprintf(ret, "--- Package manage is %v\n", pkgManagerPath)
 	}
+	// In preparation for package management, apt-get is too old to be convenient.
+	var pkgManagerEnvVars []string
+	if pkgManagerName == "apt-get" {
+		ret.WriteString("--- Updating apt manifests...\n")
+		pkgManagerEnvVars = []string{"DEBIAN_FRONTEND=noninteractive"}
+		// Five minutes should be enough to grab the latest manifest
+		maint.Logger.Printf("SystemMaintenance", "", nil, "updating apt manifests")
+		result, err := env.InvokeProgram(pkgManagerEnvVars, 5*60, pkgManagerPath, "update")
+		maint.Logger.Printf("SystemMaintenance", "", err, "finished updating apt manifests")
+		fmt.Fprintf(ret, "--- apt-get result: %v - %s\n\n", err, result)
+	}
+	// Determine package manager invocation parameters
+	var sysUpgradeArgs, installArgs []string
+	switch pkgManagerName {
+	case "yum":
+		// yum is simple and easy
+		sysUpgradeArgs = []string{"-y", "-t", "--skip-broken", "update"}
+		installArgs = []string{"-y", "-t", "--skip-broken", "install"}
+	case "apt-get":
+		// apt is too old to be convenient
+		sysUpgradeArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade"}
+		installArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "install"}
+	case "zypper":
+		// zypper cannot English
+		sysUpgradeArgs = []string{"--non-interactive", "update", "--recommends", "--auto-agree-with-licenses", "--skip-interactive", "--replacefiles", "--force-resolution"}
+		installArgs = []string{"--non-interactive", "install", "--recommends", "--auto-agree-with-licenses", "--replacefiles", "--force-resolution"}
+	default:
+		fmt.Fprintf(ret, "--- Programming error: missing case for package manager %s\n", pkgManagerName)
+		return ret.String()
+	}
+	// Upgrade system packages with a time constraint of two hours
+	ret.WriteString("--- Upgrading system packages...\n")
+	maint.Logger.Printf("SystemMaintenance", "", nil, "updating system packages")
+	result, err := env.InvokeProgram(pkgManagerEnvVars, 2*3600, pkgManagerPath, sysUpgradeArgs...)
+	maint.Logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
+	fmt.Fprintf(ret, "--- System upgrade result: %v - %s\n\n", err, result)
+	/*
+		Install additional software packages.
+		laitos itself does not rely on any third-party library or program to run, however, the PhantomJS component requires
+		these packages to run. Busybox is not required by PhantomJS, but it is included just for fun.
+		Some of the packages are repeated under different names to accommodate the differences in naming convention among distributions.
+	*/
+	pkgs := []string{"busybox", "bzip2-libs", "expat", "fontconfig", "freetype", "lib64z1", "libbz2-1", "libbz2-1.0", "libexpat1", "libfontconfig1", "libfreetype6", "libpng", "libpng16-16", "zlib", "zlib1g"}
+	/*
+		Although all three package managers can install more than one packages at a time, the packages are still
+		installed one after another, because:
+		- apt-get does not ignore non-existent package names, how inconvenient.
+		- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
+		yum is once again the easiest one to work with.
+	*/
+	for _, name := range pkgs {
+		// Put software name next to installation parameters
+		pkgInstallArgs := make([]string, len(installArgs)+1)
+		copy(pkgInstallArgs, installArgs)
+		pkgInstallArgs[len(installArgs)] = name
+		fmt.Fprintf(ret, "--- Installing/upgrading %s\n", name)
+		// Five minutes should be good enough for every package
+		maint.Logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
+		result, err := env.InvokeProgram(pkgManagerEnvVars, 5*60, pkgManagerPath, pkgInstallArgs...)
+		maint.Logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
+		fmt.Fprintf(ret, "--- %s installation/upgrade result: %v - %s\n\n", name, err, result)
+	}
+	ret.WriteString("--- System maintenance has finished.\n")
+	maint.Logger.Printf("SystemMaintenance", "", nil, "all finished")
 	return ret.String()
 }
 

@@ -69,6 +69,7 @@ func (logger *Logger) Printf(functionName, actorName string, err error, template
 	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
 	LatestLogs.Push(msgWithTime)
 	if err != nil {
+		// If the log message comes with an error, upgrade the severity level to warning, so place it into recent warnings.
 		LatestWarnings.Push(msgWithTime)
 	}
 	log.Print(msg)
