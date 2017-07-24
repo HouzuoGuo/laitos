@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/email"
+	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/frontend/dnsd"
@@ -16,6 +17,7 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
 	"github.com/HouzuoGuo/laitos/global"
 	"net"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -206,6 +208,62 @@ func (check *Maintenance) Stop() {
 	if atomic.CompareAndSwapInt32(&check.loopIsRunning, 1, 0) {
 		check.stop <- true
 	}
+}
+
+/*
+UpgradeSystem uses Linux package manager to ensure that all system packages are up to date and laitos dependencies
+are installed and up to date. Returns human-readable result output.
+*/
+func (check *Maintenance) UpgradeSystem() string {
+	/*
+		Debian and derivatives:
+		# apt-get update
+		# DEBIAN_FRONTEND=noninteractive apt-get -q -y -f -m -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" upgrade
+		# DEBIAN_FRONTEND=noninteractive apt-get -q -y -f -m -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install
+		AWS Linux, Centos, and more:
+		# yum -y -t --skip-broken update
+		# yum -y -t --skip-broken install
+		openSUSE:
+		# zypper --non-interactive update --recommends --auto-agree-with-licenses --skip-interactive --replacefiles --force-resolution
+		# zypper --non-interactive install --recommends --auto-agree-with-licenses --replacefiles --force-resolution
+
+		Packages:
+		zlib  zlib1g lib64z1
+		fontconfig libfontconfig1
+		libfreetype6 freetype
+		libexpat1 expat
+		libbz2-1 bzip2-libs libbz2-1.0
+		libpng16-16 libpng libpng16-16
+		busybox
+	*/
+	ret := new(bytes.Buffer)
+	/*
+		laitos itself does not rely on any third-party library or program to run, however, the PhantomJS component requires
+		these packages to run. Busybox is not required by PhantomJS, but it is included just for fun.
+		Some of the packages are repeated under different names to accommodate the differences in naming convention among distributions.
+	*/
+	//pkgs := []string{"busybox", "bzip2-libs", "expat", "fontconfig", "freetype", "lib64z1", "libbz2-1", "libbz2-1.0", "libexpat1", "libfontconfig1", "libfreetype6", "libpng", "libpng16-16", "zlib", "zlib1g"}
+	// Find a system package manager
+	var pkgManagerPath, pkgManagerName string
+	for _, binPrefix := range []string{"/sbin", "/bin", "/usr/sbin", "/usr/bin", "/usr/sbin/local", "/usr/bin/local"} {
+		for _, execName := range []string{"yum", "apt-get", "zypper"} {
+			pkgManagerPath = path.Join(binPrefix, execName)
+			pkgManagerName = execName
+			break
+		}
+		if pkgManagerName != "" {
+			break
+		}
+	}
+	// apt-get is too old to be convenient
+	var aptEnvVars []string
+	if pkgManagerName == "apt-get" {
+		ret.WriteString("Calling apt-get update...\n")
+		aptEnvVars = []string{"DEBIAN_FRONTEND=noninteractive"}
+		result, err := env.InvokeProgram(aptEnvVars, 180, pkgManagerPath, "update")
+		fmt.Fprintf(ret, "apt-get update result: %s\napt-get update error: %v\n", result, err)
+	}
+	return ret.String()
 }
 
 // Run unit tests on the health checker. See TestMaintenance_Execute for daemon setup.

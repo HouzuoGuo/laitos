@@ -23,7 +23,7 @@ func (sh *Shell) SelfTest() error {
 		return errors.New("Incompatible OS")
 	}
 	// The timeout for testing shell is gracious enough to allow disk to spin up from sleep
-	_, err := env.InvokeShell(sh.InterpreterPath, 10, "echo test")
+	_, err := env.InvokeShell(10, sh.InterpreterPath, "echo test")
 	return err
 }
 
@@ -60,6 +60,6 @@ func (sh *Shell) Execute(cmd Command) *Result {
 		return errResult
 	}
 
-	procOut, procErr := env.InvokeShell(sh.InterpreterPath, cmd.TimeoutSec, cmd.Content)
+	procOut, procErr := env.InvokeShell(cmd.TimeoutSec, sh.InterpreterPath, cmd.Content)
 	return &Result{Error: procErr, Output: procOut}
 }

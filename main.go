@@ -71,7 +71,7 @@ func DisableConflictingDaemons() {
 					fmt.Sprintf("systemctl mask %s", name),
 				}
 				for _, cmd := range cmds {
-					if _, err := env.InvokeShell("/bin/sh", 5, cmd); err == nil {
+					if _, err := env.InvokeShell(5, "/bin/sh", cmd); err == nil {
 						success = true
 						// Continue to run subsequent commands to further disable the service
 					}

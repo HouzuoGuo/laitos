@@ -75,23 +75,24 @@ func GetSystemUptimeSec() int {
 }
 
 /*
-InvokeShell launches an external shell process with time constraints to run a piece of code.
-Returns shell stdout+stderr output combined and error if there is any.
+InvokeProgram launches an external program with time constraints.
+Returns stdout+stderr output combined, and error if there is any.
 */
-func InvokeShell(interpreter string, timeoutSec int, content string) (out string, err error) {
+func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (out string, err error) {
 	// Collect stdout and stderr all together in a single buffer
 	var outBuf bytes.Buffer
-	proc := exec.Command(interpreter, "-c", content)
+	proc := exec.Command(program, args...)
+	proc.Env = envVars
 	proc.Stdout = &outBuf
 	proc.Stderr = &outBuf
-	// Run the shell command in a separate routine in order to monitor for timeout
+	// Run the program in a separate routine in order to monitor for timeout
 	procRunChan := make(chan error, 1)
 	go func() {
 		procRunChan <- proc.Run()
 	}()
 	select {
 	case procErr := <-procRunChan:
-		// Upon process completion, retrieve result.
+		// Retrieve result upon program completion
 		out = outBuf.String()
 		err = procErr
 	case <-time.After(time.Duration(timeoutSec) * time.Second):
@@ -99,11 +100,19 @@ func InvokeShell(interpreter string, timeoutSec int, content string) (out string
 		out = outBuf.String()
 		if proc.Process != nil {
 			if err = proc.Process.Kill(); err == nil {
-				err = errors.New("Shell command timed out")
+				err = errors.New("Program timed out")
 			}
 		}
 	}
 	return
+}
+
+/*
+InvokeShell launches an external shell process with time constraints to run a piece of code.
+Returns shell stdout+stderr output combined and error if there is any.
+*/
+func InvokeShell(timeoutSec int, interpreter string, content string) (out string, err error) {
+	return InvokeProgram(nil, timeoutSec, interpreter, "-c", content)
 }
 
 // GetSysctlStr returns string value of a sysctl parameter corresponding to the input key.
