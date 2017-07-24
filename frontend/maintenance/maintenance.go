@@ -294,9 +294,13 @@ func (maint *Maintenance) SystemMaintenance() string {
 		Install additional software packages.
 		laitos itself does not rely on any third-party library or program to run, however, the PhantomJS component requires
 		these packages to run. Busybox is not required by PhantomJS, but it is included just for fun.
+		Zip and unzip are useful for maintaining application bundles.
 		Some of the packages are repeated under different names to accommodate the differences in naming convention among distributions.
 	*/
-	pkgs := []string{"busybox", "bzip2-libs", "expat", "fontconfig", "freetype", "lib64z1", "libbz2-1", "libbz2-1.0", "libexpat1", "libfontconfig1", "libfreetype6", "libpng", "libpng16-16", "zlib", "zlib1g"}
+	pkgs := []string{
+		"busybox", "bzip2-libs", "expat", "fontconfig", "freetype",
+		"lib64z1", "libbz2-1", "libbz2-1.0", "libexpat1", "libfontconfig1", "libfreetype6", "libpng", "libpng16-16",
+		"unzip", "zip", "zlib", "zlib1g"}
 	/*
 		Although all three package managers can install more than one packages at a time, the packages are still
 		installed one after another, because:
