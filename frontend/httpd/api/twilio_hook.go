@@ -62,7 +62,7 @@ func (hand *HandleTwilioCallHook) MakeHandler(logger global.Logger, _ *common.Co
 		}
 		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
+    <Gather action="%s" method="POST" timeout="60" finishOnKey="#" numDigits="1000">
         <Say><![CDATA[%s]]></Say>
     </Gather>
 </Response>
