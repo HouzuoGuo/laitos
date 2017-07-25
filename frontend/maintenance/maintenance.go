@@ -254,14 +254,17 @@ func (maint *Maintenance) SystemMaintenance() string {
 	} else {
 		fmt.Fprintf(ret, "--- Package manage is %v\n", pkgManagerPath)
 	}
-	// In preparation for package management, apt-get is too old to be convenient.
-	var pkgManagerEnvVars []string
+	// Let package manager program inherit my environment variables, $PATH is especially important for apt.
+	myEnv := os.Environ()
+	pkgManagerEnv := make([]string, len(myEnv))
+	copy(pkgManagerEnv, myEnv)
+	// apt-get is too old to be convenient, it has to update the manifest first.
 	if pkgManagerName == "apt-get" {
 		ret.WriteString("--- Updating apt manifests...\n")
-		pkgManagerEnvVars = []string{"DEBIAN_FRONTEND=noninteractive"}
+		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
 		// Five minutes should be enough to grab the latest manifest
 		maint.Logger.Printf("SystemMaintenance", "", nil, "updating apt manifests")
-		result, err := env.InvokeProgram(pkgManagerEnvVars, 5*60, pkgManagerPath, "update")
+		result, err := env.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
 		maint.Logger.Printf("SystemMaintenance", "", err, "finished updating apt manifests")
 		fmt.Fprintf(ret, "--- apt-get result: %v - %s\n\n", err, result)
 	}
@@ -287,7 +290,7 @@ func (maint *Maintenance) SystemMaintenance() string {
 	// Upgrade system packages with a time constraint of two hours
 	ret.WriteString("--- Upgrading system packages...\n")
 	maint.Logger.Printf("SystemMaintenance", "", nil, "updating system packages")
-	result, err := env.InvokeProgram(pkgManagerEnvVars, 2*3600, pkgManagerPath, sysUpgradeArgs...)
+	result, err := env.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
 	maint.Logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
 	fmt.Fprintf(ret, "--- System upgrade result: %v - %s\n\n", err, result)
 	/*
@@ -316,7 +319,7 @@ func (maint *Maintenance) SystemMaintenance() string {
 		fmt.Fprintf(ret, "--- Installing/upgrading %s\n", name)
 		// Five minutes should be good enough for every package
 		maint.Logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
-		result, err := env.InvokeProgram(pkgManagerEnvVars, 5*60, pkgManagerPath, pkgInstallArgs...)
+		result, err := env.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, pkgInstallArgs...)
 		maint.Logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
 		fmt.Fprintf(ret, "--- %s installation/upgrade result: %v - %s\n\n", name, err, result)
 	}
