@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 )
 
@@ -151,7 +151,7 @@ func (dnsd *DNSD) StartAndBlockTCP() error {
 }
 
 // Run unit tests on DNS TCP daemon. See TestDNSD_StartAndBlockTCP for daemon setup.
-func TestTCPQueries(dnsd *DNSD, t *testing.T) {
+func TestTCPQueries(dnsd *DNSD, t testingstub.T) {
 	// Prevent daemon from listening to UDP queries in this TCP test case
 	dnsd.UDPPort = 0
 	udpListenPort := dnsd.UDPPort

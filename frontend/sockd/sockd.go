@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"io"
 	"net"
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"testing"
 	"time"
 )
 
@@ -210,7 +210,7 @@ func (cip *Cipher) Copy() *Cipher {
 	return &newCipher
 }
 
-func TestSockd(sockd *Sockd, t *testing.T) {
+func TestSockd(sockd *Sockd, t testingstub.T) {
 	var stopped bool
 	go func() {
 		if err := sockd.StartAndBlock(); err != nil {

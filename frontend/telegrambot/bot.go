@@ -9,12 +9,12 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"testing"
 	"time"
 )
 
@@ -223,7 +223,7 @@ func (bot *TelegramBot) Stop() {
 }
 
 // Run unit tests on telegram bot. See TestSMTPD_StartAndBlock for bot setup.
-func TestTelegramBot(bot *TelegramBot, t *testing.T) {
+func TestTelegramBot(bot *TelegramBot, t testingstub.T) {
 	// Well then it is really difficult to test the chat routine
 	// So I am going to only going to start the daemon using invalid configuration, which is definitely failing.
 	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {

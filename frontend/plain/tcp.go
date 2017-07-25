@@ -6,11 +6,11 @@ import (
 	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"io"
 	"net"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 )
 
@@ -82,7 +82,7 @@ func (server *PlainTextDaemon) HandleTCPConnection(clientConn net.Conn) {
 }
 
 // Run unit tests on the TCP server. See TestPlainTextProt_StartAndBlockUDP for daemon setup.
-func TestTCPServer(server *PlainTextDaemon, t *testing.T) {
+func TestTCPServer(server *PlainTextDaemon, t testingstub.T) {
 	// Prevent daemon from listening to UDP connections in this TCP test case
 	udpListenPort := server.UDPPort
 	server.UDPPort = 0

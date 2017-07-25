@@ -9,11 +9,11 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/mailp"
 	"github.com/HouzuoGuo/laitos/frontend/smtpd/smtp"
 	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"net"
 	netSMTP "net/smtp"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 )
 
@@ -258,7 +258,7 @@ func (smtpd *SMTPD) Stop() {
 }
 
 // Run unit tests on SMTPD. See TestSMTPD_StartAndBlock for daemon setup.
-func TestSMTPD(smtpd *SMTPD, t *testing.T) {
+func TestSMTPD(smtpd *SMTPD, t testingstub.T) {
 	/*
 		SMTP daemon is expected to start in a few seconds, it may take a short while because
 		the daemon has to figure out its public IP address.

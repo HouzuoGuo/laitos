@@ -16,6 +16,7 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/sockd"
 	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
 	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"net"
 	"os"
 	"path"
@@ -24,7 +25,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"testing"
 	"time"
 	"unicode"
 )
@@ -329,7 +329,7 @@ func (maint *Maintenance) SystemMaintenance() string {
 }
 
 // Run unit tests on the health checker. See TestMaintenance_Execute for daemon setup.
-func TestMaintenance(check *Maintenance, t *testing.T) {
+func TestMaintenance(check *Maintenance, t testingstub.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	go func() {
 		if err != nil {

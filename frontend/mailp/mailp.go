@@ -9,11 +9,11 @@ import (
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 )
 
@@ -162,7 +162,7 @@ var TestWolframAlpha = feature.WolframAlpha{} // Details are set by init_mail_te
 var TestUndocumented2Message = ""             // Content is set by init_mail_test.go
 
 // Run unit tests on mail processor. See TestMailProcessor_Process for processor setup.
-func TestMailp(mailp *MailProcessor, t *testing.T) {
+func TestMailp(mailp *MailProcessor, t testingstub.T) {
 	// Real MTA is required to run the tests
 	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
 		fmt.Println("there is no mta running on 127.0.0.1")

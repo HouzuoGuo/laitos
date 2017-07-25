@@ -9,13 +9,13 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
 	"github.com/HouzuoGuo/laitos/global"
 	"github.com/HouzuoGuo/laitos/httpclient"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"reflect"
 	"strings"
-	"testing"
 	"time"
 )
 
@@ -189,7 +189,7 @@ func (httpd *HTTPD) Stop() {
 }
 
 // Run unit tests on API handlers of an already started HTTP daemon all API handlers. Essentially, it tests "api" package.
-func TestAPIHandlers(httpd *HTTPD, t *testing.T) {
+func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 	// When accesses via HTTP, API handlers warn user about safety concern via a authorization prompt.
 	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
 	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
@@ -305,7 +305,7 @@ func TestAPIHandlers(httpd *HTTPD, t *testing.T) {
 }
 
 // Run unit test on HTTP daemon. See TestHTTPD_StartAndBlock for daemon setup.
-func TestHTTPD(httpd *HTTPD, t *testing.T) {
+func TestHTTPD(httpd *HTTPD, t testingstub.T) {
 	// Create a temporary directory of file
 	// Caller is supposed to set up the handler on /my/dir
 	htmlDir := "/tmp/test-laitos-dir"
