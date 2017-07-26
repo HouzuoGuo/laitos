@@ -146,17 +146,17 @@ func (maint *Maintenance) Execute() (string, bool) {
 	}
 	// Mail processor checks
 	if mailpErr == nil {
-		result.WriteString("\nMail processor: OK\n")
+		result.WriteString("Mail processor: OK\n")
 	} else {
-		result.WriteString(fmt.Sprintf("\nMail processor: %v\n", mailpErr))
+		result.WriteString(fmt.Sprintf("Mail processor: %v\n", mailpErr))
 	}
-	// Warnings, logs, system maintenance results, and stack traces, in that order.
+	// Maintenance results, warnings, logs, and stack traces, in that order.
+	result.WriteString("\nSystem maintenance:\n")
+	result.WriteString(maintResult)
 	result.WriteString("\nWarnings:\n")
 	result.WriteString(feature.GetLatestWarnings())
 	result.WriteString("\nLogs:\n")
 	result.WriteString(feature.GetLatestLog())
-	result.WriteString("\nSystem maintenance:\n")
-	result.WriteString(maintResult)
 	result.WriteString("\nStack traces:\n")
 	result.WriteString(feature.GetGoroutineStacktraces())
 	// Send away!

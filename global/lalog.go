@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	NumLatestLogEntries = 384  // Keep this number of latest log entries in memory
+	NumLatestLogEntries = 256  // Keep this number of latest log entries in memory
 	MaxLogMessageLen    = 2048 // Truncate long log messages to this length
 )
 
