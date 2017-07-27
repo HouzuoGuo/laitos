@@ -2,28 +2,29 @@
 
 [![Build Status](https://travis-ci.org/HouzuoGuo/laitos.svg?branch=master)](https://travis-ci.org/HouzuoGuo/laitos)
 
-# laitos - empower your personal web server
+# laitos - Empower your personal web server
 Want to host a simple website, Email server, or ad-blocking DNS server? Skip those scary tutorials you find online!
 
-<strong>laitos</strong> has all your needs covered - plus, it offers You access to mails and social networks via fun ways such as telephone call, SMS, Telegram chat, and even satellite messenger!
+<strong>laitos</strong> has all your needs covered - plus, it offers you access to personal mails and social networks in fun ways such as telephone call, SMS, Telegram chat, and even satellite terminals!
 
 ## Highlights
 
-- <strong>Powerful</strong> - web, mail and DNS servers beautifully re-invented in just 9K lines of code.
-- <strong>Fun</strong> - access your personal mails and social networks via telephone, SMS, and more!
+- <strong>Powerful</strong> - web, mail and DNS servers beautifully re-invented in just 10K lines of code.
+- <strong>Fun</strong> - access personal mails and social networks via telephone, SMS, and more!
 - <strong>Hyped by Buzzwords</strong> - certified to run in any container, PaaS, IaaS, *aaS.
 - <strong>Lightweight</strong> - uses as little as 14MB of memory and 8MB of disk.
 - <strong>Portable</strong> - runs on any flavour of Linux, Unix, and Windows.
 - <strong>Independent</strong> - reliably operates without additional software or libraries.
 
-Check out [Feature List](https://github.com/HouzuoGuo/laitos/wiki/Feature-List) for the full list of features!
+<strong>Did you know?</strong> laitos has a cool component that gets you modern & rich web experience on nostalgic computers that run Windows 98!
+Explore more in the comprehensive [Feature List](https://github.com/HouzuoGuo/laitos/wiki/Feature-List).
 
-## Build & Enjoy
-Check out the source code under your `$GOPATH` directory and run `go build`.
+## Get Started
+Download ready-to-use [latest release](https://github.com/HouzuoGuo/laitos/releases).
+The friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configuration) page will guide you to craft your own server.
 
-Then the friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configuration) page will help you to craft your own server.
-
-Check out [Deployment](https://github.com/HouzuoGuo/laitos/wiki/Deployment) page for tips on AWS and Google Cloud deployment.
+For advanced usage, there are [tips](https://github.com/HouzuoGuo/laitos/wiki/Deployment) for deploying on Amazon/Azure/Google cloud.
+To build from source code, run `go get github.com/HouzuoGuo/laitos` and then `go build`.
 
 ## Features (TODO: move this away from homepage)
 
