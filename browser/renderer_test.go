@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -45,7 +46,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	// Expect some output to be already present in output buffer
 	t.Log(instance.GetDebugOutput(1000))
 	// The image render action should have written a line of log that looks like "POST /redraw - {}: true\n"
-	if out := instance.GetDebugOutput(5); out != "true\n" {
+	if out := instance.GetDebugOutput(500); !strings.Contains(out, "/redraw - {}: true") {
 		t.Fatalf(out)
 	}
 	// Try several other browser actions
