@@ -26,46 +26,12 @@ The friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configurat
 For advanced usage, there are [tips](https://github.com/HouzuoGuo/laitos/wiki/Deployment) for deploying on Amazon/Azure/Google cloud.
 To build from source code, run `go get github.com/HouzuoGuo/laitos` and then `go build`.
 
-## Features (TODO: move this away from homepage)
+## Support
+Should you encounter any challenge during configuration and deployment of the software, please file an [issue](https://github.com/HouzuoGuo/laitos/issues).
 
-### Fun features for telephone/SMS/telegram and more
-- Decrypt AES-encrypted files and search for keywords among the content.
-- Retrieve environment information such as IP address, memory usage, log entries, and more.
-- Post updates to Facebook.
-- List and read mails from personal mailboxes via IMAP.
-- Send mails to friends.
-- Run operating system commands (shell commands).
-- Send text message to friend's mobile number.
-- Call friend's mobile number to speak a short message.
-- Read Twitter home time-line.
-- Post updates to Twitter.
-- Ask about weather and all sorts of questions on WolframAlpha.
+I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gmail.com) and get in touch on [Twitter](https://twitter.com/hzguo).
 
-### Web services
-- DNS server
-  * Automatically updates advertising domains list.
-  * Block ads by refusing to answer to their domain names.
-  * Forward other queries to a well-known DNS server of your choice.
-- Mail server
-  * Support TLS for communication secrecy.
-  * Forward arriving Emails to your personal addresses.
-- Telegram bot
-  * Use fun features in an interactive chat.
-  * Retrieve daemon health information.
-- Web server
-  * Host static HTML pages such as home page.
-  * Host file directories.
-- More web services
-  * Use fun features in an interactive web form.
-  * Retrieve environment information such as IP address, memory usage, log entries and more.
-  * Browse and download files from personal Gitlab projects.
-  * Browse websites via server-side renderer (browser-in-browser).
-  * Visit simple websites via a web proxy.
-  * API hook for Twilio telephone call and Twilio SMS.
-- Periodic health check
-  * Validate API credentials used by social networks.
-  * Verify that servers are still healthy and running.
-  * Send health reports at regular interval via Email.
+[Enterprise support](mailto:guohouzuo@gmail.com) is coming soon.
 
 Copyright
 ====================
