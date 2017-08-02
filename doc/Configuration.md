@@ -3,13 +3,15 @@
 ## Overview
 
 laitos components go into two categories:
-- Daemons - web and mail server, chat bots, etc.
 - Features - access to Email, post to Twitter/Facebook, etc.
+- Daemons - web server, mail server, and chat bots. Daemons grant access to all features.
 
-Every daemon grants you access to all features.
-A text file written in [JSON](https://en.wikipedia.org/wiki/JSON) supplies configuration to all components.
+laitos uses a text file written in [JSON](https://en.wikipedia.org/wiki/JSON) to configure all components.
+As a start, make an empty text file and write down `{ }` - an empty JSON object.
 
-Write configuration for the daemons and features you plan to use. A component without configuration remains inactive.
+Then go through the sections below to craft your very own configuration. Keep in mind - a component without configuration remains inactive.
+
+After the configuration file is ready, laitos is [ready to run](https://github.com/HouzuoGuo/laitos/wiki/Invocation).
 
 ## Daemons
 
@@ -27,3 +29,26 @@ Write configuration for the daemons and features you plan to use. A component wi
 
 ## Features
 
+### Facebook
+
+### Twitter
+
+### Send emails
+
+### Read emails
+
+### Send SMS
+
+### Call telephone number
+
+### Run system commands
+
+### Inspect environment status
+
+### Generate two-factor authentication code
+
+### Find text among encrypted files
+
+### Browse the Internet
+
+### Ask questions to WolframAlpha

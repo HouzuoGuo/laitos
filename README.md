@@ -14,17 +14,14 @@ Want to host a simple website, Email server, or ad-blocking DNS server? Skip tho
 - <strong>Hyped by Buzzwords</strong> - certified to run in any container, PaaS, IaaS, *aaS.
 - <strong>Lightweight</strong> - uses as little as 14MB of memory and 8MB of disk.
 - <strong>Portable</strong> - runs on any flavour of Linux, Unix, and Windows.
-- <strong>Independent</strong> - reliably operates without additional software or libraries.
+- <strong>Independent</strong> - reliable stand-alone operation, no need for additional softwares.
 
 <strong>Did you know?</strong> laitos has a cool component that gets you modern & rich web experience on nostalgic computers that run Windows 98!
-Explore more in the comprehensive [Feature List](https://github.com/HouzuoGuo/laitos/wiki/Feature-List).
+Explore more in the comprehensive [Feature List](https://github.com/HouzuoGuo/laitos/wiki/Feature-list).
 
 ## Get Started
 Download ready-to-use [latest release](https://github.com/HouzuoGuo/laitos/releases).
 The friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configuration) page will guide you to craft your own server.
-
-For advanced usage, there are [tips](https://github.com/HouzuoGuo/laitos/wiki/Deployment) for deploying on Amazon/Azure/Google cloud.
-To build from source code, run `go get github.com/HouzuoGuo/laitos` and then `go build`.
 
 ## Support
 Should you encounter any challenge during configuration and deployment of the software, please file an [issue](https://github.com/HouzuoGuo/laitos/issues).
@@ -35,7 +32,7 @@ I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gm
 
 Copyright
 ====================
-Copyright (C) 2017 Howard (Houzuo) Guo <guohouzuo@gmail.com>
+Copyright (C) 2017 Houzuo (Howard) Guo <guohouzuo@gmail.com>
 
 This program is free software:
 you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,

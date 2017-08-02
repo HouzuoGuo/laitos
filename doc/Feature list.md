@@ -1,4 +1,4 @@
-# Feature List
+# Feature list
 
 The rich set of components not only covers the basic needs of hosting a personal web server,
 but also provide advanced capabilities to satisfy the geeky nature inside of you!
