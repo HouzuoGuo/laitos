@@ -1,21 +1,28 @@
-# Run laitos
+# Get started
 
 ## Acquire software
 
 Download the latest [laitos software](https://github.com/HouzuoGuo/laitos/releases).
 
-For advanced usage, if you wish to compile the program from source code, you will need the latest go compiler.
-Clone the source code into `GOPATH` and run `go build`:
+For advanced usage, use the latest go compiler to compile the software from source code like so:
 
     ~/gopath/src/github.com/HouzuoGuo > git clone git@github.com:HouzuoGuo/laitos
     ~/gopath/src/github.com/HouzuoGuo/laitos > go build
 
 laitos program and source code do not depend on third-party program or library.
 
-## Start
+## Prepare configuration
 
-Have your [configuration file](https://github.com/HouzuoGuo/laitos/wiki/Configuration) ready.
+laitos components go into two categories:
+- Features - access to Email, post to Twitter/Facebook, etc.
+- Daemons - web server, mail server, and chat bots. Daemons grant access to all features.
 
+laitos uses a text file written in [JSON](https://en.wikipedia.org/wiki/JSON) to configure all components.
+Make an empty text file and write down `{ }` - an empty JSON object, then go through the links in [Feature list](https://github.com/HouzuoGuo/laitos/wiki/Feature-list) to craft your very own configuration.
+
+Keep in mind - a component without configuration remains inactive.
+
+## Start program
 Assume that latios software is in current directory, run the following command:
 
     sudo ./laitos -config <CONFIG FILE> -frontend <LIST>
@@ -31,10 +38,9 @@ Note that:
   * maintenance - System maintenance and health reports
   * smtpd - Mail server
   * telegram - Telegram messenger chat bot
-
+  
 ## Advanced start
-
-The following command line flags are optional:
+The following command options are optional:
 <table>
 <tr>
     <th>Flag</th>
@@ -68,5 +74,4 @@ The following command line flags are optional:
 </table>
 
 ## Public cloud
-
 For deploying on Amazon/Azure/Google cloud, check out these [tips](https://github.com/HouzuoGuo/laitos/wiki/Public-cloud).

@@ -13,7 +13,7 @@ Want to host a simple website, Email server, or ad-blocking DNS server? Skip tho
 - <strong>Fun</strong> - access personal mails and social networks via telephone, SMS, and more!
 - <strong>Hyped by Buzzwords</strong> - certified to run in any container, PaaS, IaaS, *aaS.
 - <strong>Lightweight</strong> - uses as little as 14MB of memory and 8MB of disk.
-- <strong>Portable</strong> - runs on any flavour of Linux, Unix, and Windows.
+- <strong>Portable</strong> - runs on any flavour of Linux and Unix.
 - <strong>Independent</strong> - reliable stand-alone operation, no need for additional softwares.
 
 <strong>Did you know?</strong> laitos has a cool component that gets you modern & rich web experience on nostalgic computers that run Windows 98!
@@ -21,7 +21,7 @@ Explore more in the comprehensive [Feature List](https://github.com/HouzuoGuo/la
 
 ## Get Started
 Download ready-to-use [latest release](https://github.com/HouzuoGuo/laitos/releases).
-The friendly [Configuration](https://github.com/HouzuoGuo/laitos/wiki/Configuration) page will guide you to craft your own server.
+The friendly [Get started](https://github.com/HouzuoGuo/laitos/wiki/Get-started) page will guide you to craft your own server.
 
 ## Support
 Should you encounter any challenge during configuration and deployment of the software, please file an [issue](https://github.com/HouzuoGuo/laitos/issues).
