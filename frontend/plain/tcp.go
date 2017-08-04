@@ -49,7 +49,7 @@ func (server *PlainTextDaemon) HandleTCPConnection(clientConn net.Conn) {
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		TCPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+		TCPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()

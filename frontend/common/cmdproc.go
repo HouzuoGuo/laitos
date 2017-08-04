@@ -100,7 +100,7 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+		DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	// Do not execute a command if global lock down is effective
 	if global.EmergencyLockDown {

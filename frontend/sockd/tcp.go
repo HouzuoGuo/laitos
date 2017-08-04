@@ -201,7 +201,7 @@ func (conn *TCPCipherConnection) WriteRand() {
 func (conn *TCPCipherConnection) HandleTCPConnection() {
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		TCPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+		TCPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	defer conn.Close()
 	remoteAddr := conn.RemoteAddr().String()

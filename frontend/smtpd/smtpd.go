@@ -145,7 +145,7 @@ func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
 	// Put conversation duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+		DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()

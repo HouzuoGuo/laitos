@@ -66,7 +66,7 @@ func (httpd *HTTPD) Middleware(ratelimit *env.RateLimit, next http.HandlerFunc) 
 				Hence the status code here is OK.
 			*/
 			w.Write([]byte(global.ErrEmergencyLockDown.Error()))
-			api.DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+			api.DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			return
 		}
 		// Check client IP against rate limit
@@ -77,7 +77,7 @@ func (httpd *HTTPD) Middleware(ratelimit *env.RateLimit, next http.HandlerFunc) 
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
 		}
-		api.DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+		api.DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}
 }
 

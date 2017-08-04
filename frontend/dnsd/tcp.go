@@ -19,7 +19,7 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		TCPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+		TCPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	defer clientConn.Close()
 	// Check address against rate limit and allowed IP prefixes

@@ -159,7 +159,7 @@ func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 			if err := bot.ReplyTo(ding.Message.Chat.ID, result.CombinedOutput); err != nil {
 				bot.Logger.Warningf("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
 			}
-			DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+			DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 		}(ding, beginTimeNano)
 	}
 }

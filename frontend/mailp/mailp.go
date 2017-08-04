@@ -87,7 +87,7 @@ func (mailproc *MailProcessor) Process(mailContent []byte, replyAddresses ...str
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		DurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+		DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	if global.EmergencyLockDown {
 		return global.ErrEmergencyLockDown

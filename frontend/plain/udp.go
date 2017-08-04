@@ -73,7 +73,7 @@ func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		UDPDurationStats.Trigger(float64((time.Now().UnixNano() - beginTimeNano) / 1000000))
+		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
 	server.Logger.Printf("HandleUDPConnection", clientIP, nil, "working on the connection")

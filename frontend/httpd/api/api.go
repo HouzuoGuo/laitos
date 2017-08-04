@@ -75,6 +75,7 @@ maintenance.go of maintenance package.
 */
 func GetLatestStats() string {
 	numDecimals := 2
+	factor := 1000000000.0
 	return fmt.Sprintf(`CmdProc: %s
 DNSD TCP/UDP: %s/%s
 HTTPD: %s
@@ -84,14 +85,14 @@ SMTPD: %s
 SOCKD TCP/UDP: %s/%s
 TELEGRAM BOT: %s
 `,
-		common.DurationStats.Format(numDecimals),
-		dnsd.TCPDurationStats.Format(numDecimals), dnsd.UDPDurationStats.Format(numDecimals),
-		DurationStats.Format(numDecimals),
-		mailp.DurationStats.Format(numDecimals),
-		plain.TCPDurationStats.Format(numDecimals), plain.UDPDurationStats.Format(numDecimals),
-		smtpd.DurationStats.Format(numDecimals),
-		sockd.TCPDurationStats.Format(numDecimals), sockd.UDPDurationStats.Format(numDecimals),
-		telegrambot.DurationStats.Format(numDecimals))
+		common.DurationStats.Format(factor, numDecimals),
+		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
+		DurationStats.Format(factor, numDecimals),
+		mailp.DurationStats.Format(factor, numDecimals),
+		plain.TCPDurationStats.Format(factor, numDecimals), plain.UDPDurationStats.Format(factor, numDecimals),
+		smtpd.DurationStats.Format(factor, numDecimals),
+		sockd.TCPDurationStats.Format(factor, numDecimals), sockd.UDPDurationStats.Format(factor, numDecimals),
+		telegrambot.DurationStats.Format(factor, numDecimals))
 }
 
 func (info *HandleSystemInfo) MakeHandler(logger global.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
