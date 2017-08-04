@@ -79,17 +79,17 @@ Triggered by Twilio (communication APIs for SMS, voice, and more), the web hooks
 ### Social network - Facebook
 Post updates to Facebook time-line.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-social-network-Facebook)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Social-network-feature:-Facebook)
 
 ### Social network - Twitter
 Read and post tweets.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-social-network-Twitter)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Social-network-feature:-Twitter)
 
 ### Social network - emails
 Send mails to friends, and read mails from personal Email addresses.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-social-network-emails)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Social-network-feature:-emails)
 
 ### Telephone and SMS
 Send text to friend's phone number, or call a friend to speak a short message.
@@ -99,32 +99,33 @@ Send text to friend's phone number, or call a friend to speak a short message.
 ### Utility - two factor authentication code generator
 Generate two-factor authentication code for secure website login.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-utility-two-factor-authentication-code-generator)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Utility-feature:-two-factor-authentication-code-generator)
 
 ### Utility - interactive web browser
 Browse modern websites interactively in a command-and-answer routine.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-interactive-web-browser)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Utility-feature:-interactive-web-browser)
 
 ### Utility - WolframAlpha
 Ask about weather and all sorts of questions on WolframAlpha - the computational knowledge engine.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-utility-WolframAlpha)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Utility-feature:-WolframAlpha)
 
 ### Utility - find text in AES-encrypted files
 Decrypt AES-encrypted files (e.g. password book) and search for keywords among the content.
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-utility-find-text-in-AES-encrypted-files)
+
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Utility-feature:-find-text-in-AES-encrypted-files)
 
 ### System operation - run commands
 Run operating system commands (shell commands) on Linux and Unix operating systems.
 
 This feature is always available and does not require configuration.
 
-[Usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-system-operation-run-commands)
+[Usage](https://github.com/HouzuoGuo/laitos/wiki/System-feature:-run-commands)
 
 ### System operation - inspect environment
 Retrieve server environment information such as IP address, memory usage, log entries, and more.
 
 This feature is always available and does not require configuration.
 
-[Usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-system-operation-inspect-environment)
+[Usage](https://github.com/HouzuoGuo/laitos/wiki/System-feature:-inspect-environment)
