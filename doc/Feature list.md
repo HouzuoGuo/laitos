@@ -75,25 +75,56 @@ Triggered by Twilio (communication APIs for SMS, voice, and more), the web hooks
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
 
 ## Features
-Access to features is granted by a pre-designated password:
 
-Social network:
-- Post updates to Facebook.
-- Post updates to Twitter.
-- Read Twitter home time-line.
-- Send mails to friends.
-- Read mails from personal Email addresses (via IMAP).
+### Social network - Facebook
+Post updates to Facebook time-line.
 
-Telephony:
-- Send text message to friend's mobile number.
-- Call friend's mobile number to speak a short message.
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-social-network-Facebook)
 
-System maintenance:
-- Run operating system commands (shell commands).
-- Retrieve server environment information such as IP address, memory usage, log entries, and more.
+### Social network - Twitter
+Read and post tweets.
 
-Utilities:
-- Generate two-factor authentication code.
-- Decrypt AES-encrypted files (e.g. password book) and search for keywords among the content.
-- Browse the Internet via an interactive command-based web browser.
-- Ask about weather and all sorts of questions on WolframAlpha - Computational Knowledge Engine.
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-social-network-Twitter)
+
+### Social network - emails
+Send mails to friends, and read mails from personal Email addresses.
+
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-social-network-emails)
+
+### Telephone and SMS
+Send text to friend's phone number, or call a friend to speak a short message.
+
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-telephone-and-SMS)
+
+### Utility - two factor authentication code generator
+Generate two-factor authentication code for secure website login.
+
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-utility-two-factor-authentication-code-generator)
+
+### Utility - interactive web browser
+Browse modern websites interactively in a command-and-answer routine.
+
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-interactive-web-browser)
+
+### Utility - WolframAlpha
+Ask about weather and all sorts of questions on WolframAlpha - the computational knowledge engine.
+
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-utility-WolframAlpha)
+
+### Utility - find text in AES-encrypted files
+Decrypt AES-encrypted files (e.g. password book) and search for keywords among the content.
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-utility-find-text-in-AES-encrypted-files)
+
+### System operation - run commands
+Run operating system commands (shell commands) on Linux and Unix operating systems.
+
+This feature is always available and does not require configuration.
+
+[Usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-system-operation-run-commands)
+
+### System operation - inspect environment
+Retrieve server environment information such as IP address, memory usage, log entries, and more.
+
+This feature is always available and does not require configuration.
+
+[Usage](https://github.com/HouzuoGuo/laitos/wiki/Feature:-system-operation-inspect-environment)
