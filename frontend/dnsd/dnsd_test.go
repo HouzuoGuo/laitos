@@ -67,16 +67,17 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "allowable IP") == -1 {
 		t.Fatal(err)
 	}
-	daemon.AllowQueryIPPrefixes = []string{"127", ""}
+	daemon.AllowQueryIPPrefixes = []string{"192.", ""}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "any allowable IP") == -1 {
 		t.Fatal(err)
 	}
-	daemon.AllowQueryIPPrefixes = []string{"127"}
+	daemon.AllowQueryIPPrefixes = []string{"192."}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
 	// If run on Travis, my own IP won't be put into allowed query prefixes.
-	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 2 {
+	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 3 {
+		// There should be three prefixes: 127., 192., and my IP
 		t.Fatal("did not put my own IP into prefixes")
 	}
 	TestUDPQueries(&daemon, t)
@@ -103,16 +104,17 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "allowable IP") == -1 {
 		t.Fatal(err)
 	}
-	daemon.AllowQueryIPPrefixes = []string{"127", ""}
+	daemon.AllowQueryIPPrefixes = []string{"192.", ""}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "any allowable IP") == -1 {
 		t.Fatal(err)
 	}
-	daemon.AllowQueryIPPrefixes = []string{"127"}
+	daemon.AllowQueryIPPrefixes = []string{"192."}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
 	// If run on Travis, my own IP won't be put into allowed query prefixes.
-	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 2 {
+	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 3 {
+		// There should be three prefixes: 127., 192., and my IP
 		t.Fatal("did not put my own IP into prefixes", daemon.AllowQueryIPPrefixes)
 	}
 	TestTCPQueries(&daemon, t)

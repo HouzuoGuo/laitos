@@ -89,6 +89,8 @@ func (dnsd *DNSD) Initialise() error {
 			return errors.New("DNSD.Initialise: any allowable IP prefixes must not be empty string")
 		}
 	}
+	// Always allow localhost to query
+	dnsd.AllowQueryIPPrefixes = append(dnsd.AllowQueryIPPrefixes, "127.")
 
 	dnsd.allowQueryMutex = new(sync.Mutex)
 	dnsd.BlackListMutex = new(sync.Mutex)
