@@ -20,7 +20,7 @@ func TestConfig(t *testing.T) {
   "DNSDaemon": {
     "Address": "127.0.0.1",
     "AllowQueryIPPrefixes": [
-      "127.0"
+      "192"
     ],
     "PerIPLimit": 10,
     "TCPForwarder": "8.8.8.8:53",

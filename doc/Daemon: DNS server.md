@@ -13,34 +13,42 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
 <table>
 <tr>
     <th>Property</th>
+    <th>Type</th>
     <th>Meaning</th>
 </tr>
 <tr>
-    <td>Address (string)</td>
+    <td>Address</td>
+    <td>string</td>
     <td>The address network to listen to. It is usually "0.0.0.0", which means listen on all network interfaces.</td>
 </tr>
 <tr>
-    <td>UDPPort (integer)</td>
+    <td>UDPPort</td>
+    <td>integer</td>
     <td>UDP port number to listen on. It is usually 53 - the port number designated for DNS.</td>
 </tr>
 <tr>
-    <td>UDPForwarder (string)</td>
+    <td>UDPForwarder</td>
+    <td>string</td>
     <td>If a UDP query is not for an advertisement domain, forward it to this public DNS service. Example: 8.8.8.8 by Google DNS, or 8.26.56.26 by Comodo.</td>
 </tr>
 <tr>
-    <td>TCPPort (integer)</td>
+    <td>TCPPort</td>
+    <td>integer</td>
     <td>TCP port number to listen to. It is usually 53 - the port number designated for DNS.</td>
 </tr>
 <tr>
-    <td>TCPForwarder (string)</td>
+    <td>TCPForwarder</td>
+    <td>string</td>
     <td>If a TCP query is not for an advertisement domain, forward it to this public DNS service. Example: 8.8.8.8 by Google DNS, or 8.26.56.26 by Comodo.</td>
 </tr>
 <tr>
-    <td>AllowQueryIPPrefix (array of string)</td>
+    <td>AllowQueryIPPrefix</td>
+    <td>array of strings</td>
     <td>An array of IP address prefixes such as ["195.1", "123.4.5"] that are allowed to make DNS queries on the server. The public IP addresses of your computers and phones should be here.</td>
 </tr>
 <tr>
-    <td>PerIPLimit (integer)</td>
+    <td>PerIPLimit</td>
+    <td>integer</td>
     <td>How many times in ten-second interval a client (identified by IP) is allowed to query the server. Every computer/phone usually uses about 15.</td>
 </tr>
 </table>

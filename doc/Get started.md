@@ -6,7 +6,7 @@ Download the latest [laitos software](https://github.com/HouzuoGuo/laitos/releas
 
 For advanced usage, use the latest go compiler to compile the software from source code like so:
 
-    ~/gopath/src/github.com/HouzuoGuo > git clone git@github.com:HouzuoGuo/laitos
+    ~/gopath/src/github.com/HouzuoGuo > git clone https://github.com/HouzuoGuo/laitos.git
     ~/gopath/src/github.com/HouzuoGuo/laitos > go build
 
 laitos program and source code do not depend on third-party program or library.
