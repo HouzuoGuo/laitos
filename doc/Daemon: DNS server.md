@@ -77,15 +77,15 @@ Assuming that daemon listens on port 53, perform the tests from a computer where
 
 1. Observe successful "Name-Address" answers from the following two system command (for both UDP and TCP):
 
-        nslookup microsoft.com <SERVER ADDRESS>
-        nslookup -vc microsoft.com <SERVER ADDRESS>
+        nslookup microsoft.com <SERVER PUBLIC IP>
+        nslookup -vc microsoft.com <SERVER PUBLIC IP>
 
 2. Observe a black-hole answer `0.0.0.0` from the following query to advertisement domain:
 
-        nslookup analytics.google.com <SERVER ADDRESS>
-        nslookup -vc analytics.google.com <SERVER ADDRESS>
+        nslookup analytics.google.com <SERVER PUBLIC IP>
+        nslookup -vc analytics.google.com <SERVER PUBLIC IP>
 
-If the test is conducted on the computer that runs daemon itself, you may use `127.0.0.1` as the server address.
+If the test is conducted on the computer that runs daemon itself, you may use `127.0.0.1` as the server IP address.
 
 If the tests are not successful, and laitos log says `client IP is not allowed to query`, then check the value of `AllowQueryIPPrefix` in configuration.
 
