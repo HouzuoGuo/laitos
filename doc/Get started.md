@@ -14,11 +14,11 @@ laitos program and source code do not depend on third-party program or library.
 ## Prepare configuration
 
 laitos components go into two categories:
-- Features - access to Email, post to Twitter/Facebook, etc.
-- Daemons - web server, mail server, and chat bots. Daemons grant access to all features.
+- Toolbox features - access to Email, post to Twitter/Facebook, etc.
+- Daemons - web server, mail server, and chat bots. Daemons grant access to all toolbox features.
 
 laitos uses a text file written in [JSON](https://en.wikipedia.org/wiki/JSON) to configure all components.
-Make an empty text file and write down `{ }` - an empty JSON object, then go through the links in [Feature list](https://github.com/HouzuoGuo/laitos/wiki/Feature-list) to craft your very own configuration.
+Make an empty text file and write down `{ }` - an empty JSON object, then go through the links in [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list) to craft your very own configuration.
 
 Keep in mind - a component without configuration remains inactive.
 
@@ -28,16 +28,17 @@ Assume that latios software is in current directory, run the following command:
     sudo ./laitos -config <CONFIG FILE> -frontend <LIST>
 
 Note that:
-- Web, mail, and many other daemons bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html), therefore use `sudo` to ensure their proper operation.
+- Web, mail, and many other daemons usually bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html), use `sudo` to ensure their proper operation.
 - Replace `<CONFIG FILE>` by the path to your configuration file. Both absolute and relative paths are acceptable.
-- Replace `<LIST>` by a comma-separated list of daemon names e.g. `dnsd,smtpd,httpd`. Here are the options:
-  * dnsd - Ad-blocking DNS server
-  * httpd - Web server secured by TLS certificate
-  * insecurehttpd - Web server without encryption
-  * mailp - Text mail processor (note the [special usage](https://github.com/HouzuoGuo/laitos/wiki/Text-mail-processor))
-  * maintenance - System maintenance and health reports
-  * smtpd - Mail server
-  * telegram - Telegram messenger chat bot
+- Replace `<LIST>` by name of daemons to start. Use comma to separate daemon names (e.g.`dnsd,smtpd,httpd`). Here are the options:
+  * `dnsd` - Ad-blocking DNS server
+  * `httpd` - Web server secured by TLS certificate
+  * `insecurehttpd` - Web server without encryption
+  * `mailp` - Text mail processor (note the [special usage](https://github.com/HouzuoGuo/laitos/wiki/STDIN-mail-processor))
+  * `maintenance` - System maintenance and health reports
+  * `smtpd` - Mail server
+  * `telegram` - Telegram messenger chat bot
+- There is not any individual ON-OFF switch for toolbox features. Once configured, they are are automatically available to daemons.
   
 ## Advanced start
 The following command options are optional:
@@ -55,8 +56,8 @@ The following command options are optional:
     <td>
         Automatically disable the following system softwares that may run into resource conflict:<br>
         <ul>
-            <li>Apache web server</li>
-            <li>Bind DNS server</li>
+            <li>apache web server</li>
+            <li>bind DNS server</li>
             <li>lighttpd web server</li>
             <li>postfix mail server</li>
             <li>sendmail mail server</li>

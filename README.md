@@ -17,7 +17,7 @@ Want to host a simple website, Email server, or ad-blocking DNS server? Skip tho
 - <strong>Independent</strong> - reliable stand-alone operation, no need for additional softwares.
 
 <strong>Did you know?</strong> laitos has a cool component that gets you modern & rich web experience on nostalgic computers that run Windows 98!
-Explore more in the comprehensive [Feature List](https://github.com/HouzuoGuo/laitos/wiki/Feature-list).
+Explore more in the comprehensive [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
 
 ## Get Started
 Download ready-to-use [latest release](https://github.com/HouzuoGuo/laitos/releases).

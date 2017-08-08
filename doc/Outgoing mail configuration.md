@@ -1,0 +1,3 @@
+# Outgoing mail configuration
+
+TODO
