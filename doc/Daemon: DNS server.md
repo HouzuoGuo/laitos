@@ -29,7 +29,11 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
 <tr>
     <td>UDPForwarder</td>
     <td>string</td>
-    <td>If a UDP query is not for an advertisement domain, forward it to this public DNS service. Example: 8.8.8.8 by Google DNS, or 8.26.56.26 by Comodo.</td>
+    <td>
+        If a UDP query is not for an advertisement domain, forward it to this public DNS service.
+        <br/>
+        Example: 8.8.8.8 by Google DNS, or 8.26.56.26 by Comodo.
+    </td>
 </tr>
 <tr>
     <td>TCPPort</td>
@@ -39,7 +43,11 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
 <tr>
     <td>TCPForwarder</td>
     <td>string</td>
-    <td>If a TCP query is not for an advertisement domain, forward it to this public DNS service. Example: 8.8.8.8 by Google DNS, or 8.26.56.26 by Comodo.</td>
+    <td>
+        If a TCP query is not for an advertisement domain, forward it to this public DNS service.
+        <br/>
+        Example: 8.8.8.8 by Google DNS, or 8.26.56.26 by Comodo.
+    </td>
 </tr>
 <tr>
     <td>AllowQueryIPPrefix</td>

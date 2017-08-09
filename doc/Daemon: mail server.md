@@ -28,12 +28,20 @@ Construct the following JSON object and place it under key `MailDaemon` in confi
 <tr>
     <td>MyDomains</td>
     <td>array of strings</td>
-    <td>Domain names to receive emails for, for example ["my-blog.net", "my-homepage.org"].</td>
+    <td>
+        Domain names to receive emails for.
+        <br/>
+        Example: ["my-blog.net", "my-homepage.org"].
+    </td>
 </tr>
 <tr>
     <td>ForwardTo</td>
     <td>array of strings</td>
-    <td>Forward incoming mails to these Email addresses, for example ["me@gmail.com", "me@hotmail.com"].</td>
+    <td>
+        Forward incoming mails to these Email addresses.
+        <br/>
+        Example: ["me@gmail.com", "me@hotmail.com"].
+    </td>
 </tr>
 <tr>
     <td>PerIPLimit</td>
@@ -55,6 +63,7 @@ The following properties are optional:
     <td>string</td>
     <td>
         Absolute or relative path to PEM-encoded TLS certificate file.
+        <br/>
         The file may contain a certificate chain with server certificate on top and CA authority toward bottom.
     </td>
 </tr>
