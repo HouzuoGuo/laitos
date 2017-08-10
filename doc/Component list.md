@@ -86,10 +86,15 @@ Read and post tweets.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-Twitter)
 
-### Social network - emails
-Send mails to friends, and read mails from personal Email addresses.
+### Social network - read Emails
+Read mails from personal Email addresses.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-Email-client)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-read-Emails)
+
+### Social network - send Emails
+Send mails to friends.
+
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-send-Emails)
 
 ### Telephone and SMS
 Send text to friend's phone number, or call a friend to speak a short message.

@@ -139,7 +139,7 @@ func (proc *CommandProcessor) Process(cmd feature.Command) (ret *feature.Result)
 			ret = &feature.Result{Error: errors.New("PLT is not available because LintText is not used")}
 			goto result
 		}
-		// Parse L. P. T. <cmd> parameters
+		// Parse P. L. T. <cmd> parameters
 		pltParams := RegexCommandWithPLT.FindStringSubmatch(cmd.Content)
 		if len(pltParams) != 5 { // 4 groups + 1
 			ret = &feature.Result{Error: ErrBadPLT}
