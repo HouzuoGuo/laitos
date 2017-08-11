@@ -1,14 +1,17 @@
 # Daemon: mail server
 
 ## Introduction
-The mail server forwards arriving mails as-is to your personal Email address. No mails are stored on the server after being forwarded.
+The mail server forwards arriving mails as-is to your personal Email address. No mails are stored on the server after
+they are forwarded.
+
+With additional configuration, the server will process toolbox feature command from incoming mail, and mail response to
+the sender.
 
 For communication secrecy, the server supports StartTLS operation and identifies itself with TLS certificate.
 
-With additional configuration, the server will process toolbox feature command from incoming mail, and mail response to the sender.
-
 ## Configuration
-Construct the following JSON object and place it under key `MailDaemon` in configuration file. The following properties are mandatory:
+Construct the following JSON object and place it under JSON key `MailDaemon` in configuration file. The following
+properties are mandatory:
 <table>
 <tr>
     <th>Property</th>
@@ -46,7 +49,11 @@ Construct the following JSON object and place it under key `MailDaemon` in confi
 <tr>
     <td>PerIPLimit</td>
     <td>integer</td>
-    <td>How many times in ten-second interval a client (identified by IP) is allowed to send a mail to the server. 3 is usually enough.</td>
+    <td>
+        How many times in ten-second interval server will accept mails from a client (identified by IP).
+        <br/>
+        3 is usually enough.
+    </td>
 </tr>
 </table>
 
@@ -100,11 +107,11 @@ Here is an example setup made for two imaginary domain names:
 }
 </pre>
 
-## Configuration - toolbox command processor
-
+## Toolbox command processor
 In order to let mail server process toolbox feature commands, complete all of the following:
 
-1. Construct the following JSON object and place it under key `MailProcessor` in configuration file. The following properties are mandatory:
+1. Construct the following JSON object and place it under JSON key `MailProcessor` in configuration file.
+   The following properties are mandatory:
 <table>
 <tr>
     <th>Property</th>
@@ -118,8 +125,57 @@ In order to let mail server process toolbox feature commands, complete all of th
 </tr>
 </table>
 
-2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration of `MailBridges` object.
-3. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) to construct configuration for sending Email responses.
+2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
+   JSON key `MailBridges`.
+3. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) to construct
+   configuration for sending Email responses.
+
+Here is an example setup of mail server with command processor:
+<pre>
+{
+    ...
+    
+    "MailDaemon": {
+        "Address": "0.0.0.0",
+        "Port": 25
+        "PerIPLimit": 3,
+        
+        "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
+        "MyDomains": ["howard-homepage.net", "howard-blog.org"],
+        
+        "TLSCertPath": "/root/howard-blog.org.crt",
+        "TLSKeyPath": "/root/howard-blog.org.key"
+    },
+    
+    "MailBridges": {
+        "PINAndShortcuts": {
+            "PIN": "VerySecretPassword",
+            "Shortcuts": {
+                "ILoveYou": ".eruntime",
+                "EmergencyStop": ".estop",
+                "EmergencyLock": ".elock"
+            }
+        },
+        "TranslateSequences": {
+            "Sequences": [
+                ["#/", "|"]
+            ]
+        },
+        "LintText": {
+            "CompressSpaces": false,
+            "CompressToSingleLine": false,
+            "KeepVisible7BitCharOnly": false,
+            "MaxLength": 4096,
+            "TrimSpaces": false
+        },
+        "NotifyViaEmail": {
+            "Recipients": ["howard@gmail.com"]
+        }
+    },
+     
+    ...
+}
+</pre>
 
 ## Test
 

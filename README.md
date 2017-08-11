@@ -5,7 +5,8 @@
 # laitos - Empower your personal web server
 Want to host a simple website, Email server, or ad-blocking DNS server? Skip those scary tutorials you find online!
 
-<strong>laitos</strong> has all your needs covered - plus, it offers you access to personal mails and social networks in fun ways such as telephone call, SMS, Telegram chat, and even satellite terminals!
+<strong>laitos</strong> has all your needs covered - plus, it offers you access to personal mails and social networks in
+fun ways such as telephone call, SMS, Telegram chat, and even satellite terminals!
 
 ## Highlights
 
@@ -16,8 +17,8 @@ Want to host a simple website, Email server, or ad-blocking DNS server? Skip tho
 - <strong>Portable</strong> - runs on any flavour of Linux and Unix.
 - <strong>Independent</strong> - reliable stand-alone operation, no need for additional softwares.
 
-<strong>Did you know?</strong> laitos has a cool component that gets you modern & rich web experience on nostalgic computers that run Windows 98!
-Explore more in the comprehensive [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
+<strong>Did you know?</strong> laitos has a cool component that gets you modern & rich web experience on nostalgic
+computers that run Windows 98! Explore more in the comprehensive [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
 
 ## Get Started
 Download ready-to-use [latest release](https://github.com/HouzuoGuo/laitos/releases).
@@ -43,4 +44,6 @@ See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program.
 If not, see <http://www.gnu.org/licenses/>.
 
-The Golang mascot "gopher" is designed by [Renee French](http://reneefrench.blogspot.com). The gopher side portrait is designed by [Takuya Ueda](https://twitter.com/tenntenn), licensed under the "Creative Commons Attribution 3.0" license.
+The Golang mascot "gopher" is designed by [Renee French](http://reneefrench.blogspot.com).
+The gopher side portrait is designed by [Takuya Ueda](https://twitter.com/tenntenn), licensed under the "Creative
+CommonsAttribution 3.0" license.
