@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var ErrBadEnvInfoChoice = errors.New(`elock | estop | log | warn | runtime | stack | tune`)
+var ErrBadEnvInfoChoice = errors.New(`e(lock/stop/kill) | log | warn | runtime | stack | tune`)
 
 // Retrieve environment information and trigger emergency stop upon request.
 type EnvControl struct {
@@ -41,10 +41,13 @@ func (info *EnvControl) Execute(cmd Command) *Result {
 	switch strings.ToLower(cmd.Content) {
 	case "elock":
 		global.TriggerEmergencyLockDown()
-		return &Result{Output: "successfully triggered EmergencyLockDown"}
+		return &Result{Output: "OK - EmergencyLockDown"}
 	case "estop":
 		global.TriggerEmergencyStop()
-		return &Result{Output: "successfully triggered EmergencyStop"}
+		return &Result{Output: "OK - EmergencyStop"}
+	case "ekill":
+		global.TriggerEmergencyKill()
+		return &Result{Output: "OK - EmergencyKill"}
 	case "runtime":
 		return &Result{Output: GetRuntimeInfo()}
 	case "log":

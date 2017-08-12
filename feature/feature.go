@@ -13,7 +13,6 @@ const (
 )
 
 var (
-	ErrExecTimeout      = errors.New("Timeout")
 	ErrEmptyCommand     = errors.New("Empty command")
 	ErrIncompleteConfig = errors.New("Incomplete configuration")
 )

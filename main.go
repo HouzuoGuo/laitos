@@ -124,10 +124,10 @@ func main() {
 	}
 
 	// Process command line flags
-	var configFile, frontend string
+	var frontend string
 	var disableConflicts, tuneSystem, debug bool
 	var gomaxprocs int
-	flag.StringVar(&configFile, "config", "", "(Mandatory) path to configuration file in JSON syntax")
+	flag.StringVar(&global.ConfigFilePath, "config", "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, insecurehttpd, mailp, maintenance, plaintext, smtpd, sockd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
@@ -147,18 +147,18 @@ func main() {
 	}
 
 	// Deserialise JSON configuration file
-	if configFile == "" {
+	if global.ConfigFilePath == "" {
 		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
 		return
 	}
 	var config Config
-	configBytes, err := ioutil.ReadFile(configFile)
+	configBytes, err := ioutil.ReadFile(global.ConfigFilePath)
 	if err != nil {
-		logger.Fatalf("main", "", err, "failed to read config file \"%s\"", configFile)
+		logger.Fatalf("main", "", err, "failed to read config file \"%s\"", global.ConfigFilePath)
 		return
 	}
 	if err := config.DeserialiseFromJSON(configBytes); err != nil {
-		logger.Fatalf("main", "", err, "failed to deserialise config file \"%s\"", configFile)
+		logger.Fatalf("main", "", err, "failed to deserialise config file \"%s\"", global.ConfigFilePath)
 		return
 	}
 
