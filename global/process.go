@@ -84,8 +84,8 @@ func TriggerEmergencyKill() {
 				}()
 			}
 		}()
-		// 30 seconds should be enough to cause sufficient damage, time to quit.
-		time.Sleep(30 * time.Second)
+		// 120 seconds should be enough to cause sufficient damage, time to quit.
+		time.Sleep(120 * time.Second)
 		logger.Fatalf("TriggerEmergencyKill", "", nil, "sufficient damage has been done, good bye.")
 	}()
 }
