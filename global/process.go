@@ -58,8 +58,9 @@ func TriggerEmergencyKill() {
 				go func() {
 					// Ignore but log failure and keep going
 					for {
+						logger.Printf("TriggerEmergencyKill", "", nil, "attempt to destroy file - %s", fileToKill)
 						err := overwriteWithZero(fileToKill)
-						logger.Printf("TriggerEmergencyKill", fileToKill, err, "attempted to destroy the file")
+						logger.Printf("TriggerEmergencyKill", "", err, "finished attempt at destroying file - %s", fileToKill)
 						// Avoid overwhelming disk or CPU due to the deliberately infinite loop
 						time.Sleep(1 * time.Second)
 					}
@@ -74,8 +75,9 @@ func TriggerEmergencyKill() {
 				go func() {
 					// Ignore but log failure and keep going
 					for {
+						logger.Printf("TriggerEmergencyKill", "", nil, "attempt to destroy directory - %s", dirToKill)
 						err := os.RemoveAll(dirToKill)
-						logger.Printf("TriggerEmergencyKill", dirToKill, err, "attempted to destroy the directory")
+						logger.Printf("TriggerEmergencyKill", "", err, "finished attempt at destroying directory - %s", dirToKill)
 						// Avoid overwhelming disk or CPU due to the deliberately infinite loop
 						time.Sleep(1 * time.Second)
 					}
