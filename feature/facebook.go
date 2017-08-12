@@ -24,7 +24,7 @@ func (fb *Facebook) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Validate access token via a simple API call
-	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: TestTimeoutSec}, "https://graph.facebook.com/v2.9/me/feed?access_token=%s", fb.UserAccessToken)
+	resp, err := httpclient.DoHTTP(httpclient.Request{TimeoutSec: TestTimeoutSec}, "https://graph.facebook.com/v2.10/me/feed?access_token=%s", fb.UserAccessToken)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (fb *Facebook) Execute(cmd Command) *Result {
 		TimeoutSec: cmd.TimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(url.Values{"message": []string{cmd.Content}}.Encode()),
-	}, "https://graph.facebook.com/v2.9/me/feed?access_token=%s", fb.UserAccessToken)
+	}, "https://graph.facebook.com/v2.10/me/feed?access_token=%s", fb.UserAccessToken)
 
 	if errResult := HTTPErrorToResult(resp, err); errResult == nil {
 		// The OK output is simply the length of posted message
