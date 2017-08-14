@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/email"
 	"github.com/HouzuoGuo/laitos/env"
@@ -31,6 +30,7 @@ import (
 
 const (
 	TCPConnectionTimeoutSec = 10
+	MinimumIntervalSec      = 120 // MinimumIntervalSec is the lowest acceptable value of system maintenance interval.
 )
 
 /*
@@ -183,8 +183,8 @@ func (maint *Maintenance) Execute() (string, bool) {
 
 func (maint *Maintenance) Initialise() error {
 	maint.Logger = global.Logger{ComponentName: "Maintenance", ComponentID: strconv.Itoa(maint.IntervalSec)}
-	if maint.IntervalSec < 120 {
-		return errors.New("Maintenance.StartAndBlock: IntervalSec must be above 119")
+	if maint.IntervalSec < MinimumIntervalSec {
+		return fmt.Errorf("Maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
 	maint.stop = make(chan bool)
 	return nil
@@ -305,6 +305,8 @@ func (maint *Maintenance) SystemMaintenance() string {
 		// Soft and hard dependencies of phantomJS
 		"bzip2-libs", "expat", "fontconfig", "freetype", "lib64z1", "libbz2-1", "libbz2-1.0", "libexpat1", "libfontconfig1",
 		"libfreetype6", "libpng", "libpng16-16", "zlib", "zlib1g",
+		// Utility applications for time maintenance
+		"ntp", "ntpd", "ntpdate",
 		// Utility applications for maintaining application zip bundle
 		"unzip", "zip",
 		// Utility applications for conducting network diagnosis
@@ -331,6 +333,20 @@ func (maint *Maintenance) SystemMaintenance() string {
 		maint.Logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
 		fmt.Fprintf(ret, "--- %s installation/upgrade result: %v - %s\n\n", name, err, result)
 	}
+	// Immediately sync system clock via ntpdate (instead of ntpd)
+	result, err = env.InvokeProgram(nil, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "hk.pool.ntp.org", "au.pool.ntp.org")
+	fmt.Fprintf(ret, "--- clock synchronisation result: %v - %s\n\n", err, result)
+	/*
+		The program startup time is used to detect outdated commands (such as in telegram bot), in rare case if system clock
+		was severely skewed, causing program startup time to be in the future, the detection mechanisms will misbehave.
+		Therefore, correct the situation here.
+	*/
+	if global.StartupTime.After(time.Now()) {
+		fmt.Fprint(ret, "--- clock was severely skewed, reset program startup time.\n")
+		// The earliest possible opportunity for system maintenance to run is now minus minimum interval
+		global.StartupTime = time.Now().Add(-MinimumIntervalSec * time.Second)
+	}
+
 	ret.WriteString("--- System maintenance has finished.\n")
 	maint.Logger.Printf("SystemMaintenance", "", nil, "all finished")
 	return ret.String()
