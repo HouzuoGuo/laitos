@@ -58,8 +58,16 @@ func TestGetDirsToKill(t *testing.T) {
 func TestGetFilesToKill(t *testing.T) {
 	toKill := getFilesToKill()
 	fmt.Println(toKill)
-	// At least it should kill the program, one disk, and one disk partition.
-	if len(toKill) < 3 {
+	// At least it should kill the program
+	if len(toKill) < 1 {
+		t.Fatal(toKill)
+	}
+}
+
+func TestGetDisksToKill(t *testing.T) {
+	toKill := getDisksToKill()
+	fmt.Println(toKill)
+	if len(toKill) < 1 {
 		t.Fatal(toKill)
 	}
 }

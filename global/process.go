@@ -11,7 +11,7 @@ import (
 var (
 	// StartTime is the timestamp captured when this program started.
 	StartupTime = time.Now()
-	// ConfigFilePath is the path to JSON configuration file that was used to launch this program.
+	// ConfigFilePath is the absolute path to JSON configuration file that was used to launch this program.
 	ConfigFilePath string
 	// EmergencyLockDown is a flag checked by features and daemons, they should stop functioning or refuse to serve when the flag is true.
 	EmergencyLockDown bool
@@ -50,11 +50,15 @@ func TriggerEmergencyKill() {
 	logger.Warningf("TriggerEmergencyKill", "", nil, "computer storage will be destroyed ASAP and then this program will crash")
 	// Do not kill immediately. Give caller a short 10 seconds window to send a final notification Email if it wishes.
 	go func() {
+		filesToKill := getFilesToKill()
+		dirsToKill := getDirsToKill()
+		disksToKill := getDisksToKill()
 		time.Sleep(10 * time.Second)
-		// Begin destroying the files so that they are sure to be overwritten
+		// Begin overwriting files to destroy them
 		go func() {
 			// Destroy files in parallel
-			for _, fileToKill := range getFilesToKill() {
+			logger.Warningf("TriggerEmergencyKill", "", nil, "going to kill files - %v", filesToKill)
+			for _, fileToKill := range filesToKill {
 				go func() {
 					// Ignore but log failure and keep going
 					for {
@@ -65,12 +69,14 @@ func TriggerEmergencyKill() {
 						time.Sleep(1 * time.Second)
 					}
 				}()
+				time.Sleep(200 * time.Millisecond)
 			}
 		}()
-		// Two seconds later, begin destroying directories.
-		time.Sleep(2 * time.Second)
+		// Four seconds later, begin destroying directories.
+		time.Sleep(4 * time.Second)
 		go func() {
-			for _, dirToKill := range getDirsToKill() {
+			logger.Warningf("TriggerEmergencyKill", "", nil, "going to kill directories - %v", dirsToKill)
+			for _, dirToKill := range dirsToKill {
 				// Destroy directories in parallel
 				go func() {
 					// Ignore but log failure and keep going
@@ -82,22 +88,48 @@ func TriggerEmergencyKill() {
 						time.Sleep(1 * time.Second)
 					}
 				}()
+				time.Sleep(200 * time.Millisecond)
 			}
 		}()
+		// 10 more seconds later, begin destroying the disk
+		time.Sleep(10 * time.Second)
+		go func() {
+			logger.Warningf("TriggerEmergencyKill", "", nil, "going to kill disks - %v", disksToKill)
+			for _, diskToKill := range disksToKill {
+				// Destroy disks in parallel
+				go func() {
+					// Ignore but log failure and keep going
+					for {
+						logger.Printf("TriggerEmergencyKill", "", nil, "attempt to destroy disk - %s", diskToKill)
+						err := overwriteWithZero(diskToKill)
+						logger.Printf("TriggerEmergencyKill", "", err, "finished attempt at destroying disk - %s", diskToKill)
+						// Avoid overwhelming disk or CPU due to the deliberately infinite loop
+						time.Sleep(1 * time.Second)
+					}
+				}()
+				time.Sleep(200 * time.Millisecond)
+			}
+		}()
+
 		// 120 seconds should be enough to cause sufficient damage, time to quit.
 		time.Sleep(120 * time.Second)
 		logger.Fatalf("TriggerEmergencyKill", "", nil, "sufficient damage has been done, good bye.")
 	}()
 }
 
-// getFilesToKill returns critical file names that are to be wiped when killing computer storage, sorted by priority (high to low).
+// getFilesToKill returns critical file names that are to be wiped when killing computer storage.
 func getFilesToKill() (ret []string) {
 	ret = make([]string, 0, 10)
-	// Destroy config file and program executable as priority
 	ret = append(ret, ConfigFilePath)
 	if execPath, err := os.Executable(); err == nil {
 		ret = append(ret, execPath)
 	}
+	return
+}
+
+// getFilesToKill returns critical disk device files that are to be wiped when killing computer storage.
+func getDisksToKill() (ret []string) {
+	ret = make([]string, 0, 10)
 	// Destroy disk storage files for Unix and Linux systems
 	for _, pattern := range []string{"/dev/sd*", "/dev/vd*", "/dev/xvd*"} {
 		if things, err := filepath.Glob(pattern); err == nil {

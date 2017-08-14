@@ -13,6 +13,7 @@ import (
 	pseudoRand "math/rand"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/pprof"
@@ -146,11 +147,17 @@ func main() {
 		}()
 	}
 
-	// Deserialise JSON configuration file
 	if global.ConfigFilePath == "" {
 		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
 		return
 	}
+	var err error
+	global.ConfigFilePath, err = filepath.Abs(global.ConfigFilePath)
+	if err != nil {
+		logger.Fatalf("main", "", err, "failed to determine absolute path of config file \"%s\"", global.ConfigFilePath)
+	}
+
+	// Deserialise JSON configuration file
 	var config Config
 	configBytes, err := ioutil.ReadFile(global.ConfigFilePath)
 	if err != nil {
