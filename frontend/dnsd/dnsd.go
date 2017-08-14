@@ -21,7 +21,7 @@ const (
 	NumQueueRatio              = 10   // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
 	BlacklistUpdateIntervalSec = 7200 // Update ad-server blacklist at this interval
 	MinNameQuerySize           = 14   // If a query packet is shorter than this length, it cannot possibly be a name query.
-	PublicIPRefreshIntervalSec = 1800 // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
+	PublicIPRefreshIntervalSec = 900  // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
 	MVPSLicense                = `Disclaimer: this file is free to use for personal use only. Furthermore it is NOT permitted to ` +
 		`copy any of the contents or host on any other site without permission or meeting the full criteria of the below license ` +
 		` terms. This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike License. ` +

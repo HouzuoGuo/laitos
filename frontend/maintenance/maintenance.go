@@ -303,8 +303,14 @@ func (maint *Maintenance) SystemMaintenance() string {
 	*/
 	pkgs := []string{
 		// Soft and hard dependencies of phantomJS
-		"bzip2-libs", "expat", "fontconfig", "freetype", "lib64z1", "libbz2-1", "libbz2-1.0", "libexpat1", "libfontconfig1",
-		"libfreetype6", "libpng", "libpng16-16", "zlib", "zlib1g",
+		"bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dejavu-fonts-common",
+		"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "fontconfig", "fontconfig-config", "fontpackages-filesystem",
+		"fonts-arphic-ukai", "fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "freetype",
+		"intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libbz2-1", "libbz2-1.0",
+		"liberation2-fonts", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
+		"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libpng", "libpng16-16", "libXfont", "xorg-x11-fonts-Type1",
+		"xorg-x11-font-utils", "zlib", "zlib1g",
+
 		// Utility applications for time maintenance
 		"ntp", "ntpd", "ntpdate",
 		// Utility applications for maintaining application zip bundle
