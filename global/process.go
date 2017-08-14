@@ -112,15 +112,15 @@ func getDirsToKill() (ret []string) {
 	ret = make([]string, 0, 10)
 	// Working directory and its parent
 	if pwdPath, err := os.Getwd(); err == nil {
-		ret = append(ret, pwdPath, filepath.Base(pwdPath))
+		ret = append(ret, pwdPath, filepath.Dir(pwdPath))
 	}
 	// Config file directory and its parent
-	ret = append(ret, filepath.Base(ConfigFilePath))
-	ret = append(ret, filepath.Base(filepath.Base(ConfigFilePath)))
+	ret = append(ret, filepath.Dir(ConfigFilePath))
+	ret = append(ret, filepath.Dir(filepath.Dir(ConfigFilePath)))
 	// Program directory and its parent
 	if execPath, err := os.Executable(); err == nil {
-		ret = append(ret, filepath.Base(execPath))
-		ret = append(ret, filepath.Base(filepath.Base(execPath)))
+		ret = append(ret, filepath.Dir(execPath))
+		ret = append(ret, filepath.Dir(filepath.Dir(execPath)))
 	}
 	// Eventually destroy everything
 	ret = append(ret, "/")

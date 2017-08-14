@@ -1,6 +1,7 @@
 package global
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -42,5 +43,23 @@ func TestOverwriteWithZero(t *testing.T) {
 	n, err := reopened.Read(buf)
 	if err != nil || n != 5 {
 		t.Fatal(err, n)
+	}
+}
+
+func TestGetDirsToKill(t *testing.T) {
+	toKill := getDirsToKill()
+	fmt.Println(toKill)
+	// At least it should kill /, program directory, and parent to program directory.
+	if len(toKill) < 3 {
+		t.Fatal(toKill)
+	}
+}
+
+func TestGetFilesToKill(t *testing.T) {
+	toKill := getFilesToKill()
+	fmt.Println(toKill)
+	// At least it should kill the program, one disk, and one disk partition.
+	if len(toKill) < 3 {
+		t.Fatal(toKill)
 	}
 }
