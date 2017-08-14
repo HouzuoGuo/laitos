@@ -52,6 +52,10 @@ func (und *Undocumented1) SendMessage(message string) error {
 		return errors.New("Undocumented1.SendMessage: message is empty")
 	}
 
+	if len(message) > 160 {
+		message = message[:160]
+	}
+
 	resp, err := httpclient.DoHTTP(httpclient.Request{
 		TimeoutSec: Undocumented1HTTPTimeoutSec,
 		Method:     http.MethodPost,
