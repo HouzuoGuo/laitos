@@ -81,11 +81,6 @@ The following properties are optional:
 </tr>
 </table>
 
-
-Remember to tell laitos to run DNS daemon in the command line:
-
-    sudo ./laitos -config <CONFIG FILE> -frontend ...,smtpd,...
-
 Here is an example setup made for two imaginary domain names:
 <pre>
 {
@@ -177,6 +172,69 @@ Here is an example setup of mail server with command processor:
 }
 </pre>
 
-## Test
+## Run
+Tell laitos to run mail daemon in the command line:
+
+    sudo ./laitos -config <CONFIG FILE> -frontend ...,smtpd,...
 
 ## Usage
+Before sending mails to the brand new mail server, be aware that:
+
+1. In order for an Internet user to successfully send mails to your `MyDomains`, the domain names must be covered by a
+   DNS hosting service. If the concept sounds unfamiliar, check out this article from Amazon Web service:
+   [What is DNS](https://aws.amazon.com/route53/what-is-dns/).
+2. DNS hosting providers usually charge ~ 1 USD per domain per month. If you are looking for a provider, check out:
+   - [Amazon Web Service "Route53"](https://aws.amazon.com/route53/)
+   - [Google Cloud Platform "Cloud DNS"](https://cloud.google.com/dns/)
+3. Check at your Domain Registrar that the domain name servers are pointing to DNS hosting providers.
+4. If you are making changes to domain name servers, it may take up to 24 hours to propagate through the Internet.
+
+Now, create or modify a DNS "MX" entry for _every domain_ of `MyDomains`. The entry must look like:
+
+- DNS name: `my-domain-name.net`
+- Record type: `MX`
+- Time to live (TTL): leave at default or `5 minutes`
+- Value (preference and mail server): `10 laitos-server-public-IP`
+
+Here is an example setup involving two domain names and three MX entries, assuming that laitos server is on `58.169.236.112`:
+
+<table>
+<tr>
+    <th>DNS name</th>
+    <th>Record type</th>
+    <th>Time to live (TTL)</th>
+    <th>Value</th>
+    <th>Remark</th>
+</tr>
+<tr>
+    <td>howard-homepage.net</td>
+    <td>MX</td>
+    <td>5 minutes</td>
+    <td>10 58.169.236.112</td>
+    <td>First example</td>
+</tr>
+<tr>
+    <td>howard-blog.org</td>
+    <td>MX</td>
+    <td>5 minutes</td>
+    <td>10 58.169.236.112</td>
+    <td>Second example</td>
+</tr>
+<tr>
+    <td>cool.howard-blog.org</td>
+    <td>MX</td>
+    <td>5 minutes</td>
+    <td>10 58.169.236.112</td>
+    <td>A sub-domain of second example</td>
+</tr>
+</table>
+
+Wait up to an hour for new DNS MX records to propagate through the Internet.
+
+Then send a test mail with subject, text, and attachments to any name under `MyDomains` (e.g. `i@howard-blog.org`).
+Wait a short moment, check the inbox on any of `ForwardTo` address (e.g. `howard@gmail.com`), the test mail should
+arrive at all of the `ForwardTo` addresses.
+
+## Tips
+Mail servers are often targeted by spam mails. But don't worry, use a personal mail service that comes with strong spam
+filter (such as Gmail) as `ForwardTo` address, and spam mails will not bother you any longer.

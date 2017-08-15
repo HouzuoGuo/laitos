@@ -70,10 +70,6 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
 </tr>
 </table>
 
-Remember to tell laitos to run DNS daemon in the command line:
-
-    sudo ./laitos -config <CONFIG FILE> -frontend ...,dnsd,...
-
 Here is an example setup made for two home devices (limit = 2 * 15) and forwards to Google public DNS. 
 
 <pre>
@@ -96,6 +92,11 @@ Here is an example setup made for two home devices (limit = 2 * 15) and forwards
     ...
 }
 </pre>
+
+## Run
+Tell laitos to run DNS daemon in the command line:
+
+    sudo ./laitos -config <CONFIG FILE> -frontend ...,dnsd,...
 
 ## Test
 Assuming that daemon listens on port 53, perform the tests from a computer where you will use the ad-blocking DNS server,
