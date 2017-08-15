@@ -13,7 +13,7 @@ fun ways such as telephone call, SMS, Telegram chat, and even satellite terminal
 - <strong>Powerful</strong> - web, mail and DNS servers beautifully re-invented in just 10K lines of code.
 - <strong>Fun</strong> - access personal mails and social networks via telephone, SMS, and more!
 - <strong>Hyped by Buzzwords</strong> - certified to run in any container, PaaS, IaaS, *aaS.
-- <strong>Lightweight</strong> - uses as little as 14MB of memory and 8MB of disk.
+- <strong>Lightweight</strong> - uses as little as 18MB of memory and 8MB of disk.
 - <strong>Portable</strong> - runs on any flavour of Linux and Unix.
 - <strong>Independent</strong> - reliable stand-alone operation, no need for additional softwares.
 
