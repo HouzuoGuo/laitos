@@ -103,7 +103,7 @@ Here is an example setup made for two imaginary domain names:
 </pre>
 
 ## Toolbox command processor
-In order to let mail server process toolbox feature commands, complete all of the following:
+In order to let mail server process toolbox feature commands from mail body, complete all of the following:
 
 1. Construct the following JSON object and place it under JSON key `MailProcessor` in configuration file.
    The following properties are mandatory:
@@ -234,6 +234,11 @@ Wait up to an hour for new DNS MX records to propagate through the Internet.
 Then send a test mail with subject, text, and attachments to any name under `MyDomains` (e.g. `i@howard-blog.org`).
 Wait a short moment, check the inbox on any of `ForwardTo` address (e.g. `howard@gmail.com`), the test mail should
 arrive at all of the `ForwardTo` addresses.
+
+To try the toolbox command processor, send a test mail with any subject, and write down toolbox command in the mail body.
+Send it out, wait a short moment, and check the sender's inbox for command response.
+
+Don't forget to put password PIN in front of the toolbox command!
 
 ## Tips
 Mail servers are often targeted by spam mails. But don't worry, use a personal mail service that comes with strong spam

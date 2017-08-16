@@ -108,6 +108,8 @@ Optional `NotifyViaEmail` - send notification Email for the command input and re
 </tr>
 </table>
 
+To enable Email notification, please also follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration)
+to construct configuration for sending Email responses.
 
 ## Configuration example
 Here is an example configuration for [web server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server),
