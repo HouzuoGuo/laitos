@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGetProgramMemUsageKB(t *testing.T) {
@@ -70,5 +71,29 @@ func TestGetSysctl(t *testing.T) {
 	if old, err := IncreaseSysctlInt(key, 65535); old == 0 ||
 		(err != nil && !strings.Contains(err.Error(), "permission") && !strings.Contains(err.Error(), "read-only")) {
 		t.Fatal(err)
+	}
+}
+
+func TestInvokeProgram(t *testing.T) {
+	out, err := InvokeProgram([]string{"A=laitos123"}, 10, "printenv", "A")
+	if err != nil || out != "laitos123\n" {
+		t.Fatal(err, out)
+	}
+
+	begin := time.Now()
+	out, err = InvokeProgram(nil, 1, "sleep", "5")
+	if err == nil {
+		t.Fatal("did not timeout")
+	}
+	duration := time.Now().Unix() - begin.Unix()
+	if duration > 2 {
+		t.Fatal("did not kill before timeout")
+	}
+}
+
+func TestInvokeShell(t *testing.T) {
+	out, err := InvokeShell(1, "/bin/bash", "printenv PATH")
+	if err != nil || out != PATHForInvokeShell+"\n" {
+		t.Fatal(err, out)
 	}
 }

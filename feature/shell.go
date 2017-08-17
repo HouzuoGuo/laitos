@@ -32,8 +32,8 @@ func (sh *Shell) Initialise() error {
 		goto afterShell
 	}
 	// Find a shell interpreter with a preference to use bash
-	for _, shellName := range []string{"bash", "dash", "tcsh", "ksh", "sh"} {
-		for _, pathPrefix := range []string{"/bin", "/usr/bin", "/usr/local/bin"} {
+	for _, shellName := range []string{"bash", "dash", "zsh", "ksh", "tcsh", "csh", "ash", "sh"} {
+		for _, pathPrefix := range []string{"/bin", "/usr/bin", "/usr/local/bin", "/opt/bin"} {
 			shellPath := path.Join(pathPrefix, shellName)
 			if _, err := os.Stat(shellPath); err == nil {
 				sh.InterpreterPath = shellPath
