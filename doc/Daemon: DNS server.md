@@ -79,10 +79,10 @@ Here is an example setup made for two home devices (limit = 2 * 15) and forwards
     "DNSDaemon": {
         "Address": "0.0.0.0",
 
-        "UDPPort": 53
+        "UDPPort": 53,
         "UDPForwarder": "8.8.8.8",
 
-        "TCPPort": 53
+        "TCPPort": 53,
         "TCPForwarder": "8.8.4.4",
 
         "AllowQueryIPPrefixes": ["195", "35.196", "35.158.249.12"],
