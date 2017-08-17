@@ -122,7 +122,7 @@ func (info *HandleSystemInfo) MakeHandler(logger global.Logger, _ *common.Comman
 		// Runtime info
 		fmt.Fprint(w, feature.GetRuntimeInfo())
 		// Statistics
-		fmt.Fprint(w, "\nStatistics low/avg/high/total(count) millisec:\n")
+		fmt.Fprint(w, "\nStatistics low/avg/high/total(count) seconds:\n")
 		fmt.Fprint(w, GetLatestStats())
 		// Feature checks
 		if len(featureErrs) == 0 {

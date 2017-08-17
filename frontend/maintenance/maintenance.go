@@ -125,7 +125,7 @@ func (maint *Maintenance) Execute() (string, bool) {
 	// Runtime info
 	result.WriteString(feature.GetRuntimeInfo())
 	// Statistics
-	result.WriteString("\nStatistics (ms):\n")
+	result.WriteString("\nStatistics low/avg/high/total(count) seconds:\n")
 	result.WriteString(GetLatestStats())
 	// Port checks
 	result.WriteString("\nPorts:\n")
