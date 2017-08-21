@@ -29,13 +29,13 @@ The chat bot enables you to run toolbox feature commands via chat messages.
 2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
    JSON key `TelegramBridges`.
 
-Here is an example setup of mail server with command processor:
+Here is an example setup of Telegram:
 <pre>
 {
     ...
     
     "TelegramBot": {
-        "AuthorizationToken": "425777794:AAFM1ori0OywsVlg0HIhvH1JYHRqL8PZBgE",
+        "AuthorizationToken": "425712345:ABCDEFGHIJKLMNOPERSTUVWXYZ",
         "Port": 25
         "PerIPLimit": 3,
         
