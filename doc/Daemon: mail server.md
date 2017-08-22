@@ -26,7 +26,7 @@ properties are mandatory:
 <tr>
     <td>Port</td>
     <td>integer</td>
-    <td>TCP port number to listen on. It is usually 25 - the port number designated for SMTP.</td>
+    <td>Port number to listen on. It is usually 25 - the port number designated for SMTP.</td>
 </tr>
 <tr>
     <td>MyDomains</td>
@@ -57,7 +57,7 @@ properties are mandatory:
 </tr>
 </table>
 
-The following properties are optional:
+The following properties are optional under JSON key `MailDaemon`:
 
 <table>
 <tr>
@@ -177,11 +177,11 @@ Tell laitos to run mail daemon in the command line:
 
     sudo ./laitos -config <CONFIG FILE> -frontend ...,smtpd,...
 
-## Usage
+## Deployment
 Before sending mails to the brand new mail server, be aware that:
 
 1. In order for an Internet user to successfully send mails to your `MyDomains`, the domain names must be covered by a
-   DNS hosting service. If the concept sounds unfamiliar, check out this article from Amazon Web service:
+   DNS hosting service. If the concept sounds unfamiliar, check out this article from Amazon Web Service:
    [What is DNS](https://aws.amazon.com/route53/what-is-dns/).
 2. DNS hosting providers usually charge ~ 1 USD per domain per month. If you are looking for a provider, check out:
    - [Amazon Web Service "Route53"](https://aws.amazon.com/route53/)
@@ -229,11 +229,12 @@ Here is an example setup involving two domain names and three MX entries, assumi
 </tr>
 </table>
 
-Wait up to an hour for new DNS MX records to propagate through the Internet.
+Wait up to an hour for new DNS records to propagate through the Internet.
 
-Then send a test mail with subject, text, and attachments to any name under `MyDomains` (e.g. `i@howard-blog.org`).
-Wait a short moment, check the inbox on any of `ForwardTo` address (e.g. `howard@gmail.com`), the test mail should
-arrive at all of the `ForwardTo` addresses.
+## Test
+Send a test mail with subject, text, and attachments to any name under `MyDomains` (e.g. `i@howard-blog.org`). Wait a
+short moment, check the inbox on any of `ForwardTo` address (e.g. `howard@gmail.com`), the test mail should arrive at
+all of the `ForwardTo` addresses.
 
 To try the toolbox command processor, send a test mail with any subject, and write down toolbox command in the mail body.
 Send it out, wait a short moment, and check the sender's inbox for command response.

@@ -41,7 +41,7 @@ The results are presented in a report sent to your Email address.
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
 
 ### Web server
-Web server serves static HTML file for a home page, and file directories (e.g. HTML/CSS) for a rich personal website.
+Web server hosts a static personal website made of HTML files, media, and other assets.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server)
 
