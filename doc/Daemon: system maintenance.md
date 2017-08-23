@@ -78,7 +78,8 @@ System maintenance does not have to run too often. Running at interval of 12 hou
 
 The additional softwares installed during maintenance are:
 - Dependencies of PhantomJS, used by [browser-in-browser](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-browser-in-browser)
-  and [interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-interactive-web-browser).
+  and [interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-interactive-web-browser). The two
+  features may not function properly until system maintenance has run for the first time.
 - Utilities for synchronising system clock.
 - Zip file tools that are useful for maintaining application bundles for [public cloud](https://github.com/HouzuoGuo/laitos/wiki/Public-cloud).
 - Network diagnosis tools.

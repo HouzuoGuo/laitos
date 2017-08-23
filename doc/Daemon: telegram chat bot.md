@@ -5,6 +5,14 @@ Telegram Messenger is a popular mobile messaging app that excels in communicatio
 
 The chat bot enables you to run toolbox feature commands via chat messages.
 
+## Preparation
+Acquire an `AuthorizationToken` from Telegram Messenger by creating your own chat bot. Download and install Telegram
+Messenger, then follow the guide [How do I create a bot?](https://core.telegram.org/bots) to talk to "BotFather" and
+register your chat bot.
+
+After chat bot is successfully created, Telegram Messenger will tell you the `AuthorizationToken`, which you have to
+place into the configuration.
+
 ## Configuration
 1. Construct the following JSON object and place it under JSON key `TelegramBot` in configuration file.
    The following properties are mandatory:
@@ -81,13 +89,6 @@ Tell laitos to run chat bot daemon in the command line:
     sudo ./laitos -config <CONFIG FILE> -frontend ...,telegram,...
 
 ## Usage
-Before using the chat bot daemon, you have to acquire an `AuthorizationToken` from Telegram Messenger by creating your
-own chat bot. Download and install Telegram Messenger, then follow the guide [How do I create a bot?](https://core.telegram.org/bots)
-to talk to "BotFather" to register your chat bot.
-
-After chat bot is successfully created, Telegram Messenger will tell you the `AuthorizationToken`, which you have to
-place into the configuration.
-
 On Telegram Messenger application, find your newly created chat bot via the in-app Search function, then send toolbox
 command in a chat message. Wait a short moment, and the command response will be sent back to you via the same chat.
 

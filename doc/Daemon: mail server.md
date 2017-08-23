@@ -9,6 +9,21 @@ the sender.
 
 For communication secrecy, the server supports StartTLS operation and identifies itself with TLS certificate.
 
+## Preparation
+In order for an Internet user to successfully send mails to your domain names, they must be covered by a DNS hosting
+service. If the concept sounds unfamiliar, check out this article from Amazon Web Service: [What is DNS](https://aws.amazon.com/route53/what-is-dns/).
+
+DNS hosting providers usually charge ~ 1 USD per domain name per month. If you are looking for a provider, check out:
+- [Amazon Web Service "Route53"](https://aws.amazon.com/route53/)
+- [Google Cloud Platform "Cloud DNS"](https://cloud.google.com/dns/)
+
+After signing up for DNS hosting service, they will give you a set of NS addresses (usually four) for each domain. Then
+you need to let Domain Registrar know by giving the NS addresses to each domain name's configuration; it takes up to 24
+hours for this change to propagate through the Internet.
+
+The [laitos DNS server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server) is a DNS relay, it is _not_ a DNS
+hosting service.
+
 ## Configuration
 Construct the following JSON object and place it under JSON key `MailDaemon` in configuration file. The following
 properties are mandatory:
@@ -178,25 +193,14 @@ Tell laitos to run mail daemon in the command line:
     sudo ./laitos -config <CONFIG FILE> -frontend ...,smtpd,...
 
 ## Deployment
-Before sending mails to the brand new mail server, be aware that:
-
-1. In order for an Internet user to successfully send mails to your `MyDomains`, the domain names must be covered by a
-   DNS hosting service. If the concept sounds unfamiliar, check out this article from Amazon Web Service:
-   [What is DNS](https://aws.amazon.com/route53/what-is-dns/).
-2. DNS hosting providers usually charge ~ 1 USD per domain per month. If you are looking for a provider, check out:
-   - [Amazon Web Service "Route53"](https://aws.amazon.com/route53/)
-   - [Google Cloud Platform "Cloud DNS"](https://cloud.google.com/dns/)
-3. Check at your Domain Registrar that the domain name servers are pointing to DNS hosting providers.
-4. If you are making changes to domain name servers, it may take up to 24 hours to propagate through the Internet.
-
-Now, create or modify a DNS "MX" entry for _every domain_ of `MyDomains`. The entry must look like:
+At your DNS hosting provider, create or modify a DNS "MX" entry for each of `MyDomains`. The entry must look like:
 
 - DNS name: `my-domain-name.net`
 - Record type: `MX`
 - Time to live (TTL): leave at default or `5 minutes`
 - Value (preference and mail server): `10 laitos-server-public-IP`
 
-Here is an example setup involving two domain names and three MX entries, assuming that laitos server is on `58.169.236.112`:
+Here is an example involving two domain names and three MX entries, assuming that laitos server is on `58.169.236.112`:
 
 <table>
 <tr>
@@ -236,7 +240,7 @@ Send a test mail with subject, text, and attachments to any name under `MyDomain
 short moment, check the inbox on any of `ForwardTo` address (e.g. `howard@gmail.com`), the test mail should arrive at
 all of the `ForwardTo` addresses.
 
-To try the toolbox command processor, send a test mail with any subject, and write down toolbox command in the mail body.
+To try the toolbox command processor, send a mail with any subject, and write down toolbox command in the mail body.
 Send it out, wait a short moment, and check the sender's inbox for command response.
 
 Don't forget to put password PIN in front of the toolbox command!

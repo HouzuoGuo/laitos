@@ -39,7 +39,7 @@ properties are mandatory:
 <tr>
     <td>ServeDirectories</td>
     <td>{"/the/url/location": "/path/to/directory"...}</td>
-    <td>Serve the directories at the specified URL location. The leading slash in URL location string is mandatory.</td>
+    <td>Serve the directories at the specified URL location. The prefix slash in URL location string is mandatory.</td>
 </tr>
 </table>
 
@@ -70,7 +70,12 @@ The following properties are optional under JSON key `HTTPDaemon`:
 ### Host home page (index page)
 To host a home page, place the following things under JSON key `HTTPHandlers` in configuration file:
 
-Object `IndexEndpointConfig`:
+- String array `IndexEndpoints` - URL locations that will serve home page; in most cases it should be:
+
+      ["/", "/index.html"]
+
+  The prefix slash is mandatory.
+- Object `IndexEndpointConfig` that comes with the following mandatory attributes:
 <table>
 <tr>
     <th>Property</th>
@@ -84,11 +89,6 @@ Object `IndexEndpointConfig`:
 </tr>
 </table>
 
-String array `IndexEndpoints` - URL locations that will serve home page; in most cases it should be:
-
-    ["/", "/index.html"]
-
-The leading slash is mandatory.
 
 ### Example
 Here is an example setup that hosts a home page and media files:
@@ -125,16 +125,16 @@ Here is an example setup that hosts a home page and media files:
 </pre>
 
 ## Run
-Tell laitos to run web daemon in the command line:
+Tell laitos to run web server in the command line:
 
     sudo ./laitos -config <CONFIG FILE> -frontend ...,httpd,...
 
-If TLS is enabled on the web daemon and the site should also be accessible via plain HTTP, then tell laitos to start one
-more daemon:
+If TLS is enabled on the web server and the site should also be accessible via plain HTTP, then tell laitos to start one
+more server:
 
     sudo ./laitos -config <CONFIG FILE> -frontend ...,httpd,insecurehttpd,...
 
-The plain HTTP daemon listens on hard-coded port 80, it shares configuration with the TLS-enabled web daemon, which
+The plain HTTP server listens on hard-coded port 80, it shares configuration with the TLS-enabled web daemon, which
 means it serves all HTML files, file directories, and special handles.
 
 ## Deployment
@@ -154,7 +154,7 @@ Now, create or modify a DNS "A" entry for your domain name. The entry must look 
 - Time to live (TTL): leave at default or `5 minutes`
 - Value (preference and mail server): the public IP address of laitos server
 
-Here is an example setup involving two domain names and one sub-domain, assuming that laitos server is on `58.169.236.112`:
+Here is an example involving two domain names and one sub-domain, assuming that laitos server is on `58.169.236.112`:
 
 <table>
 <tr>

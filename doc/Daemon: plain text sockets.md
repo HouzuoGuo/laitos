@@ -90,7 +90,7 @@ Tell laitos to run chat bot daemon in the command line:
     sudo ./laitos -config <CONFIG FILE> -frontend ...,plaintext,...
 
 ## Usage
-Use any TCP/UDP connection tool such as `netcat` (may also called `nc`), `telnet` (TCP only), or `HyperTerminal` (TCP only)
+Use any TCP/UDP connection tool such as `netcat` (also called `nc`), `telnet` (TCP only), or `HyperTerminal` (TCP only)
 to connect to plain text daemon:
 
     nc <laitos-server-IP> <TCPPort>
