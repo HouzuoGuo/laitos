@@ -62,10 +62,11 @@ result in a panic, the failure is returned.
 */
 func (super *Supervisor) Start() error {
 	for {
-		super.logger.Warningf("Start", "supervisor", nil, "attempting to start daemon")
+		super.logger.Printf("Start", "supervisor", nil, "attempting to start daemon")
 		err := super.startAndRecover()
 		if err != nil && err != ErrDaemonCrash {
 			// A daemon startup error that is not a crash
+			super.logger.Warningf("Start", "supervisor", err, "giving up because daemon encountered an error")
 			return err
 		}
 		if err == nil {
