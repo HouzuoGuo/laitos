@@ -184,11 +184,11 @@ func main() {
 		// Daemons are started asynchronously, the order of startup does not matter.
 		switch frontendName {
 		case "dnsd":
-			go common.NewSupervisor(config.GetDNSD(), DaemonRestartIntervalSec, frontendName)
+			go common.NewSupervisor(config.GetDNSD(), DaemonRestartIntervalSec, frontendName).Start()
 		case "httpd":
-			go common.NewSupervisor(config.GetHTTPD(), DaemonRestartIntervalSec, frontendName)
+			go common.NewSupervisor(config.GetHTTPD(), DaemonRestartIntervalSec, frontendName).Start()
 		case "insecurehttpd":
-			go common.NewSupervisor(config.GetInsecureHTTPD(), DaemonRestartIntervalSec, frontendName)
+			go common.NewSupervisor(config.GetInsecureHTTPD(), DaemonRestartIntervalSec, frontendName).Start()
 		case "mailp":
 			mailContent, err := ioutil.ReadAll(os.Stdin)
 			if err != nil {
@@ -201,15 +201,15 @@ func main() {
 			// Mail processor for standard input is not a daemon
 			return
 		case "maintenance":
-			go common.NewSupervisor(config.GetMaintenance(), DaemonRestartIntervalSec, frontendName)
+			go common.NewSupervisor(config.GetMaintenance(), DaemonRestartIntervalSec, frontendName).Start()
 		case "plaintext":
-			go common.NewSupervisor(config.GetPlainTextDaemon(), DaemonRestartIntervalSec, frontendName)
+			go common.NewSupervisor(config.GetPlainTextDaemon(), DaemonRestartIntervalSec, frontendName).Start()
 		case "smtpd":
-			go common.NewSupervisor(config.GetMailDaemon(), DaemonRestartIntervalSec, frontendName)
+			go common.NewSupervisor(config.GetMailDaemon(), DaemonRestartIntervalSec, frontendName).Start()
 		case "sockd":
-			go common.NewSupervisor(config.GetSockDaemon(), DaemonRestartIntervalSec, frontendName)
+			go common.NewSupervisor(config.GetSockDaemon(), DaemonRestartIntervalSec, frontendName).Start()
 		case "telegram":
-			go common.NewSupervisor(config.GetTelegramBot(), DaemonRestartIntervalSec, frontendName)
+			go common.NewSupervisor(config.GetTelegramBot(), DaemonRestartIntervalSec, frontendName).Start()
 		default:
 			logger.Fatalf("main", "", err, "unknown frontend name \"%s\"", frontendName)
 		}
