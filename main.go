@@ -3,11 +3,11 @@ package main
 import (
 	cryptoRand "crypto/rand"
 	"encoding/binary"
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/env"
 	"github.com/HouzuoGuo/laitos/feature"
+	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
 	"io/ioutil"
 	pseudoRand "math/rand"
@@ -19,10 +19,11 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 )
+
+const DaemonRestartIntervalSec = 10 // DaemonRestartIntervalSec is the interval to pause between daemon start attempts.
 
 var logger = global.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
 
@@ -86,30 +87,6 @@ func DisableConflictingDaemons() {
 		}(name)
 	}
 	waitGroup.Wait()
-}
-
-// A daemon that starts and blocks.
-type Daemon interface {
-	StartAndBlock() error
-}
-
-// Start a daemon in a separate goroutine. If the daemon crashes, the goroutine logs an error message but does not crash the entire program.
-func StartDaemon(counter *int32, waitGroup *sync.WaitGroup, name string, daemon Daemon) {
-	atomic.AddInt32(counter, 1)
-	waitGroup.Add(1)
-	go func() {
-		defer waitGroup.Done()
-		defer func() {
-			if err := recover(); err != nil {
-				logger.Warningf("main", name, errors.New(fmt.Sprint(err)), "daemon crashed!")
-			}
-		}()
-		logger.Printf("main", name, nil, "going to start daemon")
-		if err := daemon.StartAndBlock(); err != nil {
-			logger.Warningf("main", name, err, "daemon failed")
-			return
-		}
-	}()
 }
 
 func main() {
@@ -202,18 +179,16 @@ func main() {
 		logger.Warningf("main", "", nil, "System tuning result is: \n%s", feature.TuneLinux())
 	}
 
-	// Finally laitos daemon start
-	waitGroup := &sync.WaitGroup{}
-	var numDaemons int32
+	// Start each daemon
 	for _, frontendName := range frontends {
-		// Daemons are started all at once, the order of startup does not matter.
+		// Daemons are started asynchronously, the order of startup does not matter.
 		switch frontendName {
 		case "dnsd":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetDNSD())
+			go common.NewSupervisor(config.GetDNSD(), DaemonRestartIntervalSec, frontendName)
 		case "httpd":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetHTTPD())
+			go common.NewSupervisor(config.GetHTTPD(), DaemonRestartIntervalSec, frontendName)
 		case "insecurehttpd":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetInsecureHTTPD())
+			go common.NewSupervisor(config.GetInsecureHTTPD(), DaemonRestartIntervalSec, frontendName)
 		case "mailp":
 			mailContent, err := ioutil.ReadAll(os.Stdin)
 			if err != nil {
@@ -223,23 +198,26 @@ func main() {
 			if err := config.GetMailProcessor().Process(mailContent); err != nil {
 				logger.Fatalf("main", "", err, "failed to process mail")
 			}
+			// Mail processor for standard input is not a daemon
+			return
 		case "maintenance":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetMaintenance())
+			go common.NewSupervisor(config.GetMaintenance(), DaemonRestartIntervalSec, frontendName)
 		case "plaintext":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetPlainTextDaemon())
+			go common.NewSupervisor(config.GetPlainTextDaemon(), DaemonRestartIntervalSec, frontendName)
 		case "smtpd":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetMailDaemon())
+			go common.NewSupervisor(config.GetMailDaemon(), DaemonRestartIntervalSec, frontendName)
 		case "sockd":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetSockDaemon())
+			go common.NewSupervisor(config.GetSockDaemon(), DaemonRestartIntervalSec, frontendName)
 		case "telegram":
-			StartDaemon(&numDaemons, waitGroup, frontendName, config.GetTelegramBot())
+			go common.NewSupervisor(config.GetTelegramBot(), DaemonRestartIntervalSec, frontendName)
 		default:
 			logger.Fatalf("main", "", err, "unknown frontend name \"%s\"", frontendName)
 		}
 	}
-	if numDaemons > 0 {
-		logger.Printf("main", "", nil, "started %d daemons", numDaemons)
+	// Daemons are not really supposed to quit.
+	// In rare circumstance, if all daemons fail to start without panicking, laitos will just hang right here.
+	for {
+		time.Sleep(time.Hour)
+		logger.Printf("main", "", nil, "laitos has been up for %s", time.Now().Sub(global.StartupTime))
 	}
-	// Daemons are not really supposed to quit
-	waitGroup.Wait()
 }
