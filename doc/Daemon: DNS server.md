@@ -33,7 +33,7 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
     <td>
         If a UDP query is not for an advertisement domain, forward it to any of these public DNS servers.
         <br/>
-        Example: 8.8.8.8:53 by Google DNS, or 8.26.56.26:53 by Comodo.
+        Example: ["8.8.8.8:53"] (Google public DNS)
         <br/>
         These public servers must be capable of handling UDP queries.
     </td>
@@ -49,7 +49,7 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
     <td>
         If a TCP query is not for an advertisement domain, forward it to any of these public DNS servers.
         <br/>
-        Example: 8.8.8.8 by Google DNS, or 8.26.56.26 by Comodo.
+        Example: ["8.8.8.8:53"] (Google public DNS)
         <br/>
         These public servers must be capable of handling TCP (not UDP) queries.
     </td>
