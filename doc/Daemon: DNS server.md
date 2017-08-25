@@ -28,12 +28,14 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
     <td>UDP port number to listen on. It is usually 53 - the port number designated for DNS.</td>
 </tr>
 <tr>
-    <td>UDPForwarder</td>
-    <td>string</td>
+    <td>UDPForwarders</td>
+    <td>array of strings</td>
     <td>
-        If a UDP query is not for an advertisement domain, forward it to this public DNS service.
+        If a UDP query is not for an advertisement domain, forward it to any of these public DNS servers.
         <br/>
-        Example: 8.8.8.8 by Google DNS, or 8.26.56.26 by Comodo.
+        Example: 8.8.8.8:53 by Google DNS, or 8.26.56.26:53 by Comodo.
+        <br/>
+        These public servers must be capable of handling UDP queries.
     </td>
 </tr>
 <tr>
@@ -42,12 +44,14 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
     <td>TCP port number to listen to. It is usually 53 - the port number designated for DNS.</td>
 </tr>
 <tr>
-    <td>TCPForwarder</td>
-    <td>string</td>
+    <td>TCPForwarders</td>
+    <td>array of strings</td>
     <td>
-        If a TCP query is not for an advertisement domain, forward it to this public DNS service.
+        If a TCP query is not for an advertisement domain, forward it to any of these public DNS servers.
         <br/>
         Example: 8.8.8.8 by Google DNS, or 8.26.56.26 by Comodo.
+        <br/>
+        These public servers must be capable of handling TCP (not UDP) queries.
     </td>
 </tr>
 <tr>
@@ -80,10 +84,10 @@ Here is an example setup made for two home devices (limit = 2 * 15) and forwards
         "Address": "0.0.0.0",
 
         "UDPPort": 53,
-        "UDPForwarder": "8.8.8.8",
+        "UDPForwarders": ["8.8.8.8:53", "8.8.4.4:53"],
 
         "TCPPort": 53,
-        "TCPForwarder": "8.8.4.4",
+        "TCPForwarders": ["8.8.8.8:53", "8.8.4.4:53"],
 
         "AllowQueryIPPrefixes": ["195", "35.196", "35.158.249.12"],
         "PerIPLimit": 30
@@ -127,5 +131,17 @@ On your computers and phones, follow these guides and change DNS settings to use
 - Android [tutorial by OpenDNS](https://support.opendns.com/hc/en-us/articles/228009007-Android-Configuration-instructions-for-OpenDNS)
 - iOS [tutorial by igeeksblog.com](https://www.igeeksblog.com/how-to-change-dns-on-iphone-ipad/)
 
-*Important tip*: DNS settings are usually memorised per network. Make sure to change DNS settings for all wireless and
-wired networks.
+## Tips
+Regarding usage:
+- Computers and phones usually memorise DNS settings per network, make sure to change DNS settings for all wireless and
+  wired networks.
+- Use a well-known public DNS service (one of the forwarders, for example) as backup DNS server in DNS settings, so that
+  in the unlikely case of laitos DNS server going offline, your computers and phones will still be able to browse the
+  Internet.
+
+Regarding configuration:
+- In almost all cases DNS queries are carried out in UDP. You usually do not need a DNS server that runs on TCP.
+- If you are setting up DNS over TCP, make sure that the TCP forwarders are able to handle TCP queries. Not all public
+  DNS servers can handle TCP queries.
+- The Google public DNS (8.8.8.8:53 and 8.8.4.4:53) are able to handle both UDP and TCP queries. They are good to be
+  forwarders.
