@@ -267,7 +267,8 @@ func (maint *Maintenance) SystemMaintenance() string {
 		maint.Logger.Printf("SystemMaintenance", "", nil, "updating apt manifests")
 		result, err := env.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
 		maint.Logger.Printf("SystemMaintenance", "", err, "finished updating apt manifests")
-		fmt.Fprintf(ret, "--- apt-get result: %v - %s\n\n", err, result)
+		// There is no need to suppress this output according to markers
+		fmt.Fprintf(ret, "--- apt-get result: %v - %s\n\n", err, strings.TrimSpace(result))
 	}
 	// Determine package manager invocation parameters
 	var sysUpgradeArgs, installArgs []string
@@ -288,12 +289,21 @@ func (maint *Maintenance) SystemMaintenance() string {
 		fmt.Fprintf(ret, "--- Programming error: missing case for package manager %s\n", pkgManagerName)
 		return ret.String()
 	}
+	// If package manager output contains any of the strings, the output is reduced into "Nothing to do"
+	suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
 	// Upgrade system packages with a time constraint of two hours
 	ret.WriteString("--- Upgrading system packages...\n")
 	maint.Logger.Printf("SystemMaintenance", "", nil, "updating system packages")
 	result, err := env.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
 	maint.Logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
-	fmt.Fprintf(ret, "--- System upgrade result: %v - %s\n\n", err, result)
+	for _, marker := range suppressOutputMarkers {
+		// If nothing was done during system update, suppress the rather useless output.
+		if strings.Contains(result, marker) {
+			result = "Nothing to do"
+			break
+		}
+	}
+	fmt.Fprintf(ret, "--- System upgrade result: %v - %s\n\n", err, strings.TrimSpace(result))
 	/*
 		Install additional software packages.
 		laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
@@ -337,11 +347,18 @@ func (maint *Maintenance) SystemMaintenance() string {
 		maint.Logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
 		result, err := env.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, pkgInstallArgs...)
 		maint.Logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
-		fmt.Fprintf(ret, "--- %s installation/upgrade result: %v - %s\n\n", name, err, result)
+		for _, marker := range suppressOutputMarkers {
+			// If nothing was done about the package, suppress the rather useless output.
+			if strings.Contains(result, marker) {
+				result = "Nothing to do"
+				break
+			}
+		}
+		fmt.Fprintf(ret, "--- %s installation/upgrade result: %v - %s\n\n", name, err, strings.TrimSpace(result))
 	}
 	// Immediately sync system clock via ntpdate (instead of ntpd)
 	result, err = env.InvokeProgram(nil, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "hk.pool.ntp.org", "au.pool.ntp.org")
-	fmt.Fprintf(ret, "--- clock synchronisation result: %v - %s\n\n", err, result)
+	fmt.Fprintf(ret, "--- clock synchronisation result: %v - %s\n\n", err, strings.TrimSpace(result))
 	/*
 		The program startup time is used to detect outdated commands (such as in telegram bot), in rare case if system clock
 		was severely skewed, causing program startup time to be in the future, the detection mechanisms will misbehave.
