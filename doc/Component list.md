@@ -50,7 +50,7 @@ GitLab browser lists project files and downloads them by specifying file path.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-GitLab-browser)
 
-### Web service - invoke toolbox features in a form
+### Web service - toolbox features form.
 The form offers access to all toolbox features.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form)

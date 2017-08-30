@@ -12,10 +12,8 @@ Then, for each project you wish to browse, visit its "Settings - General - Gener
 
 ## Configuration
 1. Place the following JSON data under JSON key `HTTPHandlers`:
-
   - String `GitlabBrowserEndpoint` - URL locations that will serve GitLab browser; keep it a secret to yourself, and make
     it difficult to guess.
-
   - Object `GitlabBrowserEndpointConfig` that comes with the following mandatory properties:
 <table>
 <tr>
