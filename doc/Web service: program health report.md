@@ -16,11 +16,10 @@ on-demand to show:
 Under JSON key `HTTPHandlers`, write a string property called `InformationEndpoint`, value being the URL location that
 will serve the report. Keep the location a secret to yourself and make it difficult to guess.
 
-Here is an example setup that hosts a home page and media files:
+Here is an example setup:
 <pre>
 {
     ...
-
 
     "HTTPHandlers": {
         ...

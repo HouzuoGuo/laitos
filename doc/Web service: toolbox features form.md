@@ -10,11 +10,10 @@ entry text box, through which you may run any toolbox feature.
 2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
    JSON key `HTTPBridges`.
 
-Here is an example setup that hosts a home page and media files:
+Here is an example:
 <pre>
 {
     ...
-
 
     "HTTPHandlers": {
         ...

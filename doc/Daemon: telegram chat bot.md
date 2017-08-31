@@ -30,7 +30,7 @@ place into the configuration.
 <tr>
     <td>RateLimit</td>
     <td>integer</td>
-    <td>How many times in ten-second interval bot will process toolbox commands</td>
+    <td>Maximum number of toolbox commands the chat bot will process in a ten-second interval.</td>
 </tr>
 </table>
 

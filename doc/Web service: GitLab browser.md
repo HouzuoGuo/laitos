@@ -46,7 +46,7 @@ Then, for each project you wish to browse, visit its "Settings - General - Gener
 
 2. If Email notifications are to be enabled, follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).
 
-Here is an example setup that hosts a home page and media files:
+Here is an example setup:
 <pre>
 {
     ...
@@ -54,7 +54,7 @@ Here is an example setup that hosts a home page and media files:
 
     "HTTPHandlers": {
         ...
-        
+
         "GitlabBrowserEndpoint": "/very-secret-gitlab-browser",
         "GitlabBrowserEndpointConfig": {
             "PrivateToken": "zpbzwmoigtmrnkjgb",

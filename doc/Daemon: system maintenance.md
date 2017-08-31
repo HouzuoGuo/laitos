@@ -27,7 +27,7 @@ properties are mandatory:
 <tr>
     <td>IntervalSec</td>
     <td>integer</td>
-    <td>How often is system maintenance run. 43200 (12 hours) is often good enough.</td>
+    <td>Interval at which system maintenance is run. 43200 (12 hours) is often good enough.</td>
 </tr>
 <tr>
     <td>Recipients</td>
