@@ -28,8 +28,8 @@ Chat-bot provides access to all toolbox features via secure infrastructure provi
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot)
 
 ### Plain-text sockets
-The socket servers provide unencrypted access to all toolbox features via TCP and UDP that are accessible via basic tools
-such as `telnet`, `netcat`, and `HyperTerminal`.
+The socket servers provide unencrypted access to all toolbox features via TCP and UDP that are accessible via basic
+tools such as `telnet`, `netcat`, and `HyperTerminal`.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-plain-text-sockets)
 
@@ -66,14 +66,14 @@ A basic proxy downloads web pages for your on server-side. It however does not p
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-simple-proxy)
 
 ### Web service - browser-in-browser
-The browser renders web sites on the server and sends back screenshots, enabling you to browse modern Internet using nostalgic
-technologies such as IE 5 on Windows 98.
+The browser renders web sites on the server and sends back screenshots, enabling you to browse modern Internet using
+nostalgic technologies such as IE 5 on Windows 98.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-browser-in-browser)
 
 ### Web service - Twilio telephone/SMS hook
-Triggered by Twilio (communication APIs for SMS, voice, and more), the web hooks enable access to all toolbox features via
-ordinary telephone, SMS, and even satellite terminals.
+Triggered by Twilio (communication APIs for SMS, voice, and more), the web hooks enable access to all toolbox features
+via ordinary telephone, SMS, and even satellite terminals.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
 

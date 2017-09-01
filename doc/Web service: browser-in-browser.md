@@ -10,7 +10,7 @@ on laitos server and let you interact with it via mouse and keyboard input. It m
 Construct the following properties under JSON key `HTTPHandlers`:
 1. A string property called `BrowserEndpoint`, value being the URL location that will serve the service. Keep the
    location a secret to yourself and make it difficult to guess.
-2. A JSON object `BrowserEndpointConfig` with only one property `Browsers`:
+2. An object called `BrowserEndpointConfig` with only one object property `Browsers`:
 <table>
 <tr>
     <th>Property</th>
