@@ -66,6 +66,10 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 			MTAPort:  25,
 		},
 	}
+	daemon.SpecialHandlers["/microsoft_bot"] = &api.HandleMicrosoftBot{
+		ClientAppID:     "dummy ID",
+		ClientAppSecret: "dummy secret",
+	}
 	daemon.SpecialHandlers["/proxy"] = &api.HandleWebProxy{MyEndpoint: "/proxy"}
 	daemon.SpecialHandlers["/sms"] = &api.HandleTwilioSMSHook{}
 	daemon.SpecialHandlers["/call_greeting"] = &api.HandleTwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}

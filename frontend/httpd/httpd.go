@@ -1,7 +1,9 @@
 package httpd
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/env"
@@ -242,6 +244,22 @@ func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 	}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK ||
 		(!strings.Contains(string(resp.Body), "发不出去") && !strings.Contains(string(resp.Body), "发出去了")) {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Microsoft bot
+	resp, err = httpclient.DoHTTP(httpclient.Request{Header: basicAuth}, addr+"/microsoft_bot")
+	if err != nil || resp.StatusCode != http.StatusBadRequest {
+		t.Fatal(err, string(resp.Body))
+	}
+	microsoftBotDummyChat := api.MicrosoftBotIncomingChat{}
+	var microsoftBotDummyChatRequest []byte
+	if microsoftBotDummyChatRequest, err = json.Marshal(microsoftBotDummyChat); err != nil {
+		t.Fatal(err)
+	}
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Header: basicAuth,
+		Body:   bytes.NewReader(microsoftBotDummyChatRequest)}, addr+"/microsoft_bot")
+	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Proxy (visit https://github.com)

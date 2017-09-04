@@ -52,6 +52,13 @@ type HTTPHandlers struct {
 	MailMeEndpoint       string           `json:"MailMeEndpoint"`
 	MailMeEndpointConfig api.HandleMailMe `json:"MailMeEndpointConfig"`
 
+	MicrosoftBotEndpoint1       string                 `json:"MicrosoftBotEndpoint1"`
+	MicrosoftBotEndpointConfig1 api.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig1"`
+	MicrosoftBotEndpoint2       string                 `json:"MicrosoftBotEndpoint2"`
+	MicrosoftBotEndpointConfig2 api.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig2"`
+	MicrosoftBotEndpoint3       string                 `json:"MicrosoftBotEndpoint3"`
+	MicrosoftBotEndpointConfig3 api.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig3"`
+
 	WebProxyEndpoint string `json:"WebProxyEndpoint"`
 
 	TwilioSMSEndpoint        string                   `json:"TwilioSMSEndpoint"`
@@ -199,6 +206,19 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 		handler := config.HTTPHandlers.MailMeEndpointConfig
 		handler.Mailer = config.Mailer
 		handlers[config.HTTPHandlers.MailMeEndpoint] = &handler
+	}
+	// I (howard) personally need three bots, hence this ugly approach.
+	if config.HTTPHandlers.MicrosoftBotEndpoint1 != "" {
+		handler := config.HTTPHandlers.MicrosoftBotEndpointConfig1
+		handlers[config.HTTPHandlers.MicrosoftBotEndpoint1] = &handler
+	}
+	if config.HTTPHandlers.MicrosoftBotEndpoint2 != "" {
+		handler := config.HTTPHandlers.MicrosoftBotEndpointConfig2
+		handlers[config.HTTPHandlers.MicrosoftBotEndpoint2] = &handler
+	}
+	if config.HTTPHandlers.MicrosoftBotEndpoint3 != "" {
+		handler := config.HTTPHandlers.MicrosoftBotEndpointConfig3
+		handlers[config.HTTPHandlers.MicrosoftBotEndpoint3] = &handler
 	}
 	if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
 		handlers[proxyEndpoint] = &api.HandleWebProxy{MyEndpoint: proxyEndpoint}

@@ -1,6 +1,8 @@
 package main
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestReseedPseudoRand(t *testing.T) {
 	ReseedPseudoRand()

@@ -90,6 +90,11 @@ func TestConfig(t *testing.T) {
         "howard@localhost"
       ]
     },
+	"MicrosoftBotEndpoint1": "/microsoft_bot",
+    "MicrosoftBotEndpointConfig1": {
+        "ClientAppID": "dummy id",
+        "ClientAppSecret": "dummy secret"
+    },
     "TwilioCallEndpoint": "/call_greeting",
     "TwilioCallEndpointConfig": {
       "CallGreeting": "Hi there"
