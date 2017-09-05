@@ -33,7 +33,7 @@ The form is hosted by web server, therefore remember to [run web server](https:/
 ## Usage
 In a web browser, navigate to `CommandFormEndpoint` of laitos web server.
 
-Enter toolbox command into the text box, click "Exec" button and observe the toolbox command output.
+Enter PIN and toolbox command into the text box, click "Exec" button and observe the toolbox command output.
 
 ## Tips
 Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!

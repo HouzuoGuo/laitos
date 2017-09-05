@@ -12,15 +12,15 @@ var DTMFDecodeTable = map[string]string{
 	`121`: "`", `122`: `~`, `123`: `)`, `124`: `-`, `125`: `_`, `126`: `=`, `127`: `+`, `128`: `[`, `129`: `{`,
 	`131`: `]`, `132`: `}`, `133`: `\`, `134`: `|`, `135`: `;`, `136`: `:`, `137`: `'`, `138`: `"`, `139`: `,`,
 	`141`: `<`, `142`: `.`, `143`: `>`, `144`: `/`, `145`: `?`,
-	`1`: `0`, `11`: `1`, `12`: `2`, `13`: `3`, `14`: `4`, `15`: `5`, `16`: `6`, `17`: `7`, `18`: `8`, `19`: `9`,
-	`2`: "a", `22`: `b`, `222`: `c`,
-	`3`: "d", `33`: `e`, `333`: `f`,
-	`4`: "g", `44`: `h`, `444`: `i`,
-	`5`: "j", `55`: `k`, `555`: `l`,
-	`6`: "m", `66`: `n`, `666`: `o`,
-	`7`: "p", `77`: `q`, `777`: `r`, `7777`: `s`,
-	`8`: "t", `88`: `u`, `888`: `v`,
-	`9`: "w", `99`: `x`, `999`: `y`, `9999`: `z`,
+	`1`:   `0`, `11`: `1`, `12`: `2`, `13`: `3`, `14`: `4`, `15`: `5`, `16`: `6`, `17`: `7`, `18`: `8`, `19`: `9`,
+	`2`:   "a", `22`: `b`, `222`: `c`,
+	`3`:   "d", `33`: `e`, `333`: `f`,
+	`4`:   "g", `44`: `h`, `444`: `i`,
+	`5`:   "j", `55`: `k`, `555`: `l`,
+	`6`:   "m", `66`: `n`, `666`: `o`,
+	`7`:   "p", `77`: `q`, `777`: `r`, `7777`: `s`,
+	`8`:   "t", `88`: `u`, `888`: `v`,
+	`9`:   "w", `99`: `x`, `999`: `y`, `9999`: `z`,
 } // Decode sequence of DTMF digits into letters and symbols
 
 // Decode a sequence of character string sent via DTMF. Input is a sequence of key names (0-9 and *)
@@ -31,13 +31,13 @@ func DTMFDecode(digits string) string {
 	}
 	/*
 		The rationale is following:
-		- The number-pad should be able to enter nearly all characters (symbols, numerals, and letters).
-		- Each character is entered either by a single number or a sequence of numbers.
-		- Asterisk toggles between upper case and lower case. In the beginning letters are in lower case.
-		- Number 0 either terminates a character sequence, or generate spaces if character sequence is already terminated.
+		- The number pad is able to enter nearly all Latin letters, common symbols, and numbers.
+		- A character is entered via either a single digit or a sequence of digits.
+		- Asterisk toggles between upper case and lower case letters. By default letters are in lower case.
+		- Digit 0 either terminates a character's sequence, or generate spaces if character's sequence is already terminated.
 		- A new character sequence begins automatically if previous character sequence is terminated or this number does not
-		  continue the number sequence (e.g. terminate when 4 follows "333")
-		- Symbols and numerals always require explicit termination of their sequence by a number 0.
+  		  continue the number sequence (e.g. sequence "3334" generates an "f" letter and then awaits more input after "4").
+		- Symbols and numbers always require explicit termination of their sequence by a digit 0.
 	*/
 	words := make([]string, 0, 256)
 	word := make([]rune, 0, 8)

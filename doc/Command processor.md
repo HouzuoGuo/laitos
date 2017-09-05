@@ -227,8 +227,8 @@ Regarding password PIN:
   or [health report](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-health-report).
 
 Regarding toolbox usage via SMS/telephone:
-- Public telephone and mobile network are prone to attacks, they can eavesdrop your password PIN and toolbox feature
-  conversations relatively easily. Use them only as a last resort.
+- Telephone and mobile networks are prone to attacks, they can eavesdrop your password PIN and toolbox feature
+  conversations easily. Use them only as a last resort.
 - The [Twilio SMS/telephone hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
   runs in the web server daemon, therefore the corresponding command processor configuration is in JSON key `HTTPBridge`.
   Check out the feature's manual for techniques of command entry via telephone number pad.
