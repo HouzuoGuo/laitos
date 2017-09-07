@@ -72,10 +72,16 @@ nostalgic technologies such as IE 5 on Windows 98.
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-browser-in-browser)
 
 ### Web service - Twilio telephone/SMS hook
-Triggered by Twilio (communication APIs for SMS, voice, and more), the web hooks enable access to all toolbox features
-via ordinary telephone, SMS, and even satellite terminals.
+Triggered by [Twilio](https://www.twilio.com) (API platform for programming telephone and SMS), the web hook enables
+access to all toolbox features via ordinary telephone, SMS, and even satellite terminals.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
+
+### Web service - Microsoft bot hook
+Triggered by [Microsoft Bot Framework](https://dev.botframework.com/), the web hook enables access to all toolbox
+features via several bot channels such as Skype and Cortana.
+
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Microsoft-bot-hook)
 
 ## Toolbox features
 
