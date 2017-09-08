@@ -66,13 +66,12 @@ Here is an example:
 </pre>
 
 ## Usage
-Use any laitos daemon to run the following toolbox command:
+Use any capable laitos daemon to run the following toolbox command:
 
-    .f <message>
+    .f message
 
-Where the message is to be posted to Facebook time-line.
-
-A short moment later, the command response will say a number, that is how many characters the message has.
+Where `message` is to be posted to Facebook time-line. A short moment later, the command response will say a number that
+is length of the message.
 
 ## Tips
 Facebook annoyingly hands out these short-lived API access tokens that we must refresh each month, there is no way

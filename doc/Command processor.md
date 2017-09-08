@@ -7,6 +7,7 @@ The following daemon components have an embedded command processor to let users 
 - [Plain-text sockets](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-plain-text-sockets)
 - Web service [invoke toolbox features in a form](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form)
 - Web service [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
+- Web service [Microsoft bot hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Microsoft-bot-hook)
 
 To use toolbox feature via a daemon, the following events take place:
 1. Input a command. For example, web server collects input in an HTML form, and mail server collects input from incoming
@@ -172,7 +173,7 @@ The following prefixes are accepted, see individual feature manual for their usa
 - `.b` - [Interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-interactive-web-browser)
 - `.e` - [Inspect system and program environment](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-inspect-environment)
 - `.f` - [Facebook](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-Facebook)
-- `.i` - [Read Emails]((https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-Email-client))
+- `.i` - [Read Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-read-Emails)
 - `.m` - [Send Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-send-Emails)
 - `.p` - [Call friends and send texts](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-telephone-and-SMS)
 - `.s` - [Run system commands](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-run-system-commands)
@@ -183,7 +184,7 @@ The following prefixes are accepted, see individual feature manual for their usa
 "PLT" is a special command prepended to an ordinary command, in order to seek to position among result output,
 and temporarily modify max length and timeout restriction. The usage is:
 
-    .plt <SKIP> <MAX LENGTH> <TIMEOUT SECONDS> PIN .feature_prefix parameter1 parameter 2 parameter 3 ...
+    PIN .plt <SKIP> <MAX LENGTH> <TIMEOUT SECONDS> .feature_prefix parameter1 parameter 2 parameter 3 ...
 
 Where:
 - `<SKIP>` is the number of characters to discard from beginning of the result output.

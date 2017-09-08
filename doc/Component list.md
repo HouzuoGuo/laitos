@@ -88,22 +88,22 @@ features via several bot channels such as Skype and Cortana.
 ### Social network - Facebook
 Post updates to Facebook time-line.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-Facebook)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Facebook)
 
 ### Social network - Twitter
 Read and post tweets.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-Twitter)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Twitter)
 
-### Social network - read Emails
+### Social network - reading Emails
 Read mails from personal Email addresses.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-read-Emails)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-reading-Emails)
 
-### Social network - send Emails
+### Social network - sending Emails
 Send mails to friends.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-send-Emails)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-sending-Emails)
 
 ### Telephone and SMS
 Send text to friend's phone number, or call a friend to speak a short message.
