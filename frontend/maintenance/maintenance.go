@@ -48,8 +48,8 @@ type Maintenance struct {
 	FeaturesToCheck *feature.FeatureSet  `json:"-"`           // Health check subject - features and their API keys
 	MailpToCheck    *mailp.MailProcessor `json:"-"`           // Health check subject - mail processor and its mailer
 	Logger          global.Logger        `json:"-"`           // Logger
-	loopIsRunning   int32                                     // Value is 1 only when health check loop is running
-	stop            chan bool                                 // Signal health check loop to stop
+	loopIsRunning   int32                // Value is 1 only when health check loop is running
+	stop            chan bool            // Signal health check loop to stop
 }
 
 /*
