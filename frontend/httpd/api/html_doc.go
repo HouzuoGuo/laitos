@@ -34,5 +34,5 @@ func (index *HandleHTMLDocument) MakeHandler(logger global.Logger, cmdProc *comm
 }
 
 func (index *HandleHTMLDocument) GetRateLimitFactor() int {
-	return 10
+	return 20
 }

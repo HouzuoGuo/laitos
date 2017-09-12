@@ -176,6 +176,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 	lastIdle := time.Now().Unix()
 	for {
 		if global.EmergencyLockDown {
+			atomic.StoreInt32(&bot.loopIsRunning, 0)
 			return global.ErrEmergencyLockDown
 		}
 		atomic.StoreInt32(&bot.loopIsRunning, 1)
@@ -209,6 +210,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 	sleepAndContinue:
 		select {
 		case <-bot.stop:
+			atomic.StoreInt32(&bot.loopIsRunning, 0)
 			return nil
 		case <-time.After(PollIntervalSec * time.Second):
 		}

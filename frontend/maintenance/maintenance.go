@@ -48,8 +48,8 @@ type Maintenance struct {
 	FeaturesToCheck *feature.FeatureSet  `json:"-"`           // Health check subject - features and their API keys
 	MailpToCheck    *mailp.MailProcessor `json:"-"`           // Health check subject - mail processor and its mailer
 	Logger          global.Logger        `json:"-"`           // Logger
-	loopIsRunning   int32                // Value is 1 only when health check loop is running
-	stop            chan bool            // Signal health check loop to stop
+	loopIsRunning   int32                                     // Value is 1 only when health check loop is running
+	stop            chan bool                                 // Signal health check loop to stop
 }
 
 /*
@@ -198,24 +198,34 @@ func (maint *Maintenance) StartAndBlock() error {
 	// Sort port numbers so that their check results look nicer in the final report
 	sort.Ints(maint.TCPPorts)
 	firstTime := true
+	// The very first health check is executed soon (10 minutes) after health check daemon starts up
+	nextRunAt := time.Now().Add(10 * time.Minute)
 	for {
 		if global.EmergencyLockDown {
+			atomic.StoreInt32(&maint.loopIsRunning, 0)
 			return global.ErrEmergencyLockDown
 		}
-		// The very first health check is executed soon (10 minutes) after health check daemon starts up
-		var waitDuration time.Duration
+		atomic.StoreInt32(&maint.loopIsRunning, 1)
 		if firstTime {
-			waitDuration = 10 * time.Minute
+			select {
+			case <-maint.stop:
+				atomic.StoreInt32(&maint.loopIsRunning, 0)
+				return nil
+			case <-time.After(time.Until(nextRunAt)):
+				nextRunAt = nextRunAt.Add(time.Duration(maint.IntervalSec) * time.Second)
+				maint.Execute()
+			}
 			firstTime = false
 		} else {
-			waitDuration = time.Duration(maint.IntervalSec) * time.Second
-		}
-		atomic.StoreInt32(&maint.loopIsRunning, 1)
-		select {
-		case <-maint.stop:
-			return nil
-		case <-time.After(waitDuration):
-			maint.Execute()
+			// Afterwards, try to maintain a steady rate of execution.
+			select {
+			case <-maint.stop:
+				atomic.StoreInt32(&maint.loopIsRunning, 0)
+				return nil
+			case <-time.After(time.Until(nextRunAt)):
+				nextRunAt = nextRunAt.Add(time.Duration(maint.IntervalSec) * time.Second)
+				maint.Execute()
+			}
 		}
 	}
 }
