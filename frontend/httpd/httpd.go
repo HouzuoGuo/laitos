@@ -309,7 +309,7 @@ func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body))
 	}
-	// Twilio - check phone call response to command
+	// Twilio - check command execution result via phone call
 	resp, err = httpclient.DoHTTP(httpclient.Request{
 		Method: http.MethodPost,
 		Header: basicAuth,
@@ -317,6 +317,18 @@ func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 		Body: strings.NewReader(url.Values{"Digits": {"88833777999777733222777338014207777087778833"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
 	sayResp := `<Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>`
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), sayResp) {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Twilio - check command execution result via phone call and ask output to be spelt phonetically
+	resp, err = httpclient.DoHTTP(httpclient.Request{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		//                                                                               v  e r  y  s   e c  r  e t .   s    tr  u e
+		Body: strings.NewReader(url.Values{"Digits": {api.TwilioPhoneticSpellingMagic + "88833777999777733222777338014207777087778833"}}.Encode()),
+	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+	phoneticOutput := `capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango, repeat again, capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango, repeat again, capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango, over.`
+	sayResp = `<Say><![CDATA[` + phoneticOutput + `]]></Say>`
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), sayResp) {
 		t.Fatal(err, string(resp.Body))
 	}

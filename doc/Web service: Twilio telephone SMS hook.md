@@ -76,7 +76,7 @@ wait for spoken response. The number pad input works in this way:
 - Digit 0 either terminates a character's sequence, or generate spaces if character's sequence is already terminated.
 - A new character sequence begins automatically if previous character sequence is terminated or this number does not
   continue the number sequence (e.g. sequence "3334" generates an "f" letter and then awaits more input after "4").
-- Symbols and numbers always require explicit termination of their sequence by a digit 0.
+- Symbols and numbers always require explicit termination of their sequence by a digit 0. 
 
 And here are the digit sequences for entering letters, symbols, and numbers:
 <pre>
@@ -92,6 +92,10 @@ And here are the digit sequences for entering letters, symbols, and numbers:
 6 - m      66 - n     666 – o    7 - p      77 - q     777 - r    7777 - s
 8 - t      88 - u     888 – v    9 - w      99 - x     999 - y    9999 – z
 </pre>
+
+If you wish the output to be spelt phonetically rather than spoken, input number sequence `0123` before PIN and command
+input. This technique is very useful for copying sophisticated command output such as those from operating system shell
+commands.
 
 ## Tips
 Warning! Telephone and mobile networks are prone to attacks, they can eavesdrop your password PIN and toolbox

@@ -8,9 +8,21 @@ import (
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
 	"net/http"
+	"strings"
 )
 
-const TwilioHandlerTimeoutSec = 14 // as of 2017-02-23, the timeout is required by Twilio on both SMS and call hooks.
+const (
+	/*
+		TwilioHandlerTimeoutSec is Twilio's HTTP client timeout. As of 2017-02-23, the timeout of 14 seconds is enforced
+		on both SMS and telephone call hooks.
+	*/
+	TwilioHandlerTimeoutSec = 14
+	/*
+		TwilioPhoneticSpellingMagic is the prefix magic to dial in order to have output read back phonetically.
+		The magic must not hinder DTMF PIN input, therefore it begins with 0, which is a DTMF space and cannot be part of a PIN.
+	*/
+	TwilioPhoneticSpellingMagic = "0123"
+)
 
 // Handle Twilio phone number's SMS hook.
 type HandleTwilioSMSHook struct {
@@ -85,9 +97,17 @@ func (hand *HandleTwilioCallCallback) MakeHandler(logger global.Logger, cmdProc 
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		// DTMF input digits are in "Digits" parameter
+		var phoneticSpelling bool
+		dtmfInput := r.FormValue("Digits")
+		// The magic prefix asks output to be spelt phonetically
+		if strings.HasPrefix(dtmfInput, TwilioPhoneticSpellingMagic) {
+			phoneticSpelling = true
+			dtmfInput = dtmfInput[len(TwilioPhoneticSpellingMagic):]
+		}
+		// Run the toolbox command
 		ret := cmdProc.Process(feature.Command{
 			TimeoutSec: TwilioHandlerTimeoutSec,
-			Content:    DTMFDecode(r.FormValue("Digits")),
+			Content:    DTMFDecode(dtmfInput),
 		})
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		NoCache(w)
@@ -103,8 +123,12 @@ func (hand *HandleTwilioCallCallback) MakeHandler(logger global.Logger, cmdProc 
 </Response>
 `))
 		} else {
-			// Repeat output three times and listen for the next input
-			combinedOutput := XMLEscape(ret.CombinedOutput)
+			combinedOutput := ret.CombinedOutput
+			if phoneticSpelling {
+				combinedOutput = SpellPhonetically(combinedOutput)
+			}
+			combinedOutput = XMLEscape(combinedOutput)
+			// Repeat command output three times and listen for the next input
 			w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">

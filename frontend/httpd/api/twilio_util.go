@@ -2,8 +2,10 @@ package api
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"strings"
+	"unicode"
 )
 
 var DTMFDecodeTable = map[string]string{
@@ -100,4 +102,101 @@ func DTMFDecode(digits string) string {
 		}
 	}
 	return message.String()
+}
+
+var SpellTable = map[rune]string{
+	'`': "back tick", '~': "tilde", '!': "exclamation", '@': "at", '#': "hash", '$': "dollar", '%': "percentage",
+	'^': "caret", '&': "ampersand", '*': "asterisk", '(': "left parentheses", ')': "right parentheses",
+	'-': "dash",
+	'_': "underscore",
+	'=': "equal",
+	'+': "plus",
+
+	'[':  "left square bracket",
+	'{':  "left curly bracket",
+	']':  "right square bracket",
+	'}':  "right curly bracket",
+	'\\': "back slash",
+	'|':  "pipe",
+	';':  "semicolon",
+	':':  "colon",
+	'\'': "single quote",
+	'"':  "double quote",
+	',':  "comma",
+	'<':  "left angle bracket",
+	'.':  "dot",
+	'>':  "right angle bracket",
+	'/':  "slash",
+	'?':  "question",
+
+	'1': "one",
+	'2': "two",
+	'3': "three",
+	'4': "four",
+	'5': "five",
+	'6': "six",
+	'7': "seven",
+	'8': "eight",
+	'9': "nine",
+	'0': "zero",
+
+	'a': "alpha",
+	'b': "beta",
+	'c': "charlie",
+	'd': "delta",
+	'e': "echo",
+	'f': "foxtrot",
+	'g': "golf",
+	'h': "hotel",
+	'i': "india",
+	'j': "juliet",
+	'k': "kilo",
+	'l': "lima",
+	'm': "mike",
+	'n': "november",
+	'o': "oscar",
+	'p': "papa",
+	'q': "quebec",
+	'r': "romeo",
+	's': "sierra",
+	't': "tango",
+	'u': "uniform",
+	'v': "victor",
+	'w': "whiskey",
+	'x': "xray",
+	'y': "yankee",
+	'z': "zulu",
+} // SpellTable helps to spell out individual letters and symbols in piece of text.
+
+/*
+SpellPhonetically returns input text with every letter, number, and symbol spelt phonetically.
+E.g. given input "abc123", the function returns "alpha, beta, charlie, one, two, three".
+Spaces and consecutive spaces are simply spelt "space".
+*/
+func SpellPhonetically(text string) string {
+	words := make([]string, 0, len(text))
+	var prevCharIsSpace bool
+	for _, c := range text {
+		if unicode.IsSpace(c) {
+			if !prevCharIsSpace {
+				words = append(words, "space")
+				prevCharIsSpace = true
+			}
+		} else {
+			prevCharIsSpace = false
+			var thisWord string
+			if unicode.IsUpper(c) {
+				// The trailing space is intentional in order to form a word such as "capital beta"
+				thisWord = "capital "
+				c = unicode.ToLower(c)
+			}
+			if phoneticSpelling, found := SpellTable[c]; found {
+				thisWord += phoneticSpelling
+			} else {
+				thisWord = fmt.Sprintf("%c", c)
+			}
+			words = append(words, thisWord)
+		}
+	}
+	return strings.Join(words, ", ")
 }

@@ -1,6 +1,8 @@
 package api
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestDTMFDecode(t *testing.T) {
 	if s := DTMFDecode(""); s != "" {
@@ -47,6 +49,17 @@ func TestDTMFDecode(t *testing.T) {
 	11100
 	800
 	9999*`); s != "aei1jnr! T Z" {
+		t.Fatal(s)
+	}
+}
+
+func TestSpellOutOrNot(t *testing.T) {
+	if s := SpellPhonetically(""); s != "" {
+		t.Fatal(s)
+	}
+	sample := "account1  \tme@gmail.com \n7&!x$NRj&T"
+	sampleOut := `alpha, charlie, charlie, oscar, uniform, november, tango, one, space, mike, echo, at, golf, mike, alpha, india, lima, dot, charlie, oscar, mike, space, seven, ampersand, exclamation, xray, dollar, capital november, capital romeo, juliet, ampersand, capital tango`
+	if s := SpellPhonetically(sample); s != sampleOut {
 		t.Fatal(s)
 	}
 }
