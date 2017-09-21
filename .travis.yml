@@ -1,7 +1,7 @@
 language: go
 go_import_path: github.com/HouzuoGuo/laitos
 go:
-  - 1.8.x
+  - 1.9.x
   - tip
 matrix:
   allow_failures:
