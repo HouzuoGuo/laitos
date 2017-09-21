@@ -43,6 +43,8 @@ const (
 	QUIT
 	RSET
 	STARTTLS
+	NOOP
+	VRFY
 )
 
 // ParsedLine represents a parsed SMTP command line.  Err is set if
@@ -83,6 +85,8 @@ var smtpCommand = []struct {
 	{QUIT, "QUIT", noArg},
 	{RSET, "RSET", noArg},
 	{STARTTLS, "STARTTLS", noArg},
+	{VRFY, "VRFY", canArg},
+	{NOOP, "NOOP", canArg},
 }
 
 func (v Command) String() string {
@@ -612,8 +616,13 @@ func (c *Conn) Next() EventInfo {
 					c.state = sHelo
 				}
 				c.reply("250 Ok")
-			// RSETs are not delivered to higher levels;
-			// they are implicit in sudden MAIL FROMs.
+				// RSETs are not delivered to higher levels;
+				// they are implicit in sudden MAIL FROMs.
+			case VRFY:
+				// Will not reveal user information
+				c.reply("252 Ok")
+			case NOOP:
+				c.reply("250 Ok")
 			case QUIT:
 				c.state = sQuit
 				c.reply("221 2.0.0 Bye")

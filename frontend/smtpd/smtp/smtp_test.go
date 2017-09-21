@@ -45,6 +45,10 @@ var smtpValidTests = []struct {
 	{"QUIT", QUIT, "", ""},
 	{"RSET", RSET, "", ""},
 	{"STARTTLS", STARTTLS, "", ""},
+	{"NOOP", NOOP, "whatever arg", ""},
+	{"NOOP", NOOP, "", ""},
+	{"VRFY", VRFY, "whatever arg", ""},
+	{"VRFY", VRFY, "", ""},
 
 	// Torture cases.
 	{"RCPT TO:<a>", RCPTTO, "a", ""}, // Minimal address
@@ -227,6 +231,10 @@ func TestBasicSmtpd(t *testing.T) {
 // EHLO, send email, send email again, try what should be an out of
 // sequence RCPT TO.
 var basicClient = `EHLO localhost
+NOOP whatever parameter
+NOOP
+VRFY whatever parameter
+VRFY
 MAIL FROM:<a@b.com>
 RCPT TO:<c@d.org>
 DATA
@@ -250,6 +258,10 @@ var basicServer = `220 localhost ESMTP
 250-8BITMIME
 250-PIPELINING
 250 Ok
+250 Ok
+250 Ok
+252 Ok
+252 Ok
 250 2.1.0 Ok
 250 2.1.5 Ok
 354 End data with <CR><LF>.<CR><LF>
