@@ -45,9 +45,9 @@ var smtpValidTests = []struct {
 	{"QUIT", QUIT, "", ""},
 	{"RSET", RSET, "", ""},
 	{"STARTTLS", STARTTLS, "", ""},
-	{"NOOP", NOOP, "whatever arg", ""},
+	{"NOOP whatever arg", NOOP, "whatever arg", ""},
 	{"NOOP", NOOP, "", ""},
-	{"VRFY", VRFY, "whatever arg", ""},
+	{"VRFY whatever arg", VRFY, "whatever arg", ""},
 	{"VRFY", VRFY, "", ""},
 
 	// Torture cases.
