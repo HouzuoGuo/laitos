@@ -28,6 +28,9 @@ func (instances *Renderers) Initialise() error {
 	if _, err := os.Stat(instances.PhantomJSExecPath); err != nil {
 		return fmt.Errorf("Renderers.Initialise: cannot find PhantomJS executable \"%s\" - %v", instances.PhantomJSExecPath, err)
 	}
+	if err := os.Chmod(instances.PhantomJSExecPath, 0700); err != nil {
+		return fmt.Errorf("Renderers.Initialise: failed to chmod PhantomJS - %v", err)
+	}
 	if instances.MaxInstances < 1 {
 		return errors.New("Renderers.Initialise: MaxInstances must be greater than 0")
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/HouzuoGuo/laitos/feature"
 	"github.com/HouzuoGuo/laitos/frontend/common"
 	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/launcher"
 	"io/ioutil"
 	pseudoRand "math/rand"
 	"os"
@@ -111,6 +112,20 @@ func main() {
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
+	// Process launcher flags
+	var sl bool
+	var slPort int
+	var slArchivePath string
+	var slURL string
+	flag.BoolVar(&sl, launcher.MagicArg, false, "(Optional) trigger \"special-launch\"")
+	flag.IntVar(&slPort, "slport", 80, "(Optional) special-launch: port number")
+	flag.StringVar(&slArchivePath, "slarchive", "", "(Optional) special-launch: archive path")
+	flag.StringVar(&slURL, "slurl", "", "(Optional) special-launch: url that must include prefix slash")
+	// Process launcher utility mode flags
+	var slu, sluDir, sluFile string
+	flag.StringVar(&slu, "slu", "", "(Optional) special-launch: utility name (extract, archive)")
+	flag.StringVar(&sluDir, "sludir", "", "(Optional) special-launch: source/target directory")
+	flag.StringVar(&sluFile, "slufile", "", "(Optional) special-launch: source/target archive file")
 	flag.Parse()
 
 	// Dump goroutine stacktraces upon receiving interrupt signal
@@ -122,6 +137,49 @@ func main() {
 				pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
 			}
 		}()
+	}
+
+	// Re-seed pseudo random number generator once a while
+	ReseedPseudoRand()
+	go func() {
+		time.Sleep(2 * time.Minute)
+		ReseedPseudoRand()
+	}()
+
+	// Configure gomaxprocs to help laitos daemons
+	if gomaxprocs > 0 {
+		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
+		logger.Warningf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
+	} else {
+		logger.Warningf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
+	}
+
+	// Stop certain daemons to increase chance of successful launch of laitos daemons
+	if disableConflicts {
+		DisableConflictingDaemons()
+	}
+
+	// Tune operating system parameters for optimal performance and better resource utilisation
+	if tuneSystem {
+		logger.Warningf("main", "", nil, "System tuning result is: \n%s", feature.TuneLinux())
+	}
+
+	// The "special-launch" launcher runs prior to the daemons
+	if sl {
+		UseLauncher(slPort, slURL, slArchivePath)
+		return
+	}
+	// The launcher utilities do not run daemons at all
+	if slu != "" {
+		switch slu {
+		case "extract":
+			LauncherUtilityExtract(sluDir, sluFile)
+		case "archive":
+			LauncherUtilityArchive(sluDir, sluFile)
+		default:
+			logger.Fatalf("main", "", nil, "please provide mode of operation (extract|archive) for parameter slu")
+		}
+		return
 	}
 
 	if global.ConfigFilePath == "" {
@@ -152,31 +210,6 @@ func main() {
 	if frontends == nil || len(frontends) == 0 {
 		logger.Fatalf("main", "", nil, "please provide comma-separated list of frontend services to start (-frontend).")
 		return
-	}
-
-	// Re-seed pseudo random number generator once a while
-	ReseedPseudoRand()
-	go func() {
-		time.Sleep(2 * time.Minute)
-		ReseedPseudoRand()
-	}()
-
-	// Configure gomaxprocs to help laitos daemons
-	if gomaxprocs > 0 {
-		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
-		logger.Warningf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
-	} else {
-		logger.Warningf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
-	}
-
-	// Stop certain daemons to increase chance of successful launch of laitos daemons
-	if disableConflicts {
-		DisableConflictingDaemons()
-	}
-
-	// Tune operating system parameters for optimal performance and better resource utilisation
-	if tuneSystem {
-		logger.Warningf("main", "", nil, "System tuning result is: \n%s", feature.TuneLinux())
 	}
 
 	// Start each daemon

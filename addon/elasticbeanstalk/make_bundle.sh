@@ -14,7 +14,7 @@ popd
 
 rm -rf bundle/
 cp -R "$config_dir" bundle/
-cp -R ../../laitos ./Procfile ./.ebextensions/ ../phantom* ../laitos.service ../deploy_to_root_home.sh bundle/
+cp -R ../../laitos ./.ebextensions/ bundle/
 chmod -R 755 bundle/
 
 pushd bundle
