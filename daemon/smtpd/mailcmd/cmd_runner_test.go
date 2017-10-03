@@ -1,4 +1,4 @@
-package mailp
+package mailcmd
 
 import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
@@ -9,32 +9,32 @@ import (
 )
 
 func TestMailProcessor_Process(t *testing.T) {
-	mailproc := MailProcessor{
+	mailproc := CommandRunner{
 		Processor:         &common.CommandProcessor{},
 		CommandTimeoutSec: 5,
-		ReplyMailer: inet.Mailer{
+		ReplyMailer: inet.MailClient{
 			MTAHost:  "127.0.0.1",
 			MTAPort:  25,
 			MailFrom: "howard@localhost",
 		},
 		Undocumented1: TestUndocumented1,
 	}
-	// Processor has insane configuration
+	// CommandRunner has insane configuration
 	if err := mailproc.Process([]byte("test body")); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
 		t.Fatal("did not error due to insane CommandProcessor")
 	}
 	// Prepare a good processor
 	mailproc.Processor = common.GetTestCommandProcessor()
-	TestMailp(&mailproc, t)
+	TestCommandRunner(&mailproc, t)
 }
 
 func TestMailProcessor_Process_Undocumented1Reply(t *testing.T) {
 	if TestUndocumented1Message == "" {
 		t.Skip()
 	}
-	mailproc := MailProcessor{
+	mailproc := CommandRunner{
 		CommandTimeoutSec: 5,
-		ReplyMailer: inet.Mailer{
+		ReplyMailer: inet.MailClient{
 			MTAHost:  "127.0.0.1",
 			MTAPort:  25,
 			MailFrom: "howard@localhost",
@@ -61,9 +61,9 @@ func TestMailProcessor_Process_Undocumented2Reply(t *testing.T) {
 	if TestUndocumented2Message == "" {
 		t.Skip()
 	}
-	mailproc := MailProcessor{
+	mailproc := CommandRunner{
 		CommandTimeoutSec: 5,
-		ReplyMailer: inet.Mailer{
+		ReplyMailer: inet.MailClient{
 			MTAHost:  "127.0.0.1",
 			MTAPort:  25,
 			MailFrom: "howard@localhost",

@@ -3,10 +3,10 @@ package main
 import (
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
-	"github.com/HouzuoGuo/laitos/daemon/mailp"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
-	"github.com/HouzuoGuo/laitos/daemon/plain"
+	"github.com/HouzuoGuo/laitos/daemon/plainsockets"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"testing"
@@ -153,12 +153,12 @@ func TestConfig(t *testing.T) {
   "MailProcessor": {
     "CommandTimeoutSec": 10
   },
-  "Mailer": {
+  "MailClient": {
     "MTAHost": "127.0.0.1",
     "MTAPort": 25,
     "MailFrom": "howard@localhost"
   },
-  "PlainTextBridges": {
+  "PlainSocketBridges": {
     "LintText": {
       "CompressToSingleLine": false,
       "MaxLength": 120,
@@ -184,7 +184,7 @@ func TestConfig(t *testing.T) {
       ]
     }
   },
-  "PlainTextDaemon": {
+  "PlainSocketsDaemon": {
     "Address": "127.0.0.1",
     "PerIPLimit": 10,
     "TCPPort": 17011,
@@ -272,12 +272,12 @@ func TestConfig(t *testing.T) {
 	httpd.TestHTTPD(insecureHTTPDaemon, t)
 	httpd.TestAPIHandlers(insecureHTTPDaemon, t)
 
-	mailp.TestMailp(config.GetMailProcessor(), t)
+	mailcmd.TestCommandRunner(config.GetMailProcessor(), t)
 
 	smtpd.TestSMTPD(config.GetMailDaemon(), t)
 
-	plain.TestTCPServer(config.GetPlainTextDaemon(), t)
-	plain.TestUDPServer(config.GetPlainTextDaemon(), t)
+	plainsockets.TestTCPServer(config.GetPlainTextDaemon(), t)
+	plainsockets.TestUDPServer(config.GetPlainTextDaemon(), t)
 
 	sockd.TestSockd(config.GetSockDaemon(), t)
 

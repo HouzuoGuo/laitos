@@ -18,7 +18,7 @@ var (
 
 // Send outgoing emails.
 type SendMail struct {
-	Mailer inet.Mailer `json:"Mailer"`
+	Mailer inet.MailClient `json:"Mailer"`
 }
 
 var TestSendMail = SendMail{} // Details are set by init_feature_test.go

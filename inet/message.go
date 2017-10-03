@@ -17,7 +17,7 @@ var RegexMailAddress = regexp.MustCompile(`[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+@[a-zA
 Mail properties such as subject and content type.
 If the mail is a multi-part mail, the ContentType string will be able to tell the correct content type to a multipart reader.
 */
-type BasicProperties struct {
+type BasicMail struct {
 	Subject      string // Mail subject
 	FromAddress  string // From address of mail, minus person's name.
 	ReplyAddress string // Address to which a reply to this mail shall be delivered
@@ -25,7 +25,7 @@ type BasicProperties struct {
 }
 
 // Parse headers of the mail message and return some basic properties about the mail.
-func ReadMessage(mailMessage []byte) (prop BasicProperties, parsedMail *mail.Message, err error) {
+func ReadMailMessage(mailMessage []byte) (prop BasicMail, parsedMail *mail.Message, err error) {
 	// Retrieve headers using standard library function
 	parsedMail, err = mail.ReadMessage(bytes.NewReader(mailMessage))
 	if err != nil {
@@ -59,8 +59,8 @@ The function returns two parameters:
 bool - if true, continue processing the next part, otherwise cease processing.
 error - stop processing and return this error immediately.
 */
-func WalkMessage(mailMessage []byte, fun func(BasicProperties, []byte) (bool, error)) error {
-	prop, parsedMail, err := ReadMessage(mailMessage)
+func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, error)) error {
+	prop, parsedMail, err := ReadMailMessage(mailMessage)
 	if err != nil {
 		return err
 	}

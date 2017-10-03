@@ -31,11 +31,11 @@ const (
 
 var TCPDurationStats = misc.NewStats()
 
-func (sock *Sockd) StartAndBlockTCP() error {
+func (sock *Daemon) StartAndBlockTCP() error {
 	var err error
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", sock.Address, sock.TCPPort))
 	if err != nil {
-		return fmt.Errorf("Sockd.StartAndBlockTCP: failed to listen on %s:%d - %v", sock.Address, sock.TCPPort, err)
+		return fmt.Errorf("sockd.StartAndBlockTCP: failed to listen on %s:%d - %v", sock.Address, sock.TCPPort, err)
 	}
 	defer listener.Close()
 	sock.Logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
@@ -50,7 +50,7 @@ func (sock *Sockd) StartAndBlockTCP() error {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			} else {
-				return fmt.Errorf("Sockd.StartAndBlockTCP: failed to accept new connection - %v", err)
+				return fmt.Errorf("sockd.StartAndBlockTCP: failed to accept new connection - %v", err)
 			}
 		}
 		clientIP := conn.RemoteAddr().(*net.TCPAddr).IP.String()

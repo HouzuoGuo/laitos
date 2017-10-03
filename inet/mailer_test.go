@@ -6,7 +6,7 @@ import (
 )
 
 func TestMailer_Send(t *testing.T) {
-	m := Mailer{}
+	m := MailClient{}
 	if m.IsConfigured() {
 		t.Fatal("not correct")
 	}

@@ -13,15 +13,26 @@ import (
 )
 
 const (
-	ErrBadProcessorConfig = "Insane configuration: " // Prefix errors in function IsSaneForInternet
-	PrefixCommandPLT      = ".plt"                   // A command input prefix that temporary overrides output position, length, and timeout.
+	//ErrBadProcessorConfig prefixes error messages in function "IsSaneForInternet".
+	ErrBadProcessorConfig = "bad configuration: "
+
+	/*
+		PrefixCommandPLT is the magic string to prefix command input, in order to navigate around among the output and
+		temporarily alter execution timeout. PLT stands for "position, length, timeout".
+	*/
+	PrefixCommandPLT = ".plt"
 )
 
-var ErrBadPrefix = errors.New("Bad prefix or feature is not configured")              // Returned if input command does not contain valid feature trigger
-var ErrBadPLT = errors.New(PrefixCommandPLT + " P L T command")                       // Return PLT invocation example in an error
-var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`) // Parse PLT and command content
+// ErrBadPrefix is a command execution error triggered if the command does not contain a valid toolbox feature trigger.
+var ErrBadPrefix = errors.New("bad prefix or feature is not configured")
 
-var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all executed commands.
+// ErrBadPLT reminds user of the proper syntax to invoke PLT magic.
+var ErrBadPLT = errors.New(PrefixCommandPLT + " P L T command")
+
+// RegexCommandWithPLT parses PLT magic parameters position, length, and timeout, all of which are integers.
+var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`)
+
+var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all commands executed.
 
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {

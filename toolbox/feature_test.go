@@ -59,7 +59,7 @@ func TestResult(t *testing.T) {
 }
 
 func TestHTTPErrorToResult(t *testing.T) {
-	resp := inet.Response{StatusCode: 201}
+	resp := inet.HTTPResponse{StatusCode: 201}
 	if result := HTTPErrorToResult(resp, nil); result != nil {
 		t.Fatal(result)
 	}

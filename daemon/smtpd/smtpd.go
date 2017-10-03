@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/mailp"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/smtp"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -25,7 +25,7 @@ const (
 var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all SMTP conversations.
 
 // An SMTP daemon that receives mails addressed to its domain name, and optionally forward the received mails to other addresses.
-type SMTPD struct {
+type Daemon struct {
 	Address     string   `json:"Address"`     // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
 	Port        int      `json:"Port"`        // Port number to listen on
 	TLSCertPath string   `json:"TLSCertPath"` // (Optional) serve StartTLS via this certificate
@@ -35,46 +35,46 @@ type SMTPD struct {
 	ForwardTo   []string `json:"ForwardTo"`   // Forward received mails to these addresses
 
 	MyDomainsHash map[string]struct{} `json:"-"` // "MyDomains" values in map keys
-	ForwardMailer inet.Mailer         `json:"-"` // Use this mailer to forward arrived mails
+	ForwardMailer inet.MailClient     `json:"-"` // Use this mailer to forward arrived mails
 	SMTPConfig    smtp.Config         `json:"-"` // SMTP processor configuration
 
 	Listener       net.Listener    `json:"-"` // Once daemon is started, this is its TCP listener.
 	TLSCertificate tls.Certificate `json:"-"` // TLS certificate read from the certificate and key files
 
-	MailProcessor *mailp.MailProcessor `json:"-"` // Process feature commands from incoming mails
-	RateLimit     *misc.RateLimit      `json:"-"` // Rate limit counter per IP address
-	Logger        misc.Logger          `json:"-"` // Logger
+	MailProcessor *mailcmd.CommandRunner `json:"-"` // Process feature commands from incoming mails
+	RateLimit     *misc.RateLimit        `json:"-"` // Rate limit counter per IP address
+	Logger        misc.Logger            `json:"-"` // Logger
 }
 
 // Check configuration and initialise internal states.
-func (smtpd *SMTPD) Initialise() error {
-	smtpd.Logger = misc.Logger{ComponentName: "SMTPD", ComponentID: fmt.Sprintf("%s:%d", smtpd.Address, smtpd.Port)}
+func (smtpd *Daemon) Initialise() error {
+	smtpd.Logger = misc.Logger{ComponentName: "smtpd", ComponentID: fmt.Sprintf("%s:%d", smtpd.Address, smtpd.Port)}
 	if !smtpd.MailProcessor.ReplyMailer.IsConfigured() {
-		return errors.New("SMTPD.Initialise: mail processor's reply mailer must be configured")
+		return errors.New("smtpd.Initialise: mail processor's reply mailer must be configured")
 	}
 	if smtpd.Address == "" {
-		return errors.New("SMTPD.Initialise: listen address must not be empty")
+		return errors.New("smtpd.Initialise: listen address must not be empty")
 	}
 	if smtpd.Port < 1 {
-		return errors.New("SMTPD.Initialise: listen port must be greater than 0")
+		return errors.New("smtpd.Initialise: listen port must be greater than 0")
 	}
 	if smtpd.PerIPLimit < 1 {
-		return errors.New("SMTPD.Initialise: PerIPLimit must be greater than 0")
+		return errors.New("smtpd.Initialise: PerIPLimit must be greater than 0")
 	}
 	if smtpd.ForwardTo == nil || len(smtpd.ForwardTo) == 0 || !smtpd.ForwardMailer.IsConfigured() {
-		return errors.New("SMTPD.Initialise: the server is not useful if forward addresses/forward mailer are not configured")
+		return errors.New("smtpd.Initialise: the server is not useful if forward addresses/forward mailer are not configured")
 	}
 	if smtpd.MyDomains == nil || len(smtpd.MyDomains) == 0 {
-		return errors.New("SMTPD.Initialise: my domain names must be configured")
+		return errors.New("smtpd.Initialise: my domain names must be configured")
 	}
 	if smtpd.TLSCertPath != "" || smtpd.TLSKeyPath != "" {
 		if smtpd.TLSCertPath == "" || smtpd.TLSKeyPath == "" {
-			return errors.New("SMTPD.Initialise: if TLS is to be enabled, both TLS certificate and key path must be present.")
+			return errors.New("smtpd.Initialise: TLS certificate or key path is missing")
 		}
 		var err error
 		smtpd.TLSCertificate, err = tls.LoadX509KeyPair(smtpd.TLSCertPath, smtpd.TLSKeyPath)
 		if err != nil {
-			return fmt.Errorf("SMTPD.Initialise: failed to read TLS certificate - %v", err)
+			return fmt.Errorf("smtpd.Initialise: failed to read TLS certificate - %v", err)
 		}
 	}
 	smtpd.SMTPConfig = smtp.Config{
@@ -99,12 +99,12 @@ func (smtpd *SMTPD) Initialise() error {
 	myPublicIP := inet.GetPublicIP()
 	if (strings.HasPrefix(smtpd.ForwardMailer.MTAHost, "127.") || smtpd.ForwardMailer.MTAHost == myPublicIP) &&
 		smtpd.ForwardMailer.MTAPort == smtpd.Port {
-		return errors.New("SMTPD.Initialise: forward MTA must not be myself")
+		return errors.New("smtpd.Initialise: forward MTA must not be myself")
 	}
 	// Do not allow mail processor to reply to this daemon itself
 	if (strings.HasPrefix(smtpd.MailProcessor.ReplyMailer.MTAHost, "127.") || smtpd.MailProcessor.ReplyMailer.MTAHost == myPublicIP) &&
 		smtpd.MailProcessor.ReplyMailer.MTAPort == smtpd.Port {
-		return errors.New("SMTPD.Initialise: mail processor's reply MTA must not be myself")
+		return errors.New("smtpd.Initialise: mail processor's reply MTA must not be myself")
 	}
 	// Construct a hash of MyDomains addresses for fast lookup
 	smtpd.MyDomainsHash = map[string]struct{}{}
@@ -115,17 +115,17 @@ func (smtpd *SMTPD) Initialise() error {
 	for _, fwd := range smtpd.ForwardTo {
 		atSign := strings.IndexRune(fwd, '@')
 		if atSign == -1 {
-			return fmt.Errorf("SMTPD.Initialise: forward address \"%s\" must have an at sign", fwd)
+			return fmt.Errorf("smtpd.Initialise: forward address \"%s\" must have an at sign", fwd)
 		}
 		if _, exists := smtpd.MyDomainsHash[fwd[atSign+1:]]; exists {
-			return fmt.Errorf("SMTPD.Initialise: forward address \"%s\" must not loop back to this mail server's domain", fwd)
+			return fmt.Errorf("smtpd.Initialise: forward address \"%s\" must not loop back to this mail server's domain", fwd)
 		}
 	}
 	return nil
 }
 
 // Unconditionally forward the mail to forward addresses, then process feature commands if they are found.
-func (smtpd *SMTPD) ProcessMail(fromAddr, mailBody string) {
+func (smtpd *Daemon) ProcessMail(fromAddr, mailBody string) {
 	bodyBytes := []byte(mailBody)
 	// Forward the mail
 	if err := smtpd.ForwardMailer.SendRaw(smtpd.ForwardMailer.MailFrom, bodyBytes, smtpd.ForwardTo...); err == nil {
@@ -140,7 +140,7 @@ func (smtpd *SMTPD) ProcessMail(fromAddr, mailBody string) {
 }
 
 // HandleConnection converses in SMTP over the connection, process retrieved email, and eventually close the connection.
-func (smtpd *SMTPD) HandleConnection(clientConn net.Conn) {
+func (smtpd *Daemon) HandleConnection(clientConn net.Conn) {
 	// Put conversation duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
@@ -222,10 +222,10 @@ done:
 You may call this function only after having called Initialise()!
 Start SMTP daemon and block until daemon is told to stop.
 */
-func (smtpd *SMTPD) StartAndBlock() (err error) {
+func (smtpd *Daemon) StartAndBlock() (err error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", smtpd.Address, smtpd.Port))
 	if err != nil {
-		return fmt.Errorf("SMTPD.StartAndBlock: failed to listen on %s:%d - %v", smtpd.Address, smtpd.Port, err)
+		return fmt.Errorf("smtpd.StartAndBlock: failed to listen on %s:%d - %v", smtpd.Address, smtpd.Port, err)
 	}
 	defer listener.Close()
 	smtpd.Listener = listener
@@ -248,7 +248,7 @@ func (smtpd *SMTPD) StartAndBlock() (err error) {
 }
 
 // If SMTP daemon has started (i.e. listener is set), close the listener so that its connection loop will terminate.
-func (smtpd *SMTPD) Stop() {
+func (smtpd *Daemon) Stop() {
 	if listener := smtpd.Listener; listener != nil {
 		if err := listener.Close(); err != nil {
 			smtpd.Logger.Warningf("Stop", "", err, "failed to close listener")
@@ -256,8 +256,8 @@ func (smtpd *SMTPD) Stop() {
 	}
 }
 
-// Run unit tests on SMTPD. See TestSMTPD_StartAndBlock for daemon setup.
-func TestSMTPD(smtpd *SMTPD, t testingstub.T) {
+// Run unit tests on Daemon. See TestSMTPD_StartAndBlock for daemon setup.
+func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	/*
 		SMTP daemon is expected to start in a few seconds, it may take a short while because
 		the daemon has to figure out its public IP address.

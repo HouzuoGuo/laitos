@@ -8,10 +8,10 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/api"
-	"github.com/HouzuoGuo/laitos/daemon/mailp"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
-	"github.com/HouzuoGuo/laitos/daemon/plain"
+	"github.com/HouzuoGuo/laitos/daemon/plainsockets"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"github.com/HouzuoGuo/laitos/inet"
@@ -68,30 +68,30 @@ type HTTPHandlers struct {
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
 type Config struct {
-	Features toolbox.FeatureSet `json:"Features"` // Feature configuration is shared by all services
-	Mailer   inet.Mailer        `json:"Mailer"`   // Mail configuration for notifications and mail processor results
+	Features toolbox.FeatureSet `json:"Features"`   // Feature configuration is shared by all services
+	Mailer   inet.MailClient    `json:"MailClient"` // Mail configuration for notifications and mail processor results
 
-	Maintenance maintenance.Maintenance `json:"Maintenance"` // Maintenance configures behaviour of periodic health-check/system maintenance
+	Maintenance maintenance.Daemon `json:"Maintenance"` // Daemon configures behaviour of periodic health-check/system maintenance
 
-	DNSDaemon dnsd.DNSD `json:"DNSDaemon"` // DNS daemon configuration
+	DNSDaemon dnsd.Daemon `json:"DNSDaemon"` // DNS daemon configuration
 
-	HTTPDaemon   httpd.HTTPD     `json:"HTTPDaemon"`   // HTTP daemon configuration
+	HTTPDaemon   httpd.Daemon    `json:"HTTPDaemon"`   // HTTP daemon configuration
 	HTTPBridges  StandardBridges `json:"HTTPBridges"`  // HTTP daemon bridge configuration
 	HTTPHandlers HTTPHandlers    `json:"HTTPHandlers"` // HTTP daemon handler configuration
 
 	HTTPIndexOnlyOn80 bool `json:"HTTPHomepageOn80"` // If TLS is enabled in HTTP daemon, serve only index pages via HTTP on port 80.
 
-	MailDaemon    smtpd.SMTPD         `json:"MailDaemon"`    // SMTP daemon configuration
-	MailProcessor mailp.MailProcessor `json:"MailProcessor"` // Incoming mail processor configuration
-	MailBridges   StandardBridges     `json:"MailBridges"`   // Incoming mail processor bridge configuration
+	MailDaemon    smtpd.Daemon          `json:"MailDaemon"`    // SMTP daemon configuration
+	MailProcessor mailcmd.CommandRunner `json:"MailProcessor"` // Incoming mail processor configuration
+	MailBridges   StandardBridges       `json:"MailBridges"`   // Incoming mail processor bridge configuration
 
-	PlainTextDaemon  plain.PlainTextDaemon `json:"PlainTextDaemon"`  // Plain text protocol TCP and UDP daemon configuration
-	PlainTextBridges StandardBridges       `json:"PlainTextBridges"` // Plain text daemon bridge configuration
+	PlainSocketsDaemon plainsockets.Daemon `json:"PlainSocketsDaemon"` // Plain text protocol TCP and UDP daemon configuration
+	PlainSocketBridges StandardBridges     `json:"PlainSocketBridges"` // Plain text daemon bridge configuration
 
-	SockDaemon sockd.Sockd `json:"SockDaemon"` // Intentionally undocumented
+	SockDaemon sockd.Daemon `json:"SockDaemon"` // Intentionally undocumented
 
-	TelegramBot     telegrambot.TelegramBot `json:"TelegramBot"`     // Telegram bot configuration
-	TelegramBridges StandardBridges         `json:"TelegramBridges"` // Telegram bot bridge configuration
+	TelegramBot     telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
+	TelegramBridges StandardBridges    `json:"TelegramBridges"` // Telegram bot bridge configuration
 
 	Logger misc.Logger `json:"-"` // Log config related messages
 }
@@ -106,7 +106,7 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 }
 
 // Construct a DNS daemon from configuration and return.
-func (config Config) GetDNSD() *dnsd.DNSD {
+func (config Config) GetDNSD() *dnsd.Daemon {
 	ret := config.DNSDaemon
 	if err := ret.Initialise(); err != nil {
 		config.Logger.Fatalf("GetDNSD", "", err, "failed to initialise")
@@ -116,7 +116,7 @@ func (config Config) GetDNSD() *dnsd.DNSD {
 }
 
 // GetMaintenance constructs a system maintenance / health check daemon from configuration and return.
-func (config Config) GetMaintenance() *maintenance.Maintenance {
+func (config Config) GetMaintenance() *maintenance.Daemon {
 	ret := config.Maintenance
 	ret.FeaturesToCheck = &config.Features
 	// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
@@ -134,7 +134,7 @@ func (config Config) GetMaintenance() *maintenance.Maintenance {
 }
 
 // Construct an HTTP daemon from configuration and return.
-func (config Config) GetHTTPD() *httpd.HTTPD {
+func (config Config) GetHTTPD() *httpd.Daemon {
 	ret := config.HTTPDaemon
 
 	mailNotification := config.HTTPBridges.NotifyViaEmail
@@ -266,7 +266,7 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 Return another HTTP daemon that serves all handlers without TLS. It listens on port number specified in environment
 variable "PORT", or on port 80 if the variable is not defined (i.e. value is empty).
 */
-func (config Config) GetInsecureHTTPD() *httpd.HTTPD {
+func (config Config) GetInsecureHTTPD() *httpd.Daemon {
 	ret := config.GetHTTPD()
 	ret.TLSCertPath = ""
 	ret.TLSKeyPath = ""
@@ -301,7 +301,7 @@ Mail processor is usually built into laitos' own SMTP daemon to process feature 
 independent mail process is useful in certain scenarios, such as integrating with postfix's "forward-mail-to-program"
 mechanism.
 */
-func (config Config) GetMailProcessor() *mailp.MailProcessor {
+func (config Config) GetMailProcessor() *mailcmd.CommandRunner {
 	ret := config.MailProcessor
 
 	mailNotification := config.MailBridges.NotifyViaEmail
@@ -335,7 +335,7 @@ func (config Config) GetMailProcessor() *mailp.MailProcessor {
 Construct an SMTP daemon together with its mail command processor.
 Both SMTP daemon and mail command processor will use the common mailer to forward mails and send replies.
 */
-func (config Config) GetMailDaemon() *smtpd.SMTPD {
+func (config Config) GetMailDaemon() *smtpd.Daemon {
 	ret := config.MailDaemon
 	ret.MailProcessor = config.GetMailProcessor()
 	ret.ForwardMailer = config.Mailer
@@ -350,10 +350,10 @@ func (config Config) GetMailDaemon() *smtpd.SMTPD {
 Construct a plain text protocol TCP&UDP daemon and return.
 It will use common mailer for sending outgoing emails.
 */
-func (config Config) GetPlainTextDaemon() *plain.PlainTextDaemon {
-	ret := config.PlainTextDaemon
+func (config Config) GetPlainTextDaemon() *plainsockets.Daemon {
+	ret := config.PlainSocketsDaemon
 
-	mailNotification := config.PlainTextBridges.NotifyViaEmail
+	mailNotification := config.PlainSocketBridges.NotifyViaEmail
 	mailNotification.Mailer = config.Mailer
 
 	features := config.Features
@@ -366,12 +366,12 @@ func (config Config) GetPlainTextDaemon() *plain.PlainTextDaemon {
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
 		CommandBridges: []filter.CommandFilter{
-			&config.PlainTextBridges.PINAndShortcuts,
-			&config.PlainTextBridges.TranslateSequences,
+			&config.PlainSocketBridges.PINAndShortcuts,
+			&config.PlainSocketBridges.TranslateSequences,
 		},
 		ResultBridges: []filter.ResultFilter{
 			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.PlainTextBridges.LintText,
+			&config.PlainSocketBridges.LintText,
 			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
@@ -385,7 +385,7 @@ func (config Config) GetPlainTextDaemon() *plain.PlainTextDaemon {
 }
 
 // Intentionally undocumented
-func (config Config) GetSockDaemon() *sockd.Sockd {
+func (config Config) GetSockDaemon() *sockd.Daemon {
 	ret := config.SockDaemon
 	if err := ret.Initialise(); err != nil {
 		config.Logger.Fatalf("GetSockDaemon", "", err, "failed to initialise")
@@ -395,7 +395,7 @@ func (config Config) GetSockDaemon() *sockd.Sockd {
 }
 
 // Construct a telegram bot from configuration and return.
-func (config Config) GetTelegramBot() *telegrambot.TelegramBot {
+func (config Config) GetTelegramBot() *telegrambot.Daemon {
 	ret := config.TelegramBot
 
 	mailNotification := config.TelegramBridges.NotifyViaEmail

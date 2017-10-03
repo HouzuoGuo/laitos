@@ -32,7 +32,7 @@ func TestMakeExtractArchive(t *testing.T) {
 	}
 	archiveFile.Close()
 	//defer os.Remove(archiveFile.Name())
-	if err := MakeArchive(srcDir, archiveFile.Name(), key); err != nil {
+	if err := Archive(srcDir, archiveFile.Name(), key); err != nil {
 		t.Fatal(err)
 	}
 
@@ -48,7 +48,7 @@ func TestMakeExtractArchive(t *testing.T) {
 	}
 	tmpOut.Close()
 	defer os.Remove(tmpOut.Name())
-	if err := ExtractArchive(archiveFile.Name(), tmpOut.Name(), destDir, key); err != nil {
+	if err := Extract(archiveFile.Name(), tmpOut.Name(), destDir, key); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(tmpOut.Name()); err == nil {

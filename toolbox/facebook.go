@@ -24,7 +24,7 @@ func (fb *Facebook) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Validate access token via a simple API call
-	resp, err := inet.DoHTTP(inet.Request{TimeoutSec: TestTimeoutSec}, "https://graph.facebook.com/v2.10/me/feed?access_token=%s", fb.UserAccessToken)
+	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: TestTimeoutSec}, "https://graph.facebook.com/v2.10/me/feed?access_token=%s", fb.UserAccessToken)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (fb *Facebook) Execute(cmd Command) *Result {
 		return errResult
 	}
 
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(url.Values{"message": []string{cmd.Content}}.Encode()),

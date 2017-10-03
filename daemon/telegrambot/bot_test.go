@@ -8,7 +8,7 @@ import (
 
 func TestTelegramBot_StartAndBock(t *testing.T) {
 	// Must not start if command processor is insane
-	bot := TelegramBot{
+	bot := Daemon{
 		AuthorizationToken: "dummy",
 		Processor:          &common.CommandProcessor{},
 	}
@@ -17,7 +17,7 @@ func TestTelegramBot_StartAndBock(t *testing.T) {
 	}
 
 	cmdproc := common.GetTestCommandProcessor()
-	bot = TelegramBot{
+	bot = Daemon{
 		AuthorizationToken: "",
 		Processor:          cmdproc,
 	}

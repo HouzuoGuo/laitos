@@ -57,7 +57,7 @@ func TestNotifyViaEmail_Transform(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	notify.Mailer = inet.Mailer{
+	notify.Mailer = inet.MailClient{
 		MailFrom: "howard@localhost",
 		MTAHost:  "localhost",
 		MTAPort:  25,

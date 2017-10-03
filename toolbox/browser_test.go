@@ -19,7 +19,7 @@ func TestBrowser_Execute(t *testing.T) {
 	if bro.IsConfigured() {
 		t.Fatal("should not be configured")
 	}
-	bro.Renderers = &browser.Renderers{
+	bro.Renderers = &browser.Instances{
 		PhantomJSExecPath: path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/phantomjs-2.1.1-linux-x86_64"),
 		MaxLifetimeSec:    60,
 		BasePortNumber:    60122,

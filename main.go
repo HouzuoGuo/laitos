@@ -165,16 +165,16 @@ func main() {
 
 	// The "special-launch" launcher runs prior to the daemons
 	if sl {
-		encarchive.UseLauncher(slPort, slURL, slArchivePath)
+		encarchive.CLIStartWebServer(slPort, slURL, slArchivePath)
 		return
 	}
 	// The launcher utilities do not run daemons at all
 	if slu != "" {
 		switch slu {
 		case "extract":
-			encarchive.LauncherUtilityExtract(sluDir, sluFile)
+			encarchive.CLIExtract(sluDir, sluFile)
 		case "archive":
-			encarchive.LauncherUtilityArchive(sluDir, sluFile)
+			encarchive.CLIArchive(sluDir, sluFile)
 		default:
 			logger.Fatalf("main", "", nil, "please provide mode of operation (extract|archive) for parameter slu")
 		}

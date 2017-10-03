@@ -6,7 +6,7 @@ import (
 )
 
 func TestSockd_StartAndBlock(t *testing.T) {
-	daemon := Sockd{}
+	daemon := Daemon{}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}

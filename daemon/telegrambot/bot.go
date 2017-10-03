@@ -65,7 +65,7 @@ type APIUpdates struct {
 }
 
 // Process feature commands from incoming telegram messages, reply to the chats with command results.
-type TelegramBot struct {
+type Daemon struct {
 	AuthorizationToken string `json:"AuthorizationToken"` // Telegram bot API auth token
 	RateLimit          int    `json:"RateLimit"`          // RateLimit determines how many messages may be processed per chat at a regular interval
 
@@ -77,20 +77,20 @@ type TelegramBot struct {
 	stop          chan bool                // Signal message loop to stop
 }
 
-func (bot *TelegramBot) Initialise() error {
-	bot.Logger = misc.Logger{ComponentName: "TelegramBot", ComponentID: ""}
+func (bot *Daemon) Initialise() error {
+	bot.Logger = misc.Logger{ComponentName: "telegrambot", ComponentID: ""}
 	if bot.Processor == nil {
 		bot.Processor = common.GetEmptyCommandProcessor()
 	}
 	bot.Processor.SetLogger(bot.Logger)
 	if errs := bot.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("TelegramBot.Initialise: %+v", errs)
+		return fmt.Errorf("telegrambot.Initialise: %+v", errs)
 	}
 	if bot.AuthorizationToken == "" {
-		return errors.New("TelegramBot.Initialise: AuthorizationToken must not be empty")
+		return errors.New("telegrambot.Initialise: AuthorizationToken must not be empty")
 	}
 	if bot.RateLimit < 1 {
-		return errors.New("TelegramBot.Initialise: RateLimit must be greater than 0")
+		return errors.New("telegrambot.Initialise: RateLimit must be greater than 0")
 	}
 	// Configure rate limit
 	bot.UserRateLimit = &misc.RateLimit{
@@ -103,8 +103,8 @@ func (bot *TelegramBot) Initialise() error {
 }
 
 // Send a text reply to the telegram chat.
-func (bot *TelegramBot) ReplyTo(chatID uint64, text string) error {
-	resp, err := inet.DoHTTP(inet.Request{
+func (bot *Daemon) ReplyTo(chatID uint64, text string) error {
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method:     http.MethodPost,
 		TimeoutSec: APICallTimeoutSec,
 		Body: strings.NewReader(url.Values{
@@ -113,13 +113,13 @@ func (bot *TelegramBot) ReplyTo(chatID uint64, text string) error {
 		}.Encode()),
 	}, "https://api.telegram.org/bot%s/sendMessage", bot.AuthorizationToken)
 	if err != nil || resp.StatusCode/200 != 1 {
-		return fmt.Errorf("TelegramBot.ReplyTo: failed to reply to %d - HTTP %d - %v %s", chatID, resp.StatusCode, err, string(resp.Body))
+		return fmt.Errorf("telegrambot.ReplyTo: failed to reply to %d - HTTP %d - %v %s", chatID, resp.StatusCode, err, string(resp.Body))
 	}
 	return nil
 }
 
 // Process incoming chat messages and reply command results to chat initiators.
-func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
+func (bot *Daemon) ProcessMessages(updates APIUpdates) {
 	for _, ding := range updates.Updates {
 		// Put processing duration (including API time) into statistics
 		beginTimeNano := time.Now().UnixNano()
@@ -164,12 +164,12 @@ func (bot *TelegramBot) ProcessMessages(updates APIUpdates) {
 }
 
 // Immediately begin processing incoming chat messages. Block caller indefinitely.
-func (bot *TelegramBot) StartAndBlock() error {
+func (bot *Daemon) StartAndBlock() error {
 	// Make a test API call
-	testResp, testErr := inet.DoHTTP(inet.Request{TimeoutSec: APICallTimeoutSec},
+	testResp, testErr := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
 		"https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)
 	if testErr != nil || testResp.StatusCode/200 != 1 {
-		return fmt.Errorf("TelegramBot.StartAndBlock: test failed - HTTP %d - %v %s", testResp.StatusCode, testErr, string(testResp.Body))
+		return fmt.Errorf("telegrambot.StartAndBlock: test failed - HTTP %d - %v %s", testResp.StatusCode, testErr, string(testResp.Body))
 	}
 	bot.Logger.Printf("StartAndBlock", "", nil, "going to poll for messages")
 	lastIdle := time.Now().Unix()
@@ -185,7 +185,7 @@ func (bot *TelegramBot) StartAndBlock() error {
 			lastIdle = time.Now().Unix()
 		}
 		// Poll for new messages
-		updatesResp, updatesErr := inet.DoHTTP(inet.Request{TimeoutSec: APICallTimeoutSec},
+		updatesResp, updatesErr := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
 			"https://api.telegram.org/bot%s/getUpdates?offset=%s", bot.AuthorizationToken, bot.MessageOffset)
 		var newMessages APIUpdates
 		if updatesErr != nil || updatesResp.StatusCode/200 != 1 {
@@ -217,14 +217,14 @@ func (bot *TelegramBot) StartAndBlock() error {
 }
 
 // Stop previously started message handling loop.
-func (bot *TelegramBot) Stop() {
+func (bot *Daemon) Stop() {
 	if atomic.CompareAndSwapInt32(&bot.loopIsRunning, 1, 0) {
 		bot.stop <- true
 	}
 }
 
 // Run unit tests on telegram bot. See TestSMTPD_StartAndBlock for bot setup.
-func TestTelegramBot(bot *TelegramBot, t testingstub.T) {
+func TestTelegramBot(bot *Daemon, t testingstub.T) {
 	// Well then it is really difficult to test the chat routine
 	// So I am going to only going to start the daemon using invalid configuration, which is definitely failing.
 	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {

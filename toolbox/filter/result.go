@@ -103,9 +103,9 @@ func (_ *LintText) SetLogger(_ misc.Logger) {
 
 // Send email notification for command result.
 type NotifyViaEmail struct {
-	Recipients []string    `json:"Recipients"` // Email recipient addresses
-	Mailer     inet.Mailer `json:"-"`          // MTA that delivers outgoing notification email
-	Logger     misc.Logger `json:"-"`          // Logger
+	Recipients []string        `json:"Recipients"` // Email recipient addresses
+	Mailer     inet.MailClient `json:"-"`          // MTA that delivers outgoing notification email
+	Logger     misc.Logger     `json:"-"`          // Logger
 }
 
 // Return true only if all mail parameters are present.

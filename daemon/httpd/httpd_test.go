@@ -31,7 +31,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 
 	rand.Seed(time.Now().UnixNano())
 
-	daemon := HTTPD{
+	daemon := Daemon{
 		Address:          "127.0.0.1",
 		Port:             1024 + rand.Intn(65535-1024),
 		Processor:        &common.CommandProcessor{},
@@ -60,7 +60,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.SpecialHandlers["/html"] = &api.HandleHTMLDocument{HTMLFilePath: indexFile}
 	daemon.SpecialHandlers["/mail_me"] = &api.HandleMailMe{
 		Recipients: []string{"howard@localhost"},
-		Mailer: inet.Mailer{
+		Mailer: inet.MailClient{
 			MailFrom: "howard@localhost",
 			MTAHost:  "localhost",
 			MTAPort:  25,

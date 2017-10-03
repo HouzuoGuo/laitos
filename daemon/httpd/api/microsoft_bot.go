@@ -40,8 +40,8 @@ type HandleMicrosoftBot struct {
 
 // RetrieveJWT asks Microsoft for a new JWT.
 func (hand *HandleMicrosoftBot) RetrieveJWT() (jwt MicrosoftBotJwt, err error) {
-	var httpResp inet.Response
-	httpResp, err = inet.DoHTTP(inet.Request{
+	var httpResp inet.HTTPResponse
+	httpResp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method:      http.MethodPost,
 		ContentType: "application/x-www-form-urlencoded",
 		TimeoutSec:  MicrosoftBotAPITimeoutSec,
@@ -162,7 +162,7 @@ func (hand *HandleMicrosoftBot) MakeHandler(logger misc.Logger, cmdProc *common.
 				return
 			}
 			// Send away the reply
-			_, err = inet.DoHTTP(inet.Request{
+			_, err = inet.DoHTTP(inet.HTTPRequest{
 				Method:      http.MethodPost,
 				ContentType: "application/json",
 				TimeoutSec:  MicrosoftBotAPITimeoutSec,

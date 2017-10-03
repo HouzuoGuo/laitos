@@ -41,8 +41,8 @@ const HandleMailMePage = `<!doctype html>
 
 // Send Howard an email in a simple web form. The text on the page is deliberately written in Chinese.
 type HandleMailMe struct {
-	Recipients []string    `json:"Recipients"` // Recipients of these mail messages
-	Mailer     inet.Mailer `json:"-"`
+	Recipients []string        `json:"Recipients"` // Recipients of these mail messages
+	Mailer     inet.MailClient `json:"-"`
 }
 
 func (mm *HandleMailMe) MakeHandler(logger misc.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {

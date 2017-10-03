@@ -39,7 +39,7 @@ func (twi *Twilio) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Validate API credentials with a simple API call
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		TimeoutSec: TestTimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
@@ -87,7 +87,7 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 		"To":   {toNumber},
 		"Url":  {"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s, repeat again, %s, repeat again, %s, over.", message, message, message))},
 	}
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(formParams.Encode()),
@@ -116,7 +116,7 @@ func (twi *Twilio) SendSMS(cmd Command) *Result {
 		"To":   {toNumber},
 		"Body": {message},
 	}
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(formParams.Encode()),

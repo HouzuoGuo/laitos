@@ -24,8 +24,8 @@ const (
 	MaxPacketSize        = 9038
 )
 
-// Sockd is intentionally undocumented magic ^____^
-type Sockd struct {
+// Daemon is intentionally undocumented magic ^____^
+type Daemon struct {
 	Address    string `json:"Address"`
 	Password   string `json:"Password"`
 	PerIPLimit int    `json:"PerIPLimit"`
@@ -46,19 +46,19 @@ type Sockd struct {
 	stopUDP          chan bool
 }
 
-func (sock *Sockd) Initialise() error {
-	sock.Logger = misc.Logger{ComponentName: "Sockd", ComponentID: fmt.Sprintf("%s:%d", sock.Address, sock.TCPPort)}
+func (sock *Daemon) Initialise() error {
+	sock.Logger = misc.Logger{ComponentName: "sockd", ComponentID: fmt.Sprintf("%s:%d", sock.Address, sock.TCPPort)}
 	if sock.Address == "" {
-		return errors.New("Sockd.Initialise: listen address must not be empty")
+		return errors.New("sockd.Initialise: listen address must not be empty")
 	}
 	if sock.TCPPort < 1 {
-		return errors.New("Sockd.Initialise: listen port must be greater than 0")
+		return errors.New("sockd.Initialise: TCP listen port must be greater than 0")
 	}
 	if len(sock.Password) < 7 {
-		return errors.New("Sockd.Initialise: password must be at least 7 characters long")
+		return errors.New("sockd.Initialise: password must be at least 7 characters long")
 	}
 	if sock.PerIPLimit < 10 {
-		return errors.New("Sockd.Initialise: PerIPLimit must be greater than 9")
+		return errors.New("sockd.Initialise: PerIPLimit must be greater than 9")
 	}
 	sock.rateLimitTCP = &misc.RateLimit{
 		Logger:   sock.Logger,
@@ -82,7 +82,7 @@ func (sock *Sockd) Initialise() error {
 	return nil
 }
 
-func (sock *Sockd) StartAndBlock() error {
+func (sock *Daemon) StartAndBlock() error {
 	numListeners := 0
 	errChan := make(chan error, 2)
 	if sock.TCPPort != 0 {
@@ -99,9 +99,6 @@ func (sock *Sockd) StartAndBlock() error {
 			errChan <- err
 		}()
 	}
-	if numListeners == 0 {
-		return fmt.Errorf("Sockd.StartAndBlock: neither TCP nor UDP listen port is defined, the daemon will not start.")
-	}
 	for i := 0; i < numListeners; i++ {
 		if err := <-errChan; err != nil {
 			sock.Stop()
@@ -111,7 +108,7 @@ func (sock *Sockd) StartAndBlock() error {
 	return nil
 }
 
-func (sock *Sockd) Stop() {
+func (sock *Daemon) Stop() {
 	if listener := sock.TCPListener; listener != nil {
 		if err := listener.Close(); err != nil {
 			sock.Logger.Warningf("Stop", "", err, "failed to close TCP listener")
@@ -209,7 +206,7 @@ func (cip *Cipher) Copy() *Cipher {
 	return &newCipher
 }
 
-func TestSockd(sockd *Sockd, t testingstub.T) {
+func TestSockd(sockd *Daemon, t testingstub.T) {
 	var stopped bool
 	go func() {
 		if err := sockd.StartAndBlock(); err != nil {

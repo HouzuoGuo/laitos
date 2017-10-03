@@ -19,7 +19,7 @@ func GetPublicIP() string {
 	// GCE method
 	go func() {
 		defer wg.Done()
-		resp, err := DoHTTP(Request{
+		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
 		}, "http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
@@ -30,7 +30,7 @@ func GetPublicIP() string {
 	// AWS method
 	go func() {
 		defer wg.Done()
-		resp, err := DoHTTP(Request{
+		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 		}, "http://169.254.169.254/2016-09-02/meta-data/public-ipv4")
 		if err == nil && resp.StatusCode/200 == 1 {
@@ -40,7 +40,7 @@ func GetPublicIP() string {
 	// IPFY method
 	go func() {
 		defer wg.Done()
-		resp, err := DoHTTP(Request{
+		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 		}, "https://api.ipify.org")
 		if err == nil && resp.StatusCode/200 == 1 {

@@ -398,13 +398,6 @@ func (c *Conn) replyMulti(code int, format string, elems ...interface{}) {
 	}
 }
 
-func fmtBytesLeft(max, cur int64) string {
-	if cur == 0 {
-		return "0 bytes left"
-	}
-	return fmt.Sprintf("%d bytes read", max-cur)
-}
-
 func (c *Conn) readCmd() string {
 	// This is much bigger than the RFC requires.
 	c.lr.N = 2048

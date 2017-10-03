@@ -27,7 +27,7 @@ const (
 )
 
 // Generic HTTP daemon.
-type HTTPD struct {
+type Daemon struct {
 	Address          string            `json:"Address"`          // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
 	Port             int               `json:"Port"`             // Port number to listen on
 	TLSCertPath      string            `json:"TLSCertPath"`      // (Optional) serve HTTPS via this certificate
@@ -43,9 +43,9 @@ type HTTPD struct {
 }
 
 // Return path to HandlerFactory among special handlers that matches the specified type. Primarily used by test case code.
-func (httpd *HTTPD) GetHandlerByFactoryType(match api.HandlerFactory) string {
+func (daemon *Daemon) GetHandlerByFactoryType(match api.HandlerFactory) string {
 	matchTypeString := reflect.TypeOf(match).String()
-	for path, handler := range httpd.SpecialHandlers {
+	for path, handler := range daemon.SpecialHandlers {
 		if reflect.TypeOf(handler).String() == matchTypeString {
 			return path
 		}
@@ -54,7 +54,7 @@ func (httpd *HTTPD) GetHandlerByFactoryType(match api.HandlerFactory) string {
 }
 
 // RateLimitMiddleware checks client request against rate limit and global lockdown.
-func (httpd *HTTPD) Middleware(ratelimit *misc.RateLimit, next http.HandlerFunc) http.HandlerFunc {
+func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Put query duration (including IO time) into statistics
 		beginTimeNano := time.Now().UnixNano()
@@ -73,7 +73,7 @@ func (httpd *HTTPD) Middleware(ratelimit *misc.RateLimit, next http.HandlerFunc)
 		// Check client IP against rate limit
 		remoteIP := api.GetRealClientIP(r)
 		if ratelimit.Add(remoteIP, true) {
-			httpd.Logger.Printf("Handle", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
+			daemon.Logger.Printf("Handle", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
 			next(w, r)
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
@@ -83,33 +83,33 @@ func (httpd *HTTPD) Middleware(ratelimit *misc.RateLimit, next http.HandlerFunc)
 }
 
 // Check configuration and initialise internal states.
-func (httpd *HTTPD) Initialise() error {
-	httpd.Logger = misc.Logger{ComponentName: "HTTPD", ComponentID: fmt.Sprintf("%s:%d", httpd.Address, httpd.Port)}
-	if httpd.Processor == nil {
-		httpd.Processor = common.GetEmptyCommandProcessor()
+func (daemon *Daemon) Initialise() error {
+	daemon.Logger = misc.Logger{ComponentName: "httpd", ComponentID: fmt.Sprintf("%s:%d", daemon.Address, daemon.Port)}
+	if daemon.Processor == nil {
+		daemon.Processor = common.GetEmptyCommandProcessor()
 	}
-	httpd.Processor.SetLogger(httpd.Logger)
-	if errs := httpd.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("HTTPD.Initialise: %+v", errs)
+	daemon.Processor.SetLogger(daemon.Logger)
+	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
+		return fmt.Errorf("httpd.Initialise: %+v", errs)
 	}
-	if httpd.Address == "" {
-		return errors.New("HTTPD.Initialise: listen address is empty")
+	if daemon.Address == "" {
+		return errors.New("httpd.Initialise: listen address is empty")
 	}
-	if httpd.Port < 1 {
-		return errors.New("HTTPD.Initialise: listen port must be greater than 0")
+	if daemon.Port < 1 {
+		return errors.New("httpd.Initialise: listen port must be greater than 0")
 	}
-	if httpd.BaseRateLimit < 1 {
-		return errors.New("HTTPD.Initialise: BaseRateLimit must be greater than 0")
+	if daemon.BaseRateLimit < 1 {
+		return errors.New("httpd.Initialise: BaseRateLimit must be greater than 0")
 	}
-	if (httpd.TLSCertPath != "" || httpd.TLSKeyPath != "") && (httpd.TLSCertPath == "" || httpd.TLSKeyPath == "") {
-		return errors.New("HTTPD.Initialise: if TLS is to be enabled, both TLS certificate and key path must be present.")
+	if (daemon.TLSCertPath != "" || daemon.TLSKeyPath != "") && (daemon.TLSCertPath == "" || daemon.TLSKeyPath == "") {
+		return errors.New("httpd.Initialise: missing TLS certificate or key path")
 	}
 	// Install handlers with rate-limiting middleware
 	mux := new(http.ServeMux)
-	httpd.AllRateLimits = map[string]*misc.RateLimit{}
+	daemon.AllRateLimits = map[string]*misc.RateLimit{}
 	// Collect directory handlers
-	if httpd.ServeDirectories != nil {
-		for urlLocation, dirPath := range httpd.ServeDirectories {
+	if daemon.ServeDirectories != nil {
+		for urlLocation, dirPath := range daemon.ServeDirectories {
 			if urlLocation == "" || dirPath == "" {
 				continue
 			}
@@ -121,34 +121,34 @@ func (httpd *HTTPD) Initialise() error {
 			}
 			rl := &misc.RateLimit{
 				UnitSecs: RateLimitIntervalSec,
-				MaxCount: DirectoryHandlerRateLimitFactor * httpd.BaseRateLimit,
-				Logger:   httpd.Logger,
+				MaxCount: DirectoryHandlerRateLimitFactor * daemon.BaseRateLimit,
+				Logger:   daemon.Logger,
 			}
-			httpd.AllRateLimits[urlLocation] = rl
-			mux.HandleFunc(urlLocation, httpd.Middleware(rl, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
+			daemon.AllRateLimits[urlLocation] = rl
+			mux.HandleFunc(urlLocation, daemon.Middleware(rl, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
 		}
 	}
 	// Collect specialised handlers
-	for urlLocation, handler := range httpd.SpecialHandlers {
-		fun, err := handler.MakeHandler(httpd.Logger, httpd.Processor)
+	for urlLocation, handler := range daemon.SpecialHandlers {
+		fun, err := handler.MakeHandler(daemon.Logger, daemon.Processor)
 		if err != nil {
 			return err
 		}
 		rl := &misc.RateLimit{
 			UnitSecs: RateLimitIntervalSec,
-			MaxCount: handler.GetRateLimitFactor() * httpd.BaseRateLimit,
-			Logger:   httpd.Logger,
+			MaxCount: handler.GetRateLimitFactor() * daemon.BaseRateLimit,
+			Logger:   daemon.Logger,
 		}
-		httpd.AllRateLimits[urlLocation] = rl
-		mux.HandleFunc(urlLocation, httpd.Middleware(rl, fun))
+		daemon.AllRateLimits[urlLocation] = rl
+		mux.HandleFunc(urlLocation, daemon.Middleware(rl, fun))
 	}
 	// Initialise all rate limits
-	for _, limit := range httpd.AllRateLimits {
+	for _, limit := range daemon.AllRateLimits {
 		limit.Initialise()
 	}
 	// Configure server with rather generous and sane defaults
-	httpd.Server = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", httpd.Address, httpd.Port),
+	daemon.Server = &http.Server{
+		Addr:         fmt.Sprintf("%s:%d", daemon.Address, daemon.Port),
 		Handler:      mux,
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,
@@ -160,55 +160,55 @@ func (httpd *HTTPD) Initialise() error {
 You may call this function only after having called Initialise()!
 Start HTTP daemon and block caller until Stop function is called.
 */
-func (httpd *HTTPD) StartAndBlock() error {
-	if httpd.TLSCertPath == "" {
-		httpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTP connections")
-		if err := httpd.Server.ListenAndServe(); err != nil {
+func (daemon *Daemon) StartAndBlock() error {
+	if daemon.TLSCertPath == "" {
+		daemon.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTP connections")
+		if err := daemon.Server.ListenAndServe(); err != nil {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.Address, httpd.Port, err)
+			return fmt.Errorf("httpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 		}
 	} else {
-		httpd.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTPS connections")
-		if err := httpd.Server.ListenAndServeTLS(httpd.TLSCertPath, httpd.TLSKeyPath); err != nil {
+		daemon.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTPS connections")
+		if err := daemon.Server.ListenAndServeTLS(daemon.TLSCertPath, daemon.TLSKeyPath); err != nil {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("HTTPD.StartAndBlock: failed to listen on %s:%d - %v", httpd.Address, httpd.Port, err)
+			return fmt.Errorf("httpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 		}
 	}
 	return nil
 }
 
 // Stop HTTP daemon.
-func (httpd *HTTPD) Stop() {
+func (daemon *Daemon) Stop() {
 	constraints, _ := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
-	if err := httpd.Server.Shutdown(constraints); err != nil {
-		httpd.Logger.Warningf("Stop", "", err, "failed to shutdown")
+	if err := daemon.Server.Shutdown(constraints); err != nil {
+		daemon.Logger.Warningf("Stop", "", err, "failed to shutdown")
 	}
 }
 
 // Run unit tests on API handlers of an already started HTTP daemon all API handlers. Essentially, it tests "api" package.
-func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
+func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	// When accesses via HTTP, API handlers warn user about safety concern via a authorization prompt.
 	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
 	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
 	// System information
-	resp, err := inet.DoHTTP(inet.Request{Header: basicAuth}, addr+"/info")
+	resp, err := inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/info")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Command Form
-	resp, err = inet.DoHTTP(inet.Request{Header: basicAuth}, addr+"/cmd_form")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.Request{Method: http.MethodPost, Header: basicAuth}, addr+"/cmd_form")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost, Header: basicAuth}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.Request{
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"cmd": {"verysecret.sls /"}}.Encode()),
@@ -217,26 +217,26 @@ func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Gitlab handle
-	resp, err = inet.DoHTTP(inet.Request{Header: basicAuth}, addr+"/gitlab")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/gitlab")
 	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// HTML file
-	resp, err = inet.DoHTTP(inet.Request{}, addr+"/html")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/html")
 	expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body), expected, resp)
 	}
 	// MailMe
-	resp, err = inet.DoHTTP(inet.Request{Header: basicAuth}, addr+"/mail_me")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.Request{Method: http.MethodPost, Header: basicAuth}, addr+"/mail_me")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost, Header: basicAuth}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.Request{
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
@@ -246,7 +246,7 @@ func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Microsoft bot
-	resp, err = inet.DoHTTP(inet.Request{Header: basicAuth}, addr+"/microsoft_bot")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/microsoft_bot")
 	if err != nil || resp.StatusCode != http.StatusBadRequest {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -255,20 +255,20 @@ func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 	if microsoftBotDummyChatRequest, err = json.Marshal(microsoftBotDummyChat); err != nil {
 		t.Fatal(err)
 	}
-	resp, err = inet.DoHTTP(inet.Request{
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Header: basicAuth,
 		Body:   bytes.NewReader(microsoftBotDummyChatRequest)}, addr+"/microsoft_bot")
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Proxy (visit https://github.com)
-	resp, err = inet.DoHTTP(inet.Request{Header: basicAuth}, addr+"/proxy?u=https%%3A%%2F%%2Fgithub.com")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/proxy?u=https%%3A%%2F%%2Fgithub.com")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "github") || !strings.Contains(string(resp.Body), "laitos_rewrite_url") {
 		t.Fatal(err, resp.StatusCode, string(resp.Body))
 	}
 
 	// Twilio - exchange SMS with bad PIN
-	resp, err = inet.DoHTTP(inet.Request{
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"pin mismatch"}}.Encode()),
@@ -277,39 +277,39 @@ func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 		t.Fatal(err, resp)
 	}
 	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
-	resp, err = inet.DoHTTP(inet.Request{
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioSMSHook{}))
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message><![CDATA[01234567890123456789012345678901234]]></Message></Response>
+<HTTPResponse><Message><![CDATA[01234567890123456789012345678901234]]></Message></HTTPResponse>
 `
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, resp)
 	}
 	// Twilio - check phone call greeting
-	resp, err = inet.DoHTTP(inet.Request{Header: basicAuth}, addr+"/call_greeting")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/call_greeting")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - check phone call response to DTMF
-	resp, err = inet.DoHTTP(inet.Request{
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {"0000000"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
 	expected = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
+<HTTPResponse>
 	<Say>Sorry</Say>
 	<Hangup/>
-</Response>
+</HTTPResponse>
 `
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - check command execution result via phone call
-	resp, err = inet.DoHTTP(inet.Request{
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
 		//                                             v  e r  y  s   e c  r  e t .   s    tr  u e
@@ -320,7 +320,7 @@ func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - check command execution result via phone call and ask output to be spelt phonetically
-	resp, err = inet.DoHTTP(inet.Request{
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
 		//                                                                               v  e r  y  s   e c  r  e t .   s    tr  u e
@@ -334,7 +334,7 @@ func TestAPIHandlers(httpd *HTTPD, t testingstub.T) {
 }
 
 // Run unit test on HTTP daemon. See TestHTTPD_StartAndBlock for daemon setup.
-func TestHTTPD(httpd *HTTPD, t testingstub.T) {
+func TestHTTPD(httpd *Daemon, t testingstub.T) {
 	// Create a temporary directory of file
 	// Caller is supposed to set up the handler on /my/dir
 	htmlDir := "/tmp/test-laitos-dir"
@@ -348,34 +348,34 @@ func TestHTTPD(httpd *HTTPD, t testingstub.T) {
 	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
 
 	// Directory handle
-	resp, err := inet.DoHTTP(inet.Request{}, addr+"/my/dir")
+	resp, err := inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
 <a href="a.html">a.html</a>
 </pre>
 ` {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	resp, err = inet.DoHTTP(inet.Request{}, addr+"/my/dir/a.html")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir/a.html")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	resp, err = inet.DoHTTP(inet.Request{}, addr+"/dir")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/dir")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
 <a href="a.html">a.html</a>
 </pre>
 ` {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	resp, err = inet.DoHTTP(inet.Request{}, addr+"/dir/a.html")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/dir/a.html")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Non-existent path in directory
-	resp, err = inet.DoHTTP(inet.Request{}, addr+"/my/dir/doesnotexist.html")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir/doesnotexist.html")
 	if err != nil || resp.StatusCode != http.StatusNotFound {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	resp, err = inet.DoHTTP(inet.Request{}, addr+"/doesnotexist")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/doesnotexist")
 	// Non-existent path, but go is quite stupid that it produces response of /
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body), resp)
@@ -384,12 +384,12 @@ func TestHTTPD(httpd *HTTPD, t testingstub.T) {
 	time.Sleep(RateLimitIntervalSec * time.Second)
 	success := 0
 	for i := 0; i < httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor*2; i++ {
-		resp, err = inet.DoHTTP(inet.Request{}, addr+"/my/dir/a.html")
+		resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir/a.html")
 		if err == nil && resp.StatusCode == http.StatusOK {
 			success++
 		}
 	}
-	// Assume HTTPD's BaseRateLimit is 10
+	// Assume Daemon's BaseRateLimit is 10
 	if success > httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor*3/2 ||
 		success < httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor/2 {
 		t.Fatal(success)
@@ -397,7 +397,7 @@ func TestHTTPD(httpd *HTTPD, t testingstub.T) {
 	// Wait till rate limits reset
 	time.Sleep(RateLimitIntervalSec * time.Second)
 	// Visit page again after rate limit resets
-	resp, err = inet.DoHTTP(inet.Request{}, addr+"/my/dir")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
 <a href="a.html">a.html</a>
 </pre>

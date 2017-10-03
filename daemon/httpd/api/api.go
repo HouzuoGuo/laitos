@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
-	"github.com/HouzuoGuo/laitos/daemon/mailp"
-	"github.com/HouzuoGuo/laitos/daemon/plain"
+	"github.com/HouzuoGuo/laitos/daemon/plainsockets"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -63,8 +63,8 @@ func WarnIfNoHTTPS(r *http.Request, w http.ResponseWriter) bool {
 
 // Inspect system and environment and return their information in text form. Double as a health check endpoint.
 type HandleSystemInfo struct {
-	FeaturesToCheck *toolbox.FeatureSet  `json:"-"` // Health check subject - features and their API keys
-	MailpToCheck    *mailp.MailProcessor `json:"-"` // Health check subject - mail processor and its mailer
+	FeaturesToCheck *toolbox.FeatureSet    `json:"-"` // Health check subject - features and their API keys
+	MailpToCheck    *mailcmd.CommandRunner `json:"-"` // Health check subject - mail processor and its mailer
 }
 
 /*
@@ -80,15 +80,15 @@ DNSD TCP/UDP: %s/%s
 HTTPD: %s
 MAILP: %s
 PLAIN TCP/UDP: %s%s
-SMTPD: %s
+Daemon: %s
 SOCKD TCP/UDP: %s/%s
 TELEGRAM BOT: %s
 `,
 		common.DurationStats.Format(factor, numDecimals),
 		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
 		DurationStats.Format(factor, numDecimals),
-		mailp.DurationStats.Format(factor, numDecimals),
-		plain.TCPDurationStats.Format(factor, numDecimals), plain.UDPDurationStats.Format(factor, numDecimals),
+		mailcmd.DurationStats.Format(factor, numDecimals),
+		plainsockets.TCPDurationStats.Format(factor, numDecimals), plainsockets.UDPDurationStats.Format(factor, numDecimals),
 		smtpd.DurationStats.Format(factor, numDecimals),
 		sockd.TCPDurationStats.Format(factor, numDecimals), sockd.UDPDurationStats.Format(factor, numDecimals),
 		telegrambot.DurationStats.Format(factor, numDecimals))

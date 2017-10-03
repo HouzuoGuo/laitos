@@ -12,7 +12,7 @@ func TestBrowserInstances(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
-	instances := Renderers{}
+	instances := Instances{}
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "cannot find PhantomJS") {
 		t.Fatal(err)
 	}

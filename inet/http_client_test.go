@@ -4,7 +4,7 @@ import "testing"
 
 func TestDoHTTP(t *testing.T) {
 	// I hope nobody's buying that domain name simply to mess with this test case ^_______^
-	resp, err := DoHTTP(Request{
+	resp, err := DoHTTP(HTTPRequest{
 		TimeoutSec: 30,
 	}, "https://a-very-bad-domain-name-nonnnnnnbreeiunsdvc.rich")
 	if err == nil {
@@ -14,7 +14,7 @@ func TestDoHTTP(t *testing.T) {
 		t.Fatal("did not error")
 	}
 
-	resp, err = DoHTTP(Request{
+	resp, err = DoHTTP(HTTPRequest{
 		TimeoutSec: 30,
 	}, "https://github.com")
 	if err != nil {

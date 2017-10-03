@@ -57,7 +57,7 @@ func PercentEncode(input string) string {
 	return buf.String()
 }
 
-type AuthHead struct {
+type OAuthHeader struct {
 	ConsumerKey       string
 	ConsumerSecret    string
 	AccessToken       string
@@ -66,7 +66,7 @@ type AuthHead struct {
 
 // Sign creates a concatenated consumer and token secret key and calculates
 // the HMAC digest of the message. Returns the base64 encoded digest bytes.
-func (a *AuthHead) Sign(tokenSecret, message string) (string, error) {
+func (a *OAuthHeader) Sign(tokenSecret, message string) (string, error) {
 	signingKey := strings.Join([]string{a.ConsumerSecret, tokenSecret}, "&")
 	mac := hmac.New(sha1.New, []byte(signingKey))
 	mac.Write([]byte(message))
@@ -76,7 +76,7 @@ func (a *AuthHead) Sign(tokenSecret, message string) (string, error) {
 
 // setRequestAuthHeader sets the OAuth1 header for making authenticated
 // requests with an AccessToken (token credential) according to RFC 5849 3.1.
-func (a *AuthHead) SetRequestAuthHeader(req *http.Request) error {
+func (a *OAuthHeader) SetRequestAuthHeader(req *http.Request) error {
 	nounce := make([]byte, 32)
 	rand.Read(nounce)
 

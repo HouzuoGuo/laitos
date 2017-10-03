@@ -1,4 +1,4 @@
-package mailp
+package mailcmd
 
 import (
 	"github.com/HouzuoGuo/laitos/inet"
@@ -7,18 +7,18 @@ import (
 
 func TestUndocumented2_MayReplyTo(t *testing.T) {
 	und := Undocumented2{}
-	if und.MayReplyTo(inet.BasicProperties{}) {
+	if und.MayReplyTo(inet.BasicMail{}) {
 		t.Fatal("wrong")
 	}
-	if und.MayReplyTo(inet.BasicProperties{ReplyAddress: "a@b.c"}) {
+	if und.MayReplyTo(inet.BasicMail{ReplyAddress: "a@b.c"}) {
 		t.Fatal("wrong")
 	}
 	und.MailAddrSuffix = "@b.c"
-	if und.MayReplyTo(inet.BasicProperties{ReplyAddress: "a@b.c"}) {
+	if und.MayReplyTo(inet.BasicMail{ReplyAddress: "a@b.c"}) {
 		t.Fatal("wrong")
 	}
 	und = Undocumented2{URL: "https://github.com", MailAddrSuffix: "@b.c", MsisDN: "b", From: "c"}
-	if !und.MayReplyTo(inet.BasicProperties{ReplyAddress: "a@b.c"}) {
+	if !und.MayReplyTo(inet.BasicMail{ReplyAddress: "a@b.c"}) {
 		t.Fatal("wrong")
 	}
 }

@@ -1,4 +1,4 @@
-package plain
+package plainsockets
 
 import (
 	"bufio"
@@ -19,10 +19,10 @@ var TCPDurationStats = misc.NewStats() // TCPDurationStats stores statistics of 
 You may call this function only after having called Initialise()!
 Start TCP daemon and block until daemon is told to stop.
 */
-func (server *PlainTextDaemon) StartAndBlockTCP() (err error) {
+func (server *Daemon) StartAndBlockTCP() (err error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.Address, server.TCPPort))
 	if err != nil {
-		return fmt.Errorf("PlainTextDaemon.StartAndBlock: failed to listen on %s:%d - %v", server.Address, server.TCPPort, err)
+		return fmt.Errorf("plainsockets.StartAndBlock: failed to listen on %s:%d - %v", server.Address, server.TCPPort, err)
 	}
 	defer listener.Close()
 	server.TCPListener = listener
@@ -37,14 +37,14 @@ func (server *PlainTextDaemon) StartAndBlockTCP() (err error) {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("PlainTextDaemon.StartAndBlockTCP: failed to accept new connection - %v", err)
+			return fmt.Errorf("plainsockets.StartAndBlockTCP: failed to accept new connection - %v", err)
 		}
 		go server.HandleTCPConnection(clientConn)
 	}
 }
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
-func (server *PlainTextDaemon) HandleTCPConnection(clientConn net.Conn) {
+func (server *Daemon) HandleTCPConnection(clientConn net.Conn) {
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
@@ -81,7 +81,7 @@ func (server *PlainTextDaemon) HandleTCPConnection(clientConn net.Conn) {
 }
 
 // Run unit tests on the TCP server. See TestPlainTextProt_StartAndBlockUDP for daemon setup.
-func TestTCPServer(server *PlainTextDaemon, t testingstub.T) {
+func TestTCPServer(server *Daemon, t testingstub.T) {
 	// Prevent daemon from listening to UDP connections in this TCP test case
 	udpListenPort := server.UDPPort
 	server.UDPPort = 0

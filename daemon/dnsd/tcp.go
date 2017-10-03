@@ -15,7 +15,7 @@ import (
 
 var TCPDurationStats = misc.NewStats() // TCPDurationStats stores statistics of duration of all TCP DNS queries.
 
-func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
+func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
@@ -24,11 +24,11 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	defer clientConn.Close()
 	// Check address against rate limit and allowed IP prefixes
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
-	if !dnsd.RateLimit.Add(clientIP, true) {
+	if !daemon.RateLimit.Add(clientIP, true) {
 		return
 	}
-	if !dnsd.checkAllowClientIP(clientIP) {
-		dnsd.Logger.Warningf("HandleTCPQuery", clientIP, nil, "client IP is not allowed to query")
+	if !daemon.checkAllowClientIP(clientIP) {
+		daemon.Logger.Warningf("HandleTCPQuery", clientIP, nil, "client IP is not allowed to query")
 		return
 	}
 	// Read query length
@@ -36,19 +36,19 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	queryLenBuf := make([]byte, 2)
 	_, err := clientConn.Read(queryLenBuf)
 	if err != nil {
-		dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read query length from client")
+		daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read query length from client")
 		return
 	}
 	queryLen := int(queryLenBuf[0])*256 + int(queryLenBuf[1])
 	// Read query
 	if queryLen > MaxPacketSize || queryLen < 1 {
-		dnsd.Logger.Warningf("HandleTCPQuery", clientIP, nil, "bad query length from client")
+		daemon.Logger.Warningf("HandleTCPQuery", clientIP, nil, "bad query length from client")
 		return
 	}
 	queryBuf := make([]byte, queryLen)
 	_, err = clientConn.Read(queryBuf)
 	if err != nil {
-		dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read query from client")
+		daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read query from client")
 		return
 	}
 	domainName := ExtractDomainName(queryBuf)
@@ -59,63 +59,63 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 	var doForward bool
 	if len(domainName) == 0 {
 		// If I cannot figure out what domain is from the query, simply forward it without much concern.
-		dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle non-name query")
+		daemon.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle non-name query")
 		doForward = true
 	} else {
 		// This is a domain name query, check the name against black list and then forward.
-		if dnsd.NamesAreBlackListed(domainName) {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", domainName[0])
+		if daemon.NamesAreBlackListed(domainName) {
+			daemon.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", domainName[0])
 			responseBuf = RespondWith0(queryBuf)
 			responseLen = len(responseBuf)
 			responseLenBuf = make([]byte, 2)
 			responseLenBuf[0] = byte(responseLen / 256)
 			responseLenBuf[1] = byte(responseLen % 256)
 		} else {
-			dnsd.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", domainName[0])
+			daemon.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", domainName[0])
 			doForward = true
 		}
 	}
 	// If queried domain is not black listed, forward the query to forwarder.
 	if doForward {
 		// Ask a randomly chosen TCP forwarder to process the query
-		myForwarder, err := net.DialTimeout("tcp", dnsd.TCPForwarder[rand.Intn(len(dnsd.TCPForwarder))], IOTimeoutSec*time.Second)
+		myForwarder, err := net.DialTimeout("tcp", daemon.TCPForwarder[rand.Intn(len(daemon.TCPForwarder))], IOTimeoutSec*time.Second)
 		if err != nil {
-			dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to connect to forwarder")
+			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to connect to forwarder")
 			return
 		}
 		defer myForwarder.Close()
 		// Send original query to forwarder without modification
 		myForwarder.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err = myForwarder.Write(queryLenBuf); err != nil {
-			dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to write length to forwarder")
+			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to write length to forwarder")
 			return
 		} else if _, err = myForwarder.Write(queryBuf); err != nil {
-			dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to write query to forwarder")
+			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to write query to forwarder")
 			return
 		}
 		// Retrieve forwarder's response
 		responseLenBuf = make([]byte, 2)
 		if _, err = myForwarder.Read(responseLenBuf); err != nil {
-			dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read length from forwarder")
+			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read length from forwarder")
 			return
 		}
 		responseLen = int(responseLenBuf[0])*256 + int(responseLenBuf[1])
 		if responseLen > MaxPacketSize || responseLen < 1 {
-			dnsd.Logger.Warningf("HandleTCPQuery", clientIP, nil, "bad response length from forwarder")
+			daemon.Logger.Warningf("HandleTCPQuery", clientIP, nil, "bad response length from forwarder")
 			return
 		}
 		responseBuf = make([]byte, responseLen)
 		if _, err = myForwarder.Read(responseBuf); err != nil {
-			dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read response from forwarder")
+			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read response from forwarder")
 			return
 		}
 	}
 	// Send response to my client
 	if _, err = clientConn.Write(responseLenBuf); err != nil {
-		dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to answer length to client")
+		daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to answer length to client")
 		return
 	} else if _, err = clientConn.Write(responseBuf); err != nil {
-		dnsd.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to answer to client")
+		daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to answer to client")
 		return
 	}
 	return
@@ -125,16 +125,16 @@ func (dnsd *DNSD) HandleTCPQuery(clientConn net.Conn) {
 You may call this function only after having called Initialise()!
 Start DNS daemon to listen on TCP port only, until daemon is told to stop.
 */
-func (dnsd *DNSD) StartAndBlockTCP() error {
-	listenAddr := fmt.Sprintf("%s:%d", dnsd.Address, dnsd.TCPPort)
+func (daemon *Daemon) StartAndBlockTCP() error {
+	listenAddr := fmt.Sprintf("%s:%d", daemon.Address, daemon.TCPPort)
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return err
 	}
 	defer listener.Close()
-	dnsd.TCPListener = listener
+	daemon.TCPListener = listener
 	// Process incoming TCP DNS queries
-	dnsd.Logger.Printf("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
+	daemon.Logger.Printf("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
 	for {
 		if misc.EmergencyLockDown {
 			return misc.ErrEmergencyLockDown
@@ -146,13 +146,13 @@ func (dnsd *DNSD) StartAndBlockTCP() error {
 			}
 			return fmt.Errorf("DNSD.StartAndBlockTCP: failed to accept new connection - %v", err)
 		}
-		go dnsd.HandleTCPQuery(clientConn)
+		go daemon.HandleTCPQuery(clientConn)
 	}
 
 }
 
 // Run unit tests on DNS TCP daemon. See TestDNSD_StartAndBlockTCP for daemon setup.
-func TestTCPQueries(dnsd *DNSD, t testingstub.T) {
+func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 	// Prevent daemon from listening to UDP queries in this TCP test case
 	dnsd.UDPPort = 0
 	udpListenPort := dnsd.UDPPort

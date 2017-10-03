@@ -327,7 +327,7 @@ func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
 			continue
 		}
 		// Append \r\n\r\n to make it look like a complete message with empty body
-		prop, _, err := inet.ReadMessage([]byte(header + "\r\n\r\n"))
+		prop, _, err := inet.ReadMailMessage([]byte(header + "\r\n\r\n"))
 		if err != nil {
 			continue
 		}
@@ -366,7 +366,7 @@ func (imap *IMAPAccounts) ReadMessage(cmd Command) *Result {
 	}
 	// If mail is multi-part, prefer to retrieve the plain text mail body.
 	var anyText, plainText string
-	err = inet.WalkMessage([]byte(entireMessage), func(prop inet.BasicProperties, body []byte) (bool, error) {
+	err = inet.WalkMailMessage([]byte(entireMessage), func(prop inet.BasicMail, body []byte) (bool, error) {
 		if strings.Index(prop.ContentType, "plain") == -1 {
 			anyText = string(body)
 		} else {

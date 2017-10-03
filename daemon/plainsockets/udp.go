@@ -1,4 +1,4 @@
-package plain
+package plainsockets
 
 import (
 	"bufio"
@@ -24,7 +24,7 @@ var UDPDurationStats = misc.NewStats() // UDPDurationStats stores statistics of 
 You may call this function only after having called Initialise()!
 Start UDP daemon and block until daemon is told to stop.
 */
-func (server *PlainTextDaemon) StartAndBlockUDP() error {
+func (server *Daemon) StartAndBlockUDP() error {
 	listenAddr := fmt.Sprintf("%s:%d", server.Address, server.UDPPort)
 	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
@@ -48,7 +48,7 @@ func (server *PlainTextDaemon) StartAndBlockUDP() error {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("PlainTextDaemon.StartAndBlockUDP: failed to accept new connection - %v", err)
+			return fmt.Errorf("plainsockets.StartAndBlockUDP: failed to accept new connection - %v", err)
 		}
 		// Check IP address against (connection) rate limit
 		clientIP := clientAddr.IP.String()
@@ -63,7 +63,7 @@ func (server *PlainTextDaemon) StartAndBlockUDP() error {
 }
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
-func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAddr, packet []byte) {
+func (server *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAddr, packet []byte) {
 	listener := server.UDPListener
 	if listener == nil {
 		server.Logger.Warningf("HandleUDPConnection", clientIP, nil, "listener is closed before request can be processed")
@@ -105,7 +105,7 @@ func (server *PlainTextDaemon) HandleUDPConnection(clientIP string, clientAddr *
 }
 
 // Run unit tests on the UDP server. See TestPlainTextProt_StartAndBlockUDP for daemon setup.
-func TestUDPServer(server *PlainTextDaemon, t testingstub.T) {
+func TestUDPServer(server *Daemon, t testingstub.T) {
 	// Prevent daemon from listening to TCP connections in this UDP test case
 	tcpListenPort := server.TCPPort
 	server.TCPPort = 0

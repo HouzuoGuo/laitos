@@ -452,8 +452,8 @@ const (
 
 var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
 
-// An instance of headless browser server that acts on commands received via HTTP.
-type Renderer struct {
+// Instance is a single headless browser server that acts on on commands received via HTTP.
+type Instance struct {
 	PhantomJSExecPath  string        // Absolute or relative path to PhantomJS executable
 	RenderImagePath    string        // Place to store rendered web page image
 	Port               int           // Port number for headless server to listen for commands on
@@ -468,23 +468,23 @@ type Renderer struct {
 }
 
 // Produce javascript code for browser server and then launch its process in background.
-func (instance *Renderer) Start() error {
-	// Renderer is an internal API, hence its parameters are not validated before use.
+func (instance *Instance) Start() error {
+	// Instance is an internal API, hence its parameters are not validated before use.
 	instance.JSProcMutex = new(sync.Mutex)
 	instance.DebugOutput = new(bytes.Buffer)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
-	instance.Logger = misc.Logger{ComponentID: fmt.Sprintf("%s-%s", time.Now().Format(time.Kitchen), instance.Tag), ComponentName: "Renderer"}
+	instance.Logger = misc.Logger{ComponentID: fmt.Sprintf("%s-%s", time.Now().Format(time.Kitchen), instance.Tag), ComponentName: "Instance"}
 	// Store server javascript into a temporary file
 	serverJS, err := ioutil.TempFile("", "laitos-browser")
 	if err != nil {
-		return fmt.Errorf("Renderer.Start: failed to create temporary file for PhantomJS code - %v", err)
+		return fmt.Errorf("Instance.Start: failed to create temporary file for PhantomJS code - %v", err)
 	}
 	if _, err := serverJS.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImagePath, instance.Port))); err != nil {
-		return fmt.Errorf("Renderer.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("Instance.Start: failed to write PhantomJS server code - %v", err)
 	} else if err := serverJS.Sync(); err != nil {
-		return fmt.Errorf("Renderer.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("Instance.Start: failed to write PhantomJS server code - %v", err)
 	} else if err := serverJS.Close(); err != nil {
-		return fmt.Errorf("Renderer.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("Instance.Start: failed to write PhantomJS server code - %v", err)
 	}
 	// Start server process
 	instance.JSProc = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
@@ -501,14 +501,14 @@ func (instance *Renderer) Start() error {
 	// Expect server process to remain running for at least a second for a successful start
 	select {
 	case err := <-processErrChan:
-		return fmt.Errorf("Renderer.Start: PhantomJS process failed - %v", err)
+		return fmt.Errorf("Instance.Start: PhantomJS process failed - %v", err)
 	case <-time.After(1 * time.Second):
 	}
 	// Unconditionally kill the server process after a period of time
 	go func() {
 		select {
 		case err := <-processErrChan:
-			log.Printf("Renderer.Start: PhantomJS process has quit, status - %v", err)
+			log.Printf("Instance.Start: PhantomJS process has quit, status - %v", err)
 		case <-time.After(time.Duration(instance.AutoKillTimeoutSec) * time.Second):
 		}
 		instance.Kill()
@@ -526,13 +526,13 @@ func (instance *Renderer) Start() error {
 	}
 	if !portIsOpen {
 		instance.Kill()
-		return errors.New("Renderer.Start: port is not listening after multiple atempts")
+		return errors.New("Instance.Start: port is not listening after multiple atempts")
 	}
 	return nil
 }
 
 // Return last N bytes of text from debug output buffer.
-func (instance *Renderer) GetDebugOutput(lastNBytes int) string {
+func (instance *Instance) GetDebugOutput(lastNBytes int) string {
 	all := instance.DebugOutput.Bytes()
 	if len(all) > lastNBytes {
 		return string(all[len(all)-lastNBytes:])
@@ -542,24 +542,24 @@ func (instance *Renderer) GetDebugOutput(lastNBytes int) string {
 }
 
 // Send a control request via HTTP to the browser server, optionally deserialise the response into receiver.
-func (instance *Renderer) SendRequest(actionName string, params map[string]interface{}, jsonReceiver interface{}) (err error) {
+func (instance *Instance) SendRequest(actionName string, params map[string]interface{}, jsonReceiver interface{}) (err error) {
 	body := url.Values{}
 	if params != nil {
 		for key, val := range params {
 			body[key] = []string{fmt.Sprint(val)}
 		}
 	}
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(body.Encode()),
 	}, fmt.Sprintf("http://127.0.0.1:%d/%s", instance.Port, actionName))
 	if err == nil {
 		if resp.StatusCode/200 != 1 {
-			err = fmt.Errorf("Renderer.SendRequest: HTTP failure - %v", string(resp.Body))
+			err = fmt.Errorf("Instance.SendRequest: HTTP failure - %v", string(resp.Body))
 		}
 		if jsonReceiver != nil {
 			if jsonErr := json.Unmarshal(resp.Body, &jsonReceiver); jsonErr != nil {
-				err = fmt.Errorf("Renderer.SendRequest: - %v", jsonErr)
+				err = fmt.Errorf("Instance.SendRequest: - %v", jsonErr)
 			}
 		}
 	}
@@ -568,7 +568,7 @@ func (instance *Renderer) SendRequest(actionName string, params map[string]inter
 }
 
 // Tell browser to render page and wait up to 3 seconds for render to finish.
-func (instance *Renderer) RenderPage() error {
+func (instance *Instance) RenderPage() error {
 	if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -594,11 +594,11 @@ func (instance *Renderer) RenderPage() error {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return errors.New("Renderer.RenderPage: render is not completed")
+	return errors.New("Instance.RenderPage: render is not completed")
 }
 
 // Kill browser server process and delete rendered web page image.
-func (instance *Renderer) Kill() {
+func (instance *Instance) Kill() {
 	if instance.JSProc != nil {
 		instance.JSProcMutex.Lock()
 		defer instance.JSProcMutex.Unlock()
@@ -613,22 +613,22 @@ func (instance *Renderer) Kill() {
 }
 
 // GoBack navigates browser backward in history.
-func (instance *Renderer) GoBack() error {
+func (instance *Instance) GoBack() error {
 	return instance.SendRequest("back", nil, nil)
 }
 
 // GoForward navigates browser forward in history.
-func (instance *Renderer) GoForward() error {
+func (instance *Instance) GoForward() error {
 	return instance.SendRequest("forward", nil, nil)
 }
 
 // Reload reloads the current page.
-func (instance *Renderer) Reload() error {
+func (instance *Instance) Reload() error {
 	return instance.SendRequest("reload", nil, nil)
 }
 
 // GoTo navigates to a new URL.
-func (instance *Renderer) GoTo(userAgent, pageURL string, width, height int) error {
+func (instance *Instance) GoTo(userAgent, pageURL string, width, height int) error {
 	var result bool
 	err := instance.SendRequest("goto", map[string]interface{}{
 		"user_agent":  userAgent,
@@ -640,7 +640,7 @@ func (instance *Renderer) GoTo(userAgent, pageURL string, width, height int) err
 		return err
 	}
 	if !result {
-		return errors.New("Renderer.GoTo: result is false")
+		return errors.New("Instance.GoTo: result is false")
 	}
 	return nil
 }
@@ -653,7 +653,7 @@ const (
 )
 
 // Pointer sends pointer to move/click at a coordinate.
-func (instance *Renderer) Pointer(actionType, button string, x, y int) error {
+func (instance *Instance) Pointer(actionType, button string, x, y int) error {
 	return instance.SendRequest("pointer", map[string]interface{}{
 		"type":   actionType,
 		"x":      x,
@@ -668,7 +668,7 @@ const (
 )
 
 // SendKey either sends a key string or a key code into the currently focused element on page.
-func (instance *Renderer) SendKey(aString string, aCode int64) error {
+func (instance *Instance) SendKey(aString string, aCode int64) error {
 	if aString != "" {
 		instance.SendRequest("type", map[string]interface{}{"key_string": aString}, nil)
 	} else if aCode != 0 {
@@ -684,13 +684,13 @@ type RemotePageInfo struct {
 }
 
 // GetPageInfo returns title and URL of the current page.
-func (instance *Renderer) GetPageInfo() (info RemotePageInfo, err error) {
+func (instance *Instance) GetPageInfo() (info RemotePageInfo, err error) {
 	err = instance.SendRequest("info", nil, &info)
 	return
 }
 
 // LOReset (line-oriented browser) resets recorded element information so that next DOM navigation will find the first element on page.
-func (instance *Renderer) LOResetNavigation() error {
+func (instance *Instance) LOResetNavigation() error {
 	return instance.SendRequest("lo_reset", nil, nil)
 }
 
@@ -704,28 +704,28 @@ type ElementInfo struct {
 }
 
 // LONext (line-oriented browser) navigates to the next element in DOM. Return information of previous, current, and next element after the action.
-func (instance *Renderer) LONextElement() (elements []ElementInfo, err error) {
+func (instance *Instance) LONextElement() (elements []ElementInfo, err error) {
 	elements = make([]ElementInfo, 3)
 	err = instance.SendRequest("lo_next", nil, &elements)
 	return
 }
 
 // LONext (line-oriented browser) navigates to the previous element in DOM.  Return information of previous, current, and next element after the action.
-func (instance *Renderer) LOPreviousElement() (elements []ElementInfo, err error) {
+func (instance *Instance) LOPreviousElement() (elements []ElementInfo, err error) {
 	elements = make([]ElementInfo, 3)
 	err = instance.SendRequest("lo_prev", nil, &elements)
 	return
 }
 
 // LONext (line-oriented browser) navigates to the previous element in DOM. Return information of next N elements.
-func (instance *Renderer) LONextNElements(n int) (elements []ElementInfo, err error) {
+func (instance *Instance) LONextNElements(n int) (elements []ElementInfo, err error) {
 	elements = make([]ElementInfo, 0, n)
 	err = instance.SendRequest("lo_next_n", map[string]interface{}{"n": n}, &elements)
 	return
 }
 
 // LONext (line-oriented browser) sends pointer to click/move to at coordinate of the currently focused element.
-func (instance *Renderer) LOPointer(actionType, button string) error {
+func (instance *Instance) LOPointer(actionType, button string) error {
 	return instance.SendRequest("lo_pointer", map[string]interface{}{
 		"type":   actionType,
 		"button": button,
@@ -733,6 +733,6 @@ func (instance *Renderer) LOPointer(actionType, button string) error {
 }
 
 // LONext (line-oriented browser) sets the value of currently focused element.
-func (instance *Renderer) LOSetValue(value string) error {
+func (instance *Instance) LOSetValue(value string) error {
 	return instance.SendRequest("lo_set_val", map[string]interface{}{"value": value}, nil)
 }

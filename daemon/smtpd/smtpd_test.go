@@ -2,23 +2,23 @@ package smtpd
 
 import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/daemon/mailp"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/inet"
 	"strings"
 	"testing"
 )
 
 func TestSMTPD_StartAndBlock(t *testing.T) {
-	goodMailer := inet.Mailer{
+	goodMailer := inet.MailClient{
 		MailFrom: "howard@localhost",
 		MTAHost:  "127.0.0.1",
 		MTAPort:  25,
 	}
-	daemon := SMTPD{
+	daemon := Daemon{
 		Address:    "127.0.0.1",
 		Port:       61358, // hard coded port is a random choice
 		PerIPLimit: 0,
-		MailProcessor: &mailp.MailProcessor{
+		MailProcessor: &mailcmd.CommandRunner{
 			CommandTimeoutSec: 10,
 			Processor:         common.GetTestCommandProcessor(),
 			ReplyMailer:       goodMailer,
@@ -47,7 +47,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Must not initialise if my domain names are not there
-	daemon.ForwardMailer = inet.Mailer{
+	daemon.ForwardMailer = inet.MailClient{
 		MailFrom: "howard@abc",
 		MTAHost:  "a.b.c.d",
 		MTAPort:  61358,
@@ -57,7 +57,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	}
 	daemon.MyDomains = []string{"example.com", "howard.name"}
 	// Must not initialise if forward mailer is myself
-	daemon.ForwardMailer = inet.Mailer{
+	daemon.ForwardMailer = inet.MailClient{
 		MailFrom: "howard@localhost",
 		MTAHost:  "127.0.0.1",
 		MTAPort:  61358,
@@ -67,7 +67,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	}
 	daemon.ForwardMailer = goodMailer
 	// Must not initialise if mail processor reply mailer is myself
-	daemon.MailProcessor.ReplyMailer = inet.Mailer{
+	daemon.MailProcessor.ReplyMailer = inet.MailClient{
 		MailFrom: "howard@localhost",
 		MTAHost:  "127.0.0.1",
 		MTAPort:  61358,

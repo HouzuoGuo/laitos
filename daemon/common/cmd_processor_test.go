@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestCommandProcessor_Process(t *testing.T) {
+func TestCommandProcessorProcess(t *testing.T) {
 	// Prepare feature set - the shell execution feature should be available even without configuration
 	features := &toolbox.FeatureSet{}
 	if err := features.Initialise(); err != nil {
@@ -96,7 +96,7 @@ func TestCommandProcessor_Process(t *testing.T) {
 	misc.EmergencyLockDown = false
 }
 
-func TestCommandProcessor_IsSane(t *testing.T) {
+func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 	proc := CommandProcessor{
 		Features:       nil,
 		CommandBridges: nil,

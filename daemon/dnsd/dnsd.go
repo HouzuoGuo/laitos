@@ -41,7 +41,7 @@ type TCPForwarderQuery struct {
 }
 
 // A DNS forwarder daemon that selectively refuse to answer certain A record requests made against advertisement servers.
-type DNSD struct {
+type Daemon struct {
 	Address            string           `json:"Address"`       // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
 	UDPPort            int              `json:"UDPPort"`       // UDP port to listen on
 	UDPForwarder       []string         `json:"UDPForwarders"` // Forward UDP DNS queries to these address (IP:Port)
@@ -66,58 +66,58 @@ type DNSD struct {
 }
 
 // Check configuration and initialise internal states.
-func (dnsd *DNSD) Initialise() error {
-	dnsd.Logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d&%d", dnsd.Address, dnsd.TCPPort, dnsd.UDPPort)}
-	if dnsd.Address == "" {
+func (daemon *Daemon) Initialise() error {
+	daemon.Logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
+	if daemon.Address == "" {
 		return errors.New("DNSD.Initialise: listen address must not be empty")
 	}
-	if dnsd.UDPPort < 1 && dnsd.TCPPort < 1 {
-		return errors.New("DNSD.Initialise: listen port must be greater than 0")
+	if daemon.UDPPort < 1 && daemon.TCPPort < 1 {
+		return errors.New("DNSD.Initialise: either or both TCP and UDP ports must be specified and be greater than 0")
 	}
-	if (dnsd.UDPForwarder == nil || len(dnsd.UDPForwarder) == 0) && (dnsd.TCPForwarder == nil || len(dnsd.TCPForwarder) == 0) {
+	if (daemon.UDPForwarder == nil || len(daemon.UDPForwarder) == 0) && (daemon.TCPForwarder == nil || len(daemon.TCPForwarder) == 0) {
 		return errors.New("DNSD.Initialise: there must be at least one UDP or TCP forwarder address")
 	}
-	if dnsd.PerIPLimit < 10 {
+	if daemon.PerIPLimit < 10 {
 		return errors.New("DNSD.Initialise: PerIPLimit must be greater than 9")
 	}
-	if len(dnsd.AllowQueryIPPrefixes) == 0 {
+	if len(daemon.AllowQueryIPPrefixes) == 0 {
 		return errors.New("DNSD.Initialise: allowable IP prefixes list must not be empty")
 	}
-	for _, prefix := range dnsd.AllowQueryIPPrefixes {
+	for _, prefix := range daemon.AllowQueryIPPrefixes {
 		if prefix == "" {
 			return errors.New("DNSD.Initialise: any allowable IP prefixes must not be empty string")
 		}
 	}
 	// Always allow localhost to query
-	dnsd.AllowQueryIPPrefixes = append(dnsd.AllowQueryIPPrefixes, "127.")
+	daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, "127.")
 
-	dnsd.allowQueryMutex = new(sync.Mutex)
-	dnsd.BlackListMutex = new(sync.Mutex)
-	dnsd.BlackList = make(map[string]struct{})
+	daemon.allowQueryMutex = new(sync.Mutex)
+	daemon.BlackListMutex = new(sync.Mutex)
+	daemon.BlackList = make(map[string]struct{})
 
-	dnsd.RateLimit = &misc.RateLimit{
-		MaxCount: dnsd.PerIPLimit,
+	daemon.RateLimit = &misc.RateLimit{
+		MaxCount: daemon.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
-		Logger:   dnsd.Logger,
+		Logger:   daemon.Logger,
 	}
-	dnsd.RateLimit.Initialise()
+	daemon.RateLimit.Initialise()
 	// Create a number of forwarder queues to handle incoming UDP DNS queries
 	// Keep in mind, TCP queries are not handled by queues.
-	if dnsd.UDPPort > 0 {
-		numQueues := dnsd.PerIPLimit / NumQueueRatio
+	if daemon.UDPPort > 0 {
+		numQueues := daemon.PerIPLimit / NumQueueRatio
 		// At very least, each forwarder address has to get a queue.
-		if numQueues < len(dnsd.UDPForwarder) {
-			numQueues = len(dnsd.UDPForwarder)
+		if numQueues < len(daemon.UDPForwarder) {
+			numQueues = len(daemon.UDPForwarder)
 		}
-		dnsd.UDPForwarderConns = make([]net.Conn, numQueues)
-		dnsd.UDPForwarderQueues = make([]chan *UDPQuery, numQueues)
-		dnsd.UDPBlackHoleQueues = make([]chan *UDPQuery, numQueues)
+		daemon.UDPForwarderConns = make([]net.Conn, numQueues)
+		daemon.UDPForwarderQueues = make([]chan *UDPQuery, numQueues)
+		daemon.UDPBlackHoleQueues = make([]chan *UDPQuery, numQueues)
 		for i := 0; i < numQueues; i++ {
 			/*
 				Each queue is connected to a different forwarder.
 				When a DNS query comes in, it is assigned a random forwarder to be processed.
 			*/
-			forwarderAddr, err := net.ResolveUDPAddr("udp", dnsd.UDPForwarder[i%len(dnsd.UDPForwarder)])
+			forwarderAddr, err := net.ResolveUDPAddr("udp", daemon.UDPForwarder[i%len(daemon.UDPForwarder)])
 			if err != nil {
 				return fmt.Errorf("DNSD.Initialise: failed to resolve UDP address - %v", err)
 			}
@@ -125,36 +125,36 @@ func (dnsd *DNSD) Initialise() error {
 			if err != nil {
 				return fmt.Errorf("DNSD.Initialise: failed to connect to UDP forwarder - %v", err)
 			}
-			dnsd.UDPForwarderConns[i] = forwarderConn
-			dnsd.UDPForwarderQueues[i] = make(chan *UDPQuery, 16) // there really is no need for a deeper queue
-			dnsd.UDPBlackHoleQueues[i] = make(chan *UDPQuery, 4)  // there is also no need for a deeper queue here
+			daemon.UDPForwarderConns[i] = forwarderConn
+			daemon.UDPForwarderQueues[i] = make(chan *UDPQuery, 16) // there really is no need for a deeper queue
+			daemon.UDPBlackHoleQueues[i] = make(chan *UDPQuery, 4)  // there is also no need for a deeper queue here
 		}
 	}
 
 	// Always allow server to query itself via public IP
-	dnsd.allowMyPublicIP()
+	daemon.allowMyPublicIP()
 	return nil
 }
 
 // allowMyPublicIP places the computer's public IP address into the array of IPs allowed to query the server.
-func (dnsd *DNSD) allowMyPublicIP() {
-	if dnsd.allowQueryLastUpdate+PublicIPRefreshIntervalSec >= time.Now().Unix() {
+func (daemon *Daemon) allowMyPublicIP() {
+	if daemon.allowQueryLastUpdate+PublicIPRefreshIntervalSec >= time.Now().Unix() {
 		return
 	}
-	dnsd.allowQueryMutex.Lock()
-	defer dnsd.allowQueryMutex.Unlock()
+	daemon.allowQueryMutex.Lock()
+	defer daemon.allowQueryMutex.Unlock()
 	defer func() {
 		// This routine runs periodically no matter it succeeded or failed in retrieving latest public IP
-		dnsd.allowQueryLastUpdate = time.Now().Unix()
+		daemon.allowQueryLastUpdate = time.Now().Unix()
 	}()
 	latestIP := inet.GetPublicIP()
 	if latestIP == "" {
 		// Not a fatal error if IP cannot be determined
-		dnsd.Logger.Warningf("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
+		daemon.Logger.Warningf("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
 		return
 	}
 	foundMyIP := false
-	for _, allowedIP := range dnsd.AllowQueryIPPrefixes {
+	for _, allowedIP := range daemon.AllowQueryIPPrefixes {
 		if allowedIP == latestIP {
 			foundMyIP = true
 			break
@@ -162,19 +162,19 @@ func (dnsd *DNSD) allowMyPublicIP() {
 	}
 	if !foundMyIP {
 		// Place latest IP into the array, but do not erase the old IP entries.
-		dnsd.AllowQueryIPPrefixes = append(dnsd.AllowQueryIPPrefixes, latestIP)
-		dnsd.Logger.Printf("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", latestIP)
+		daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, latestIP)
+		daemon.Logger.Printf("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", latestIP)
 	}
 }
 
 // checkAllowClientIP returns true only if the input IP address is among the allowed addresses.
-func (dnsd *DNSD) checkAllowClientIP(clientIP string) bool {
+func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
 	// At regular time interval, make sure that the latest public IP is allowed to query.
-	dnsd.allowMyPublicIP()
+	daemon.allowMyPublicIP()
 
-	dnsd.allowQueryMutex.Lock()
-	defer dnsd.allowQueryMutex.Unlock()
-	for _, prefix := range dnsd.AllowQueryIPPrefixes {
+	daemon.allowQueryMutex.Lock()
+	defer daemon.allowQueryMutex.Unlock()
+	for _, prefix := range daemon.AllowQueryIPPrefixes {
 		if strings.HasPrefix(clientIP, prefix) {
 			return true
 		}
@@ -183,9 +183,9 @@ func (dnsd *DNSD) checkAllowClientIP(clientIP string) bool {
 }
 
 // Download ad-servers list from pgl.yoyo.org and return those domain names.
-func (dnsd *DNSD) GetAdBlacklistPGL() ([]string, error) {
+func (daemon *Daemon) GetAdBlacklistPGL() ([]string, error) {
 	yoyo := "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=nohtml&showintro=0&mimetype=plaintext"
-	resp, err := inet.DoHTTP(inet.Request{TimeoutSec: 30}, yoyo)
+	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 30}, yoyo)
 	if err != nil {
 		return nil, err
 	}
@@ -204,9 +204,9 @@ func (dnsd *DNSD) GetAdBlacklistPGL() ([]string, error) {
 }
 
 // Download ad-servers list from winhelp2002.mvps.org and return those domain names.
-func (dnsd *DNSD) GetAdBlacklistMVPS() ([]string, error) {
+func (daemon *Daemon) GetAdBlacklistMVPS() ([]string, error) {
 	yoyo := "http://winhelp2002.mvps.org/hosts.txt"
-	resp, err := inet.DoHTTP(inet.Request{TimeoutSec: 30}, yoyo)
+	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 30}, yoyo)
 	if err != nil {
 		return nil, err
 	}
@@ -314,34 +314,34 @@ func ExtractDomainName(packet []byte) (ret []string) {
 	return
 }
 
-func (dnsd *DNSD) UpdatedAdBlockLists() {
-	pglEntries, pglErr := dnsd.GetAdBlacklistPGL()
+func (daemon *Daemon) UpdatedAdBlockLists() {
+	pglEntries, pglErr := daemon.GetAdBlacklistPGL()
 	if pglErr == nil {
-		dnsd.Logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
+		daemon.Logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
 	} else {
-		dnsd.Logger.Warningf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
+		daemon.Logger.Warningf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
 	}
-	mvpsEntries, mvpsErr := dnsd.GetAdBlacklistMVPS()
+	mvpsEntries, mvpsErr := daemon.GetAdBlacklistMVPS()
 	if mvpsErr == nil {
-		dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
-		dnsd.Logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following liences for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
+		daemon.Logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
+		daemon.Logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following liences for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
 	} else {
-		dnsd.Logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
+		daemon.Logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
 	}
-	dnsd.BlackListMutex.Lock()
-	dnsd.BlackList = make(map[string]struct{})
+	daemon.BlackListMutex.Lock()
+	daemon.BlackList = make(map[string]struct{})
 	if pglErr == nil {
 		for _, name := range pglEntries {
-			dnsd.BlackList[name] = struct{}{}
+			daemon.BlackList[name] = struct{}{}
 		}
 	}
 	if mvpsErr == nil {
 		for _, name := range mvpsEntries {
-			dnsd.BlackList[name] = struct{}{}
+			daemon.BlackList[name] = struct{}{}
 		}
 	}
-	dnsd.BlackListMutex.Unlock()
-	dnsd.Logger.Printf("UpdatedAdBlockLists", "", nil, "ad-blacklist now has %d entries", len(dnsd.BlackList))
+	daemon.BlackListMutex.Unlock()
+	daemon.Logger.Printf("UpdatedAdBlockLists", "", nil, "ad-blacklist now has %d entries", len(daemon.BlackList))
 }
 
 /*
@@ -349,44 +349,41 @@ You may call this function only after having called Initialise()!
 Start DNS daemon on configured TCP and UDP ports. Block caller until both listeners are told to stop.
 If either TCP or UDP port fails to listen, all listeners are closed and an error is returned.
 */
-func (dnsd *DNSD) StartAndBlock() error {
+func (daemon *Daemon) StartAndBlock() error {
 	// Keep updating ad-block black list in background
 	stopAdBlockUpdater := make(chan bool, 1)
 	go func() {
-		dnsd.UpdatedAdBlockLists()
+		daemon.UpdatedAdBlockLists()
 		for {
 			select {
 			case <-stopAdBlockUpdater:
 				return
 			case <-time.After(BlacklistUpdateIntervalSec * time.Second):
-				dnsd.UpdatedAdBlockLists()
+				daemon.UpdatedAdBlockLists()
 			}
 		}
 	}()
 	numListeners := 0
 	errChan := make(chan error, 2)
-	if dnsd.UDPPort != 0 {
+	if daemon.UDPPort != 0 {
 		numListeners++
 		go func() {
-			err := dnsd.StartAndBlockUDP()
+			err := daemon.StartAndBlockUDP()
 			errChan <- err
 			stopAdBlockUpdater <- true
 		}()
 	}
-	if dnsd.TCPPort != 0 {
+	if daemon.TCPPort != 0 {
 		numListeners++
 		go func() {
-			err := dnsd.StartAndBlockTCP()
+			err := daemon.StartAndBlockTCP()
 			errChan <- err
 			stopAdBlockUpdater <- true
 		}()
-	}
-	if numListeners == 0 {
-		return fmt.Errorf("DNSD.StartAndBlock: neither UDP nor TCP listen port is defined, the daemon will not start.")
 	}
 	for i := 0; i < numListeners; i++ {
 		if err := <-errChan; err != nil {
-			dnsd.Stop()
+			daemon.Stop()
 			return err
 		}
 	}
@@ -394,26 +391,26 @@ func (dnsd *DNSD) StartAndBlock() error {
 }
 
 // Close all of open TCP and UDP listeners so that they will cease processing incoming connections.
-func (dnsd *DNSD) Stop() {
-	if listener := dnsd.TCPListener; listener != nil {
+func (daemon *Daemon) Stop() {
+	if listener := daemon.TCPListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			dnsd.Logger.Warningf("Stop", "", err, "failed to close TCP listener")
+			daemon.Logger.Warningf("Stop", "", err, "failed to close TCP listener")
 		}
 	}
-	if listener := dnsd.UDPListener; listener != nil {
+	if listener := daemon.UDPListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			dnsd.Logger.Warningf("Stop", "", err, "failed to close UDP listener")
+			daemon.Logger.Warningf("Stop", "", err, "failed to close UDP listener")
 		}
 	}
 }
 
 // Return true if any of the input domain names is black listed.
-func (dnsd *DNSD) NamesAreBlackListed(names []string) bool {
-	dnsd.BlackListMutex.Lock()
-	defer dnsd.BlackListMutex.Unlock()
+func (daemon *Daemon) NamesAreBlackListed(names []string) bool {
+	daemon.BlackListMutex.Lock()
+	defer daemon.BlackListMutex.Unlock()
 	var blacklisted bool
 	for _, name := range names {
-		_, blacklisted = dnsd.BlackList[name]
+		_, blacklisted = daemon.BlackList[name]
 		if blacklisted {
 			return true
 		}

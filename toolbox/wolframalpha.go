@@ -45,9 +45,9 @@ func (wa *WolframAlpha) Trigger() Trigger {
 }
 
 // Call WolframAlpha API to run a query. Return HTTP status, response, and error if any.
-func (wa *WolframAlpha) Query(timeoutSec int, query string) (resp inet.Response, err error) {
+func (wa *WolframAlpha) Query(timeoutSec int, query string) (resp inet.HTTPResponse, err error) {
 	resp, err = inet.DoHTTP(
-		inet.Request{TimeoutSec: timeoutSec},
+		inet.HTTPRequest{TimeoutSec: timeoutSec},
 		"https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext",
 		wa.AppID, query)
 	return

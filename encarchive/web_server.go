@@ -1,7 +1,3 @@
-/*
-launcher package implements a specialised program launching mechanism that supplies laitos configuration and data from
-an encrypted archive.
-*/
 package encarchive
 
 import (
@@ -60,11 +56,7 @@ unpacked archive.
 func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	switch r.Method {
-	case http.MethodGet, http.MethodOptions:
-		log.Printf("WebServer: visited by %s", r.RemoteAddr)
-		w.Write([]byte(fmt.Sprintf(UnlockPageHTML, "")))
-		return
-	default:
+	case http.MethodPost:
 		log.Printf("WebServer: unlock is attempted by %s", r.RemoteAddr)
 		ws.handlerMutex.Lock()
 		// Ramdisk size in MB = archive size (tmp output) + archive size (extracted) + 8 (just in case)
@@ -85,21 +77,25 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		defer tmpFile.Close()
 		defer os.Remove(tmpFile.Name())
 		// Extract files into ramdisk
-		if err := ExtractArchive(ws.ArchiveFilePath, tmpFile.Name(), ws.ramdiskDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
+		if err := Extract(ws.ArchiveFilePath, tmpFile.Name(), ws.ramdiskDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
 			DestroyRamdisk(ws.ramdiskDir)
 			w.Write([]byte(fmt.Sprintf(UnlockPageHTML, err.Error())))
 			ws.handlerMutex.Unlock()
 			return
 		}
-		// Success! Do not unlock handlerMutex anymore because there is no point in going down this path again.
+		// Success! Do not unlock handlerMutex anymore because there is no point in visiting this handler again.
 		w.Write([]byte(fmt.Sprintf(UnlockPageHTML, "success")))
-		// A short moment later, launch the real deal.
-		go ws.LaunchSelf()
+		// A short moment later, launch laitos program using the unlocked archive.
+		go ws.LaunchWithUnlockedArchive()
+		return
+	default:
+		log.Printf("WebServer: visited by %s", r.RemoteAddr)
+		w.Write([]byte(fmt.Sprintf(UnlockPageHTML, "")))
 		return
 	}
 }
 
-// Start runs the web server and blocks forever.
+// Start runs the web server and blocks until the server shuts down from a successful unlocking attempt.
 func (ws *WebServer) Start() {
 	ws.handlerMutex = new(sync.Mutex)
 	// Page handler needs to know the size in order to prepare ramdisk
@@ -131,10 +127,10 @@ func (ws *WebServer) Start() {
 }
 
 /*
-LaunchSelf sleeps for a short moment, then shuts down the web server, and forks a process of laitos program itself to
-launch the real deal using configuration and data extracted into ramdisk.
+LaunchWithUnlockedArchive sleeps for a short moment, then shuts down the web server, and forks a process of laitos
+program itself to launch using unlocked configuration and data from ramdisk.
 */
-func (ws *WebServer) LaunchSelf() {
+func (ws *WebServer) LaunchWithUnlockedArchive() {
 	var fatalMsg string
 	execPath, err := os.Executable()
 	args := make([]string, 0, 8)
@@ -142,16 +138,16 @@ func (ws *WebServer) LaunchSelf() {
 	// Give HTTP server a short moment to finish with pending connections
 	shutdownTimeout, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	if err := ws.server.Shutdown(shutdownTimeout); err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchSelf: failed to wait for HTTP server to shutdown - %v", err)
+		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: failed to wait for HTTP server to shutdown - %v", err)
 		goto fatalExit
 	}
 	if err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchSelf: failed to determine executable path - %v", err)
+		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: failed to determine executable path - %v", err)
 		goto fatalExit
 	}
 	// Switch to the extracted, ramdisk directory for launching self.
 	if err := os.Chdir(ws.ramdiskDir); err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchSelf: failed to cd to %s - %v", ws.ramdiskDir, err)
+		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: failed to cd to %s - %v", ws.ramdiskDir, err)
 		goto fatalExit
 	}
 	// Replicate the CLI arguments that were used to launch this launcher
@@ -160,21 +156,21 @@ func (ws *WebServer) LaunchSelf() {
 			args = append(args, arg)
 		}
 	}
-	log.Printf("WebServer.LaunchSelf: about to relaunch myself with args %v", args)
+	log.Printf("WebServer.LaunchWithUnlockedArchive: about to relaunch myself with args %v", args)
 	cmd = exec.Command(execPath, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchSelf: failed to launch self - %v", err)
+		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: failed to launch self - %v", err)
 		goto fatalExit
 	}
-	log.Print("WebServer.LaunchSelf: just started myself")
+	log.Print("WebServer.LaunchWithUnlockedArchive: just started myself")
 	if err := cmd.Wait(); err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchSelf: program exited abnormally - %v", err)
+		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: program exited abnormally - %v", err)
 		goto fatalExit
 	}
-	log.Print("WebServer.LaunchSelf: program has exited normally")
+	log.Print("WebServer.LaunchWithUnlockedArchive: program has exited normally")
 	// In both normal and abnormal paths, the ramdisk must be destroyed.
 	DestroyRamdisk(ws.ramdiskDir)
 	return

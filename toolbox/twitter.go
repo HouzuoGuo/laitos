@@ -23,11 +23,11 @@ var (
 
 // Use Twitter API to interact with user's time-line.
 type Twitter struct {
-	AccessToken       string         `json:"AccessToken"`       // Twitter API access token ("Your Access Token - Access Token")
-	AccessTokenSecret string         `json:"AccessTokenSecret"` // Twitter API access token secret ("Your Access Token - Access Token Secret")
-	ConsumerKey       string         `json:"ConsumerKey"`       // Twitter API consumer key ("Application Settings - Consumer Key (API Key)")
-	ConsumerSecret    string         `json:"ConsumerSecret"`    // Twitter API consumer secret ("Application Settings - Consumer Secret (API Secret)")
-	reqSigner         *inet.AuthHead `json:"-"`
+	AccessToken       string            `json:"AccessToken"`       // Twitter API access token ("Your Access Token - Access Token")
+	AccessTokenSecret string            `json:"AccessTokenSecret"` // Twitter API access token secret ("Your Access Token - Access Token Secret")
+	ConsumerKey       string            `json:"ConsumerKey"`       // Twitter API consumer key ("Application Settings - Consumer Key (API Key)")
+	ConsumerSecret    string            `json:"ConsumerSecret"`    // Twitter API consumer secret ("Application Settings - Consumer Secret (API Secret)")
+	reqSigner         *inet.OAuthHeader `json:"-"`
 }
 
 var TestTwitter = Twitter{} // API credentials are set by init_feature_test.go
@@ -42,7 +42,7 @@ func (twi *Twitter) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make an inexpensive API call to test API credentials
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		TimeoutSec: TestTimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			return twi.reqSigner.SetRequestAuthHeader(req)
@@ -56,7 +56,7 @@ func (twi *Twitter) SelfTest() error {
 
 func (twi *Twitter) Initialise() error {
 	// Initialise API request signer
-	twi.reqSigner = &inet.AuthHead{
+	twi.reqSigner = &inet.OAuthHeader{
 		AccessToken:       twi.AccessToken,
 		AccessTokenSecret: twi.AccessTokenSecret,
 		ConsumerKey:       twi.ConsumerKey,
@@ -121,7 +121,7 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 		}
 	}
 	// Execute the API request
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			return twi.reqSigner.SetRequestAuthHeader(req)
@@ -149,7 +149,7 @@ func (twi *Twitter) Tweet(cmd Command) *Result {
 		return &Result{Error: ErrBadTwitterParam}
 	}
 
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		Method:     http.MethodPost,
 		RequestFunc: func(req *http.Request) error {

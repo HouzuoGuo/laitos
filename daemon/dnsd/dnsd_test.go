@@ -37,7 +37,7 @@ func TestRespondWith0(t *testing.T) {
 }
 
 func TestDNSD_DownloadBlacklists(t *testing.T) {
-	daemon := DNSD{}
+	daemon := Daemon{}
 	if entries, err := daemon.GetAdBlacklistPGL(); err != nil || len(entries) < 100 {
 		t.Fatal(err, entries)
 	}
@@ -50,12 +50,12 @@ func TestDNSD_DownloadBlacklists(t *testing.T) {
 var TestForwarders = []string{"8.8.8.8:53", "8.8.4.4:53", "185.121.177.177:53", "169.239.202.202:53", "8.26.56.26:53", "8.20.247.20:53"}
 
 func TestDNSD_StartAndBlockUDP(t *testing.T) {
-	daemon := DNSD{}
+	daemon := Daemon{}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}
 	daemon.Address = "127.0.0.1"
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
+	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "TCP and UDP ports") == -1 {
 		t.Fatal(err)
 	}
 	daemon.UDPPort = 62151
@@ -87,12 +87,12 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 }
 
 func TestDNSD_StartAndBlockTCP(t *testing.T) {
-	daemon := DNSD{}
+	daemon := Daemon{}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}
 	daemon.Address = "127.0.0.1"
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
+	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "TCP and UDP ports") == -1 {
 		t.Fatal(err)
 	}
 	daemon.TCPPort = 18519

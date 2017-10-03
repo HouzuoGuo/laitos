@@ -6,9 +6,9 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/api"
-	"github.com/HouzuoGuo/laitos/daemon/mailp"
-	"github.com/HouzuoGuo/laitos/daemon/plain"
+	"github.com/HouzuoGuo/laitos/daemon/plainsockets"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"github.com/HouzuoGuo/laitos/inet"
@@ -33,22 +33,22 @@ const (
 )
 
 /*
-Maintenance is a daemon that triggers health check and system maintenance periodically. Health check comprises port
-checks, API key checks, and a lot more. System maintenance ensures that system packages are up to date and dependencies
-of this program are installed and up to date.
+Daemon is a system maintenance daemon that periodically triggers health check and software updates. Health check
+comprises port checks, API key checks, and a lot more. Software updates ensures that system packages are up to date and
+dependencies of this program are installed and up to date.
 The result of each run is is sent to designated email addresses, along with latest environment information such as
 latest logs and warnings.
 */
-type Maintenance struct {
-	TCPPorts        []int                `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
-	IntervalSec     int                  `json:"IntervalSec"` // Check TCP ports and features at this interval
-	Mailer          inet.Mailer          `json:"Mailer"`      // Send notification mails via this mailer
-	Recipients      []string             `json:"Recipients"`  // Address of recipients of notification mails
-	FeaturesToCheck *toolbox.FeatureSet  `json:"-"`           // Health check subject - features and their API keys
-	MailpToCheck    *mailp.MailProcessor `json:"-"`           // Health check subject - mail processor and its mailer
-	Logger          misc.Logger          `json:"-"`           // Logger
-	loopIsRunning   int32                // Value is 1 only when health check loop is running
-	stop            chan bool            // Signal health check loop to stop
+type Daemon struct {
+	TCPPorts        []int                  `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
+	IntervalSec     int                    `json:"IntervalSec"` // Check TCP ports and features at this interval
+	Mailer          inet.MailClient        `json:"MailClient"`  // Send notification mails via this mailer
+	Recipients      []string               `json:"Recipients"`  // Address of recipients of notification mails
+	FeaturesToCheck *toolbox.FeatureSet    `json:"-"`           // Health check subject - features and their API keys
+	MailpToCheck    *mailcmd.CommandRunner `json:"-"`           // Health check subject - mail processor and its mailer
+	Logger          misc.Logger            `json:"-"`           // Logger
+	loopIsRunning   int32                  // Value is 1 only when health check loop is running
+	stop            chan bool              // Signal health check loop to stop
 }
 
 /*
@@ -64,33 +64,33 @@ DNSD TCP/UDP: %s/%s
 HTTPD: %s
 MAILP: %s
 PLAIN TCP/UDP: %s%s
-SMTPD: %s
+Daemon: %s
 SOCKD TCP/UDP: %s/%s
 TELEGRAM BOT: %s
 `,
 		common.DurationStats.Format(factor, numDecimals),
 		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
 		api.DurationStats.Format(factor, numDecimals),
-		mailp.DurationStats.Format(factor, numDecimals),
-		plain.TCPDurationStats.Format(factor, numDecimals), plain.UDPDurationStats.Format(factor, numDecimals),
+		mailcmd.DurationStats.Format(factor, numDecimals),
+		plainsockets.TCPDurationStats.Format(factor, numDecimals), plainsockets.UDPDurationStats.Format(factor, numDecimals),
 		smtpd.DurationStats.Format(factor, numDecimals),
 		sockd.TCPDurationStats.Format(factor, numDecimals), sockd.UDPDurationStats.Format(factor, numDecimals),
 		telegrambot.DurationStats.Format(factor, numDecimals))
 }
 
 // Check TCP ports and features, return all-OK or not.
-func (maint *Maintenance) Execute() (string, bool) {
-	maint.Logger.Printf("Execute", "", nil, "running now")
+func (daemon *Daemon) Execute() (string, bool) {
+	daemon.Logger.Printf("Execute", "", nil, "running now")
 	// Conduct system maintenance first to ensure an accurate reading of runtime information later on
-	maintResult := maint.SystemMaintenance()
+	maintResult := daemon.SystemMaintenance()
 	// allOK is true only if all port and feature checks pass, system maintenance always succeeds.
 	allOK := true
 	// Check TCP ports in parallel
 	portCheckResult := make(map[int]bool)
 	portCheckMutex := new(sync.Mutex)
 	waitPorts := new(sync.WaitGroup)
-	waitPorts.Add(len(maint.TCPPorts))
-	for _, portNumber := range maint.TCPPorts {
+	waitPorts.Add(len(daemon.TCPPorts))
+	for _, portNumber := range daemon.TCPPorts {
 		go func(portNumber int) {
 			conn, err := net.DialTimeout("tcp", "localhost:"+strconv.Itoa(portNumber), TCPConnectionTimeoutSec*time.Second)
 			if err == nil {
@@ -106,12 +106,12 @@ func (maint *Maintenance) Execute() (string, bool) {
 	waitPorts.Wait()
 	// Check features and mail processor
 	featureErrs := make(map[toolbox.Trigger]error)
-	if maint.FeaturesToCheck != nil {
-		featureErrs = maint.FeaturesToCheck.SelfTest()
+	if daemon.FeaturesToCheck != nil {
+		featureErrs = daemon.FeaturesToCheck.SelfTest()
 	}
 	var mailpErr error
-	if maint.MailpToCheck != nil {
-		mailpErr = maint.MailpToCheck.SelfTest()
+	if daemon.MailpToCheck != nil {
+		mailpErr = daemon.MailpToCheck.SelfTest()
 	}
 	allOK = allOK && len(featureErrs) == 0 && mailpErr == nil
 	// Compose mail body
@@ -128,7 +128,7 @@ func (maint *Maintenance) Execute() (string, bool) {
 	result.WriteString(GetLatestStats())
 	// Port checks
 	result.WriteString("\nPorts:\n")
-	for _, portNumber := range maint.TCPPorts {
+	for _, portNumber := range daemon.TCPPorts {
 		if portCheckResult[portNumber] {
 			result.WriteString(fmt.Sprintf("%d-OK ", portNumber))
 		} else {
@@ -150,7 +150,7 @@ func (maint *Maintenance) Execute() (string, bool) {
 	} else {
 		result.WriteString(fmt.Sprintf("Mail processor: %v\n", mailpErr))
 	}
-	// Maintenance results, warnings, logs, and stack traces, in that order.
+	// Daemon results, warnings, logs, and stack traces, in that order.
 	result.WriteString("\nSystem maintenance:\n")
 	result.WriteString(maintResult)
 	result.WriteString("\nWarnings:\n")
@@ -161,12 +161,12 @@ func (maint *Maintenance) Execute() (string, bool) {
 	result.WriteString(toolbox.GetGoroutineStacktraces())
 	// Send away!
 	if allOK {
-		maint.Logger.Printf("Execute", "", nil, "completed with everything being OK")
+		daemon.Logger.Printf("Execute", "", nil, "completed with everything being OK")
 	} else {
-		maint.Logger.Warningf("Execute", "", nil, "completed with some errors")
+		daemon.Logger.Warningf("Execute", "", nil, "completed with some errors")
 	}
-	if err := maint.Mailer.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), maint.Recipients...); err != nil {
-		maint.Logger.Warningf("Execute", "", err, "failed to send notification mail")
+	if err := daemon.Mailer.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
+		daemon.Logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
 	// Remove weird characters that may appear and cause email display to squeeze all lines together
 	var cleanedResult bytes.Buffer
@@ -180,12 +180,12 @@ func (maint *Maintenance) Execute() (string, bool) {
 	return cleanedResult.String(), allOK
 }
 
-func (maint *Maintenance) Initialise() error {
-	maint.Logger = misc.Logger{ComponentName: "Maintenance", ComponentID: strconv.Itoa(maint.IntervalSec)}
-	if maint.IntervalSec < MinimumIntervalSec {
-		return fmt.Errorf("Maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
+func (daemon *Daemon) Initialise() error {
+	daemon.Logger = misc.Logger{ComponentName: "maintenance", ComponentID: strconv.Itoa(daemon.IntervalSec)}
+	if daemon.IntervalSec < MinimumIntervalSec {
+		return fmt.Errorf("maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
-	maint.stop = make(chan bool)
+	daemon.stop = make(chan bool)
 	return nil
 }
 
@@ -193,46 +193,46 @@ func (maint *Maintenance) Initialise() error {
 You may call this function only after having called Initialise()!
 Start health check loop and block caller until Stop function is called.
 */
-func (maint *Maintenance) StartAndBlock() error {
+func (daemon *Daemon) StartAndBlock() error {
 	// Sort port numbers so that their check results look nicer in the final report
-	sort.Ints(maint.TCPPorts)
+	sort.Ints(daemon.TCPPorts)
 	firstTime := true
 	// The very first health check is executed soon (10 minutes) after health check daemon starts up
 	nextRunAt := time.Now().Add(10 * time.Minute)
 	for {
 		if misc.EmergencyLockDown {
-			atomic.StoreInt32(&maint.loopIsRunning, 0)
+			atomic.StoreInt32(&daemon.loopIsRunning, 0)
 			return misc.ErrEmergencyLockDown
 		}
-		atomic.StoreInt32(&maint.loopIsRunning, 1)
+		atomic.StoreInt32(&daemon.loopIsRunning, 1)
 		if firstTime {
 			select {
-			case <-maint.stop:
-				atomic.StoreInt32(&maint.loopIsRunning, 0)
+			case <-daemon.stop:
+				atomic.StoreInt32(&daemon.loopIsRunning, 0)
 				return nil
 			case <-time.After(time.Until(nextRunAt)):
-				nextRunAt = nextRunAt.Add(time.Duration(maint.IntervalSec) * time.Second)
-				maint.Execute()
+				nextRunAt = nextRunAt.Add(time.Duration(daemon.IntervalSec) * time.Second)
+				daemon.Execute()
 			}
 			firstTime = false
 		} else {
 			// Afterwards, try to maintain a steady rate of execution.
 			select {
-			case <-maint.stop:
-				atomic.StoreInt32(&maint.loopIsRunning, 0)
+			case <-daemon.stop:
+				atomic.StoreInt32(&daemon.loopIsRunning, 0)
 				return nil
 			case <-time.After(time.Until(nextRunAt)):
-				nextRunAt = nextRunAt.Add(time.Duration(maint.IntervalSec) * time.Second)
-				maint.Execute()
+				nextRunAt = nextRunAt.Add(time.Duration(daemon.IntervalSec) * time.Second)
+				daemon.Execute()
 			}
 		}
 	}
 }
 
 // Stop previously started health check loop.
-func (maint *Maintenance) Stop() {
-	if atomic.CompareAndSwapInt32(&maint.loopIsRunning, 1, 0) {
-		maint.stop <- true
+func (daemon *Daemon) Stop() {
+	if atomic.CompareAndSwapInt32(&daemon.loopIsRunning, 1, 0) {
+		daemon.stop <- true
 	}
 }
 
@@ -240,7 +240,7 @@ func (maint *Maintenance) Stop() {
 SystemMaintenance uses Linux package manager to ensure that all system packages are up to date and laitos dependencies
 are installed and up to date. Returns human-readable result output.
 */
-func (maint *Maintenance) SystemMaintenance() string {
+func (daemon *Daemon) SystemMaintenance() string {
 	ret := new(bytes.Buffer)
 	ret.WriteString("--- Conducting system maintenance...\n")
 	// Find a system package manager
@@ -273,9 +273,9 @@ func (maint *Maintenance) SystemMaintenance() string {
 		ret.WriteString("--- Updating apt manifests...\n")
 		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
 		// Five minutes should be enough to grab the latest manifest
-		maint.Logger.Printf("SystemMaintenance", "", nil, "updating apt manifests")
+		daemon.Logger.Printf("SystemMaintenance", "", nil, "updating apt manifests")
 		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
-		maint.Logger.Printf("SystemMaintenance", "", err, "finished updating apt manifests")
+		daemon.Logger.Printf("SystemMaintenance", "", err, "finished updating apt manifests")
 		// There is no need to suppress this output according to markers
 		fmt.Fprintf(ret, "--- apt-get result: %v - %s\n\n", err, strings.TrimSpace(result))
 	}
@@ -302,9 +302,9 @@ func (maint *Maintenance) SystemMaintenance() string {
 	suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
 	// Upgrade system packages with a time constraint of two hours
 	ret.WriteString("--- Upgrading system packages...\n")
-	maint.Logger.Printf("SystemMaintenance", "", nil, "updating system packages")
+	daemon.Logger.Printf("SystemMaintenance", "", nil, "updating system packages")
 	result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
-	maint.Logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
+	daemon.Logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
 	for _, marker := range suppressOutputMarkers {
 		// If nothing was done during system update, suppress the rather useless output.
 		if strings.Contains(result, marker) {
@@ -353,9 +353,9 @@ func (maint *Maintenance) SystemMaintenance() string {
 		pkgInstallArgs[len(installArgs)] = name
 		fmt.Fprintf(ret, "--- Installing/upgrading %s\n", name)
 		// Five minutes should be good enough for every package
-		maint.Logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
+		daemon.Logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
 		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, pkgInstallArgs...)
-		maint.Logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
+		daemon.Logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
 		for _, marker := range suppressOutputMarkers {
 			// If nothing was done about the package, suppress the rather useless output.
 			if strings.Contains(result, marker) {
@@ -380,12 +380,12 @@ func (maint *Maintenance) SystemMaintenance() string {
 	}
 
 	ret.WriteString("--- System maintenance has finished.\n")
-	maint.Logger.Printf("SystemMaintenance", "", nil, "all finished")
+	daemon.Logger.Printf("SystemMaintenance", "", nil, "all finished")
 	return ret.String()
 }
 
 // Run unit tests on the health checker. See TestMaintenance_Execute for daemon setup.
-func TestMaintenance(check *Maintenance, t testingstub.T) {
+func TestMaintenance(check *Daemon, t testingstub.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	go func() {
 		if err != nil {
@@ -398,7 +398,7 @@ func TestMaintenance(check *Maintenance, t testingstub.T) {
 	time.Sleep(1 * time.Second)
 	check.TCPPorts = []int{listener.Addr().(*net.TCPAddr).Port}
 	// If it fails, the failure could only come from mailer of mail processor.
-	if result, ok := check.Execute(); !ok && !strings.Contains(result, "Mailer.SelfTest") {
+	if result, ok := check.Execute(); !ok && !strings.Contains(result, "MailClient.SelfTest") {
 		t.Fatal(result)
 	}
 	// Break a feature

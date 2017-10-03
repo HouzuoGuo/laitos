@@ -87,7 +87,7 @@ func (result *Result) ResetCombinedText() string {
 }
 
 // If HTTP status is not 2xx or HTTP response already has an error, return an error result. Otherwise return nil.
-func HTTPErrorToResult(resp inet.Response, err error) *Result {
+func HTTPErrorToResult(resp inet.HTTPResponse, err error) *Result {
 	if err != nil {
 		return &Result{Error: err, Output: string(resp.Body)}
 	} else if respErr := resp.Non2xxToError(); respErr != nil {

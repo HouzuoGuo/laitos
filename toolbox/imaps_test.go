@@ -43,7 +43,7 @@ func TestIMAPS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err, msg)
 	}
-	err = inet.WalkMessage([]byte(msg), func(prop inet.BasicProperties, section []byte) (bool, error) {
+	err = inet.WalkMailMessage([]byte(msg), func(prop inet.BasicMail, section []byte) (bool, error) {
 		if prop.Subject == "" || prop.ContentType == "" || prop.FromAddress == "" || prop.ReplyAddress == "" {
 			t.Fatalf("%+v", prop)
 		}

@@ -46,7 +46,7 @@ func (hand *HandleTwilioSMSHook) MakeHandler(logger misc.Logger, cmdProc *common
 			return
 		}
 		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<Response><Message><![CDATA[%s]]></Message></Response>
+<HTTPResponse><Message><![CDATA[%s]]></Message></HTTPResponse>
 `, XMLEscape(ret.CombinedOutput))))
 	}
 	return fun, nil
@@ -73,11 +73,11 @@ func (hand *HandleTwilioCallHook) MakeHandler(logger misc.Logger, _ *common.Comm
 			return
 		}
 		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
+<HTTPResponse>
     <Gather action="%s" method="POST" timeout="60" finishOnKey="#" numDigits="1000">
         <Say><![CDATA[%s]]></Say>
     </Gather>
-</Response>
+</HTTPResponse>
 `, hand.CallbackEndpoint, XMLEscape(hand.CallGreeting))))
 	}
 	return fun, nil
@@ -117,10 +117,10 @@ func (hand *HandleTwilioCallCallback) MakeHandler(logger misc.Logger, cmdProc *c
 		// Say sorry and hang up in case of incorrect PIN/shortcut
 		if ret.Error == filter.ErrPINAndShortcutNotFound {
 			w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
+<HTTPResponse>
 	<Say>Sorry</Say>
 	<Hangup/>
-</Response>
+</HTTPResponse>
 `))
 		} else {
 			combinedOutput := ret.CombinedOutput
@@ -130,11 +130,11 @@ func (hand *HandleTwilioCallCallback) MakeHandler(logger misc.Logger, cmdProc *c
 			combinedOutput = XMLEscape(combinedOutput)
 			// Repeat command output three times and listen for the next input
 			w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
+<HTTPResponse>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
         <Say><![CDATA[%s, repeat again, %s, repeat again, %s, over.]]></Say>
     </Gather>
-</Response>
+</HTTPResponse>
 `, hand.MyEndpoint, combinedOutput, combinedOutput, combinedOutput)))
 		}
 	}

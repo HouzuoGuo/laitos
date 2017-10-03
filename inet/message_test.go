@@ -80,11 +80,11 @@ abcfoobar  echo "'hello world'" | grep hello > /proc/self/fd/2
 `)
 
 func TestReadMessage(t *testing.T) {
-	prop, msg, err := ReadMessage(TextMail)
+	prop, msg, err := ReadMailMessage(TextMail)
 	if err != nil || msg == nil {
 		t.Fatal(err, msg)
 	}
-	if !reflect.DeepEqual(prop, BasicProperties{
+	if !reflect.DeepEqual(prop, BasicMail{
 		ContentType:  "text/plain; charset=us-ascii",
 		ReplyAddress: "howard@localhost.localdomain",
 		FromAddress:  "howard@localhost.localdomain",
@@ -93,11 +93,11 @@ func TestReadMessage(t *testing.T) {
 		t.Fatalf("%+v\n", prop)
 	}
 
-	prop, msg, err = ReadMessage(MultipartMail)
+	prop, msg, err = ReadMailMessage(MultipartMail)
 	if err != nil || msg == nil {
 		t.Fatal(err, msg)
 	}
-	if !reflect.DeepEqual(prop, BasicProperties{
+	if !reflect.DeepEqual(prop, BasicMail{
 		ContentType:  `multipart/alternative; boundary="----------=_1457209616-22400-170"`,
 		ReplyAddress: "me@example.com",
 		FromAddress:  "no.reply@example.com",
@@ -110,7 +110,7 @@ func TestReadMessage(t *testing.T) {
 func TestWalkMessage(t *testing.T) {
 	// Do nothing and stop walking
 	partsWalked := 0
-	err := WalkMessage(MultipartMail, func(prop BasicProperties, body []byte) (next bool, err error) {
+	err := WalkMailMessage(MultipartMail, func(prop BasicMail, body []byte) (next bool, err error) {
 		partsWalked++
 		return false, nil
 	})
@@ -119,7 +119,7 @@ func TestWalkMessage(t *testing.T) {
 	}
 	// Return error to stop walking
 	partsWalked = 0
-	err = WalkMessage(MultipartMail, func(prop BasicProperties, body []byte) (next bool, err error) {
+	err = WalkMailMessage(MultipartMail, func(prop BasicMail, body []byte) (next bool, err error) {
 		partsWalked++
 		return false, errors.New("hi")
 	})
@@ -128,7 +128,7 @@ func TestWalkMessage(t *testing.T) {
 	}
 	// Walk both parts and do nothing
 	partsWalked = 0
-	err = WalkMessage(MultipartMail, func(prop BasicProperties, body []byte) (next bool, err error) {
+	err = WalkMailMessage(MultipartMail, func(prop BasicMail, body []byte) (next bool, err error) {
 		partsWalked++
 		return true, nil
 	})
@@ -141,7 +141,7 @@ func TestWalkMessage(t *testing.T) {
 
 `
 	partsWalked = 0
-	err = WalkMessage(TextMail, func(prop BasicProperties, body []byte) (next bool, err error) {
+	err = WalkMailMessage(TextMail, func(prop BasicMail, body []byte) (next bool, err error) {
 		if string(body) != matchTextMessage {
 			t.Fatal(string(body))
 		}
@@ -162,7 +162,7 @@ func TestWalkMessage(t *testing.T) {
 		`text/html; charset="UTF-8"`,
 	}
 	partsWalked = 0
-	err = WalkMessage(MultipartMail, func(prop BasicProperties, body []byte) (next bool, err error) {
+	err = WalkMailMessage(MultipartMail, func(prop BasicMail, body []byte) (next bool, err error) {
 		if string(body) != matchParts[partsWalked] {
 			t.Fatal(string(body), matchParts[partsWalked])
 		}

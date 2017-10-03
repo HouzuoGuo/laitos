@@ -10,9 +10,9 @@ import (
 
 func TestMaintenance_Execute(t *testing.T) {
 	features := common.GetTestCommandProcessor().Features
-	maint := Maintenance{
+	maint := Daemon{
 		IntervalSec: 10,
-		Mailer: inet.Mailer{
+		Mailer: inet.MailClient{
 			MailFrom: "howard@localhost",
 			MTAHost:  "localhost",
 			MTAPort:  25,
@@ -32,9 +32,9 @@ func TestMaintenance_Execute(t *testing.T) {
 
 func TestSystemMaintenance(t *testing.T) {
 	// Just make sure the function does not crash
-	maint := Maintenance{
+	maint := Daemon{
 		IntervalSec: 3600,
-		Mailer: inet.Mailer{
+		Mailer: inet.MailClient{
 			MailFrom: "howard@localhost",
 			MTAHost:  "localhost",
 			MTAPort:  25,

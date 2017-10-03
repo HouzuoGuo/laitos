@@ -82,7 +82,7 @@ const (
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowser struct {
 	ImageEndpoint string            `json:"-"`
-	Browsers      browser.Renderers `json:"Browsers"`
+	Browsers      browser.Instances `json:"Browsers"`
 }
 
 func (remoteBrowser *HandleBrowser) RenderPage(title string,
@@ -246,7 +246,7 @@ func (remoteBrowser *HandleBrowser) GetRateLimitFactor() int {
 }
 
 type HandleBrowserImage struct {
-	Browsers *browser.Renderers `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
+	Browsers *browser.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
 func (remoteBrowserImage *HandleBrowserImage) MakeHandler(logger misc.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {

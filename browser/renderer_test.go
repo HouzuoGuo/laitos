@@ -20,7 +20,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	instance := &Renderer{
+	instance := &Instance{
 		PhantomJSExecPath:  phantomJSPath,
 		RenderImagePath:    renderOutput.Name() + ".png",
 		Port:               41599,
@@ -82,7 +82,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	instance := &Renderer{
+	instance := &Instance{
 		PhantomJSExecPath:  phantomJSPath,
 		RenderImagePath:    renderOutput.Name() + ".png",
 		Port:               51600,

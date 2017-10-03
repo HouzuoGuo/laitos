@@ -41,7 +41,7 @@ type HandleGitlabBrowser struct {
 	PrivateToken string            `json:"PrivateToken"` // Gitlab user private token
 	Projects     map[string]string `json:"Projects"`     // Project shortcut name VS "gitlab project ID"
 	Recipients   []string          `json:"Recipients"`   // Recipients of notification emails
-	Mailer       inet.Mailer       `json:"-"`            // MTA that delivers file download notification email
+	Mailer       inet.MailClient   `json:"-"`            // MTA that delivers file download notification email
 }
 
 // An element of gitlab API "/repository/tree" response array.
@@ -59,7 +59,7 @@ Directory names come with suffix forward-slash.
 func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string) (dirs []string, fileNameID map[string]string, err error) {
 	dirs = make([]string, 0, 8)
 	fileNameID = make(map[string]string)
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
 	}, "https://gitlab.com/api/v4/projects/%s/repository/tree?path=%s", projectID, paths)
@@ -92,7 +92,7 @@ func (lab *HandleGitlabBrowser) DownloadGitBlob(logger misc.Logger, clientIP, pr
 	}
 	objectID := fileIDName[fileName]
 	// Call another API to download blob content
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
 	}, "https://gitlab.com/api/v4/projects/%s/repository/blobs/%s/raw", projectID, objectID)

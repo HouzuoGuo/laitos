@@ -20,10 +20,10 @@ const (
 )
 
 /*
-MakeArchive creates an AES-encrypted zip file out of the content of source directory.
+Archive creates an AES-encrypted zip file out of the content of source directory.
 The initial vector is of fixed size and prepended to beginning of output file.
 */
-func MakeArchive(sourceDirPath string, outPath string, key []byte) error {
+func Archive(sourceDirPath string, outPath string, key []byte) error {
 	outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
@@ -33,7 +33,7 @@ func MakeArchive(sourceDirPath string, outPath string, key []byte) error {
 	iv := make([]byte, IVSizeBytes)
 	_, err = rand.Read(iv)
 	if err != nil {
-		return fmt.Errorf("MakeArchive: crypto randomness is empty - %v", err)
+		return fmt.Errorf("crypto randomness is empty - %v", err)
 	}
 	// Prepend the IV to the archive file
 	if _, err := outFile.Write(iv); err != nil {
@@ -45,7 +45,7 @@ func MakeArchive(sourceDirPath string, outPath string, key []byte) error {
 	}
 	keyCipher, err := aes.NewCipher(key)
 	if err != nil {
-		return fmt.Errorf("MakeArchive: failed to initialise cipher - %v", err)
+		return fmt.Errorf("failed to initialise cipher - %v", err)
 	}
 	ctrStream := cipher.NewCTR(keyCipher, iv)
 	cipherWriter := &cipher.StreamWriter{S: ctrStream, W: outFile}
@@ -92,13 +92,13 @@ func MakeArchive(sourceDirPath string, outPath string, key []byte) error {
 }
 
 /*
-ExtractArchive extracts an AES-encrypted zip file into the destination directory. Returns an error if output directory
+Extract extracts an AES-encrypted zip file into the destination directory. Returns an error if output directory
 does not yet exist, or other IO error occurs.
 The temporary file will be the unencrypted archive and will be deleted afterwards.
 */
-func ExtractArchive(archivePath, tmpPath, outDirPath string, key []byte) error {
+func Extract(archivePath, tmpPath, outDirPath string, key []byte) error {
 	if stat, err := os.Stat(outDirPath); err != nil || !stat.IsDir() {
-		return fmt.Errorf("ExtractArchive: output location %s does is not a readable directory", outDirPath)
+		return fmt.Errorf("output location %s does is not a readable directory", outDirPath)
 	}
 	archiveFile, err := os.Open(archivePath)
 	if err != nil {
@@ -114,14 +114,14 @@ func ExtractArchive(archivePath, tmpPath, outDirPath string, key []byte) error {
 	// Read IV that was prepended to the file
 	iv := make([]byte, IVSizeBytes)
 	if n, err := archiveFile.Read(iv); err != nil || n != IVSizeBytes {
-		return fmt.Errorf("ExtractArchive: failed to read IV (%d bytes read) - %v", n, err)
+		return fmt.Errorf("failed to read IV (%d bytes read) - %v", n, err)
 	}
 	if len(key) < 32 {
 		key = append(key, bytes.Repeat([]byte{0}, 32-len(key))...)
 	}
 	keyCipher, err := aes.NewCipher(key)
 	if err != nil {
-		return fmt.Errorf("ExtractArchive: failed to initialise cipher - %v", err)
+		return fmt.Errorf("failed to initialise cipher - %v", err)
 	}
 	// Initialise encryption stream using key and original IV
 	ctrStream := cipher.NewCTR(keyCipher, iv)
@@ -129,16 +129,16 @@ func ExtractArchive(archivePath, tmpPath, outDirPath string, key []byte) error {
 	// Decrypt the archive into temporary file
 	tmpFile, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600)
 	if err != nil {
-		return fmt.Errorf("ExtractArchive: failed to create temporary output at %s - %v", tmpPath, err)
+		return fmt.Errorf("failed to create temporary output at %s - %v", tmpPath, err)
 	}
 	defer func() {
 		if err := os.Remove(tmpPath); err != nil {
-			log.Panicf("ExtractArchive: failed to delete unencrypted archive at %s - %v", tmpPath, err)
+			log.Panicf("failed to delete unencrypted archive at %s - %v", tmpPath, err)
 		}
 	}()
 	defer tmpFile.Close()
 	if _, err := io.Copy(tmpFile, cipherReader); err != nil {
-		return fmt.Errorf("ExtractArchive: failed to decrypt archive - %v", err)
+		return fmt.Errorf("failed to decrypt archive - %v", err)
 	}
 	// Go back to start and initialise zip stream on top of the decrypted file
 	if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {

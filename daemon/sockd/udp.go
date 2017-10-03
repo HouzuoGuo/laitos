@@ -3,6 +3,7 @@ package sockd
 import (
 	cryptRand "crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"math/rand"
@@ -22,7 +23,7 @@ const (
 )
 
 var (
-	ErrMalformedUDPPacket = fmt.Errorf("Received packet is abnormally small")
+	ErrMalformedUDPPacket = errors.New("received packet is abnormally small")
 	BacklogClearInterval  = 2 * IOTimeoutSec
 	UDPDurationStats      = misc.NewStats()
 )
@@ -174,15 +175,15 @@ func MakeUDPRequestHeader(addr net.Addr) ([]byte, int) {
 	return header[:1+ipLength+2], 1 + ipLength + 2
 }
 
-func (sock *Sockd) StartAndBlockUDP() error {
+func (sock *Daemon) StartAndBlockUDP() error {
 	listenAddr := fmt.Sprintf("%s:%d", sock.Address, sock.UDPPort)
 	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
-		return fmt.Errorf("Sockd.StartAndBlockUDP: failed to resolve address %s - %v", listenAddr, err)
+		return fmt.Errorf("sockd.StartAndBlockUDP: failed to resolve address %s - %v", listenAddr, err)
 	}
 	udpServer, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		return fmt.Errorf("Sockd.StartAndBlockUDP: failed to listen on %s - %v", listenAddr, err)
+		return fmt.Errorf("sockd.StartAndBlockUDP: failed to listen on %s - %v", listenAddr, err)
 	}
 	defer udpServer.Close()
 	sock.UDPListener = udpServer
@@ -232,7 +233,7 @@ func (sock *Sockd) StartAndBlockUDP() error {
 	}
 }
 
-func (sock *Sockd) HandleUDPConnection(server *UDPCipherConnection, n int, clientAddr *net.UDPAddr, packet []byte) {
+func (sock *Daemon) HandleUDPConnection(server *UDPCipherConnection, n int, clientAddr *net.UDPAddr, packet []byte) {
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
 		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
@@ -316,7 +317,7 @@ func (sock *Sockd) HandleUDPConnection(server *UDPCipherConnection, n int, clien
 	return
 }
 
-func (sock *Sockd) PipeUDPConnection(server net.PacketConn, clientAddr *net.UDPAddr, client net.PacketConn) {
+func (sock *Daemon) PipeUDPConnection(server net.PacketConn, clientAddr *net.UDPAddr, client net.PacketConn) {
 	packet := make([]byte, MaxPacketSize)
 	defer client.Close()
 	for {

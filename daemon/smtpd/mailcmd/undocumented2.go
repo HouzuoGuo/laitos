@@ -1,4 +1,4 @@
-package mailp
+package mailcmd
 
 import (
 	"errors"
@@ -31,7 +31,7 @@ func (und *Undocumented2) SelfTest() error {
 	if !und.IsConfigured() {
 		return toolbox.ErrIncompleteConfig
 	}
-	resp, err := inet.DoHTTP(inet.Request{TimeoutSec: toolbox.TestTimeoutSec}, und.URL)
+	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: toolbox.TestTimeoutSec}, und.URL)
 	// Only consider IO error and 404 response to be actual errors
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func (und *Undocumented2) SelfTest() error {
 	return nil
 }
 
-func (und *Undocumented2) MayReplyTo(prop inet.BasicProperties) bool {
+func (und *Undocumented2) MayReplyTo(prop inet.BasicMail) bool {
 	return und.IsConfigured() && und.MailAddrSuffix != "" && strings.HasSuffix(prop.ReplyAddress, und.MailAddrSuffix)
 }
 
@@ -57,7 +57,7 @@ func (und *Undocumented2) SendMessage(message string) error {
 		tlength = 0
 	}
 
-	resp, err := inet.DoHTTP(inet.Request{
+	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		TimeoutSec: Undocumented1HTTPTimeoutSec,
 		Method:     http.MethodPost,
 		Body: strings.NewReader(url.Values{

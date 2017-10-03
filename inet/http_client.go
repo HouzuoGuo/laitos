@@ -10,17 +10,17 @@ import (
 )
 
 // Define properties for an HTTP request for DoHTTP function.
-type Request struct {
+type HTTPRequest struct {
 	TimeoutSec  int                       // Read timeout for response (default to 30)
 	Method      string                    // HTTP method (default to GET)
 	Header      http.Header               // Additional request header (default to nil)
 	ContentType string                    // Content type header (default to "application/x-www-form-urlencoded")
-	Body        io.Reader                 // Request body (default to nil)
+	Body        io.Reader                 // HTTPRequest body (default to nil)
 	RequestFunc func(*http.Request) error // Manipulate the HTTP request at will (default to nil)
 }
 
 // Set blank attributes to their default value.
-func (req *Request) FillBlanks() {
+func (req *HTTPRequest) FillBlanks() {
 	if req.TimeoutSec <= 0 {
 		req.TimeoutSec = 30
 	}
@@ -33,14 +33,14 @@ func (req *Request) FillBlanks() {
 }
 
 // HTTP response as read by DoHTTP function.
-type Response struct {
+type HTTPResponse struct {
 	StatusCode int
 	Header     http.Header
 	Body       []byte
 }
 
 // If HTTP status is not 2xx, return an error. Otherwise return nil.
-func (resp *Response) Non2xxToError() error {
+func (resp *HTTPResponse) Non2xxToError() error {
 	if resp.StatusCode/200 != 1 {
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(resp.Body))
 	} else {
@@ -49,7 +49,7 @@ func (resp *Response) Non2xxToError() error {
 }
 
 // Generic function for sending an HTTP request. Placeholders in URL template must be "%s".
-func DoHTTP(reqParam Request, urlTemplate string, urlValues ...interface{}) (resp Response, err error) {
+func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (resp HTTPResponse, err error) {
 	reqParam.FillBlanks()
 	// Encode values in URL path
 	encodedURLValues := make([]interface{}, len(urlValues))

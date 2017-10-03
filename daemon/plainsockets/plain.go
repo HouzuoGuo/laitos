@@ -1,4 +1,4 @@
-package plain
+package plainsockets
 
 import (
 	"errors"
@@ -14,8 +14,8 @@ const (
 	RateLimitIntervalSec = 10               // Rate limit is calculated at 10 seconds interval
 )
 
-// Provide access to features via plain unencrypted TCP and UDP connections.
-type PlainTextDaemon struct {
+// Daemon provides to features via plain unencrypted TCP and UDP connections.
+type Daemon struct {
 	Address     string       `json:"Address"` // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
 	TCPPort     int          `json:"TCPPort"` // TCP port to listen on
 	UDPPort     int          `json:"UDPPort"` // UDP port to listen on
@@ -30,9 +30,9 @@ type PlainTextDaemon struct {
 }
 
 // Check configuration and initialise internal states.
-func (server *PlainTextDaemon) Initialise() error {
+func (server *Daemon) Initialise() error {
 	server.Logger = misc.Logger{
-		ComponentName: "PlainTextDaemon",
+		ComponentName: "plainsockets",
 		ComponentID:   fmt.Sprintf("%s:%d&%d", server.Address, server.TCPPort, server.UDPPort),
 	}
 	if server.Processor == nil {
@@ -40,16 +40,16 @@ func (server *PlainTextDaemon) Initialise() error {
 	}
 	server.Processor.SetLogger(server.Logger)
 	if errs := server.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("PlainTextDaemon.Initialise: %+v", errs)
+		return fmt.Errorf("plainsockets.Initialise: %+v", errs)
 	}
 	if server.Address == "" {
-		return errors.New("PlainTextDaemon.Initialise: listen address must not be empty")
+		return errors.New("plainsockets.Initialise: listen address must not be empty")
 	}
 	if server.UDPPort < 1 && server.TCPPort < 1 {
-		return errors.New("PlainTextDaemon.Initialise: listen port must be greater than 0")
+		return errors.New("plainsockets.Initialise: either or both TCP and UDP ports must be specified and be greater than 0")
 	}
 	if server.PerIPLimit < 1 {
-		return errors.New("PlainTextDaemon.Initialise: PerIPLimit must be greater than 0")
+		return errors.New("plainsockets.Initialise: PerIPLimit must be greater than 0")
 	}
 	server.RateLimit = &misc.RateLimit{
 		MaxCount: server.PerIPLimit,
@@ -64,7 +64,7 @@ func (server *PlainTextDaemon) Initialise() error {
 You may call this function only after having called Initialise()!
 Start plain text service on configured TCP and UDP ports. Block caller.
 */
-func (server *PlainTextDaemon) StartAndBlock() error {
+func (server *Daemon) StartAndBlock() error {
 	numListeners := 0
 	errChan := make(chan error, 2)
 	if server.TCPPort != 0 {
@@ -81,9 +81,6 @@ func (server *PlainTextDaemon) StartAndBlock() error {
 			errChan <- err
 		}()
 	}
-	if numListeners == 0 {
-		return fmt.Errorf("PlainTextDaemon.StartAndBlock: neither TCP nor UDP listen port is defined, the daemon will not start.")
-	}
 	for i := 0; i < numListeners; i++ {
 		if err := <-errChan; err != nil {
 			server.Stop()
@@ -94,7 +91,7 @@ func (server *PlainTextDaemon) StartAndBlock() error {
 }
 
 // Close all of open TCP and UDP listeners so that they will cease processing incoming connections.
-func (server *PlainTextDaemon) Stop() {
+func (server *Daemon) Stop() {
 	if listener := server.TCPListener; listener != nil {
 		if err := listener.Close(); err != nil {
 			server.Logger.Warningf("Stop", "", err, "failed to close TCP server")

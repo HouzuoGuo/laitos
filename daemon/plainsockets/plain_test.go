@@ -1,4 +1,4 @@
-package plain
+package plainsockets
 
 import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
@@ -7,12 +7,12 @@ import (
 )
 
 func TestPlainTextDaemon_StartAndBlockTCP(t *testing.T) {
-	daemon := PlainTextDaemon{Processor: common.GetTestCommandProcessor()}
+	daemon := Daemon{Processor: common.GetTestCommandProcessor()}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}
 	daemon.Address = "127.0.0.1"
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
+	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "TCP and UDP ports") == -1 {
 		t.Fatal(err)
 	}
 	daemon.TCPPort = 32789
@@ -27,12 +27,12 @@ func TestPlainTextDaemon_StartAndBlockTCP(t *testing.T) {
 }
 
 func TestPlainTextDaemon_StartAndBlockUDP(t *testing.T) {
-	daemon := PlainTextDaemon{Processor: common.GetTestCommandProcessor()}
+	daemon := Daemon{Processor: common.GetTestCommandProcessor()}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}
 	daemon.Address = "127.0.0.1"
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
+	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "TCP and UDP ports") == -1 {
 		t.Fatal(err)
 	}
 	daemon.UDPPort = 15890
