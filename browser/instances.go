@@ -3,7 +3,7 @@ package browser
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"path"
 	"sync"
@@ -12,19 +12,19 @@ import (
 
 // Renderes manages lifecycle of a fixed number of browser server instances.
 type Renderers struct {
-	PhantomJSExecPath string        `json:"PhantomJSExecPath"` // Absolute or relative path to PhantomJS executable
-	MaxInstances      int           `json:"MaxInstances"`      // Maximum number of instances
-	MaxLifetimeSec    int           `json:"MaxLifetimeSec"`    // Unconditionally kill instance after this number of seconds elapse
-	BasePortNumber    int           `json:"BasePortNumber"`    // Browser instances listen on a port number beginning from this one
-	Mutex             *sync.Mutex   `json:"-"`                 // Protect against concurrent modification to browsers
-	Browsers          []*Renderer   `json:"-"`                 // All browsers
-	BrowserCounter    int           `json:"-"`                 // Increment only counter
-	Logger            global.Logger `json:"-"`
+	PhantomJSExecPath string      `json:"PhantomJSExecPath"` // Absolute or relative path to PhantomJS executable
+	MaxInstances      int         `json:"MaxInstances"`      // Maximum number of instances
+	MaxLifetimeSec    int         `json:"MaxLifetimeSec"`    // Unconditionally kill instance after this number of seconds elapse
+	BasePortNumber    int         `json:"BasePortNumber"`    // Browser instances listen on a port number beginning from this one
+	Mutex             *sync.Mutex `json:"-"`                 // Protect against concurrent modification to browsers
+	Browsers          []*Renderer `json:"-"`                 // All browsers
+	BrowserCounter    int         `json:"-"`                 // Increment only counter
+	Logger            misc.Logger `json:"-"`
 }
 
 // Check configuration and initialise internal states.
 func (instances *Renderers) Initialise() error {
-	instances.Logger = global.Logger{ComponentName: "Renderers", ComponentID: ""}
+	instances.Logger = misc.Logger{ComponentName: "Renderers", ComponentID: ""}
 	if _, err := os.Stat(instances.PhantomJSExecPath); err != nil {
 		return fmt.Errorf("Renderers.Initialise: cannot find PhantomJS executable \"%s\" - %v", instances.PhantomJSExecPath, err)
 	}

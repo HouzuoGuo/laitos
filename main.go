@@ -5,11 +5,10 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/env"
-	"github.com/HouzuoGuo/laitos/feature"
-	"github.com/HouzuoGuo/laitos/frontend/common"
-	"github.com/HouzuoGuo/laitos/global"
-	"github.com/HouzuoGuo/laitos/launcher"
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/encarchive"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/toolbox"
 	"io/ioutil"
 	pseudoRand "math/rand"
 	"os"
@@ -26,7 +25,7 @@ import (
 
 const DaemonRestartIntervalSec = 10 // DaemonRestartIntervalSec is the interval to pause between daemon start attempts.
 
-var logger = global.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
+var logger = misc.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
 
 // Re-seed global pseudo random generator using cryptographic random number generator.
 func ReseedPseudoRand() {
@@ -74,7 +73,7 @@ func DisableConflictingDaemons() {
 					fmt.Sprintf("systemctl mask %s", name),
 				}
 				for _, cmd := range cmds {
-					if _, err := env.InvokeShell(5, "/bin/sh", cmd); err == nil {
+					if _, err := misc.InvokeShell(5, "/bin/sh", cmd); err == nil {
 						success = true
 						// Continue to run subsequent commands to further disable the service
 					}
@@ -106,7 +105,7 @@ func main() {
 	var frontend string
 	var disableConflicts, tuneSystem, debug bool
 	var gomaxprocs int
-	flag.StringVar(&global.ConfigFilePath, "config", "", "(Mandatory) path to configuration file in JSON syntax")
+	flag.StringVar(&misc.ConfigFilePath, "config", "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, insecurehttpd, mailp, maintenance, plaintext, smtpd, sockd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
@@ -117,7 +116,7 @@ func main() {
 	var slPort int
 	var slArchivePath string
 	var slURL string
-	flag.BoolVar(&sl, launcher.MagicArg, false, "(Optional) trigger \"special-launch\"")
+	flag.BoolVar(&sl, encarchive.MagicArg, false, "(Optional) trigger \"special-launch\"")
 	flag.IntVar(&slPort, "slport", 80, "(Optional) special-launch: port number")
 	flag.StringVar(&slArchivePath, "slarchive", "", "(Optional) special-launch: archive path")
 	flag.StringVar(&slURL, "slurl", "", "(Optional) special-launch: url that must include prefix slash")
@@ -161,46 +160,46 @@ func main() {
 
 	// Tune operating system parameters for optimal performance and better resource utilisation
 	if tuneSystem {
-		logger.Warningf("main", "", nil, "System tuning result is: \n%s", feature.TuneLinux())
+		logger.Warningf("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
 	}
 
 	// The "special-launch" launcher runs prior to the daemons
 	if sl {
-		UseLauncher(slPort, slURL, slArchivePath)
+		encarchive.UseLauncher(slPort, slURL, slArchivePath)
 		return
 	}
 	// The launcher utilities do not run daemons at all
 	if slu != "" {
 		switch slu {
 		case "extract":
-			LauncherUtilityExtract(sluDir, sluFile)
+			encarchive.LauncherUtilityExtract(sluDir, sluFile)
 		case "archive":
-			LauncherUtilityArchive(sluDir, sluFile)
+			encarchive.LauncherUtilityArchive(sluDir, sluFile)
 		default:
 			logger.Fatalf("main", "", nil, "please provide mode of operation (extract|archive) for parameter slu")
 		}
 		return
 	}
 
-	if global.ConfigFilePath == "" {
+	if misc.ConfigFilePath == "" {
 		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
 		return
 	}
 	var err error
-	global.ConfigFilePath, err = filepath.Abs(global.ConfigFilePath)
+	misc.ConfigFilePath, err = filepath.Abs(misc.ConfigFilePath)
 	if err != nil {
-		logger.Fatalf("main", "", err, "failed to determine absolute path of config file \"%s\"", global.ConfigFilePath)
+		logger.Fatalf("main", "", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
 	}
 
 	// Deserialise JSON configuration file
 	var config Config
-	configBytes, err := ioutil.ReadFile(global.ConfigFilePath)
+	configBytes, err := ioutil.ReadFile(misc.ConfigFilePath)
 	if err != nil {
-		logger.Fatalf("main", "", err, "failed to read config file \"%s\"", global.ConfigFilePath)
+		logger.Fatalf("main", "", err, "failed to read config file \"%s\"", misc.ConfigFilePath)
 		return
 	}
 	if err := config.DeserialiseFromJSON(configBytes); err != nil {
-		logger.Fatalf("main", "", err, "failed to deserialise config file \"%s\"", global.ConfigFilePath)
+		logger.Fatalf("main", "", err, "failed to deserialise config file \"%s\"", misc.ConfigFilePath)
 		return
 	}
 
@@ -251,6 +250,6 @@ func main() {
 	// In rare circumstance, if all daemons fail to start without panicking, laitos will just hang right here.
 	for {
 		time.Sleep(time.Hour)
-		logger.Printf("main", "", nil, "laitos has been up for %s", time.Now().Sub(global.StartupTime))
+		logger.Printf("main", "", nil, "laitos has been up for %s", time.Now().Sub(misc.StartupTime))
 	}
 }

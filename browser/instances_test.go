@@ -16,7 +16,7 @@ func TestBrowserInstances(t *testing.T) {
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "cannot find PhantomJS") {
 		t.Fatal(err)
 	}
-	instances.PhantomJSExecPath = path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/addon/phantomjs-2.1.1-linux-x86_64")
+	instances.PhantomJSExecPath = path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/phantomjs-2.1.1-linux-x86_64")
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "MaxInstances") {
 		t.Fatal(err)
 	}

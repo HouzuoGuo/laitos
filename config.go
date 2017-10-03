@@ -4,20 +4,20 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/HouzuoGuo/laitos/bridge"
-	"github.com/HouzuoGuo/laitos/email"
-	"github.com/HouzuoGuo/laitos/feature"
-	"github.com/HouzuoGuo/laitos/frontend/common"
-	"github.com/HouzuoGuo/laitos/frontend/dnsd"
-	"github.com/HouzuoGuo/laitos/frontend/httpd"
-	"github.com/HouzuoGuo/laitos/frontend/httpd/api"
-	"github.com/HouzuoGuo/laitos/frontend/mailp"
-	"github.com/HouzuoGuo/laitos/frontend/maintenance"
-	"github.com/HouzuoGuo/laitos/frontend/plain"
-	"github.com/HouzuoGuo/laitos/frontend/smtpd"
-	"github.com/HouzuoGuo/laitos/frontend/sockd"
-	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
-	"github.com/HouzuoGuo/laitos/global"
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
+	"github.com/HouzuoGuo/laitos/daemon/httpd"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/api"
+	"github.com/HouzuoGuo/laitos/daemon/mailp"
+	"github.com/HouzuoGuo/laitos/daemon/maintenance"
+	"github.com/HouzuoGuo/laitos/daemon/plain"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd"
+	"github.com/HouzuoGuo/laitos/daemon/sockd"
+	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"os"
 	"strconv"
 	"strings"
@@ -26,12 +26,12 @@ import (
 // Configuration of a standard set of bridges that are useful to both HTTP daemon and mail processor.
 type StandardBridges struct {
 	// Before command...
-	TranslateSequences bridge.TranslateSequences `json:"TranslateSequences"`
-	PINAndShortcuts    bridge.PINAndShortcuts    `json:"PINAndShortcuts"`
+	TranslateSequences filter.TranslateSequences `json:"TranslateSequences"`
+	PINAndShortcuts    filter.PINAndShortcuts    `json:"PINAndShortcuts"`
 
 	// After result...
-	NotifyViaEmail bridge.NotifyViaEmail `json:"NotifyViaEmail"`
-	LintText       bridge.LintText       `json:"LintText"`
+	NotifyViaEmail filter.NotifyViaEmail `json:"NotifyViaEmail"`
+	LintText       filter.LintText       `json:"LintText"`
 }
 
 // Configure path to HTTP handlers and handler themselves.
@@ -68,8 +68,8 @@ type HTTPHandlers struct {
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
 type Config struct {
-	Features feature.FeatureSet `json:"Features"` // Feature configuration is shared by all services
-	Mailer   email.Mailer       `json:"Mailer"`   // Mail configuration for notifications and mail processor results
+	Features toolbox.FeatureSet `json:"Features"` // Feature configuration is shared by all services
+	Mailer   inet.Mailer        `json:"Mailer"`   // Mail configuration for notifications and mail processor results
 
 	Maintenance maintenance.Maintenance `json:"Maintenance"` // Maintenance configures behaviour of periodic health-check/system maintenance
 
@@ -93,12 +93,12 @@ type Config struct {
 	TelegramBot     telegrambot.TelegramBot `json:"TelegramBot"`     // Telegram bot configuration
 	TelegramBridges StandardBridges         `json:"TelegramBridges"` // Telegram bot bridge configuration
 
-	Logger global.Logger `json:"-"` // Log config related messages
+	Logger misc.Logger `json:"-"` // Log config related messages
 }
 
 // Deserialise JSON data into config structures.
 func (config *Config) DeserialiseFromJSON(in []byte) error {
-	config.Logger = global.Logger{ComponentName: "Config"}
+	config.Logger = misc.Logger{ComponentName: "Config"}
 	if err := json.Unmarshal(in, config); err != nil {
 		return err
 	}
@@ -149,14 +149,14 @@ func (config Config) GetHTTPD() *httpd.HTTPD {
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
-		CommandBridges: []bridge.CommandBridge{
+		CommandBridges: []filter.CommandFilter{
 			&config.HTTPBridges.PINAndShortcuts,
 			&config.HTTPBridges.TranslateSequences,
 		},
-		ResultBridges: []bridge.ResultBridge{
-			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+		ResultBridges: []filter.ResultFilter{
+			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 			&config.HTTPBridges.LintText,
-			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
 	}
@@ -316,14 +316,14 @@ func (config Config) GetMailProcessor() *mailp.MailProcessor {
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
-		CommandBridges: []bridge.CommandBridge{
+		CommandBridges: []filter.CommandFilter{
 			&config.MailBridges.PINAndShortcuts,
 			&config.MailBridges.TranslateSequences,
 		},
-		ResultBridges: []bridge.ResultBridge{
-			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+		ResultBridges: []filter.ResultFilter{
+			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 			&config.MailBridges.LintText,
-			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
 	}
@@ -365,14 +365,14 @@ func (config Config) GetPlainTextDaemon() *plain.PlainTextDaemon {
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
-		CommandBridges: []bridge.CommandBridge{
+		CommandBridges: []filter.CommandFilter{
 			&config.PlainTextBridges.PINAndShortcuts,
 			&config.PlainTextBridges.TranslateSequences,
 		},
-		ResultBridges: []bridge.ResultBridge{
-			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+		ResultBridges: []filter.ResultFilter{
+			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 			&config.PlainTextBridges.LintText,
-			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
 	}
@@ -410,14 +410,14 @@ func (config Config) GetTelegramBot() *telegrambot.TelegramBot {
 	// Assemble telegram bot from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
-		CommandBridges: []bridge.CommandBridge{
+		CommandBridges: []filter.CommandFilter{
 			&config.TelegramBridges.PINAndShortcuts,
 			&config.TelegramBridges.TranslateSequences,
 		},
-		ResultBridges: []bridge.ResultBridge{
-			&bridge.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+		ResultBridges: []filter.ResultFilter{
+			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 			&config.TelegramBridges.LintText,
-			&bridge.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
 	}

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var phantomJSPath = path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/addon/phantomjs-2.1.1-linux-x86_64")
+var phantomJSPath = path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/phantomjs-2.1.1-linux-x86_64")
 
 func TestInteractiveBrowser(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {

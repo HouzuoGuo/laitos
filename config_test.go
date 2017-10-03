@@ -1,14 +1,14 @@
 package main
 
 import (
-	"github.com/HouzuoGuo/laitos/frontend/dnsd"
-	"github.com/HouzuoGuo/laitos/frontend/httpd"
-	"github.com/HouzuoGuo/laitos/frontend/mailp"
-	"github.com/HouzuoGuo/laitos/frontend/maintenance"
-	"github.com/HouzuoGuo/laitos/frontend/plain"
-	"github.com/HouzuoGuo/laitos/frontend/smtpd"
-	"github.com/HouzuoGuo/laitos/frontend/sockd"
-	"github.com/HouzuoGuo/laitos/frontend/telegrambot"
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
+	"github.com/HouzuoGuo/laitos/daemon/httpd"
+	"github.com/HouzuoGuo/laitos/daemon/mailp"
+	"github.com/HouzuoGuo/laitos/daemon/maintenance"
+	"github.com/HouzuoGuo/laitos/daemon/plain"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd"
+	"github.com/HouzuoGuo/laitos/daemon/sockd"
+	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"testing"
 	"time"
 )

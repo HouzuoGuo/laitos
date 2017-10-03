@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/global"
-	"github.com/HouzuoGuo/laitos/httpclient"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"log"
 	"net"
@@ -143,7 +143,7 @@ const (
         } else if (req.url === '/reload') {
             ret = b_reload();
         } else if (req.url === '/goto') {
-            // curl -X POST --data 'user_agent=user_agent=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F59.0.3071.115%20Safari%2F537.36&view_width=1024&view_height=1024&page_url=https%3A%2F%2Fgoogle.com' 'localhost:12345/goto'
+            // curl -X POST --data 'user_agent=TEST&view_width=1024&view_height=1024&page_url=URL' 'localhost:12345/goto'
             ret = b_goto(req.post);
         } else if (req.url === '/info') {
             // curl -X POST 'localhost:12345/info'
@@ -464,7 +464,7 @@ type Renderer struct {
 	JSProc             *exec.Cmd     // Headless server process
 	JSProcMutex        *sync.Mutex   // Protect against concurrent access to server process
 	Index              int           // Index is the instance number assigned by renderer lifecycle management.
-	Logger             global.Logger
+	Logger             misc.Logger
 }
 
 // Produce javascript code for browser server and then launch its process in background.
@@ -473,7 +473,7 @@ func (instance *Renderer) Start() error {
 	instance.JSProcMutex = new(sync.Mutex)
 	instance.DebugOutput = new(bytes.Buffer)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
-	instance.Logger = global.Logger{ComponentID: fmt.Sprintf("%s-%s", time.Now().Format(time.Kitchen), instance.Tag), ComponentName: "Renderer"}
+	instance.Logger = misc.Logger{ComponentID: fmt.Sprintf("%s-%s", time.Now().Format(time.Kitchen), instance.Tag), ComponentName: "Renderer"}
 	// Store server javascript into a temporary file
 	serverJS, err := ioutil.TempFile("", "laitos-browser")
 	if err != nil {
@@ -516,8 +516,10 @@ func (instance *Renderer) Start() error {
 	// Keep knocking on the server port until it is open
 	var portIsOpen bool
 	for i := 0; i < 20; i++ {
-		if _, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(instance.Port), 2*time.Second); err == nil {
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(instance.Port), 2*time.Second)
+		if err == nil {
 			portIsOpen = true
+			conn.Close()
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -547,7 +549,7 @@ func (instance *Renderer) SendRequest(actionName string, params map[string]inter
 			body[key] = []string{fmt.Sprint(val)}
 		}
 	}
-	resp, err := httpclient.DoHTTP(httpclient.Request{
+	resp, err := inet.DoHTTP(inet.Request{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(body.Encode()),
 	}, fmt.Sprintf("http://127.0.0.1:%d/%s", instance.Port, actionName))
