@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/cosmetic/poster.png" alt="poster image" align="right" />
+<img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/doc/cosmetic/poster.png" alt="poster image" align="right" />
 
 [![CircleCI](https://circleci.com/gh/HouzuoGuo/laitos.svg?style=svg)](https://circleci.com/gh/HouzuoGuo/laitos)
 
