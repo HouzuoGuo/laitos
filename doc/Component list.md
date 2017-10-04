@@ -98,48 +98,48 @@ Read and post tweets.
 ### Social network - reading Emails
 Read mails from personal Email addresses.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-reading-Emails)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-Emails)
 
 ### Social network - sending Emails
 Send mails to friends.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-sending-Emails)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-Emails)
 
 ### Telephone and SMS
 Send text to friend's phone number, or call a friend to speak a short message.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-telephone-and-SMS)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-telephone-and-SMS)
 
 ### Utility - two factor authentication code generator
 Generate two-factor authentication code for secure website login.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-two-factor-authentication-code-generator)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-two-factor-authentication-code-generator)
 
 ### Utility - interactive web browser
 Browse modern websites interactively in a command-and-answer routine.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-interactive-web-browser)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser)
 
 ### Utility - WolframAlpha
 Ask about weather and all sorts of questions on WolframAlpha - the computational knowledge engine.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-WolframAlpha)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-WolframAlpha)
 
 ### Utility - find text in AES-encrypted files
 Decrypt AES-encrypted files (e.g. password book) and search for keywords among the content.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-find-text-in-AES-encrypted-files)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-find-text-in-AES-encrypted-files)
 
 ### System operation - run commands
 Run operating system commands (shell commands) on Linux and Unix operating systems.
 
 This feature is always available and does not require configuration.
 
-[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-run-system-commands)
+[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-run-system-commands)
 
 ### System operation - inspect environment
 Retrieve server environment information such as IP address, memory usage, log entries, and more.
 
 This feature is always available and does not require configuration.
 
-[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-inspect-environment)
+[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-environment)
