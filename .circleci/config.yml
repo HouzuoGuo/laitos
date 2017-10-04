@@ -4,6 +4,7 @@ jobs:
     docker:
       - image: circleci/golang:1.9
     working_directory: /go/src/github.com/HouzuoGuo/laitos
+    parallelism: 2
     steps:
       - checkout
       - run: go test -v -cover ./...

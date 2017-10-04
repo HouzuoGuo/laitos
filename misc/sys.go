@@ -3,7 +3,9 @@ package misc
 import (
 	"bytes"
 	"errors"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path"
 	"regexp"
@@ -159,4 +161,11 @@ func IncreaseSysctlInt(key string, atLeast int) (old int, err error) {
 		_, err = SetSysctl(key, strconv.Itoa(atLeast))
 	}
 	return
+}
+
+// SkipTestIfCI asks a test to be skipped if it is being run on Circle CI.
+func SkipTestIfCI(t testingstub.T) {
+	if os.Getenv("CIRCLECI") != "" {
+		t.Skip("this test is skipped on CircleCI")
+	}
 }

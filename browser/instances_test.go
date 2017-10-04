@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"path"
 	"runtime"
@@ -12,6 +13,8 @@ func TestBrowserInstances(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
+	// CircleCI container does not have the dependencies for running PhantomJS
+	misc.SkipTestIfCI(t)
 	instances := Instances{}
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "cannot find PhantomJS") {
 		t.Fatal(err)

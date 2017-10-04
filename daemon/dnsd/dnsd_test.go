@@ -2,7 +2,6 @@ package dnsd
 
 import (
 	"encoding/hex"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -78,8 +77,7 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// If run on Travis, my own IP won't be put into allowed query prefixes.
-	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 3 {
+	if len(daemon.AllowQueryIPPrefixes) != 3 {
 		// There should be three prefixes: 127., 192., and my IP
 		t.Fatal("did not put my own IP into prefixes")
 	}
@@ -115,8 +113,7 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// If run on Travis, my own IP won't be put into allowed query prefixes.
-	if os.Getenv("TRAVIS") == "" && len(daemon.AllowQueryIPPrefixes) != 3 {
+	if len(daemon.AllowQueryIPPrefixes) != 3 {
 		// There should be three prefixes: 127., 192., and my IP
 		t.Fatal("did not put my own IP into prefixes", daemon.AllowQueryIPPrefixes)
 	}

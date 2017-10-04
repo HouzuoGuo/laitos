@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
 	"path"
@@ -16,6 +17,8 @@ func TestInteractiveBrowser(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
+	// CircleCI container does not have the dependencies for running PhantomJS
+	misc.SkipTestIfCI(t)
 	renderOutput, err := ioutil.TempFile("", "laitos-TestInteractiveBrowser")
 	if err != nil {
 		t.Fatal(err)
@@ -78,6 +81,8 @@ func TestLineOrientedBrowser(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
+	// CircleCI container does not have the dependencies for running PhantomJS
+	misc.SkipTestIfCI(t)
 	renderOutput, err := ioutil.TempFile("", "laitos-TestLineOrientedBrowser")
 	if err != nil {
 		t.Fatal(err)

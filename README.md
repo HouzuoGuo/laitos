@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/cosmetic/poster.png" alt="poster image" align="right" />
 
-[![Build Status](https://travis-ci.org/HouzuoGuo/laitos.svg?branch=master)](https://travis-ci.org/HouzuoGuo/laitos)
+[![CircleCI](https://circleci.com/gh/HouzuoGuo/laitos.svg?style=svg)](https://circleci.com/gh/HouzuoGuo/laitos)
 
 # laitos - Empower your personal web server
 Want to host a simple website, Email server, or ad-blocking DNS server? Skip those scary tutorials you find online!

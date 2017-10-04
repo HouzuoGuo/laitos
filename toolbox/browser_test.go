@@ -3,6 +3,7 @@ package toolbox
 import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/browser"
+	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"path"
 	"runtime"
@@ -15,6 +16,8 @@ func TestBrowser_Execute(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
+	// CircleCI container does not have the dependencies for running PhantomJS
+	misc.SkipTestIfCI(t)
 	bro := Browser{}
 	if bro.IsConfigured() {
 		t.Fatal("should not be configured")
