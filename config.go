@@ -68,8 +68,8 @@ type HTTPHandlers struct {
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
 type Config struct {
-	Features toolbox.FeatureSet `json:"Features"`   // Feature configuration is shared by all services
-	Mailer   inet.MailClient    `json:"MailClient"` // Mail configuration for notifications and mail processor results
+	Features   toolbox.FeatureSet `json:"Features"`   // Feature configuration is shared by all services
+	MailClient inet.MailClient    `json:"MailClient"` // Mail configuration for notifications and mail processor results
 
 	Maintenance maintenance.Daemon `json:"Maintenance"` // Daemon configures behaviour of periodic health-check/system maintenance
 
@@ -85,7 +85,7 @@ type Config struct {
 	MailProcessor mailcmd.CommandRunner `json:"MailProcessor"` // Incoming mail processor configuration
 	MailBridges   StandardBridges       `json:"MailBridges"`   // Incoming mail processor bridge configuration
 
-	PlainSocketsDaemon plainsockets.Daemon `json:"PlainSocketsDaemon"` // Plain text protocol TCP and UDP daemon configuration
+	PlainSocketDaemon  plainsockets.Daemon `json:"PlainSocketDaemon"`  // Plain text protocol TCP and UDP daemon configuration
 	PlainSocketBridges StandardBridges     `json:"PlainSocketBridges"` // Plain text daemon bridge configuration
 
 	SockDaemon sockd.Daemon `json:"SockDaemon"` // Intentionally undocumented
@@ -120,12 +120,12 @@ func (config Config) GetMaintenance() *maintenance.Daemon {
 	ret := config.Maintenance
 	ret.FeaturesToCheck = &config.Features
 	// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
-	ret.MailpToCheck = config.GetMailProcessor()
+	ret.CheckMailCmdRunner = config.GetMailCommandRunner()
 	if err := ret.FeaturesToCheck.Initialise(); err != nil {
 		config.Logger.Fatalf("GetMaintenance", "", err, "failed to initialise features")
 		return nil
 	}
-	ret.Mailer = config.Mailer
+	ret.MailClient = config.MailClient
 	if err := ret.Initialise(); err != nil {
 		config.Logger.Fatalf("GetMaintenance", "", err, "failed to initialise")
 		return nil
@@ -138,7 +138,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 	ret := config.HTTPDaemon
 
 	mailNotification := config.HTTPBridges.NotifyViaEmail
-	mailNotification.Mailer = config.Mailer
+	mailNotification.MailClient = config.MailClient
 
 	features := config.Features
 	if err := features.Initialise(); err != nil {
@@ -166,7 +166,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		handlers[config.HTTPHandlers.InformationEndpoint] = &api.HandleSystemInfo{
 			FeaturesToCheck: &config.Features,
 			// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
-			MailpToCheck: config.GetMailProcessor(),
+			CheckMailCmdRunner: config.GetMailCommandRunner(),
 		}
 	}
 	if config.HTTPHandlers.BrowserEndpoint != "" {
@@ -194,7 +194,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		handlers[config.HTTPHandlers.CommandFormEndpoint] = &api.HandleCommandForm{}
 	}
 	if config.HTTPHandlers.GitlabBrowserEndpoint != "" {
-		config.HTTPHandlers.GitlabBrowserEndpointConfig.Mailer = config.Mailer
+		config.HTTPHandlers.GitlabBrowserEndpointConfig.MailClient = config.MailClient
 		handlers[config.HTTPHandlers.GitlabBrowserEndpoint] = &config.HTTPHandlers.GitlabBrowserEndpointConfig
 	}
 	if config.HTTPHandlers.IndexEndpoints != nil {
@@ -204,7 +204,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 	}
 	if config.HTTPHandlers.MailMeEndpoint != "" {
 		handler := config.HTTPHandlers.MailMeEndpointConfig
-		handler.Mailer = config.Mailer
+		handler.MailClient = config.MailClient
 		handlers[config.HTTPHandlers.MailMeEndpoint] = &handler
 	}
 	// I (howard) personally need three bots, hence this ugly approach.
@@ -296,23 +296,23 @@ func (config Config) GetInsecureHTTPD() *httpd.Daemon {
 }
 
 /*
-Construct a mail processor from configuration and return. The mail processor will use the common mailer to send replies.
-Mail processor is usually built into laitos' own SMTP daemon to process feature commands from incoming mails, but an
-independent mail process is useful in certain scenarios, such as integrating with postfix's "forward-mail-to-program"
-mechanism.
+Construct a mail command runner from configuration and return. It will use the common mail client to send replies.
+The command runner is usually built into laitos' own SMTP daemon to process feature commands from incoming mails, but an
+independent mail command runner is useful in certain scenarios, such as integrating with postfix's
+"forward-mail-to-program" mechanism.
 */
-func (config Config) GetMailProcessor() *mailcmd.CommandRunner {
+func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 	ret := config.MailProcessor
 
 	mailNotification := config.MailBridges.NotifyViaEmail
-	mailNotification.Mailer = config.Mailer
+	mailNotification.MailClient = config.MailClient
 
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		config.Logger.Fatalf("GetMailProcessor", "", err, "failed to initialise features")
+		config.Logger.Fatalf("GetMailCommandRunner", "", err, "failed to initialise features")
 		return nil
 	}
-	config.Logger.Printf("GetMailProcessor", "", nil, "enabled features are - %v", features.GetTriggers())
+	config.Logger.Printf("GetMailCommandRunner", "", nil, "enabled features are - %v", features.GetTriggers())
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
@@ -327,18 +327,18 @@ func (config Config) GetMailProcessor() *mailcmd.CommandRunner {
 			&mailNotification,
 		},
 	}
-	ret.ReplyMailer = config.Mailer
+	ret.ReplyMailClient = config.MailClient
 	return &ret
 }
 
 /*
 Construct an SMTP daemon together with its mail command processor.
-Both SMTP daemon and mail command processor will use the common mailer to forward mails and send replies.
+Both SMTP daemon and mail command processor will use the common mail client to forward mails and send replies.
 */
 func (config Config) GetMailDaemon() *smtpd.Daemon {
 	ret := config.MailDaemon
-	ret.MailProcessor = config.GetMailProcessor()
-	ret.ForwardMailer = config.Mailer
+	ret.MailProcessor = config.GetMailCommandRunner()
+	ret.ForwardMailClient = config.MailClient
 	if err := ret.Initialise(); err != nil {
 		config.Logger.Fatalf("GetMailDaemon", "", err, "failed to initialise")
 		return nil
@@ -348,20 +348,20 @@ func (config Config) GetMailDaemon() *smtpd.Daemon {
 
 /*
 Construct a plain text protocol TCP&UDP daemon and return.
-It will use common mailer for sending outgoing emails.
+It will use common mail client for sending outgoing emails.
 */
-func (config Config) GetPlainTextDaemon() *plainsockets.Daemon {
-	ret := config.PlainSocketsDaemon
+func (config Config) GetPlainSocketDaemon() *plainsockets.Daemon {
+	ret := config.PlainSocketDaemon
 
 	mailNotification := config.PlainSocketBridges.NotifyViaEmail
-	mailNotification.Mailer = config.Mailer
+	mailNotification.MailClient = config.MailClient
 
 	features := config.Features
 	if err := features.Initialise(); err != nil {
-		config.Logger.Fatalf("GetPlainTextDaemon", "", err, "failed to initialise features")
+		config.Logger.Fatalf("GetPlainSocketDaemon", "", err, "failed to initialise features")
 		return nil
 	}
-	config.Logger.Printf("GetPlainTextDaemon", "", nil, "enabled features are - %v", features.GetTriggers())
+	config.Logger.Printf("GetPlainSocketDaemon", "", nil, "enabled features are - %v", features.GetTriggers())
 	// Assemble command processor from features and bridges
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
@@ -378,7 +378,7 @@ func (config Config) GetPlainTextDaemon() *plainsockets.Daemon {
 	}
 	// Call initialise so that daemon is ready to start
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetPlainTextDaemon", "", err, "failed to initialise")
+		config.Logger.Fatalf("GetPlainSocketDaemon", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -399,7 +399,7 @@ func (config Config) GetTelegramBot() *telegrambot.Daemon {
 	ret := config.TelegramBot
 
 	mailNotification := config.TelegramBridges.NotifyViaEmail
-	mailNotification.Mailer = config.Mailer
+	mailNotification.MailClient = config.MailClient
 
 	features := config.Features
 	if err := features.Initialise(); err != nil {

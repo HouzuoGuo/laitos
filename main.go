@@ -106,7 +106,7 @@ func main() {
 	var disableConflicts, tuneSystem, debug bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, insecurehttpd, mailp, maintenance, plaintext, smtpd, sockd, telegram)")
+	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, insecurehttpd, mailcmd, maintenance, plainsocket, smtpd, sockd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
@@ -221,21 +221,21 @@ func main() {
 			go common.NewSupervisor(config.GetHTTPD(), DaemonRestartIntervalSec, frontendName).Start()
 		case "insecurehttpd":
 			go common.NewSupervisor(config.GetInsecureHTTPD(), DaemonRestartIntervalSec, frontendName).Start()
-		case "mailp":
+		case "mailcmd":
 			mailContent, err := ioutil.ReadAll(os.Stdin)
 			if err != nil {
 				logger.Fatalf("main", "", err, "failed to read mail from STDIN")
 				return
 			}
-			if err := config.GetMailProcessor().Process(mailContent); err != nil {
+			if err := config.GetMailCommandRunner().Process(mailContent); err != nil {
 				logger.Fatalf("main", "", err, "failed to process mail")
 			}
 			// Mail processor for standard input is not a daemon
 			return
 		case "maintenance":
 			go common.NewSupervisor(config.GetMaintenance(), DaemonRestartIntervalSec, frontendName).Start()
-		case "plaintext":
-			go common.NewSupervisor(config.GetPlainTextDaemon(), DaemonRestartIntervalSec, frontendName).Start()
+		case "plainsocket":
+			go common.NewSupervisor(config.GetPlainSocketDaemon(), DaemonRestartIntervalSec, frontendName).Start()
 		case "smtpd":
 			go common.NewSupervisor(config.GetMailDaemon(), DaemonRestartIntervalSec, frontendName).Start()
 		case "sockd":

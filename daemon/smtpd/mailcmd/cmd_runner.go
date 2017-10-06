@@ -28,7 +28,7 @@ type CommandRunner struct {
 	Undocumented1     Undocumented1            `json:"Undocumented1"`     // Intentionally undocumented he he he he
 	Undocumented2     Undocumented2            `json:"Undocumented2"`     // Intentionally undocumented he he he he
 	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
-	ReplyMailer       inet.MailClient          `json:"-"`                 // To deliver Email replies
+	ReplyMailClient   inet.MailClient          `json:"-"`                 // To deliver Email replies
 	Logger            misc.Logger              `json:"-"`                 // Logger
 }
 
@@ -40,7 +40,7 @@ func (runner *CommandRunner) SelfTest() error {
 	// One mailer and one undocumented
 	wait.Add(3)
 	go func() {
-		err := runner.ReplyMailer.SelfTest()
+		err := runner.ReplyMailClient.SelfTest()
 		if err != nil {
 			retMutex.Lock()
 			ret = append(ret, err)
@@ -137,14 +137,14 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 			}
 		}
 		// The Email address suffix did not satisfy undocumented scenario, so send the result as a normal Email reply.
-		if !runner.ReplyMailer.IsConfigured() {
+		if !runner.ReplyMailClient.IsConfigured() {
 			return false, errors.New("the reply has to be sent via Email but configuration is missing")
 		}
 		recipients := replyAddresses
 		if recipients == nil || len(recipients) == 0 {
 			recipients = []string{prop.ReplyAddress}
 		}
-		return false, runner.ReplyMailer.Send(inet.OutgoingMailSubjectKeyword+"-reply-"+result.Command.Content, result.CombinedOutput, recipients...)
+		return false, runner.ReplyMailClient.Send(inet.OutgoingMailSubjectKeyword+"-reply-"+result.Command.Content, result.CombinedOutput, recipients...)
 	})
 	if walkErr != nil {
 		return walkErr

@@ -40,15 +40,15 @@ The result of each run is is sent to designated email addresses, along with late
 latest logs and warnings.
 */
 type Daemon struct {
-	TCPPorts        []int                  `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
-	IntervalSec     int                    `json:"IntervalSec"` // Check TCP ports and features at this interval
-	Mailer          inet.MailClient        `json:"MailClient"`  // Send notification mails via this mailer
-	Recipients      []string               `json:"Recipients"`  // Address of recipients of notification mails
-	FeaturesToCheck *toolbox.FeatureSet    `json:"-"`           // Health check subject - features and their API keys
-	MailpToCheck    *mailcmd.CommandRunner `json:"-"`           // Health check subject - mail processor and its mailer
-	Logger          misc.Logger            `json:"-"`           // Logger
-	loopIsRunning   int32                  // Value is 1 only when health check loop is running
-	stop            chan bool              // Signal health check loop to stop
+	TCPPorts           []int                  `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
+	IntervalSec        int                    `json:"IntervalSec"` // Check TCP ports and features at this interval
+	MailClient         inet.MailClient        `json:"MailClient"`  // Send notification mails via this mailer
+	Recipients         []string               `json:"Recipients"`  // Address of recipients of notification mails
+	FeaturesToCheck    *toolbox.FeatureSet    `json:"-"`           // Health check subject - features and their API keys
+	CheckMailCmdRunner *mailcmd.CommandRunner `json:"-"`           // Health check subject - mail processor and its mailer
+	Logger             misc.Logger            `json:"-"`           // Logger
+	loopIsRunning      int32                  // Value is 1 only when health check loop is running
+	stop               chan bool              // Signal health check loop to stop
 }
 
 /*
@@ -109,11 +109,11 @@ func (daemon *Daemon) Execute() (string, bool) {
 	if daemon.FeaturesToCheck != nil {
 		featureErrs = daemon.FeaturesToCheck.SelfTest()
 	}
-	var mailpErr error
-	if daemon.MailpToCheck != nil {
-		mailpErr = daemon.MailpToCheck.SelfTest()
+	var mailCmdRunnerErr error
+	if daemon.CheckMailCmdRunner != nil {
+		mailCmdRunnerErr = daemon.CheckMailCmdRunner.SelfTest()
 	}
-	allOK = allOK && len(featureErrs) == 0 && mailpErr == nil
+	allOK = allOK && len(featureErrs) == 0 && mailCmdRunnerErr == nil
 	// Compose mail body
 	var result bytes.Buffer
 	if allOK {
@@ -145,10 +145,10 @@ func (daemon *Daemon) Execute() (string, bool) {
 		}
 	}
 	// Mail processor checks
-	if mailpErr == nil {
+	if mailCmdRunnerErr == nil {
 		result.WriteString("Mail processor: OK\n")
 	} else {
-		result.WriteString(fmt.Sprintf("Mail processor: %v\n", mailpErr))
+		result.WriteString(fmt.Sprintf("Mail processor: %v\n", mailCmdRunnerErr))
 	}
 	// Daemon results, warnings, logs, and stack traces, in that order.
 	result.WriteString("\nSystem maintenance:\n")
@@ -165,7 +165,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	} else {
 		daemon.Logger.Warningf("Execute", "", nil, "completed with some errors")
 	}
-	if err := daemon.Mailer.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
+	if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
 		daemon.Logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
 	// Remove weird characters that may appear and cause email display to squeeze all lines together

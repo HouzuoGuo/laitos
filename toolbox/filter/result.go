@@ -104,20 +104,20 @@ func (_ *LintText) SetLogger(_ misc.Logger) {
 // Send email notification for command result.
 type NotifyViaEmail struct {
 	Recipients []string        `json:"Recipients"` // Email recipient addresses
-	Mailer     inet.MailClient `json:"-"`          // MTA that delivers outgoing notification email
+	MailClient inet.MailClient `json:"-"`          // MTA that delivers outgoing notification email
 	Logger     misc.Logger     `json:"-"`          // Logger
 }
 
 // Return true only if all mail parameters are present.
 func (notify *NotifyViaEmail) IsConfigured() bool {
-	return notify.Recipients != nil && len(notify.Recipients) > 0 && notify.Mailer.IsConfigured()
+	return notify.Recipients != nil && len(notify.Recipients) > 0 && notify.MailClient.IsConfigured()
 }
 
 func (notify *NotifyViaEmail) Transform(result *toolbox.Result) error {
 	if notify.IsConfigured() && result.Error != ErrPINAndShortcutNotFound {
 		go func() {
 			subject := inet.OutgoingMailSubjectKeyword + "-notify-" + result.Command.Content
-			if err := notify.Mailer.Send(subject, result.CombinedOutput, notify.Recipients...); err != nil {
+			if err := notify.MailClient.Send(subject, result.CombinedOutput, notify.Recipients...); err != nil {
 				notify.Logger.Warningf("Transform", "", err, "failed to send notification for command \"%s\"", result.Command.Content)
 			}
 		}()

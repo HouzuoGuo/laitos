@@ -42,11 +42,11 @@ const HandleMailMePage = `<!doctype html>
 // Send Howard an email in a simple web form. The text on the page is deliberately written in Chinese.
 type HandleMailMe struct {
 	Recipients []string        `json:"Recipients"` // Recipients of these mail messages
-	Mailer     inet.MailClient `json:"-"`
+	MailClient inet.MailClient `json:"-"`
 }
 
 func (mm *HandleMailMe) MakeHandler(logger misc.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
-	if mm.Recipients == nil || len(mm.Recipients) == 0 || !mm.Mailer.IsConfigured() {
+	if mm.Recipients == nil || len(mm.Recipients) == 0 || !mm.MailClient.IsConfigured() {
 		return nil, errors.New("HandleMailMe.MakeHandler: recipient list is empty or mailer is not configured")
 	}
 	fun := func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func (mm *HandleMailMe) MakeHandler(logger misc.Logger, _ *common.CommandProcess
 				w.Write([]byte(fmt.Sprintf(HandleMailMePage, "")))
 			} else {
 				prompt := "出问题了，发不出去。"
-				if err := mm.Mailer.Send(inet.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
+				if err := mm.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
 					prompt = "发出去了。可以接着写。"
 				} else {
 					logger.Warningf("HandleMailMe", r.RemoteAddr, err, "failed to deliver mail")

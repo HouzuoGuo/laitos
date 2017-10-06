@@ -34,9 +34,9 @@ type Daemon struct {
 	MyDomains   []string `json:"MyDomains"`   // Only accept mails addressed to these domain names
 	ForwardTo   []string `json:"ForwardTo"`   // Forward received mails to these addresses
 
-	MyDomainsHash map[string]struct{} `json:"-"` // "MyDomains" values in map keys
-	ForwardMailer inet.MailClient     `json:"-"` // Use this mailer to forward arrived mails
-	SMTPConfig    smtp.Config         `json:"-"` // SMTP processor configuration
+	MyDomainsHash     map[string]struct{} `json:"-"` // "MyDomains" values in map keys
+	ForwardMailClient inet.MailClient     `json:"-"` // Use this mailer to forward arrived mails
+	SMTPConfig        smtp.Config         `json:"-"` // SMTP processor configuration
 
 	Listener       net.Listener    `json:"-"` // Once daemon is started, this is its TCP listener.
 	TLSCertificate tls.Certificate `json:"-"` // TLS certificate read from the certificate and key files
@@ -49,7 +49,7 @@ type Daemon struct {
 // Check configuration and initialise internal states.
 func (smtpd *Daemon) Initialise() error {
 	smtpd.Logger = misc.Logger{ComponentName: "smtpd", ComponentID: fmt.Sprintf("%s:%d", smtpd.Address, smtpd.Port)}
-	if !smtpd.MailProcessor.ReplyMailer.IsConfigured() {
+	if !smtpd.MailProcessor.ReplyMailClient.IsConfigured() {
 		return errors.New("smtpd.Initialise: mail processor's reply mailer must be configured")
 	}
 	if smtpd.Address == "" {
@@ -61,7 +61,7 @@ func (smtpd *Daemon) Initialise() error {
 	if smtpd.PerIPLimit < 1 {
 		return errors.New("smtpd.Initialise: PerIPLimit must be greater than 0")
 	}
-	if smtpd.ForwardTo == nil || len(smtpd.ForwardTo) == 0 || !smtpd.ForwardMailer.IsConfigured() {
+	if smtpd.ForwardTo == nil || len(smtpd.ForwardTo) == 0 || !smtpd.ForwardMailClient.IsConfigured() {
 		return errors.New("smtpd.Initialise: the server is not useful if forward addresses/forward mailer are not configured")
 	}
 	if smtpd.MyDomains == nil || len(smtpd.MyDomains) == 0 {
@@ -97,13 +97,13 @@ func (smtpd *Daemon) Initialise() error {
 	smtpd.RateLimit.Initialise()
 	// Do not allow forward to this daemon itself
 	myPublicIP := inet.GetPublicIP()
-	if (strings.HasPrefix(smtpd.ForwardMailer.MTAHost, "127.") || smtpd.ForwardMailer.MTAHost == myPublicIP) &&
-		smtpd.ForwardMailer.MTAPort == smtpd.Port {
+	if (strings.HasPrefix(smtpd.ForwardMailClient.MTAHost, "127.") || smtpd.ForwardMailClient.MTAHost == myPublicIP) &&
+		smtpd.ForwardMailClient.MTAPort == smtpd.Port {
 		return errors.New("smtpd.Initialise: forward MTA must not be myself")
 	}
 	// Do not allow mail processor to reply to this daemon itself
-	if (strings.HasPrefix(smtpd.MailProcessor.ReplyMailer.MTAHost, "127.") || smtpd.MailProcessor.ReplyMailer.MTAHost == myPublicIP) &&
-		smtpd.MailProcessor.ReplyMailer.MTAPort == smtpd.Port {
+	if (strings.HasPrefix(smtpd.MailProcessor.ReplyMailClient.MTAHost, "127.") || smtpd.MailProcessor.ReplyMailClient.MTAHost == myPublicIP) &&
+		smtpd.MailProcessor.ReplyMailClient.MTAPort == smtpd.Port {
 		return errors.New("smtpd.Initialise: mail processor's reply MTA must not be myself")
 	}
 	// Construct a hash of MyDomains addresses for fast lookup
@@ -128,7 +128,7 @@ func (smtpd *Daemon) Initialise() error {
 func (smtpd *Daemon) ProcessMail(fromAddr, mailBody string) {
 	bodyBytes := []byte(mailBody)
 	// Forward the mail
-	if err := smtpd.ForwardMailer.SendRaw(smtpd.ForwardMailer.MailFrom, bodyBytes, smtpd.ForwardTo...); err == nil {
+	if err := smtpd.ForwardMailClient.SendRaw(smtpd.ForwardMailClient.MailFrom, bodyBytes, smtpd.ForwardTo...); err == nil {
 		smtpd.Logger.Printf("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", smtpd.ForwardTo)
 	} else {
 		smtpd.Logger.Warningf("ProcessMail", fromAddr, err, "failed to forward email")

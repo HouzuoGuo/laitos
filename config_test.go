@@ -172,7 +172,7 @@ func TestConfig(t *testing.T) {
     "PINAndShortcuts": {
       "PIN": "verysecret",
       "Shortcuts": {
-        "telegramshortcut": ".secho plaintextshortcut"
+        "telegramshortcut": ".secho plainsocketshortcut"
       }
     },
     "TranslateSequences": {
@@ -184,7 +184,7 @@ func TestConfig(t *testing.T) {
       ]
     }
   },
-  "PlainSocketsDaemon": {
+  "PlainSocketDaemon": {
     "Address": "127.0.0.1",
     "PerIPLimit": 10,
     "TCPPort": 17011,
@@ -272,12 +272,12 @@ func TestConfig(t *testing.T) {
 	httpd.TestHTTPD(insecureHTTPDaemon, t)
 	httpd.TestAPIHandlers(insecureHTTPDaemon, t)
 
-	mailcmd.TestCommandRunner(config.GetMailProcessor(), t)
+	mailcmd.TestCommandRunner(config.GetMailCommandRunner(), t)
 
 	smtpd.TestSMTPD(config.GetMailDaemon(), t)
 
-	plainsockets.TestTCPServer(config.GetPlainTextDaemon(), t)
-	plainsockets.TestUDPServer(config.GetPlainTextDaemon(), t)
+	plainsockets.TestTCPServer(config.GetPlainSocketDaemon(), t)
+	plainsockets.TestUDPServer(config.GetPlainSocketDaemon(), t)
 
 	sockd.TestSockd(config.GetSockDaemon(), t)
 

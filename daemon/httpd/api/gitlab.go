@@ -41,7 +41,7 @@ type HandleGitlabBrowser struct {
 	PrivateToken string            `json:"PrivateToken"` // Gitlab user private token
 	Projects     map[string]string `json:"Projects"`     // Project shortcut name VS "gitlab project ID"
 	Recipients   []string          `json:"Recipients"`   // Recipients of notification emails
-	Mailer       inet.MailClient   `json:"-"`            // MTA that delivers file download notification email
+	MailClient   inet.MailClient   `json:"-"`            // MTA that delivers file download notification email
 }
 
 // An element of gitlab API "/repository/tree" response array.
@@ -102,10 +102,10 @@ func (lab *HandleGitlabBrowser) DownloadGitBlob(logger misc.Logger, clientIP, pr
 		return
 	}
 	content = resp.Body
-	if lab.Recipients != nil && len(lab.Recipients) > 0 && lab.Mailer.IsConfigured() {
+	if lab.Recipients != nil && len(lab.Recipients) > 0 && lab.MailClient.IsConfigured() {
 		go func() {
 			subject := inet.OutgoingMailSubjectKeyword + "-gitlab-download-" + fileName
-			if err := lab.Mailer.Send(subject, fmt.Sprintf("File \"%s\" has been downloaded by %s", paths+fileName, clientIP), lab.Recipients...); err != nil {
+			if err := lab.MailClient.Send(subject, fmt.Sprintf("File \"%s\" has been downloaded by %s", paths+fileName, clientIP), lab.Recipients...); err != nil {
 				logger.Warningf("DownloadGitBlob", "", err, "failed to send notification for file \"%s\"", fileName)
 			}
 		}()

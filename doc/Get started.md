@@ -36,8 +36,9 @@ Note that:
   * `dnsd` - Ad-blocking DNS server
   * `httpd` - Web server secured by TLS certificate
   * `insecurehttpd` - Web server without encryption
-  * `mailp` - Text mail processor (note the [special usage](https://github.com/HouzuoGuo/laitos/wiki/STDIN-mail-processor))
+  * `mailcmd` - Text mail processor (note the [special usage](https://github.com/HouzuoGuo/laitos/wiki/STDIN-mail-processor))
   * `maintenance` - System maintenance and health reports
+  * `plainsocket` - Access to toolbox features via TCP/UDP in plain text
   * `smtpd` - Mail server
   * `telegram` - Telegram messenger chat bot
 - There is not any individual ON-OFF switch for toolbox features. Once configured, they are are automatically available to daemons.

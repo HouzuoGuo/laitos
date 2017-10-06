@@ -12,14 +12,14 @@ func TestMaintenance_Execute(t *testing.T) {
 	features := common.GetTestCommandProcessor().Features
 	maint := Daemon{
 		IntervalSec: 10,
-		Mailer: inet.MailClient{
+		MailClient: inet.MailClient{
 			MailFrom: "howard@localhost",
 			MTAHost:  "localhost",
 			MTAPort:  25,
 		},
-		Recipients:      []string{"howard@localhost"},
-		FeaturesToCheck: features,
-		MailpToCheck:    nil, // deliberately nil
+		Recipients:         []string{"howard@localhost"},
+		FeaturesToCheck:    features,
+		CheckMailCmdRunner: nil, // deliberately nil
 	}
 
 	if err := maint.Initialise(); !strings.Contains(err.Error(), "IntervalSec") {
@@ -34,14 +34,14 @@ func TestSystemMaintenance(t *testing.T) {
 	// Just make sure the function does not crash
 	maint := Daemon{
 		IntervalSec: 3600,
-		Mailer: inet.MailClient{
+		MailClient: inet.MailClient{
 			MailFrom: "howard@localhost",
 			MTAHost:  "localhost",
 			MTAPort:  25,
 		},
-		Recipients:      []string{"howard@localhost"},
-		FeaturesToCheck: common.GetTestCommandProcessor().Features,
-		MailpToCheck:    nil, // deliberately nil
+		Recipients:         []string{"howard@localhost"},
+		FeaturesToCheck:    common.GetTestCommandProcessor().Features,
+		CheckMailCmdRunner: nil, // deliberately nil
 	}
 	ret := maint.SystemMaintenance()
 	// Developer please manually inspect the output

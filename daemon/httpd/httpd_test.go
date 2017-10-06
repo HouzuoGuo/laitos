@@ -60,7 +60,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.SpecialHandlers["/html"] = &api.HandleHTMLDocument{HTMLFilePath: indexFile}
 	daemon.SpecialHandlers["/mail_me"] = &api.HandleMailMe{
 		Recipients: []string{"howard@localhost"},
-		Mailer: inet.MailClient{
+		MailClient: inet.MailClient{
 			MailFrom: "howard@localhost",
 			MTAHost:  "localhost",
 			MTAPort:  25,

@@ -63,8 +63,8 @@ func WarnIfNoHTTPS(r *http.Request, w http.ResponseWriter) bool {
 
 // Inspect system and environment and return their information in text form. Double as a health check endpoint.
 type HandleSystemInfo struct {
-	FeaturesToCheck *toolbox.FeatureSet    `json:"-"` // Health check subject - features and their API keys
-	MailpToCheck    *mailcmd.CommandRunner `json:"-"` // Health check subject - mail processor and its mailer
+	FeaturesToCheck    *toolbox.FeatureSet    `json:"-"` // Health check subject - features and their API keys
+	CheckMailCmdRunner *mailcmd.CommandRunner `json:"-"` // Health check subject - mail processor and its mailer
 }
 
 /*
@@ -107,11 +107,11 @@ func (info *HandleSystemInfo) MakeHandler(logger misc.Logger, _ *common.CommandP
 		if info.FeaturesToCheck != nil {
 			featureErrs = info.FeaturesToCheck.SelfTest()
 		}
-		var mailpErr error
-		if info.MailpToCheck != nil {
-			mailpErr = info.MailpToCheck.SelfTest()
+		var mailCmdRunnerErr error
+		if info.CheckMailCmdRunner != nil {
+			mailCmdRunnerErr = info.CheckMailCmdRunner.SelfTest()
 		}
-		allOK := len(featureErrs) == 0 && mailpErr == nil
+		allOK := len(featureErrs) == 0 && mailCmdRunnerErr == nil
 		// Compose mail body
 		if allOK {
 			fmt.Fprint(w, "All OK\n")
@@ -132,10 +132,10 @@ func (info *HandleSystemInfo) MakeHandler(logger misc.Logger, _ *common.CommandP
 			}
 		}
 		// Mail processor checks
-		if mailpErr == nil {
+		if mailCmdRunnerErr == nil {
 			fmt.Fprint(w, "\nMail processor: OK\n")
 		} else {
-			fmt.Fprintf(w, "\nMail processor: %v\n", mailpErr)
+			fmt.Fprintf(w, "\nMail processor: %v\n", mailCmdRunnerErr)
 		}
 		// Warnings, logs, and stack traces
 		fmt.Fprint(w, "\nWarnings:\n")
