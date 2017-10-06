@@ -77,7 +77,7 @@ type AESDecrypt struct {
 }
 
 func (crypt *AESDecrypt) IsConfigured() bool {
-	return crypt.EncryptedFiles != nil && len(crypt.EncryptedFiles) > 1
+	return crypt.EncryptedFiles != nil && len(crypt.EncryptedFiles) > 0
 }
 
 func (crypt *AESDecrypt) SelfTest() error {
