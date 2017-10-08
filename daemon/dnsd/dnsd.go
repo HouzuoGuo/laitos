@@ -54,7 +54,7 @@ type Daemon struct {
 	TCPForwarder []string     `json:"TCPForwarders"` // Forward TCP DNS queries to these addresses (IP:Port)
 	TCPListener  net.Listener `json:"-"`             // Once TCP daemon is started, this is its listener.
 
-	AllowQueryIPPrefixes []string    `json:"AllowQueryIPPrefixes"` // Only allow queries from IP addresses that carry any of the prefixes
+	AllowQueryIPPrefixes []string    `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
 	allowQueryMutex      *sync.Mutex `json:"-"`                    // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
 	allowQueryLastUpdate int64       `json:"-"`                    // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
 
@@ -88,8 +88,8 @@ func (daemon *Daemon) Initialise() error {
 			return errors.New("DNSD.Initialise: any allowable IP prefixes must not be empty string")
 		}
 	}
-	// Always allow localhost to query
-	daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, "127.")
+	// Always allow localhost to query via both IPv4 and IPv6
+	daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, "127.", "::1")
 
 	daemon.allowQueryMutex = new(sync.Mutex)
 	daemon.BlackListMutex = new(sync.Mutex)
@@ -228,7 +228,6 @@ func (daemon *Daemon) GetAdBlacklistMVPS() ([]string, error) {
 		nameBegin := indexZero + len("0.0.0.0")
 		if nameBegin >= nameEnd {
 			// The line looks like # this is a comment 0.0.0.0
-
 			continue
 		}
 		names = append(names, strings.TrimSpace(line[nameBegin:nameEnd]))

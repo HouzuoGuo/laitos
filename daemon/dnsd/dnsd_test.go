@@ -77,8 +77,8 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(daemon.AllowQueryIPPrefixes) != 3 {
-		// There should be three prefixes: 127., 192., and my IP
+	if len(daemon.AllowQueryIPPrefixes) != 4 {
+		// There should be three prefixes: 127., ::1, 192., and my IP
 		t.Fatal("did not put my own IP into prefixes")
 	}
 	TestUDPQueries(&daemon, t)
@@ -113,8 +113,8 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(daemon.AllowQueryIPPrefixes) != 3 {
-		// There should be three prefixes: 127., 192., and my IP
+	if len(daemon.AllowQueryIPPrefixes) != 4 {
+		// There should be three prefixes: 127., ::1, 192., and my IP
 		t.Fatal("did not put my own IP into prefixes", daemon.AllowQueryIPPrefixes)
 	}
 	TestTCPQueries(&daemon, t)
