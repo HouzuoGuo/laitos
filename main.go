@@ -89,6 +89,16 @@ func DisableConflictingDaemons() {
 	waitGroup.Wait()
 }
 
+// SwapOff turns off all swap files and partitions for improved system security.
+func SwapOff() {
+	out, err := misc.InvokeProgram(nil, 60, "swapoff", "-a")
+	if err == nil {
+		logger.Printf("SwapOff", "", nil, "swap is now off")
+	} else {
+		logger.Printf("SwapOff", "", err, "failed to turn off swap - %s", out)
+	}
+}
+
 func main() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
@@ -103,11 +113,12 @@ func main() {
 
 	// Process command line flags
 	var frontend string
-	var disableConflicts, tuneSystem, debug bool
+	var disableConflicts, tuneSystem, debug, swapOff bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, "config", "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, insecurehttpd, mailcmd, maintenance, plainsocket, smtpd, sockd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
+	flag.BoolVar(&swapOff, "swapoff", false, "(Optional) turn off all swap files and partitions for improved system security")
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
@@ -138,31 +149,6 @@ func main() {
 		}()
 	}
 
-	// Re-seed pseudo random number generator once a while
-	ReseedPseudoRand()
-	go func() {
-		time.Sleep(2 * time.Minute)
-		ReseedPseudoRand()
-	}()
-
-	// Configure gomaxprocs to help laitos daemons
-	if gomaxprocs > 0 {
-		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
-		logger.Warningf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
-	} else {
-		logger.Warningf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
-	}
-
-	// Stop certain daemons to increase chance of successful launch of laitos daemons
-	if disableConflicts {
-		DisableConflictingDaemons()
-	}
-
-	// Tune operating system parameters for optimal performance and better resource utilisation
-	if tuneSystem {
-		logger.Warningf("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
-	}
-
 	// The "special-launch" launcher runs prior to the daemons
 	if sl {
 		encarchive.CLIStartWebServer(slPort, slURL, slArchivePath)
@@ -181,6 +167,7 @@ func main() {
 		return
 	}
 
+	// Deserialise JSON configuration file
 	if misc.ConfigFilePath == "" {
 		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
 		return
@@ -190,8 +177,6 @@ func main() {
 	if err != nil {
 		logger.Fatalf("main", "", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
 	}
-
-	// Deserialise JSON configuration file
 	var config Config
 	configBytes, err := ioutil.ReadFile(misc.ConfigFilePath)
 	if err != nil {
@@ -209,6 +194,35 @@ func main() {
 	if frontends == nil || len(frontends) == 0 {
 		logger.Fatalf("main", "", nil, "please provide comma-separated list of frontend services to start (-frontend).")
 		return
+	}
+
+	/*
+		To help daemons running better, do the following (some of which are optional)
+		- Periodically re-seed pseudo random generator.
+		- Configure gomaxprocs.
+		- Stop system daemons that may run into conflict with laitos daemons.
+		- Turn off all swap files and partitions for improved security.
+		- Tune system kernel parameters.
+	*/
+	ReseedPseudoRand()
+	go func() {
+		time.Sleep(2 * time.Minute)
+		ReseedPseudoRand()
+	}()
+	if gomaxprocs > 0 {
+		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
+		logger.Warningf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
+	} else {
+		logger.Warningf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
+	}
+	if disableConflicts {
+		DisableConflictingDaemons()
+	}
+	if swapOff {
+		SwapOff()
+	}
+	if tuneSystem {
+		logger.Warningf("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
 	}
 
 	// Start each daemon
@@ -246,9 +260,9 @@ func main() {
 			logger.Fatalf("main", "", err, "unknown frontend name \"%s\"", frontendName)
 		}
 	}
-	// Daemons are not really supposed to quit.
-	// In rare circumstance, if all daemons fail to start without panicking, laitos will just hang right here.
+	// Daemons are not really supposed to quit
 	for {
+		// In rare circumstance, if all daemons fail to start without panicking, laitos will just hang right here.
 		time.Sleep(time.Hour)
 		logger.Printf("main", "", nil, "laitos has been up for %s", time.Now().Sub(misc.StartupTime))
 	}
