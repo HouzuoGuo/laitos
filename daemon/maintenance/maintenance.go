@@ -331,12 +331,12 @@ func (daemon *Daemon) SystemMaintenance() string {
 		"xorg-x11-font-utils", "zlib", "zlib1g",
 
 		// Utility applications for time maintenance
-		"ntp", "ntpd", "ntpdate",
+		"chrony", "ntp", "ntpd", "ntpdate",
 		// Utility applications for maintaining application zip bundle
 		"unzip", "zip",
 		// Utility applications for conducting network diagnosis
-		"nc", "net-tools", "netcat", "nc", "nmap", "traceroute",
-		// Generic utility
+		"nc", "net-tools", "netcat", "nmap", "traceroute",
+		// Utility box busybox is also useful for clock synchronisation
 		"busybox",
 	}
 	/*
@@ -365,9 +365,13 @@ func (daemon *Daemon) SystemMaintenance() string {
 		}
 		fmt.Fprintf(ret, "--- %s installation/upgrade result: %v - %s\n\n", name, err, strings.TrimSpace(result))
 	}
-	// Immediately sync system clock via ntpdate (instead of ntpd)
-	result, err = misc.InvokeProgram(nil, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "hk.pool.ntp.org", "au.pool.ntp.org")
-	fmt.Fprintf(ret, "--- clock synchronisation result: %v - %s\n\n", err, strings.TrimSpace(result))
+	// Use three tools to immediately synchronise system clock
+	result, err = misc.InvokeProgram(nil, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
+	fmt.Fprintf(ret, "--- clock synchronisation result (ntpdate): %v - %s\n\n", err, strings.TrimSpace(result))
+	result, err = misc.InvokeProgram(nil, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
+	fmt.Fprintf(ret, "--- clock synchronisation result (chronyd): %v - %s\n\n", err, strings.TrimSpace(result))
+	result, err = misc.InvokeProgram(nil, 60, "busybox", "ntpd", "-n", "-q", "-p", "ie.pool.ntp.org", "ca.pool.ntp.org", "au.pool.ntp.org")
+	fmt.Fprintf(ret, "--- clock synchronisation result (busybox): %v - %s\n\n", err, strings.TrimSpace(result))
 	/*
 		The program startup time is used to detect outdated commands (such as in telegram bot), in rare case if system clock
 		was severely skewed, causing program startup time to be in the future, the detection mechanisms will misbehave.
