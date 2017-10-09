@@ -38,7 +38,7 @@ by Microsoft bot framework to offer access to all toolbox features via chat (suc
 </table>
 
 2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
-   JSON key `HTTPBridges`.
+   JSON key `HTTPFilters`.
 
 Here is an example:
 <pre>

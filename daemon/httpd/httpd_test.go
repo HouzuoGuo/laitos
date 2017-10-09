@@ -34,23 +34,28 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon := Daemon{
 		Address:          "127.0.0.1",
 		Port:             1024 + rand.Intn(65535-1024),
-		Processor:        &common.CommandProcessor{},
+		Processor:        nil,
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir", "dir": "/tmp/test-laitos-dir"},
 		BaseRateLimit:    0,
 		SpecialHandlers: map[string]api.HandlerFactory{
 			"/": &api.HandleHTMLDocument{HTMLFilePath: indexFile},
 		},
 	}
-	// Must not initialise if command processor is insane
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
-		t.Fatal("did not error due to insane CommandProcessor")
-	}
-	daemon.Processor = common.GetTestCommandProcessor()
 	// Must not initialise if rate limit is too small
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "BaseRateLimit") {
 		t.Fatal(err)
 	}
 	daemon.BaseRateLimit = 10 // good enough for both sets of test cases
+	// Must be able to initialise if command processor is empty (not used)
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	// Must not initialise if command processor is not sane
+	daemon.Processor = common.GetInsaneCommandProcessor()
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
+		t.Fatal("did not error due to insane CommandProcessor")
+	}
+	daemon.Processor = common.GetTestCommandProcessor()
 
 	// Set up API handlers
 	daemon.Processor = common.GetTestCommandProcessor()

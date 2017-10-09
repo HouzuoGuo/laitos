@@ -7,7 +7,15 @@ import (
 )
 
 func TestPlainTextDaemon_StartAndBlockTCP(t *testing.T) {
-	daemon := Daemon{Processor: common.GetTestCommandProcessor()}
+	daemon := Daemon{}
+	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "filters must be configured") == -1 {
+		t.Fatal(err)
+	}
+	daemon.Processor = common.GetInsaneCommandProcessor()
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
+		t.Fatal(err)
+	}
+	daemon.Processor = common.GetTestCommandProcessor()
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}

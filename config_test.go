@@ -150,7 +150,7 @@ func TestConfig(t *testing.T) {
     "PerIPLimit": 10,
     "Port": 18573
   },
-  "MailProcessor": {
+  "MailCommandRunner": {
     "CommandTimeoutSec": 10
   },
   "MailClient": {

@@ -32,6 +32,19 @@ type CommandRunner struct {
 	Logger            misc.Logger              `json:"-"`                 // Logger
 }
 
+// Initialise initialises internal states of command runner. This function must be called before using the command runner.
+func (runner *CommandRunner) Initialise() error {
+	if runner.Processor == nil || runner.Processor.IsEmpty() {
+		return fmt.Errorf("mailcmd.Initialise: command processor and its filters must be configured")
+	}
+	runner.Logger = misc.Logger{ComponentName: "mailcmd", ComponentID: strconv.Itoa(runner.CommandTimeoutSec)}
+	runner.Processor.SetLogger(runner.Logger)
+	if errs := runner.Processor.IsSaneForInternet(); len(errs) > 0 {
+		return fmt.Errorf("mailcmd.Process: %+v", errs)
+	}
+	return nil
+}
+
 // Run a health check on mailer and "undocumented" things.
 func (runner *CommandRunner) SelfTest() error {
 	ret := make([]error, 0, 0)
@@ -90,14 +103,6 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 	}()
 	if misc.EmergencyLockDown {
 		return misc.ErrEmergencyLockDown
-	}
-	runner.Logger = misc.Logger{ComponentName: "mailcmd", ComponentID: strconv.Itoa(runner.CommandTimeoutSec)}
-	if runner.Processor == nil {
-		runner.Processor = common.GetEmptyCommandProcessor()
-	}
-	runner.Processor.SetLogger(runner.Logger)
-	if errs := runner.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("mailcmd.Process: %+v", errs)
 	}
 	var commandIsProcessed bool
 	walkErr := inet.WalkMailMessage(mailContent, func(prop inet.BasicMail, body []byte) (bool, error) {
@@ -164,7 +169,7 @@ var TestUndocumented2Message = ""             // Content is set by init_mail_tes
 func TestCommandRunner(runner *CommandRunner, t testingstub.T) {
 	// Real MTA is required to run the tests
 	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
-		fmt.Println("there is no mta running on 127.0.0.1")
+		t.Skip("there is no MTA running on 127.0.0.1")
 		return
 	}
 	if err := runner.SelfTest(); err != nil {

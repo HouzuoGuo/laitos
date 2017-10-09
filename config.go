@@ -73,7 +73,7 @@ type HTTPHandlers struct {
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
 type Config struct {
 	Features   toolbox.FeatureSet `json:"Features"`   // Feature configuration is shared by all services
-	MailClient inet.MailClient    `json:"MailClient"` // Mail configuration for notifications and mail processor results
+	MailClient inet.MailClient    `json:"MailClient"` // MailClient is the common client configuration for sending notification emails and mail command runner results.
 
 	Maintenance maintenance.Daemon `json:"Maintenance"` // Daemon configures behaviour of periodic health-check/system maintenance
 
@@ -83,9 +83,9 @@ type Config struct {
 	HTTPFilters  StandardFilters `json:"HTTPFilters"`  // HTTP daemon filter configuration
 	HTTPHandlers HTTPHandlers    `json:"HTTPHandlers"` // HTTP daemon handler configuration
 
-	MailDaemon    smtpd.Daemon          `json:"MailDaemon"`    // SMTP daemon configuration
-	MailProcessor mailcmd.CommandRunner `json:"MailProcessor"` // Incoming mail processor configuration
-	MailFilters   StandardFilters       `json:"MailFilters"`   // Incoming mail processor filter configuration
+	MailDaemon        smtpd.Daemon          `json:"MailDaemon"`        // SMTP daemon configuration
+	MailCommandRunner mailcmd.CommandRunner `json:"MailCommandRunner"` // MailCommandRunner processes toolbox commands from incoming mail body.
+	MailFilters       StandardFilters       `json:"MailFilters"`       // MailFilters configure command processor for mail command runner
 
 	PlainSocketDaemon  plainsockets.Daemon `json:"PlainSocketDaemon"`  // Plain text protocol TCP and UDP daemon configuration
 	PlainSocketFilters StandardFilters     `json:"PlainSocketFilters"` // Plain text daemon filter configuration
@@ -304,7 +304,7 @@ independent mail command runner is useful in certain scenarios, such as integrat
 "forward-mail-to-program" mechanism.
 */
 func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
-	ret := config.MailProcessor
+	ret := config.MailCommandRunner
 
 	mailNotification := config.MailFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
@@ -339,7 +339,7 @@ Both SMTP daemon and mail command processor will use the common mail client to f
 */
 func (config Config) GetMailDaemon() *smtpd.Daemon {
 	ret := config.MailDaemon
-	ret.MailProcessor = config.GetMailCommandRunner()
+	ret.CommandRunner = config.GetMailCommandRunner()
 	ret.ForwardMailClient = config.MailClient
 	if err := ret.Initialise(); err != nil {
 		config.Logger.Fatalf("GetMailDaemon", "", err, "failed to initialise")

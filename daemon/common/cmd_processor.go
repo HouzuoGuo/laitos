@@ -51,6 +51,15 @@ func (proc *CommandProcessor) SetLogger(logger misc.Logger) {
 }
 
 /*
+IsEmpty returns true only if the command processor does not have any command filter configuration, which means the
+command processor is not configured for use.
+Normally, a command processor configuration should at least have a PIN filter.
+*/
+func (proc *CommandProcessor) IsEmpty() bool {
+	return proc.CommandFilters == nil || len(proc.CommandFilters) == 0
+}
+
+/*
 From the prospect of Internet-facing mail processor and Twilio hooks, check that parameters are within sane range.
 Return a zero-length slice if everything looks OK.
 */
@@ -61,7 +70,7 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 		errs = append(errs, errors.New(ErrBadProcessorConfig+"FeatureSet is not assigned"))
 	} else {
 		if len(proc.Features.LookupByTrigger) == 0 {
-			errs = append(errs, errors.New(ErrBadProcessorConfig+"FeatureSet is not intialised or all features are lacking configuration"))
+			errs = append(errs, errors.New(ErrBadProcessorConfig+"FeatureSet is not initialised or all features are lacking configuration"))
 		}
 	}
 	if proc.CommandFilters == nil {
@@ -265,6 +274,28 @@ func GetEmptyCommandProcessor() *CommandProcessor {
 		ResultFilters: []filter.ResultFilter{
 			&filter.ResetCombinedText{},
 			&filter.LintText{MaxLength: 35},
+			&filter.SayEmptyOutput{},
+		},
+	}
+}
+
+/*
+GetInsaneCommandProcessor returns a command processor that does not have a sane configuration for general usage.
+This is a test case helper.
+*/
+func GetInsaneCommandProcessor() *CommandProcessor {
+	features := &toolbox.FeatureSet{}
+	if err := features.Initialise(); err != nil {
+		panic(err)
+	}
+	return &CommandProcessor{
+		Features: features,
+		CommandFilters: []filter.CommandFilter{
+			&filter.PINAndShortcuts{PIN: "short"},
+		},
+		ResultFilters: []filter.ResultFilter{
+			&filter.ResetCombinedText{},
+			&filter.LintText{MaxLength: 10},
 			&filter.SayEmptyOutput{},
 		},
 	}

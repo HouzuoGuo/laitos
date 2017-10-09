@@ -19,9 +19,13 @@ func TestMailProcessor_Process(t *testing.T) {
 		},
 		Undocumented1: TestUndocumented1,
 	}
-	// CommandRunner has insane configuration
-	if err := runner.Process([]byte("test body")); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
-		t.Fatal("did not error due to insane CommandProcessor")
+	if err := runner.Initialise(); err == nil || strings.Index(err.Error(), "filters must be configured") == -1 {
+		t.Fatal(err)
+	}
+	// CommandRunner has insane command processor
+	runner.Processor = common.GetInsaneCommandProcessor()
+	if err := runner.Initialise(); err == nil || strings.Index(err.Error(), "PIN is too short") == -1 {
+		t.Fatal(err)
 	}
 	// Prepare a good processor
 	runner.Processor = common.GetTestCommandProcessor()

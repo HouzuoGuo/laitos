@@ -85,7 +85,8 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
 	daemon.Logger = misc.Logger{ComponentName: "httpd", ComponentID: fmt.Sprintf("%s:%d", daemon.Address, daemon.Port)}
-	if daemon.Processor == nil {
+	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
+		daemon.Logger.Printf("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = common.GetEmptyCommandProcessor()
 	}
 	daemon.Processor.SetLogger(daemon.Logger)

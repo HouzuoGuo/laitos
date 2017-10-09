@@ -19,15 +19,15 @@ var TCPDurationStats = misc.NewStats() // TCPDurationStats stores statistics of 
 You may call this function only after having called Initialise()!
 Start TCP daemon and block until daemon is told to stop.
 */
-func (server *Daemon) StartAndBlockTCP() (err error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.Address, server.TCPPort))
+func (daemon *Daemon) StartAndBlockTCP() (err error) {
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", daemon.Address, daemon.TCPPort))
 	if err != nil {
-		return fmt.Errorf("plainsockets.StartAndBlock: failed to listen on %s:%d - %v", server.Address, server.TCPPort, err)
+		return fmt.Errorf("plainsockets.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
 	}
 	defer listener.Close()
-	server.TCPListener = listener
+	daemon.TCPListener = listener
 	// Process incoming TCP conversations
-	server.Logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
+	daemon.Logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
 	for {
 		if misc.EmergencyLockDown {
 			return misc.ErrEmergencyLockDown
@@ -39,12 +39,12 @@ func (server *Daemon) StartAndBlockTCP() (err error) {
 			}
 			return fmt.Errorf("plainsockets.StartAndBlockTCP: failed to accept new connection - %v", err)
 		}
-		go server.HandleTCPConnection(clientConn)
+		go daemon.HandleTCPConnection(clientConn)
 	}
 }
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
-func (server *Daemon) HandleTCPConnection(clientConn net.Conn) {
+func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
@@ -53,10 +53,10 @@ func (server *Daemon) HandleTCPConnection(clientConn net.Conn) {
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	// Check connection against rate limit even before reading a line of command
-	if !server.RateLimit.Add(clientIP, true) {
+	if !daemon.RateLimit.Add(clientIP, true) {
 		return
 	}
-	server.Logger.Printf("HandleTCPConnection", clientIP, nil, "working on the connection")
+	daemon.Logger.Printf("HandleTCPConnection", clientIP, nil, "working on the connection")
 	reader := bufio.NewReader(clientConn)
 	for {
 		// Read one line of command
@@ -64,16 +64,16 @@ func (server *Daemon) HandleTCPConnection(clientConn net.Conn) {
 		line, _, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				server.Logger.Warningf("HandleTCPConnection", clientIP, err, "failed to read from client")
+				daemon.Logger.Warningf("HandleTCPConnection", clientIP, err, "failed to read from client")
 			}
 			return
 		}
 		// Check against conversation rate limit
-		if !server.RateLimit.Add(clientIP, true) {
+		if !daemon.RateLimit.Add(clientIP, true) {
 			return
 		}
 		// Process line of command and respond
-		result := server.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec})
+		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec})
 		clientConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		clientConn.Write([]byte(result.CombinedOutput))
 		clientConn.Write([]byte("\r\n"))

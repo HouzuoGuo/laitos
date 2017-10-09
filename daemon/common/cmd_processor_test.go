@@ -102,6 +102,9 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 		CommandFilters: nil,
 		ResultFilters:  nil,
 	}
+	if !proc.IsEmpty() {
+		t.Fatal("not empty")
+	}
 	if errs := proc.IsSaneForInternet(); len(errs) != 3 {
 		t.Fatal(errs)
 	}
@@ -126,6 +129,10 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 	proc.CommandFilters = []filter.CommandFilter{&filter.PINAndShortcuts{PIN: "aaaaaa"}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
 		t.Fatal(errs)
+	}
+	// Despite PIN being very short, the command processor is not without configuration.
+	if proc.IsEmpty() {
+		t.Fatal("should not be empty")
 	}
 	// PIN bridge has nothing
 	proc.CommandFilters = []filter.CommandFilter{&filter.PINAndShortcuts{}}
@@ -152,6 +159,7 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 	if errs := proc.IsSaneForInternet(); len(errs) != 0 {
 		t.Fatal(errs)
 	}
+
 }
 
 func TestGetTestCommandProcessor(t *testing.T) {

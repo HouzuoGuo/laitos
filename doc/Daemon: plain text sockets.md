@@ -10,7 +10,7 @@ Due to the incredibly simple communication protocol, the text information exchan
 to attacks such as eavesdropping.
 
 ## Configuration
-1. Construct the following JSON object and place it under JSON key `TelegramBot` in configuration file.
+1. Construct the following JSON object and place it under JSON key `PlainSocketDaemon` in configuration file.
    The following properties are mandatory:
 <table>
 <tr>
@@ -41,20 +41,20 @@ to attacks such as eavesdropping.
 </table>
 
 2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
-   JSON key `PlainTextBridges`.
+   JSON key `PlainSocketFilters`.
 
 Here is an example setup of mail server with command processor:
 <pre>
 {
     ...
     
-    "PlainTextDaemon": {
+    "PlainSocketDaemon": {
         "Address": "0.0.0.0",
         "TCPPort": 53,
         "UDPPort": 53,
         "PerIPLimit": 10
     },
-    "PlainTextBridges": {
+    "PlainSocketFilters": {
         "PINAndShortcuts": {
             "PIN": "VerySecretPassword",
             "Shortcuts": {

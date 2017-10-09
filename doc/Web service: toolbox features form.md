@@ -8,7 +8,7 @@ entry text box, through which you may run any toolbox feature.
 1. Under JSON key `HTTPHandlers`, write a string property called `CommandFormEndpoint`, value being the URL location
    that will serve the form. Keep the location a secret to yourself and make it difficult to guess.
 2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
-   JSON key `HTTPBridges`.
+   JSON key `HTTPFilters`.
 
 Here is an example:
 <pre>

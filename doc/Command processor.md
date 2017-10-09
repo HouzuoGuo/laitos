@@ -21,7 +21,7 @@ To use toolbox feature via a daemon, the following events take place:
 7. Notify user the command input and result via Email.
 
 ## Configuration
-Construct the following objects under JSON key (e.g. `HTTPBridges`, `MailBridges`) named by individual daemon - you may
+Construct the following objects under JSON key (e.g. `HTTPFilters`, `MailFilters`) named by individual daemon - you may
 find them in daemon's usage manual.
 
 Mandatory `PINAndShortcuts` - define access password and shortcut command entries:
@@ -121,7 +121,7 @@ and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-ser
 {
     ...
 
-    "HTTPBridges": {
+    "HTTPFilters": {
         "PINAndShortcuts": {
             "PIN": "VerySecretPassword",
             "Shortcuts": {
@@ -231,7 +231,7 @@ Regarding toolbox usage via SMS/telephone:
 - Telephone and mobile networks are prone to attacks, they can eavesdrop your password PIN and toolbox feature
   conversations easily. Use them only as a last resort.
 - The [Twilio SMS/telephone hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
-  runs in the web server daemon, therefore the corresponding command processor configuration is in JSON key `HTTPBridge`.
+  runs in the web server daemon, therefore the corresponding command processor configuration is in JSON key `HTTPFilters`.
   Check out the feature's manual for techniques of command entry via telephone number pad.
 - To avoid a high SMS bill, consider turning on all `LintText` flags to compact SMS replies,
   and restrict `MaxLength` to 160 - maximum length of a single SMS text.

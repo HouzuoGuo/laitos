@@ -35,7 +35,7 @@ place into the configuration.
 </table>
 
 2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
-   JSON key `TelegramBridges`.
+   JSON key `TelegramFilters`.
 
 Here is an example setup of Telegram:
 <pre>
@@ -53,7 +53,7 @@ Here is an example setup of Telegram:
         "TLSCertPath": "/root/howard-blog.org.crt",
         "TLSKeyPath": "/root/howard-blog.org.key"
     },
-    "TelegramBridges": {
+    "TelegramFilters": {
         "PINAndShortcuts": {
             "PIN": "VerySecretPassword",
             "Shortcuts": {

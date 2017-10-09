@@ -120,7 +120,7 @@ Here is an example setup made for two imaginary domain names:
 ## Toolbox command processor
 In order to let mail server process toolbox feature commands from mail body, complete all of the following:
 
-1. Construct the following JSON object and place it under JSON key `MailProcessor` in configuration file.
+1. Construct the following JSON object and place it under JSON key `MailCommandRunner` in configuration file.
    The following properties are mandatory:
 <table>
 <tr>
@@ -136,7 +136,7 @@ In order to let mail server process toolbox feature commands from mail body, com
 </table>
 
 2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
-   JSON key `MailBridges`.
+   JSON key `MailFilters`.
 3. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) to construct
    configuration for sending Email responses.
 
@@ -157,7 +157,7 @@ Here is an example setup of mail server with command processor:
         "TLSKeyPath": "/root/howard-blog.org.key"
     },
     
-    "MailBridges": {
+    "MailFilters": {
         "PINAndShortcuts": {
             "PIN": "VerySecretPassword",
             "Shortcuts": {

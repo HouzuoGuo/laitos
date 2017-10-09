@@ -8,7 +8,7 @@ That means: using telephone, SMS, and satellite terminals you will have to perso
 
 ## Configuration
 Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
-JSON key `HTTPBridges`. Make sure to limit `MaxLength` of `LintText` to a reasonable number below 1000, otherwise an
+JSON key `HTTPFilters`. Make sure to limit `MaxLength` of `LintText` to a reasonable number below 1000, otherwise an
 unexpectedly large command response may incur high fees.
 
 Then, in order to enable telephone call hook, construct the following properties under JSON key `HTTPHandlers`:
@@ -103,10 +103,10 @@ feature conversations easily. Use them only as a last resort.
 
 Regarding laitos configuration:
 - Make sure to choose a very secure URL for both call and SMS endpoints, it is the only way to secure this web service!
-- Under `HTTPBridges`, double check that `MaxLength` of `LintText` is set to a reasonable number below 1000, otherwise
+- Under `HTTPFilters`, double check that `MaxLength` of `LintText` is set to a reasonable number below 1000, otherwise
   if laitos sends an exceedingly large SMS response, Twilio will break apart the response into multiple SMS segments,
-  and charge you for all segments! Consider turning on all compression routines in `LintText` to further reduce
-  cost.
+  and charge you very high fees for sending all segments! Also, consider turning on all compression routines in
+  `LintText` to further reduce cost.
 
 Regarding Twilio configuration:
 - Usage of HTTPS is mandatory in web hook, your laitos web server must be serving HTTPS traffic using a valid TLS
@@ -114,6 +114,4 @@ Regarding Twilio configuration:
 - If you run identical laitos configuration on more than one servers for fail-over, then you may enter the secondary
   server's web hook address under Twilio configuration's "Primary Handler Fails" input. Twilio will then automatically
   uses the secondary server if primary server fails.
-- `HTTPBridges`. Make sure to limit `MaxLength` of `LintText` to a reasonable number below 1000, otherwise an
-  unexpectedly large command response may incur high fees.
 - It is OK to have more than one Twilio phone numbers configured to use the same laitos server.

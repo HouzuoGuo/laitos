@@ -79,8 +79,8 @@ type Daemon struct {
 
 func (bot *Daemon) Initialise() error {
 	bot.Logger = misc.Logger{ComponentName: "telegrambot", ComponentID: ""}
-	if bot.Processor == nil {
-		bot.Processor = common.GetEmptyCommandProcessor()
+	if bot.Processor == nil || bot.Processor.IsEmpty() {
+		return fmt.Errorf("telegrambot.Initialise: command processor and its filters must be configured")
 	}
 	bot.Processor.SetLogger(bot.Logger)
 	if errs := bot.Processor.IsSaneForInternet(); len(errs) > 0 {

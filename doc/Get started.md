@@ -35,7 +35,7 @@ Note that:
 - Replace `<LIST>` by name of daemons to start. Use comma to separate names (e.g.`dnsd,smtpd,httpd`). Here are the options:
   * `dnsd` - Ad-blocking DNS server
   * `httpd` - Web server secured by TLS certificate
-  * `insecurehttpd` - Web server without encryption
+  * `insecurehttpd` - Web server without TLS encryption
   * `mailcmd` - Text mail processor (note the [special usage](https://github.com/HouzuoGuo/laitos/wiki/STDIN-mail-processor))
   * `maintenance` - System maintenance and health reports
   * `plainsocket` - Access to toolbox features via TCP/UDP in plain text

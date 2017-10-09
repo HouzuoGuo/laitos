@@ -30,33 +30,33 @@ type Daemon struct {
 }
 
 // Check configuration and initialise internal states.
-func (server *Daemon) Initialise() error {
-	server.Logger = misc.Logger{
+func (daemon *Daemon) Initialise() error {
+	daemon.Logger = misc.Logger{
 		ComponentName: "plainsockets",
-		ComponentID:   fmt.Sprintf("%s:%d&%d", server.Address, server.TCPPort, server.UDPPort),
+		ComponentID:   fmt.Sprintf("%s:%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort),
 	}
-	if server.Processor == nil {
-		server.Processor = common.GetEmptyCommandProcessor()
+	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
+		return fmt.Errorf("plainsockets.Initialise: command processor and its filters must be configured")
 	}
-	server.Processor.SetLogger(server.Logger)
-	if errs := server.Processor.IsSaneForInternet(); len(errs) > 0 {
+	daemon.Processor.SetLogger(daemon.Logger)
+	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("plainsockets.Initialise: %+v", errs)
 	}
-	if server.Address == "" {
+	if daemon.Address == "" {
 		return errors.New("plainsockets.Initialise: listen address must not be empty")
 	}
-	if server.UDPPort < 1 && server.TCPPort < 1 {
+	if daemon.UDPPort < 1 && daemon.TCPPort < 1 {
 		return errors.New("plainsockets.Initialise: either or both TCP and UDP ports must be specified and be greater than 0")
 	}
-	if server.PerIPLimit < 1 {
+	if daemon.PerIPLimit < 1 {
 		return errors.New("plainsockets.Initialise: PerIPLimit must be greater than 0")
 	}
-	server.RateLimit = &misc.RateLimit{
-		MaxCount: server.PerIPLimit,
+	daemon.RateLimit = &misc.RateLimit{
+		MaxCount: daemon.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
-		Logger:   server.Logger,
+		Logger:   daemon.Logger,
 	}
-	server.RateLimit.Initialise()
+	daemon.RateLimit.Initialise()
 	return nil
 }
 
@@ -64,26 +64,26 @@ func (server *Daemon) Initialise() error {
 You may call this function only after having called Initialise()!
 Start plain text service on configured TCP and UDP ports. Block caller.
 */
-func (server *Daemon) StartAndBlock() error {
+func (daemon *Daemon) StartAndBlock() error {
 	numListeners := 0
 	errChan := make(chan error, 2)
-	if server.TCPPort != 0 {
+	if daemon.TCPPort != 0 {
 		numListeners++
 		go func() {
-			err := server.StartAndBlockTCP()
+			err := daemon.StartAndBlockTCP()
 			errChan <- err
 		}()
 	}
-	if server.UDPPort != 0 {
+	if daemon.UDPPort != 0 {
 		numListeners++
 		go func() {
-			err := server.StartAndBlockUDP()
+			err := daemon.StartAndBlockUDP()
 			errChan <- err
 		}()
 	}
 	for i := 0; i < numListeners; i++ {
 		if err := <-errChan; err != nil {
-			server.Stop()
+			daemon.Stop()
 			return err
 		}
 	}
@@ -91,15 +91,15 @@ func (server *Daemon) StartAndBlock() error {
 }
 
 // Close all of open TCP and UDP listeners so that they will cease processing incoming connections.
-func (server *Daemon) Stop() {
-	if listener := server.TCPListener; listener != nil {
+func (daemon *Daemon) Stop() {
+	if listener := daemon.TCPListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			server.Logger.Warningf("Stop", "", err, "failed to close TCP server")
+			daemon.Logger.Warningf("Stop", "", err, "failed to close TCP server")
 		}
 	}
-	if listener := server.UDPListener; listener != nil {
+	if listener := daemon.UDPListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			server.Logger.Warningf("Stop", "", err, "failed to close UDP server")
+			daemon.Logger.Warningf("Stop", "", err, "failed to close UDP server")
 		}
 	}
 }
