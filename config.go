@@ -23,13 +23,17 @@ import (
 	"strings"
 )
 
-// Configuration of a standard set of bridges that are useful to both HTTP daemon and mail processor.
-type StandardBridges struct {
-	// Before command...
+/*
+StandardFilters contains a standard set of filters (PIN match, notification, lint, etc) that are useful to nearly all
+laitos daemons that carry a command processor. The filters' configuration is fed by Config struct, which is itself fed
+by deserialised JSON text.
+*/
+type StandardFilters struct {
+	// For input command content
 	TranslateSequences filter.TranslateSequences `json:"TranslateSequences"`
 	PINAndShortcuts    filter.PINAndShortcuts    `json:"PINAndShortcuts"`
 
-	// After result...
+	// For command execution result
 	NotifyViaEmail filter.NotifyViaEmail `json:"NotifyViaEmail"`
 	LintText       filter.LintText       `json:"LintText"`
 }
@@ -76,24 +80,22 @@ type Config struct {
 	DNSDaemon dnsd.Daemon `json:"DNSDaemon"` // DNS daemon configuration
 
 	HTTPDaemon   httpd.Daemon    `json:"HTTPDaemon"`   // HTTP daemon configuration
-	HTTPBridges  StandardBridges `json:"HTTPBridges"`  // HTTP daemon bridge configuration
+	HTTPFilters  StandardFilters `json:"HTTPFilters"`  // HTTP daemon filter configuration
 	HTTPHandlers HTTPHandlers    `json:"HTTPHandlers"` // HTTP daemon handler configuration
-
-	HTTPIndexOnlyOn80 bool `json:"HTTPHomepageOn80"` // If TLS is enabled in HTTP daemon, serve only index pages via HTTP on port 80.
 
 	MailDaemon    smtpd.Daemon          `json:"MailDaemon"`    // SMTP daemon configuration
 	MailProcessor mailcmd.CommandRunner `json:"MailProcessor"` // Incoming mail processor configuration
-	MailBridges   StandardBridges       `json:"MailBridges"`   // Incoming mail processor bridge configuration
+	MailFilters   StandardFilters       `json:"MailFilters"`   // Incoming mail processor filter configuration
 
 	PlainSocketDaemon  plainsockets.Daemon `json:"PlainSocketDaemon"`  // Plain text protocol TCP and UDP daemon configuration
-	PlainSocketBridges StandardBridges     `json:"PlainSocketBridges"` // Plain text daemon bridge configuration
+	PlainSocketFilters StandardFilters     `json:"PlainSocketFilters"` // Plain text daemon filter configuration
 
 	SockDaemon sockd.Daemon `json:"SockDaemon"` // Intentionally undocumented
 
 	TelegramBot     telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
-	TelegramBridges StandardBridges    `json:"TelegramBridges"` // Telegram bot bridge configuration
+	TelegramFilters StandardFilters    `json:"TelegramFilters"` // Telegram bot filter configuration
 
-	Logger misc.Logger `json:"-"` // Log config related messages
+	Logger misc.Logger `json:"-"` // Logger handles log output from configuration serialisation and initialisation routines.
 }
 
 // Deserialise JSON data into config structures.
@@ -137,7 +139,7 @@ func (config Config) GetMaintenance() *maintenance.Daemon {
 func (config Config) GetHTTPD() *httpd.Daemon {
 	ret := config.HTTPDaemon
 
-	mailNotification := config.HTTPBridges.NotifyViaEmail
+	mailNotification := config.HTTPFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
 	features := config.Features
@@ -146,16 +148,16 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		return nil
 	}
 	config.Logger.Printf("GetHTTPD", "", nil, "enabled features are - %v", features.GetTriggers())
-	// Assemble command processor from features and bridges
+	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
-		CommandBridges: []filter.CommandFilter{
-			&config.HTTPBridges.PINAndShortcuts,
-			&config.HTTPBridges.TranslateSequences,
+		CommandFilters: []filter.CommandFilter{
+			&config.HTTPFilters.PINAndShortcuts,
+			&config.HTTPFilters.TranslateSequences,
 		},
-		ResultBridges: []filter.ResultFilter{
+		ResultFilters: []filter.ResultFilter{
 			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.HTTPBridges.LintText,
+			&config.HTTPFilters.LintText,
 			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
@@ -304,7 +306,7 @@ independent mail command runner is useful in certain scenarios, such as integrat
 func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 	ret := config.MailProcessor
 
-	mailNotification := config.MailBridges.NotifyViaEmail
+	mailNotification := config.MailFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
 	features := config.Features
@@ -313,16 +315,16 @@ func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 		return nil
 	}
 	config.Logger.Printf("GetMailCommandRunner", "", nil, "enabled features are - %v", features.GetTriggers())
-	// Assemble command processor from features and bridges
+	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
-		CommandBridges: []filter.CommandFilter{
-			&config.MailBridges.PINAndShortcuts,
-			&config.MailBridges.TranslateSequences,
+		CommandFilters: []filter.CommandFilter{
+			&config.MailFilters.PINAndShortcuts,
+			&config.MailFilters.TranslateSequences,
 		},
-		ResultBridges: []filter.ResultFilter{
+		ResultFilters: []filter.ResultFilter{
 			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.MailBridges.LintText,
+			&config.MailFilters.LintText,
 			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
@@ -353,7 +355,7 @@ It will use common mail client for sending outgoing emails.
 func (config Config) GetPlainSocketDaemon() *plainsockets.Daemon {
 	ret := config.PlainSocketDaemon
 
-	mailNotification := config.PlainSocketBridges.NotifyViaEmail
+	mailNotification := config.PlainSocketFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
 	features := config.Features
@@ -362,16 +364,16 @@ func (config Config) GetPlainSocketDaemon() *plainsockets.Daemon {
 		return nil
 	}
 	config.Logger.Printf("GetPlainSocketDaemon", "", nil, "enabled features are - %v", features.GetTriggers())
-	// Assemble command processor from features and bridges
+	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
-		CommandBridges: []filter.CommandFilter{
-			&config.PlainSocketBridges.PINAndShortcuts,
-			&config.PlainSocketBridges.TranslateSequences,
+		CommandFilters: []filter.CommandFilter{
+			&config.PlainSocketFilters.PINAndShortcuts,
+			&config.PlainSocketFilters.TranslateSequences,
 		},
-		ResultBridges: []filter.ResultFilter{
+		ResultFilters: []filter.ResultFilter{
 			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.PlainSocketBridges.LintText,
+			&config.PlainSocketFilters.LintText,
 			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},
@@ -398,7 +400,7 @@ func (config Config) GetSockDaemon() *sockd.Daemon {
 func (config Config) GetTelegramBot() *telegrambot.Daemon {
 	ret := config.TelegramBot
 
-	mailNotification := config.TelegramBridges.NotifyViaEmail
+	mailNotification := config.TelegramFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
 	features := config.Features
@@ -407,16 +409,16 @@ func (config Config) GetTelegramBot() *telegrambot.Daemon {
 		return nil
 	}
 	config.Logger.Printf("GetTelegramBot", "", nil, "enabled features are - %v", features.GetTriggers())
-	// Assemble telegram bot from features and bridges
+	// Assemble telegram bot from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &features,
-		CommandBridges: []filter.CommandFilter{
-			&config.TelegramBridges.PINAndShortcuts,
-			&config.TelegramBridges.TranslateSequences,
+		CommandFilters: []filter.CommandFilter{
+			&config.TelegramFilters.PINAndShortcuts,
+			&config.TelegramFilters.TranslateSequences,
 		},
-		ResultBridges: []filter.ResultFilter{
+		ResultFilters: []filter.ResultFilter{
 			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.TelegramBridges.LintText,
+			&config.TelegramFilters.LintText,
 			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 			&mailNotification,
 		},

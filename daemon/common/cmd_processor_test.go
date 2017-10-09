@@ -28,8 +28,8 @@ func TestCommandProcessorProcess(t *testing.T) {
 
 	proc := CommandProcessor{
 		Features:       features,
-		CommandBridges: commandBridges,
-		ResultBridges:  resultBridges,
+		CommandFilters: commandBridges,
+		ResultFilters:  resultBridges,
 	}
 
 	// Try mismatching PIN so that command bridge return early
@@ -99,8 +99,8 @@ func TestCommandProcessorProcess(t *testing.T) {
 func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 	proc := CommandProcessor{
 		Features:       nil,
-		CommandBridges: nil,
-		ResultBridges:  nil,
+		CommandFilters: nil,
+		ResultFilters:  nil,
 	}
 	if errs := proc.IsSaneForInternet(); len(errs) != 3 {
 		t.Fatal(errs)
@@ -118,37 +118,37 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 		t.Fatal(errs)
 	}
 	// No PIN bridge
-	proc.CommandBridges = []filter.CommandFilter{}
+	proc.CommandFilters = []filter.CommandFilter{}
 	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
 		t.Fatal(errs)
 	}
 	// PIN bridge has short PIN
-	proc.CommandBridges = []filter.CommandFilter{&filter.PINAndShortcuts{PIN: "aaaaaa"}}
+	proc.CommandFilters = []filter.CommandFilter{&filter.PINAndShortcuts{PIN: "aaaaaa"}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
 		t.Fatal(errs)
 	}
 	// PIN bridge has nothing
-	proc.CommandBridges = []filter.CommandFilter{&filter.PINAndShortcuts{}}
+	proc.CommandFilters = []filter.CommandFilter{&filter.PINAndShortcuts{}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
 		t.Fatal(errs)
 	}
 	// Good PIN bridge
-	proc.CommandBridges = []filter.CommandFilter{&filter.PINAndShortcuts{PIN: "very-long-pin"}}
+	proc.CommandFilters = []filter.CommandFilter{&filter.PINAndShortcuts{PIN: "very-long-pin"}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 1 {
 		t.Fatal(errs)
 	}
 	// No linter bridge
-	proc.ResultBridges = []filter.ResultFilter{}
+	proc.ResultFilters = []filter.ResultFilter{}
 	if errs := proc.IsSaneForInternet(); len(errs) != 1 {
 		t.Fatal(errs)
 	}
 	// Linter bridge has out-of-range max length
-	proc.ResultBridges = []filter.ResultFilter{&filter.LintText{MaxLength: 1}}
+	proc.ResultFilters = []filter.ResultFilter{&filter.LintText{MaxLength: 1}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 1 {
 		t.Fatal(errs)
 	}
 	// Good linter bridge
-	proc.ResultBridges = []filter.ResultFilter{&filter.LintText{MaxLength: 35}}
+	proc.ResultFilters = []filter.ResultFilter{&filter.LintText{MaxLength: 35}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 0 {
 		t.Fatal(errs)
 	}

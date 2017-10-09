@@ -33,7 +33,7 @@ func TestConfig(t *testing.T) {
       "InterpreterPath": "/bin/bash"
     }
   },
-  "HTTPBridges": {
+  "HTTPFilters": {
     "LintText": {
       "CompressSpaces": true,
       "CompressToSingleLine": true,
@@ -111,7 +111,7 @@ func TestConfig(t *testing.T) {
       9114
     ]
   },
-  "MailBridges": {
+  "MailFilters": {
     "LintText": {
       "CompressToSingleLine": true,
       "MaxLength": 70,
@@ -158,7 +158,7 @@ func TestConfig(t *testing.T) {
     "MTAPort": 25,
     "MailFrom": "howard@localhost"
   },
-  "PlainSocketBridges": {
+  "PlainSocketFilters": {
     "LintText": {
       "CompressToSingleLine": false,
       "MaxLength": 120,
@@ -201,7 +201,7 @@ func TestConfig(t *testing.T) {
     "AuthorizationToken": "intentionally-bad-token",
     "RateLimit": 10
   },
-  "TelegramBridges": {
+  "TelegramFilters": {
     "LintText": {
       "CompressToSingleLine": true,
       "MaxLength": 120,

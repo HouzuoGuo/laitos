@@ -36,16 +36,16 @@ var DurationStats = misc.NewStats() // DurationStats stores statistics of durati
 
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
-	Features       *toolbox.FeatureSet
-	CommandBridges []filter.CommandFilter
-	ResultBridges  []filter.ResultFilter
-	Logger         misc.Logger
+	Features       *toolbox.FeatureSet    // Features is the aggregation of initialised toolbox feature routines.
+	CommandFilters []filter.CommandFilter // CommandFilters are applied one by one to alter input command content and/or timeout.
+	ResultFilters  []filter.ResultFilter  // ResultFilters are applied one by one to alter command execution result.
+	Logger         misc.Logger            // Logger handles log output from command processing routines and filters.
 }
 
-// Assign a logger to command processor itself as well as all bridges that use a logger.
+// SetLogger assigns a logger to command processor and all of its filters.
 func (proc *CommandProcessor) SetLogger(logger misc.Logger) {
 	proc.Logger = logger
-	for _, b := range proc.ResultBridges {
+	for _, b := range proc.ResultFilters {
 		b.SetLogger(logger)
 	}
 }
@@ -64,12 +64,12 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 			errs = append(errs, errors.New(ErrBadProcessorConfig+"FeatureSet is not intialised or all features are lacking configuration"))
 		}
 	}
-	if proc.CommandBridges == nil {
-		errs = append(errs, errors.New(ErrBadProcessorConfig+"CommandBridges is not assigned"))
+	if proc.CommandFilters == nil {
+		errs = append(errs, errors.New(ErrBadProcessorConfig+"CommandFilters is not assigned"))
 	} else {
 		// Check whether PIN bridge is sanely configured
 		seenPIN := false
-		for _, cmdBridge := range proc.CommandBridges {
+		for _, cmdBridge := range proc.CommandFilters {
 			if pin, yes := cmdBridge.(*filter.PINAndShortcuts); yes {
 				if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
 					errs = append(errs, errors.New(ErrBadProcessorConfig+"PIN is empty and there is no shortcut defined, hence no command will ever execute."))
@@ -85,12 +85,12 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"PINAndShortcuts\" bridge is not used, this is horribly insecure."))
 		}
 	}
-	if proc.ResultBridges == nil {
-		errs = append(errs, errors.New(ErrBadProcessorConfig+"ResultBridges is not assigned"))
+	if proc.ResultFilters == nil {
+		errs = append(errs, errors.New(ErrBadProcessorConfig+"ResultFilters is not assigned"))
 	} else {
 		// Check whether string linter is sanely configured
 		seenLinter := false
-		for _, resultBridge := range proc.ResultBridges {
+		for _, resultBridge := range proc.ResultFilters {
 			if linter, yes := resultBridge.(*filter.LintText); yes {
 				if linter.MaxLength < 35 || linter.MaxLength > 4096 {
 					errs = append(errs, errors.New(ErrBadProcessorConfig+"Maximum output length is not within [35, 4096]. This may cause undesired telephone cost."))
@@ -106,6 +106,12 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 	return
 }
 
+/*
+Process applies filters to the command, invokes toolbox feature functions to process the content, and then applies
+filters to the execution result and return.
+A special content prefix called "PLT prefix" alters filter settings to temporarily override timeout and max.length
+settings, and it may optionally discard a number of characters from the beginning.
+*/
 func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result) {
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
@@ -122,7 +128,7 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result)
 	var hasOverrideLintText bool
 	logCommandContent := cmd.Content
 	// Walk the command through all bridges
-	for _, cmdBridge := range proc.CommandBridges {
+	for _, cmdBridge := range proc.CommandFilters {
 		cmd, bridgeErr = cmdBridge.Transform(cmd)
 		if bridgeErr != nil {
 			ret = &toolbox.Result{Error: bridgeErr}
@@ -138,7 +144,7 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result)
 	// Look for PLT (position, length, timeout) override, it is going to affect LintText bridge.
 	if cmd.FindAndRemovePrefix(PrefixCommandPLT) {
 		// Find the configured LintText bridge
-		for _, resultBridge := range proc.ResultBridges {
+		for _, resultBridge := range proc.ResultFilters {
 			if aBridge, isLintText := resultBridge.(*filter.LintText); isLintText {
 				overrideLintText = *aBridge
 				hasOverrideLintText = true
@@ -203,7 +209,7 @@ result:
 	*/
 	ret.Command.Content = logCommandContent
 	// Walk through result bridges
-	for _, resultBridge := range proc.ResultBridges {
+	for _, resultBridge := range proc.ResultFilters {
 		// LintText bridge may have been manipulated by override
 		if _, isLintText := resultBridge.(*filter.LintText); isLintText && hasOverrideLintText {
 			resultBridge = &overrideLintText
@@ -236,8 +242,8 @@ func GetTestCommandProcessor() *CommandProcessor {
 	}
 	return &CommandProcessor{
 		Features:       features,
-		CommandBridges: commandBridges,
-		ResultBridges:  resultBridges,
+		CommandFilters: commandBridges,
+		ResultFilters:  resultBridges,
 	}
 }
 
@@ -253,10 +259,10 @@ func GetEmptyCommandProcessor() *CommandProcessor {
 	}
 	return &CommandProcessor{
 		Features: features,
-		CommandBridges: []filter.CommandFilter{
+		CommandFilters: []filter.CommandFilter{
 			&filter.PINAndShortcuts{PIN: hex.EncodeToString(randPIN)},
 		},
-		ResultBridges: []filter.ResultFilter{
+		ResultFilters: []filter.ResultFilter{
 			&filter.ResetCombinedText{},
 			&filter.LintText{MaxLength: 35},
 			&filter.SayEmptyOutput{},
