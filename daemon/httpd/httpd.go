@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	DirectoryHandlerRateLimitFactor = 10  // 9 times less expensive than the most expensive handler
-	RateLimitIntervalSec            = 10  // Rate limit is calculated at 10 seconds interval
-	IOTimeoutSec                    = 120 // IO timeout for both read and write operations
+	DirectoryHandlerRateLimitFactor = 10 // 9 times less expensive than the most expensive handler
+	RateLimitIntervalSec            = 10 // Rate limit is calculated at 10 seconds interval
+	IOTimeoutSec                    = 60 // IO timeout for both read and write operations
 )
 
 // Generic HTTP daemon.

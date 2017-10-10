@@ -82,3 +82,6 @@ func (logger *Logger) Fatalf(functionName, actorName string, err error, template
 func (logger *Logger) Panicf(functionName, actorName string, err error, template string, values ...interface{}) {
 	log.Panic(logger.Format(functionName, actorName, err, template, values...))
 }
+
+// DefaultLogger must be used when it is not possible to acquire a reference to a more dedicated logger.
+var DefaultLogger = &Logger{ComponentName: "default", ComponentID: ""}

@@ -8,7 +8,6 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -464,7 +463,8 @@ type Instance struct {
 	JSProc             *exec.Cmd     // Headless server process
 	JSProcMutex        *sync.Mutex   // Protect against concurrent access to server process
 	Index              int           // Index is the instance number assigned by renderer lifecycle management.
-	Logger             misc.Logger
+
+	Logger misc.Logger
 }
 
 // Produce javascript code for browser server and then launch its process in background.
@@ -508,7 +508,7 @@ func (instance *Instance) Start() error {
 	go func() {
 		select {
 		case err := <-processErrChan:
-			log.Printf("Instance.Start: PhantomJS process has quit, status - %v", err)
+			instance.Logger.Printf("Start", "", err, "PhantomJS process has quit")
 		case <-time.After(time.Duration(instance.AutoKillTimeoutSec) * time.Second):
 		}
 		instance.Kill()

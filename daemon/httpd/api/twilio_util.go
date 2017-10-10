@@ -3,7 +3,7 @@ package api
 import (
 	"bytes"
 	"fmt"
-	"log"
+	"github.com/HouzuoGuo/laitos/misc"
 	"strings"
 	"unicode"
 )
@@ -92,7 +92,7 @@ func DTMFDecode(digits string) string {
 		} else {
 			decoded, found := DTMFDecodeTable[seq]
 			if !found {
-				log.Printf("DTMFDecode: failed to decode - %s", seq)
+				misc.DefaultLogger.Warningf("DTMFDecode", "", nil, "failed to decode sequence - %s", seq)
 				continue
 			}
 			if shift {

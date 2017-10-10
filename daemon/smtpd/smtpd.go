@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	RateLimitIntervalSec  = 10  // Rate limit is calculated at 10 seconds interval
-	IOTimeoutSec          = 120 // IO timeout for both read and write operations
-	MaxConversationLength = 64  // Only converse up to this number of messages in an SMTP connection
+	RateLimitIntervalSec  = 10 // Rate limit is calculated at 10 seconds interval
+	IOTimeoutSec          = 60 // IO timeout for both read and write operations
+	MaxConversationLength = 64 // Only converse up to this number of messages in an SMTP connection
 )
 
 var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all SMTP conversations.

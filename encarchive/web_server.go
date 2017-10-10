@@ -3,11 +3,12 @@ package encarchive
 import (
 	"context"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -46,6 +47,7 @@ type WebServer struct {
 	archiveFileSize int          // archiveFileSize is the size of the archive file, it is set when web server starts.
 	ramdiskDir      string       // ramdiskDir is set after archive has been successfully extracted.
 	handlerMutex    *sync.Mutex  // handlerMutex prevents concurrent operations on ramdisk.
+	logger          *misc.Logger // logger
 }
 
 /*
@@ -57,7 +59,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	switch r.Method {
 	case http.MethodPost:
-		log.Printf("WebServer: unlock is attempted by %s", r.RemoteAddr)
+		ws.logger.Printf("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
 		ws.handlerMutex.Lock()
 		// Ramdisk size in MB = archive size (tmp output) + archive size (extracted) + 8 (just in case)
 		var err error
@@ -89,7 +91,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		go ws.LaunchWithUnlockedArchive()
 		return
 	default:
-		log.Printf("WebServer: visited by %s", r.RemoteAddr)
+		ws.logger.Printf("pageHandler", r.RemoteAddr, nil, "just visiting")
 		w.Write([]byte(fmt.Sprintf(UnlockPageHTML, "")))
 		return
 	}
@@ -97,11 +99,15 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 
 // Start runs the web server and blocks until the server shuts down from a successful unlocking attempt.
 func (ws *WebServer) Start() {
+	ws.logger = &misc.Logger{
+		ComponentName: "encarchive.WebServer",
+		ComponentID:   strconv.Itoa(ws.Port),
+	}
 	ws.handlerMutex = new(sync.Mutex)
 	// Page handler needs to know the size in order to prepare ramdisk
 	stat, err := os.Stat(ws.ArchiveFilePath)
 	if err != nil {
-		log.Fatalf("WebServer.Start: failed to read archive file at %s", ws.ArchiveFilePath)
+		ws.logger.Fatalf("Start", "", err, "failed to read archive file at %s", ws.ArchiveFilePath)
 		return
 	}
 	ws.archiveFileSize = int(stat.Size())
@@ -116,14 +122,14 @@ func (ws *WebServer) Start() {
 		ReadTimeout: HTTPTimeout, ReadHeaderTimeout: HTTPTimeout,
 		WriteTimeout: HTTPTimeout, IdleTimeout: HTTPTimeout,
 	}
-	log.Printf("WebServer.Start: will listen on port %d", ws.Port)
+	ws.logger.Printf("Start", "", nil, "will listen on TCP port %d", ws.Port)
 	if err := ws.server.ListenAndServe(); err != nil && strings.Index(err.Error(), "closed") == -1 {
-		log.Fatalf("WebServer.Start: failed to listen - %v", err)
+		ws.logger.Fatalf("Start", "", err, "failed to listen on TCP port")
 		return
 	}
-	log.Print("WebServer.Start: web server has stopped")
-	// Wait almost indefinitely because this is the main thread
-	time.Sleep(100 * 365 * 24 * time.Hour)
+	ws.logger.Printf("Start", "", nil, "web server has stopped")
+	// Wait almost indefinitely (~5 years) because this is the main thread
+	time.Sleep(5 * 365 * 24 * time.Hour)
 }
 
 /*
@@ -138,16 +144,16 @@ func (ws *WebServer) LaunchWithUnlockedArchive() {
 	// Give HTTP server a short moment to finish with pending connections
 	shutdownTimeout, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	if err := ws.server.Shutdown(shutdownTimeout); err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: failed to wait for HTTP server to shutdown - %v", err)
+		fatalMsg = fmt.Sprintf("failed to wait for HTTP server to shutdown - %v", err)
 		goto fatalExit
 	}
 	if err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: failed to determine executable path - %v", err)
+		fatalMsg = fmt.Sprintf("failed to determine executable path - %v", err)
 		goto fatalExit
 	}
 	// Switch to the extracted, ramdisk directory for launching self.
 	if err := os.Chdir(ws.ramdiskDir); err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: failed to cd to %s - %v", ws.ramdiskDir, err)
+		fatalMsg = fmt.Sprintf("failed to cd to %s - %v", ws.ramdiskDir, err)
 		goto fatalExit
 	}
 	// Replicate the CLI arguments that were used to launch this launcher
@@ -156,25 +162,24 @@ func (ws *WebServer) LaunchWithUnlockedArchive() {
 			args = append(args, arg)
 		}
 	}
-	log.Printf("WebServer.LaunchWithUnlockedArchive: about to relaunch myself with args %v", args)
+	ws.logger.Printf("LaunchWithUnlockedArchive", "", nil, "about to relaunch myself with args %v", args)
 	cmd = exec.Command(execPath, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: failed to launch self - %v", err)
+		fatalMsg = fmt.Sprintf("failed to launch self - %v", err)
 		goto fatalExit
 	}
-	log.Print("WebServer.LaunchWithUnlockedArchive: just started myself")
 	if err := cmd.Wait(); err != nil {
-		fatalMsg = fmt.Sprintf("WebServer.LaunchWithUnlockedArchive: program exited abnormally - %v", err)
+		fatalMsg = fmt.Sprintf("program exited abnormally - %v", err)
 		goto fatalExit
 	}
-	log.Print("WebServer.LaunchWithUnlockedArchive: program has exited normally")
+	ws.logger.Printf("LaunchWithUnlockedArchive", "", nil, "program has exited with clean status")
 	// In both normal and abnormal paths, the ramdisk must be destroyed.
 	DestroyRamdisk(ws.ramdiskDir)
 	return
 fatalExit:
 	DestroyRamdisk(ws.ramdiskDir)
-	log.Fatal(fatalMsg)
+	ws.logger.Fatalf("LaunchWithUnlockedArchive", "", nil, fatalMsg)
 }

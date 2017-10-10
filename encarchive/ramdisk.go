@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
-	"log"
 	"os"
 	"time"
 )
@@ -26,7 +25,7 @@ func MakeRamdisk(sizeMB int) (string, error) {
 	return mountPoint, nil
 }
 
-// DestroyRamdisk un-mounts the ramdisk's mount point, effectively destroying the content.
+// DestroyRamdisk un-mounts the ramdisk's mount point and removes the mount point directory.
 func DestroyRamdisk(mountPoint string) {
 	out, err := misc.InvokeShell(RamdiskCommandTimeoutSec, "/bin/sh", fmt.Sprintf("umount -lfr '%s'", mountPoint))
 	if err != nil {
@@ -35,7 +34,9 @@ func DestroyRamdisk(mountPoint string) {
 		out, err = misc.InvokeShell(RamdiskCommandTimeoutSec, "/bin/sh", fmt.Sprintf("umount -lfr '%s'", mountPoint))
 	}
 	if err != nil {
-		log.Printf("DestroyRamdisk: umount command failed due to error %v - %s", err, out)
+		misc.DefaultLogger.Warningf("DestroyRamdisk", mountPoint, err, "umount command failed, output is - %s", out)
 	}
-	os.RemoveAll(mountPoint)
+	if err := os.RemoveAll(mountPoint); err != nil {
+		misc.DefaultLogger.Warningf("DestroyRamdisk", mountPoint, err, "failed to remove mount point directory, output is - %s", out)
+	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"io"
+	pseudoRand "math/rand"
 	"net"
 	"strconv"
 	"sync"
@@ -19,7 +20,7 @@ import (
 
 const (
 	MD5SumLength         = 16
-	IOTimeoutSec         = time.Duration(120 * time.Second)
+	IOTimeoutSec         = time.Duration(60 * time.Second)
 	RateLimitIntervalSec = 10
 	MaxPacketSize        = 9038
 )
@@ -204,6 +205,12 @@ func (cip *Cipher) Copy() *Cipher {
 	newCipher.EncryptionStream = nil
 	newCipher.DecryptionStream = nil
 	return &newCipher
+}
+
+var randSeed = int(time.Now().UnixNano())
+
+func RandNum(absMin, variableLower, randMore int) int {
+	return absMin + randSeed%variableLower + pseudoRand.Intn(randMore)
 }
 
 func TestSockd(sockd *Daemon, t testingstub.T) {

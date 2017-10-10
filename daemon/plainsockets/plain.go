@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	IOTimeoutSec         = 120              // If a conversation goes silent for this many seconds, the connection is terminated.
+	IOTimeoutSec         = 60               // If a conversation goes silent for this many seconds, the connection is terminated.
 	CommandTimeoutSec    = IOTimeoutSec - 1 // Command execution times out after this manys econds
 	RateLimitIntervalSec = 10               // Rate limit is calculated at 10 seconds interval
 )

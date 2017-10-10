@@ -3,8 +3,8 @@ package encarchive
 import (
 	"bufio"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 )
@@ -25,7 +25,7 @@ func CLIExtract(destDir, archivePath string) {
 	fmt.Println("Please enter password to decrypt archive:")
 	password, _, err := reader.ReadLine()
 	if err != nil {
-		log.Fatalf("CLIExtract: failed to read password - %v", err)
+		misc.DefaultLogger.Fatalf("CLIExtract", "main", err, "failed to read password")
 		return
 	}
 	/*
@@ -34,13 +34,13 @@ func CLIExtract(destDir, archivePath string) {
 	*/
 	tmpFile, err := ioutil.TempFile("", "laitos-launcher-utility-extract")
 	if err != nil {
-		log.Fatalf("CLIExtract: failed to create temporary file - %v", err)
+		misc.DefaultLogger.Fatalf("CLIExtract", "main", err, "failed to create temporary file")
 		return
 	}
 	tmpFile.Close()
 	defer func() {
 		if err := os.Remove(tmpFile.Name()); err != nil {
-			log.Printf("CLIExtract: failed to delete temporary file %s - %v", tmpFile.Name(), err)
+			misc.DefaultLogger.Printf("CLIExtract", "main", err, "failed to delete temporary file")
 		}
 	}()
 	password = []byte(strings.TrimSpace(string(password)))
@@ -53,7 +53,7 @@ func CLIArchive(srcDir, archivePath string) {
 	fmt.Println("Please enter a password to encrypt the archive:")
 	password, _, err := reader.ReadLine()
 	if err != nil {
-		log.Fatalf("CLIArchive: failed to read password - %v", err)
+		misc.DefaultLogger.Fatalf("CLIExtract", "main", err, "failed to read password")
 		return
 	}
 	password = []byte(strings.TrimSpace(string(password)))

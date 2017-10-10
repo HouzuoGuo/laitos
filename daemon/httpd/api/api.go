@@ -13,7 +13,6 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -35,7 +34,7 @@ type HandlerFactory interface {
 func XMLEscape(in string) string {
 	var escapeOutput bytes.Buffer
 	if err := xml.EscapeText(&escapeOutput, []byte(in)); err != nil {
-		log.Printf("XMLEscape: failed to escape input string - %v", err)
+		misc.DefaultLogger.Warningf("XMLEscape", "", err, "failed to escape input string")
 	}
 	return escapeOutput.String()
 }

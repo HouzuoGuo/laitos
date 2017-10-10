@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io"
-	"math/rand"
+	pseudoRand "math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -182,18 +182,17 @@ func (conn *TCPCipherConnection) ParseRequest() (destAddr string, err error) {
 	return
 }
 
-var randSeed = int(time.Now().UnixNano())
-
-func (conn *TCPCipherConnection) WriteRand() {
-	randBuf := make([]byte, rand.Intn(1024+randSeed%32767))
+func (conn *TCPCipherConnection) WriteRandAndClose() {
+	defer conn.Close()
+	randBuf := make([]byte, RandNum(1, 20, 300))
 	_, err := cryptRand.Read(randBuf)
 	if err != nil {
-		conn.logger.Warningf("WriteRand", conn.Conn.RemoteAddr().String(), err, "ran out of randomness")
+		conn.logger.Warningf("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to get random bytes")
 		return
 	}
-	conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+	conn.SetDeadline(time.Now().Add(IOTimeoutSec))
 	if _, err := conn.Write(randBuf); err != nil {
-		conn.logger.Warningf("WriteRand", conn.Conn.RemoteAddr().String(), err, "failed to write random TCP response")
+		conn.logger.Warningf("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to write random bytes")
 	}
 }
 
@@ -202,38 +201,31 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	defer func() {
 		TCPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
-	defer conn.Close()
 	remoteAddr := conn.RemoteAddr().String()
 	destAddr, err := conn.ParseRequest()
 	if err != nil {
 		conn.logger.Warningf("HandleTCPConnection", remoteAddr, err, "failed to get destination address")
-		conn.WriteRand()
+		conn.WriteRandAndClose()
 		return
 	}
 	if strings.ContainsRune(destAddr, 0x00) {
 		conn.logger.Warningf("HandleTCPConnection", remoteAddr, nil, "will not serve invalid destination address with 0 in it")
-		conn.WriteRand()
+		conn.WriteRandAndClose()
 		return
 	}
 	dest, err := net.DialTimeout("tcp", destAddr, IOTimeoutSec)
 	if err != nil {
 		conn.logger.Warningf("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
-		conn.WriteRand()
+		conn.Close()
 		return
 	}
-	defer CloseLater(dest)
-	go PipeTCPConnection(conn, dest)
-	PipeTCPConnection(dest, conn)
+	go PipeTCPConnection(conn, dest, true)
+	PipeTCPConnection(dest, conn, false)
 	return
 }
 
-func CloseLater(conn net.Conn) {
-	time.Sleep(time.Duration(rand.Intn(256+randSeed%4096)) * time.Millisecond)
-	conn.Close()
-}
-
-func PipeTCPConnection(fromConn, toConn net.Conn) {
-	defer CloseLater(toConn)
+func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
+	defer toConn.Close()
 	buf := make([]byte, MaxPacketSize)
 	for {
 		fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
@@ -245,7 +237,31 @@ func PipeTCPConnection(fromConn, toConn net.Conn) {
 			}
 		}
 		if err != nil {
+			if doWriteRand {
+				WriteRand(fromConn)
+			}
 			return
 		}
+	}
+}
+
+func WriteRand(conn net.Conn) {
+	randBytesWritten := 0
+	for i := 0; i < RandNum(1, 2, 3); i++ {
+		randBuf := make([]byte, RandNum(4, 50, 600))
+		if _, err := pseudoRand.Read(randBuf); err != nil {
+			misc.DefaultLogger.Warningf("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
+			break
+		}
+		conn.SetDeadline(time.Now().Add(time.Duration(RandNum(7, 80, 900)) * time.Millisecond))
+		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
+			misc.DefaultLogger.Warningf("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
+			break
+		} else {
+			randBytesWritten += n
+		}
+	}
+	if pseudoRand.Intn(100) < 2 {
+		misc.DefaultLogger.Printf("sockd.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
 	}
 }

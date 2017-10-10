@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
-	"math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -140,15 +139,15 @@ func (conn *UDPCipherConnection) WriteTo(b []byte, dest net.Addr) (n int, err er
 }
 
 func (conn *UDPCipherConnection) WriteRand(dest net.Addr) {
-	randBuf := make([]byte, rand.Intn(1024))
+	randBuf := make([]byte, RandNum(4, 50, 600))
 	_, err := cryptRand.Read(randBuf)
 	if err != nil {
-		conn.logger.Warningf("WriteRand", dest.String(), err, "ran out of randomness")
+		conn.logger.Warningf("WriteRand", dest.String(), err, "failed to get random bytes")
 		return
 	}
 	conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
-	if _, err := conn.WriteTo(randBuf, dest); err != nil {
-		conn.logger.Warningf("WriteRand", dest.String(), err, "failed to write random UDP response")
+	if _, err := conn.WriteTo(randBuf, dest); err != nil && !strings.Contains(err.Error(), "closed") {
+		conn.logger.Warningf("WriteRand", dest.String(), err, "failed to write random bytes")
 	}
 }
 
