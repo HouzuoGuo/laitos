@@ -1,0 +1,278 @@
+{
+  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config simple-config.jsontxt -frontend dnsd,httpd,maintenance,plainsocket,smtpd,sockd,telegram",
+  "DNSDaemon": {
+    "Address": "0.0.0.0",
+    "AllowQueryIPPrefixes": [
+      "192."
+    ],
+    "PerIPLimit": 50,
+    "TCPForwarders": [
+      "8.8.8.8:53",
+      "8.8.4.4:53",
+      "8.26.56.26:53",
+      "8.20.247.20:53"
+    ],
+    "TCPPort": 53,
+    "UDPForwarders": [
+      "8.8.8.8:53",
+      "8.8.4.4:53",
+      "8.26.56.26:53",
+      "8.20.247.20:53"
+    ],
+    "UDPPort": 53
+  },
+  "Features": {
+    "Browser": {
+      "Browsers": {
+        "BasePortNumber": 12020,
+        "MaxInstances": 5,
+        "MaxLifetimeSec": 1800,
+        "PhantomJSExecPath": "./extra/phantomjs-2.1.1-linux-x86_64"
+      }
+    },
+    "Facebook": {
+      "UserAccessToken": "dummy token"
+    },
+    "IMAPAccounts": {
+      "Accounts": {
+        "dummy": {
+          "AuthPassword": "dummy pass",
+          "AuthUsername": "dummy username",
+          "Host": "example.net",
+          "IOTimeoutSec": 30,
+          "InsecureSkipVerify": false,
+          "MailboxName": "INBOX",
+          "Port": 993
+        }
+      }
+    },
+    "SendMail": {
+      "MailClient": {
+        "AuthPassword": "dummy pass",
+        "AuthUsername": "dummy username",
+        "MTAHost": "example.net",
+        "MTAPort": 2525,
+        "MailFrom": "i@example.net"
+      }
+    },
+    "Shell": {
+      "InterpreterPath": "/bin/bash"
+    },
+    "Twilio": {
+      "AccountSID": "dummy SID",
+      "AuthToken": "dummy token",
+      "PhoneNumber": "+000000000000"
+    },
+    "Twitter": {
+      "AccessToken": "dummy token",
+      "AccessTokenSecret": "dummy secret",
+      "ConsumerKey": "dummy key",
+      "ConsumerSecret": "dummy secret"
+    },
+    "WolframAlpha": {
+      "AppID": "dummy id"
+    }
+  },
+  "HTTPDaemon": {
+    "Address": "0.0.0.0",
+    "BaseRateLimit": 5,
+    "Port": 80
+  },
+  "HTTPFilters": {
+    "LintText": {
+      "CompressSpaces": true,
+      "CompressToSingleLine": true,
+      "KeepVisible7BitCharOnly": true,
+      "MaxLength": 160,
+      "TrimSpaces": true
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "i@example.net"
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "simplepin",
+      "Shortcuts": {
+        "info": ".einfo",
+        "lock": ".elock",
+        "stop": ".estop"
+      }
+    },
+    "TranslateSequences": {
+      "Sequences": [
+        [
+          "#/",
+          "|"
+        ]
+      ]
+    }
+  },
+  "HTTPHandlers": {
+    "BrowserEndpoint": "/simple/browser",
+    "BrowserEndpointConfig": {
+      "Browsers": {
+        "BasePortNumber": 14120,
+        "MaxInstances": 5,
+        "MaxLifetimeSec": 1800,
+        "PhantomJSExecPath": "./extra/phantomjs-2.1.1-linux-x86_64"
+      }
+    },
+    "CommandFormEndpoint": "/simple/cmd",
+    "GitlabBrowserEndpoint": "/simple/gitlab",
+    "GitlabBrowserEndpointConfig": {
+      "PrivateToken": "dummy token",
+      "Projects": {
+        "dummy": "00000000"
+      },
+      "Recipients": [
+        "i@example.net"
+      ]
+    },
+    "InformationEndpoint": "/simple/info",
+    "MailMeEndpoint": "/simple/mailme",
+    "MailMeEndpointConfig": {
+      "Recipients": [
+        "i@example.net"
+      ]
+    },
+    "MicrosoftBotEndpoint1": "/simple/msbot1",
+    "MicrosoftBotEndpoint2": "/simple/msbot2",
+    "MicrosoftBotEndpoint3": "/simple/msbot3",
+    "MicrosoftBotEndpointConfig1": {
+      "ClientAppID": "dummy id 1",
+      "ClientAppSecret": "dummy secret 1"
+    },
+    "MicrosoftBotEndpointConfig2": {
+      "ClientAppID": "dummy id 2",
+      "ClientAppSecret": "dummy secret 2"
+    },
+    "MicrosoftBotEndpointConfig3": {
+      "ClientAppID": "dummy id 3",
+      "ClientAppSecret": "dummy id 3"
+    },
+    "TwilioCallEndpoint": "/simple/twilio/call",
+    "TwilioCallEndpointConfig": {
+      "CallGreeting": "Hey"
+    },
+    "TwilioSMSEndpoint": "/simple/twilio/sms",
+    "WebProxyEndpoint": "/simple/proxy"
+  },
+  "MailClient": {
+    "AuthPassword": "dummy password",
+    "AuthUsername": "dummy username",
+    "MTAHost": "example.net",
+    "MTAPort": 25,
+    "MailFrom": "i@example.net"
+  },
+  "MailDaemon": {
+    "Address": "0.0.0.0",
+    "ForwardTo": [
+      "i@example.net"
+    ],
+    "MyDomains": [
+      "localhost"
+    ],
+    "PerIPLimit": 5,
+    "Port": 25
+  },
+  "MailFilters": {
+    "LintText": {
+      "CompressSpaces": false,
+      "CompressToSingleLine": false,
+      "KeepVisible7BitCharOnly": false,
+      "MaxLength": 4096,
+      "TrimSpaces": false
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "i@example.net"
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "simplepin",
+      "Shortcuts": {
+        "info": ".einfo",
+        "lock": ".elock",
+        "stop": ".estop"
+      }
+    }
+  },
+  "MailProcessor": {
+    "CommandTimeoutSec": 120
+  },
+  "Maintenance": {
+    "IntervalSec": 43200,
+    "Recipients": [
+      "i@example.net"
+    ],
+    "TCPPorts": [
+      5,
+      25,
+      53,
+      70,
+      80
+    ]
+  },
+  "PlainSocketDaemon": {
+    "Address": "0.0.0.0",
+    "PerIPLimit": 5,
+    "TCPPort": 5,
+    "UDPPort": 5
+  },
+  "PlainSocketFilters": {
+    "LintText": {
+      "CompressSpaces": false,
+      "CompressToSingleLine": false,
+      "KeepVisible7BitCharOnly": false,
+      "MaxLength": 1024,
+      "TrimSpaces": true
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "i@example.net"
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "simplepin",
+      "Shortcuts": {
+        "info": ".einfo",
+        "lock": ".elock",
+        "stop": ".estop"
+      }
+    }
+  },
+  "SockDaemon": {
+    "Address": "0.0.0.0",
+    "Password": "simplesimple",
+    "PerIPLimit": 300,
+    "TCPPort": 70,
+    "UDPPort": 70
+  },
+  "TelegramBot": {
+    "AuthorizationToken": "dummy token",
+    "RateLimit": 5
+  },
+  "TelegramFilters": {
+    "LintText": {
+      "CompressSpaces": false,
+      "CompressToSingleLine": false,
+      "KeepVisible7BitCharOnly": false,
+      "MaxLength": 1024,
+      "TrimSpaces": true
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "i@example.net"
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "simplepin",
+      "Shortcuts": {
+        "info": ".einfo",
+        "lock": ".elock",
+        "stop": ".estop"
+      }
+    }
+  }
+}
