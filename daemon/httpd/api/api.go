@@ -74,14 +74,14 @@ maintenance.go of maintenance package.
 func GetLatestStats() string {
 	numDecimals := 2
 	factor := 1000000000.0
-	return fmt.Sprintf(`CmdProc: %s
-DNSD TCP/UDP: %s/%s
-HTTPD: %s
-MAILP: %s
-PLAIN TCP/UDP: %s%s
-Daemon: %s
-SOCKD TCP/UDP: %s/%s
-TELEGRAM BOT: %s
+	return fmt.Sprintf(`Web and bot commands: %s
+DNS server  TCP|UDP:  %s | %s
+Web servers:          %s
+Mail commands:        %s
+Text server TCP|UDP:  %s | %s
+Mail server:          %s
+Sock server TCP|UDP:  %s | %s
+Telegram commands:    %s
 `,
 		common.DurationStats.Format(factor, numDecimals),
 		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
@@ -120,7 +120,7 @@ func (info *HandleSystemInfo) MakeHandler(logger misc.Logger, _ *common.CommandP
 		// Runtime info
 		fmt.Fprint(w, toolbox.GetRuntimeInfo())
 		// Statistics
-		fmt.Fprint(w, "\nStatistics low/avg/high/total(count) seconds:\n")
+		fmt.Fprint(w, "\nStatistics low/avg/high,total seconds and (counter):\n")
 		fmt.Fprint(w, GetLatestStats())
 		// Feature checks
 		if len(featureErrs) == 0 {

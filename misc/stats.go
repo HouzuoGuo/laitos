@@ -37,13 +37,8 @@ func (s *Stats) Trigger(qty float64) {
 	s.mutex.Unlock()
 }
 
-// GetStats returns the latest counter and stats numbers.
-func (s *Stats) GetStats() (lowest, highest, average, total float64, count uint64) {
-	return s.lowest, s.highest, s.average, s.total, s.count
-}
-
 // Format returns all stats formatted into a single line of string after the numbers (excluding counter) are divided by the factor.
 func (s *Stats) Format(divisionFactor float64, numDecimals int) string {
-	format := fmt.Sprintf("%%.%df/%%.%df/%%.%df/%%.%df(%%d)", numDecimals, numDecimals, numDecimals, numDecimals)
+	format := fmt.Sprintf("%%.%df/%%.%df/%%.%df,%%.%df(%%d)", numDecimals, numDecimals, numDecimals, numDecimals)
 	return fmt.Sprintf(format, s.lowest/divisionFactor, s.average/divisionFactor, s.highest/divisionFactor, s.total/divisionFactor, s.count)
 }
