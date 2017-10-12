@@ -10,8 +10,7 @@ import (
 
 func TestMailProcessor_Process(t *testing.T) {
 	runner := CommandRunner{
-		Processor:         &common.CommandProcessor{},
-		CommandTimeoutSec: 5,
+		Processor: &common.CommandProcessor{},
 		ReplyMailClient: inet.MailClient{
 			MTAHost:  "127.0.0.1",
 			MTAPort:  25,
@@ -37,7 +36,6 @@ func TestMailProcessor_Process_Undocumented1Reply(t *testing.T) {
 		t.Skip()
 	}
 	runner := CommandRunner{
-		CommandTimeoutSec: 5,
 		ReplyMailClient: inet.MailClient{
 			MTAHost:  "127.0.0.1",
 			MTAPort:  25,
@@ -66,7 +64,6 @@ func TestMailProcessor_Process_Undocumented2Reply(t *testing.T) {
 		t.Skip()
 	}
 	runner := CommandRunner{
-		CommandTimeoutSec: 5,
 		ReplyMailClient: inet.MailClient{
 			MTAHost:  "127.0.0.1",
 			MTAPort:  25,
