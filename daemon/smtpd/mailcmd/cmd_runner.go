@@ -10,11 +10,12 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+const CommandTimeoutSec = 120 // CommandTimeoutSec is the default command timeout in seconds
 
 var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all processed mails.
 
@@ -24,12 +25,11 @@ results. Usually used in combination of laitos' own SMTP daemon, but it can also
 such as the forwarding-mail-to-program mechanism from postfix.
 */
 type CommandRunner struct {
-	CommandTimeoutSec int                      `json:"CommandTimeoutSec"` // Commands get time out error after this number of seconds
-	Undocumented1     Undocumented1            `json:"Undocumented1"`     // Intentionally undocumented he he he he
-	Undocumented2     Undocumented2            `json:"Undocumented2"`     // Intentionally undocumented he he he he
-	Processor         *common.CommandProcessor `json:"-"`                 // Feature configuration
-	ReplyMailClient   inet.MailClient          `json:"-"`                 // To deliver Email replies
-	Logger            misc.Logger              `json:"-"`                 // Logger
+	Undocumented1   Undocumented1            `json:"Undocumented1"` // Intentionally undocumented he he he he
+	Undocumented2   Undocumented2            `json:"Undocumented2"` // Intentionally undocumented he he he he
+	Processor       *common.CommandProcessor `json:"-"`             // Feature configuration
+	ReplyMailClient inet.MailClient          `json:"-"`             // To deliver Email replies
+	Logger          misc.Logger              `json:"-"`             // Logger
 }
 
 // Initialise initialises internal states of command runner. This function must be called before using the command runner.
@@ -37,7 +37,7 @@ func (runner *CommandRunner) Initialise() error {
 	if runner.Processor == nil || runner.Processor.IsEmpty() {
 		return fmt.Errorf("mailcmd.Initialise: command processor and its filters must be configured")
 	}
-	runner.Logger = misc.Logger{ComponentName: "mailcmd", ComponentID: strconv.Itoa(runner.CommandTimeoutSec)}
+	runner.Logger = misc.Logger{ComponentName: "mailcmd", ComponentID: runner.ReplyMailClient.MailFrom}
 	runner.Processor.SetLogger(runner.Logger)
 	if errs := runner.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("mailcmd.Process: %+v", errs)
@@ -114,7 +114,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 		// By contract, PIN processor finds command among input lines.
 		result := runner.Processor.Process(toolbox.Command{
 			Content:    string(body),
-			TimeoutSec: runner.CommandTimeoutSec,
+			TimeoutSec: CommandTimeoutSec,
 		})
 		// If this part does not have a PIN/shortcut match, simply move on to the next part.
 		if result.Error == filter.ErrPINAndShortcutNotFound {

@@ -56,7 +56,7 @@ func (client *MailClient) SendRaw(fromAddr string, rawMailBody []byte, recipient
 
 // Try to contact MTA and see if connection is possible.
 func (client *MailClient) SelfTest() error {
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", client.MTAHost, client.MTAPort), 10*time.Second)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", client.MTAHost, client.MTAPort), SelfTestTimeoutSec*time.Second)
 	if err != nil {
 		return fmt.Errorf("MailClient.SelfTest: connection test failed - %v", err)
 	}

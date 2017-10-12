@@ -248,12 +248,12 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 func WriteRand(conn net.Conn) {
 	randBytesWritten := 0
 	for i := 0; i < RandNum(1, 2, 3); i++ {
-		randBuf := make([]byte, RandNum(4, 50, 600))
+		randBuf := make([]byte, RandNum(40, 60, 900))
 		if _, err := pseudoRand.Read(randBuf); err != nil {
 			misc.DefaultLogger.Warningf("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
 			break
 		}
-		conn.SetDeadline(time.Now().Add(time.Duration(RandNum(7, 80, 900)) * time.Millisecond))
+		conn.SetDeadline(time.Now().Add(time.Duration(RandNum(140, 220, 350)) * time.Millisecond))
 		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
 			misc.DefaultLogger.Warningf("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
 			break

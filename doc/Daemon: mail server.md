@@ -120,24 +120,9 @@ Here is an example setup made for two imaginary domain names:
 ## Toolbox command processor
 In order to let mail server process toolbox feature commands from mail body, complete all of the following:
 
-1. Construct the following JSON object and place it under JSON key `MailCommandRunner` in configuration file.
-   The following properties are mandatory:
-<table>
-<tr>
-    <th>Property</th>
-    <th>Type</th>
-    <th>Meaning</th>
-</tr>
-<tr>
-    <td>CommandTimeoutSec</td>
-    <td>integer</td>
-    <td>Toolbox command aborts after this many seconds go by. 120 is usually good enough.</td>
-</tr>
-</table>
-
-2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
+1. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
    JSON key `MailFilters`.
-3. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) to construct
+2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) to construct
    configuration for sending Email responses.
 
 Here is an example setup of mail server with command processor:

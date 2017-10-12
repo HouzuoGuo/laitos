@@ -15,7 +15,6 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
-	"log"
 	"net"
 	"os"
 	"path"
