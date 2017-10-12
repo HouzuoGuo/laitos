@@ -73,9 +73,8 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 
 	// SMTPD is also responsible for initialising its mail command runner if it is present
 	daemon.CommandRunner = &mailcmd.CommandRunner{
-		CommandTimeoutSec: 10,
-		Processor:         nil,
-		ReplyMailClient:   inet.MailClient{},
+		Processor:       nil,
+		ReplyMailClient: inet.MailClient{},
 	}
 	// Even though command runner is assigned, SMTPD should continue to initialise without command runner if command runner does not have config.
 	if err := daemon.Initialise(); err != nil {
