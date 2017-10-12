@@ -7,7 +7,10 @@ import (
 	"sync"
 )
 
-// Aggregate all available features together.
+/*
+FeatureSet contains an instance of every available toolbox feature. Together they may initialise, run self tests,
+and receive configuration from JSON.
+*/
 type FeatureSet struct {
 	AESDecrypt         AESDecrypt          `json:"AESDecrypt"`
 	Browser            Browser             `json:"Browser"`

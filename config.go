@@ -98,10 +98,13 @@ type Config struct {
 	Logger misc.Logger `json:"-"` // Logger handles log output from configuration serialisation and initialisation routines.
 }
 
-// Deserialise JSON data into config structures.
+// DeserialiseFromJSON deserialised JSON configuration of all daemons and toolbox features, and then initialise all toolbox features.
 func (config *Config) DeserialiseFromJSON(in []byte) error {
 	config.Logger = misc.Logger{ComponentName: "Config"}
 	if err := json.Unmarshal(in, config); err != nil {
+		return err
+	}
+	if err := config.Features.Initialise(); err != nil {
 		return err
 	}
 	return nil
@@ -123,10 +126,6 @@ func (config Config) GetMaintenance() *maintenance.Daemon {
 	ret.FeaturesToCheck = &config.Features
 	// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
 	ret.CheckMailCmdRunner = config.GetMailCommandRunner()
-	if err := ret.FeaturesToCheck.Initialise(); err != nil {
-		config.Logger.Fatalf("GetMaintenance", "", err, "failed to initialise features")
-		return nil
-	}
 	ret.MailClient = config.MailClient
 	if err := ret.Initialise(); err != nil {
 		config.Logger.Fatalf("GetMaintenance", "", err, "failed to initialise")
@@ -142,15 +141,10 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 	mailNotification := config.HTTPFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
-	features := config.Features
-	if err := features.Initialise(); err != nil {
-		config.Logger.Fatalf("GetHTTPD", "", err, "failed to initialise features")
-		return nil
-	}
-	config.Logger.Printf("GetHTTPD", "", nil, "enabled features are - %v", features.GetTriggers())
+	config.Logger.Printf("GetHTTPD", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
-		Features: &features,
+		Features: &config.Features,
 		CommandFilters: []filter.CommandFilter{
 			&config.HTTPFilters.PINAndShortcuts,
 			&config.HTTPFilters.TranslateSequences,
@@ -309,15 +303,10 @@ func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 	mailNotification := config.MailFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
-	features := config.Features
-	if err := features.Initialise(); err != nil {
-		config.Logger.Fatalf("GetMailCommandRunner", "", err, "failed to initialise features")
-		return nil
-	}
-	config.Logger.Printf("GetMailCommandRunner", "", nil, "enabled features are - %v", features.GetTriggers())
+	config.Logger.Printf("GetMailCommandRunner", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
-		Features: &features,
+		Features: &config.Features,
 		CommandFilters: []filter.CommandFilter{
 			&config.MailFilters.PINAndShortcuts,
 			&config.MailFilters.TranslateSequences,
@@ -358,15 +347,10 @@ func (config Config) GetPlainSocketDaemon() *plainsockets.Daemon {
 	mailNotification := config.PlainSocketFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
-	features := config.Features
-	if err := features.Initialise(); err != nil {
-		config.Logger.Fatalf("GetPlainSocketDaemon", "", err, "failed to initialise features")
-		return nil
-	}
-	config.Logger.Printf("GetPlainSocketDaemon", "", nil, "enabled features are - %v", features.GetTriggers())
+	config.Logger.Printf("GetPlainSocketDaemon", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
-		Features: &features,
+		Features: &config.Features,
 		CommandFilters: []filter.CommandFilter{
 			&config.PlainSocketFilters.PINAndShortcuts,
 			&config.PlainSocketFilters.TranslateSequences,
@@ -403,15 +387,10 @@ func (config Config) GetTelegramBot() *telegrambot.Daemon {
 	mailNotification := config.TelegramFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
-	features := config.Features
-	if err := features.Initialise(); err != nil {
-		config.Logger.Fatalf("GetTelegramBot", "", err, "failed to initialise features")
-		return nil
-	}
-	config.Logger.Printf("GetTelegramBot", "", nil, "enabled features are - %v", features.GetTriggers())
+	config.Logger.Printf("GetTelegramBot", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble telegram bot from features and filters
 	ret.Processor = &common.CommandProcessor{
-		Features: &features,
+		Features: &config.Features,
 		CommandFilters: []filter.CommandFilter{
 			&config.TelegramFilters.PINAndShortcuts,
 			&config.TelegramFilters.TranslateSequences,

@@ -15,6 +15,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"log"
 	"net"
 	"os"
 	"path"
@@ -83,60 +84,62 @@ func (daemon *Daemon) Execute() (string, bool) {
 	daemon.Logger.Printf("Execute", "", nil, "running now")
 	// Conduct system maintenance first to ensure an accurate reading of runtime information later on
 	maintResult := daemon.SystemMaintenance()
-	// allOK is true only if all port and feature checks pass, system maintenance always succeeds.
-	allOK := true
-	// Check TCP ports in parallel
-	portCheckResult := make(map[int]bool)
-	portCheckMutex := new(sync.Mutex)
-	waitPorts := new(sync.WaitGroup)
-	waitPorts.Add(len(daemon.TCPPorts))
+	// Do three checks in parallel - ports, features, and mail command runner
+	var featureErrs map[toolbox.Trigger]error
+	portCheckErrs := new(sync.Map)
+	var mailCmdRunnerErr error
+	waitAllChecks := new(sync.WaitGroup)
+	waitAllChecks.Add(2 + len(daemon.TCPPorts)) // will wait for features, mail command runner, and port checks.
+	go func() {
+		// Feature self test - the routine itself also uses concurrency internally
+		featureErrs = daemon.FeaturesToCheck.SelfTest()
+		waitAllChecks.Done()
+	}()
+	go func() {
+		// Mail command runner test - the routine itself also uses concurrency internally
+		if daemon.CheckMailCmdRunner != nil {
+			mailCmdRunnerErr = daemon.CheckMailCmdRunner.SelfTest()
+		}
+		waitAllChecks.Done()
+	}()
 	for _, portNumber := range daemon.TCPPorts {
-		go func(portNumber int) {
-			conn, err := net.DialTimeout("tcp", "localhost:"+strconv.Itoa(portNumber), TCPConnectionTimeoutSec*time.Second)
+		// Ports check are also carried out concurrently
+		go func() {
+			conn, err := net.DialTimeout("tcp4", "127.0.0.1:"+strconv.Itoa(portNumber), TCPConnectionTimeoutSec*time.Second)
 			if err == nil {
 				conn.Close()
+			} else {
+				portCheckErrs.Store(portNumber, err)
 			}
-			portCheckMutex.Lock()
-			portCheckResult[portNumber] = err == nil
-			allOK = allOK && portCheckResult[portNumber]
-			portCheckMutex.Unlock()
-			waitPorts.Done()
-		}(portNumber)
+			waitAllChecks.Done()
+		}()
 	}
-	waitPorts.Wait()
-	// Check features and mail processor
-	featureErrs := make(map[toolbox.Trigger]error)
-	if daemon.FeaturesToCheck != nil {
-		featureErrs = daemon.FeaturesToCheck.SelfTest()
-	}
-	var mailCmdRunnerErr error
-	if daemon.CheckMailCmdRunner != nil {
-		mailCmdRunnerErr = daemon.CheckMailCmdRunner.SelfTest()
-	}
-	allOK = allOK && len(featureErrs) == 0 && mailCmdRunnerErr == nil
-	// Compose mail body
+	waitAllChecks.Wait()
+
+	// Results are ready, time to compose mail body.
+	allOK := len(featureErrs) == 0 && misc.LenSyncMap(portCheckErrs) == 0 && mailCmdRunnerErr == nil
 	var result bytes.Buffer
 	if allOK {
 		result.WriteString("All OK\n")
 	} else {
 		result.WriteString("There are errors!!!\n")
 	}
-	// Runtime info
+	// Latest runtime info
 	result.WriteString(toolbox.GetRuntimeInfo())
-	// Statistics
+	// Latest stats
 	result.WriteString("\nStatistics low/avg/high/total(count) seconds:\n")
 	result.WriteString(GetLatestStats())
-	// Port checks
-	result.WriteString("\nPorts:\n")
-	for _, portNumber := range daemon.TCPPorts {
-		if portCheckResult[portNumber] {
-			result.WriteString(fmt.Sprintf("%d-OK ", portNumber))
-		} else {
-			result.WriteString(fmt.Sprintf("%d-Error ", portNumber))
-		}
+	// Port check results
+	if misc.LenSyncMap(portCheckErrs) == 0 {
+		result.WriteString("\nPorts: OK\n")
+	} else {
+		result.WriteString("\nPort errors:\n")
+		portCheckErrs.Range(func(portNum, err interface{}) bool {
+			result.WriteString(fmt.Sprintf("%d - %v\n", portNum, err))
+			return true
+		})
 	}
-	result.WriteRune('\n')
-	// Feature checks
+	// Feature check results
 	if len(featureErrs) == 0 {
 		result.WriteString("\nFeatures: OK\n")
 	} else {
@@ -144,13 +147,13 @@ func (daemon *Daemon) Execute() (string, bool) {
 			result.WriteString(fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
 		}
 	}
-	// Mail processor checks
+	// Mail command runner check results
 	if mailCmdRunnerErr == nil {
-		result.WriteString("Mail processor: OK\n")
+		result.WriteString("\nMail processor: OK\n")
 	} else {
-		result.WriteString(fmt.Sprintf("Mail processor: %v\n", mailCmdRunnerErr))
+		result.WriteString(fmt.Sprintf("\nMail processor: %v\n", mailCmdRunnerErr))
 	}
-	// Daemon results, warnings, logs, and stack traces, in that order.
+	// Maintenance results, warnings, logs, and stack traces, in that order.
 	result.WriteString("\nSystem maintenance:\n")
 	result.WriteString(maintResult)
 	result.WriteString("\nWarnings:\n")
@@ -384,7 +387,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 	}
 
 	ret.WriteString("--- System maintenance has finished.\n")
-	daemon.Logger.Printf("SystemMaintenance", "", nil, "all finished")
+	daemon.Logger.Printf("SystemMaintenance", "", nil, "maintenance is finished")
 	return ret.String()
 }
 

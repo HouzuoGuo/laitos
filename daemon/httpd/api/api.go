@@ -15,6 +15,7 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 /*
@@ -94,55 +95,67 @@ Telegram commands:    %s
 }
 
 func (info *HandleSystemInfo) MakeHandler(logger misc.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
-	// Somewhat similar to health-check frontend
+	// The routine is quite similar to maintenance daemon
 	fun := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		NoCache(w)
 		if !WarnIfNoHTTPS(r, w) {
 			return
 		}
-		// Check features and mail processor
-		featureErrs := make(map[toolbox.Trigger]error)
-		if info.FeaturesToCheck != nil {
-			featureErrs = info.FeaturesToCheck.SelfTest()
-		}
+		// Do two checks in parallel - features and mail command runner
+		var featureErrs map[toolbox.Trigger]error
 		var mailCmdRunnerErr error
-		if info.CheckMailCmdRunner != nil {
-			mailCmdRunnerErr = info.CheckMailCmdRunner.SelfTest()
-		}
+		waitAllChecks := new(sync.WaitGroup)
+		waitAllChecks.Add(2) // will wait for features and mail command runner
+		go func() {
+			// Feature self test - the routine itself also uses concurrency internally
+			featureErrs = info.FeaturesToCheck.SelfTest()
+			waitAllChecks.Done()
+		}()
+		go func() {
+			// Mail command runner test - the routine itself also uses concurrency internally
+			if info.CheckMailCmdRunner != nil {
+				mailCmdRunnerErr = info.CheckMailCmdRunner.SelfTest()
+			}
+			waitAllChecks.Done()
+		}()
+		waitAllChecks.Wait()
+
+		// Results are ready, time to compose mail body.
 		allOK := len(featureErrs) == 0 && mailCmdRunnerErr == nil
-		// Compose mail body
+		var result bytes.Buffer
 		if allOK {
-			fmt.Fprint(w, "All OK\n")
+			result.WriteString("All OK\n")
 		} else {
-			fmt.Fprint(w, "There are errors!!!\n")
+			result.WriteString("There are errors!!!\n")
 		}
-		// Runtime info
-		fmt.Fprint(w, toolbox.GetRuntimeInfo())
-		// Statistics
-		fmt.Fprint(w, "\nStatistics low/avg/high,total seconds and (counter):\n")
-		fmt.Fprint(w, GetLatestStats())
-		// Feature checks
+		// Latest runtime info
+		result.WriteString(toolbox.GetRuntimeInfo())
+		// Latest stats
+		result.WriteString("\nStatistics low/avg/high/total(count) seconds:\n")
+		result.WriteString(GetLatestStats())
+		// Feature check results
 		if len(featureErrs) == 0 {
-			fmt.Fprint(w, "\nFeatures: OK\n")
+			result.WriteString("\nFeatures: OK\n")
 		} else {
 			for trigger, err := range featureErrs {
-				fmt.Fprintf(w, "\nFeatures %s: %+v\n", trigger, err)
+				result.WriteString(fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
 			}
 		}
-		// Mail processor checks
+		// Mail command runner check results
 		if mailCmdRunnerErr == nil {
-			fmt.Fprint(w, "\nMail processor: OK\n")
+			result.WriteString("\nMail processor: OK\n")
 		} else {
-			fmt.Fprintf(w, "\nMail processor: %v\n", mailCmdRunnerErr)
+			result.WriteString(fmt.Sprintf("\nMail processor: %v\n", mailCmdRunnerErr))
 		}
-		// Warnings, logs, and stack traces
-		fmt.Fprint(w, "\nWarnings:\n")
-		fmt.Fprint(w, toolbox.GetLatestWarnings())
-		fmt.Fprint(w, "\nLogs:\n")
-		fmt.Fprint(w, toolbox.GetLatestLog())
-		fmt.Fprint(w, "\nStack traces:\n")
-		fmt.Fprint(w, toolbox.GetGoroutineStacktraces())
+		// Warnings, logs, and stack traces, in that order.
+		result.WriteString("\nWarnings:\n")
+		result.WriteString(toolbox.GetLatestWarnings())
+		result.WriteString("\nLogs:\n")
+		result.WriteString(toolbox.GetLatestLog())
+		result.WriteString("\nStack traces:\n")
+		result.WriteString(toolbox.GetGoroutineStacktraces())
+		w.Write(result.Bytes())
 	}
 	return fun, nil
 }
