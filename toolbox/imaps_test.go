@@ -52,7 +52,7 @@ func TestIMAPS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	accountA.DisconnectLogout()
+	accountA.LogoutDisconnect()
 }
 
 func TestIMAPAccounts_Initialise(t *testing.T) {

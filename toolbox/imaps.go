@@ -12,12 +12,14 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	MailboxList = "l" // Prefix string to trigger listing messages
-	MailboxRead = "r" // Prefix string to trigger reading message body
+	MailboxList    = "l" // Prefix string to trigger listing messages
+	MailboxRead    = "r" // Prefix string to trigger reading message body
+	IMAPTimeoutSec = 30  // IMAPTimeoutSec is the IO timeout (in seconds) for every IMAP conversation
 )
 
 var (
@@ -34,10 +36,10 @@ type IMAPS struct {
 	InsecureSkipVerify bool   `json:"InsecureSkipVerify"` // Do not verify server name against its certificate
 	AuthUsername       string `json:"AuthUsername"`       // Username for plain authentication
 	AuthPassword       string `json:"AuthPassword"`       // Password for plain authentication
-	IOTimeoutSec       int    `json:"IOTimeoutSec"`       // Default IO conversation timeout in seconds
 
-	conn    net.Conn  `json:"-"`
-	tlsConn *tls.Conn `json:"-"`
+	clientConn       net.Conn    // clientConn is a TCP connection opened toward IMAPS host.
+	clientTLSWrapper *tls.Conn   // clientTLSWrapper is a TLS client that operates on the IMAPS TCP connection.
+	clientMutex      *sync.Mutex // clientMutex prevents concurrent conversations from taking place over IMAPS connection.
 }
 
 // Return a random 10 characters long string of numbers to
@@ -45,26 +47,25 @@ func randomChallenge() string {
 	return strconv.Itoa(1000000000 + rand.Intn(1000000000))
 }
 
-// Send an IMAP command and wait for a response, then return. If response status is not OK, an error is returned.
-func (mbox *IMAPS) Converse(action string) (status, body string, err error) {
+/*
+converse sends an IMAP command and waits for a response, then return IMAP response status and body. If the response
+status is not OK, an error will be returned.
+If IO error occurs, client connection will be closed and an error will be returned.
+The function does not lock clientMutex and assumes that a client connection is already established (not nil).
+*/
+func (mbox *IMAPS) converse(command string) (status, body string, err error) {
 	var allLines bytes.Buffer
-	reader := bufio.NewReader(mbox.tlsConn)
+	mbox.clientTLSWrapper.SetDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
+	reader := bufio.NewReader(mbox.clientTLSWrapper)
 	challenge := randomChallenge()
-
-	mbox.tlsConn.SetDeadline(time.Now().Add(time.Duration(mbox.IOTimeoutSec) * time.Second))
-	_, err = mbox.tlsConn.Write([]byte(fmt.Sprintf("%s %s\r\n", challenge, action)))
+	_, err = mbox.clientTLSWrapper.Write([]byte(fmt.Sprintf("%s %s\r\n", challenge, command)))
 	if err != nil {
-		// TLS internal state is surely corrupted after a timeout of write operation
 		goto badIO
 	}
 	for {
 		var line []byte
 		line, _, err = reader.ReadLine()
 		if err != nil {
-			/*
-				Even though TLS internal state is not corrupted after a timeout of read operation,
-				the IMAP conversation sequence is surely broken, hence close the connection.
-			*/
 			goto badIO
 		}
 		lowerLine := strings.TrimSpace(strings.ToLower(string(line)))
@@ -76,15 +77,15 @@ func (mbox *IMAPS) Converse(action string) (status, body string, err error) {
 			afterStatusWord := strings.IndexRune(withoutChallenge, ' ')
 			if afterStatusWord == -1 {
 				status = withoutChallenge
-				err = fmt.Errorf("IMAPS.Converse: cannot find status word among line - %s", withoutChallenge)
+				err = fmt.Errorf("IMAPS.converse: cannot find status word among line - %s", withoutChallenge)
 				goto badIO
 			}
 			statusWord := withoutChallenge[:afterStatusWord]
 			if len(withoutChallenge) > afterStatusWord {
 				status = withoutChallenge[afterStatusWord:]
 			}
-			if statusWord != "ok" {
-				err = fmt.Errorf("IMAPS.Converse: bad response status - %s", status)
+			if strings.ToLower(statusWord) != "ok" {
+				err = fmt.Errorf("IMAPS.converse: bad response status - %s", status)
 			}
 			return
 		} else {
@@ -95,15 +96,32 @@ func (mbox *IMAPS) Converse(action string) (status, body string, err error) {
 	}
 	return
 badIO:
-	// Close connection so that no further conversation may take place
-	mbox.tlsConn.Close()
-	mbox.conn.Close()
+	// IO error irrecoverably corrupts TLS connection and IMAP sequence, therefore closing the connection here.
+	mbox.clientTLSWrapper.Close()
+	mbox.clientConn.Close()
+	mbox.clientTLSWrapper = nil
+	mbox.clientConn = nil
 	return
+}
+
+/*
+converseWithLock sends an IMAP command and waits for a response, then return IMAP response status and body. If the response
+status is not OK, an error will be returned. If a client connection is not yet established, an error will be returned.
+If IO error occurs, client connection will be closed and an error will be returned.
+The function places a lock on clientMutex.
+*/
+func (mbox *IMAPS) converseWithLock(command string) (status, body string, err error) {
+	mbox.clientMutex.Lock()
+	defer mbox.clientMutex.Unlock()
+	if mbox.clientConn == nil {
+		return "", "", errors.New("IMAPS.converseWithLock: connection must be established before calling this function")
+	}
+	return mbox.converse(command)
 }
 
 // Get total number of messages in the mail box.
 func (mbox *IMAPS) GetNumberMessages() (int, error) {
-	_, body, err := mbox.Converse(fmt.Sprintf("EXAMINE \"%s\"", mbox.MailboxName))
+	_, body, err := mbox.converseWithLock(fmt.Sprintf("EXAMINE \"%s\"", mbox.MailboxName))
 	if err != nil {
 		return 0, err
 	}
@@ -126,7 +144,7 @@ func (mbox *IMAPS) GetHeaders(from, to int) (ret map[int]string, err error) {
 		err = errors.New("From number must be less or equal to To number, and both must be positive.")
 		return
 	}
-	_, body, err := mbox.Converse(fmt.Sprintf("FETCH %d:%d BODY.PEEK[HEADER]", from, to))
+	_, body, err := mbox.converseWithLock(fmt.Sprintf("FETCH %d:%d BODY.PEEK[HEADER]", from, to))
 	if err != nil {
 		return
 	}
@@ -170,7 +188,7 @@ func (mbox *IMAPS) GetMessage(num int) (message string, err error) {
 		return
 	}
 	var entireMessage bytes.Buffer
-	_, body, err := mbox.Converse(fmt.Sprintf("FETCH %d BODY[]", num))
+	_, body, err := mbox.converseWithLock(fmt.Sprintf("FETCH %d BODY[]", num))
 	for _, line := range strings.Split(body, "\n") {
 		if len(line) > 0 {
 			switch line[0] {
@@ -188,47 +206,61 @@ func (mbox *IMAPS) GetMessage(num int) (message string, err error) {
 
 // Set up TLS connection to IMAPS server and log the user in.
 func (mbox *IMAPS) ConnectLoginSelect() (err error) {
-	mbox.conn, err = net.DialTimeout(
+	mbox.clientMutex.Lock()
+	defer mbox.clientMutex.Unlock()
+	// If connection was already established, close it before opening a new one.
+	if mbox.clientConn != nil {
+		mbox.clientConn.Close()
+	}
+	mbox.clientConn, err = net.DialTimeout(
 		"tcp",
 		fmt.Sprintf("%s:%d", mbox.Host, mbox.Port),
-		time.Duration(mbox.IOTimeoutSec)*time.Second)
+		time.Duration(IMAPTimeoutSec)*time.Second)
 	if err != nil {
 		return fmt.Errorf("IMAPS.ConnectLoginSelect: connection error - %v", err)
 	}
-	mbox.tlsConn = tls.Client(mbox.conn, &tls.Config{
+	mbox.clientTLSWrapper = tls.Client(mbox.clientConn, &tls.Config{
 		ServerName:         mbox.Host,
 		InsecureSkipVerify: mbox.InsecureSkipVerify,
 	})
-	if err = mbox.tlsConn.Handshake(); err != nil {
+	if err = mbox.clientTLSWrapper.Handshake(); err != nil {
 		return fmt.Errorf("IMAPS.ConnectLoginSelect: TLS connection error - %v", err)
 	}
 	// Absorb the connection greeting message sent by server
-	reader := bufio.NewReader(mbox.tlsConn)
+	mbox.clientTLSWrapper.SetDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
+	reader := bufio.NewReader(mbox.clientTLSWrapper)
 	_, _, err = reader.ReadLine()
 	if err != nil {
 		return fmt.Errorf("IMAPS.ConnectLoginSelect: failed to read server greeting - %v", err)
 	}
 	// LOGIN && SELECT
-	_, _, err = mbox.Converse(fmt.Sprintf("LOGIN %s %s", mbox.AuthUsername, mbox.AuthPassword))
+	_, _, err = mbox.converse(fmt.Sprintf("LOGIN %s %s", mbox.AuthUsername, mbox.AuthPassword))
 	if err != nil {
 		return fmt.Errorf("IMAPS.ConnectLoginSelect: LOGIN command failed - %v", err)
 	}
-	_, _, err = mbox.Converse(fmt.Sprintf("SELECT \"%s\"", mbox.MailboxName))
+	_, _, err = mbox.converse(fmt.Sprintf("SELECT \"%s\"", mbox.MailboxName))
 	if err != nil {
 		return fmt.Errorf("IMAPS.ConnectLoginSelect: SELECT command failed - %v", err)
 	}
 	return
 }
 
-func (mbox *IMAPS) DisconnectLogout() {
-	mbox.Converse("LOGOUT") // intentionally ignore conversation error
-	mbox.tlsConn.Close()
-	mbox.conn.Close()
+func (mbox *IMAPS) LogoutDisconnect() {
+	mbox.clientMutex.Lock()
+	defer mbox.clientMutex.Unlock()
+	if mbox.clientConn == nil {
+		return
+	}
+	mbox.converse("LOGOUT") // intentionally ignore conversation error
+	mbox.clientTLSWrapper.Close()
+	mbox.clientConn.Close()
+	mbox.clientTLSWrapper = nil
+	mbox.clientConn = nil
 }
 
 // Correspond IMAP account connection details to account names.
 type IMAPAccounts struct {
-	Accounts map[string]IMAPS `json:"Accounts"` // IMAP account name vs account connectivity details
+	Accounts map[string]*IMAPS `json:"Accounts"` // IMAP account name vs account connectivity details
 }
 
 var TestIMAPAccounts = IMAPAccounts{} // Account details are set by init_feature_test.go
@@ -253,7 +285,7 @@ func (imap *IMAPAccounts) SelfTest() error {
 		if err := account.ConnectLoginSelect(); err != nil {
 			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" has connection error - %v", name, err)
 		}
-		defer account.DisconnectLogout()
+		defer account.LogoutDisconnect()
 		if _, err := account.GetNumberMessages(); err != nil {
 			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" test error - %v", name, err)
 		}
@@ -262,6 +294,9 @@ func (imap *IMAPAccounts) SelfTest() error {
 }
 
 func (imap *IMAPAccounts) Initialise() error {
+	for _, acc := range imap.Accounts {
+		acc.clientMutex = new(sync.Mutex)
+	}
 	return nil
 }
 
@@ -302,11 +337,10 @@ func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
 	if !found {
 		return &Result{Error: fmt.Errorf("IMAPAccounts.ListMails: cannot find box \"%s\"", mbox)}
 	}
-	account.IOTimeoutSec = cmd.TimeoutSec // this is nowhere near good enough, but how to make it accurate and race-free?
 	if err := account.ConnectLoginSelect(); err != nil {
 		return &Result{Error: err}
 	}
-	defer account.DisconnectLogout()
+	defer account.LogoutDisconnect()
 	totalNumber, err := account.GetNumberMessages()
 	if err != nil {
 		return &Result{Error: err}
@@ -355,11 +389,10 @@ func (imap *IMAPAccounts) ReadMessage(cmd Command) *Result {
 	if !found {
 		return &Result{Error: fmt.Errorf("IMAPAccounts.ReadMessage: cannot find box \"%s\"", mbox)}
 	}
-	account.IOTimeoutSec = cmd.TimeoutSec // this is nowhere near good enough, but how to make it accurate and race-free?
 	if err := account.ConnectLoginSelect(); err != nil {
 		return &Result{Error: err}
 	}
-	defer account.DisconnectLogout()
+	defer account.LogoutDisconnect()
 	entireMessage, err := account.GetMessage(number)
 	if err != nil {
 		return &Result{Error: err}

@@ -104,7 +104,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	for _, portNumber := range daemon.TCPPorts {
 		// Ports check are also carried out concurrently
 		go func() {
-			conn, err := net.DialTimeout("tcp4", "127.0.0.1:"+strconv.Itoa(portNumber), TCPConnectionTimeoutSec*time.Second)
+			conn, err := net.DialTimeout("tcp", "localhost:"+strconv.Itoa(portNumber), TCPConnectionTimeoutSec*time.Second)
 			if err == nil {
 				conn.Close()
 			} else {
