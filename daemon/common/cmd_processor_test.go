@@ -80,9 +80,9 @@ func TestCommandProcessorProcess(t *testing.T) {
 		t.Fatalf("'%v' '%v' '%v' '%v'", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
 	// Override PLT using good PLT parameter values
-	cmd = toolbox.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 3  .s  sleep 2 && echo -n 0123456789 "}
+	cmd = toolbox.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 4  .s  sleep 2 && echo -n 0123456789 "}
 	result = proc.Process(cmd)
-	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 3, Content: ".plt  2, 5. 3  .s  sleep 2 && echo -n 0123456789"}) ||
+	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 4, Content: ".plt  2, 5. 4  .s  sleep 2 && echo -n 0123456789"}) ||
 		result.Error != nil || result.Output != "0123456789" || result.CombinedOutput != "23456" {
 		t.Fatalf("'%v' '%v' '%v' '%+v'", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
