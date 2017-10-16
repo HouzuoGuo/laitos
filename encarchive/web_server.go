@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,8 +26,9 @@ const (
 	<title>Hello</title>
 </head>
 <body>
+	<pre>%s</pre>
     <form action="#" method="post">
-        <p><input type="password" name="password"/></p>
+        <p>Enter password to launch main program: <input type="password" name="password"/></p>
         <p><input type="submit" value="Launch"/></p>
         <p>%s</p>
     </form>
@@ -34,6 +36,23 @@ const (
 </html>
 	` // UnlockPageHTML is the HTML page of the archive unlocking page.
 )
+
+// GetSysInfoText returns system information in human-readable text that is to be displayed on the password web page.
+func GetSysInfoText() string {
+	usedMem, totalMem := misc.GetSystemMemoryUsageKB()
+	return fmt.Sprintf(`
+Clock: %s
+Sys/prog uptime: %s / %s
+Total/used/prog mem: %d / %d / %d MB
+Sys load: %s
+Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
+`,
+		time.Now().String(),
+		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Now().Sub(misc.StartupTime).String(),
+		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
+		misc.GetSystemLoad(),
+		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine())
+}
 
 /*
 WebServer runs an HTTP (not HTTPS) server that serves a page to allow visitor to unlock archive and then launch laitos.
@@ -65,14 +84,14 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		var err error
 		ws.ramdiskDir, err = MakeRamdisk(ws.archiveFileSize/1048576*2 + 8)
 		if err != nil {
-			w.Write([]byte(fmt.Sprintf(UnlockPageHTML, err.Error())))
+			w.Write([]byte(fmt.Sprintf(UnlockPageHTML, GetSysInfoText(), err.Error())))
 			ws.handlerMutex.Unlock()
 			return
 		}
 		// Create extract temp file inside ramdisk
 		tmpFile, err := ioutil.TempFile(ws.ramdiskDir, "launcher-extract-temp-file")
 		if err != nil {
-			w.Write([]byte(fmt.Sprintf(UnlockPageHTML, err.Error())))
+			w.Write([]byte(fmt.Sprintf(UnlockPageHTML, GetSysInfoText(), err.Error())))
 			ws.handlerMutex.Unlock()
 			return
 		}
@@ -81,7 +100,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		// Extract files into ramdisk
 		if err := Extract(ws.ArchiveFilePath, tmpFile.Name(), ws.ramdiskDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
 			DestroyRamdisk(ws.ramdiskDir)
-			w.Write([]byte(fmt.Sprintf(UnlockPageHTML, err.Error())))
+			w.Write([]byte(fmt.Sprintf(UnlockPageHTML, GetSysInfoText(), err.Error())))
 			ws.handlerMutex.Unlock()
 			return
 		}
@@ -92,7 +111,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 		ws.logger.Printf("pageHandler", r.RemoteAddr, nil, "just visiting")
-		w.Write([]byte(fmt.Sprintf(UnlockPageHTML, "")))
+		w.Write([]byte(fmt.Sprintf(UnlockPageHTML, GetSysInfoText(), "")))
 		return
 	}
 }

@@ -6,6 +6,11 @@ import (
 )
 
 // Allow an actor to perform no more than certain specified number of actions per unit of time.
+/*
+RateLimit tracks number of hits performed by each source ("actor") to determine whether a source has exceeded
+specified rate limit. Instead of being a rolling counter, the tracking data is reset to empty at regular interval.
+Remember to call Initialise() before use!
+*/
 type RateLimit struct {
 	UnitSecs      int64
 	MaxCount      int
@@ -21,7 +26,7 @@ func (limit *RateLimit) Initialise() {
 	limit.counter = make(map[string]int)
 	limit.counterMutex = new(sync.Mutex)
 	if limit.UnitSecs < 1 || limit.MaxCount < 1 {
-		limit.Logger.Panicf("Initialise", "RateLimit", nil, "UnitSecs and Maxcount must be greater than 0")
+		limit.Logger.Panicf("Initialise", "RateLimit", nil, "UnitSecs and MaxCount must be greater than 0")
 		return
 	}
 }
