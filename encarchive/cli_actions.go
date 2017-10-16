@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 )
 
 // CLIStartWebServer invokes the specialised launcher feature.
@@ -17,6 +18,8 @@ func CLIStartWebServer(port int, url, archivePath string) {
 		ArchiveFilePath: archivePath,
 	}
 	ws.Start()
+	// Wait almost indefinitely (~5 years) because this is the main routine of this CLI action
+	time.Sleep(5 * 365 * 24 * time.Hour)
 }
 
 // CLIExtract reads password from standard input and extracts archive file into the directory.

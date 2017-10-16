@@ -17,7 +17,12 @@ import (
 
 const (
 	HTTPTimeout = 30 * time.Second // HTTPTimeout is the timeout used in HTTP request/response/shutdown operations.
-	MagicArg    = `sl`             // LauncherMagicArg as a CLI parameter triggers this special launching mechanism.
+	/*
+		WebServerShutdownTimeoutSec is the maximum number of seconds to wait for completion of pending IO transfers,
+		before shutting down web server.
+	*/
+	WebServerShutdownTimeoutSec = 10
+	MagicArg                    = `sl` // LauncherMagicArg as a CLI parameter triggers this special launching mechanism.
 
 	UnlockPageHTML = `<!doctype html>
 <html>
@@ -147,8 +152,12 @@ func (ws *WebServer) Start() {
 		return
 	}
 	ws.logger.Printf("Start", "", nil, "web server has stopped")
-	// Wait almost indefinitely (~5 years) because this is the main thread
-	time.Sleep(5 * 365 * 24 * time.Hour)
+}
+
+// Shutdown tells web server to shut down within several seconds.
+func (ws *WebServer) Shutdown() error {
+	shutdownTimeout, _ := context.WithTimeout(context.Background(), WebServerShutdownTimeoutSec*time.Second)
+	return ws.server.Shutdown(shutdownTimeout)
 }
 
 /*
@@ -161,10 +170,8 @@ func (ws *WebServer) LaunchWithUnlockedArchive() {
 	args := make([]string, 0, 8)
 	var cmd *exec.Cmd
 	// Give HTTP server a short moment to finish with pending connections
-	shutdownTimeout, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	if err := ws.server.Shutdown(shutdownTimeout); err != nil {
-		fatalMsg = fmt.Sprintf("failed to wait for HTTP server to shutdown - %v", err)
-		goto fatalExit
+	if err = ws.Shutdown(); err != nil {
+		fatalMsg = fmt.Sprintf("failed to determine executable path - %v", err)
 	}
 	if err != nil {
 		fatalMsg = fmt.Sprintf("failed to determine executable path - %v", err)
