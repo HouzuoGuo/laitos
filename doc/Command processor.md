@@ -168,17 +168,17 @@ Where:
 
 The following prefixes are accepted, see individual feature manual for their usage:
 
-- `.2` - [Two factor authentication code generator](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-two-factor-authentication-code-generator)
-- `.a` - [Find text in AES-encrypted files](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-find-text-in-AES-encrypted-files)
-- `.b` - [Interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-interactive-web-browser)
-- `.e` - [Inspect system and program environment](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-inspect-environment)
-- `.f` - [Facebook](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-Facebook)
-- `.i` - [Read Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-read-Emails)
-- `.m` - [Send Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-send-Emails)
-- `.p` - [Call friends and send texts](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-telephone-and-SMS)
+- `.2` - [Two factor authentication code generator](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-two-factor-authentication-code-generator)
+- `.a` - [Find text in AES-encrypted files](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-find-text-in-AES-encrypted-files)
+- `.b` - [Interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser)
+- `.e` - [Inspect system and program environment](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-environment)
+- `.f` - [Facebook](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Facebook)
+- `.i` - [Read Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-Emails)
+- `.m` - [Send Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-Emails)
+- `.p` - [Call friends and send texts](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-telephone-and-SMS)
 - `.s` - [Run system commands](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-run-system-commands)
-- `.t` - [Read and post tweets](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-Twitter)
-- `.w` - [WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-WolframAlpha)
+- `.t` - [Read and post tweets](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Twitter)
+- `.w` - [WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-WolframAlpha)
 
 ### The special "PLT" command
 "PLT" is a special command prepended to an ordinary command, in order to seek to position among result output,

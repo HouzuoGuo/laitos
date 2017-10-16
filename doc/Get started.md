@@ -44,7 +44,7 @@ Note that:
 - There is not any individual ON-OFF switch for toolbox features. Once configured, they are are automatically available to daemons.
   
 ## Advanced start
-The following command options are optional:
+The following command options are optional, use with care:
 <table>
 <tr>
     <th>Flag</th>
@@ -68,12 +68,16 @@ The following command options are optional:
     </td>
 </tr>
 <tr>
+    <td>-swapoff</td>
+    <td>Turn off swap files and partitions on the system for improved system security.</td>
+</tr>
+<tr>
     <td>-gomaxprocs</td>
-    <td>Specify maximum number of concurrent goroutines. Default to number of system CPU threads (go 1.8+).</td>
+    <td>Specify maximum number of concurrent goroutines. Default to number of system CPU threads.</td>
 </tr>
 <tr>
     <td>-tunesystem</td>
-    <td>Automatically optimise operating system parameters to improve program performance. Only works on Linux.</td>
+    <td>Automatically optimise operating system parameters to improve program performance.</td>
 </tr>
 </table>
 
