@@ -6,7 +6,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/api"
-	"github.com/HouzuoGuo/laitos/daemon/plainsockets"
+	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
@@ -72,7 +72,7 @@ Telegram commands:    %s
 		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
 		api.DurationStats.Format(factor, numDecimals),
 		mailcmd.DurationStats.Format(factor, numDecimals),
-		plainsockets.TCPDurationStats.Format(factor, numDecimals), plainsockets.UDPDurationStats.Format(factor, numDecimals),
+		plainsocket.TCPDurationStats.Format(factor, numDecimals), plainsocket.UDPDurationStats.Format(factor, numDecimals),
 		smtpd.DurationStats.Format(factor, numDecimals),
 		sockd.TCPDurationStats.Format(factor, numDecimals), sockd.UDPDurationStats.Format(factor, numDecimals),
 		telegrambot.DurationStats.Format(factor, numDecimals))

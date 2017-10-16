@@ -1,4 +1,4 @@
-package plainsockets
+package plainsocket
 
 import (
 	"github.com/HouzuoGuo/laitos/daemon/common"

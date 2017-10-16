@@ -1,4 +1,4 @@
-package encarchive
+package passwdserver
 
 import (
 	"github.com/HouzuoGuo/laitos/inet"
@@ -29,7 +29,9 @@ func TestWebServer(t *testing.T) {
 	}
 	var shutdown bool
 	go func() {
-		ws.Start()
+		if err := ws.Start(); err != nil {
+			t.Fatal(err)
+		}
 		shutdown = true
 	}()
 	// Expect server to start within a second

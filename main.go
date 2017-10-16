@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	cryptoRand "crypto/rand"
 	"encoding/binary"
 	"flag"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/encarchive"
+	"github.com/HouzuoGuo/laitos/launcher/encarchive"
+	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"io/ioutil"
@@ -18,6 +20,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -99,6 +102,59 @@ func SwapOff() {
 	}
 }
 
+// CLIExtract reads password from standard input and extracts archive file into the directory.
+func CLIExtract(destDir, archivePath string) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Please enter password to decrypt archive:")
+	password, _, err := reader.ReadLine()
+	if err != nil {
+		misc.DefaultLogger.Fatalf("CLIExtract", "main", err, "failed to read password")
+		return
+	}
+	/*
+		This time, the temp file does not have to live in a ramdisk, because the extracted content does not have to be
+		in the memory anyways.
+	*/
+	tmpFile, err := ioutil.TempFile("", "laitos-launcher-utility-extract")
+	if err != nil {
+		misc.DefaultLogger.Fatalf("CLIExtract", "main", err, "failed to create temporary file")
+		return
+	}
+	tmpFile.Close()
+	defer func() {
+		if err := os.Remove(tmpFile.Name()); err != nil {
+			misc.DefaultLogger.Printf("CLIExtract", "main", err, "failed to delete temporary file")
+		}
+	}()
+	password = []byte(strings.TrimSpace(string(password)))
+	fmt.Println("Result is (nil means success): ", encarchive.Extract(archivePath, tmpFile.Name(), destDir, password))
+}
+
+// CLIArchive reads password from standard input and uses it to encrypt and archive the directory.
+func CLIArchive(srcDir, archivePath string) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Please enter a password to encrypt the archive:")
+	password, _, err := reader.ReadLine()
+	if err != nil {
+		misc.DefaultLogger.Fatalf("CLIExtract", "main", err, "failed to read password")
+		return
+	}
+	password = []byte(strings.TrimSpace(string(password)))
+	fmt.Println("Result is (nil means success): ", encarchive.Archive(srcDir, archivePath, password))
+}
+
+// CLIStartWebServer invokes the specialised launcher feature.
+func CLIStartWebServer(port int, url, archivePath string) {
+	ws := passwdserver.WebServer{
+		Port:            port,
+		URL:             url,
+		ArchiveFilePath: archivePath,
+	}
+	ws.Start()
+	// Wait almost indefinitely (~5 years) because this is the main routine of this CLI action
+	time.Sleep(5 * 365 * 24 * time.Hour)
+}
+
 func main() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
@@ -127,7 +183,7 @@ func main() {
 	var slPort int
 	var slArchivePath string
 	var slURL string
-	flag.BoolVar(&sl, encarchive.MagicArg, false, "(Optional) trigger \"special-launch\"")
+	flag.BoolVar(&sl, passwdserver.CLIArgument, false, "(Optional) trigger \"special-launch\"")
 	flag.IntVar(&slPort, "slport", 80, "(Optional) special-launch: port number")
 	flag.StringVar(&slArchivePath, "slarchive", "", "(Optional) special-launch: archive path")
 	flag.StringVar(&slURL, "slurl", "", "(Optional) special-launch: url that must include prefix slash")
@@ -151,16 +207,16 @@ func main() {
 
 	// The "special-launch" launcher runs prior to the daemons
 	if sl {
-		encarchive.CLIStartWebServer(slPort, slURL, slArchivePath)
+		CLIStartWebServer(slPort, slURL, slArchivePath)
 		return
 	}
 	// The launcher utilities do not run daemons at all
 	if slu != "" {
 		switch slu {
 		case "extract":
-			encarchive.CLIExtract(sluDir, sluFile)
+			CLIExtract(sluDir, sluFile)
 		case "archive":
-			encarchive.CLIArchive(sluDir, sluFile)
+			CLIArchive(sluDir, sluFile)
 		default:
 			logger.Fatalf("main", "", nil, "please provide mode of operation (extract|archive) for parameter slu")
 		}

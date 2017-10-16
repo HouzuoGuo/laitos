@@ -1,4 +1,4 @@
-package plainsockets
+package plainsocket
 
 import (
 	"bufio"
@@ -48,7 +48,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("plainsockets.StartAndBlockUDP: failed to accept new connection - %v", err)
+			return fmt.Errorf("plainsocket.StartAndBlockUDP: failed to accept new connection - %v", err)
 		}
 		// Check IP address against (connection) rate limit
 		clientIP := clientAddr.IP.String()

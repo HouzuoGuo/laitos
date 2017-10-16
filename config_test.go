@@ -4,7 +4,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
-	"github.com/HouzuoGuo/laitos/daemon/plainsockets"
+	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
@@ -172,7 +172,7 @@ func TestConfig(t *testing.T) {
     "PINAndShortcuts": {
       "PIN": "verysecret",
       "Shortcuts": {
-        "telegramshortcut": ".secho plainsocketshortcut"
+        "plainsocketshortcut": ".secho plainsockethortcut"
       }
     },
     "TranslateSequences": {
@@ -276,8 +276,8 @@ func TestConfig(t *testing.T) {
 
 	smtpd.TestSMTPD(config.GetMailDaemon(), t)
 
-	plainsockets.TestTCPServer(config.GetPlainSocketDaemon(), t)
-	plainsockets.TestUDPServer(config.GetPlainSocketDaemon(), t)
+	plainsocket.TestTCPServer(config.GetPlainSocketDaemon(), t)
+	plainsocket.TestUDPServer(config.GetPlainSocketDaemon(), t)
 
 	sockd.TestSockd(config.GetSockDaemon(), t)
 

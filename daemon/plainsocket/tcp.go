@@ -1,4 +1,4 @@
-package plainsockets
+package plainsocket
 
 import (
 	"bufio"
@@ -22,7 +22,7 @@ Start TCP daemon and block until daemon is told to stop.
 func (daemon *Daemon) StartAndBlockTCP() (err error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", daemon.Address, daemon.TCPPort))
 	if err != nil {
-		return fmt.Errorf("plainsockets.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
+		return fmt.Errorf("plainsocket.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
 	}
 	defer listener.Close()
 	daemon.TCPListener = listener
@@ -37,7 +37,7 @@ func (daemon *Daemon) StartAndBlockTCP() (err error) {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("plainsockets.StartAndBlockTCP: failed to accept new connection - %v", err)
+			return fmt.Errorf("plainsocket.StartAndBlockTCP: failed to accept new connection - %v", err)
 		}
 		go daemon.HandleTCPConnection(clientConn)
 	}

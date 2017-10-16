@@ -9,7 +9,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/api"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
-	"github.com/HouzuoGuo/laitos/daemon/plainsockets"
+	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
@@ -87,8 +87,8 @@ type Config struct {
 	MailCommandRunner mailcmd.CommandRunner `json:"MailCommandRunner"` // MailCommandRunner processes toolbox commands from incoming mail body.
 	MailFilters       StandardFilters       `json:"MailFilters"`       // MailFilters configure command processor for mail command runner
 
-	PlainSocketDaemon  plainsockets.Daemon `json:"PlainSocketDaemon"`  // Plain text protocol TCP and UDP daemon configuration
-	PlainSocketFilters StandardFilters     `json:"PlainSocketFilters"` // Plain text daemon filter configuration
+	PlainSocketDaemon  plainsocket.Daemon `json:"PlainSocketDaemon"`  // Plain text protocol TCP and UDP daemon configuration
+	PlainSocketFilters StandardFilters    `json:"PlainSocketFilters"` // Plain text daemon filter configuration
 
 	SockDaemon sockd.Daemon `json:"SockDaemon"` // Intentionally undocumented
 
@@ -341,7 +341,7 @@ func (config Config) GetMailDaemon() *smtpd.Daemon {
 Construct a plain text protocol TCP&UDP daemon and return.
 It will use common mail client for sending outgoing emails.
 */
-func (config Config) GetPlainSocketDaemon() *plainsockets.Daemon {
+func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 	ret := config.PlainSocketDaemon
 
 	mailNotification := config.PlainSocketFilters.NotifyViaEmail

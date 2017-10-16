@@ -1,4 +1,4 @@
-package plainsockets
+package plainsocket
 
 import (
 	"errors"
@@ -32,24 +32,24 @@ type Daemon struct {
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
 	daemon.Logger = misc.Logger{
-		ComponentName: "plainsockets",
+		ComponentName: "plainsocket",
 		ComponentID:   fmt.Sprintf("%s:%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort),
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
-		return fmt.Errorf("plainsockets.Initialise: command processor and its filters must be configured")
+		return fmt.Errorf("plainsocket.Initialise: command processor and its filters must be configured")
 	}
 	daemon.Processor.SetLogger(daemon.Logger)
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("plainsockets.Initialise: %+v", errs)
+		return fmt.Errorf("plainsocket.Initialise: %+v", errs)
 	}
 	if daemon.Address == "" {
-		return errors.New("plainsockets.Initialise: listen address must not be empty")
+		return errors.New("plainsocket.Initialise: listen address must not be empty")
 	}
 	if daemon.UDPPort < 1 && daemon.TCPPort < 1 {
-		return errors.New("plainsockets.Initialise: either or both TCP and UDP ports must be specified and be greater than 0")
+		return errors.New("plainsocket.Initialise: either or both TCP and UDP ports must be specified and be greater than 0")
 	}
 	if daemon.PerIPLimit < 1 {
-		return errors.New("plainsockets.Initialise: PerIPLimit must be greater than 0")
+		return errors.New("plainsocket.Initialise: PerIPLimit must be greater than 0")
 	}
 	daemon.RateLimit = &misc.RateLimit{
 		MaxCount: daemon.PerIPLimit,
