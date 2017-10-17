@@ -86,7 +86,7 @@ Here is an example setup of Telegram:
 ## Run
 Tell laitos to run chat bot daemon in the command line:
 
-    sudo ./laitos -config <CONFIG FILE> -frontend ...,telegram,...
+    sudo ./laitos -config <CONFIG FILE> -daemons ...,telegram,...
 
 ## Usage
 On Telegram Messenger application, find your newly created chat bot via the in-app Search function, then send toolbox

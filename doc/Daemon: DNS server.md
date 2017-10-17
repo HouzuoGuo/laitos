@@ -100,7 +100,7 @@ Here is an example setup made for two home devices (limit = 2 * 15) and forwards
 ## Run
 Tell laitos to run DNS daemon in the command line:
 
-    sudo ./laitos -config <CONFIG FILE> -frontend ...,dnsd,...
+    sudo ./laitos -config <CONFIG FILE> -daemons ...,dnsd,...
 
 ## Test
 Assuming that daemon listens on port 53, perform the tests from a computer where you will use the ad-blocking DNS server,

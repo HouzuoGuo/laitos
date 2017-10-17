@@ -2,113 +2,32 @@ package main
 
 import (
 	"bufio"
-	cryptoRand "crypto/rand"
-	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/launcher/encarchive"
 	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"io/ioutil"
-	pseudoRand "math/rand"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"runtime/pprof"
 	"strconv"
 	"strings"
-	"sync"
-	"syscall"
 	"time"
 )
 
-const DaemonRestartIntervalSec = 10 // DaemonRestartIntervalSec is the interval to pause between daemon start attempts.
-
 var logger = misc.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
 
-// Re-seed global pseudo random generator using cryptographic random number generator.
-func ReseedPseudoRand() {
-	numAttempts := 1
-	for ; ; numAttempts++ {
-		seedBytes := make([]byte, 8)
-		_, err := cryptoRand.Read(seedBytes)
-		if err != nil {
-			logger.Panicf("ReseedPseudoRand", "", err, "failed to read from random generator")
-		}
-		seed, _ := binary.Varint(seedBytes)
-		if seed == 0 {
-			// If random entropy decodes into an integer that overflows, simply retry.
-			continue
-		} else {
-			pseudoRand.Seed(seed)
-			break
-		}
-	}
-	logger.Printf("ReseedPseudoRand", "", nil, "succeeded after %d attempt(s)", numAttempts)
-}
-
-// Stop and disable daemons that may run into port usage conflicts with laitos.
-func DisableConflictingDaemons() {
-	if os.Getuid() != 0 {
-		logger.Fatalf("DisableConflictingDaemons", "", nil, "you must run laitos as root user if you wish to automatically disable conflicting daemons")
-	}
-	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
-	waitGroup := new(sync.WaitGroup)
-	waitGroup.Add(len(list))
-	for _, name := range list {
-		go func(name string) {
-			defer waitGroup.Done()
-			var success bool
-			// Disable+stop intensifies three times...
-			for i := 0; i < 3; i++ {
-				cmds := []string{
-					// Some hosting providers still do not use systemd, an example is Amazon Elastic Beanstalk.
-					fmt.Sprintf("/etc/init.d/%s stop", name),
-					fmt.Sprintf("chkconfig %s off", name),
-					fmt.Sprintf("chmod 0000 /etc/init.d/%s", name),
-
-					fmt.Sprintf("systemctl stop %s", name),
-					fmt.Sprintf("systemctl disable %s", name),
-					fmt.Sprintf("systemctl mask %s", name),
-				}
-				for _, cmd := range cmds {
-					if _, err := misc.InvokeShell(5, "/bin/sh", cmd); err == nil {
-						success = true
-						// Continue to run subsequent commands to further disable the service
-					}
-				}
-				// Do not overwhelm system with too many consecutive commands
-				time.Sleep(1 * time.Second)
-			}
-			if success {
-				logger.Printf("DisableConflictingDaemons", name, nil, "the daemon has been successfully stopped and disabled")
-			}
-		}(name)
-	}
-	waitGroup.Wait()
-}
-
-// SwapOff turns off all swap files and partitions for improved system security.
-func SwapOff() {
-	out, err := misc.InvokeProgram(nil, 60, "swapoff", "-a")
-	if err == nil {
-		logger.Printf("SwapOff", "", nil, "swap is now off")
-	} else {
-		logger.Printf("SwapOff", "", err, "failed to turn off swap - %s", out)
-	}
-}
-
-// CLIExtract reads password from standard input and extracts archive file into the directory.
-func CLIExtract(destDir, archivePath string) {
+// ExtractEncryptedArchive reads password from standard input and extracts archive file into the directory.
+func ExtractEncryptedArchive(destDir, archivePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter password to decrypt archive:")
 	password, _, err := reader.ReadLine()
 	if err != nil {
-		misc.DefaultLogger.Fatalf("CLIExtract", "main", err, "failed to read password")
+		misc.DefaultLogger.Fatalf("ExtractEncryptedArchive", "main", err, "failed to read password")
 		return
 	}
 	/*
@@ -117,34 +36,34 @@ func CLIExtract(destDir, archivePath string) {
 	*/
 	tmpFile, err := ioutil.TempFile("", "laitos-launcher-utility-extract")
 	if err != nil {
-		misc.DefaultLogger.Fatalf("CLIExtract", "main", err, "failed to create temporary file")
+		misc.DefaultLogger.Fatalf("ExtractEncryptedArchive", "main", err, "failed to create temporary file")
 		return
 	}
 	tmpFile.Close()
 	defer func() {
 		if err := os.Remove(tmpFile.Name()); err != nil {
-			misc.DefaultLogger.Printf("CLIExtract", "main", err, "failed to delete temporary file")
+			misc.DefaultLogger.Printf("ExtractEncryptedArchive", "main", err, "failed to delete temporary file")
 		}
 	}()
 	password = []byte(strings.TrimSpace(string(password)))
 	fmt.Println("Result is (nil means success): ", encarchive.Extract(archivePath, tmpFile.Name(), destDir, password))
 }
 
-// CLIArchive reads password from standard input and uses it to encrypt and archive the directory.
-func CLIArchive(srcDir, archivePath string) {
+// MakeEncryptedArchive reads password from standard input and uses it to encrypt and archive the directory.
+func MakeEncryptedArchive(srcDir, archivePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter a password to encrypt the archive:")
 	password, _, err := reader.ReadLine()
 	if err != nil {
-		misc.DefaultLogger.Fatalf("CLIExtract", "main", err, "failed to read password")
+		misc.DefaultLogger.Fatalf("ExtractEncryptedArchive", "main", err, "failed to read password")
 		return
 	}
 	password = []byte(strings.TrimSpace(string(password)))
 	fmt.Println("Result is (nil means success): ", encarchive.Archive(srcDir, archivePath, password))
 }
 
-// CLIStartWebServer invokes the specialised launcher feature.
-func CLIStartWebServer(port int, url, archivePath string) {
+// StartPasswordWebServer starts the password input web server.
+func StartPasswordWebServer(port int, url, archivePath string) {
 	ws := passwdserver.WebServer{
 		Port:            port,
 		URL:             url,
@@ -155,24 +74,24 @@ func CLIStartWebServer(port int, url, archivePath string) {
 	time.Sleep(5 * 365 * 24 * time.Hour)
 }
 
-func main() {
-	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
-	if os.Geteuid() == 0 {
-		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
-			logger.Fatalf("main", "", err, "failed to lock memory")
-			return
-		}
-		logger.Warningf("main", "", nil, "program has been locked into memory for safety reasons")
-	} else {
-		logger.Warningf("main", "", nil, "program is not running as root (UID 0) hence memory is not locked, your private information will leak into swap.")
-	}
+/*
+main runs one of several modes, as dictated by input command line flags:
 
+- Utilities for maintaining encrypted data archive (-slu extract|archive)
+
+- (Optional) encrypted data launcher (-sl) will eventually start the supervisor (-supervisor=true)
+
+- Supervisor (-supervisor=true) is responsible for forking main process to launch daemons:
+
+- The forked main process runs with flag -supervisor=false
+*/
+func main() {
 	// Process command line flags
-	var frontend string
+	var daemonList string
 	var disableConflicts, tuneSystem, debug, swapOff bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&frontend, "frontend", "", "(Mandatory) comma-separated frontend services to start (dnsd, httpd, insecurehttpd, mailcmd, maintenance, plainsocket, smtpd, sockd, telegram)")
+	flag.StringVar(&daemonList, "daemons", "", "(Mandatory) comma-separated daemons to start (dnsd, httpd, insecurehttpd, maintenance, plainsocket, smtpd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&swapOff, "swapoff", false, "(Optional) turn off all swap files and partitions for improved system security")
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
@@ -192,38 +111,43 @@ func main() {
 	flag.StringVar(&slu, "slu", "", "(Optional) special-launch: utility name (extract, archive)")
 	flag.StringVar(&sluDir, "sludir", "", "(Optional) special-launch: source/target directory")
 	flag.StringVar(&sluFile, "slufile", "", "(Optional) special-launch: source/target archive file")
+	// Internal supervisor flag
+	var isSupervisor bool = true
+	flag.BoolVar(&isSupervisor, "supervisor", true, "(Internal use only) enter supervisor mode")
+
 	flag.Parse()
 
-	// Dump goroutine stacktraces upon receiving interrupt signal
-	if debug {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
-		go func() {
-			for range c {
-				pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
-			}
-		}()
-	}
-
-	// The "special-launch" launcher runs prior to the daemons
-	if sl {
-		CLIStartWebServer(slPort, slURL, slArchivePath)
-		return
-	}
-	// The launcher utilities do not run daemons at all
+	// ========================================================================
+	// Utility mode - encrypted data launcher utilities do not run daemons.
+	// ========================================================================
 	if slu != "" {
 		switch slu {
 		case "extract":
-			CLIExtract(sluDir, sluFile)
+			ExtractEncryptedArchive(sluDir, sluFile)
 		case "archive":
-			CLIArchive(sluDir, sluFile)
+			MakeEncryptedArchive(sluDir, sluFile)
 		default:
 			logger.Fatalf("main", "", nil, "please provide mode of operation (extract|archive) for parameter slu")
 		}
 		return
 	}
 
-	// Deserialise JSON configuration file
+	// ========================================================================
+	// Encrypted data launcher mode - launch the password input web server.
+	// ========================================================================
+	if sl {
+		StartPasswordWebServer(slPort, slURL, slArchivePath)
+		return
+	}
+	/*
+		Encrypted data launcher (if any) has finished its task to decrypt program data, now it is time to launch supervisor
+		which then launches daemons.
+	*/
+
+	// ========================================================================
+	// Prepare configuration for supervisor mode or daemon mode.
+	// ========================================================================
+	// Parse configuration JSON file
 	if misc.ConfigFilePath == "" {
 		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
 		return
@@ -233,7 +157,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("main", "", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
 	}
-	var config Config
+	var config launcher.Config
 	configBytes, err := ioutil.ReadFile(misc.ConfigFilePath)
 	if err != nil {
 		logger.Fatalf("main", "", err, "failed to read config file \"%s\"", misc.ConfigFilePath)
@@ -243,33 +167,49 @@ func main() {
 		logger.Fatalf("main", "", err, "failed to deserialise config file \"%s\"", misc.ConfigFilePath)
 		return
 	}
-
 	// Figure out what daemons are to be started
-	frontendList := regexp.MustCompile(`\w+`)
-	frontends := frontendList.FindAllString(frontend, -1)
-	if frontends == nil || len(frontends) == 0 {
-		logger.Fatalf("main", "", nil, "please provide comma-separated list of frontend services to start (-frontend).")
+	daemonNames := regexp.MustCompile(`\w+`).FindAllString(daemonList, -1)
+	if daemonNames == nil || len(daemonNames) == 0 {
+		logger.Fatalf("main", "", nil, "please provide comma-separated list of daemon services to start (-daemons).")
+		return
+	}
+	// Make sure all daemon names are valid
+	for _, daemonName := range daemonNames {
+		var found bool
+		for _, goodName := range launcher.AllDaemons {
+			if daemonName == goodName {
+				found = true
+			}
+		}
+		if !found {
+			logger.Fatalf("main", "", err, "unknown daemon name \"%s\"", daemonName)
+		}
+	}
+
+	// ========================================================================
+	// Supervisor mode - fork a main process to run daemons.
+	// This mode flag is turned on by default so that when laitos daemons are
+	// protected by supervisor by default.
+	// ========================================================================
+	if isSupervisor {
+		supervisor := &launcher.Supervisor{CLIArgs: os.Args, Config: config, DaemonNames: daemonNames}
+		supervisor.Start()
 		return
 	}
 
-	/*
-		To help daemons running better, do the following (some of which are optional)
-		- Periodically re-seed pseudo random generator.
-		- Configure gomaxprocs.
-		- Stop system daemons that may run into conflict with laitos daemons.
-		- Turn off all swap files and partitions for improved security.
-		- Tune system kernel parameters.
-	*/
-	ReseedPseudoRand()
-	go func() {
-		time.Sleep(2 * time.Minute)
-		ReseedPseudoRand()
-	}()
+	// ========================================================================
+	// Daemon mode - launch all daemons at once.
+	// This is the mode launched by supervisor in a forked process.
+	// ========================================================================
+	// Prepare some environmental changes
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
 		logger.Warningf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
 	} else {
 		logger.Warningf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
+	}
+	if debug {
+		DumpGoroutinesOnInterrupt()
 	}
 	if disableConflicts {
 		DisableConflictingDaemons()
@@ -280,46 +220,48 @@ func main() {
 	if tuneSystem {
 		logger.Warningf("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
 	}
-
-	// Start each daemon
-	for _, frontendName := range frontends {
+	ReseedPseudoRand()
+	daemonErrs := make(chan error, len(daemonNames))
+	for _, daemonName := range daemonNames {
 		// Daemons are started asynchronously, the order of startup does not matter.
-		switch frontendName {
-		case "dnsd":
-			go common.NewSupervisor(config.GetDNSD(), DaemonRestartIntervalSec, frontendName).Start()
-		case "httpd":
-			go common.NewSupervisor(config.GetHTTPD(), DaemonRestartIntervalSec, frontendName).Start()
-		case "insecurehttpd":
-			go common.NewSupervisor(config.GetInsecureHTTPD(), DaemonRestartIntervalSec, frontendName).Start()
-		case "mailcmd":
-			mailContent, err := ioutil.ReadAll(os.Stdin)
-			if err != nil {
-				logger.Fatalf("main", "", err, "failed to read mail from STDIN")
-				return
-			}
-			if err := config.GetMailCommandRunner().Process(mailContent); err != nil {
-				logger.Fatalf("main", "", err, "failed to process mail")
-			}
-			// Mail processor for standard input is not a daemon
-			return
-		case "maintenance":
-			go common.NewSupervisor(config.GetMaintenance(), DaemonRestartIntervalSec, frontendName).Start()
-		case "plainsocket":
-			go common.NewSupervisor(config.GetPlainSocketDaemon(), DaemonRestartIntervalSec, frontendName).Start()
-		case "smtpd":
-			go common.NewSupervisor(config.GetMailDaemon(), DaemonRestartIntervalSec, frontendName).Start()
-		case "sockd":
-			go common.NewSupervisor(config.GetSockDaemon(), DaemonRestartIntervalSec, frontendName).Start()
-		case "telegram":
-			go common.NewSupervisor(config.GetTelegramBot(), DaemonRestartIntervalSec, frontendName).Start()
-		default:
-			logger.Fatalf("main", "", err, "unknown frontend name \"%s\"", frontendName)
+		switch daemonName {
+		case launcher.DNSDName:
+			go func() {
+				daemonErrs <- config.GetDNSD().StartAndBlock()
+			}()
+		case launcher.HTTPDName:
+			go func() {
+				daemonErrs <- config.GetHTTPD().StartAndBlock()
+			}()
+		case launcher.InsecureHTTPDName:
+			go func() {
+				daemonErrs <- config.GetInsecureHTTPD().StartAndBlock()
+			}()
+		case launcher.MaintenanceName:
+			go func() {
+				daemonErrs <- config.GetMaintenance().StartAndBlock()
+			}()
+		case launcher.PlainSocketName:
+			go func() {
+				daemonErrs <- config.GetPlainSocketDaemon().StartAndBlock()
+			}()
+		case launcher.SMTPDName:
+			go func() {
+				daemonErrs <- config.GetMailDaemon().StartAndBlock()
+			}()
+		case launcher.SOCKDName:
+			go func() {
+				daemonErrs <- config.GetSockDaemon().StartAndBlock()
+			}()
+		case launcher.TelegramName:
+			go func() {
+				daemonErrs <- config.GetTelegramBot().StartAndBlock()
+			}()
 		}
 	}
-	// Daemons are not really supposed to quit
-	for {
-		// In rare circumstance, if all daemons fail to start without panicking, laitos will just hang right here.
-		time.Sleep(time.Hour)
-		logger.Printf("main", "", nil, "laitos has been up for %s", time.Now().Sub(misc.StartupTime))
+	for i := 0; i < len(daemonNames); i++ {
+		err := <-daemonErrs
+		logger.Warningf("main", "", err, "a daemon has encountered and failed to start")
 	}
+	logger.Fatalf("main", "", nil, "all daemons have failed to start, laitos will now exit.")
 }

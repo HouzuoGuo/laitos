@@ -64,7 +64,7 @@ Here is an example configuration that also checks the port status of mail(25), D
 ## Run
 Tell laitos to run periodic system maintenance in the command line:
 
-    sudo ./laitos -config <CONFIG FILE> -frontend ...,maintenance,...
+    sudo ./laitos -config <CONFIG FILE> -daemons ...,maintenance,...
 
 ## Usage
 System maintenance is run automatically 10 minutes after laitos daemon starts up, and then at regular interval

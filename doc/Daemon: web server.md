@@ -127,12 +127,12 @@ Here is an example setup that hosts a home page and media files:
 ## Run
 Tell laitos to run web server in the command line:
 
-    sudo ./laitos -config <CONFIG FILE> -frontend ...,httpd,...
+    sudo ./laitos -config <CONFIG FILE> -daemonssimple ...,httpd,...
 
 If TLS is enabled on the web server and the site should also be accessible via plain HTTP, then tell laitos to start one
 more server:
 
-    sudo ./laitos -config <CONFIG FILE> -frontend ...,httpd,insecurehttpd,...
+    sudo ./laitos -config <CONFIG FILE> -daemons ...,httpd,insecurehttpd,...
 
 The plain HTTP server listens on hard-coded port 80, it shares configuration with the TLS-enabled web daemon, which
 means it serves all HTML files, file directories, and special handles.

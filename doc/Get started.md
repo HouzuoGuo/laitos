@@ -26,7 +26,7 @@ Keep in mind - a component without configuration remains inactive.
 ## Start program
 Assume that latios software is in current directory, run the following command:
 
-    sudo ./laitos -config <CONFIG FILE> -frontend <LIST>
+    sudo ./laitos -config <CONFIG FILE> -daemons <LIST>
 
 Note that:
 - Web, mail, and many other daemons usually bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html),
@@ -36,7 +36,6 @@ Note that:
   * `dnsd` - Ad-blocking DNS server
   * `httpd` - Web server secured by TLS certificate
   * `insecurehttpd` - Web server without TLS encryption
-  * `mailcmd` - Text mail processor (note the [special usage](https://github.com/HouzuoGuo/laitos/wiki/STDIN-mail-processor))
   * `maintenance` - System maintenance and health reports
   * `plainsocket` - Access to toolbox features via TCP/UDP in plain text
   * `smtpd` - Mail server

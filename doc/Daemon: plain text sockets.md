@@ -87,7 +87,7 @@ Here is an example setup of mail server with command processor:
 ## Run
 Tell laitos to run chat bot daemon in the command line:
 
-    sudo ./laitos -config <CONFIG FILE> -frontend ...,plainsocket,...
+    sudo ./laitos -config <CONFIG FILE> -daemons ...,plainsocket,...
 
 ## Usage
 Use any TCP/UDP connection tool such as `netcat` (also called `nc`), `telnet` (TCP only), or `HyperTerminal` (TCP only)

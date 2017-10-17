@@ -175,7 +175,7 @@ Here is an example setup of mail server with command processor:
 ## Run
 Tell laitos to run mail daemon in the command line:
 
-    sudo ./laitos -config <CONFIG FILE> -frontend ...,smtpd,...
+    sudo ./laitos -config <CONFIG FILE> -daemons ...,smtpd,...
 
 ## Deployment
 At your DNS hosting provider, create or modify a DNS "MX" entry for each of `MyDomains`. The entry must look like:

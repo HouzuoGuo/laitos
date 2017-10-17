@@ -1,5 +1,5 @@
 {
-  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config simple-config.jsontxt -frontend dnsd,httpd,maintenance,plainsocket,smtpd,sockd,telegram",
+  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config simple-config.jsontxt -daemons dnsd,httpd,maintenance,plainsocket,smtpd,sockd,telegram",
   "DNSDaemon": {
     "Address": "0.0.0.0",
     "AllowQueryIPPrefixes": [
