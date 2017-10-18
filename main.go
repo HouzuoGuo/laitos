@@ -192,7 +192,7 @@ func main() {
 	// protected by supervisor by default.
 	// ========================================================================
 	if isSupervisor {
-		supervisor := &launcher.Supervisor{CLIFlags: os.Args, Config: config, DaemonNames: daemonNames}
+		supervisor := &launcher.Supervisor{CLIFlags: os.Args[1:], Config: config, DaemonNames: daemonNames}
 		supervisor.Start()
 		return
 	}

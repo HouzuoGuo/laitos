@@ -115,7 +115,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Success! Do not unlock handlerMutex anymore because there is no point in visiting this handler again.
-		w.Write([]byte(fmt.Sprintf(PageHTML, "success")))
+		w.Write([]byte(fmt.Sprintf(PageHTML, "", "success")))
 		// A short moment later, the function will launch laitos supervisor along with daemons.
 		go ws.LaunchMainProgram()
 		return
@@ -175,13 +175,21 @@ If the forked main program exits normally, the function will return.
 */
 func (ws *WebServer) LaunchMainProgram() {
 	var fatalMsg string
-	// Replicate the CLI flags that were used to launch this password web server.
-	flags := make([]string, len(os.Args))
-	copy(os.Args, flags)
+	var err error
+	var executablePath string
+	// Replicate the CLI flagsNoExec that were used to launch this password web server.
+	flagsNoExec := make([]string, len(os.Args))
+	copy(flagsNoExec, os.Args[1:])
 	var cmd *exec.Cmd
 	// Web server will take several seconds to finish with pending IO before shutting down
 	if err := ws.Shutdown(); err != nil {
 		fatalMsg = fmt.Sprintf("failed to shut down web server - %v", err)
+		goto fatalExit
+	}
+	// Determine path to my program
+	executablePath, err = os.Executable()
+	if err != nil {
+		fatalMsg = fmt.Sprintf("failed to determine path to this program executable - %v", err)
 		goto fatalExit
 	}
 	// Switch to the ramdisk directory full of decrypted data for launching supervisor and daemons
@@ -189,12 +197,13 @@ func (ws *WebServer) LaunchMainProgram() {
 		fatalMsg = fmt.Sprintf("failed to cd to %s - %v", ws.ramdiskDir, err)
 		goto fatalExit
 	}
-	// Remove password web server flags from CLI flags
-	flags = launcher.RemoveFromFlags(func(s string) bool {
+	// Remove password web server flagsNoExec from CLI flagsNoExec
+	fmt.Println("Flags were", flagsNoExec)
+	flagsNoExec = launcher.RemoveFromFlags(func(s string) bool {
 		return strings.HasPrefix(s, "-"+CLIFlag)
-	}, flags)
-	ws.logger.Printf("LaunchMainProgram", "", nil, "about to launch with CLI flags %v", flags)
-	cmd = exec.Command(os.Args[0], flags...)
+	}, flagsNoExec)
+	ws.logger.Printf("LaunchMainProgram", "", nil, "about to launch with CLI flagsNoExec %v", flagsNoExec)
+	cmd = exec.Command(executablePath, flagsNoExec...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

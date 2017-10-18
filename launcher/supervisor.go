@@ -39,16 +39,14 @@ var AllDaemons = []string{DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceNam
 // ShedOrder is the sequence of daemon names to be taken offline one after another in case of program crash.
 var ShedOrder = []string{MaintenanceName, DNSDName, SOCKDName, SMTPDName, HTTPDName, InsecureHTTPDName, PlainSocketName, TelegramName}
 
-// RemoveFromFlags removes CLI flag from input flags base on a condition function (true to remove).
+/*
+RemoveFromFlags removes CLI flag from input flags base on a condition function (true to remove). The input flags must
+not contain the leading executable path.
+*/
 func RemoveFromFlags(condition func(string) bool, flags []string) (ret []string) {
 	ret = make([]string, 0, len(flags))
 	var connectNext, deleted bool
-	for i, str := range flags {
-		// The first CLI flag is the executable path itself, which should never be removed.
-		if i < 1 {
-			ret = append(ret, str)
-			continue
-		}
+	for _, str := range flags {
 		if strings.HasPrefix(str, "-") {
 			connectNext = true
 			if condition(str) {
@@ -78,7 +76,7 @@ Supervisor manages the lifecycle of laitos main program that runs daemons. In ca
 relaunches the main program using reduced number of daemons, thus ensuring maximum availability of healthy daemons.
 */
 type Supervisor struct {
-	// CLIFlags are the thorough list of original program flags to launch laitos. This includes the leading executable path.
+	// CLIFlags are the thorough list of original program flags to launch laitos. This must not include the leading executable path.
 	CLIFlags []string
 	// Config is laitos configuration deserialised from user's config JSON file.
 	Config Config
@@ -90,8 +88,8 @@ type Supervisor struct {
 	logger misc.Logger
 }
 
-// Initialise prepares internal states. This function must be called prior to starting the supervisor.
-func (sup *Supervisor) Initialise() {
+// initialise prepares internal states. This function is called at beginning of Start function.
+func (sup *Supervisor) initialise() {
 	sup.logger = misc.Logger{
 		ComponentName: "Supervisor",
 		ComponentID:   strconv.Itoa(os.Getpid()),
@@ -137,7 +135,7 @@ func (sup *Supervisor) notifyFailure(cliFlags []string, launchErr error) {
 	publicIP := inet.GetPublicIP()
 	usedMem, totalMem := misc.GetSystemMemoryUsageKB()
 
-	subject := inet.OutgoingMailSubjectKeyword + "supervisor has detected a failure on " + publicIP
+	subject := inet.OutgoingMailSubjectKeyword + "-supervisor has detected a failure on " + publicIP
 	body := fmt.Sprintf(`
 Failure: %v
 CLI flags: %v
@@ -166,14 +164,20 @@ will restart the main program with a reduced set of features and send a notifica
 The function blocks caller and runs forever.
 */
 func (sup *Supervisor) Start() {
+	sup.initialise()
 	paramChoice := 0
 	lastAttemptTime := time.Now().Unix()
+	executablePath, err := os.Executable()
+	if err != nil {
+		sup.logger.Fatalf("Start", "", err, "failed to determine path to this program executable")
+		return
+	}
 
 	for {
 		cliFlags, _ := sup.GetLaunchParameters(paramChoice)
 		sup.logger.Printf("Start", strconv.Itoa(paramChoice), nil, "attempting to start main program with CLI flags - %v", cliFlags)
 
-		mainProgram := exec.Command(os.Args[0], cliFlags...)
+		mainProgram := exec.Command(executablePath, cliFlags...)
 		mainProgram.Stdin = os.Stdin
 		mainProgram.Stdout = os.Stdout
 		mainProgram.Stderr = os.Stderr
