@@ -90,8 +90,8 @@ func main() {
 	var daemonList string
 	var disableConflicts, tuneSystem, debug, swapOff bool
 	var gomaxprocs int
-	flag.StringVar(&misc.ConfigFilePath, "config", "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&daemonList, "daemons", "", "(Mandatory) comma-separated daemons to start (dnsd, httpd, insecurehttpd, maintenance, plainsocket, smtpd, telegram)")
+	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
+	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (dnsd, httpd, insecurehttpd, maintenance, plainsocket, smtpd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&swapOff, "swapoff", false, "(Optional) turn off all swap files and partitions for improved system security")
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
@@ -102,7 +102,7 @@ func main() {
 	var slPort int
 	var slArchivePath string
 	var slURL string
-	flag.BoolVar(&sl, passwdserver.CLIArgument, false, "(Optional) trigger \"special-launch\"")
+	flag.BoolVar(&sl, passwdserver.CLIFlag, false, "(Optional) trigger \"special-launch\"")
 	flag.IntVar(&slPort, "slport", 80, "(Optional) special-launch: port number")
 	flag.StringVar(&slArchivePath, "slarchive", "", "(Optional) special-launch: archive path")
 	flag.StringVar(&slURL, "slurl", "", "(Optional) special-launch: url that must include prefix slash")
@@ -113,7 +113,7 @@ func main() {
 	flag.StringVar(&sluFile, "slufile", "", "(Optional) special-launch: source/target archive file")
 	// Internal supervisor flag
 	var isSupervisor bool = true
-	flag.BoolVar(&isSupervisor, "supervisor", true, "(Internal use only) enter supervisor mode")
+	flag.BoolVar(&isSupervisor, launcher.SupervisorFlagName, true, "(Internal use only) enter supervisor mode")
 
 	flag.Parse()
 
@@ -192,7 +192,7 @@ func main() {
 	// protected by supervisor by default.
 	// ========================================================================
 	if isSupervisor {
-		supervisor := &launcher.Supervisor{CLIArgs: os.Args, Config: config, DaemonNames: daemonNames}
+		supervisor := &launcher.Supervisor{CLIFlags: os.Args, Config: config, DaemonNames: daemonNames}
 		supervisor.Start()
 		return
 	}

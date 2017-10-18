@@ -3,6 +3,7 @@ package passwdserver
 import (
 	"context"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/launcher/encarchive"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
@@ -24,7 +25,7 @@ const (
 		before shutting down the password launcher's web server.
 	*/
 	ShutdownTimeout = 10 * time.Second
-	CLIArgument     = `sl` // CLIArgument as a CLI parameter triggers this special launching mechanism.
+	CLIFlag         = `sl` // CLIFlag is the command line flag that enables this password web server to launch.
 
 	PageHTML = `<!doctype html>
 <html>
@@ -116,7 +117,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		// Success! Do not unlock handlerMutex anymore because there is no point in visiting this handler again.
 		w.Write([]byte(fmt.Sprintf(PageHTML, "success")))
 		// A short moment later, the function will launch laitos supervisor along with daemons.
-		go ws.LaunchSupervisorUsingDecryptedData()
+		go ws.LaunchMainProgram()
 		return
 	default:
 		ws.logger.Printf("pageHandler", r.RemoteAddr, nil, "just visiting")
@@ -167,21 +168,20 @@ func (ws *WebServer) Shutdown() error {
 }
 
 /*
-LaunchSupervisorUsingDecryptedData shuts down the web server, and forks a process of laitos program itself to launch
-supervisor along with daemons using decrypted data from ramdisk. If errors occure, the program will exit abnormally.
+LaunchMainProgram shuts down the web server, and forks a process of laitos program itself to launch main program using
+decrypted data from ramdisk.
+If an error occurs, this program will exit abnormally and the function will not return.
+If the forked main program exits normally, the function will return.
 */
-func (ws *WebServer) LaunchSupervisorUsingDecryptedData() {
+func (ws *WebServer) LaunchMainProgram() {
 	var fatalMsg string
-	execPath, err := os.Executable()
-	args := make([]string, 0, 8)
+	// Replicate the CLI flags that were used to launch this password web server.
+	flags := make([]string, len(os.Args))
+	copy(os.Args, flags)
 	var cmd *exec.Cmd
 	// Web server will take several seconds to finish with pending IO before shutting down
-	if err = ws.Shutdown(); err != nil {
-		fatalMsg = fmt.Sprintf("failed to determine executable path - %v", err)
-		goto fatalExit
-	}
-	if err != nil {
-		fatalMsg = fmt.Sprintf("failed to determine executable path - %v", err)
+	if err := ws.Shutdown(); err != nil {
+		fatalMsg = fmt.Sprintf("failed to shut down web server - %v", err)
 		goto fatalExit
 	}
 	// Switch to the ramdisk directory full of decrypted data for launching supervisor and daemons
@@ -189,30 +189,28 @@ func (ws *WebServer) LaunchSupervisorUsingDecryptedData() {
 		fatalMsg = fmt.Sprintf("failed to cd to %s - %v", ws.ramdiskDir, err)
 		goto fatalExit
 	}
-	// Replicate the CLI arguments that were used to launch this launcher
-	for i, arg := range os.Args {
-		if i != 0 && arg != "-"+CLIArgument {
-			args = append(args, arg)
-		}
-	}
-	ws.logger.Printf("LaunchSupervisorUsingDecryptedData", "", nil, "about to relaunch myself with args %v", args)
-	cmd = exec.Command(execPath, args...)
+	// Remove password web server flags from CLI flags
+	flags = launcher.RemoveFromFlags(func(s string) bool {
+		return strings.HasPrefix(s, "-"+CLIFlag)
+	}, flags)
+	ws.logger.Printf("LaunchMainProgram", "", nil, "about to launch with CLI flags %v", flags)
+	cmd = exec.Command(os.Args[0], flags...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		fatalMsg = fmt.Sprintf("failed to launch self - %v", err)
+		fatalMsg = fmt.Sprintf("failed to launch main program - %v", err)
 		goto fatalExit
 	}
 	if err := cmd.Wait(); err != nil {
-		fatalMsg = fmt.Sprintf("supervisor has abnormally exited due to - %v", err)
+		fatalMsg = fmt.Sprintf("main program has abnormally exited due to - %v", err)
 		goto fatalExit
 	}
-	ws.logger.Printf("LaunchSupervisorUsingDecryptedData", "", nil, "supervisor has exited cleanly")
+	ws.logger.Printf("LaunchMainProgram", "", nil, "main program has exited cleanly")
 	// In both normal and abnormal paths, the ramdisk must be destroyed.
 	encarchive.DestroyRamdisk(ws.ramdiskDir)
 	return
 fatalExit:
 	encarchive.DestroyRamdisk(ws.ramdiskDir)
-	ws.logger.Fatalf("LaunchSupervisorUsingDecryptedData", "", nil, fatalMsg)
+	ws.logger.Fatalf("LaunchMainProgram", "", nil, fatalMsg)
 }

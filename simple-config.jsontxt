@@ -249,6 +249,7 @@
     "TCPPort": 70,
     "UDPPort": 70
   },
+  "SupervisorNotificationRecipients": ["i@example.net"],
   "TelegramBot": {
     "AuthorizationToken": "dummy token",
     "RateLimit": 5

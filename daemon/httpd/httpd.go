@@ -375,6 +375,34 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>You are rate limited.</Say><Hangup/>`) {
 		t.Fatal(err, string(resp.Body))
 	}
+	// Wait for phone number rate limit to expire for SMS, call, and DTMF command, then redo the tests
+	time.Sleep((api.TwilioPhoneNumberRateLimitIntervalSec + 1) * time.Second)
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		Body: strings.NewReader(url.Values{
+			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
+			"From": {"sms number"},
+		}.Encode()),
+	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioSMSHook{}))
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<![CDATA[01234567890123456789012345678901234]]>`) {
+		t.Fatal(err, resp)
+	}
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		Body:   strings.NewReader(url.Values{"From": {"call number"}}.Encode()),
+	}, addr+"/call_greeting")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
+		t.Fatal(err, string(resp.Body))
+	}
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
+		Method: http.MethodPost,
+		Header: basicAuth,
+		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>`) {
+		t.Fatal(err, string(resp.Body))
+	}
 }
 
 // Run unit test on HTTP daemon. See TestHTTPD_StartAndBlock for daemon setup.

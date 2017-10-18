@@ -197,6 +197,7 @@ func TestConfig(t *testing.T) {
     "TCPPort": 6891,
     "UDPPort": 9122
   },
+  "SupervisorNotificationRecipients": ["howard@localhost"],
   "TelegramBot": {
     "AuthorizationToken": "intentionally-bad-token",
     "RateLimit": 10

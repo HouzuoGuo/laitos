@@ -95,6 +95,8 @@ type Config struct {
 	TelegramBot     telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
 	TelegramFilters StandardFilters    `json:"TelegramFilters"` // Telegram bot filter configuration
 
+	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
+
 	Logger misc.Logger `json:"-"` // Logger handles log output from configuration serialisation and initialisation routines.
 }
 
