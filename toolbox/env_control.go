@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
+	"os"
 	"runtime"
 	"runtime/pprof"
 	"strings"
@@ -72,13 +73,15 @@ Sys/prog uptime: %s / %s
 Total/used/prog mem: %d / %d / %d MB
 Sys load: %s
 Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
+Program flags: %v
 `,
 		inet.GetPublicIP(),
 		time.Now().String(),
 		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Now().Sub(misc.StartupTime).String(),
 		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
 		misc.GetSystemLoad(),
-		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine())
+		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
+		os.Args[1:])
 }
 
 // Return latest log entry of all kinds in a multi-line text, one log entry per line. Latest log entry comes first.

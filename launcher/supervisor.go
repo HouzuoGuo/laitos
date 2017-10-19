@@ -199,6 +199,7 @@ func (sup *Supervisor) Start() {
 			time.Sleep(StartAttemptIntervalSec * time.Second)
 			continue
 		}
+		// laitos main program is not supposed to exit, therefore, restart it even if it exits normally.
 	}
 }
 
