@@ -345,8 +345,12 @@ func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
 	if err != nil {
 		return &Result{Error: err}
 	}
+	if skip >= totalNumber {
+		return &Result{Error: fmt.Errorf("IMAPAccounts.ListMails: skip must be less than %d", totalNumber)}
+	}
+	// If count is greater than total number, retrieve all of the mails.
 	if skip+count > totalNumber {
-		return &Result{Error: fmt.Errorf("IMAPAccounts.ListMails: skip+count should be less or equal to %d", totalNumber)}
+		count = totalNumber - skip
 	}
 	fromNum := totalNumber - count - skip + 1
 	toNum := totalNumber - skip
