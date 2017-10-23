@@ -69,7 +69,10 @@ func StartPasswordWebServer(port int, url, archivePath string) {
 		URL:             url,
 		ArchiveFilePath: archivePath,
 	}
-	ws.Start()
+	if err := ws.Start(); err != nil {
+		logger.Fatalf("StartPasswordWebServer", "main", err, "failed to start the web server")
+		return
+	}
 	// Wait almost indefinitely (~5 years) because this is the main routine of this CLI action
 	time.Sleep(5 * 365 * 24 * time.Hour)
 }
