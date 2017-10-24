@@ -105,10 +105,10 @@ Send mails to friends.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-Emails)
 
-### Make calls and send SMS
+### Making calls and send SMS
 Send text to friend's phone number, or call a friend to speak a short message.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-telephone-and-SMS)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-making-calls-and-send-SMS)
 
 ### Utility - two factor authentication code generator
 Generate two-factor authentication code for secure website login.

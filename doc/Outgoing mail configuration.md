@@ -11,7 +11,7 @@ However as an exception, the toolbox feature [sending Email](https://github.com/
 does not share the common configuration, instead it uses its own configuration made in the same configuration format.
 
 ## Configuration
-Construct the following object under JSON key `Mailer`, all properties are mandatory:
+Construct the following object under JSON key `MailClient`, all properties are mandatory:
 
 <table>
 <tr>
@@ -53,7 +53,7 @@ Here is an example for using [SendGrid](https://sendgrid.com/) to send outgoing 
 {
     ...
     
-    "Mailer": {
+    "MailClient": {
         "AuthPassword": "SG.aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz",
         "AuthUsername": "apikey",
         "MTAHost": "smtp.sendgrid.net",

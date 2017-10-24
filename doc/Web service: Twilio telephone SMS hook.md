@@ -4,7 +4,18 @@
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server), the web service is triggered
 by incoming calls and SMS from Twilio platform, and offers caller/sender access to all toolbox features.
 
-That means: using telephone, SMS, and satellite terminals you will have to personal Emails, Facebook, Twitter, and more!
+That means: using telephone, SMS, and satellite terminals, you will be able to access personal Emails, Facebook,
+Twitter, and much more!
+
+## Preparation
+1. Sign up for an account at [twilio.com](https://www.twilio.com) - an API platform that connects computer programs with
+   public switched telephone and mobile network. Sign up is free.
+2. Visit Twilio developer's console, then [purchase a phone number](https://www.twilio.com/console/phone-numbers/search).
+   Make sure the number can make calls and SMS - not all numbers come with these capabilities! A number costs between
+   2-10 USD/month to own, and each call/SMS costs extra.
+
+If you have or plan to use [toolbox feature for making calls and SMS](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-making-calls-and-send-SMS),
+feel free to share the Twilio account and phone number with the toolbox feature as well.
 
 ## Configuration
 Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
@@ -42,15 +53,9 @@ Here is an example:
 The service is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server#run).
 
 ## Usage
-1. Sign up for an account at [twilio.com](https://www.twilio.com) - an API platform that connects computer programs with
-   public switched telephone and mobile network. Sign up is free.
-2. Sign in and visit Twilio developer's console, then [purchase a phone number](https://www.twilio.com/console/phone-numbers/search).
-   Be aware that not all numbers available for purchase have the same capabilities, make sure the number to buy is
-   capable of exchanging SMS and phone calls according to your needs. A typical number costs between 2-10 USD/month to
-   own, and each call/SMS costs extra.
-3. Visit [phone numbers management](https://www.twilio.com/console/phone-numbers/incoming) and click on the freshly
+1. Visit [phone numbers management](https://www.twilio.com/console/phone-numbers/incoming) and click on the freshly
    purchased number to enter its configuration page.
-4. To let laitos handle telephone calls: enter the following configuration under "Voice & Fax" section:
+2. To let laitos handle telephone calls: enter the following configuration under "Voice & Fax" section:
 
        Accept incoming: Voice Calls
        Configure with:  Webhooks, or TwiML Bins or Functions
@@ -58,7 +63,7 @@ The service is hosted by web server, therefore remember to [run web server](http
 
    For an example, the laitos server address may be `https://my-laitos-server.com/very-secret-twilio-call-service`
 
-5. To let laitos handle SMS messages: enter the following configuration under "Messaging" section:
+3. To let laitos handle SMS messages: enter the following configuration under "Messaging" section:
 
        Configure With:     Webhooks, or TwiML Bins or Functions
        A message comes in: Webhook, HTTP POST, and enter laitos server address `TwilioSMSEndpoint`
@@ -107,6 +112,8 @@ Regarding laitos configuration:
   if laitos sends an exceedingly large SMS response, Twilio will break apart the response into multiple SMS segments,
   and charge you very high fees for sending all segments! Also, consider turning on all compression routines in
   `LintText` to further reduce cost.
+- To prevent spam, laitos limits number of incoming calls to one call every 5 seconds per caller, and limits SMS
+  messages to one SMS every 5 seconds per sender.
 
 Regarding Twilio configuration:
 - Usage of HTTPS is mandatory in web hook, your laitos web server must be serving HTTPS traffic using a valid TLS

@@ -76,4 +76,4 @@ Use any capable laitos daemon to run commands:
 - Read latest tweets from home time-line: `.tg skip count`, where `skip` is the number of latest tweets to discard, and
   `count` is the number of tweets to read after discarding.
 
-Be aware: Twitter will only retrieve maximum of 200 latest tweets.
+Be aware: Twitter will only allow retrieving up to 200 latest tweets, that means `skip + count` may not exceed 200.

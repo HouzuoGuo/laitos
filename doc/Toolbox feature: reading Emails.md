@@ -3,7 +3,7 @@
 ## Introduction
 Via any of enabled laitos daemons, you may list and read Emails via IMAP protocol.
 
-laitos enforces secure communication with your Email accounts via TLS. 
+laitos uses IMAP to communicate with your Email accounts, and it enforces usage of secure communication via TLS.
 
 ## Configuration
 Under JSON object `Features`, construct a JSON object called `IMAPAccounts` that has an object `Accounts`.
@@ -25,11 +25,6 @@ Give each of your accounts a nick name (such as "personal", "work"), then create
     <td>Port</td>
     <td>integer</td>
     <td>Port number of IMAP(TLS) service, it is usually 993.</td>
-</tr>
-<tr>
-    <td>IOTimeoutSec</td>
-    <td>integer</td>
-    <td>Timeout for IO operations in seconds. 30 is usually good enough.</td>
 </tr>
 <tr>
     <td>InsecureSkipVerify</td>
@@ -67,7 +62,6 @@ Here is an example:
                 "AuthPassword": "my-gmail-password",
                 "AuthUsername": "guohouzuo",
                 "Host": "imap.gmail.com",
-                "IOTimeoutSec": 30,
                 "InsecureSkipVerify": false,
                 "MailboxName": "INBOX",
                 "Port": 993
@@ -76,7 +70,6 @@ Here is an example:
                 "AuthPassword": "my-work-mail-password",
                 "AuthUsername": "hguo",
                 "Host": "gwmail.nue.novell.com",
-                "IOTimeoutSec": 30,
                 "InsecureSkipVerify": true,
                 "MailboxName": "INBOX",
                 "Port": 993
@@ -93,7 +86,17 @@ Here is an example:
 
 ## Usage
 Use any capable laitos daemon to run commands:
-- List latest Emails: `.il account-nick skip count`, where `account-nick` is the account nick name from configuration,
-  `skip` is the number of latest Emails to discard, and `count` is the number of Emails to list after discarding.
+- List latest Emails: `.il account-nick skip count`, where `account-nick` is the account nick name from configuration
+  (e.g. personal-mail), `skip` is the number of latest Emails to discard (can be 0), and `count` is the number of Emails
+  to list after discarding.
 - To read Email content: `.ir account-nick message-number`, where `account-nick` is the account nick name from
   configuration, `message-number` is the Email message number from email list response.
+
+## Tips
+- Popular Email services such as Gmail and Hotmail (Outlook) call the primary mail box `INBOX` (in upper case) for
+  incoming Emails.
+- Gmail has a mail box called `[Gmail]/All Mail` that corresponds to the mail box of all emails, which includes sent,
+  junk, and incoming mails.
+- The junk mail box of Hotmail (Outlook) is called `Junk` (in mixed case).
+- To discover more mail box names, sign in to your Email accounts via an Email client such as Mozilla Thunderbird and
+  inspect settings of each mail box.
