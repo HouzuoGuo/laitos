@@ -137,9 +137,9 @@ This feature is always available and does not require configuration.
 
 [Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-run-system-commands)
 
-### System operation - inspect environment
+### System operation - inspect and control server environment
 Retrieve server environment information such as IP address, memory usage, log entries, and more.
 
 This feature is always available and does not require configuration.
 
-[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-environment)
+[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-and-control-server-environment)
