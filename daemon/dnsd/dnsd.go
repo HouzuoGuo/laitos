@@ -55,8 +55,8 @@ type Daemon struct {
 	TCPListener  net.Listener `json:"-"`             // Once TCP daemon is started, this is its listener.
 
 	AllowQueryIPPrefixes []string    `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
-	allowQueryMutex      *sync.Mutex `json:"-"`                    // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
-	allowQueryLastUpdate int64       `json:"-"`                    // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
+	allowQueryMutex      *sync.Mutex // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
+	allowQueryLastUpdate int64       // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
 
 	PerIPLimit     int                 `json:"PerIPLimit"` // How many times in 10 seconds interval an IP may send DNS request
 	RateLimit      *misc.RateLimit     `json:"-"`          // Rate limit counter

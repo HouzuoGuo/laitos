@@ -21,8 +21,8 @@ var (
 // Browser offers remote control to phantomJS page.
 type Browser struct {
 	Renderers *browser.Instances `json:"Browsers"` // Instances configure and manage phantomJS processes.
-	renderer  *browser.Instance  `json:"-"`        // renderer is the one and only browser instance tied to this feature
-	mutex     *sync.Mutex        `json:"-"`        // mutex protects renderer from concurrent access.
+	renderer  *browser.Instance  // renderer is the one and only browser instance tied to this feature
+	mutex     *sync.Mutex        // mutex protects renderer from concurrent access.
 }
 
 func (bro *Browser) IsConfigured() bool {

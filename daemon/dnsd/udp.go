@@ -205,17 +205,17 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 			continue
 		}
 		if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
-			continue
 			clientConn.Close()
+			continue
 		}
 		if _, err := clientConn.Write(githubComUDPQuery); err != nil {
-			continue
 			clientConn.Close()
+			continue
 		}
 		respLen, err := clientConn.Read(packetBuf)
 		if err != nil {
-			continue
 			clientConn.Close()
+			continue
 		}
 		clientConn.Close()
 		if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) != -1 {

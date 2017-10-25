@@ -23,11 +23,11 @@ var (
 
 // Use Twitter API to interact with user's time-line.
 type Twitter struct {
-	AccessToken       string            `json:"AccessToken"`       // Twitter API access token ("Your Access Token - Access Token")
-	AccessTokenSecret string            `json:"AccessTokenSecret"` // Twitter API access token secret ("Your Access Token - Access Token Secret")
-	ConsumerKey       string            `json:"ConsumerKey"`       // Twitter API consumer key ("Application Settings - Consumer Key (API Key)")
-	ConsumerSecret    string            `json:"ConsumerSecret"`    // Twitter API consumer secret ("Application Settings - Consumer Secret (API Secret)")
-	reqSigner         *inet.OAuthHeader `json:"-"`
+	AccessToken       string `json:"AccessToken"`       // Twitter API access token ("Your Access Token - Access Token")
+	AccessTokenSecret string `json:"AccessTokenSecret"` // Twitter API access token secret ("Your Access Token - Access Token Secret")
+	ConsumerKey       string `json:"ConsumerKey"`       // Twitter API consumer key ("Application Settings - Consumer Key (API Key)")
+	ConsumerSecret    string `json:"ConsumerSecret"`    // Twitter API consumer secret ("Application Settings - Consumer Secret (API Secret)")
+	reqSigner         *inet.OAuthHeader
 }
 
 var TestTwitter = Twitter{} // API credentials are set by init_feature_test.go

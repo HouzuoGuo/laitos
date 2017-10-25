@@ -184,7 +184,8 @@ func (daemon *Daemon) StartAndBlock() error {
 
 // Stop HTTP daemon.
 func (daemon *Daemon) Stop() {
-	constraints, _ := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
+	constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
+	defer cancel()
 	if err := daemon.Server.Shutdown(constraints); err != nil {
 		daemon.Logger.Warningf("Stop", "", err, "failed to shutdown")
 	}

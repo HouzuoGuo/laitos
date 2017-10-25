@@ -34,8 +34,8 @@ type HandleMicrosoftBot struct {
 	ClientAppID     string `json:"ClientAppID"`     // ClientAppID is the bot's "app ID".
 	ClientAppSecret string `json:"ClientAppSecret"` // ClientAppSecret is the bot's application "password".
 
-	latestJwtMutex *sync.Mutex     `json:"-"` // latestJwtMutex protects latestJWT from concurrent access.
-	latestJWT      MicrosoftBotJwt `json:"-"` // latestJWT is the last retrieved JWT
+	latestJwtMutex *sync.Mutex     // latestJwtMutex protects latestJWT from concurrent access.
+	latestJWT      MicrosoftBotJwt // latestJWT is the last retrieved JWT
 }
 
 // RetrieveJWT asks Microsoft for a new JWT.

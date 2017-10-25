@@ -94,7 +94,6 @@ func (mbox *IMAPS) converse(command string) (status, body string, err error) {
 			allLines.WriteRune('\n')
 		}
 	}
-	return
 badIO:
 	// IO error irrecoverably corrupts TLS connection and IMAP sequence, therefore closing the connection here.
 	mbox.clientTLSWrapper.Close()

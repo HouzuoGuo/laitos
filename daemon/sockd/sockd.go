@@ -39,10 +39,10 @@ type Daemon struct {
 	UDPListener *net.UDPConn `json:"-"`
 	UDPTable    *UDPTable    `json:"-"`
 
-	Logger           misc.Logger     `json:"-"`
-	cipher           *Cipher         `json:"-"`
-	rateLimitTCP     *misc.RateLimit `json:"-"`
-	rateLimitUDP     *misc.RateLimit `json:"-"`
+	Logger           misc.Logger `json:"-"`
+	cipher           *Cipher
+	rateLimitTCP     *misc.RateLimit
+	rateLimitUDP     *misc.RateLimit
 	udpLoopIsRunning int32
 	stopUDP          chan bool
 }

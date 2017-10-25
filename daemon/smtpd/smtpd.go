@@ -258,7 +258,6 @@ func (daemon *Daemon) StartAndBlock() (err error) {
 		}
 		go daemon.HandleConnection(clientConn)
 	}
-	return nil
 }
 
 // If SMTP daemon has started (i.e. listener is set), close the listener so that its connection loop will terminate.

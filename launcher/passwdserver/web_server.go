@@ -163,7 +163,8 @@ func (ws *WebServer) Start() error {
 
 // Shutdown instructs web server to shut down within several seconds, consequently that Start() function will cease to block.
 func (ws *WebServer) Shutdown() error {
-	shutdownTimeout, _ := context.WithTimeout(context.Background(), ShutdownTimeout)
+	shutdownTimeout, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+	defer cancel()
 	return ws.server.Shutdown(shutdownTimeout)
 }
 
