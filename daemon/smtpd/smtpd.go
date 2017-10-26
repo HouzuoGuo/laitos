@@ -34,21 +34,20 @@ type Daemon struct {
 	MyDomains   []string `json:"MyDomains"`   // Only accept mails addressed to these domain names
 	ForwardTo   []string `json:"ForwardTo"`   // Forward received mails to these addresses
 
-	MyDomainsHash     map[string]struct{} `json:"-"` // "MyDomains" values in map keys
-	ForwardMailClient inet.MailClient     `json:"-"` // ForwardMailClient is used to forward arriving emails.
-	SMTPConfig        smtp.Config         `json:"-"` // SMTP processor configuration
+	CommandRunner     *mailcmd.CommandRunner `json:"-"` // Process feature commands from incoming mails
+	ForwardMailClient inet.MailClient        `json:"-"` // ForwardMailClient is used to forward arriving emails.
 
-	Listener       net.Listener    `json:"-"` // Once daemon is started, this is its TCP listener.
-	TLSCertificate tls.Certificate `json:"-"` // TLS certificate read from the certificate and key files
-
-	CommandRunner *mailcmd.CommandRunner `json:"-"` // Process feature commands from incoming mails
-	RateLimit     *misc.RateLimit        `json:"-"` // Rate limit counter per IP address
-	Logger        misc.Logger            `json:"-"` // Logger
+	myDomainsHash map[string]struct{} // "MyDomains" values in map keys
+	smtpConfig    smtp.Config         // SMTP processor configuration
+	listener      net.Listener        // Once daemon is started, this is its TCP listener.
+	tlsCert       tls.Certificate     // TLS certificate read from the certificate and key files
+	rateLimit     *misc.RateLimit     // Rate limit counter per IP address
+	logger        misc.Logger
 }
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.Logger = misc.Logger{ComponentName: "smtpd", ComponentID: fmt.Sprintf("%s:%d", daemon.Address, daemon.Port)}
+	daemon.logger = misc.Logger{ComponentName: "smtpd", ComponentID: fmt.Sprintf("%s:%d", daemon.Address, daemon.Port)}
 	if daemon.Address == "" {
 		return errors.New("smtpd.Initialise: listen address must not be empty")
 	}
@@ -69,12 +68,12 @@ func (daemon *Daemon) Initialise() error {
 			return errors.New("smtpd.Initialise: TLS certificate or key path is missing")
 		}
 		var err error
-		daemon.TLSCertificate, err = tls.LoadX509KeyPair(daemon.TLSCertPath, daemon.TLSKeyPath)
+		daemon.tlsCert, err = tls.LoadX509KeyPair(daemon.TLSCertPath, daemon.TLSKeyPath)
 		if err != nil {
 			return fmt.Errorf("smtpd.Initialise: failed to read TLS certificate - %v", err)
 		}
 	}
-	daemon.SMTPConfig = smtp.Config{
+	daemon.smtpConfig = smtp.Config{
 		Limits: &smtp.Limits{
 			MsgSize:   2 * 1024 * 1024,            // Accept mails up to 2 MB large
 			IOTimeout: IOTimeoutSec * time.Second, // IO timeout is a reasonable minute
@@ -84,14 +83,14 @@ func (daemon *Daemon) Initialise() error {
 		ServerName: strings.Join(daemon.MyDomains, " "),
 	}
 	if daemon.TLSCertPath != "" {
-		daemon.SMTPConfig.TLSConfig = &tls.Config{Certificates: []tls.Certificate{daemon.TLSCertificate}}
+		daemon.smtpConfig.TLSConfig = &tls.Config{Certificates: []tls.Certificate{daemon.tlsCert}}
 	}
-	daemon.RateLimit = &misc.RateLimit{
+	daemon.rateLimit = &misc.RateLimit{
 		MaxCount: daemon.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
-		Logger:   daemon.Logger,
+		Logger:   daemon.logger,
 	}
-	daemon.RateLimit.Initialise()
+	daemon.rateLimit.Initialise()
 	// Do not allow forward to this daemon itself
 	myPublicIP := inet.GetPublicIP()
 	if (strings.HasPrefix(daemon.ForwardMailClient.MTAHost, "127.") ||
@@ -101,9 +100,9 @@ func (daemon *Daemon) Initialise() error {
 		return errors.New("smtpd.Initialise: forward MTA must not be myself")
 	}
 	// Construct a hash of MyDomains addresses for fast lookup
-	daemon.MyDomainsHash = map[string]struct{}{}
+	daemon.myDomainsHash = map[string]struct{}{}
 	for _, recv := range daemon.MyDomains {
-		daemon.MyDomainsHash[recv] = struct{}{}
+		daemon.myDomainsHash[recv] = struct{}{}
 	}
 	// Make sure that none of the forward addresses carries the domain name of MyDomains
 	for _, fwd := range daemon.ForwardTo {
@@ -111,13 +110,13 @@ func (daemon *Daemon) Initialise() error {
 		if atSign == -1 {
 			return fmt.Errorf("smtpd.Initialise: forward address \"%s\" must have an at sign", fwd)
 		}
-		if _, exists := daemon.MyDomainsHash[fwd[atSign+1:]]; exists {
+		if _, exists := daemon.myDomainsHash[fwd[atSign+1:]]; exists {
 			return fmt.Errorf("smtpd.Initialise: forward address \"%s\" must not loop back to this mail server's domain", fwd)
 		}
 	}
 	// Initialise the optional toolbox command runner
 	if daemon.CommandRunner == nil || daemon.CommandRunner.Processor == nil || daemon.CommandRunner.Processor.IsEmpty() {
-		daemon.Logger.Printf("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
+		daemon.logger.Printf("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 	} else {
 		if err := daemon.CommandRunner.Initialise(); err != nil {
 			return fmt.Errorf("smtpd.Initialise: %+v", err)
@@ -141,14 +140,14 @@ func (daemon *Daemon) ProcessMail(fromAddr, mailBody string) {
 	bodyBytes := []byte(mailBody)
 	// Forward the mail
 	if err := daemon.ForwardMailClient.SendRaw(daemon.ForwardMailClient.MailFrom, bodyBytes, daemon.ForwardTo...); err == nil {
-		daemon.Logger.Printf("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
+		daemon.logger.Printf("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
 	} else {
-		daemon.Logger.Warningf("ProcessMail", fromAddr, err, "failed to forward email")
+		daemon.logger.Warningf("ProcessMail", fromAddr, err, "failed to forward email")
 	}
 	// Run feature command from mail body
 	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
 		if err := daemon.CommandRunner.Process(bodyBytes, daemon.ForwardTo...); err != nil {
-			daemon.Logger.Warningf("ProcessMail", fromAddr, err, "failed to process toolbox command from mail body")
+			daemon.logger.Warningf("ProcessMail", fromAddr, err, "failed to process toolbox command from mail body")
 		}
 	}
 }
@@ -169,8 +168,8 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	var fromAddr, mailBody string
 	toAddrs := make([]string, 0, 4)
 
-	smtpConn := smtp.NewConn(clientConn, daemon.SMTPConfig, nil)
-	rateLimitOK := daemon.RateLimit.Add(clientIP, true)
+	smtpConn := smtp.NewConn(clientConn, daemon.smtpConfig, nil)
+	rateLimitOK := daemon.rateLimit.Add(clientIP, true)
 	for {
 		// Politely reject the mail if rate limit is exceeded or too many conversations have taken place
 		if !rateLimitOK || numConversations >= MaxConversationLength {
@@ -205,7 +204,7 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 					smtpConn.Reject()
 					goto done
 				}
-				if domain, exists := daemon.MyDomainsHash[ev.Arg[atSign+1:]]; !exists {
+				if domain, exists := daemon.myDomainsHash[ev.Arg[atSign+1:]]; !exists {
 					finishReason = fmt.Sprintf("rejected domain \"%s\" that is not among my accepted domains", domain)
 					smtpConn.Reject()
 					goto done
@@ -223,12 +222,12 @@ done:
 		smtpConn.Reject()
 	}
 	if finishedNormally {
-		daemon.Logger.Printf("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %v", fromAddr, toAddrs)
+		daemon.logger.Printf("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %v", fromAddr, toAddrs)
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		daemon.ProcessMail(fromAddr, mailBody)
-		daemon.Logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s", finishReason, numConversations, lastConversation)
+		daemon.logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s", finishReason, numConversations, lastConversation)
 	} else {
-		daemon.Logger.Warningf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s", finishReason, numConversations, lastConversation)
+		daemon.logger.Warningf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s", finishReason, numConversations, lastConversation)
 	}
 }
 
@@ -242,14 +241,14 @@ func (daemon *Daemon) StartAndBlock() (err error) {
 		return fmt.Errorf("smtpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
 	defer listener.Close()
-	daemon.Listener = listener
+	daemon.listener = listener
 	// Process incoming TCP connections
-	daemon.Logger.Printf("StartAndBlock", "", nil, "going to listen for connections")
+	daemon.logger.Printf("StartAndBlock", "", nil, "going to listen for connections")
 	for {
 		if misc.EmergencyLockDown {
 			return misc.ErrEmergencyLockDown
 		}
-		clientConn, err := daemon.Listener.Accept()
+		clientConn, err := daemon.listener.Accept()
 		if err != nil {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
@@ -262,9 +261,9 @@ func (daemon *Daemon) StartAndBlock() (err error) {
 
 // If SMTP daemon has started (i.e. listener is set), close the listener so that its connection loop will terminate.
 func (daemon *Daemon) Stop() {
-	if listener := daemon.Listener; listener != nil {
+	if listener := daemon.listener; listener != nil {
 		if err := listener.Close(); err != nil {
-			daemon.Logger.Warningf("Stop", "", err, "failed to close listener")
+			daemon.logger.Warningf("Stop", "", err, "failed to close listener")
 		}
 	}
 }

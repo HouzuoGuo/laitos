@@ -24,20 +24,20 @@ func (daemon *Daemon) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net
 		// Set deadline for IO with forwarder
 		forwarderConn.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := forwarderConn.Write(query.QueryPacket); err != nil {
-			daemon.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to write to forwarder")
+			daemon.logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to write to forwarder")
 			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			continue
 		}
 		packetLength, err := forwarderConn.Read(packetBuf)
 		if err != nil {
-			daemon.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to read from forwarder")
+			daemon.logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to read from forwarder")
 			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			continue
 		}
 		// Set deadline for responding to my DNS client
 		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(packetBuf[:packetLength], query.ClientAddr); err != nil {
-			daemon.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to answer to client")
+			daemon.logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "failed to answer to client")
 			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			continue
 		}
@@ -55,7 +55,7 @@ func (daemon *Daemon) HandleBlackHoleAnswer(myQueue chan *UDPQuery) {
 		blackHoleAnswer := RespondWith0(query.QueryPacket)
 		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(blackHoleAnswer, query.ClientAddr); err != nil {
-			daemon.Logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "IO failure")
+			daemon.logger.Warningf("HandleUDPQueries", query.ClientAddr.String(), err, "IO failure")
 		}
 		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}
@@ -76,13 +76,13 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		return err
 	}
 	defer udpServer.Close()
-	daemon.UDPListener = udpServer
-	daemon.Logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
+	daemon.udpListener = udpServer
+	daemon.logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
 	// Start queues that will respond to DNS clients
-	for i, queue := range daemon.UDPForwarderQueues {
-		go daemon.HandleUDPQueries(queue, daemon.UDPForwarderConns[i])
+	for i, queue := range daemon.udpForwarderQueue {
+		go daemon.HandleUDPQueries(queue, daemon.udpForwardConn[i])
 	}
-	for _, queue := range daemon.UDPBlackHoleQueues {
+	for _, queue := range daemon.udpBlackHoleQueue {
 		go daemon.HandleBlackHoleAnswer(queue)
 	}
 	// Dispatch queries to forwarder queues
@@ -100,43 +100,43 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		}
 		// Check address against rate limit and allowed IP prefixes
 		clientIP := clientAddr.IP.String()
-		if !daemon.RateLimit.Add(clientIP, true) {
+		if !daemon.rateLimit.Add(clientIP, true) {
 			continue
 		}
 		if !daemon.checkAllowClientIP(clientIP) {
-			daemon.Logger.Warningf("UDPLoop", clientIP, nil, "client IP is not allowed to query")
+			daemon.logger.Warningf("UDPLoop", clientIP, nil, "client IP is not allowed to query")
 			continue
 		}
 
 		// Prepare parameters for forwarding the query
-		randForwarder := rand.Intn(len(daemon.UDPForwarderQueues))
+		randForwarder := rand.Intn(len(daemon.udpForwarderQueue))
 		forwardPacket := make([]byte, packetLength)
 		copy(forwardPacket, packetBuf[:packetLength])
 		domainName := ExtractDomainName(forwardPacket)
 		if len(domainName) == 0 {
 			// If I cannot figure out what domain is from the query, simply forward it without much concern.
-			daemon.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
-				"handle non-name query (backlog %d)", len(daemon.UDPForwarderQueues[randForwarder]))
-			daemon.UDPForwarderQueues[randForwarder] <- &UDPQuery{
+			daemon.logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
+				"handle non-name query (backlog %d)", len(daemon.udpForwarderQueue[randForwarder]))
+			daemon.udpForwarderQueue[randForwarder] <- &UDPQuery{
 				ClientAddr:  clientAddr,
 				MyServer:    udpServer,
 				QueryPacket: forwardPacket,
 			}
 		} else if daemon.NamesAreBlackListed(domainName) {
 			// Requested domain name is black-listed
-			randBlackListResponder := rand.Intn(len(daemon.UDPBlackHoleQueues))
-			daemon.Logger.Printf(fmt.Sprintf("UDP-%d", randBlackListResponder), clientIP, nil,
-				"handle black-listed domain \"%s\" (backlog %d)", domainName[0], len(daemon.UDPBlackHoleQueues[randBlackListResponder]))
-			daemon.UDPBlackHoleQueues[randBlackListResponder] <- &UDPQuery{
+			randBlackListResponder := rand.Intn(len(daemon.udpBlackHoleQueue))
+			daemon.logger.Printf(fmt.Sprintf("UDP-%d", randBlackListResponder), clientIP, nil,
+				"handle black-listed domain \"%s\" (backlog %d)", domainName[0], len(daemon.udpBlackHoleQueue[randBlackListResponder]))
+			daemon.udpBlackHoleQueue[randBlackListResponder] <- &UDPQuery{
 				ClientAddr:  clientAddr,
 				MyServer:    udpServer,
 				QueryPacket: forwardPacket,
 			}
 		} else {
 			// This is a normal domain name query and not black-listed
-			daemon.Logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
-				"handle domain \"%s\" (backlog %d)", domainName[0], len(daemon.UDPForwarderQueues[randForwarder]))
-			daemon.UDPForwarderQueues[randForwarder] <- &UDPQuery{
+			daemon.logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
+				"handle domain \"%s\" (backlog %d)", domainName[0], len(daemon.udpForwarderQueue[randForwarder]))
+			daemon.udpForwarderQueue[randForwarder] <- &UDPQuery{
 				ClientAddr:  clientAddr,
 				MyServer:    udpServer,
 				QueryPacket: forwardPacket,
@@ -195,7 +195,7 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 		t.Fatal(success)
 	}
 	// Blacklist github and see if query gets a black hole response
-	dnsd.BlackList["github.com"] = struct{}{}
+	dnsd.blackList["github.com"] = struct{}{}
 	// This test is flaky and I do not understand why, is it throttled by google dns?
 	var blackListSuccess bool
 	for i := 0; i < 30; i++ {

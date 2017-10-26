@@ -42,32 +42,32 @@ type TCPForwarderQuery struct {
 
 // A DNS forwarder daemon that selectively refuse to answer certain A record requests made against advertisement servers.
 type Daemon struct {
-	Address            string           `json:"Address"`       // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
-	UDPPort            int              `json:"UDPPort"`       // UDP port to listen on
-	UDPForwarder       []string         `json:"UDPForwarders"` // Forward UDP DNS queries to these address (IP:Port)
-	UDPForwarderConns  []net.Conn       `json:"-"`             // UDP connections made toward forwarder
-	UDPForwarderQueues []chan *UDPQuery `json:"-"`             // Processing queues that handle UDP forward queries
-	UDPBlackHoleQueues []chan *UDPQuery `json:"-"`             // Processing queues that handle UDP black-list answers
-	UDPListener        *net.UDPConn     `json:"-"`             // Once UDP daemon is started, this is its listener.
+	Address              string   `json:"Address"`              // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
+	AllowQueryIPPrefixes []string `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
+	PerIPLimit           int      `json:"PerIPLimit"`           // How many times in 10 seconds interval an IP may send DNS request
 
-	TCPPort      int          `json:"TCPPort"`       // TCP port to listen on
-	TCPForwarder []string     `json:"TCPForwarders"` // Forward TCP DNS queries to these addresses (IP:Port)
-	TCPListener  net.Listener `json:"-"`             // Once TCP daemon is started, this is its listener.
+	UDPPort      int      `json:"UDPPort"`       // UDP port to listen on
+	UDPForwarder []string `json:"UDPForwarders"` // Forward UDP DNS queries to these address (IP:Port)
+	TCPPort      int      `json:"TCPPort"`       // TCP port to listen on
+	TCPForwarder []string `json:"TCPForwarders"` // Forward TCP DNS queries to these addresses (IP:Port)
 
-	AllowQueryIPPrefixes []string    `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
-	allowQueryMutex      *sync.Mutex // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
-	allowQueryLastUpdate int64       // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
+	tcpListener       net.Listener     // Once TCP daemon is started, this is its listener.
+	udpForwardConn    []net.Conn       // UDP connections made toward forwarder
+	udpForwarderQueue []chan *UDPQuery // Processing queues that handle UDP forward queries
+	udpBlackHoleQueue []chan *UDPQuery // Processing queues that handle UDP black-list answers
+	udpListener       *net.UDPConn     // Once UDP daemon is started, this is its listener.
 
-	PerIPLimit     int                 `json:"PerIPLimit"` // How many times in 10 seconds interval an IP may send DNS request
-	RateLimit      *misc.RateLimit     `json:"-"`          // Rate limit counter
-	BlackListMutex *sync.Mutex         `json:"-"`          // Protect against concurrent access to black list
-	BlackList      map[string]struct{} `json:"-"`          // Do not answer to type A queries made toward these domains
-	Logger         misc.Logger         `json:"-"`          // Logger
+	blackListMutex       *sync.Mutex         // Protect against concurrent access to black list
+	blackList            map[string]struct{} // Do not answer to type A queries made toward these domains
+	allowQueryMutex      *sync.Mutex         // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
+	allowQueryLastUpdate int64               // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
+	rateLimit            *misc.RateLimit     // Rate limit counter
+	logger               misc.Logger
 }
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.Logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
+	daemon.logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
 	if daemon.Address == "" {
 		return errors.New("DNSD.Initialise: listen address must not be empty")
 	}
@@ -92,15 +92,15 @@ func (daemon *Daemon) Initialise() error {
 	daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, "127.", "::1")
 
 	daemon.allowQueryMutex = new(sync.Mutex)
-	daemon.BlackListMutex = new(sync.Mutex)
-	daemon.BlackList = make(map[string]struct{})
+	daemon.blackListMutex = new(sync.Mutex)
+	daemon.blackList = make(map[string]struct{})
 
-	daemon.RateLimit = &misc.RateLimit{
+	daemon.rateLimit = &misc.RateLimit{
 		MaxCount: daemon.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
-		Logger:   daemon.Logger,
+		Logger:   daemon.logger,
 	}
-	daemon.RateLimit.Initialise()
+	daemon.rateLimit.Initialise()
 	// Create a number of forwarder queues to handle incoming UDP DNS queries
 	// Keep in mind, TCP queries are not handled by queues.
 	if daemon.UDPPort > 0 {
@@ -109,9 +109,9 @@ func (daemon *Daemon) Initialise() error {
 		if numQueues < len(daemon.UDPForwarder) {
 			numQueues = len(daemon.UDPForwarder)
 		}
-		daemon.UDPForwarderConns = make([]net.Conn, numQueues)
-		daemon.UDPForwarderQueues = make([]chan *UDPQuery, numQueues)
-		daemon.UDPBlackHoleQueues = make([]chan *UDPQuery, numQueues)
+		daemon.udpForwardConn = make([]net.Conn, numQueues)
+		daemon.udpForwarderQueue = make([]chan *UDPQuery, numQueues)
+		daemon.udpBlackHoleQueue = make([]chan *UDPQuery, numQueues)
 		for i := 0; i < numQueues; i++ {
 			/*
 				Each queue is connected to a different forwarder.
@@ -125,9 +125,9 @@ func (daemon *Daemon) Initialise() error {
 			if err != nil {
 				return fmt.Errorf("DNSD.Initialise: failed to connect to UDP forwarder - %v", err)
 			}
-			daemon.UDPForwarderConns[i] = forwarderConn
-			daemon.UDPForwarderQueues[i] = make(chan *UDPQuery, 16) // there really is no need for a deeper queue
-			daemon.UDPBlackHoleQueues[i] = make(chan *UDPQuery, 4)  // there is also no need for a deeper queue here
+			daemon.udpForwardConn[i] = forwarderConn
+			daemon.udpForwarderQueue[i] = make(chan *UDPQuery, 16) // there really is no need for a deeper queue
+			daemon.udpBlackHoleQueue[i] = make(chan *UDPQuery, 4)  // there is also no need for a deeper queue here
 		}
 	}
 
@@ -150,7 +150,7 @@ func (daemon *Daemon) allowMyPublicIP() {
 	latestIP := inet.GetPublicIP()
 	if latestIP == "" {
 		// Not a fatal error if IP cannot be determined
-		daemon.Logger.Warningf("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
+		daemon.logger.Warningf("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
 		return
 	}
 	foundMyIP := false
@@ -163,7 +163,7 @@ func (daemon *Daemon) allowMyPublicIP() {
 	if !foundMyIP {
 		// Place latest IP into the array, but do not erase the old IP entries.
 		daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, latestIP)
-		daemon.Logger.Printf("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", latestIP)
+		daemon.logger.Printf("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", latestIP)
 	}
 }
 
@@ -316,31 +316,31 @@ func ExtractDomainName(packet []byte) (ret []string) {
 func (daemon *Daemon) UpdatedAdBlockLists() {
 	pglEntries, pglErr := daemon.GetAdBlacklistPGL()
 	if pglErr == nil {
-		daemon.Logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
+		daemon.logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
 	} else {
-		daemon.Logger.Warningf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
+		daemon.logger.Warningf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
 	}
 	mvpsEntries, mvpsErr := daemon.GetAdBlacklistMVPS()
 	if mvpsErr == nil {
-		daemon.Logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
-		daemon.Logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following liences for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
+		daemon.logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
+		daemon.logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following liences for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
 	} else {
-		daemon.Logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
+		daemon.logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
 	}
-	daemon.BlackListMutex.Lock()
-	daemon.BlackList = make(map[string]struct{})
+	daemon.blackListMutex.Lock()
+	daemon.blackList = make(map[string]struct{})
 	if pglErr == nil {
 		for _, name := range pglEntries {
-			daemon.BlackList[name] = struct{}{}
+			daemon.blackList[name] = struct{}{}
 		}
 	}
 	if mvpsErr == nil {
 		for _, name := range mvpsEntries {
-			daemon.BlackList[name] = struct{}{}
+			daemon.blackList[name] = struct{}{}
 		}
 	}
-	daemon.BlackListMutex.Unlock()
-	daemon.Logger.Printf("UpdatedAdBlockLists", "", nil, "ad-blacklist now has %d entries", len(daemon.BlackList))
+	daemon.blackListMutex.Unlock()
+	daemon.logger.Printf("UpdatedAdBlockLists", "", nil, "ad-blacklist now has %d entries", len(daemon.blackList))
 }
 
 /*
@@ -391,25 +391,25 @@ func (daemon *Daemon) StartAndBlock() error {
 
 // Close all of open TCP and UDP listeners so that they will cease processing incoming connections.
 func (daemon *Daemon) Stop() {
-	if listener := daemon.TCPListener; listener != nil {
+	if listener := daemon.tcpListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			daemon.Logger.Warningf("Stop", "", err, "failed to close TCP listener")
+			daemon.logger.Warningf("Stop", "", err, "failed to close TCP listener")
 		}
 	}
-	if listener := daemon.UDPListener; listener != nil {
+	if listener := daemon.udpListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			daemon.Logger.Warningf("Stop", "", err, "failed to close UDP listener")
+			daemon.logger.Warningf("Stop", "", err, "failed to close UDP listener")
 		}
 	}
 }
 
 // Return true if any of the input domain names is black listed.
 func (daemon *Daemon) NamesAreBlackListed(names []string) bool {
-	daemon.BlackListMutex.Lock()
-	defer daemon.BlackListMutex.Unlock()
+	daemon.blackListMutex.Lock()
+	defer daemon.blackListMutex.Unlock()
 	var blacklisted bool
 	for _, name := range names {
-		_, blacklisted = daemon.BlackList[name]
+		_, blacklisted = daemon.blackList[name]
 		if blacklisted {
 			return true
 		}

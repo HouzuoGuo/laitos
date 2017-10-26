@@ -36,10 +36,11 @@ type Daemon struct {
 	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
 
 	SpecialHandlers map[string]api.HandlerFactory `json:"-"` // Specialised handlers that implement api.HandlerFactory interface
-	AllRateLimits   map[string]*misc.RateLimit    `json:"-"` // Aggregate all routes and their rate limit counters
-	Server          *http.Server                  `json:"-"` // Standard library HTTP server structure
 	Processor       *common.CommandProcessor      `json:"-"` // Feature command processor
-	Logger          misc.Logger                   `json:"-"` // Logger
+	AllRateLimits   map[string]*misc.RateLimit    `json:"-"` // Aggregate all routes and their rate limit counters
+
+	server *http.Server // server is the HTTP service instance
+	logger misc.Logger
 }
 
 // Return path to HandlerFactory among special handlers that matches the specified type. Primarily used by test case code.
@@ -73,7 +74,7 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 		// Check client IP against rate limit
 		remoteIP := api.GetRealClientIP(r)
 		if ratelimit.Add(remoteIP, true) {
-			daemon.Logger.Printf("Handle", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
+			daemon.logger.Printf("Handle", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
 			next(w, r)
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
@@ -84,12 +85,12 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.Logger = misc.Logger{ComponentName: "httpd", ComponentID: fmt.Sprintf("%s:%d", daemon.Address, daemon.Port)}
+	daemon.logger = misc.Logger{ComponentName: "httpd", ComponentID: fmt.Sprintf("%s:%d", daemon.Address, daemon.Port)}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
-		daemon.Logger.Printf("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
+		daemon.logger.Printf("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = common.GetEmptyCommandProcessor()
 	}
-	daemon.Processor.SetLogger(daemon.Logger)
+	daemon.Processor.SetLogger(daemon.logger)
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("httpd.Initialise: %+v", errs)
 	}
@@ -123,7 +124,7 @@ func (daemon *Daemon) Initialise() error {
 			rl := &misc.RateLimit{
 				UnitSecs: RateLimitIntervalSec,
 				MaxCount: DirectoryHandlerRateLimitFactor * daemon.BaseRateLimit,
-				Logger:   daemon.Logger,
+				Logger:   daemon.logger,
 			}
 			daemon.AllRateLimits[urlLocation] = rl
 			mux.HandleFunc(urlLocation, daemon.Middleware(rl, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
@@ -131,14 +132,14 @@ func (daemon *Daemon) Initialise() error {
 	}
 	// Collect specialised handlers
 	for urlLocation, handler := range daemon.SpecialHandlers {
-		fun, err := handler.MakeHandler(daemon.Logger, daemon.Processor)
+		fun, err := handler.MakeHandler(daemon.logger, daemon.Processor)
 		if err != nil {
 			return err
 		}
 		rl := &misc.RateLimit{
 			UnitSecs: RateLimitIntervalSec,
 			MaxCount: handler.GetRateLimitFactor() * daemon.BaseRateLimit,
-			Logger:   daemon.Logger,
+			Logger:   daemon.logger,
 		}
 		daemon.AllRateLimits[urlLocation] = rl
 		mux.HandleFunc(urlLocation, daemon.Middleware(rl, fun))
@@ -148,7 +149,7 @@ func (daemon *Daemon) Initialise() error {
 		limit.Initialise()
 	}
 	// Configure server with rather generous and sane defaults
-	daemon.Server = &http.Server{
+	daemon.server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", daemon.Address, daemon.Port),
 		Handler:      mux,
 		ReadTimeout:  IOTimeoutSec * time.Second,
@@ -163,16 +164,16 @@ Start HTTP daemon and block caller until Stop function is called.
 */
 func (daemon *Daemon) StartAndBlock() error {
 	if daemon.TLSCertPath == "" {
-		daemon.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTP connections")
-		if err := daemon.Server.ListenAndServe(); err != nil {
+		daemon.logger.Printf("StartAndBlock", "", nil, "going to listen for HTTP connections")
+		if err := daemon.server.ListenAndServe(); err != nil {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
 			return fmt.Errorf("httpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 		}
 	} else {
-		daemon.Logger.Printf("StartAndBlock", "", nil, "going to listen for HTTPS connections")
-		if err := daemon.Server.ListenAndServeTLS(daemon.TLSCertPath, daemon.TLSKeyPath); err != nil {
+		daemon.logger.Printf("StartAndBlock", "", nil, "going to listen for HTTPS connections")
+		if err := daemon.server.ListenAndServeTLS(daemon.TLSCertPath, daemon.TLSKeyPath); err != nil {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
@@ -186,8 +187,8 @@ func (daemon *Daemon) StartAndBlock() error {
 func (daemon *Daemon) Stop() {
 	constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 	defer cancel()
-	if err := daemon.Server.Shutdown(constraints); err != nil {
-		daemon.Logger.Warningf("Stop", "", err, "failed to shutdown")
+	if err := daemon.server.Shutdown(constraints); err != nil {
+		daemon.logger.Warningf("Stop", "", err, "failed to shutdown")
 	}
 }
 

@@ -97,12 +97,12 @@ type Config struct {
 
 	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
 
-	Logger misc.Logger `json:"-"` // Logger handles log output from configuration serialisation and initialisation routines.
+	logger misc.Logger // logger handles log output from configuration serialisation and initialisation routines.
 }
 
 // DeserialiseFromJSON deserialised JSON configuration of all daemons and toolbox features, and then initialise all toolbox features.
 func (config *Config) DeserialiseFromJSON(in []byte) error {
-	config.Logger = misc.Logger{ComponentName: "Config"}
+	config.logger = misc.Logger{ComponentName: "Config"}
 	if err := json.Unmarshal(in, config); err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 func (config Config) GetDNSD() *dnsd.Daemon {
 	ret := config.DNSDaemon
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetDNSD", "", err, "failed to initialise")
+		config.logger.Fatalf("GetDNSD", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -130,7 +130,7 @@ func (config Config) GetMaintenance() *maintenance.Daemon {
 	ret.CheckMailCmdRunner = config.GetMailCommandRunner()
 	ret.MailClient = config.MailClient
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetMaintenance", "", err, "failed to initialise")
+		config.logger.Fatalf("GetMaintenance", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -143,7 +143,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 	mailNotification := config.HTTPFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
-	config.Logger.Printf("GetHTTPD", "", nil, "enabled features are - %v", config.Features.GetTriggers())
+	config.logger.Printf("GetHTTPD", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &config.Features,
@@ -175,7 +175,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		randBytes := make([]byte, 32)
 		_, err := rand.Read(randBytes)
 		if err != nil {
-			config.Logger.Panicf("GetHTTPD", "", err, "failed to read random number")
+			config.logger.Panicf("GetHTTPD", "", err, "failed to read random number")
 			return nil
 		}
 		// Image handler needs to operate on browser handler's browser instances
@@ -232,7 +232,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		randBytes := make([]byte, 32)
 		_, err := rand.Read(randBytes)
 		if err != nil {
-			config.Logger.Panicf("GetHTTPD", "", err, "failed to read random number")
+			config.logger.Panicf("GetHTTPD", "", err, "failed to read random number")
 			return nil
 		}
 		callbackEndpoint := "/" + hex.EncodeToString(randBytes)
@@ -247,7 +247,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 	ret.SpecialHandlers = handlers
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetHTTPD", "", err, "failed to initialise")
+		config.logger.Fatalf("GetHTTPD", "", err, "failed to initialise")
 		return nil
 	}
 	for route := range ret.AllRateLimits {
@@ -255,7 +255,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		if len(route) > 10 {
 			shortRoute = route[0:10] + "..."
 		}
-		config.Logger.Printf("GetHTTPD", "", nil, "installed route %s", shortRoute)
+		config.logger.Printf("GetHTTPD", "", nil, "installed route %s", shortRoute)
 	}
 	return &ret
 }
@@ -273,14 +273,14 @@ func (config Config) GetInsecureHTTPD() *httpd.Daemon {
 	} else {
 		iPort, err := strconv.Atoi(envPort)
 		if err != nil {
-			config.Logger.Fatalf("GetInsecureHTTPD", "", err, "environment variable PORT value is not an integer")
+			config.logger.Fatalf("GetInsecureHTTPD", "", err, "environment variable PORT value is not an integer")
 			return nil
 		}
 		ret.Port = iPort
 	}
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetInsecureHTTPD", "", err, "failed to initialise")
+		config.logger.Fatalf("GetInsecureHTTPD", "", err, "failed to initialise")
 		return nil
 	}
 	for route := range ret.AllRateLimits {
@@ -288,7 +288,7 @@ func (config Config) GetInsecureHTTPD() *httpd.Daemon {
 		if len(route) > 12 {
 			shortRoute = route[0:12] + "..."
 		}
-		config.Logger.Printf("GetInsecureHTTPD", "", nil, "installed route %s", shortRoute)
+		config.logger.Printf("GetInsecureHTTPD", "", nil, "installed route %s", shortRoute)
 	}
 	return ret
 }
@@ -305,7 +305,7 @@ func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 	mailNotification := config.MailFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
-	config.Logger.Printf("GetMailCommandRunner", "", nil, "enabled features are - %v", config.Features.GetTriggers())
+	config.logger.Printf("GetMailCommandRunner", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &config.Features,
@@ -333,7 +333,7 @@ func (config Config) GetMailDaemon() *smtpd.Daemon {
 	ret.CommandRunner = config.GetMailCommandRunner()
 	ret.ForwardMailClient = config.MailClient
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetMailDaemon", "", err, "failed to initialise")
+		config.logger.Fatalf("GetMailDaemon", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -349,7 +349,7 @@ func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 	mailNotification := config.PlainSocketFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
-	config.Logger.Printf("GetPlainSocketDaemon", "", nil, "enabled features are - %v", config.Features.GetTriggers())
+	config.logger.Printf("GetPlainSocketDaemon", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &config.Features,
@@ -366,7 +366,7 @@ func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 	}
 	// Call initialise so that daemon is ready to start
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetPlainSocketDaemon", "", err, "failed to initialise")
+		config.logger.Fatalf("GetPlainSocketDaemon", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -376,7 +376,7 @@ func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 func (config Config) GetSockDaemon() *sockd.Daemon {
 	ret := config.SockDaemon
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetSockDaemon", "", err, "failed to initialise")
+		config.logger.Fatalf("GetSockDaemon", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret
@@ -389,7 +389,7 @@ func (config Config) GetTelegramBot() *telegrambot.Daemon {
 	mailNotification := config.TelegramFilters.NotifyViaEmail
 	mailNotification.MailClient = config.MailClient
 
-	config.Logger.Printf("GetTelegramBot", "", nil, "enabled features are - %v", config.Features.GetTriggers())
+	config.logger.Printf("GetTelegramBot", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble telegram bot from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &config.Features,
@@ -405,7 +405,7 @@ func (config Config) GetTelegramBot() *telegrambot.Daemon {
 		},
 	}
 	if err := ret.Initialise(); err != nil {
-		config.Logger.Fatalf("GetTelegramBot", "", err, "failed to initialise")
+		config.logger.Fatalf("GetTelegramBot", "", err, "failed to initialise")
 		return nil
 	}
 	return &ret

@@ -185,21 +185,21 @@ func (sock *Daemon) StartAndBlockUDP() error {
 		return fmt.Errorf("sockd.StartAndBlockUDP: failed to listen on %s - %v", listenAddr, err)
 	}
 	defer udpServer.Close()
-	sock.UDPListener = udpServer
-	sock.Logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for data")
+	sock.udpListener = udpServer
+	sock.logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for data")
 
-	sock.UDPBacklog = &UDPBackLog{backlog: map[string]([]byte){}, mutex: new(sync.Mutex)}
-	sock.UDPTable = &UDPTable{connections: map[string]net.PacketConn{}, mutex: new(sync.Mutex)}
+	sock.udpBackLog = &UDPBackLog{backlog: map[string]([]byte){}, mutex: new(sync.Mutex)}
+	sock.udpTable = &UDPTable{connections: map[string]net.PacketConn{}, mutex: new(sync.Mutex)}
 	go func() {
 		intervalTick := time.NewTicker(BacklogClearInterval).C
 		loggerTick := time.NewTicker(15 * time.Minute).C
 		for {
 			select {
 			case <-intervalTick:
-				sock.UDPBacklog.Clear()
+				sock.udpBackLog.Clear()
 			case <-loggerTick:
-				sock.Logger.Printf("StartAndBlockUDP", "", nil, "current backlog length %d, connection table length %d",
-					sock.UDPBacklog.Len(), sock.UDPTable.Len())
+				sock.logger.Printf("StartAndBlockUDP", "", nil, "current backlog length %d, connection table length %d",
+					sock.udpBackLog.Len(), sock.udpTable.Len())
 			case <-sock.stopUDP:
 				return
 			}
@@ -218,7 +218,7 @@ func (sock *Daemon) StartAndBlockUDP() error {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			sock.Logger.Warningf("StartAndBlockUDP", "", err, "failed to read packet")
+			sock.logger.Warningf("StartAndBlockUDP", "", err, "failed to read packet")
 			continue
 		}
 		udpClientAddr := clientAddr.(*net.UDPAddr)
@@ -246,7 +246,7 @@ func (sock *Daemon) HandleUDPConnection(server *UDPCipherConnection, n int, clie
 	case AddressTypeIPv4:
 		packetLen = UDPIPv4PacketLength
 		if len(packet) < packetLen {
-			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			sock.logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
 		}
@@ -254,7 +254,7 @@ func (sock *Daemon) HandleUDPConnection(server *UDPCipherConnection, n int, clie
 	case AddressTypeIPv6:
 		packetLen = UDPIPv6PacketLength
 		if len(packet) < packetLen {
-			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			sock.logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
 		}
@@ -262,25 +262,25 @@ func (sock *Daemon) HandleUDPConnection(server *UDPCipherConnection, n int, clie
 	case AddressTypeDM:
 		packetLen = int(packet[DMAddrLengthIndex]) + DMHeaderLength
 		if len(packet) < packetLen {
-			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			sock.logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
 		}
 		resolveName := string(packet[DMAddrHeaderLength : DMAddrHeaderLength+int(packet[DMAddrLengthIndex])])
 		if strings.ContainsRune(resolveName, 0x00) {
-			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "dm address contains invalid byte 0")
+			sock.logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "dm address contains invalid byte 0")
 			server.WriteRand(clientAddr)
 			return
 		}
 		resolveDestIP, err := net.ResolveIPAddr("ip", resolveName)
 		if err != nil {
-			sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to resolve domain name \"%s\"", resolveName)
+			sock.logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to resolve domain name \"%s\"", resolveName)
 			server.WriteRand(clientAddr)
 			return
 		}
 		destIP = resolveDestIP.IP
 	default:
-		sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "unknown mask type %d", maskedType)
+		sock.logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), nil, "unknown mask type %d", maskedType)
 		server.WriteRand(clientAddr)
 		return
 	}
@@ -288,28 +288,28 @@ func (sock *Daemon) HandleUDPConnection(server *UDPCipherConnection, n int, clie
 		IP:   destIP,
 		Port: int(binary.BigEndian.Uint16(packet[packetLen-2 : packetLen])),
 	}
-	if _, found := sock.UDPBacklog.Get(destAddr.String()); !found {
+	if _, found := sock.udpBackLog.Get(destAddr.String()); !found {
 		backlogPacket := make([]byte, packetLen)
 		copy(backlogPacket, packet)
-		sock.UDPBacklog.Put(destAddr.String(), backlogPacket)
+		sock.udpBackLog.Put(destAddr.String(), backlogPacket)
 	}
 
-	udpClient, found, err := sock.UDPTable.Get(clientAddr.String())
+	udpClient, found, err := sock.udpTable.Get(clientAddr.String())
 	if err != nil || udpClient == nil {
-		sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), err, "failed to retrieve connection from table")
+		sock.logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), err, "failed to retrieve connection from table")
 		return
 	}
 	if !found {
 		go func() {
 			sock.PipeUDPConnection(server, clientAddr, udpClient)
-			sock.UDPTable.Delete(clientAddr.String())
+			sock.udpTable.Delete(clientAddr.String())
 		}()
 	}
 	udpClient.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
 	_, err = udpClient.WriteTo(packet[packetLen:n], destAddr)
 	if err != nil {
-		sock.Logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), err, "failed to respond to client")
-		if conn := sock.UDPTable.Delete(clientAddr.String()); conn != nil {
+		sock.logger.Warningf("HandleUDPConnection", clientAddr.IP.String(), err, "failed to respond to client")
+		if conn := sock.udpTable.Delete(clientAddr.String()); conn != nil {
 			conn.Close()
 		}
 	}
@@ -325,7 +325,7 @@ func (sock *Daemon) PipeUDPConnection(server net.PacketConn, clientAddr *net.UDP
 		if err != nil {
 			return
 		}
-		if backlogPacket, found := sock.UDPBacklog.Get(addr.String()); found {
+		if backlogPacket, found := sock.udpBackLog.Get(addr.String()); found {
 			server.WriteTo(append(backlogPacket, packet[:length]...), clientAddr)
 		} else {
 			header, headerLength := MakeUDPRequestHeader(addr)

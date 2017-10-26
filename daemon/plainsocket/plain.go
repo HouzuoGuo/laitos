@@ -16,29 +16,28 @@ const (
 
 // Daemon provides to features via plain unencrypted TCP and UDP connections.
 type Daemon struct {
-	Address     string       `json:"Address"` // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
-	TCPPort     int          `json:"TCPPort"` // TCP port to listen on
-	UDPPort     int          `json:"UDPPort"` // UDP port to listen on
-	TCPListener net.Listener `json:"-"`       // Once TCP daemon is started, this is its listener.
-	UDPListener *net.UDPConn `json:"-"`       // Once UDP daemon is started, this is its listener.
+	Address    string                   `json:"Address"`    // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
+	TCPPort    int                      `json:"TCPPort"`    // TCP port to listen on
+	UDPPort    int                      `json:"UDPPort"`    // UDP port to listen on
+	PerIPLimit int                      `json:"PerIPLimit"` // How many times in 10 seconds interval a client IP may converse (connect/run feature) with server
+	Processor  *common.CommandProcessor `json:"-"`          // Feature command processor
 
-	PerIPLimit int `json:"PerIPLimit"` // How many times in 10 seconds interval a client IP may converse (connect/run feature) with server
-
-	Processor *common.CommandProcessor `json:"-"` // Feature command processor
-	RateLimit *misc.RateLimit          `json:"-"` // Rate limit counter per IP address
-	Logger    misc.Logger              `json:"-"` // Logger
+	tcpListener net.Listener    // Once TCP daemon is started, this is its listener.
+	udpListener *net.UDPConn    // Once UDP daemon is started, this is its listener.
+	rateLimit   *misc.RateLimit // Rate limit counter per IP address
+	logger      misc.Logger     // logger
 }
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.Logger = misc.Logger{
+	daemon.logger = misc.Logger{
 		ComponentName: "plainsocket",
 		ComponentID:   fmt.Sprintf("%s:%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort),
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		return fmt.Errorf("plainsocket.Initialise: command processor and its filters must be configured")
 	}
-	daemon.Processor.SetLogger(daemon.Logger)
+	daemon.Processor.SetLogger(daemon.logger)
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("plainsocket.Initialise: %+v", errs)
 	}
@@ -51,12 +50,12 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.PerIPLimit < 1 {
 		return errors.New("plainsocket.Initialise: PerIPLimit must be greater than 0")
 	}
-	daemon.RateLimit = &misc.RateLimit{
+	daemon.rateLimit = &misc.RateLimit{
 		MaxCount: daemon.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
-		Logger:   daemon.Logger,
+		Logger:   daemon.logger,
 	}
-	daemon.RateLimit.Initialise()
+	daemon.rateLimit.Initialise()
 	return nil
 }
 
@@ -92,14 +91,14 @@ func (daemon *Daemon) StartAndBlock() error {
 
 // Close all of open TCP and UDP listeners so that they will cease processing incoming connections.
 func (daemon *Daemon) Stop() {
-	if listener := daemon.TCPListener; listener != nil {
+	if listener := daemon.tcpListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			daemon.Logger.Warningf("Stop", "", err, "failed to close TCP server")
+			daemon.logger.Warningf("Stop", "", err, "failed to close TCP server")
 		}
 	}
-	if listener := daemon.UDPListener; listener != nil {
+	if listener := daemon.udpListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			daemon.Logger.Warningf("Stop", "", err, "failed to close UDP server")
+			daemon.logger.Warningf("Stop", "", err, "failed to close UDP server")
 		}
 	}
 }

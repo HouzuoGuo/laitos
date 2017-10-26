@@ -10,21 +10,22 @@ import (
 	"time"
 )
 
-// Renderes manages lifecycle of a fixed number of browser server instances.
+// Instances manage lifecycle of a fixed number of browser server instances.
 type Instances struct {
-	PhantomJSExecPath string      `json:"PhantomJSExecPath"` // Absolute or relative path to PhantomJS executable
-	MaxInstances      int         `json:"MaxInstances"`      // Maximum number of instances
-	MaxLifetimeSec    int         `json:"MaxLifetimeSec"`    // Unconditionally kill instance after this number of seconds elapse
-	BasePortNumber    int         `json:"BasePortNumber"`    // Browser instances listen on a port number beginning from this one
-	Mutex             *sync.Mutex `json:"-"`                 // Protect against concurrent modification to browsers
-	Browsers          []*Instance `json:"-"`                 // All browsers
-	BrowserCounter    int         `json:"-"`                 // Increment only counter
-	Logger            misc.Logger `json:"-"`
+	PhantomJSExecPath string `json:"PhantomJSExecPath"` // Absolute or relative path to PhantomJS executable
+	MaxInstances      int    `json:"MaxInstances"`      // Maximum number of instances
+	MaxLifetimeSec    int    `json:"MaxLifetimeSec"`    // Unconditionally kill instance after this number of seconds elapse
+	BasePortNumber    int    `json:"BasePortNumber"`    // Browser instances listen on a port number beginning from this one
+
+	browserMutex   *sync.Mutex // Protect against concurrent modification to browsers
+	browsers       []*Instance // All browsers
+	browserCounter int         // Increment only counter
+	logger         misc.Logger
 }
 
 // Check configuration and initialise internal states.
 func (instances *Instances) Initialise() error {
-	instances.Logger = misc.Logger{ComponentName: "Instances", ComponentID: ""}
+	instances.logger = misc.Logger{ComponentName: "Instances", ComponentID: ""}
 	if _, err := os.Stat(instances.PhantomJSExecPath); err != nil {
 		return fmt.Errorf("Instances.Initialise: cannot find PhantomJS executable \"%s\" - %v", instances.PhantomJSExecPath, err)
 	}
@@ -40,19 +41,19 @@ func (instances *Instances) Initialise() error {
 	if instances.BasePortNumber < 1024 {
 		return errors.New("Instances.Initialise: BasePortNumber must be greater than 1023")
 	}
-	instances.Mutex = new(sync.Mutex)
-	instances.Browsers = make([]*Instance, instances.MaxInstances)
-	instances.BrowserCounter = -1
+	instances.browserMutex = new(sync.Mutex)
+	instances.browsers = make([]*Instance, instances.MaxInstances)
+	instances.browserCounter = -1
 	return nil
 }
 
 // Acquire a new instance instance. If necessary, kill an existing instance to free up the space for the new instance.
 func (instances *Instances) Acquire() (index int, browser *Instance, err error) {
-	instances.Mutex.Lock()
-	defer instances.Mutex.Unlock()
-	instances.BrowserCounter++
-	index = instances.BrowserCounter % len(instances.Browsers)
-	if instance := instances.Browsers[index]; instance != nil {
+	instances.browserMutex.Lock()
+	defer instances.browserMutex.Unlock()
+	instances.browserCounter++
+	index = instances.browserCounter % len(instances.browsers)
+	if instance := instances.browsers[index]; instance != nil {
 		instance.Kill()
 	}
 	browser = &Instance{
@@ -62,7 +63,7 @@ func (instances *Instances) Acquire() (index int, browser *Instance, err error) 
 		AutoKillTimeoutSec: instances.MaxLifetimeSec,
 		Index:              index,
 	}
-	instances.Browsers[index] = browser
+	instances.browsers[index] = browser
 	err = browser.Start()
 	return
 }
@@ -72,9 +73,9 @@ Return instance instance of the specified index and match its tag against expect
 If instance instance does not exist or tag does not match, return nil.
 */
 func (instances *Instances) Retrieve(index int, expectedTag string) *Instance {
-	instances.Mutex.Lock()
-	defer instances.Mutex.Unlock()
-	browser := instances.Browsers[index]
+	instances.browserMutex.Lock()
+	defer instances.browserMutex.Unlock()
+	browser := instances.browsers[index]
 	if browser == nil || browser.Tag != expectedTag {
 		return nil
 	}
@@ -83,9 +84,9 @@ func (instances *Instances) Retrieve(index int, expectedTag string) *Instance {
 
 // Forcibly stop all instance instances.
 func (instances *Instances) KillAll() {
-	instances.Mutex.Lock()
-	defer instances.Mutex.Unlock()
-	for _, instance := range instances.Browsers {
+	instances.browserMutex.Lock()
+	defer instances.browserMutex.Unlock()
+	for _, instance := range instances.browsers {
 		if instance != nil {
 			instance.Kill()
 		}

@@ -453,27 +453,26 @@ var TagCounter = int64(0) // Increment only counter that assigns each started br
 
 // Instance is a single headless browser server that acts on on commands received via HTTP.
 type Instance struct {
-	PhantomJSExecPath  string        // Absolute or relative path to PhantomJS executable
-	RenderImagePath    string        // Place to store rendered web page image
-	Port               int           // Port number for headless server to listen for commands on
-	AutoKillTimeoutSec int           // Process is unconditionally killed after the time elapses
-	Tag                string        // Uniquely identifies this browser server after it is started
-	DebugOutput        *bytes.Buffer // Store standard output and error from PhantomJS executable
-	JSTmpFilePath      string        // Path to temporary file that stores PhantomJS server code
-	JSProc             *exec.Cmd     // Headless server process
-	JSProcMutex        *sync.Mutex   // Protect against concurrent access to server process
-	Index              int           // Index is the instance number assigned by renderer lifecycle management.
+	PhantomJSExecPath  string // Absolute or relative path to PhantomJS executable
+	RenderImagePath    string // Place to store rendered web page image
+	Port               int    // Port number for headless server to listen for commands on
+	AutoKillTimeoutSec int    // Process is unconditionally killed after the time elapses
+	Tag                string // Uniquely identifies this browser server after it is started
+	Index              int    // index is the instance number assigned by renderer lifecycle management.
 
-	Logger misc.Logger
+	jsDebugOutput *bytes.Buffer // Store standard output and error from PhantomJS executable
+	jsProcCmd     *exec.Cmd     // Headless server process
+	jsProcMutex   *sync.Mutex   // Protect against concurrent access to server process
+	logger        misc.Logger
 }
 
 // Produce javascript code for browser server and then launch its process in background.
 func (instance *Instance) Start() error {
 	// Instance is an internal API, hence its parameters are not validated before use.
-	instance.JSProcMutex = new(sync.Mutex)
-	instance.DebugOutput = new(bytes.Buffer)
+	instance.jsProcMutex = new(sync.Mutex)
+	instance.jsDebugOutput = new(bytes.Buffer)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
-	instance.Logger = misc.Logger{ComponentID: fmt.Sprintf("%s-%s", time.Now().Format(time.Kitchen), instance.Tag), ComponentName: "Instance"}
+	instance.logger = misc.Logger{ComponentID: fmt.Sprintf("%s-%s", time.Now().Format(time.Kitchen), instance.Tag), ComponentName: "Instance"}
 	// Store server javascript into a temporary file
 	serverJS, err := ioutil.TempFile("", "laitos-browser")
 	if err != nil {
@@ -487,14 +486,14 @@ func (instance *Instance) Start() error {
 		return fmt.Errorf("Instance.Start: failed to write PhantomJS server code - %v", err)
 	}
 	// Start server process
-	instance.JSProc = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
-	instance.JSProc.Stdout = instance.DebugOutput
-	instance.JSProc.Stderr = instance.DebugOutput
-	//instance.JSProc.Stdout = os.Stderr
-	//instance.JSProc.Stderr = os.Stderr
+	instance.jsProcCmd = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
+	instance.jsProcCmd.Stdout = instance.jsDebugOutput
+	instance.jsProcCmd.Stderr = instance.jsDebugOutput
+	//instance.jsProcCmd.Stdout = os.Stderr
+	//instance.jsProcCmd.Stderr = os.Stderr
 	processErrChan := make(chan error, 1)
 	go func() {
-		if err := instance.JSProc.Start(); err != nil {
+		if err := instance.jsProcCmd.Start(); err != nil {
 			processErrChan <- err
 		}
 	}()
@@ -508,7 +507,7 @@ func (instance *Instance) Start() error {
 	go func() {
 		select {
 		case err := <-processErrChan:
-			instance.Logger.Printf("Start", "", err, "PhantomJS process has quit")
+			instance.logger.Printf("Start", "", err, "PhantomJS process has quit")
 		case <-time.After(time.Duration(instance.AutoKillTimeoutSec) * time.Second):
 		}
 		instance.Kill()
@@ -533,7 +532,7 @@ func (instance *Instance) Start() error {
 
 // Return last N bytes of text from debug output buffer.
 func (instance *Instance) GetDebugOutput(lastNBytes int) string {
-	all := instance.DebugOutput.Bytes()
+	all := instance.jsDebugOutput.Bytes()
 	if len(all) > lastNBytes {
 		return string(all[len(all)-lastNBytes:])
 	} else {
@@ -563,7 +562,7 @@ func (instance *Instance) SendRequest(actionName string, params map[string]inter
 			}
 		}
 	}
-	instance.Logger.Printf("SendRequest", "", err, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
+	instance.logger.Printf("SendRequest", "", err, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
 	return
 }
 
@@ -599,16 +598,16 @@ func (instance *Instance) RenderPage() error {
 
 // Kill browser server process and delete rendered web page image.
 func (instance *Instance) Kill() {
-	if instance.JSProc != nil {
-		instance.JSProcMutex.Lock()
-		defer instance.JSProcMutex.Unlock()
+	if instance.jsProcCmd != nil {
+		instance.jsProcMutex.Lock()
+		defer instance.jsProcMutex.Unlock()
 		if err := os.Remove(instance.RenderImagePath); err != nil {
-			instance.Logger.Warningf("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
+			instance.logger.Warningf("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
 		}
-		if err := instance.JSProc.Process.Kill(); err != nil {
-			instance.Logger.Warningf("Kill", "", err, "failed to kill PhantomJS process")
+		if err := instance.jsProcCmd.Process.Kill(); err != nil {
+			instance.logger.Warningf("Kill", "", err, "failed to kill PhantomJS process")
 		}
-		instance.JSProc = nil
+		instance.jsProcCmd = nil
 	}
 }
 

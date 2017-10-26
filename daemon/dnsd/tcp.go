@@ -24,11 +24,11 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 	defer clientConn.Close()
 	// Check address against rate limit and allowed IP prefixes
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
-	if !daemon.RateLimit.Add(clientIP, true) {
+	if !daemon.rateLimit.Add(clientIP, true) {
 		return
 	}
 	if !daemon.checkAllowClientIP(clientIP) {
-		daemon.Logger.Warningf("HandleTCPQuery", clientIP, nil, "client IP is not allowed to query")
+		daemon.logger.Warningf("HandleTCPQuery", clientIP, nil, "client IP is not allowed to query")
 		return
 	}
 	// Read query length
@@ -36,19 +36,19 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 	queryLenBuf := make([]byte, 2)
 	_, err := clientConn.Read(queryLenBuf)
 	if err != nil {
-		daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read query length from client")
+		daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read query length from client")
 		return
 	}
 	queryLen := int(queryLenBuf[0])*256 + int(queryLenBuf[1])
 	// Read query
 	if queryLen > MaxPacketSize || queryLen < 1 {
-		daemon.Logger.Warningf("HandleTCPQuery", clientIP, nil, "bad query length from client")
+		daemon.logger.Warningf("HandleTCPQuery", clientIP, nil, "bad query length from client")
 		return
 	}
 	queryBuf := make([]byte, queryLen)
 	_, err = clientConn.Read(queryBuf)
 	if err != nil {
-		daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read query from client")
+		daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read query from client")
 		return
 	}
 	domainName := ExtractDomainName(queryBuf)
@@ -59,19 +59,19 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 	var doForward bool
 	if len(domainName) == 0 {
 		// If I cannot figure out what domain is from the query, simply forward it without much concern.
-		daemon.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle non-name query")
+		daemon.logger.Printf("HandleTCPQuery", clientIP, nil, "handle non-name query")
 		doForward = true
 	} else {
 		// This is a domain name query, check the name against black list and then forward.
 		if daemon.NamesAreBlackListed(domainName) {
-			daemon.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", domainName[0])
+			daemon.logger.Printf("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", domainName[0])
 			responseBuf = RespondWith0(queryBuf)
 			responseLen = len(responseBuf)
 			responseLenBuf = make([]byte, 2)
 			responseLenBuf[0] = byte(responseLen / 256)
 			responseLenBuf[1] = byte(responseLen % 256)
 		} else {
-			daemon.Logger.Printf("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", domainName[0])
+			daemon.logger.Printf("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", domainName[0])
 			doForward = true
 		}
 	}
@@ -80,42 +80,42 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 		// Ask a randomly chosen TCP forwarder to process the query
 		myForwarder, err := net.DialTimeout("tcp", daemon.TCPForwarder[rand.Intn(len(daemon.TCPForwarder))], IOTimeoutSec*time.Second)
 		if err != nil {
-			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to connect to forwarder")
+			daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to connect to forwarder")
 			return
 		}
 		defer myForwarder.Close()
 		// Send original query to forwarder without modification
 		myForwarder.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err = myForwarder.Write(queryLenBuf); err != nil {
-			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to write length to forwarder")
+			daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to write length to forwarder")
 			return
 		} else if _, err = myForwarder.Write(queryBuf); err != nil {
-			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to write query to forwarder")
+			daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to write query to forwarder")
 			return
 		}
 		// Retrieve forwarder's response
 		responseLenBuf = make([]byte, 2)
 		if _, err = myForwarder.Read(responseLenBuf); err != nil {
-			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read length from forwarder")
+			daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read length from forwarder")
 			return
 		}
 		responseLen = int(responseLenBuf[0])*256 + int(responseLenBuf[1])
 		if responseLen > MaxPacketSize || responseLen < 1 {
-			daemon.Logger.Warningf("HandleTCPQuery", clientIP, nil, "bad response length from forwarder")
+			daemon.logger.Warningf("HandleTCPQuery", clientIP, nil, "bad response length from forwarder")
 			return
 		}
 		responseBuf = make([]byte, responseLen)
 		if _, err = myForwarder.Read(responseBuf); err != nil {
-			daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read response from forwarder")
+			daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read response from forwarder")
 			return
 		}
 	}
 	// Send response to my client
 	if _, err = clientConn.Write(responseLenBuf); err != nil {
-		daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to answer length to client")
+		daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to answer length to client")
 		return
 	} else if _, err = clientConn.Write(responseBuf); err != nil {
-		daemon.Logger.Warningf("HandleTCPQuery", clientIP, err, "failed to answer to client")
+		daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to answer to client")
 		return
 	}
 	return
@@ -132,9 +132,9 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 		return err
 	}
 	defer listener.Close()
-	daemon.TCPListener = listener
+	daemon.tcpListener = listener
 	// Process incoming TCP DNS queries
-	daemon.Logger.Printf("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
+	daemon.logger.Printf("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
 	for {
 		if misc.EmergencyLockDown {
 			return misc.ErrEmergencyLockDown
@@ -198,7 +198,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 		t.Fatal(success)
 	}
 	// Blacklist github and see if query gets a black hole response
-	dnsd.BlackList["github.com"] = struct{}{}
+	dnsd.blackList["github.com"] = struct{}{}
 	// This test is flaky and I do not understand why, is it throttled by google dns?
 	var blackListSuccess bool
 	for i := 0; i < 30; i++ {

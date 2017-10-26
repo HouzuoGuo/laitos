@@ -30,25 +30,25 @@ type Daemon struct {
 	Address    string `json:"Address"`
 	Password   string `json:"Password"`
 	PerIPLimit int    `json:"PerIPLimit"`
+	TCPPort    int    `json:"TCPPort"`
+	UDPPort    int    `json:"UDPPort"`
 
-	TCPPort     int          `json:"TCPPort"`
-	TCPListener net.Listener `json:"-"`
+	tcpListener  net.Listener
+	rateLimitTCP *misc.RateLimit
 
-	UDPPort     int          `json:"UDPPort"`
-	UDPBacklog  *UDPBackLog  `json:"-"`
-	UDPListener *net.UDPConn `json:"-"`
-	UDPTable    *UDPTable    `json:"-"`
-
-	Logger           misc.Logger `json:"-"`
-	cipher           *Cipher
-	rateLimitTCP     *misc.RateLimit
+	udpBackLog       *UDPBackLog
+	udpListener      *net.UDPConn
+	udpTable         *UDPTable
 	rateLimitUDP     *misc.RateLimit
 	udpLoopIsRunning int32
 	stopUDP          chan bool
+
+	cipher *Cipher
+	logger misc.Logger
 }
 
 func (sock *Daemon) Initialise() error {
-	sock.Logger = misc.Logger{ComponentName: "sockd", ComponentID: fmt.Sprintf("%s:%d", sock.Address, sock.TCPPort)}
+	sock.logger = misc.Logger{ComponentName: "sockd", ComponentID: fmt.Sprintf("%s:%d", sock.Address, sock.TCPPort)}
 	if sock.Address == "" {
 		return errors.New("sockd.Initialise: listen address must not be empty")
 	}
@@ -62,13 +62,13 @@ func (sock *Daemon) Initialise() error {
 		return errors.New("sockd.Initialise: PerIPLimit must be greater than 9")
 	}
 	sock.rateLimitTCP = &misc.RateLimit{
-		Logger:   sock.Logger,
+		Logger:   sock.logger,
 		MaxCount: sock.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
 	}
 	sock.rateLimitTCP.Initialise()
 	sock.rateLimitUDP = &misc.RateLimit{
-		Logger:   sock.Logger,
+		Logger:   sock.logger,
 		MaxCount: sock.PerIPLimit * 100,
 		UnitSecs: RateLimitIntervalSec,
 	}
@@ -77,7 +77,7 @@ func (sock *Daemon) Initialise() error {
 	sock.cipher = &Cipher{}
 	sock.cipher.Initialise(sock.Password)
 
-	sock.UDPBacklog = &UDPBackLog{backlog: make(map[string][]byte), mutex: new(sync.Mutex)}
+	sock.udpBackLog = &UDPBackLog{backlog: make(map[string][]byte), mutex: new(sync.Mutex)}
 
 	sock.stopUDP = make(chan bool)
 	return nil
@@ -110,17 +110,17 @@ func (sock *Daemon) StartAndBlock() error {
 }
 
 func (sock *Daemon) Stop() {
-	if listener := sock.TCPListener; listener != nil {
+	if listener := sock.tcpListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			sock.Logger.Warningf("Stop", "", err, "failed to close TCP listener")
+			sock.logger.Warningf("Stop", "", err, "failed to close TCP listener")
 		}
 	}
-	if listener := sock.UDPListener; listener != nil {
+	if listener := sock.udpListener; listener != nil {
 		if atomic.CompareAndSwapInt32(&sock.udpLoopIsRunning, 1, 0) {
 			sock.stopUDP <- true
 		}
 		if err := listener.Close(); err != nil {
-			sock.Logger.Warningf("Stop", "", err, "failed to close UDP listener")
+			sock.logger.Warningf("Stop", "", err, "failed to close UDP listener")
 		}
 	}
 }

@@ -25,9 +25,9 @@ func (daemon *Daemon) StartAndBlockTCP() (err error) {
 		return fmt.Errorf("plainsocket.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
 	}
 	defer listener.Close()
-	daemon.TCPListener = listener
+	daemon.tcpListener = listener
 	// Process incoming TCP conversations
-	daemon.Logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
+	daemon.logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
 	for {
 		if misc.EmergencyLockDown {
 			return misc.ErrEmergencyLockDown
@@ -53,10 +53,10 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	// Check connection against rate limit even before reading a line of command
-	if !daemon.RateLimit.Add(clientIP, true) {
+	if !daemon.rateLimit.Add(clientIP, true) {
 		return
 	}
-	daemon.Logger.Printf("HandleTCPConnection", clientIP, nil, "working on the connection")
+	daemon.logger.Printf("HandleTCPConnection", clientIP, nil, "working on the connection")
 	reader := bufio.NewReader(clientConn)
 	for {
 		// Read one line of command
@@ -64,12 +64,12 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 		line, _, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				daemon.Logger.Warningf("HandleTCPConnection", clientIP, err, "failed to read from client")
+				daemon.logger.Warningf("HandleTCPConnection", clientIP, err, "failed to read from client")
 			}
 			return
 		}
 		// Check against conversation rate limit
-		if !daemon.RateLimit.Add(clientIP, true) {
+		if !daemon.rateLimit.Add(clientIP, true) {
 			return
 		}
 		// Process line of command and respond

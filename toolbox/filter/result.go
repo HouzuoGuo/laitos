@@ -105,7 +105,8 @@ func (_ *LintText) SetLogger(_ misc.Logger) {
 type NotifyViaEmail struct {
 	Recipients []string        `json:"Recipients"` // Email recipient addresses
 	MailClient inet.MailClient `json:"-"`          // MTA that delivers outgoing notification email
-	Logger     misc.Logger     `json:"-"`          // Logger
+
+	logger misc.Logger
 }
 
 // Return true only if all mail parameters are present.
@@ -118,7 +119,7 @@ func (notify *NotifyViaEmail) Transform(result *toolbox.Result) error {
 		go func() {
 			subject := inet.OutgoingMailSubjectKeyword + "-notify-" + result.Command.Content
 			if err := notify.MailClient.Send(subject, result.CombinedOutput, notify.Recipients...); err != nil {
-				notify.Logger.Warningf("Transform", "", err, "failed to send notification for command \"%s\"", result.Command.Content)
+				notify.logger.Warningf("Transform", "", err, "failed to send notification for command \"%s\"", result.Command.Content)
 			}
 		}()
 	}
@@ -126,7 +127,7 @@ func (notify *NotifyViaEmail) Transform(result *toolbox.Result) error {
 }
 
 func (notify *NotifyViaEmail) SetLogger(logger misc.Logger) {
-	notify.Logger = logger
+	notify.logger = logger
 }
 
 // If there is no graph character among the combined output, replace it by "EMPTY OUTPUT".

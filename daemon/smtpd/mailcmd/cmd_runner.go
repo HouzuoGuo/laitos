@@ -29,7 +29,8 @@ type CommandRunner struct {
 	Undocumented2   Undocumented2            `json:"Undocumented2"` // Intentionally undocumented he he he he
 	Processor       *common.CommandProcessor `json:"-"`             // Feature configuration
 	ReplyMailClient inet.MailClient          `json:"-"`             // To deliver Email replies
-	Logger          misc.Logger              `json:"-"`             // Logger
+
+	logger misc.Logger
 }
 
 // Initialise initialises internal states of command runner. This function must be called before using the command runner.
@@ -37,8 +38,8 @@ func (runner *CommandRunner) Initialise() error {
 	if runner.Processor == nil || runner.Processor.IsEmpty() {
 		return fmt.Errorf("mailcmd.Initialise: command processor and its filters must be configured")
 	}
-	runner.Logger = misc.Logger{ComponentName: "mailcmd", ComponentID: runner.ReplyMailClient.MailFrom}
-	runner.Processor.SetLogger(runner.Logger)
+	runner.logger = misc.Logger{ComponentName: "mailcmd", ComponentID: runner.ReplyMailClient.MailFrom}
+	runner.Processor.SetLogger(runner.logger)
 	if errs := runner.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("mailcmd.Process: %+v", errs)
 	}
@@ -110,7 +111,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 		if strings.Contains(prop.Subject, inet.OutgoingMailSubjectKeyword) {
 			return false, errors.New("ignore email sent by this program itself")
 		}
-		runner.Logger.Printf("Process", prop.FromAddress, nil, "process message of type %s, subject \"%s\"", prop.ContentType, prop.Subject)
+		runner.logger.Printf("Process", prop.FromAddress, nil, "process message of type %s, subject \"%s\"", prop.ContentType, prop.Subject)
 		// By contract, PIN processor finds command among input lines.
 		result := runner.Processor.Process(toolbox.Command{
 			Content:    string(body),

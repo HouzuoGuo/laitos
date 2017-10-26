@@ -39,12 +39,13 @@ type CommandProcessor struct {
 	Features       *toolbox.FeatureSet    // Features is the aggregation of initialised toolbox feature routines.
 	CommandFilters []filter.CommandFilter // CommandFilters are applied one by one to alter input command content and/or timeout.
 	ResultFilters  []filter.ResultFilter  // ResultFilters are applied one by one to alter command execution result.
-	Logger         misc.Logger            // Logger handles log output from command processing routines and filters.
+
+	logger misc.Logger
 }
 
 // SetLogger assigns a logger to command processor and all of its filters.
 func (proc *CommandProcessor) SetLogger(logger misc.Logger) {
-	proc.Logger = logger
+	proc.logger = logger
 	for _, b := range proc.ResultFilters {
 		b.SetLogger(logger)
 	}
@@ -202,9 +203,9 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result)
 		goto result
 	}
 	// Run the feature
-	proc.Logger.Printf("Process", "CommandProcessor", nil, "going to run %+v", cmd)
+	proc.logger.Printf("Process", "CommandProcessor", nil, "going to run %+v", cmd)
 	defer func() {
-		proc.Logger.Printf("Process", "CommandProcessor", nil, "finished running %+v - %s", cmd, ret.CombinedOutput)
+		proc.logger.Printf("Process", "CommandProcessor", nil, "finished running %+v - %s", cmd, ret.CombinedOutput)
 	}()
 	ret = matchedFeature.Execute(cmd)
 

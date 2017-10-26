@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// Allow an actor to perform no more than certain specified number of actions per unit of time.
 /*
 RateLimit tracks number of hits performed by each source ("actor") to determine whether a source has exceeded
 specified rate limit. Instead of being a rolling counter, the tracking data is reset to empty at regular interval.

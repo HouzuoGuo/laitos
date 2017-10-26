@@ -38,8 +38,8 @@ func (sock *Daemon) StartAndBlockTCP() error {
 		return fmt.Errorf("sockd.StartAndBlockTCP: failed to listen on %s:%d - %v", sock.Address, sock.TCPPort, err)
 	}
 	defer listener.Close()
-	sock.Logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
-	sock.TCPListener = listener
+	sock.logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
+	sock.tcpListener = listener
 
 	for {
 		if misc.EmergencyLockDown {
@@ -55,7 +55,7 @@ func (sock *Daemon) StartAndBlockTCP() error {
 		}
 		clientIP := conn.RemoteAddr().(*net.TCPAddr).IP.String()
 		if sock.rateLimitTCP.Add(clientIP, true) {
-			go NewTCPCipherConnection(conn, sock.cipher.Copy(), sock.Logger).HandleTCPConnection()
+			go NewTCPCipherConnection(conn, sock.cipher.Copy(), sock.logger).HandleTCPConnection()
 		} else {
 			conn.Close()
 		}

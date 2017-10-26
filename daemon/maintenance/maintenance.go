@@ -46,9 +46,10 @@ type Daemon struct {
 	Recipients         []string               `json:"Recipients"`  // Address of recipients of notification mails
 	FeaturesToCheck    *toolbox.FeatureSet    `json:"-"`           // Health check subject - features and their API keys
 	CheckMailCmdRunner *mailcmd.CommandRunner `json:"-"`           // Health check subject - mail processor and its mailer
-	Logger             misc.Logger            `json:"-"`           // Logger
-	loopIsRunning      int32                  // Value is 1 only when health check loop is running
-	stop               chan bool              // Signal health check loop to stop
+
+	loopIsRunning int32     // Value is 1 only when health check loop is running
+	stop          chan bool // Signal health check loop to stop
+	logger        misc.Logger
 }
 
 /*
@@ -80,7 +81,7 @@ Telegram commands:    %s
 
 // Check TCP ports and features, return all-OK or not.
 func (daemon *Daemon) Execute() (string, bool) {
-	daemon.Logger.Printf("Execute", "", nil, "running now")
+	daemon.logger.Printf("Execute", "", nil, "running now")
 	// Conduct system maintenance first to ensure an accurate reading of runtime information later on
 	maintResult := daemon.SystemMaintenance()
 	// Do three checks in parallel - ports, features, and mail command runner
@@ -163,12 +164,12 @@ func (daemon *Daemon) Execute() (string, bool) {
 	result.WriteString(toolbox.GetGoroutineStacktraces())
 	// Send away!
 	if allOK {
-		daemon.Logger.Printf("Execute", "", nil, "completed with everything being OK")
+		daemon.logger.Printf("Execute", "", nil, "completed with everything being OK")
 	} else {
-		daemon.Logger.Warningf("Execute", "", nil, "completed with some errors")
+		daemon.logger.Warningf("Execute", "", nil, "completed with some errors")
 	}
 	if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
-		daemon.Logger.Warningf("Execute", "", err, "failed to send notification mail")
+		daemon.logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
 	// Remove weird characters that may appear and cause email display to squeeze all lines together
 	var cleanedResult bytes.Buffer
@@ -183,7 +184,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 }
 
 func (daemon *Daemon) Initialise() error {
-	daemon.Logger = misc.Logger{ComponentName: "maintenance", ComponentID: strconv.Itoa(daemon.IntervalSec)}
+	daemon.logger = misc.Logger{ComponentName: "maintenance", ComponentID: strconv.Itoa(daemon.IntervalSec)}
 	if daemon.IntervalSec < MinimumIntervalSec {
 		return fmt.Errorf("maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
@@ -275,9 +276,9 @@ func (daemon *Daemon) SystemMaintenance() string {
 		ret.WriteString("--- Updating apt manifests...\n")
 		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
 		// Five minutes should be enough to grab the latest manifest
-		daemon.Logger.Printf("SystemMaintenance", "", nil, "updating apt manifests")
+		daemon.logger.Printf("SystemMaintenance", "", nil, "updating apt manifests")
 		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
-		daemon.Logger.Printf("SystemMaintenance", "", err, "finished updating apt manifests")
+		daemon.logger.Printf("SystemMaintenance", "", err, "finished updating apt manifests")
 		// There is no need to suppress this output according to markers
 		fmt.Fprintf(ret, "--- apt-get result: %v - %s\n\n", err, strings.TrimSpace(result))
 	}
@@ -304,9 +305,9 @@ func (daemon *Daemon) SystemMaintenance() string {
 	suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
 	// Upgrade system packages with a time constraint of two hours
 	ret.WriteString("--- Upgrading system packages...\n")
-	daemon.Logger.Printf("SystemMaintenance", "", nil, "updating system packages")
+	daemon.logger.Printf("SystemMaintenance", "", nil, "updating system packages")
 	result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
-	daemon.Logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
+	daemon.logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
 	for _, marker := range suppressOutputMarkers {
 		// If nothing was done during system update, suppress the rather useless output.
 		if strings.Contains(result, marker) {
@@ -355,9 +356,9 @@ func (daemon *Daemon) SystemMaintenance() string {
 		pkgInstallArgs[len(installArgs)] = name
 		fmt.Fprintf(ret, "--- Installing/upgrading %s\n", name)
 		// Five minutes should be good enough for every package
-		daemon.Logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
+		daemon.logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
 		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, pkgInstallArgs...)
-		daemon.Logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
+		daemon.logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
 		for _, marker := range suppressOutputMarkers {
 			// If nothing was done about the package, suppress the rather useless output.
 			if strings.Contains(result, marker) {
@@ -386,7 +387,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 	}
 
 	ret.WriteString("--- System maintenance has finished.\n")
-	daemon.Logger.Printf("SystemMaintenance", "", nil, "maintenance is finished")
+	daemon.logger.Printf("SystemMaintenance", "", nil, "maintenance is finished")
 	return ret.String()
 }
 
