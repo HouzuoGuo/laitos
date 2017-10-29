@@ -31,7 +31,7 @@ func (und *Undocumented1) SelfTest() error {
 	if !und.IsConfigured() {
 		return toolbox.ErrIncompleteConfig
 	}
-	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: toolbox.TestTimeoutSec}, und.URL)
+	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: toolbox.SelfTestTimeoutSec}, und.URL)
 	// Only consider IO error and 404 response to be actual errors
 	if err != nil {
 		return err

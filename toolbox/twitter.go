@@ -43,7 +43,7 @@ func (twi *Twitter) SelfTest() error {
 	}
 	// Make an inexpensive API call to test API credentials
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
-		TimeoutSec: TestTimeoutSec,
+		TimeoutSec: SelfTestTimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			return twi.reqSigner.SetRequestAuthHeader(req)
 		},

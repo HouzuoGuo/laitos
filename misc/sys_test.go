@@ -55,7 +55,7 @@ func TestGetSystemUptimeSec(t *testing.T) {
 }
 
 func TestGetSysctl(t *testing.T) {
-	key := "vm.max_map_count"
+	key := "kernel.pid_max"
 	if runtime.GOOS != "linux" {
 		// Just make sure the function does not crash
 		GetSysctlInt(key)

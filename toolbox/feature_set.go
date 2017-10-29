@@ -14,6 +14,7 @@ and receive configuration from JSON.
 type FeatureSet struct {
 	AESDecrypt         AESDecrypt          `json:"AESDecrypt"`
 	Browser            Browser             `json:"Browser"`
+	PublicContact      PublicContact       `json:"PublicContact"`
 	EnvControl         EnvControl          `json:"EnvControl"`
 	Facebook           Facebook            `json:"Facebook"`
 	IMAPAccounts       IMAPAccounts        `json:"IMAPAccounts"`
@@ -32,17 +33,18 @@ var TestFeatureSet = FeatureSet{} // Features are assigned by init_test.go
 func (fs *FeatureSet) Initialise() error {
 	fs.LookupByTrigger = map[Trigger]Feature{}
 	triggers := map[Trigger]Feature{
-		fs.AESDecrypt.Trigger():         &fs.AESDecrypt,
-		fs.Browser.Trigger():            &fs.Browser,
-		fs.EnvControl.Trigger():         &fs.EnvControl,
-		fs.Facebook.Trigger():           &fs.Facebook,
-		fs.IMAPAccounts.Trigger():       &fs.IMAPAccounts,
-		fs.SendMail.Trigger():           &fs.SendMail,
-		fs.Shell.Trigger():              &fs.Shell,
-		fs.Twilio.Trigger():             &fs.Twilio,
-		fs.Twitter.Trigger():            &fs.Twitter,
-		fs.TwoFACodeGenerator.Trigger(): &fs.TwoFACodeGenerator,
-		fs.WolframAlpha.Trigger():       &fs.WolframAlpha,
+		fs.AESDecrypt.Trigger():         &fs.AESDecrypt,         // a
+		fs.Browser.Trigger():            &fs.Browser,            // b
+		fs.PublicContact.Trigger():      &fs.PublicContact,      // c
+		fs.EnvControl.Trigger():         &fs.EnvControl,         // e
+		fs.Facebook.Trigger():           &fs.Facebook,           // f
+		fs.IMAPAccounts.Trigger():       &fs.IMAPAccounts,       // i
+		fs.SendMail.Trigger():           &fs.SendMail,           // m
+		fs.Shell.Trigger():              &fs.Shell,              // s
+		fs.Twilio.Trigger():             &fs.Twilio,             // p
+		fs.Twitter.Trigger():            &fs.Twitter,            // t
+		fs.TwoFACodeGenerator.Trigger(): &fs.TwoFACodeGenerator, // 2
+		fs.WolframAlpha.Trigger():       &fs.WolframAlpha,       // w
 	}
 	for trigger, featureRef := range triggers {
 		if featureRef.IsConfigured() {

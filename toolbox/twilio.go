@@ -40,7 +40,7 @@ func (twi *Twilio) SelfTest() error {
 	}
 	// Validate API credentials with a simple API call
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
-		TimeoutSec: TestTimeoutSec,
+		TimeoutSec: SelfTestTimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
 			return nil

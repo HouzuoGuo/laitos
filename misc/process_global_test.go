@@ -58,7 +58,7 @@ func TestGetDirsToKill(t *testing.T) {
 func TestGetFilesToKill(t *testing.T) {
 	toKill := getFilesToKill()
 	fmt.Println(toKill)
-	// At least it should kill the program
+	// At least it should kill the program executable itself
 	if len(toKill) < 1 {
 		t.Fatal(toKill)
 	}

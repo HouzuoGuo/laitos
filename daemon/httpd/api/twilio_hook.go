@@ -14,9 +14,10 @@ import (
 const (
 	/*
 		TwilioHandlerTimeoutSec is Twilio's HTTP client timeout. As of 2017-02-23, the timeout of 14 seconds is enforced
-		on both SMS and telephone call hooks.
+		on both SMS and telephone call hooks. To leave some room for IO transfer, the command timeout takes away two
+		seconds from the absolute timeout of 14 seconds.
 	*/
-	TwilioHandlerTimeoutSec = 14
+	TwilioHandlerTimeoutSec = 14 - 2
 	/*
 		TwilioPhoneticSpellingMagic is the prefix magic to dial in order to have output read back phonetically.
 		The magic must not hinder DTMF PIN input, therefore it begins with 0, which is a DTMF space and cannot be part of a PIN.
