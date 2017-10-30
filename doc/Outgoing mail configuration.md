@@ -1,7 +1,7 @@
 # Outgoing mail configuration
 
 ## Introduction
-A shared outgoing mail configuration must be created, in order for the following components to send Emails:
+A shared outgoing mail configuration must be created, in order for the following components to send emails:
 - [System maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
 - [Mail server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server)
 - Web service [GitLab browser](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-GitLab-browser)
@@ -46,7 +46,7 @@ Construct the following object under JSON key `MailClient`, all properties are m
 
 
 ## Configuration example
-Here is an example for using [SendGrid](https://sendgrid.com/) to send outgoing Emails:
+Here is an example for using [SendGrid](https://sendgrid.com/) to send outgoing emails:
 <pre>
 {
     ...
@@ -65,9 +65,9 @@ Here is an example for using [SendGrid](https://sendgrid.com/) to send outgoing 
 
 ## Tips
 If laitos is running on public cloud, be aware that several public cloud providers (such as Google Compute Engine) does
-not allow servers themselves to deliver any Email via local mail transportation agents (e.g. postfix, sendmail).
+not allow servers themselves to deliver any email via local mail transportation agents (e.g. postfix, sendmail).
 This is usually done to prevent spam.
 
-In that case, you will have to use a mail delivery service such as [SendGrid](https://sendgrid.com/) to send Emails.
+In that case, you will have to use a mail delivery service such as [SendGrid](https://sendgrid.com/) to send emails.
 For the case of Google Compute Engine, check out this detailed topic written by Google:
 [Sending Email from an Instance](https://cloud.google.com/compute/docs/tutorials/sending-mail/)

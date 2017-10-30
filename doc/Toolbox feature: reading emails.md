@@ -1,7 +1,7 @@
-# Toolbox feature: reading Emails
+# Toolbox feature: reading emails
 
 ## Introduction
-Via any of enabled laitos daemons, you may list and read Emails via IMAP protocol.
+Via any of enabled laitos daemons, you may list and read emails via IMAP protocol.
 
 laitos uses IMAP to communicate with your Email accounts, and it enforces usage of secure communication via TLS.
 
@@ -86,17 +86,17 @@ Here is an example:
 
 ## Usage
 Use any capable laitos daemon to run commands:
-- List latest Emails: `.il account-nick skip count`, where `account-nick` is the account nick name from configuration
-  (e.g. personal-mail), `skip` is the number of latest Emails to discard (can be 0), and `count` is the number of Emails
+- List latest emails: `.il account-nick skip count`, where `account-nick` is the account nick name from configuration
+  (e.g. personal-mail), `skip` is the number of latest emails to discard (can be 0), and `count` is the number of emails
   to list after discarding.
-- To read Email content: `.ir account-nick message-number`, where `account-nick` is the account nick name from
-  configuration, `message-number` is the Email message number from email list response.
+- To read email content: `.ir account-nick message-number`, where `account-nick` is the account nick name from
+  configuration, `message-number` is the email message number from email list response.
 
 ## Tips
-- Popular Email services such as Gmail and Hotmail (Outlook) call the primary mail box `INBOX` (in upper case) for
-  incoming Emails.
+- Popular email services such as Gmail and Hotmail (Outlook) call the primary mail box `INBOX` (in upper case) for
+  incoming emails.
 - Gmail has a mail box called `[Gmail]/All Mail` that corresponds to the mail box of all emails, which includes sent,
   junk, and incoming mails.
 - The junk mail box of Hotmail (Outlook) is called `Junk` (in mixed case).
-- To discover more mail box names, sign in to your Email accounts via an Email client such as Mozilla Thunderbird and
+- To discover more mail box names, sign in to your email accounts via an email client such as Mozilla Thunderbird and
   inspect settings of each mail box.

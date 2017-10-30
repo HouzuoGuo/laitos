@@ -4,7 +4,7 @@ The rich set of components not only covers the basic needs of hosting a personal
 but also provide advanced capabilities to satisfy the geeky nature inside of you!
 
 laitos components go into two categories:
-- Toolbox - access to Email, post to Twitter/Facebook, etc.
+- Toolbox - access to email, post to Twitter/Facebook, etc.
 - Daemons - web server, mail server, and chat bots. Daemons grant access to all toolbox features.
 
 TODO: Make some screenshots.
@@ -18,7 +18,7 @@ It supports DNS-over-TCP as well as UDP.
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server)
 
 ### Mail server
-Mail server forwards arriving mails to your personal Email address. It uses TLS certificate for communication secrecy.
+Mail server forwards arriving mails to your personal email address. It uses TLS certificate for communication secrecy.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server)
 
@@ -36,7 +36,7 @@ tools such as `telnet`, `netcat`, and `HyperTerminal`.
 ### System maintenance
 Periodic maintenance patches the system for security updates, and checks for environment and program health.
 
-The results are presented in a report sent to your Email address.
+The results are presented in a report sent to your email address.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
 
@@ -96,7 +96,7 @@ Read and post tweets.
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Twitter)
 
 ### Social network - reading emails
-Read mails from personal Email addresses.
+Read mails from personal email addresses.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-emails)
 
@@ -111,7 +111,7 @@ Send text to friend's phone number, or call a friend to speak a short message.
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-making-calls-and-send-SMS)
 
 ### Contact information of public institutions
-Look up contact details (phone number and Email address) of public institutions such as search-and-rescue organisations.
+Look up contact details (phone number and email address) of public institutions such as search-and-rescue organisations.
 
 [Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-public-institution-contacts)
 

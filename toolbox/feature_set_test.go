@@ -61,7 +61,7 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 		},
 	}
 	features.IMAPAccounts.Initialise()
-	features.SendMail.Mailer.MTAHost = "very bad"
+	features.SendMail.MailClient.MTAHost = "very bad"
 	features.Shell.InterpreterPath = "very bad"
 	features.Twilio.AccountSID = "very bad"
 	features.Twitter.AccessToken = "very bad"

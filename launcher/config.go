@@ -100,13 +100,31 @@ type Config struct {
 	logger misc.Logger // logger handles log output from configuration serialisation and initialisation routines.
 }
 
-// DeserialiseFromJSON deserialised JSON configuration of all daemons and toolbox features, and then initialise all toolbox features.
+// Initialise decorates feature configuration and bridges in preparation for daemon operations.
+func (config *Config) Initialise() error {
+	// All notification filters share the common mail client
+	config.HTTPFilters.NotifyViaEmail.MailClient = config.MailClient
+	config.MailFilters.NotifyViaEmail.MailClient = config.MailClient
+	config.PlainSocketFilters.NotifyViaEmail.MailClient = config.MailClient
+	config.TelegramFilters.NotifyViaEmail.MailClient = config.MailClient
+	// SendMail feature also shares the common mail client
+	config.Features.SendMail.MailClient = config.MailClient
+	if err := config.Features.Initialise(); err != nil {
+		return err
+	}
+	return nil
+}
+
+/*
+DeserialiseFromJSON deserialised configuration of all daemons and toolbox features from JSON input, and then prepares
+itself for daemon operations.
+*/
 func (config *Config) DeserialiseFromJSON(in []byte) error {
 	config.logger = misc.Logger{ComponentName: "Config"}
 	if err := json.Unmarshal(in, config); err != nil {
 		return err
 	}
-	if err := config.Features.Initialise(); err != nil {
+	if err := config.Initialise(); err != nil {
 		return err
 	}
 	return nil
@@ -140,9 +158,6 @@ func (config Config) GetMaintenance() *maintenance.Daemon {
 func (config Config) GetHTTPD() *httpd.Daemon {
 	ret := config.HTTPDaemon
 
-	mailNotification := config.HTTPFilters.NotifyViaEmail
-	mailNotification.MailClient = config.MailClient
-
 	config.logger.Printf("GetHTTPD", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
@@ -155,7 +170,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 			&config.HTTPFilters.LintText,
 			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
-			&mailNotification,
+			&config.HTTPFilters.NotifyViaEmail,
 		},
 	}
 	// Make handler factories
@@ -302,9 +317,6 @@ independent mail command runner is useful in certain scenarios, such as integrat
 func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 	ret := config.MailCommandRunner
 
-	mailNotification := config.MailFilters.NotifyViaEmail
-	mailNotification.MailClient = config.MailClient
-
 	config.logger.Printf("GetMailCommandRunner", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
@@ -317,7 +329,7 @@ func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 			&config.MailFilters.LintText,
 			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
-			&mailNotification,
+			&config.MailFilters.NotifyViaEmail,
 		},
 	}
 	ret.ReplyMailClient = config.MailClient
@@ -346,9 +358,6 @@ It will use common mail client for sending outgoing emails.
 func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 	ret := config.PlainSocketDaemon
 
-	mailNotification := config.PlainSocketFilters.NotifyViaEmail
-	mailNotification.MailClient = config.MailClient
-
 	config.logger.Printf("GetPlainSocketDaemon", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
@@ -361,7 +370,7 @@ func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 			&config.PlainSocketFilters.LintText,
 			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
-			&mailNotification,
+			&config.PlainSocketFilters.NotifyViaEmail,
 		},
 	}
 	// Call initialise so that daemon is ready to start
@@ -386,9 +395,6 @@ func (config Config) GetSockDaemon() *sockd.Daemon {
 func (config Config) GetTelegramBot() *telegrambot.Daemon {
 	ret := config.TelegramBot
 
-	mailNotification := config.TelegramFilters.NotifyViaEmail
-	mailNotification.MailClient = config.MailClient
-
 	config.logger.Printf("GetTelegramBot", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble telegram bot from features and filters
 	ret.Processor = &common.CommandProcessor{
@@ -401,7 +407,7 @@ func (config Config) GetTelegramBot() *telegrambot.Daemon {
 			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 			&config.TelegramFilters.LintText,
 			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
-			&mailNotification,
+			&config.TelegramFilters.NotifyViaEmail,
 		},
 	}
 	if err := ret.Initialise(); err != nil {

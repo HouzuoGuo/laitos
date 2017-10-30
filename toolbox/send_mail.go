@@ -25,7 +25,7 @@ var (
 
 // Send outgoing emails.
 type SendMail struct {
-	Mailer inet.MailClient `json:"MailClient"`
+	MailClient inet.MailClient `json:"MailClient"`
 
 	logger misc.Logger
 }
@@ -33,14 +33,14 @@ type SendMail struct {
 var TestSendMail = SendMail{} // Details are set by init_feature_test.go
 
 func (email *SendMail) IsConfigured() bool {
-	return email.Mailer.IsConfigured()
+	return email.MailClient.IsConfigured()
 }
 
 func (email *SendMail) SelfTest() error {
 	if !email.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", email.Mailer.MTAHost, email.Mailer.MTAPort), SelfTestTimeoutSec*time.Second)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", email.MailClient.MTAHost, email.MailClient.MTAPort), SelfTestTimeoutSec*time.Second)
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (email *SendMail) SelfTest() error {
 }
 
 func (email *SendMail) Initialise() error {
-	email.logger = misc.Logger{ComponentID: email.Mailer.MailFrom, ComponentName: "SendMail"}
+	email.logger = misc.Logger{ComponentID: email.MailClient.MailFrom, ComponentName: "SendMail"}
 	return nil
 }
 
@@ -77,7 +77,7 @@ func (email *SendMail) Execute(cmd Command) *Result {
 		// Wait for Email to be sent in foreground, but inform user if it takes too long.
 		sendErrChan := make(chan error, 1)
 		go func() {
-			sendErrChan <- email.Mailer.Send(mailSubject, mailBody, mailTo)
+			sendErrChan <- email.MailClient.Send(mailSubject, mailBody, mailTo)
 		}()
 		select {
 		case <-time.After(time.Duration(cmd.TimeoutSec) * time.Second):
@@ -105,7 +105,7 @@ Please send help: %s`, time.Now().UTC().Format(time.RFC3339), inet.GetPublicIP()
 
 	for _, recipient := range GetAllSAREmails() {
 		go func(recipient string) {
-			err := email.Mailer.Send("SOS HELP "+subject, body, recipient)
+			err := email.MailClient.Send("SOS HELP "+subject, body, recipient)
 			email.logger.Warningf("SendSOS", "", err, "attempted to deliver to %s", recipient)
 		}(recipient)
 	}
