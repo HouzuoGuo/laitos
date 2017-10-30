@@ -127,7 +127,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	// Latest runtime info
 	result.WriteString(toolbox.GetRuntimeInfo())
 	// Latest stats
-	result.WriteString("\nStatistics low/avg/high/total(count) seconds:\n")
+	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
 	result.WriteString(GetLatestStats())
 	// Port check results
 	if misc.LenSyncMap(portCheckErrs) == 0 {

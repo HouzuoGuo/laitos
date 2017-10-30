@@ -132,7 +132,7 @@ func (info *HandleSystemInfo) MakeHandler(logger misc.Logger, _ *common.CommandP
 		// Latest runtime info
 		result.WriteString(toolbox.GetRuntimeInfo())
 		// Latest stats
-		result.WriteString("\nStatistics low/avg/high/total(count) seconds:\n")
+		result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
 		result.WriteString(GetLatestStats())
 		// Feature check results
 		if len(featureErrs) == 0 {

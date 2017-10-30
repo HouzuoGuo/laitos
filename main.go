@@ -69,12 +69,24 @@ func StartPasswordWebServer(port int, url, archivePath string) {
 		URL:             url,
 		ArchiveFilePath: archivePath,
 	}
-	if err := ws.Start(); err != nil {
-		logger.Fatalf("StartPasswordWebServer", "main", err, "failed to start the web server")
-		return
+	/*
+		On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching the new
+		version, which means the web server often runs into port conflicts. Therefore, make at most 5 attempts at
+		starting the web server.
+	*/
+	for i := 0; i < 5; i++ {
+		if err := ws.Start(); err == nil {
+			// Upon success, wait almost indefinitely (~5 years) because this is the main routine of this CLI action.
+			time.Sleep(5 * 365 * 24 * time.Hour)
+		} else {
+			// Retry upon failure
+			logger.Printf("StartPasswordWebServer", "main", err, "failed to start the web server (attempt %d)", i)
+			time.Sleep(5 * time.Second)
+		}
 	}
-	// Wait almost indefinitely (~5 years) because this is the main routine of this CLI action
-	time.Sleep(5 * 365 * 24 * time.Hour)
+	logger.Fatalf("StartPasswordWebServer", "main", nil, "failed to start the web server after many attempts")
+	return
+
 }
 
 /*
