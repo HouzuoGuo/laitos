@@ -95,20 +95,25 @@ Read and post tweets.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Twitter)
 
-### Social network - reading Emails
+### Social network - reading emails
 Read mails from personal Email addresses.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-Emails)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-emails)
 
-### Social network - sending Emails
+### Social network - sending emails
 Send mails to friends.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-Emails)
+[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-emails)
 
 ### Making calls and send SMS
 Send text to friend's phone number, or call a friend to speak a short message.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-making-calls-and-send-SMS)
+
+### Contact information of public institutions
+Look up contact details (phone number and Email address) of public institutions such as search-and-rescue organisations.
+
+[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-public-institution-contacts)
 
 ### Utility - two factor authentication code generator
 Generate two-factor authentication code for secure website login.

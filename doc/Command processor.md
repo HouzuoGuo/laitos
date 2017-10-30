@@ -170,6 +170,7 @@ The following prefixes are accepted, see individual feature manual for their usa
 
 - `.2` - [Two factor authentication code generator](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-two-factor-authentication-code-generator)
 - `.a` - [Find text in AES-encrypted files](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-find-text-in-AES-encrypted-files)
+- `.c` - [Contact information of public institutions](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-public-institution-contacts)
 - `.b` - [Interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser)
 - `.e` - [Inspect system and program environment](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-environment)
 - `.f` - [Facebook](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Facebook)
