@@ -18,7 +18,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,27 +27,35 @@ import (
 )
 
 const (
-	TCPConnectionTimeoutSec = 10
-	MinimumIntervalSec      = 120 // MinimumIntervalSec is the lowest acceptable value of system maintenance interval.
+	TCPPortCheckTimeoutSec = 10  // TCPPortCheckTimeoutSec is the timeout used in knocking ports.
+	MinimumIntervalSec     = 120 // MinimumIntervalSec is the lowest acceptable value of system maintenance interval.
 )
 
 /*
-Daemon is a system maintenance daemon that periodically triggers health check and software updates. Health check
+Daemon is a system maintenance daemon that periodically triggers health check and software updates. Maintenance routine
 comprises port checks, API key checks, and a lot more. Software updates ensures that system packages are up to date and
 dependencies of this program are installed and up to date.
 The result of each run is is sent to designated email addresses, along with latest environment information such as
 latest logs and warnings.
 */
 type Daemon struct {
-	TCPPorts           []int                  `json:"TCPPorts"`    // Check that these TCP ports are listening on this host
-	IntervalSec        int                    `json:"IntervalSec"` // Check TCP ports and features at this interval
-	MailClient         inet.MailClient        `json:"MailClient"`  // Send notification mails via this mailer
-	Recipients         []string               `json:"Recipients"`  // Address of recipients of notification mails
-	FeaturesToCheck    *toolbox.FeatureSet    `json:"-"`           // Health check subject - features and their API keys
-	CheckMailCmdRunner *mailcmd.CommandRunner `json:"-"`           // Health check subject - mail processor and its mailer
+	/*
+		CheckTCPPorts are hosts and TCP port numbers to knock during the routine maintenance. If the port is not open on
+		the host, the check is considered a failure.
+	*/
+	CheckTCPPorts map[string][]int `json:"CheckTCPPorts"`
+	/*
+		IntervalSec determines the rate of execution of maintenance routine. This is not a sleep duration. The constant
+		rate of execution is maintained by taking away routine's elapsed time from actual interval between runs.
+	*/
+	IntervalSec        int                    `json:"IntervalSec"`
+	MailClient         inet.MailClient        `json:"MailClient"` // Send notification mails via this mailer
+	Recipients         []string               `json:"Recipients"` // Address of recipients of notification mails
+	FeaturesToCheck    *toolbox.FeatureSet    `json:"-"`          // Health check subject - features and their API keys
+	CheckMailCmdRunner *mailcmd.CommandRunner `json:"-"`          // Health check subject - mail processor and its mailer
 
-	loopIsRunning int32     // Value is 1 only when health check loop is running
-	stop          chan bool // Signal health check loop to stop
+	loopIsRunning int32     // Value is 1 only when maintenance loop is running
+	stop          chan bool // Signal maintenance loop to stop
 	logger        misc.Logger
 }
 
@@ -79,6 +86,40 @@ Telegram commands:    %s
 		telegrambot.DurationStats.Format(factor, numDecimals))
 }
 
+// runPortsCheck knocks on TCP ports that are to be checked in parallel, it returns an error if any of the ports fails to connect.
+func (daemon *Daemon) runPortsCheck() error {
+	portErrs := make([]string, 0, 0)
+	portErrsMutex := new(sync.Mutex)
+	wait := new(sync.WaitGroup)
+
+	for host, ports := range daemon.CheckTCPPorts {
+		if host == "" || ports == nil || len(ports) == 0 {
+			continue
+		}
+		for _, port := range ports {
+			wait.Add(1)
+			go func(host string, port int) {
+				// Expect connection to open very shortly
+				dest := fmt.Sprintf("%s:%d", host, port)
+				conn, err := net.DialTimeout("tcp", dest, TCPPortCheckTimeoutSec*time.Second)
+				if err != nil {
+					portErrsMutex.Lock()
+					portErrs = append(portErrs, dest)
+					portErrsMutex.Unlock()
+				} else {
+					conn.Close()
+				}
+				wait.Done()
+			}(host, port)
+		}
+	}
+	wait.Wait()
+	if len(portErrs) == 0 {
+		return nil
+	}
+	return fmt.Errorf("failed to connect to %s", strings.Join(portErrs, ", "))
+}
+
 // Check TCP ports and features, return all-OK or not.
 func (daemon *Daemon) Execute() (string, bool) {
 	daemon.logger.Printf("Execute", "", nil, "running now")
@@ -86,10 +127,15 @@ func (daemon *Daemon) Execute() (string, bool) {
 	maintResult := daemon.SystemMaintenance()
 	// Do three checks in parallel - ports, features, and mail command runner
 	var featureErrs map[toolbox.Trigger]error
-	portCheckErrs := new(sync.Map)
 	var mailCmdRunnerErr error
+	var portsErr error
 	waitAllChecks := new(sync.WaitGroup)
-	waitAllChecks.Add(2 + len(daemon.TCPPorts)) // will wait for features, mail command runner, and port checks.
+	waitAllChecks.Add(3) // will wait for port checks, feature tests, and mail command runner tests.
+	go func() {
+		// Port checks - the routine itself also uses concurrency internally
+		portsErr = daemon.runPortsCheck()
+		waitAllChecks.Done()
+	}()
 	go func() {
 		// Feature self test - the routine itself also uses concurrency internally
 		featureErrs = daemon.FeaturesToCheck.SelfTest()
@@ -102,22 +148,10 @@ func (daemon *Daemon) Execute() (string, bool) {
 		}
 		waitAllChecks.Done()
 	}()
-	for _, portNumber := range daemon.TCPPorts {
-		// Ports check are also carried out concurrently
-		go func(portNumber int) {
-			conn, err := net.DialTimeout("tcp", "localhost:"+strconv.Itoa(portNumber), TCPConnectionTimeoutSec*time.Second)
-			if err == nil {
-				conn.Close()
-			} else {
-				portCheckErrs.Store(portNumber, err)
-			}
-			waitAllChecks.Done()
-		}(portNumber)
-	}
 	waitAllChecks.Wait()
 
 	// Results are ready, time to compose mail body.
-	allOK := len(featureErrs) == 0 && misc.LenSyncMap(portCheckErrs) == 0 && mailCmdRunnerErr == nil
+	allOK := len(featureErrs) == 0 && portsErr == nil && mailCmdRunnerErr == nil
 	var result bytes.Buffer
 	if allOK {
 		result.WriteString("All OK\n")
@@ -130,14 +164,10 @@ func (daemon *Daemon) Execute() (string, bool) {
 	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
 	result.WriteString(GetLatestStats())
 	// Port check results
-	if misc.LenSyncMap(portCheckErrs) == 0 {
+	if portsErr == nil {
 		result.WriteString("\nPorts: OK\n")
 	} else {
-		result.WriteString("\nPort errors:\n")
-		portCheckErrs.Range(func(portNum, err interface{}) bool {
-			result.WriteString(fmt.Sprintf("%d - %v\n", portNum, err))
-			return true
-		})
+		result.WriteString(fmt.Sprintf("\nPort errors: %v\n", portsErr))
 	}
 	// Feature check results
 	if len(featureErrs) == 0 {
@@ -197,8 +227,6 @@ You may call this function only after having called Initialise()!
 Start health check loop and block caller until Stop function is called.
 */
 func (daemon *Daemon) StartAndBlock() error {
-	// Sort port numbers so that their check results look nicer in the final report
-	sort.Ints(daemon.TCPPorts)
 	firstTime := true
 	// The very first health check is executed soon (10 minutes) after health check daemon starts up
 	nextRunAt := time.Now().Add(10 * time.Minute)
@@ -391,19 +419,27 @@ func (daemon *Daemon) SystemMaintenance() string {
 	return ret.String()
 }
 
-// Run unit tests on the health checker. See TestMaintenance_Execute for daemon setup.
+// Run unit tests on the maintenance daemon. See TestMaintenance_Execute for daemon setup.
 func TestMaintenance(check *Daemon, t testingstub.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	// Do not listen on the port yet and expect a port check error
+	check.CheckTCPPorts = map[string][]int{"localhost": {listener.Addr().(*net.TCPAddr).Port}}
+	// If it fails, the failure could only come from mailer of mail processor.
+	if result, ok := check.Execute(); !ok && !strings.Contains(result, "Port errors") {
+		t.Fatal(result)
+	}
+	// Listen on the port and run test again
 	go func() {
-		if err != nil {
-			t.Fatal(err)
+		if _, err := listener.Accept(); err != nil {
+			return
 		}
-		// Accept exactly one connection that is from health checker
-		listener.Accept()
 	}()
-	// Port should be now listening
 	time.Sleep(1 * time.Second)
-	check.TCPPorts = []int{listener.Addr().(*net.TCPAddr).Port}
+	check.CheckTCPPorts = map[string][]int{"localhost": {listener.Addr().(*net.TCPAddr).Port}}
 	// If it fails, the failure could only come from mailer of mail processor.
 	if result, ok := check.Execute(); !ok && !strings.Contains(result, "MailClient.SelfTest") {
 		t.Fatal(result)
@@ -418,7 +454,7 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	if err := check.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// Health check should successfully start within two seconds
+	// Maintenance loop should successfully start within two seconds
 	var stoppedNormally bool
 	go func() {
 		if err := check.StartAndBlock(); err != nil {
