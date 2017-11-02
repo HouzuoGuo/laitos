@@ -7,6 +7,7 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"net/http"
+	"path"
 	"sort"
 	"strings"
 )
@@ -34,7 +35,10 @@ const HandleGitlabPage = `<!doctype html>
 </html>
 ` // Gitlab browser content
 
-const GitlabAPITimeoutSec = 110 // Timeout for outgoing API calls made to gitlab
+const (
+	GitlabAPITimeoutSec = 110  // Timeout for outgoing API calls made to gitlab
+	GitlabMaxObjects    = 4000 // GitlabMaxObjects is the maximum number of objects to list when browsing a git repository.
+)
 
 // Browse gitlab repositories and download repository files.
 type HandleGitlabBrowser struct {
@@ -57,12 +61,20 @@ Call gitlab API to find out what directories and files are located under that pa
 Directory names come with suffix forward-slash.
 */
 func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string) (dirs []string, fileNameID map[string]string, err error) {
+	/*
+		If there is a leading slash when browsing a directory, the result will definitely be empty. The user most likely
+		wants to browse the directory's file list, therefore get rid of the leading slash.
+		If present, a trailing slash does not matter.
+	*/
+	if len(paths) > 1 && paths[0] == '/' {
+		paths = paths[1:]
+	}
 	dirs = make([]string, 0, 8)
 	fileNameID = make(map[string]string)
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
-	}, "https://gitlab.com/api/v4/projects/%s/repository/tree?path=%s", projectID, paths)
+	}, "https://gitlab.com/api/v4/projects/%s/repository/tree?ref=master&recursive=false&per_page=%s&path=%s", projectID, GitlabMaxObjects, paths)
 	if err != nil {
 		return
 	} else if err = resp.Non2xxToError(); err != nil {
@@ -85,17 +97,10 @@ func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string) (
 
 // Call gitlab API to download a file form git project.
 func (lab *HandleGitlabBrowser) DownloadGitBlob(logger misc.Logger, clientIP, projectID string, paths string, fileName string) (content []byte, err error) {
-	// Call tree API to determine object ID
-	_, fileIDName, err := lab.ListGitObjects(projectID, paths)
-	if err != nil {
-		return
-	}
-	objectID := fileIDName[fileName]
-	// Call another API to download blob content
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
-	}, "https://gitlab.com/api/v4/projects/%s/repository/blobs/%s/raw", projectID, objectID)
+	}, "https://gitlab.com/api/v4/projects/%s/repository/files/%s/raw?ref=master", projectID, path.Join(paths, fileName))
 	if err != nil {
 		return
 	} else if err = resp.Non2xxToError(); err != nil {
