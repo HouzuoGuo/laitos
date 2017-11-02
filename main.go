@@ -59,7 +59,7 @@ func ExtractEncryptedArchive(destDir, archivePath string) {
 // MakeEncryptedArchive reads password from standard input and uses it to encrypt and archive the directory.
 func MakeEncryptedArchive(srcDir, archivePath string) {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Please enter a password to encrypt the archive:")
+	fmt.Println("Please enter a password to encrypt the archive (no echo):")
 	SetTermEcho(false)
 	password, _, err := reader.ReadLine()
 	SetTermEcho(true)
@@ -176,6 +176,7 @@ func main() {
 	// ========================================================================
 	// Prepare configuration for supervisor mode or daemon mode.
 	// ========================================================================
+	LockMemory()
 	// Parse configuration JSON file
 	if misc.ConfigFilePath == "" {
 		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
