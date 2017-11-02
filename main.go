@@ -126,46 +126,46 @@ func main() {
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
-	// Process launcher flags
-	var sl bool
-	var slPort int
-	var slArchivePath string
-	var slURL string
-	flag.BoolVar(&sl, passwdserver.CLIFlag, false, "(Optional) trigger \"special-launch\"")
-	flag.IntVar(&slPort, "slport", 80, "(Optional) special-launch: port number")
-	flag.StringVar(&slArchivePath, "slarchive", "", "(Optional) special-launch: archive path")
-	flag.StringVar(&slURL, "slurl", "", "(Optional) special-launch: url that must include prefix slash")
-	// Process launcher utility mode flags
-	var slu, sluDir, sluFile string
-	flag.StringVar(&slu, "slu", "", "(Optional) special-launch: utility name (extract, archive)")
-	flag.StringVar(&sluDir, "sludir", "", "(Optional) special-launch: source/target directory")
-	flag.StringVar(&sluFile, "slufile", "", "(Optional) special-launch: source/target archive file")
+	// Encrypted data archive launcher (password input server) flags
+	var pwdServer bool
+	var pwdServerPort int
+	var pwdServerData string
+	var pwdServerURL string
+	flag.BoolVar(&pwdServer, passwdserver.CLIFlag, false, "(Optional) launch web server to accept password for decrypting encrypted program data")
+	flag.IntVar(&pwdServerPort, passwdserver.CLIFlag+"port", 80, "(Optional) port number of the password web server")
+	flag.StringVar(&pwdServerData, passwdserver.CLIFlag+"data", "", "(Optional) location of encrypted program data archive")
+	flag.StringVar(&pwdServerURL, passwdserver.CLIFlag+"url", "", "(Optional) password input URL")
+	// Encrypted data archive utility flags
+	var dataUtil, dataUtilDir, dataUtilFile string
+	flag.StringVar(&dataUtil, "datautil", "", "(Optional) program data encryption utility: extract|archive")
+	flag.StringVar(&dataUtilDir, "datautildir", "", "(Optional) program data encryption utility: extract destination or archive source directory")
+	flag.StringVar(&dataUtilFile, "datautilfile", "", "(Optional) program data encryption utility: extract from or archive file location")
 	// Internal supervisor flag
-	var isSupervisor bool = true
+	var isSupervisor = true
 	flag.BoolVar(&isSupervisor, launcher.SupervisorFlagName, true, "(Internal use only) enter supervisor mode")
 
 	flag.Parse()
 
 	// ========================================================================
-	// Utility mode - encrypted data launcher utilities do not run daemons.
+	// Utility mode - Encrypted data archive utilities do not run daemons.
 	// ========================================================================
-	if slu != "" {
-		switch slu {
+	if dataUtil != "" {
+		switch dataUtil {
 		case "extract":
-			ExtractEncryptedArchive(sluDir, sluFile)
+			ExtractEncryptedArchive(dataUtilDir, dataUtilFile)
 		case "archive":
-			MakeEncryptedArchive(sluDir, sluFile)
+			MakeEncryptedArchive(dataUtilDir, dataUtilFile)
 		default:
-			logger.Fatalf("main", "", nil, "please provide mode of operation (extract|archive) for parameter slu")
+			logger.Fatalf("main", "", nil, "please provide mode of operation (extract|archive) for parameter \"-datautil\"")
 		}
 		return
 	}
 
 	// ========================================================================
-	// Encrypted data launcher mode - launch the password input web server.
+	// Encrypted data archive launcher mode - launch the password input web server.
 	// ========================================================================
-	if sl {
-		StartPasswordWebServer(slPort, slURL, slArchivePath)
+	if pwdServer {
+		StartPasswordWebServer(pwdServerPort, pwdServerURL, pwdServerData)
 		return
 	}
 	/*

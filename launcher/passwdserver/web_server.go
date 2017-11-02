@@ -25,7 +25,7 @@ const (
 		before shutting down the password launcher's web server.
 	*/
 	ShutdownTimeout = 10 * time.Second
-	CLIFlag         = `sl` // CLIFlag is the command line flag that enables this password web server to launch.
+	CLIFlag         = `pwdserver` // CLIFlag is the command line flag that enables this password web server to launch.
 
 	PageHTML = `<!doctype html>
 <html>
