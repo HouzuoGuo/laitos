@@ -421,18 +421,18 @@ func (daemon *Daemon) SystemMaintenance() string {
 
 // Run unit tests on the maintenance daemon. See TestMaintenance_Execute for daemon setup.
 func TestMaintenance(check *Daemon, t testingstub.T) {
+	// Hopefully nothing is listening on that port
+	check.CheckTCPPorts = map[string][]int{"localhost": {11334}}
+	// If it fails, the failure could only come from mailer of mail processor.
+	if result, ok := check.Execute(); ok || !strings.Contains(result, "Port errors") {
+		t.Fatal(result)
+	}
+	// Listen on the port and test port knocking along with other checks
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer listener.Close()
-	// Do not listen on the port yet and expect a port check error
-	check.CheckTCPPorts = map[string][]int{"localhost": {listener.Addr().(*net.TCPAddr).Port}}
-	// If it fails, the failure could only come from mailer of mail processor.
-	if result, ok := check.Execute(); !ok && !strings.Contains(result, "Port errors") {
-		t.Fatal(result)
-	}
-	// Listen on the port and run test again
 	go func() {
 		if _, err := listener.Accept(); err != nil {
 			return
