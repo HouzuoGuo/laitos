@@ -190,7 +190,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		randBytes := make([]byte, 32)
 		_, err := rand.Read(randBytes)
 		if err != nil {
-			config.logger.Panicf("GetHTTPD", "", err, "failed to read random number")
+			config.logger.Fatalf("GetHTTPD", "", err, "failed to read random number")
 			return nil
 		}
 		// Image handler needs to operate on browser handler's browser instances
@@ -247,7 +247,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		randBytes := make([]byte, 32)
 		_, err := rand.Read(randBytes)
 		if err != nil {
-			config.logger.Panicf("GetHTTPD", "", err, "failed to read random number")
+			config.logger.Fatalf("GetHTTPD", "", err, "failed to read random number")
 			return nil
 		}
 		callbackEndpoint := "/" + hex.EncodeToString(randBytes)

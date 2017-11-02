@@ -12,6 +12,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 )
 
 // LockMemory locks program memory to prevent swapping.
@@ -19,12 +20,12 @@ func LockMemory() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
 		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
-			logger.Fatalf("main", "", err, "failed to lock memory")
+			logger.Fatalf("LockMemory", "", err, "failed to lock memory")
 			return
 		}
-		logger.Warningf("main", "", nil, "program has been locked into memory for safety reasons")
+		logger.Warningf("LockMemory", "", nil, "program has been locked into memory for safety reasons")
 	} else {
-		logger.Warningf("main", "", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information will leak into swap.")
+		logger.Warningf("LockMemory", "", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information will leak into swap.")
 	}
 }
 
@@ -47,7 +48,7 @@ func ReseedPseudoRand() {
 			seedBytes := make([]byte, 8)
 			_, err := cryptoRand.Read(seedBytes)
 			if err != nil {
-				logger.Panicf("ReseedPseudoRand", "", err, "failed to read from random generator")
+				logger.Fatalf("ReseedPseudoRand", "", err, "failed to read from random generator")
 			}
 			seed, _ := binary.Varint(seedBytes)
 			if seed == 0 {
@@ -110,6 +111,27 @@ func SwapOff() {
 	if err == nil {
 		logger.Printf("SwapOff", "", nil, "swap is now off")
 	} else {
-		logger.Printf("SwapOff", "", err, "failed to turn off swap - %s", out)
+		logger.Warningf("SwapOff", "", err, "failed to turn off swap - %s", out)
+	}
+}
+
+// Enable or disable terminal echo.
+func SetTermEcho(echo bool) {
+	term := &syscall.Termios{}
+	stdout := os.Stdout.Fd()
+	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, stdout, syscall.TCGETS, uintptr(unsafe.Pointer(term)))
+	if err != 0 {
+		logger.Warningf("SetTermEcho", "", err, "syscall failed")
+		return
+	}
+	if echo {
+		term.Lflag |= syscall.ECHO
+	} else {
+		term.Lflag &^= syscall.ECHO
+	}
+	_, _, err = syscall.Syscall(syscall.SYS_IOCTL, stdout, uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(term)))
+	if err != 0 {
+		logger.Warningf("SetTermEcho", "", err, "syscall failed")
+		return
 	}
 }

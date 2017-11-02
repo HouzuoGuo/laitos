@@ -24,8 +24,10 @@ var logger = misc.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.G
 // ExtractEncryptedArchive reads password from standard input and extracts archive file into the directory.
 func ExtractEncryptedArchive(destDir, archivePath string) {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Please enter password to decrypt archive:")
+	fmt.Println("Please enter password to decrypt archive (no echo):")
+	SetTermEcho(false)
 	password, _, err := reader.ReadLine()
+	SetTermEcho(true)
 	if err != nil {
 		misc.DefaultLogger.Fatalf("ExtractEncryptedArchive", "main", err, "failed to read password")
 		return
@@ -41,25 +43,37 @@ func ExtractEncryptedArchive(destDir, archivePath string) {
 	}
 	tmpFile.Close()
 	defer func() {
-		if err := os.Remove(tmpFile.Name()); err != nil {
+		if err := os.Remove(tmpFile.Name()); err != nil && !os.IsNotExist(err) {
 			misc.DefaultLogger.Printf("ExtractEncryptedArchive", "main", err, "failed to delete temporary file")
 		}
 	}()
 	password = []byte(strings.TrimSpace(string(password)))
-	fmt.Println("Result is (nil means success): ", encarchive.Extract(archivePath, tmpFile.Name(), destDir, password))
+	err = encarchive.Extract(archivePath, tmpFile.Name(), destDir, password)
+	if err == nil {
+		fmt.Println("Success")
+	} else {
+		fmt.Println("Error: ", err.Error())
+	}
 }
 
 // MakeEncryptedArchive reads password from standard input and uses it to encrypt and archive the directory.
 func MakeEncryptedArchive(srcDir, archivePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter a password to encrypt the archive:")
+	SetTermEcho(false)
 	password, _, err := reader.ReadLine()
+	SetTermEcho(true)
 	if err != nil {
 		misc.DefaultLogger.Fatalf("ExtractEncryptedArchive", "main", err, "failed to read password")
 		return
 	}
 	password = []byte(strings.TrimSpace(string(password)))
-	fmt.Println("Result is (nil means success): ", encarchive.Archive(srcDir, archivePath, password))
+	err = encarchive.Archive(srcDir, archivePath, password)
+	if err == nil {
+		fmt.Println("Success")
+	} else {
+		fmt.Println("Error: ", err.Error())
+	}
 }
 
 // StartPasswordWebServer starts the password input web server.
@@ -71,10 +85,10 @@ func StartPasswordWebServer(port int, url, archivePath string) {
 	}
 	/*
 		On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching the new
-		version, which means the web server often runs into port conflicts. Therefore, make at most 5 attempts at
+		version, which means the web server often runs into port conflicts. Therefore, make at most 10 attempts at
 		starting the web server.
 	*/
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		if err := ws.Start(); err == nil {
 			// Upon success, wait almost indefinitely (~5 years) because this is the main routine of this CLI action.
 			time.Sleep(5 * 365 * 24 * time.Hour)

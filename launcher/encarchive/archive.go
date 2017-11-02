@@ -98,7 +98,9 @@ The temporary file will be the unencrypted archive and will be deleted afterward
 */
 func Extract(archivePath, tmpPath, outDirPath string, key []byte) error {
 	if stat, err := os.Stat(outDirPath); err != nil || !stat.IsDir() {
-		return fmt.Errorf("output location %s does is not a readable directory", outDirPath)
+		if err := os.MkdirAll(outDirPath, 0700); err != nil {
+			return fmt.Errorf("failed to create output directory %s - %v", outDirPath, err)
+		}
 	}
 	archiveFile, err := os.Open(archivePath)
 	if err != nil {
@@ -132,7 +134,7 @@ func Extract(archivePath, tmpPath, outDirPath string, key []byte) error {
 		return fmt.Errorf("failed to create temporary output at %s - %v", tmpPath, err)
 	}
 	defer func() {
-		if err := os.Remove(tmpPath); err != nil {
+		if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
 			log.Panicf("failed to delete unencrypted archive at %s - %v", tmpPath, err)
 		}
 	}()
