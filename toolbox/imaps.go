@@ -25,67 +25,65 @@ const (
 var (
 	RegexMailboxAndNumber     = regexp.MustCompile(`(\w+)[^\w]+(\d+)`)            // Capture one mailbox shortcut name and a number
 	RegexMailboxAndTwoNumbers = regexp.MustCompile(`(\w+)[^\w]+(\d+)[^\d]+(\d+)`) // Capture one mailbox shortcut name and two numbers
-	ErrBadMailboxParam        = fmt.Errorf("Example: %s box skip# count# | %s box to-read#", MailboxList, MailboxRead)
+	ErrBadMailboxParam        = fmt.Errorf("%s box skip# count# | %s box to-read#", MailboxList, MailboxRead)
 )
 
-// Retrieve emails via IMAPS.
-type IMAPS struct {
-	Host               string `json:"Host"`               // Server name or IP address of IMAPS server
-	Port               int    `json:"Port"`               // Port number of IMAPS service
-	MailboxName        string `json:"MailboxName"`        // Name of mailbox (e.g. "INBOX")
-	InsecureSkipVerify bool   `json:"InsecureSkipVerify"` // Do not verify server name against its certificate
-	AuthUsername       string `json:"AuthUsername"`       // Username for plain authentication
-	AuthPassword       string `json:"AuthPassword"`       // Password for plain authentication
-
-	clientConn       net.Conn    // clientConn is a TCP connection opened toward IMAPS host.
-	clientTLSWrapper *tls.Conn   // clientTLSWrapper is a TLS client that operates on the IMAPS TCP connection.
-	clientMutex      *sync.Mutex // clientMutex prevents concurrent conversations from taking place over IMAPS connection.
-}
-
-// Return a random 10 characters long string of numbers to
-func randomChallenge() string {
-	return strconv.Itoa(1000000000 + rand.Intn(1000000000))
+// IMAPSConnection is an established TLS client connection that is ready for IMAP conversations.
+type IMAPSConnection struct {
+	tlsConn *tls.Conn   // tlsConn is a TLS client opened toward IMAP host. It had gone through handshake external to IMAPSConnection.
+	mutex   *sync.Mutex // mutex allows only one conversation to take place at a time.
 }
 
 /*
-converse sends an IMAP command and waits for a response, then return IMAP response status and body. If the response
-status is not OK, an error will be returned.
-If IO error occurs, client connection will be closed and an error will be returned.
-The function does not lock clientMutex and assumes that a client connection is already established (not nil).
+converse sends an IMAP request and waits for a response, then return IMAP response status and body.
+If the response status is not OK, an error will be returned. If IO error occurs, client connection will be closed and an
+error will be returned. A mutex prevents more than one conversation from taking place at the same time.
 */
-func (mbox *IMAPS) converse(command string) (status, body string, err error) {
-	var allLines bytes.Buffer
-	mbox.clientTLSWrapper.SetDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
-	reader := bufio.NewReader(mbox.clientTLSWrapper)
-	challenge := randomChallenge()
-	_, err = mbox.clientTLSWrapper.Write([]byte(fmt.Sprintf("%s %s\r\n", challenge, command)))
-	if err != nil {
-		goto badIO
+func (conn *IMAPSConnection) Converse(request string) (status, body string, err error) {
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+	if conn.tlsConn == nil {
+		return "", "", errors.New("programming mistake - IMAPS connection is missing")
 	}
+	// Expect both request and response to complete within the timeout constraint
+	conn.tlsConn.SetDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
+	// Random challenge is a string prefixed to an IMAP request
+	challenge := randomChallenge()
+	_, err = conn.tlsConn.Write([]byte(fmt.Sprintf("%s %s\r\n", challenge, request)))
+	if err != nil {
+		conn.disconnect()
+		return
+	}
+	// IMAP protocol is very much line-oriented in both of its request and response
+	var allLines bytes.Buffer
+	reader := bufio.NewReader(conn.tlsConn)
 	for {
 		var line []byte
 		line, _, err = reader.ReadLine()
 		if err != nil {
-			goto badIO
+			conn.disconnect()
+			return
 		}
 		lowerLine := strings.TrimSpace(strings.ToLower(string(line)))
 		if strings.Index(lowerLine, challenge) == 0 {
-			// Conversation is finished
+			// Conversation is finished when the response line comes with random challenge that was sent moments ago
 			body = allLines.String()
 			withoutChallenge := strings.TrimSpace(lowerLine[len(challenge):])
-			// Status word is at the beginning
+			// There is a single-word status at the beginning
 			afterStatusWord := strings.IndexRune(withoutChallenge, ' ')
 			if afterStatusWord == -1 {
 				status = withoutChallenge
-				err = fmt.Errorf("IMAPS.converse: cannot find status word among line - %s", withoutChallenge)
-				goto badIO
+				err = fmt.Errorf("cannot find IMAP status word among line - %s", withoutChallenge)
+				conn.disconnect()
+				return
 			}
 			statusWord := withoutChallenge[:afterStatusWord]
 			if len(withoutChallenge) > afterStatusWord {
 				status = withoutChallenge[afterStatusWord:]
 			}
 			if strings.ToLower(statusWord) != "ok" {
-				err = fmt.Errorf("IMAPS.converse: bad response status - %s", status)
+				err = fmt.Errorf("bad IMAP response status - %s", status)
+				// Bad status does not prevent further conversations from taking place
 			}
 			return
 		} else {
@@ -94,33 +92,31 @@ func (mbox *IMAPS) converse(command string) (status, body string, err error) {
 			allLines.WriteRune('\n')
 		}
 	}
-badIO:
-	// IO error irrecoverably corrupts TLS connection and IMAP sequence, therefore closing the connection here.
-	mbox.clientTLSWrapper.Close()
-	mbox.clientConn.Close()
-	mbox.clientTLSWrapper = nil
-	mbox.clientConn = nil
-	return
 }
 
-/*
-converseWithLock sends an IMAP command and waits for a response, then return IMAP response status and body. If the response
-status is not OK, an error will be returned. If a client connection is not yet established, an error will be returned.
-If IO error occurs, client connection will be closed and an error will be returned.
-The function places a lock on clientMutex.
-*/
-func (mbox *IMAPS) converseWithLock(command string) (status, body string, err error) {
-	mbox.clientMutex.Lock()
-	defer mbox.clientMutex.Unlock()
-	if mbox.clientConn == nil {
-		return "", "", errors.New("IMAPS.converseWithLock: connection must be established before calling this function")
+// disconnect closes client connection.
+func (conn *IMAPSConnection) disconnect() {
+	if conn.tlsConn == nil {
+		return
 	}
-	return mbox.converse(command)
+	conn.tlsConn.Close()
+	conn.tlsConn = nil
 }
 
-// Get total number of messages in the mail box.
-func (mbox *IMAPS) GetNumberMessages() (int, error) {
-	_, body, err := mbox.converseWithLock(fmt.Sprintf("EXAMINE \"%s\"", mbox.MailboxName))
+// LogoutDisconnect sends logout command to IMAP server, and then closes client connection.
+func (conn *IMAPSConnection) LogoutDisconnect() {
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+	if conn.tlsConn == nil {
+		return
+	}
+	conn.Converse("LOGOUT") // intentionally ignore conversation error
+	conn.disconnect()
+}
+
+// GetNumberMessages returns total number of messages in the specified mail box.
+func (conn *IMAPSConnection) GetNumberMessages(mailboxName string) (int, error) {
+	_, body, err := conn.Converse(fmt.Sprintf("EXAMINE \"%s\"", mailboxName))
 	if err != nil {
 		return 0, err
 	}
@@ -136,14 +132,14 @@ func (mbox *IMAPS) GetNumberMessages() (int, error) {
 	return number, nil
 }
 
-// Retrieve mail header from specified message number range.
-func (mbox *IMAPS) GetHeaders(from, to int) (ret map[int]string, err error) {
+// GetHeaders retrieves mail headers from the specified message number range.
+func (conn *IMAPSConnection) GetHeaders(from, to int) (ret map[int]string, err error) {
 	ret = make(map[int]string)
 	if from > to || from < 1 || to < 1 {
-		err = errors.New("From number must be less or equal to To number, and both must be positive.")
+		err = errors.New("invalid message number range")
 		return
 	}
-	_, body, err := mbox.converseWithLock(fmt.Sprintf("FETCH %d:%d BODY.PEEK[HEADER]", from, to))
+	_, body, err := conn.Converse(fmt.Sprintf("FETCH %d:%d BODY.PEEK[HEADER]", from, to))
 	if err != nil {
 		return
 	}
@@ -180,14 +176,14 @@ func (mbox *IMAPS) GetHeaders(from, to int) (ret map[int]string, err error) {
 	return
 }
 
-// Retrieve an entire mail message including header and body.
-func (mbox *IMAPS) GetMessage(num int) (message string, err error) {
+// GetMessage retrieves one mail message, including its entire headers, body content, and attachments if any.
+func (conn *IMAPSConnection) GetMessage(num int) (message string, err error) {
 	if num < 1 {
-		err = errors.New("Message number must be positive")
+		err = errors.New("message number must be positive")
 		return
 	}
 	var entireMessage bytes.Buffer
-	_, body, err := mbox.converseWithLock(fmt.Sprintf("FETCH %d BODY[]", num))
+	_, body, err := conn.Converse(fmt.Sprintf("FETCH %d BODY[]", num))
 	for _, line := range strings.Split(body, "\n") {
 		if len(line) > 0 {
 			switch line[0] {
@@ -203,58 +199,63 @@ func (mbox *IMAPS) GetMessage(num int) (message string, err error) {
 	return
 }
 
+// Retrieve emails via IMAPS.
+type IMAPS struct {
+	Host               string `json:"Host"`               // Server name or IP address of IMAPS server
+	Port               int    `json:"Port"`               // Port number of IMAPS service
+	MailboxName        string `json:"MailboxName"`        // Name of mailbox (e.g. "INBOX")
+	InsecureSkipVerify bool   `json:"InsecureSkipVerify"` // Do not verify server name against its certificate
+	AuthUsername       string `json:"AuthUsername"`       // Username for plain authentication
+	AuthPassword       string `json:"AuthPassword"`       // Password for plain authentication
+}
+
+// Return a random 10 characters long string of numbers to
+func randomChallenge() string {
+	return strconv.Itoa(1000000000 + rand.Intn(1000000000))
+}
+
 // Set up TLS connection to IMAPS server and log the user in.
-func (mbox *IMAPS) ConnectLoginSelect() (err error) {
-	mbox.clientMutex.Lock()
-	defer mbox.clientMutex.Unlock()
-	// If connection was already established, close it before opening a new one.
-	if mbox.clientConn != nil {
-		mbox.clientConn.Close()
-	}
-	mbox.clientConn, err = net.DialTimeout(
+func (mbox *IMAPS) ConnectLoginSelect() (conn *IMAPSConnection, err error) {
+	clientConn, err := net.DialTimeout(
 		"tcp",
 		fmt.Sprintf("%s:%d", mbox.Host, mbox.Port),
 		time.Duration(IMAPTimeoutSec)*time.Second)
 	if err != nil {
-		return fmt.Errorf("IMAPS.ConnectLoginSelect: connection error - %v", err)
+		return nil, fmt.Errorf("IMAPS.ConnectLoginSelect: connection error - %v", err)
 	}
-	mbox.clientTLSWrapper = tls.Client(mbox.clientConn, &tls.Config{
+	tlsWrapper := tls.Client(clientConn, &tls.Config{
 		ServerName:         mbox.Host,
 		InsecureSkipVerify: mbox.InsecureSkipVerify,
 	})
-	if err = mbox.clientTLSWrapper.Handshake(); err != nil {
-		return fmt.Errorf("IMAPS.ConnectLoginSelect: TLS connection error - %v", err)
+	if err = tlsWrapper.Handshake(); err != nil {
+		clientConn.Close()
+		return nil, fmt.Errorf("IMAPS.ConnectLoginSelect: TLS connection error - %v", err)
 	}
 	// Absorb the connection greeting message sent by server
-	mbox.clientTLSWrapper.SetDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
-	reader := bufio.NewReader(mbox.clientTLSWrapper)
+	tlsWrapper.SetReadDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
+	reader := bufio.NewReader(tlsWrapper)
 	_, _, err = reader.ReadLine()
 	if err != nil {
-		return fmt.Errorf("IMAPS.ConnectLoginSelect: failed to read server greeting - %v", err)
+		clientConn.Close()
+		return nil, fmt.Errorf("IMAPS.ConnectLoginSelect: failed to read server greeting - %v", err)
+	}
+	// It is now ready for IMAP conversations
+	conn = &IMAPSConnection{
+		tlsConn: tlsWrapper,
+		mutex:   new(sync.Mutex),
 	}
 	// LOGIN && SELECT
-	_, _, err = mbox.converse(fmt.Sprintf("LOGIN %s %s", mbox.AuthUsername, mbox.AuthPassword))
+	_, _, err = conn.Converse(fmt.Sprintf("LOGIN %s %s", mbox.AuthUsername, mbox.AuthPassword))
 	if err != nil {
-		return fmt.Errorf("IMAPS.ConnectLoginSelect: LOGIN command failed - %v", err)
+		conn.disconnect()
+		return nil, fmt.Errorf("IMAPS.ConnectLoginSelect: LOGIN command failed - %v", err)
 	}
-	_, _, err = mbox.converse(fmt.Sprintf("SELECT \"%s\"", mbox.MailboxName))
+	_, _, err = conn.Converse(fmt.Sprintf("SELECT \"%s\"", mbox.MailboxName))
 	if err != nil {
-		return fmt.Errorf("IMAPS.ConnectLoginSelect: SELECT command failed - %v", err)
+		conn.LogoutDisconnect()
+		return nil, fmt.Errorf("IMAPS.ConnectLoginSelect: SELECT command failed - %v", err)
 	}
 	return
-}
-
-func (mbox *IMAPS) LogoutDisconnect() {
-	mbox.clientMutex.Lock()
-	defer mbox.clientMutex.Unlock()
-	if mbox.clientConn == nil {
-		return
-	}
-	mbox.converse("LOGOUT") // intentionally ignore conversation error
-	mbox.clientTLSWrapper.Close()
-	mbox.clientConn.Close()
-	mbox.clientTLSWrapper = nil
-	mbox.clientConn = nil
 }
 
 // Correspond IMAP account connection details to account names.
@@ -281,11 +282,12 @@ func (imap *IMAPAccounts) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	for name, account := range imap.Accounts {
-		if err := account.ConnectLoginSelect(); err != nil {
+		conn, err := account.ConnectLoginSelect()
+		if err != nil {
 			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" has connection error - %v", name, err)
 		}
-		defer account.LogoutDisconnect()
-		if _, err := account.GetNumberMessages(); err != nil {
+		defer conn.LogoutDisconnect()
+		if _, err := conn.GetNumberMessages(account.MailboxName); err != nil {
 			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" test error - %v", name, err)
 		}
 	}
@@ -293,9 +295,6 @@ func (imap *IMAPAccounts) SelfTest() error {
 }
 
 func (imap *IMAPAccounts) Initialise() error {
-	for _, acc := range imap.Accounts {
-		acc.clientMutex = new(sync.Mutex)
-	}
 	return nil
 }
 
@@ -334,13 +333,14 @@ func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
 	// Let IMAP magic begin!
 	account, found := imap.Accounts[mbox]
 	if !found {
-		return &Result{Error: fmt.Errorf("IMAPAccounts.ListMails: cannot find box \"%s\"", mbox)}
+		return &Result{Error: fmt.Errorf("IMAPAccounts.ListMails: cannot find mailbox \"%s\"", mbox)}
 	}
-	if err := account.ConnectLoginSelect(); err != nil {
+	conn, err := account.ConnectLoginSelect()
+	if err != nil {
 		return &Result{Error: err}
 	}
-	defer account.LogoutDisconnect()
-	totalNumber, err := account.GetNumberMessages()
+	defer conn.LogoutDisconnect()
+	totalNumber, err := conn.GetNumberMessages(account.MailboxName)
 	if err != nil {
 		return &Result{Error: err}
 	}
@@ -353,7 +353,7 @@ func (imap *IMAPAccounts) ListMails(cmd Command) *Result {
 	}
 	fromNum := totalNumber - count - skip + 1
 	toNum := totalNumber - skip
-	headers, err := account.GetHeaders(fromNum, toNum)
+	headers, err := conn.GetHeaders(fromNum, toNum)
 	if err != nil {
 		return &Result{Error: err}
 	}
@@ -390,13 +390,14 @@ func (imap *IMAPAccounts) ReadMessage(cmd Command) *Result {
 	// Let IMAP magic begin!
 	account, found := imap.Accounts[mbox]
 	if !found {
-		return &Result{Error: fmt.Errorf("IMAPAccounts.ReadMessage: cannot find box \"%s\"", mbox)}
+		return &Result{Error: fmt.Errorf("IMAPAccounts.ReadMessage: cannot find mailbox \"%s\"", mbox)}
 	}
-	if err := account.ConnectLoginSelect(); err != nil {
+	conn, err := account.ConnectLoginSelect()
+	if err != nil {
 		return &Result{Error: err}
 	}
-	defer account.LogoutDisconnect()
-	entireMessage, err := account.GetMessage(number)
+	defer conn.LogoutDisconnect()
+	entireMessage, err := conn.GetMessage(number)
 	if err != nil {
 		return &Result{Error: err}
 	}

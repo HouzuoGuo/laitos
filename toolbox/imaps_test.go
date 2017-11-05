@@ -18,20 +18,21 @@ func TestIMAPS(t *testing.T) {
 	}
 	// IMAPS account test
 	accountA := TestIMAPAccounts.Accounts["a"]
-	if err := accountA.ConnectLoginSelect(); err != nil {
+	conn, err := accountA.ConnectLoginSelect()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if num, err := accountA.GetNumberMessages(); err != nil || num == 0 {
+	if num, err := conn.GetNumberMessages(accountA.MailboxName); err != nil || num == 0 {
 		t.Fatal(num, err)
 	}
-	if _, err := accountA.GetHeaders(1, 0); err == nil {
+	if _, err := conn.GetHeaders(1, 0); err == nil {
 		t.Fatal("did not error")
 	}
-	if _, err := accountA.GetHeaders(2, 1); err == nil {
+	if _, err := conn.GetHeaders(2, 1); err == nil {
 		t.Fatal("did not error")
 	}
 	// Retrieve headers, make sure it is retrieving three different emails
-	headers, err := accountA.GetHeaders(1, 3)
+	headers, err := conn.GetHeaders(1, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +40,7 @@ func TestIMAPS(t *testing.T) {
 		t.Fatal(headers)
 	}
 	// Retrieve mail body
-	msg, err := accountA.GetMessage(1)
+	msg, err := conn.GetMessage(1)
 	if err != nil {
 		t.Fatal(err, msg)
 	}
@@ -52,13 +53,33 @@ func TestIMAPS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	accountA.LogoutDisconnect()
+	conn.LogoutDisconnect()
 }
 
-func TestIMAPAccounts_Initialise(t *testing.T) {
-	accounts := IMAPAccounts{}
+func TestIMAPAccountsPublicServer(t *testing.T) {
+	accounts := IMAPAccounts{
+		Accounts: map[string]*IMAPS{
+			"hotmail": {
+				Host:               "imap-mail.outlook.com",
+				Port:               993,
+				MailboxName:        "INBOX",
+				InsecureSkipVerify: false,
+				AuthUsername:       "test@test.com",
+				AuthPassword:       "test",
+			},
+		},
+	}
 	if err := accounts.Initialise(); err != nil {
 		t.Fatal(err)
+	}
+	if err := accounts.SelfTest(); err == nil {
+		t.Fatal("did not perform login test")
+	}
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "test 1, 2"}); strings.Index(ret.Error.Error(), "find mailbox") == -1 {
+		t.Fatal(ret)
+	}
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "test 1"}); strings.Index(ret.Error.Error(), "find mailbox") == -1 {
+		t.Fatal(ret)
 	}
 }
 
@@ -90,10 +111,10 @@ func TestIMAPAccounts_Execute(t *testing.T) {
 	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "a b"}); ret.Error != ErrBadMailboxParam {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "does_not_exist 1, 2"}); strings.Index(ret.Error.Error(), "find box") == -1 {
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "does_not_exist 1, 2"}); strings.Index(ret.Error.Error(), "find mailbox") == -1 {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "does_not_exist 1"}); strings.Index(ret.Error.Error(), "find box") == -1 {
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "does_not_exist 1"}); strings.Index(ret.Error.Error(), "find mailbox") == -1 {
 		t.Fatal(ret)
 	}
 	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 100000000, 100"}); strings.Index(ret.Error.Error(), "skip must be") == -1 {
