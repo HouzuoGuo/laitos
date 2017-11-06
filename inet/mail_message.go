@@ -11,6 +11,7 @@ import (
 	"strings"
 )
 
+// RegexMailAddress finds *@*.* that looks much like an Email address
 var RegexMailAddress = regexp.MustCompile(`[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+@[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+.[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+`)
 
 /*
