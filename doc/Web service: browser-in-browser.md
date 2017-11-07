@@ -10,7 +10,7 @@ on laitos server and let you interact with it via mouse and keyboard input. It m
 Construct the following properties under JSON key `HTTPHandlers`:
 1. A string property called `BrowserEndpoint`, value being the URL location that will serve the service. Keep the
    location a secret to yourself and make it difficult to guess.
-2. An object called `BrowserEndpointConfig` with only one object property `Browsers`:
+2. An object called `BrowserEndpointConfig` and its inner object `Browsers` that has the following mandatory properties:
 <table>
 <tr>
     <th>Property</th>
@@ -21,16 +21,17 @@ Construct the following properties under JSON key `HTTPHandlers`:
     <td>BasePortNumber</td>
     <td>integer</td>
     <td>
-        An arbitrary number above 20000.
+        An arbitrary number above 20000 and below 65535.
         <br/>
-        It must not clash with BasePortNumber from other components' configuration.
+        It must not clash with port numbers from other components.
     </td>
 </tr>
 <tr>
     <td>MaxInstances</td>
     <td>integer</td>
     <td>
-        Maximum number of websites ("instances") that laitos server will render at the same time.
+        Maximum number of websites ("instances") that laitos server will render at the same time. It also determines the
+        range of ports (from BasePortNumber to BasePortNumber+MaxInstances) that will be occupied during usage.
         <br/>
         If users open more websites than this number allows, the server will close the oldest websites.
         <br/>
@@ -47,7 +48,7 @@ Construct the following properties under JSON key `HTTPHandlers`:
     <td>string</td>
     <td>
         Absolute or relative path to PhantomJS executable. You may download it from PhantomJS website, or acquire a copy
-        from <a href="https://github.com/HouzuoGuo/laitos/tree/master/addon">laitos source tree</a>.
+        from <a href="https://github.com/HouzuoGuo/laitos/tree/master/extra">laitos source tree</a>.
     </td>
 </tr>
 </table>
@@ -63,7 +64,7 @@ Here is an example:
         "BrowserEndpoint": "/very-secret-browser-in-browser",
         "BrowserEndpointConfig": {
             "Browsers": {
-                "BasePortNumber": 1412,
+                "BasePortNumber": 41412,
                 "MaxInstances": 5,
                 "MaxLifetimeSec": 1800,
                 "PhantomJSExecPath": "./phantomjs-2.1.1-linux-x86_64"
@@ -112,4 +113,7 @@ You may install the software dependencies manually, or reply on [system maintena
 to automatically install the dependencies.
 
 If you wish to use the web service on a legacy browser such as IE 5.5, then remember to start plain HTTP daemon
-(i.e. `insecurehttpd`), because legacy browsers do not support modern TLS (HTTPS). 
+(i.e. `insecurehttpd`), because legacy browsers do not support modern TLS (HTTPS).
+
+The instance port numbers from configuration are only for internal localhost use. They do not have to be open on your
+network firewall.

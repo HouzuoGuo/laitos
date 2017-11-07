@@ -121,7 +121,7 @@ Generate two-factor authentication code for secure website login.
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-two-factor-authentication-code-generator)
 
 ### Utility - interactive web browser
-Browse modern websites interactively in a command-and-answer routine.
+Browse modern websites interactively via a text oriented routine.
 
 [Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser)
 
