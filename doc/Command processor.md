@@ -225,7 +225,7 @@ Regarding password PIN:
 - Every daemon that has a command processor also has a rate limit mechanism (e.g. `PerIPLimit` configuration),
   avoid setting rate limit too high or password may be prone to brute-force attack.
 - Incorrect password entry does not result in an Email notification, however,
-  the attempts are logged in warnings and can be inspected via [environment inspection](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-inspect-environment)
+  the attempts are logged in warnings and can be inspected via [environment inspection](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-and-control-server-environment)
   or [health report](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-health-report).
 
 Regarding toolbox usage via SMS/telephone:

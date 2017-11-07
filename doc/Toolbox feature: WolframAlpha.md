@@ -1,4 +1,4 @@
-# Toolbox feature: Facebook
+# Toolbox feature: WolframAlpha
 
 ## Introduction
 Via any of enabled laitos daemons, you may ask about weather and all sorts of questions on WolframAlpha - the
