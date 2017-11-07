@@ -1,6 +1,30 @@
 package toolbox
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
+
+func TestAtLeast(t *testing.T) {
+	if i := AtLeast(0, -1); i != 0 {
+		t.Fatal(i)
+	}
+	if i := AtLeast(-2, -1); i != -1 {
+		t.Fatal(i)
+	}
+	if i := AtLeast(-2, 1); i != 1 {
+		t.Fatal(i)
+	}
+	if i := AtLeast(0, 1); i != 1 {
+		t.Fatal(i)
+	}
+	if i := AtLeast(1, 1); i != 1 {
+		t.Fatal(i)
+	}
+	if i := AtLeast(3, 1); i != 3 {
+		t.Fatal(i)
+	}
+}
 
 func TestWolframAlpha_Execute(t *testing.T) {
 	if !TestWolframAlpha.IsConfigured() {
@@ -17,6 +41,19 @@ func TestWolframAlpha_Execute(t *testing.T) {
 	}
 	if ret := TestWolframAlpha.Execute(Command{TimeoutSec: 30, Content: "pi"}); ret.Error != nil || len(ret.ResetCombinedText()) < 100 {
 		t.Fatal(ret.Error, ret.ResetCombinedText())
+	} else {
+		t.Log(ret.CombinedOutput)
+	}
+	// The timeout must be strictly obeyed
+	start := time.Now().Unix()
+	if ret := TestWolframAlpha.Execute(Command{TimeoutSec: 5, Content: "pi"}); ret.Error != nil || len(ret.ResetCombinedText()) < 100 {
+		t.Fatal(ret.Error, ret.ResetCombinedText())
+	} else {
+		t.Log(ret.CombinedOutput)
+	}
+	end := time.Now().Unix()
+	if end-start > 5 {
+		t.Fatal("did not obey timeout")
 	}
 }
 

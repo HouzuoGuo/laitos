@@ -44,12 +44,27 @@ func (wa *WolframAlpha) Trigger() Trigger {
 	return ".w"
 }
 
+// AtLeast returns i only if it is larger than atLeast. If not, it returns atLeast.
+func AtLeast(i, atLeast int) int {
+	if i < atLeast {
+		return atLeast
+	}
+	return i
+}
+
 // Call WolframAlpha API to run a query. Return HTTP status, response, and error if any.
 func (wa *WolframAlpha) Query(timeoutSec int, query string) (resp inet.HTTPResponse, err error) {
+	// The following ratios are inspired by default timeout settings from WolframAlpha API
+	scanTimeout := AtLeast(timeoutSec*3/20, 2)
+	podTimeout := AtLeast(timeoutSec*4/20, 2)
+	formatTimeout := AtLeast(timeoutSec*8/20, 4)
+	parseTimeout := AtLeast(timeoutSec*5/20, 3)
+	// Leave 2 seconds of buffer time for transmitting the feature response back to user
+	totalTimeout := AtLeast(timeoutSec-2, 2)
 	resp, err = inet.DoHTTP(
 		inet.HTTPRequest{TimeoutSec: timeoutSec},
-		"https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext",
-		wa.AppID, query)
+		"https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext&scantimeout=%s&podtimeout=%s&formattimeout=%s&parsetimeout=%s&totaltimeout=%s",
+		wa.AppID, query, scanTimeout, podTimeout, formatTimeout, parseTimeout, totalTimeout)
 	return
 }
 
