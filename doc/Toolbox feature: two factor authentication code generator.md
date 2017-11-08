@@ -44,8 +44,8 @@ Third, retrieve encryption parameters from encrypted secrets:
 3. Note down the entire IV value and key prefix of your desired length, they will now be used in feature configuration.
 
 ## Configuration
-Under JSON object `Features`, construct a JSON object called `TwoFACodeGenerator` that has an object called `SecretFile`
-with the following mandatory properties:
+Under JSON object `Features`, construct a JSON object called `TwoFACodeGenerator` that has an inner object called
+`SecretFile` with the following mandatory properties:
 <table>
 <tr>
     <th>Property</th>
@@ -85,7 +85,7 @@ Here is an example:
 
         "TwoFACodeGenerator": {
             "SecretFile": {
-                "FilePath": "2fa",
+                "FilePath": "/root/encrypted-secrets.bin",
                 "HexIV": "9355455468BA2C18137B89F6874ADECC",
                 "HexKeyPrefix": "EE26A871D2478C51E5091B142E09639F8F001163D89EE6DF21A19C5322"
             }
@@ -117,8 +117,10 @@ the last code is for 30 seconds into future. Use the middle code to sign-in to y
 ## Tips
 - If your Internet account settings only reveals barcode and cannot reveal text secret, then unfortunately it cannot be
   used with laitos.
+- Do not use any program but OpenSSL to prepare the encrypted secrets file. laitos only recognises the encrypted file
+  format specific to OpenSSL.
 - The OpenSSL command supplied with Cygwin appears to work, but in fact it cannot encrypt file properly. Therefore do
-  use the OpenSSL command from Cygwin.
+  not use the OpenSSL command from Cygwin.
 - Correct generation of 2FA codes relies heavily on having a correct system clock. Make sure that your laitos server
   system has correct date and time. Consider running the [maintenance daemon](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
   that will automatically correct your system clock.
