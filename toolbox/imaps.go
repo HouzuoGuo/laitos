@@ -37,14 +37,9 @@ type IMAPSConnection struct {
 /*
 converse sends an IMAP request and waits for a response, then return IMAP response status and body.
 If the response status is not OK, an error will be returned. If IO error occurs, client connection will be closed and an
-error will be returned. A mutex prevents more than one conversation from taking place at the same time.
+error will be returned.
 */
-func (conn *IMAPSConnection) Converse(request string) (status, body string, err error) {
-	conn.mutex.Lock()
-	defer conn.mutex.Unlock()
-	if conn.tlsConn == nil {
-		return "", "", errors.New("programming mistake - IMAPS connection is missing")
-	}
+func (conn *IMAPSConnection) converse(request string) (status, body string, err error) {
 	// Expect both request and response to complete within the timeout constraint
 	conn.tlsConn.SetDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
 	// Random challenge is a string prefixed to an IMAP request
@@ -94,6 +89,20 @@ func (conn *IMAPSConnection) Converse(request string) (status, body string, err 
 	}
 }
 
+/*
+converse sends an IMAP request and waits for a response, then return IMAP response status and body.
+If the response status is not OK, an error will be returned. If IO error occurs, client connection will be closed and an
+error will be returned. A mutex prevents more than one conversation from taking place at the same time.
+*/
+func (conn *IMAPSConnection) Converse(request string) (status, body string, err error) {
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+	if conn.tlsConn == nil {
+		return "", "", errors.New("programming mistake - IMAPS connection is missing")
+	}
+	return conn.converse(request)
+}
+
 // disconnect closes client connection.
 func (conn *IMAPSConnection) disconnect() {
 	if conn.tlsConn == nil {
@@ -110,7 +119,7 @@ func (conn *IMAPSConnection) LogoutDisconnect() {
 	if conn.tlsConn == nil {
 		return
 	}
-	conn.Converse("LOGOUT") // intentionally ignore conversation error
+	conn.converse("LOGOUT") // intentionally ignore conversation error
 	conn.disconnect()
 }
 

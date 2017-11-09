@@ -291,7 +291,7 @@ func main() {
 	}
 	for i := 0; i < len(daemonNames); i++ {
 		err := <-daemonErrs
-		logger.Warningf("main", "", err, "a daemon has encountered and failed to start")
+		logger.Warningf("main", "", err, "a daemon has encountered an error and failed to start")
 	}
 	logger.Fatalf("main", "", nil, "all daemons have failed to start, laitos will now exit.")
 }
