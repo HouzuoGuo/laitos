@@ -1,7 +1,6 @@
 *.conf
 contact
 *.crt
-*.html
 .idea
 init_feature_test.go
 init_toolbox_test.go
@@ -15,3 +14,4 @@ pass
 *.swp
 .vscode
 *.zip
+debug

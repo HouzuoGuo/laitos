@@ -1,0 +1,1989 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <title>laitos config tool</title>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script type="text/javascript" src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://unpkg.com/vue"></script>
+    <script type="text/javascript" src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
+
+    <style type="text/css">
+        .flex {
+            display: flex;
+            align-items: stretch;
+        }
+
+        #content {
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        #sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            background: rgb(148, 170, 255);
+            color: #fff;
+        }
+
+        #sidebar a,
+        a:hover,
+        a:focus {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        #sidebar .sidebar-header {
+            padding: 20px;
+            background: #6d7fcc;
+        }
+
+        #sidebar ul.components {
+            padding: 20px 0;
+        }
+
+        #sidebar ul li a {
+            padding: 10px;
+            font-size: 1.1em;
+            display: block;
+        }
+
+        #sidebar ul li a:hover {
+            color: #7386D5;
+            background: #fff;
+        }
+
+        #sidebar ul ul a {
+            font-size: 0.9em !important;
+            padding-left: 30px !important;
+            background: #8897d6;
+        }
+
+        #sidebar ul li.active>a,
+        a[aria-expanded="true"] {
+            color: #fff;
+            background: #6d7fcc;
+        }
+
+        #sidebar a[data-toggle="collapse"] {
+            position: relative;
+        }
+
+        #sidebar a[aria-expanded="false"]::before,
+        a[aria-expanded="true"]::before {
+            content: '▼';
+            display: block;
+            position: absolute;
+            right: 20px;
+        }
+
+        #sidebar a[aria-expanded="true"]::before {
+            content: '';
+        }
+    </style>
+
+    <script type="text/javascript">
+        /* Courtesy of https://davidwalsh.name/javascript-deep-merge */
+	    function isMergeableObject(val) {
+		    var nonNullObject = val && typeof val === 'object';
+
+		    return nonNullObject
+				    && Object.prototype.toString.call(val) !== '[object RegExp]'
+				    && Object.prototype.toString.call(val) !== '[object Date]'
+	    }
+
+	    function emptyTarget(val) {
+		    return Array.isArray(val) ? [] : {}
+	    }
+
+	    function cloneIfNecessary(value, optionsArgument) {
+		    var clone = optionsArgument && optionsArgument.clone === true
+		    return (clone && isMergeableObject(value)) ? deepmerge(emptyTarget(value), value, optionsArgument) : value
+	    }
+
+	    function defaultArrayMerge(target, source, optionsArgument) {
+		    var destination = target.slice();
+		    source.forEach(function(e, i) {
+			    if (typeof destination[i] === 'undefined') {
+				    destination[i] = cloneIfNecessary(e, optionsArgument)
+			    } else if (isMergeableObject(e)) {
+				    destination[i] = deepmerge(target[i], e, optionsArgument)
+			    } else if (target.indexOf(e) === -1) {
+				    destination.push(cloneIfNecessary(e, optionsArgument))
+			    }
+		    });
+		    return destination
+	    }
+
+	    function mergeObject(target, source, optionsArgument) {
+		    var destination = {};
+		    if (isMergeableObject(target)) {
+			    Object.keys(target).forEach(function (key) {
+				    destination[key] = cloneIfNecessary(target[key], optionsArgument)
+			    })
+		    }
+		    Object.keys(source).forEach(function (key) {
+			    if (!isMergeableObject(source[key]) || !target[key]) {
+				    destination[key] = cloneIfNecessary(source[key], optionsArgument)
+			    } else {
+				    destination[key] = deepmerge(target[key], source[key], optionsArgument)
+			    }
+		    });
+		    return destination
+	    }
+
+	    function deepmerge(target, source, optionsArgument) {
+		    var array = Array.isArray(source);
+		    var options = optionsArgument || { arrayMerge: defaultArrayMerge };
+		    var arrayMerge = options.arrayMerge || defaultArrayMerge;
+
+		    if (array) {
+			    return Array.isArray(target) ? arrayMerge(target, source, optionsArgument) : cloneIfNecessary(source, optionsArgument)
+		    } else {
+			    return mergeObject(target, source, optionsArgument)
+		    }
+	    }
+
+	    deepmerge.all = function deepmergeAll(array, optionsArgument) {
+		    if (!Array.isArray(array) || array.length < 2) {
+			    throw new Error('first argument should be an array with at least two elements')
+		    }
+
+		    return array.reduce(function(prev, next) {
+			    return deepmerge(prev, next, optionsArgument)
+		    })
+	    };
+
+        $(document).ready(function () {
+            var template = {
+                "DNSDaemon": {
+                    "Address": "",
+                    "AllowQueryIPPrefixes": [],
+                    "PerIPLimit": 30,
+                    "TCPForwarders": ["8.8.8.8", "8.8.4.4"],
+                    "TCPPort": 53,
+                    "UDPForwarders": ["8.8.8.8", "8.8.4.4"],
+                    "UDPPort": 53
+                },
+                "Features": {
+                    "AESDecrypt": {
+                        "EncryptedFiles": {
+                            /*"shortcut": {
+                              "FilePath": "/path/to/file",
+                              "HexIV": "IV",
+                              "HexKeyPrefix": "PREFIX"
+                            },*/
+                        }
+                    },
+                    "Browser": {
+                        "Browsers": {
+                            "BasePortNumber": 41634,
+                            "MaxInstances": 3,
+                            "MaxLifetimeSec": 3600,
+                            "PhantomJSExecPath": "./phantomjs-2.1.1-linux-x86_64"
+                        }
+                    },
+                    "Facebook": {
+                        "UserAccessToken": ""
+                    },
+                    "IMAPAccounts": {
+                        "Accounts": {
+                            /*"gm": {
+                              "AuthPassword": "PASSWORD",
+                              "AuthUsername": "NAME",
+                              "Host": "HOST",
+                              "InsecureSkipVerify": false,
+                              "MailboxName": "INBOX",
+                              "Port": 993
+                            },*/
+                        }
+                    },
+                    "Twilio": {
+                        "AccountSID": "",
+                        "AuthToken": "",
+                        "PhoneNumber": ""
+                    },
+                    "Twitter": {
+                        "AccessToken": "",
+                        "AccessTokenSecret": "",
+                        "ConsumerKey": "",
+                        "ConsumerSecret": ""
+                    },
+                    "TwoFACodeGenerator": {
+                        "SecretFile": {
+                            "FilePath": "",
+                            "HexIV": "",
+                            "HexKeyPrefix": ""
+                        }
+                    },
+                    "WolframAlpha": {
+                        "AppID": ""
+                    }
+                },
+                "HTTPDaemon": {
+                    "Address": "",
+                    "BaseRateLimit": 5,
+                    "Port": 443,
+                    "ServeDirectories": {},
+                    "TLSCertPath": "",
+                    "TLSKeyPath": ""
+                },
+                "HTTPFilters": {
+                    "LintText": {
+                        "CompressSpaces": true,
+                        "CompressToSingleLine": true,
+                        "KeepVisible7BitCharOnly": true,
+                        "MaxLength": 160,
+                        "TrimSpaces": true
+                    },
+                    "NotifyViaEmail": {
+                        "Recipients": []
+                    },
+                    "PINAndShortcuts": {
+                        "PIN": "",
+                        "Shortcuts": {}
+                    },
+                    "TranslateSequences": {
+                        "Sequences": [
+                            [
+                                "#/",
+                                "|"
+                            ]
+                        ]
+                    }
+                },
+                "HTTPHandlers": {
+                    "BrowserEndpoint": "",
+                    "BrowserEndpointConfig": {
+                        "Browsers": {
+                            "BasePortNumber": 13634,
+                            "MaxInstances": 3,
+                            "MaxLifetimeSec": 3600,
+                            "PhantomJSExecPath": "./phantomjs-2.1.1-linux-x86_64"
+                        }
+                    },
+                    "CommandFormEndpoint": "",
+                    "GitlabBrowserEndpoint": "",
+                    "GitlabBrowserEndpointConfig": {
+                        "PrivateToken": "",
+                        "Projects": {                            /*"shortcut": "#####",*/ },
+                        "Recipients": []
+                    },
+                    "IndexEndpointConfig": {
+                        "HTMLFilePath": "index.html"
+                    },
+                    "IndexEndpoints": [
+                        "/",
+                        "/index.html"
+                    ],
+                    "InformationEndpoint": "",
+                    "MailMeEndpoint": "",
+                    "MailMeEndpointConfig": {
+                        "Recipients": []
+                    },
+                    "MicrosoftBotEndpoint1": "",
+                    "MicrosoftBotEndpoint2": "",
+                    "MicrosoftBotEndpoint3": "",
+                    "MicrosoftBotEndpointConfig1": {
+                        "ClientAppID": "",
+                        "ClientAppSecret": ""
+                    },
+                    "MicrosoftBotEndpointConfig2": {
+                        "ClientAppID": "",
+                        "ClientAppSecret": ""
+                    },
+                    "MicrosoftBotEndpointConfig3": {
+                        "ClientAppID": "",
+                        "ClientAppSecret": ""
+                    },
+                    "TwilioCallEndpoint": "",
+                    "TwilioCallEndpointConfig": {
+                        "CallGreeting": "Hello."
+                    },
+                    "TwilioSMSEndpoint": "",
+                    "WebProxyEndpoint": "/xy"
+                },
+                "MailClient": {
+                    "AuthPassword": "",
+                    "AuthUsername": "",
+                    "MTAHost": "smtp.sendgrid.net",
+                    "MTAPort": 2525,
+                    "MailFrom": ""
+                },
+                "MailCommandRunner": {
+                },
+                "MailDaemon": {
+                    "Address": "0.0.0.0",
+                    "ForwardTo": [],
+                    "MyDomains": [],
+                    "PerIPLimit": 2,
+                    "Port": 25,
+                    "TLSCertPath": "",
+                    "TLSKeyPath": ""
+                },
+                "MailFilters": {
+                    "LintText": {
+                        "CompressSpaces": false,
+                        "CompressToSingleLine": false,
+                        "KeepVisible7BitCharOnly": false,
+                        "MaxLength": 4096,
+                        "TrimSpaces": false
+                    },
+                    "NotifyViaEmail": {
+                        "Recipients": []
+                    },
+                    "PINAndShortcuts": {
+                        "PIN": "",
+                        "Shortcuts": {}
+                    }
+                },
+                "Maintenance": {
+                    "CheckTCPPorts": {
+                        /*"ard.how": [
+                          80,
+                          443
+                        ],*/
+                    },
+                    "IntervalSec": 86400,
+                    "Recipients": []
+                },
+                "PlainSocketDaemon": {
+                    "Address": "0.0.0.0",
+                    "PerIPLimit": 25,
+                    "TCPPort": 5,
+                    "UDPPort": 5
+                },
+                "PlainSocketFilters": {
+                    "LintText": {
+                        "CompressSpaces": false,
+                        "CompressToSingleLine": false,
+                        "KeepVisible7BitCharOnly": false,
+                        "MaxLength": 1024,
+                        "TrimSpaces": true
+                    },
+                    "NotifyViaEmail": {
+                        "Recipients": []
+                    },
+                    "PINAndShortcuts": {
+                        "PIN": "",
+                        "Shortcuts": {}
+                    }
+                },
+                "SupervisorNotificationRecipients": [],
+                "TelegramBot": {
+                    "AuthorizationToken": "",
+                    "RateLimit": 2
+                },
+                "TelegramFilters": {
+                    "LintText": {
+                        "CompressSpaces": false,
+                        "CompressToSingleLine": false,
+                        "KeepVisible7BitCharOnly": false,
+                        "MaxLength": 1024,
+                        "TrimSpaces": true
+                    },
+                    "NotifyViaEmail": {
+                        "Recipients": []
+                    },
+                    "PINAndShortcuts": {
+                        "PIN": "",
+                        "Shortcuts": {}
+                    }
+                }
+            };
+
+            var laitos_conf = JSON.parse(JSON.stringify(template));
+
+            var app_data = {laitos_conf: laitos_conf};
+
+            var router = new VueRouter({
+                routes: [
+                    { path: '/welcome', component: { template: '#welcome', data: function () { return app_data; } } },
+                    { path: '/get-started', component: { template: '#get-started', data: function () { return app_data; } } },
+                    { path: '/dns-server', component: { template: '#dns-server', data: function () { return app_data; } } },
+                    { path: '/mail-server', component: { template: '#mail-server', data: function () { return app_data; } } },
+                    { path: '/web-server', component: { template: '#web-server', data: function () { return app_data; } } },
+                    { path: '/maintenance', component: { template: '#maintenance', data: function () { return app_data; } } },
+                    { path: '/telegram-bot', component: { template: '#telegram-bot', data: function () { return app_data; } } },
+                    { path: '/plain-text-server', component: { template: '#plain-text-server', data: function () { return app_data; } } },
+                    { path: '/use-facebook', component: { template: '#use-facebook', data: function () { return app_data; } } },
+                    { path: '/use-twitter', component: { template: '#use-twitter', data: function () { return app_data; } } },
+                    { path: '/read-emails', component: { template: '#read-emails', data: function () { return app_data; } } },
+                    { path: '/send-emails', component: { template: '#send-emails', data: function () { return app_data; } } },
+                    { path: '/call-and-sms', component: { template: '#call-and-sms', data: function () { return app_data; } } },
+                    { path: '/public-contacts', component: { template: '#public-contacts', data: function () { return app_data; } } },
+                    { path: '/text-browser', component: { template: '#text-browser', data: function () { return app_data; } } },
+                    { path: '/wolfram-alpha', component: { template: '#wolfram-alpha', data: function () { return app_data; } } },
+                    { path: '/encrypted-text', component: { template: '#encrypted-text', data: function () { return app_data; } } },
+                    { path: '/system-commands', component: { template: '#system-commands', data: function () { return app_data; } } },
+                    { path: '/program-control', component: { template: '#program-control', data: function () { return app_data; } } },
+                    { path: '/twofa-code-gen', component: { template: '#twofa-code-gen', data: function () { return app_data; } } },
+                    { path: '/gitlab-browser', component: { template: '#gitlab-browser', data: function () { return app_data; } } },
+                    { path: '/command-form', component: { template: '#command-form', data: function () { return app_data; } } },
+                    { path: '/health-report', component: { template: '#health-report', data: function () { return app_data; } } },
+                    { path: '/simple-proxy', component: { template: '#simple-proxy', data: function () { return app_data; } } },
+                    { path: '/browser-in-browser', component: { template: '#browser-in-browser', data: function () { return app_data; } } },
+                    { path: '/twilio-hook', component: { template: '#twilio-hook', data: function () { return app_data; } } },
+                    { path: '/microsoft-bot-hook', component: { template: '#microsoft-bot-hook', data: function () { return app_data; } } },
+                    {
+                        path: '/import-export-config',
+                        component: {
+                            template: '#import-export-config',
+                            data: function () { return {app_data: app_data, import_json_str: null}; },
+                            methods: {
+                                btn_import_conf: function(ev) {
+                                    try {
+	                                    app_data.laitos_conf = deepmerge.all([template, JSON.parse(this.import_json_str)]);
+	                                    alert('Import succeeded!');
+                                    } catch (err) {
+                                        alert('Import failed - ' + err.message);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            });
+
+            var app = new Vue({router: router}).$mount('#app');
+
+            // router.push('/welcome');
+        });
+    </script>
+    <script type="text/x-template" id="welcome">
+        <div>
+            <img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/doc/cosmetic/poster.png" alt="poster image" align="right" />
+            <h1>laitos - Empower your personal web server</h1>
+            <p>Want to host a simple website, Email server, or ad-blocking DNS server? Skip those scary tutorials you find online!</p>
+            <p><strong>laitos</strong> has all your needs covered - plus, it offers you access to personal mails and social networks in
+            fun ways such as telephone call, SMS, Telegram chat, and even satellite terminals!</p>
+            <h2>Highlights</h2>
+            <ul>
+            <li><strong>Powerful</strong> - web, mail and DNS servers beautifully re-invented in just 10K lines of code.</li>
+            <li><strong>Fun</strong> - access personal mails and social networks via telephone, SMS, and more!</li>
+            <li><strong>Hyped by Buzzwords</strong> - certified to run in any container, PaaS, IaaS, *aaS.</li>
+            <li><strong>Lightweight</strong> - uses as little as 18MB of memory and 8MB of disk.</li>
+            <li><strong>Portable</strong> - runs on any flavour of Linux and Unix.</li>
+            <li><strong>Independent</strong> - reliable stand-alone operation, no need for additional softwares.</li>
+            </ul>
+            <p><strong>Did you know?</strong> laitos has a cool component that gets you modern &amp; rich web experience on nostalgic
+            computers that run Windows 98! It is called "browser-in-browser".</p>
+            <h2>Support</h2>
+            <p>Should you encounter any challenge during configuration and deployment of the software, please file an <a href="https://github.com/HouzuoGuo/laitos/issues" target="_blank">issue</a>.</p>
+            <p>I'd love to hear from your feedback, feel free to <a href="mailto:guohouzuo@gmail.com">Email me</a> and get in touch on <a href="https://twitter.com/hzguo" target="_blank">Twitter</a>.</p>
+            <p><a href="mailto:guohouzuo@gmail.com">Enterprise support</a> is coming soon.</p>
+            <p>You may freely distribute the laitos program under GNU GPL v3 or (at your option) any later version.</p>
+	        <p>The Golang mascot &quot;gopher&quot; is designed by <a href="http://reneefrench.blogspot.com" target="_blank">Renee French</a>.
+		        The gopher side portrait is designed by <a href="https://twitter.com/tenntenn" target="_blank">Takuya Ueda</a>, licensed under the &quot;Creative
+		        CommonsAttribution 3.0&quot; license.</p>
+	        <router-link tag="button" to="/get-started" class="btn btn-success">Let's get started!</router-link>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="get-started">
+        <div>
+            <h1>Get started</h1>
+            <h2>Acquire software</h2>
+            <p>Download the latest <a href="https://github.com/HouzuoGuo/laitos/releases" target="_blank">laitos software</a>.</p>
+            <p>For advanced usage, use the latest go compiler to compile the software from source code like so:</p>
+            <pre><code>~/gopath/src/github.com/HouzuoGuo &gt; git clone https://github.com/HouzuoGuo/laitos.git
+~/gopath/src/github.com/HouzuoGuo/laitos &gt; go build</code></pre>
+            <p>laitos program and source code do not depend on third-party program or library.</p>
+            <h2>Prepare configuration</h2>
+            <p>laitos components go into two categories:</p>
+            <ul>
+            <li>Toolbox features - access to Email, post to Twitter/Facebook, etc.</li>
+            <li>Daemons - web server, mail server, and chat bots. Daemons grant access to all toolbox features.</li>
+            </ul>
+            <p>laitos uses a text file written in <a href="https://en.wikipedia.org/wiki/JSON" target="_blank">JSON</a> to configure all components.
+            <p>
+                If you wish to alter existing JSON configuration, visit <router-link to="/import-export-config">Import/export config</router-link> and paste it over there.
+                Now feel free to go through the <strong>daemon config</strong>, <strong>rich web service</strong>, and <strong>toolbox config</strong> menus to explore laitos features and craft your very own!
+            </p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="dns-server">
+        <div>
+	        <h1>Daemon: DNS server</h1>
+	        <h2>Introduction</h2>
+	        <p>The DNS server daemon provides an ad-free web experience.</p>
+	        <p>It downloads the latest ad-domain list from well-known <a href="http://pgl.yoyo.org" target="_blank">yoyo.org</a> and <a href="http://winhelp2002.mvps.org" target="_blank">mvps.org</a>
+		        on startup and then every 2 hours.</p>
+	        <p>The daemon then forwards all name queries to a reputable public DNS of your choice; if a query is an advertisement domain,
+		        it produces a black-hole answer (0.0.0.0) instead of forwarding the query. This effectively blocks most advertisements.</p>
+	        <h2>Configuration</h2>
+	        <table class="table">
+		        <tr>
+			        <th>Property</th>
+			        <th>Value</th>
+			        <th>Meaning</th>
+		        </tr>
+                <tbody>
+                    <tr>
+                        <td>Address</td>
+                        <td><input v-model="laitos_conf.DNSDaemon.Address"/></td>
+                        <td>The address network to listen to. It is usually "0.0.0.0", which means listen on all network interfaces.</td>
+                    </tr>
+                    <tr>
+                        <td>UDPPort</td>
+	                    <td><input v-model.number="laitos_conf.DNSDaemon.UDPPort" type="number"/></td>
+                        <td>UDP port number to listen on. It is usually 53 - the port number designated for DNS.</td>
+                    </tr>
+                    <tr>
+                        <td>UDPForwarders</td>
+                        <td>array of strings</td>
+                        <td>
+                            If a UDP query is not for an advertisement domain, forward it to any of these public DNS servers.
+                            <br/>
+                            Example: ["8.8.8.8:53"] (Google public DNS)
+                            <br/>
+                            These public servers must be capable of handling UDP queries.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>TCPPort</td>
+                        <td>integer</td>
+                        <td>TCP port number to listen to. It is usually 53 - the port number designated for DNS.</td>
+                    </tr>
+                    <tr>
+                        <td>TCPForwarders</td>
+                        <td>array of strings</td>
+                        <td>
+                            If a TCP query is not for an advertisement domain, forward it to any of these public DNS servers.
+                            <br/>
+                            Example: ["8.8.8.8:53"] (Google public DNS)
+                            <br/>
+                            These public servers must be capable of handling TCP (not UDP) queries.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>AllowQueryIPPrefix</td>
+                        <td>array of strings</td>
+                        <td>
+                            An array of IP address prefixes such as ["195.1", "123.4.5"] that are allowed to make DNS queries on the server.
+                            <br/>
+                            The public IP addresses of your computers and phones should be here.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>PerIPLimit</td>
+                        <td>integer</td>
+                        <td>
+                            How many times in ten-second interval a client (identified by IP) is allowed to query the server.
+                            <br/>
+                            Each computer/phone usually uses about 15.
+                        </td>
+                    </tr>
+                </tbody>
+	        </table>
+	        <button data-toggle="collapse" data-target="#dns-server-more" class="btn btn-info">More info</button>
+	        <div id="dns-server-more" class="collapse">
+		        <h2>Run</h2>
+		        <p>Tell laitos to run DNS daemon in the command line:</p>
+		        <pre><code>sudo ./laitos -config &lt;CONFIG FILE&gt; -daemons ...,dnsd,...</code></pre>
+		        <h2>Test</h2>
+		        <p>Assuming that daemon listens on port 53, perform the tests from a computer where you will use the ad-blocking DNS server,
+			        such as home network:</p>
+		        <ol>
+			        <li>
+				        <p>Observe successful &quot;Name-Address&quot; answers from the following two system command (for both UDP and TCP):</p>
+				        <pre><code> nslookup microsoft.com &lt;SERVER PUBLIC IP&gt;
+ nslookup -vc microsoft.com &lt;SERVER PUBLIC IP&gt;
+</code></pre>
+			        </li>
+			        <li>
+				        <p>Observe a black-hole answer <code>0.0.0.0</code> from the following query to advertisement domain:</p>
+				        <pre><code> nslookup analytics.google.com &lt;SERVER PUBLIC IP&gt;
+ nslookup -vc analytics.google.com &lt;SERVER PUBLIC IP&gt;
+</code></pre>
+			        </li>
+		        </ol>
+		        <p>If the test is conducted on the computer that runs daemon itself, you may use <code>127.0.0.1</code> as the server IP address.</p>
+		        <p>If the tests are not successful, and laitos log says <code>client IP is not allowed to query</code>, then check the value of
+			        <code>AllowQueryIPPrefix</code> in configuration.</p>
+		        <h2>Usage</h2>
+		        <p>After the DNS server is successfully tested, it is ready to be used by your computers and phones.</p>
+		        <p>On your computers and phones, follow these guides and change DNS settings to use <em>public IP address</em> of laitos server:</p>
+		        <ul>
+			        <li>Windows/Mac <a href="https://developers.google.com/speed/public-dns/docs/using#change_your_dns_servers_settings" target="_blank">tutorial by Google</a></li>
+			        <li>Alternative Windows <a href="https://www.windowscentral.com/how-change-your-pcs-dns-settings-windows-10" target="_blank">tutorial by windowscentral.com</a></li>
+			        <li>Android <a href="https://support.opendns.com/hc/en-us/articles/228009007-Android-Configuration-instructions-for-OpenDNS" target="_blank">tutorial by OpenDNS</a></li>
+			        <li>iOS <a href="https://www.igeeksblog.com/how-to-change-dns-on-iphone-ipad/" target="_blank">tutorial by igeeksblog.com</a></li>
+		        </ul>
+		        <h2>Tips</h2>
+		        <p>Regarding usage:</p>
+		        <ul>
+			        <li>Computers and phones usually memorise DNS settings per network, make sure to change DNS settings for all wireless and
+				        wired networks.</li>
+			        <li>Use a well-known public DNS service (one of the forwarders, for example) as backup DNS server in DNS settings, so that
+				        in the unlikely case of laitos DNS server going offline, your computers and phones will still be able to browse the
+				        Internet.</li>
+		        </ul>
+		        <p>Regarding configuration:</p>
+		        <ul>
+			        <li>In almost all cases DNS queries are carried out in UDP. You usually do not need a DNS server that runs on TCP.</li>
+			        <li>If you are setting up DNS over TCP, make sure that the TCP forwarders are able to handle TCP queries. Not all public
+				        DNS servers can handle TCP queries.</li>
+			        <li>The Google public DNS (8.8.8.8:53 and 8.8.4.4:53) are able to handle both UDP and TCP queries. They are good to be
+				        forwarders.</li>
+		        </ul>
+	        </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="mail-server">
+        <div>
+	        <h1>Daemon: mail server</h1>
+	        <h2>Introduction</h2>
+	        <p>The mail server forwards arriving mails as-is to your personal Email address. No mails are stored on the server after
+		        they are forwarded.</p>
+	        <p>With additional configuration, the server will process toolbox feature command from incoming mail, and mail response to
+		        the sender.</p>
+	        <p>For communication secrecy, the server supports StartTLS operation and identifies itself with TLS certificate.</p>
+	        <h2>Preparation</h2>
+	        <p>In order for an Internet user to successfully send mails to your domain names, they must be covered by a DNS hosting
+		        service. If the concept sounds unfamiliar, check out this article from Amazon Web Service: <a href="https://aws.amazon.com/route53/what-is-dns/" target="_blank">What is DNS</a>.</p>
+	        <p>DNS hosting providers usually charge ~ 1 USD per domain name per month. If you are looking for a provider, check out:</p>
+	        <ul>
+		        <li><a href="https://aws.amazon.com/route53/" target="_blank">Amazon Web Service &quot;Route53&quot;</a></li>
+		        <li><a href="https://cloud.google.com/dns/" target="_blank">Google Cloud Platform &quot;Cloud DNS&quot;</a></li>
+	        </ul>
+	        <p>After signing up for DNS hosting service, they will give you a set of NS addresses (usually four) for each domain. Then
+		        you need to let Domain Registrar know by giving the NS addresses to each domain name's configuration; it takes up to 24
+		        hours for this change to propagate through the Internet.</p>
+	        <p>The <router-link to="/dns-server"><a>laitos DNS server</a></router-link> is a DNS relay, it is <em>not</em> a DNS
+		        hosting service.</p>
+	        <h2>Configuration</h2>
+
+	        <h2>Toolbox command processor</h2>
+	        In order to let mail server process toolbox feature commands from mail body, complete the following configuration:
+
+	        Mail command processor:
+            @@@@@@@@TODO
+
+
+            Common outgoing mail configuration:
+            @@@@@@@TODO
+
+	        <p><button data-toggle="collapse" data-target="#mail-server-more" class="btn btn-info">More info</button></p>
+	        <div id="mail-server-more" class="collapse">
+                <h2>Run</h2>
+                <p>Tell laitos to run mail daemon in the command line:</p>
+                <pre><code>sudo ./laitos -config &lt;CONFIG FILE&gt; -daemons ...,smtpd,...</code></pre>
+                <h2>Deployment</h2>
+                <p>At your DNS hosting provider, create or modify a DNS &quot;MX&quot; entry for each of <code>MyDomains</code>. The entry must look like:</p>
+                <ul>
+                    <li>DNS name: <code>my-domain-name.net</code></li>
+                    <li>Record type: <code>MX</code></li>
+                    <li>Time to live (TTL): leave at default or <code>5 minutes</code></li>
+                    <li>Value (preference and mail server): <code>10 laitos-server-public-IP</code></li>
+                </ul>
+                <p>Here is an example involving two domain names and three MX entries, assuming that laitos server is on <code>58.169.236.112</code>:</p>
+                <table class="table">
+                    <tr>
+                        <th>DNS name</th>
+                        <th>Record type</th>
+                        <th>Time to live (TTL)</th>
+                        <th>Value</th>
+                        <th>Remark</th>
+                    </tr>
+                    <tbody>
+                        <tr>
+                            <td>howard-homepage.net</td>
+                            <td>MX</td>
+                            <td>5 minutes</td>
+                            <td>10 58.169.236.112</td>
+                            <td>First example</td>
+                        </tr>
+                        <tr>
+                            <td>howard-blog.org</td>
+                            <td>MX</td>
+                            <td>5 minutes</td>
+                            <td>10 58.169.236.112</td>
+                            <td>Second example</td>
+                        </tr>
+                        <tr>
+                            <td>cool.howard-blog.org</td>
+                            <td>MX</td>
+                            <td>5 minutes</td>
+                            <td>10 58.169.236.112</td>
+                            <td>A sub-domain of second example</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p>Wait up to an hour for new DNS records to propagate through the Internet.</p>
+                <h2>Test</h2>
+                <p>Send a test mail with subject, text, and attachments to any name under <code>MyDomains</code> (e.g. <code>i@howard-blog.org</code>). Wait a
+                    short moment, check the inbox on any of <code>ForwardTo</code> address (e.g. <code>howard@gmail.com</code>), the test mail should arrive at
+                    all of the <code>ForwardTo</code> addresses.</p>
+                <p>To try the toolbox command processor, send a mail with any subject, and write down toolbox command in the mail body.
+                    Send it out, wait a short moment, and check the sender's inbox for command response.</p>
+                <p>Don't forget to put password PIN in front of the toolbox command!</p>
+                <h2>Tips</h2>
+                <p>Mail servers are often targeted by spam mails. But don't worry, use a personal mail service that comes with strong spam
+                    filter (such as Gmail) as <code>ForwardTo</code> address, and spam mails will not bother you any longer.</p>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="web-server">
+        <div>
+	        <h1>Daemon: web server</h1>
+	        <h2>Introduction</h2>
+	        <p>The web server hosts a static personal website that consists of:</p>
+	        <ul>
+		        <li>A home page in an HTML file.</li>
+		        <li>Media files and other assets in directories.</li>
+	        </ul>
+	        <p>Additionally, specialised web services such as <router-link to="/twilio-hook"><a>Twilio telephone/SMS hook</a></router-link>
+		        are also hosted by the web server.</p>
+	        <h2>Configuration</h2>
+
+	        <button data-toggle="collapse" data-target="#web-server-more" class="btn btn-info">More info</button>
+	        <div id="web-server-more" class="collapse">
+                <h2>Run</h2>
+                <p>Tell laitos to run web server in the command line:</p>
+                <pre><code>sudo ./laitos -config &lt;CONFIG FILE&gt; -daemonssimple ...,httpd,...</code></pre>
+                <p>If TLS is enabled on the web server and the site should also be accessible via plain HTTP, then tell laitos to start one
+                    more server:</p>
+                <pre><code>sudo ./laitos -config &lt;CONFIG FILE&gt; -daemons ...,httpd,insecurehttpd,...</code></pre>
+                <p>The plain HTTP server listens on hard-coded port 80, it shares configuration with the TLS-enabled web daemon, which
+                    means it serves all HTML files, file directories, and special handles.</p>
+                <h2>Deployment</h2>
+                <p>In order for an Internet user to browse your website hosted via laitos:</p>
+                <ol>
+                    <li>Your domain names must be covered by a DNS hosting service. If the concept sounds unfamiliar, check out this article
+                        from Amazon Web Service: <a href="https://aws.amazon.com/route53/what-is-dns/" target="_blank">What is DNS</a>.</li>
+                    <li>DNS hosting providers usually charge ~ 1 USD per domain per month. If you are looking for a provider, check out:
+                        <ul>
+                            <li><a href="https://aws.amazon.com/route53/" target="_blank">Amazon Web Service &quot;Route53&quot;</a></li>
+                            <li><a href="https://cloud.google.com/dns/" target="_blank">Google Cloud Platform &quot;Cloud DNS&quot;</a></li>
+                        </ul>
+                    </li>
+                    <li>Check at your Domain Registrar that the domain name servers are pointing to DNS hosting providers.</li>
+                    <li>If you are making changes to domain name servers, it may take up to 24 hours to propagate through the Internet.</li>
+                </ol>
+                <p>Now, create or modify a DNS &quot;A&quot; entry for your domain name. The entry must look like:</p>
+                <ul>
+                    <li>DNS name: <code>my-domain-name.net</code></li>
+                    <li>Record type: <code>A</code></li>
+                    <li>Time to live (TTL): leave at default or <code>5 minutes</code></li>
+                    <li>Value (preference and mail server): the public IP address of laitos server</li>
+                </ul>
+                <p>Here is an example involving two domain names and one sub-domain, assuming that laitos server is on <code>58.169.236.112</code>:</p>
+                <table class="table">
+                    <tr>
+                        <th>DNS name</th>
+                        <th>Record type</th>
+                        <th>Time to live (TTL)</th>
+                        <th>Value</th>
+                        <th>Remark</th>
+                    </tr>
+                    <tbody>
+                        <tr>
+                            <td>howard-homepage.net</td>
+                            <td>A</td>
+                            <td>5 minutes</td>
+                            <td>58.169.236.112</td>
+                            <td>First example</td>
+                        </tr>
+                        <tr>
+                            <td>howard-blog.org</td>
+                            <td>A</td>
+                            <td>5 minutes</td>
+                            <td>58.169.236.112</td>
+                            <td>Second example</td>
+                        </tr>
+                        <tr>
+                            <td>cool.howard-blog.org</td>
+                            <td>A</td>
+                            <td>5 minutes</td>
+                            <td>58.169.236.112</td>
+                            <td>A sub-domain of second example</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p>Wait up to an hour for new DNS records to propagate through the Internet.</p>
+                <h2>Test</h2>
+                <p>Use a web browser to visit laitos web server on your domain name, pay special attention to these items:</p>
+                <ul>
+                    <li>If TLS is enabled, connect to web server via HTTPS, and browser should recognise the TLS certificate.</li>
+                    <li>Visit home page locations.</li>
+                    <li>Visit file directories - it is normal for browser to see a directory file listing page.</li>
+                    <li>If plain HTTP daemon is enabled, check home page and file directories on HTTP port 80 as well.</li>
+                </ul>
+                <h2>Tips</h2>
+                <ol>
+                    <li>
+                        <p>The home page HTML is slightly processed in this way:</p>
+                        <ul>
+                            <li><code>#LAITOS_CLIENTADDR</code> is substituted to visitor's IP address.</li>
+                            <li><code>#LAITOS_3339TIME</code> is substituted to current system date and time.</li>
+                        </ul>
+                        <p>For example, the following HTML snippet:</p>
+                        <pre><code> &lt;p&gt;Welcome, visitor! Your IP is #LAITOS_CLIENTADDR and the time is now #LAITOS_3339TIME.&lt;/p&gt;
+    </code></pre>
+                        <p>Will be rendered as (IP and time are examples):</p>
+                        <pre><code> &lt;p&gt;Welcome, visitor! Your IP is 41.156.72.9 and the time is now 2017-08-22T15:04:05Z07:00&lt;/p&gt;
+    </code></pre>
+                    </li>
+                    <li>
+                        <p>When you access specialised web services via the plain HTTP daemon, your will be warned about this usage of
+                            unencrypted HTTP connection. The warning comes in an authentication dialog that accepts any username password input.
+                            As an exception, visiting home page and file directories do not trigger the warning.</p>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="telegram-bot">
+        <div>
+	        <h1>Daemon: telegram chat bot</h1>
+	        <h2>Introduction</h2>
+	        <p>Telegram Messenger is a popular mobile messaging app that excels in communication security.</p>
+	        <p>The chat bot enables you to run toolbox feature commands via chat messages.</p>
+	        <h2>Preparation</h2>
+	        <p>Acquire an <code>AuthorizationToken</code> from Telegram Messenger by creating your own chat bot. Download and install Telegram
+		        Messenger, then follow the guide <a href="https://core.telegram.org/bots" target="_blank">How do I create a bot?</a> to talk to &quot;BotFather&quot; and
+		        register your chat bot.</p>
+	        <p>After chat bot is successfully created, Telegram Messenger will tell you the <code>AuthorizationToken</code>, which you have to
+		        place into the configuration.</p>
+	        <h2>Configuration</h2>
+
+	        <button data-toggle="collapse" data-target="#telegram-bot-more" class="btn btn-info">More info</button>
+	        <div id="telegram-bot-more" class="collapse">
+                <h2>Run</h2>
+                <p>Tell laitos to run chat bot daemon in the command line:</p>
+                <pre><code>sudo ./laitos -config &lt;CONFIG FILE&gt; -daemons ...,telegram,...</code></pre>
+                <h2>Usage</h2>
+                <p>On Telegram Messenger application, find your newly created chat bot via the in-app Search function, then send toolbox
+                    command in a chat message. Wait a short moment, and the command response will be sent back to you via the same chat.</p>
+                <p>Don't forget to put password PIN in front of the toolbox command!</p>
+                <h2>Tips</h2>
+                <p>The chat bot server will not process messages that arrived before the server started, which means, you cannot leave a
+                    message to the chat bot while server is offline.</p>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="plain-text-server">
+        <div>
+	        <h1>Daemon: plain text sockets</h1>
+	        <h2>Introduction</h2>
+	        <p>The plain text sockets provide access to toolbox features via very basic client programs, such as <code>telnet</code>, <code>netcat</code>,
+		        and <code>HyperTerminal</code>.</p>
+	        <p>The sockets are served via both TCP and UDP ports in plain text.</p>
+	        <p>Due to the incredibly simple communication protocol, the text information exchanged between server and client are prone
+		        to attacks such as eavesdropping.</p>
+	        <h2>Configuration</h2>
+
+	        <button data-toggle="collapse" data-target="#plain-text-server-more" class="btn btn-info">More info</button>
+	        <div id="plain-text-server-more" class="collapse">
+                <h2>Run</h2>
+                <p>Tell laitos to run chat bot daemon in the command line:</p>
+                <pre><code>sudo ./laitos -config &lt;CONFIG FILE&gt; -daemons ...,plainsocket,...</code></pre>
+                <h2>Usage</h2>
+                <p>Use any TCP/UDP connection tool such as <code>netcat</code> (also called <code>nc</code>), <code>telnet</code> (TCP only), or <code>HyperTerminal</code> (TCP only)
+                    to connect to plain text daemon:</p>
+                <pre><code>nc &lt;laitos-server-IP&gt; &lt;TCPPort&gt;
+    </code></pre>
+                <p>And issue a toolbox command (the example asks how long the computer has been running):</p>
+                <pre><code>VerySecretPassword .s uptime
+    11:09am  up   2:58,  3 users,  load average: 0.23, 0.29, 0.27 (the response)
+    </code></pre>
+                <p>The UDP socket functions in similar way (the <code>-u</code> switch tells <code>netcat</code> to make UDP connection):</p>
+                <pre><code>nc -u &lt;laitos-server-IP&gt; &lt;UDPPort&gt;
+    </code></pre>
+                <p>And issue toolbox command just like the TCP example.</p>
+                <h2>Tips</h2>
+                <p>The plain text daemon ensures that toolbox features remain accessible via basic tools and unencrypted communication, in
+                    the unlikely event of losing access to all other daemons. The unencrypted nature of communication opens up possibility
+                    of eavesdropping, therefore you should use the plain socket daemon only as a last resort.</p>
+                <p>UDP is designed to be a less reliable protocol capable of carrying less data, be aware that some home/work networks
+                    deliberately block outgoing UDP traffic.</p>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="maintenance">
+        <div>
+	        <h1>Daemon: system maintenance</h1>
+	        <h2>Introduction</h2>
+	        <p>The daemon regularly conducts system maintenance to ensure smooth and safe operation of your laitos server:</p>
+	        <ul>
+		        <li>Install latest security updates.</li>
+		        <li>Install/update additional softwares that are useful to laitos' operation.</li>
+		        <li>Synchronise system clock.</li>
+		        <li>Check network ports.</li>
+		        <li>Collect latest network stats and program logs.</li>
+	        </ul>
+	        <p>At end of each run, your Email address will receive a nicely formatted summary report.</p>
+	        <p>It is compatible with the following Linux package managers for security updates and software installation:</p>
+	        <ul>
+		        <li><code>apt-get</code> (Debian, Ubuntu, etc)</li>
+		        <li><code>yum</code> (CentOS, Fedora, Redhat, ScientificLinux, etc)</li>
+		        <li><code>zypper</code> (openSUSE, SLES, SLED, etc)</li>
+	        </ul>
+	        <h2>Configuration</h2>
+
+	        <button data-toggle="collapse" data-target="#maintenance-more" class="btn btn-info">More info</button>
+	        <div id="maintenance-more" class="collapse">
+                <h2>Run</h2>
+                <p>Tell laitos to run periodic system maintenance in the command line:</p>
+                <pre><code>sudo ./laitos -config &lt;CONFIG FILE&gt; -daemons ...,maintenance,...</code></pre>
+                <h2>Usage</h2>
+                <p>System maintenance is run automatically 10 minutes after laitos daemon starts up, and then at regular interval
+                    (specified in configuration).</p>
+                <p>Manual action is not required.</p>
+                <h2>Tips</h2>
+                <p>System maintenance does not have to run too often. Running at interval of 12 hours (432000 seconds) or 24 hours
+                    (864000 seconds) is often good enough.</p>
+                <p>The additional softwares installed during maintenance are:</p>
+                <ul>
+                    <li>Dependencies of PhantomJS, used by <router-link to="/browser-in-browser"><a>browser-in-browser</a></router-link>
+                        and <router-link to="/text-browser"><a>text-based interactive web browser</a></router-link>. The two
+                        features may not function properly until system maintenance has run for the first time.</li>
+                    <li>Utilities for synchronising system clock.</li>
+                    <li>Zip file tools that are useful for maintaining application bundles for public cloud.</li>
+                    <li>Network diagnosis tools.</li>
+                </ul>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="use-facebook">
+        <div>
+	        <h1>Toolbox feature: Facebook</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may post updates to Facebook timeline.</p>
+	        <h2>Preparation</h2>
+	        <p>Create your very own Facebook application:</p>
+	        <ol>
+		        <li>Visit <a href="https://developers.facebook.com/" target="_blank">Facebook for developers</a>.</li>
+		        <li>Use &quot;My apps&quot; and then &quot;Add a new app&quot;.</li>
+		        <li>Visit app's Dashboard tab and note down App ID and App Secret.</li>
+		        <li>Visit app's &quot;App Review&quot; and turn on &quot;Make app public&quot;. This is a very important step! If not done, your posts will
+			        not be visible to friends.</li>
+	        </ol>
+	        <p>And then, obtain an API access token:</p>
+	        <ol>
+		        <li>Visit <a href="https://developers.facebook.com/tools/explorer/145634995501895/" target="_blank">GraphAPI explorer</a>.</li>
+		        <li>Under the application selector, choose your new application.</li>
+		        <li>Click &quot;Get Token&quot;, and then &quot;Get User Access Token&quot;.</li>
+		        <li>Under &quot;User Data Permissions&quot;, turn on &quot;publish_actions&quot;.</li>
+		        <li>Click &quot;Get Access Token&quot; and proceed to grant the application access.</li>
+		        <li>Note down the newly obtained &quot;Access Token&quot;.</li>
+	        </ol>
+	        <p>Stay in <a href="https://developers.facebook.com/tools/explorer/145634995501895/" target="_blank">GraphAPI explorer</a> and refresh the newly
+		        obtained API Access Token:</p>
+	        <ol>
+		        <li>Put <code>oauth/access_token?grant_type=fb_exchange_token&amp;client_id=&lt;YOUR APP ID&gt;&amp;client_secret=&lt;YOUR APP SECRET&gt;&amp;fb_exchange_token=&lt;EXISTING ACCCESS TOKEN&gt;</code>
+			        into the URL input.</li>
+		        <li>Click Submit.</li>
+		        <li>Note down the new &quot;access_token&quot; from Facebook response. This is your latest and best API access token.</li>
+	        </ol>
+	        <p>API access tokens have short life (~59 days). You must refresh the very first token, and then refresh subsequent tokens
+		        before they expire.</p>
+	        <p>Remember to update laitos configuration with your latest Facebook token.</p>
+	        <h2>Configuration</h2>
+
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run the following toolbox command:</p>
+	        <pre><code>.f message
+</code></pre>
+	        <p>Where <code>message</code> is to be posted to Facebook time-line. A short moment later, the command response will say a number that
+		        is length of the message.</p>
+	        <h2>Tips</h2>
+	        <p>Facebook annoyingly hands out these short-lived API access tokens that we must refresh each month, there is no way
+		        around it.</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="use-twitter">
+        <div>
+	        <h1>Toolbox feature: Twitter</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may post Tweets and read tweets from home time-line.</p>
+	        <h2>Preparation</h2>
+	        <p>Create your very own Twitter application:</p>
+	        <ol>
+		        <li>Visit <a href="https://dev.twitter.com/" target="_blank">Twitter Developers</a>.</li>
+		        <li>Navigate to <a href="https://apps.twitter.com/" target="_blank">My apps</a>.</li>
+		        <li>Proceed to create a new application, fill in the name, description, and website. Leave callback URL empty.</li>
+	        </ol>
+	        <p>And then, obtain an API access token:</p>
+	        <ol>
+		        <li>Visit your newly created app, navigate to &quot;Key and Access Tokens&quot; tab.</li>
+		        <li>Note down your &quot;Consumer Key (API Key)&quot; and &quot;Consumer Secret (API Secret)&quot;.</li>
+		        <li>Click &quot;Create my access token&quot;.</li>
+		        <li>Note down your &quot;Access Token&quot; and &quot;Access Token Secret&quot;.</li>
+	        </ol>
+	        <p>The keys and secrets do not expire. They will be used in laitos configuration.</p>
+	        <h2>Configuration</h2>
+
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run commands:</p>
+	        <ul>
+		        <li>Post a tweet: <code>.tp tweet content</code>, a short moment later the command response will say a number that is length of
+			        tweet.</li>
+		        <li>Read latest tweets from home time-line: <code>.tg skip count</code>, where <code>skip</code> is the number of latest tweets to discard, and
+			        <code>count</code> is the number of tweets to read after discarding.</li>
+	        </ul>
+	        <p>Be aware: Twitter will only allow retrieving up to 200 latest tweets, that means <code>skip + count</code> may not exceed 200.</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="wolfram-alpha">
+        <div>
+	        <h1>Toolbox feature: WolframAlpha</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may ask about weather and all sorts of questions on WolframAlpha - the
+		        computational knowledge engine.</p>
+	        <h2>Preparation</h2>
+	        <p>Create your very own WolframAlpha application:</p>
+	        <ol>
+		        <li>Visit <a href="https://developer.wolframalpha.com/portal/signin.html" target="_blank">WolframAlpha Developer Portal</a>.</li>
+		        <li>Sign up for an account and then sign in.</li>
+		        <li>In <a href="https://developer.wolframalpha.com/portal/myapps/" target="_blank">My Apps</a>, click &quot;Get an AppID&quot;.</li>
+		        <li>Enter a name for your application. The name is not very important.</li>
+		        <li>Note down &quot;APPID&quot; in the response.</li>
+	        </ol>
+	        <h2>Configuration</h2>
+
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run the following toolbox command:</p>
+	        <pre><code>.w this is a question for wolfram alpha to solve
+</code></pre>
+	        <p>A short moment later, WolframAlpha's answer will appear in the response.</p>
+	        <h2>Tips</h2>
+	        <p>The application you created with WolframAlpha is for non-commercial use. As of 2017-11-07, you may use WolframAlpha for
+		        up to 2000 times in a month for non-commercial application.</p>
+	        <p>WolframAlpha is an incredibly powerful knowledge engine, it will happily answer questions from a large variety of topics</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="read-emails">
+        <div>
+	        <h1>Toolbox feature: reading emails</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may list and read emails via IMAP protocol.</p>
+	        <p>laitos uses IMAP to communicate with your Email accounts, and it enforces usage of secure communication via TLS.</p>
+	        <h2>Configuration</h2>
+
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run commands:</p>
+	        <ul>
+		        <li>List latest emails: <code>.il account-nick skip count</code>, where <code>account-nick</code> is the account nick name from configuration
+			        (e.g. personal-mail), <code>skip</code> is the number of latest emails to discard (can be 0), and <code>count</code> is the number of emails
+			        to list after discarding.</li>
+		        <li>To read email content: <code>.ir account-nick message-number</code>, where <code>account-nick</code> is the account nick name from
+			        configuration, <code>message-number</code> is the email message number from email list response.</li>
+	        </ul>
+	        <h2>Tips</h2>
+	        <ul>
+		        <li>Popular email services such as Gmail and Hotmail (Outlook) call the primary mail box <code>INBOX</code> (in upper case) for
+			        incoming emails.</li>
+		        <li>Gmail has a mail box called <code>[Gmail]/All Mail</code> that corresponds to the mail box of all emails, which includes sent,
+			        junk, and incoming mails.</li>
+		        <li>The junk mail box of Hotmail (Outlook) is called <code>Junk</code> (in mixed case).</li>
+		        <li>To discover more mail box names, sign in to your email accounts via an email client such as Mozilla Thunderbird and
+			        inspect settings of each mail box.</li>
+	        </ul>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="send-emails">
+        <div>
+	        <h1>Toolbox feature: sending emails</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may send Emails to friends and anyone online.</p>
+	        <h2>Configuration</h2>
+	        <p>This toolbox feature uses the common outgoing mail configuration:</p>
+            @@@@@TODO
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to send an email:</p>
+	        <pre><code>.m recipient@example.net &quot;this is email subject&quot; this is email body
+</code></pre>
+	        <p>laitos will then reply to the command with number of characters of the email body content, or <code>sending in background</code> if
+		        it takes longer than usual to deliver the email.</p>
+	        <p>Be aware that email subject is surrounded by double quotes, therefore the subject itself may not contain double quote.</p>
+	        <h2>Send SOS email</h2>
+	        <p>Warning! Do not send SOS emails unless you are in life-threatening danger. laitos developer Houzuo (Howard) Guo does not
+		        guarantee that SOS emails will be successfully delivered to any search-and-rescue institution; the developer cannot be
+		        held responsible for monetary and legal consequences associated with the SOS emails delivered under genuine danger or
+		        accidental trigger.</p>
+	        <p>Use any capable laitos daemon to send an SOS email, note the special recipient <code>sos@sos</code>:</p>
+	        <pre><code>.m sos@sos &quot;this is my subject&quot; this is my email body
+</code></pre>
+	        <p>laitos will then reply to the command <code>Sending SOS</code>, and SOS emails will be sent in background to all of the following
+		        search-and-rescue institutions worldwide:</p>
+	        <ul>
+		        <li>Australia MSAR/ASAR</li>
+		        <li>Canada JRCC</li>
+		        <li>Greece JRCC</li>
+		        <li>Finland MRCC</li>
+		        <li>Hong Kong ARCC and MRCC</li>
+		        <li>Israel MRCC</li>
+		        <li>Japan MCC</li>
+		        <li>P.R.China MCC and MRCC</li>
+		        <li>Russia MRCC</li>
+		        <li>United Kingdom ARCC and MCC</li>
+	        </ul>
+	        <p>The SOS email looks like:</p>
+	        <pre><code>Subject: SOS HELP &lt;and your subject&gt;
+Body:
+SOS HELP!
+The time is &lt;UTC time of laitos server&gt;.
+This is the operator of IP address &lt;public IP address of laitos server&gt;.
+Please send help: &lt;and your Email body content&gt;.
+</code></pre>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="call-and-sms">
+        <div>
+	        <h1>Toolbox feature: making calls and send SMS</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may leave a voice message to friends and send them SMS.</p>
+	        <h2>Preparation</h2>
+	        <ol>
+		        <li>Sign up for an account at <a href="https://www.twilio.com" target="_blank">twilio.com</a> - an API platform that connects computer programs with
+			        public switched telephone and mobile network. Sign up is free.</li>
+		        <li>Visit Twilio developer's console, then <a href="https://www.twilio.com/console/phone-numbers/search" target="_blank">purchase a phone number</a>.
+			        Make sure the number can make calls and SMS - not all numbers come with these capabilities! A number costs between
+			        2-10 USD/month to own, and each call/SMS costs extra.</li>
+		        <li>Visit <a href="https://www.twilio.com/console/account/settings" target="_blank">account settings</a> and note down &quot;Account SID&quot; and
+			        &quot;Auth Token&quot; of LIVE Credentials. Do not use TEST credentials, and there is no need to request a secondary token.</li>
+		        <li>Visit <a href="https://www.twilio.com/console/phone-numbers/incoming" target="_blank">phone numbers</a> and note down the phone number including
+			        country code. Later this number will be used to dial calls and send SMS.</li>
+	        </ol>
+	        <p>If you have or plan to use <router-link to="/twilio-hook"><a>web service hook for Twilio telephone and SMS</a></router-link>,
+		        feel free to share the Twilio account and phone number with the web service as well.</p>
+	        <h2>Configuration</h2>
+	        @@@@@TODO
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run commands:</p>
+	        <ul>
+		        <li>Leave a voice message: <code>.pc +123456789 this is the voice message content</code>. Make sure the destination number comes with
+			        country code and there is no extra space or symbol among the numbers. The message will be spoken and repeated twice.</li>
+		        <li>Send an SMS: <code>.pt +123456789 this is the text message content</code>. Make sure the destination number comes with country
+			        code and there is no extra space or symbol among the numbers.</li>
+	        </ul>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="public-contacts">
+        <div>
+	        <h1>Toolbox feature: public institution contacts</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may query contact information (telephone number, Email, etc) of various public
+		        institutions.</p>
+	        <p>As of 2017-10-30, the toolbox feature will only find contact information of several search-and-rescue institutions.</p>
+	        <h2>Configuration</h2>
+	        <p>Configuration is not needed for this feature.</p>
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run the following toolbox command:</p>
+	        <pre><code>.c query-text
+</code></pre>
+	        <p>Where <code>query-text</code> is a search keyword or term; if it is omitted, laitos will find all contacts.</p>
+	        <p>The command response will include the name, telephone number, and email address (if available) of the contacts.</p>
+	        <p>Warning! laitos developer Houzuo (Howard) Guo is not affiliated with any institution among the contacts; the developer
+		        cannot be held responsible for monetary and legal consequences associated with usage of the contact information.</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="text-browser">
+        <div>
+	        <h1>Toolbox feature: interactive web browser</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may browse the Internet via text-based commands.</p>
+	        <p>The website to browse is rendered with full CSS and Javascript support on laitos server. Interaction with the website is
+		        carried out entirely via plain text commands. The command response will offer clue (in plain text) as to how the web
+		        site looks while navigating around. Only one website can be browsed at a time.</p>
+	        <h2>Configuration</h2>
+	        @@@@@TODO
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run these commands.</p>
+	        <p>To visit a website:</p>
+	        <ul>
+		        <li>Go to a new URL via <code>.bg example.com</code></li>
+		        <li>Get current page title and URL via <code>.bi</code></li>
+		        <li>Reload page via <code>.br</code></li>
+		        <li>Navigate forward and backward via <code>.bf</code> and <code>.bb</code></li>
+		        <li>Stop browser via <code>.bk</code></li>
+	        </ul>
+	        <p>To navigate within a page:</p>
+	        <ul>
+		        <li>Visit the next element via <code>.bn</code>, the response will describe the previous, current, and next element.</li>
+		        <li>Visit the next N elements via <code>.bnn #NUMBER</code>, the response will describe all <code>#NUMBER</code> elements along the way.</li>
+		        <li>Visit the previous element via <code>.bp</code>, the response will describe the previous, current, and next element.</li>
+		        <li>Start over from beginning via <code>.b0</code>.</li>
+	        </ul>
+	        <p>To interact with mouse cursor on the page:</p>
+	        <ul>
+		        <li>Make a left click on current element via <code>.bptr click left</code></li>
+		        <li>Make a right click on current element via <code>.bptr click right</code></li>
+		        <li>Move mouse to current element via <code>.bptr move left</code></li>
+	        </ul>
+	        <p>To interact with keyboard on the page:</p>
+	        <ul>
+		        <li>Press the Enter key via <code>.benter</code></li>
+		        <li>Press the Backspace key via <code>.bbacksp</code></li>
+		        <li>Enter arbitrary text into current element via <code>.be this is text</code></li>
+		        <li>Set current element value (such as text box value) via <code>.bval this is new value</code></li>
+	        </ul>
+	        <p>For example, to conduct a Google search:</p>
+	        <ol>
+		        <li>Go to google: <code>.bg google.com</code></li>
+		        <li>Find search text box, an element with <code>name=&quot;q&quot;</code>: <code>.bnn 10</code>, repeat till the search box is in sight.</li>
+		        <li>Use <code>.bp</code> (previous) and <code>.bn</code> (next) to navigate precisely onto the search text box.</li>
+		        <li>Type search term: <code>.bval this is search term</code></li>
+		        <li>Press Enter key: <code>.benter</code></li>
+		        <li>Navigate among search result with <code>.bnn</code>, <code>.bp</code>, <code>.bn</code>.</li>
+		        <li>Click on link of interest: <code>.bptr click left</code></li>
+		        <li>Continue browsing.</li>
+	        </ol>
+	        <h2>Tips</h2>
+	        <p>The web service relies on PhantomJS software that has several software dependencies:</p>
+	        <ul>
+		        <li>bzip2, expat, zlib, fontconfig.</li>
+		        <li>Various fonts.</li>
+	        </ul>
+	        <p>You may install the software dependencies manually, or reply on <router-link to="/maintenance"><a>maintenance daemon</a></router-link>
+		        to automatically install the dependencies.</p>
+	        <p>The instance port number from configuration is only for internal localhost use. They do not have to be open on your
+		        network firewall.</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="twofa-code-gen">
+        <div>
+	        <h1>Toolbox feature: two factor authentication code generator</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may generate two 2FA code for Internet accounts such as Google, Microsoft,
+		        Facebook, etc.</p>
+	        <h2>Preparation</h2>
+	        <p>First, set up 2FA for your Internet account:</p>
+	        <ol>
+		        <li>Visit 2FA settings of your Internet account.</li>
+		        <li>When the the settings prompts you to scan a barcode, choose &quot;I cannot scan barcode&quot;, then the settings should reveal
+			        a secret text. Note it down on a piece of paper.</li>
+		        <li>Use a 2FA code generator application such as <a href="https://authy.com/features/" target="_blank">Authy</a> to add the secret text and complete
+			        2FA setup.</li>
+	        </ol>
+	        <p>Second, prepare account list file for laitos:</p>
+	        <ol>
+		        <li>
+			        <p>Create a plain text file with 2FA secret text for any number of accounts, one account per line. For example:</p>
+			        <pre><code> amazon: 00001111CCCCddddEEEEffffGGGG
+ bitbucket: aaaa 1111 2222 3333 4444 5555 6666 7777
+ google: 0000bbbb222233334444555566667777
+</code></pre>
+			        <p>The secret text is not case sensitive, and spaces among the text do not matter.</p>
+		        </li>
+		        <li>
+			        <p>Encrypt the file using OpenSSL command. When it asks for a password, make sure to use a strong password:</p>
+			        <pre><code> openssl enc -aes256 -in 2fa-secrets.txt -out encrypted-secrets.bin
+</code></pre>
+		        </li>
+		        <li>
+			        <p>Delete the plain text file (<code>2fa-secrets.txt</code>) and shred the piece of paper on which you noted down the secret text.</p>
+		        </li>
+	        </ol>
+	        <p>Third, retrieve encryption parameters from encrypted secrets:</p>
+	        <ol>
+		        <li>
+			        <p>Use OpenSSL command to reveal the encryption parameters. You will need to enter the password that encrypted the file:</p>
+			        <pre><code> openssl enc -aes256 -in encrypted-secrets.bin -d -p
+</code></pre>
+			        <p>The output will look something like:</p>
+			        <pre><code> salt=52F078F92F6B5744
+ key=EE26A871D2478C51E5091B142E09639F8F001163D89EE6DF21A19C5322236368
+ iv =9355455468BA2C18137B89F6874ADECC
+</code></pre>
+		        </li>
+		        <li>
+			        <p>There is now an important decision to make. The toolbox feature configuration stores part of the key prefix, and when
+				        you use the feature you will have to supply rest of the key. In the example, if configuration has the key prefix
+				        <code>EE26A871D2478C51E5091B142E09639F8F001163D89EE6DF21A19C5322</code>, then you will have to enter the rest <code>236368</code> every
+				        time you use this feature. Do not reveal too much of the key in feature configuration, the balance between
+				        convenience VS security is your choice. Generally speaking, leaving 12 key characters to be supplied every time is
+				        secure enough.</p>
+		        </li>
+		        <li>
+			        <p>Note down the entire IV value and key prefix of your desired length, they will now be used in feature configuration.</p>
+		        </li>
+	        </ol>
+	        <h2>Configuration</h2>
+	        @@@@@TODO
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run the following toolbox command:</p>
+	        <pre><code>.2 rest-of-the-key account-search
+</code></pre>
+	        <p>Using the example setup, this command will find Amazon account code:</p>
+	        <pre><code>.2 236368 amaz
+</code></pre>
+	        <p>The output will contain three sequences of digits:</p>
+	        <pre><code>amazon: 123456 23456 34567
+</code></pre>
+	        <p>The first sequence is the previous code from 30 seconds ago; the middle code is the current code to use for sign-in; and
+		        the last code is for 30 seconds into future. Use the middle code to sign-in to your Internet account right away.</p>
+	        <h2>Tips</h2>
+	        <ul>
+		        <li>If your Internet account settings only reveals barcode and cannot reveal text secret, then unfortunately it cannot be
+			        used with laitos.</li>
+		        <li>Do not use any program but OpenSSL to prepare the encrypted secrets file. laitos only recognises the encrypted file
+			        format specific to OpenSSL.</li>
+		        <li>The OpenSSL command supplied with Cygwin appears to work, but in fact it cannot encrypt file properly. Therefore do
+			        not use the OpenSSL command from Cygwin.</li>
+		        <li>Correct generation of 2FA codes relies heavily on having a correct system clock. Make sure that your laitos server
+			        system has correct date and time. Consider running the <router-link to="/maintenance"><a>maintenance daemon</a></router-link>
+			        that will automatically correct your system clock.</li>
+	        </ul>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="encrypted-text">
+        <div>
+	        <h1>Toolbox feature: find text in AES encrypted files</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may look for search terms among AES encrypted files, such as contact list or
+		        password book.</p>
+	        <h2>Preparation</h2>
+	        <p>Prepare AES-encrypted files for laitos:</p>
+	        <ol>
+		        <li>
+			        <p>Encrypt a plain text file (such as contact list or password book) using OpenSSL command. When it asks for a password,
+				        make sure to use a strong password:</p>
+			        <pre><code> openssl enc -aes256 -in password-book.txt -out encrypted-password-book.bin
+</code></pre>
+		        </li>
+		        <li>
+			        <p>Delete the plain text file (<code>password-book.txt</code>).</p>
+		        </li>
+		        <li>
+			        <p>Use OpenSSL command to reveal the encryption parameters. You will need to enter the password that encrypted the file:</p>
+			        <pre><code> openssl enc -aes256 -in encrypted-password-book.bin -d -p
+</code></pre>
+			        <p>The output will look something like:</p>
+			        <pre><code> salt=52F078F92F6B5745
+ key=EE26A871D2478C5115091B142E09639F8F001163D89EE6DF21A19C5322236368
+ iv =9355455468BA2C19961B89F6874ADECC
+</code></pre>
+		        </li>
+		        <li>
+			        <p>There is now an important decision to make. The toolbox feature configuration stores part of the key prefix, and when
+				        you use the feature you will have to supply rest of the key. In the example, if configuration has the key prefix
+				        <code>EE26A871D2478C5115091B142E09639F8F001163D89EE6DF21A19C5322</code>, then you will have to enter the rest <code>236368</code> every
+				        time you use this feature. Do not reveal too much of the key in feature configuration, the balance between
+				        convenience VS security is your choice. Generally speaking, leaving 12 key characters to be supplied every time is
+				        secure enough.</p>
+		        </li>
+		        <li>
+			        <p>Note down the entire IV value and key prefix of your desired length, they will now be used in feature configuration.</p>
+		        </li>
+	        </ol>
+	        <p>Repeat the procedure for as many files as you wish.s</p>
+	        <h2>Configuration</h2>
+	        @@@@@TODO
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run the following toolbox command:</p>
+	        <pre><code>.a shortcut-word rest-of-the-key search-text
+</code></pre>
+	        <p>Where:</p>
+	        <ul>
+		        <li><code>shortcut-word</code> is a single word (may contain hyphen) corresponding to an encrypted file from configuration.</li>
+		        <li><code>rest-of-the-key</code> is the key suffix that completes the encryption key.</li>
+		        <li><code>search-text</code> is case insensitive text to be found among decrypted file content.</li>
+	        </ul>
+	        <p>The command response will be the plain text lines among which <code>search-text</code> is found.</p>
+	        <h2>Tips</h2>
+	        <ul>
+		        <li>Do not use any program but OpenSSL to prepare the encrypted secrets file. laitos only recognises the encrypted file
+			        format specific to OpenSSL.</li>
+		        <li>The OpenSSL command supplied with Cygwin appears to work, but in fact it cannot encrypt file properly. Therefore do
+			        not use the OpenSSL command from Cygwin.</li>
+		        <li>For safety reasons, the decryption operation is conducted entirely in system memory, therefore make sure that free
+			        system memory amounts to at least twice the size of all encrypted files combined.</li>
+	        </ul>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="system-commands">
+        <div>
+	        <h1>Toolbox feature: run system commands</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may run operating system (shell) commands and read the response.</p>
+	        <h2>Configuration</h2>
+	        <p>Configuration is generally not needed for this feature.</p>
+	        <p>However, if you wish to override the automatic choice of shell interpreter:</p>
+	        @@@@@@@@@@todo
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run the following toolbox command:</p>
+	        <pre><code>.s &lt;shell command to run&gt;
+</code></pre>
+	        <p>The shell command may use shell interpreter's capabilities to their full extend. For example, the following command will
+		        find system users whose name contains &quot;howard&quot; and store them in an output file:</p>
+	        <pre><code>.s cat /etc/passwd | grep howard &gt; output.txt
+</code></pre>
+	        <h2>Tips</h2>
+	        <ul>
+		        <li>Shell commands will run on most Unix-like operating systems such as Linux, BSD, and MacOS. This feature does not yet
+			        support Windows.</li>
+		        <li>laitos looks for shell interpreter among <code>/bin</code>, <code>/usr/bin</code>, <code>/usr/local/bin</code>, <code>/opt/bin</code>, in this order: <code>bash</code>,
+			        <code>dash</code>, <code>zsh</code>, <code>ksh</code>, <code>ash</code>, <code>tcsh</code>, <code>csh</code>, <code>sh</code></li>
+		        <li>When shell commands are run, the environment variable <code>PATH</code> is hard coded to
+			        <code>/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin</code></li>
+	        </ul>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="program-control">
+        <div>
+	        <h1>Toolbox feature: inspect and control server environment</h1>
+	        <h2>Introduction</h2>
+	        <p>Via any of enabled laitos daemons, you may monitor server environment (such as memory usage) and control server program
+		        by locking it down or stopping it.</p>
+	        <h2>Configuration</h2>
+	        <p>Configuration is not needed for this feature. This feature is always enabled.</p>
+	        <h2>Usage</h2>
+	        <p>Use any capable laitos daemon to run the following toolbox command:</p>
+	        <pre><code>.e &lt;action&gt;
+</code></pre>
+	        <p>Where action can be:</p>
+	        <ul>
+		        <li><code>info</code> - Get program status such as current clock, memory usage, load, etc.</li>
+		        <li><code>log</code> - Get latest log entries of all kinds - information and warnings.</li>
+		        <li><code>warn</code> - Get latest warning log entries.</li>
+		        <li><code>stack</code> - Get the latest stack traces.</li>
+	        </ul>
+	        <p>It may also be:</p>
+	        <ul>
+		        <li><code>tune</code> - Use well known techniques to automatically tune the Linux host that runs laitos.</li>
+		        <li><code>lock</code> - Keep laitos program running, but disable all toolbox commands and daemons. All HTTP server URLs will return
+			        status 200 (OK) and an error text. The only way to recover from this state is to restart laitos program manually.</li>
+		        <li><code>stop</code> - Crash the laitos program.</li>
+		        <li><code>kill</code> - Destroy (nearly) all directories and files, mounted and local, on the computer hosting laitos program.
+			        Consequently laitos program crashes soon and the host computer will need to be reinitialised.</li>
+	        </ul>
+	        <h2>Tips</h2>
+	        <ul>
+		        <li>In addition to trigger system tuning manually via this feature, laitos can also tune system automatically when it
+			        starts up, check out <code>-tunesystem</code> command option in <router-link to="/import-export-config"><a>import/export config - advanced startup instructions</a></router-link>.</li>
+		        <li>In case that a load balancer periodically checks the health status of laitos by visiting its HTTP server, the checks
+			        will continue to succeed (indicating a healthy server) even after <code>lock</code> action is executed. This is intentional.</li>
+		        <li>The <code>kill</code> action attempts to delete most of the files on disk (including those mounted on mount points), and wipes
+			        disk partitions with zeros. But it cannot guarantee that all disk partitions will be emptied before system crashes.</li>
+	        </ul>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="gitlab-browser">
+        <div>
+	        <h1>Web service: GitLab browser</h1>
+	        <h2>Introduction</h2>
+	        <p>Hosted by laitos <router-link to="/web-server"><a>web server</a></router-link>, the GitLab browser enables
+		        you to browse and download files from git repositories hosted on GitLab.com.</p>
+	        <h2>Preparation</h2>
+	        <p>On GitLab.com, visit <a href="https://gitlab.com/profile/account" target="_blank">User Settings - Account</a> to retrieve &quot;Private Token&quot;.</p>
+	        <p>Then, for each project you wish to browse, visit its &quot;Settings - General - General Project Settings&quot;, and note down the
+		        &quot;Project ID&quot;, which will soon be used in configuration.</p>
+	        <h2>Configuration</h2>
+	        @@@@@TODO
+	        <h2>Run</h2>
+	        <p>GitLab browser is hosted by web server, therefore remember to <router-link to="/web-server"><a>run web server</a></router-link>.</p>
+	        <h2>Usage</h2>
+	        <p>In a web browser, navigate to <code>GitlabBrowserEndpoint</code> of laitos web server.</p>
+	        <p>To browse git repository:</p>
+	        <ol>
+		        <li>Enter project shortcut name.</li>
+		        <li>Click &quot;Go&quot;.</li>
+		        <li>Navigate to sub-directories by entering their full path and click &quot;Go&quot;.</li>
+	        </ol>
+	        <p>To download a file:</p>
+	        <ol>
+		        <li>Enter project shortcut name.</li>
+		        <li>Navigate to directory where file is located in.</li>
+		        <li>Enter file name to download.</li>
+		        <li>click &quot;Download&quot;.</li>
+	        </ol>
+	        <h2>Tips</h2>
+	        <p>The &quot;Private Token&quot; has API access to all of your git repositories, therefore keep it secured, and do not let untrusted
+		        persons get hold of it!</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="command-form">
+        <div>
+	        <h1>Web service: toolbox features form</h1>
+	        <h2>Introduction</h2>
+	        <p>Hosted by laitos <router-link to="/web-server"><a>web server</a></router-link>, the form offers a command
+		        entry text box, through which you may run any toolbox feature.</p>
+	        <h2>Configuration</h2>
+	        @@@@@TODO
+	        <h2>Run</h2>
+	        <p>The form is hosted by web server, therefore remember to <router-link to="/web-server"><a>run web server</a></router-link>.</p>
+	        <h2>Usage</h2>
+	        <p>In a web browser, navigate to <code>CommandFormEndpoint</code> of laitos web server.</p>
+	        <p>Enter PIN and toolbox command into the text box, click &quot;Exec&quot; button and observe the toolbox command output.</p>
+	        <h2>Tips</h2>
+	        <p>Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="health-report">
+        <div>
+	        <h1>Web service: program health report</h1>
+	        <h2>Introduction</h2>
+	        <p>Hosted by laitos <router-link to="/web-server"><a>web server</a></router-link>, the text report is generated
+		        on-demand to show:</p>
+	        <ul>
+		        <li>System status:
+			        <ul>
+				        <li>Clock time, uptime.</li>
+				        <li>Load and memory usage.</li>
+			        </ul>
+		        </li>
+		        <li>Program status:
+			        <ul>
+				        <li>Public IP address, uptime.</li>
+				        <li>Daemon usage statistics.</li>
+			        </ul>
+		        </li>
+		        <li>Health check - test all API credentials and passwords.</li>
+		        <li>Latest log entries and stack traces.</li>
+	        </ul>
+	        <h2>Configuration</h2>
+	        @@@@@TODO
+	        <h2>Run</h2>
+	        <p>The form is hosted by web server, therefore remember to <router-link to="/web-server"><a>run web server</a></router-link>.</p>
+	        <h2>Usage</h2>
+	        <p>In a web browser, navigate to <code>InformationEndpoint</code> of laitos web server, and inspect the produced health report.</p>
+	        <h2>Tips</h2>
+	        <p>Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!</p>
+	        <p>The health report serves very well as a health check URL if a load balancer needs it.</p>
+	        <p>Be aware that expired/incorrect API credentials will still produce a HTTP 200 OK response, because technically it is a
+		        fault of configuration that has to be manually corrected.</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="simple-proxy">
+        <div>
+	        <h1>Web service: simple proxy</h1>
+	        <h2>Introduction</h2>
+	        <p>Hosted by laitos <router-link to="/web-server"><a>web server</a></router-link>, the simple web proxy offers
+		        visitor access to websites internal to laitos host.</p>
+	        <p>The proxy is not designed to provide anonymity.</p>
+	        <h2>Configuration</h2>
+            @@@@@TODO
+	        <h2>Run</h2>
+	        <p>The form is hosted by web server, therefore remember to <router-link to="/web-server"><a>run web server</a></router-link>.</p>
+	        <h2>Usage</h2>
+	        <p>In a web browser, navigate to <code>WebProxyEndpoint</code> of laitos web server. At end of the URL, append an HTTP parameter <code>u</code>
+		        so that the entire URL looks like:</p>
+	        <pre><code>https://my-laitos-server.net/very-secret-web-proxy?u=&lt;ENCODED URL&gt;
+</code></pre>
+	        <p>For example, to visit <code>github.com</code>:</p>
+	        <pre><code>https://my-laitos-server.net/very-secret-web-proxy?u=https%3A%2F%2Fgithub.com
+</code></pre>
+	        <p>Several seconds after the page loads, two buttons <code>XY</code> and <code>XY-ALL</code> will appear near each corner:</p>
+	        <ul>
+		        <li><code>XY</code> button prepares image, link, and form submission URLs for proxy operation.</li>
+		        <li>In addition to <code>XY</code>'s items, <code>XY-ALL</code> button prepares iframe and script URLs for proxy operation. This may cause page
+			        to lose information that you have already entered.</li>
+	        </ul>
+	        <p>Click on <code>XY</code> or <code>XY-ALL</code> button as required, to continue browsing. The buttons will stay on the page.</p>
+	        <h2>Tips</h2>
+	        <p>Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!</p>
+	        <p>The web proxy does not provide anonymity at all, and will often fail to render rich/sophisticated websites.</p>
+            <p>Another laitos web service called <router-link to="/browser-in-browser"><a>browser-in-browser</a></router-link>
+		        provides much better website rendering.</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="browser-in-browser">
+        <div>
+	        <h1>Web service: browser-in-browser</h1>
+	        <h2>Introduction</h2>
+	        <p>Hosted by laitos <router-link to="/web-server"><a>web server</a></router-link>, the service renders websites
+		        on laitos server and let you interact with it via mouse and keyboard input. It may be used for:</p>
+	        <ul>
+		        <li>Browsing websites internal to laitos host.</li>
+		        <li>Enable outdated computers (e.g. Windows 98 + IE 5) to enjoy rich experience of modern web.</li>
+	        </ul>
+	        <h2>Configuration</h2>
+	        @@@@@TODO
+	        <h2>Run</h2>
+	        <p>The form is hosted by web server, therefore remember to <router-link to="/web-server"><a>run web server</a></router-link>.</p>
+	        <h2>Usage</h2>
+	        <p>In a web browser, navigate to <code>BrowserEndpoint</code> of laitos web server.</p>
+	        <p>To browse a website:</p>
+	        <ul>
+		        <li>Enter URL to browse in &quot;Go To&quot; text box, then click the button &quot;Go To&quot;.</li>
+		        <li>Wait a second, and click &quot;Redraw&quot; button to view the webpage.</li>
+	        </ul>
+	        <p>To use mouse:</p>
+	        <ul>
+		        <li>On the rendered website screenshot, click at a location of your interest. If your browser cannot understand
+			        Javascript, you have to manually enter location coordinates into X and Y text boxes.</li>
+		        <li>Click &quot;Left Click&quot;, &quot;Right Click&quot;, or &quot;Move To&quot; to send a mouse command at the interested location.</li>
+	        </ul>
+	        <p>To use keyboard:</p>
+	        <ul>
+		        <li>Send a mouse command such as &quot;Left Click&quot; to focus on a text box.</li>
+		        <li>Enter text you wish to type into the text box next to &quot;Type&quot; button.</li>
+		        <li>Click &quot;Type&quot; button to send the text to web page.</li>
+	        </ul>
+	        <p>Additionally, &quot;Backspace&quot; button discards a character, and &quot;Enter&quot; button sends an enter key to web page.</p>
+	        <p>While using the browser, you must regularly click &quot;Redraw&quot; button to view the latest rendered page.</p>
+	        <h2>Tips</h2>
+	        <p>Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!</p>
+	        <p>The web service relies on PhantomJS software that has several software dependencies:</p>
+	        <ul>
+		        <li>bzip2, expat, zlib, fontconfig.</li>
+		        <li>Various fonts.</li>
+	        </ul>
+            <p>You may install the software dependencies manually, or reply on <router-link to="/maintenance"><a>system maintenance</a></router-link>
+		        to automatically install the dependencies.</p>
+	        <p>If you wish to use the web service on a legacy browser such as IE 5.5, then remember to start plain HTTP daemon
+		        (i.e. <code>insecurehttpd</code>), because legacy browsers do not support modern TLS (HTTPS).</p>
+	        <p>The instance port numbers from configuration are only for internal localhost use. They do not have to be open on your
+		        network firewall.</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="twilio-hook">
+        <div>
+            <h1>Web service: Twilio telephone/SMS hook</h1>
+            <h2>Introduction</h2>
+            <p>Hosted by laitos <router-link to="/web-server"><a>web server</a></router-link>, the web service is triggered
+            by incoming calls and SMS from Twilio platform, and offers caller/sender access to all toolbox features.</p>
+            <p>That means: using telephone, SMS, and satellite terminals, you will be able to access personal Emails, Facebook,
+            Twitter, and much more!</p>
+            <h2>Preparation</h2>
+            <ol>
+            <li>Sign up for an account at <a href="https://www.twilio.com" target="_blank">twilio.com</a> - an API platform that connects computer programs with
+            public switched telephone and mobile network. Sign up is free.</li>
+            <li>Visit Twilio developer's console, then <a href="https://www.twilio.com/console/phone-numbers/search" target="_blank">purchase a phone number</a>.
+            Make sure the number can make calls and SMS - not all numbers come with these capabilities! A number costs between
+            2-10 USD/month to own, and each call/SMS costs extra.</li>
+            </ol>
+            <p>If you have or plan to use <router-link to="/call-and-sms"><a>toolbox feature for making calls and SMS</a></router-link>,
+            feel free to share the Twilio account and phone number with the toolbox feature as well.</p>
+            <h2>Configuration</h2>
+	        @@@@@TODO
+            <h2>Run</h2>
+            <p>The service is hosted by web server, therefore remember to <router-link to="/web-server"><a>run web server</a></router-link>.</p>
+            <h2>Usage</h2>
+            <ol>
+            <li>
+            <p>Visit <a href="https://www.twilio.com/console/phone-numbers/incoming" target="_blank">phone numbers management</a> and click on the freshly
+            purchased number to enter its configuration page.</p>
+            </li>
+            <li>
+            <p>To let laitos handle telephone calls: enter the following configuration under &quot;Voice &amp; Fax&quot; section:</p>
+            <pre><code>Accept incoming: Voice Calls
+Configure with:  Webhooks, or TwiML Bins or Functions
+A call comes in: Webhook, HTTP POST, and enter laitos server address `TwilioCallEndpoint`</code></pre>
+            <p>For an example, the laitos server address may be <code>https://my-laitos-server.com/very-secret-twilio-call-service</code></p>
+            </li>
+            <li>
+            <p>To let laitos handle SMS messages: enter the following configuration under &quot;Messaging&quot; section:</p>
+            <pre><code>Configure With:     Webhooks, or TwiML Bins or Functions
+A message comes in: Webhook, HTTP POST, and enter laitos server address `TwilioSMSEndpoint`</code></pre>
+            <p>For an example, the laitos server address may be <code>https://my-laitos-server.com/very-secret-twilio-sms-service</code></p>
+            </li>
+            </ol>
+            <p>Then, in an SMS, enter password PIN and toolbox command and send the text to your Twilio phone number. Wait several
+            seconds and the command result will arrive in an SMS reply.</p>
+            <p>In order to enter toolbox command via telephone call, use the number pad to dial password PIN and toolbox command, then
+            wait for spoken response. The number pad input works in this way:</p>
+            <ul>
+            <li>The number pad is able to enter nearly all Latin letters, common symbols, and numbers.</li>
+            <li>A character is entered via either a single digit or a sequence of digits.</li>
+            <li>Asterisk toggles between upper case and lower case letters. By default letters are in lower case.</li>
+            <li>Digit 0 either terminates a character's sequence, or generate spaces if character's sequence is already terminated.</li>
+            <li>A new character sequence begins automatically if previous character sequence is terminated or this number does not
+            continue the number sequence (e.g. sequence &quot;3334&quot; generates an &quot;f&quot; letter and then awaits more input after &quot;4&quot;).</li>
+            <li>Symbols and numbers always require explicit termination of their sequence by a digit 0.</li>
+            </ul>
+            <p>And here are the digit sequences for entering letters, symbols, and numbers:</p>
+            <pre>111 - !  112 - @  113 - #  114 - $  115 - %  116 - ^  117 - &  118 - *  119 - (  121 - `
+122 - ~  123 - )  124 - -  125 - _  126 - =  127 - +  128 - [  129 - {  131 - ]  132 - }
+133 - \  134 - |  135 - ;  136 - :  137 - '  138 - "  139 - ,  141 - <  142 - .  143 - >
+144 - /  145 - ?  0 – Space
+
+1 – 0  11 – 1  12 – 2  13 – 3  14 – 4  15 – 5  16 – 6  17 – 7  18 – 8  19 - 9
+
+2 - a      22 - b     222 – c    3 - d      33 - e     333 - f
+4 - g      44 - h     444 – I    5 - j      55 - k     555 - l
+6 - m      66 - n     666 – o    7 - p      77 - q     777 - r    7777 - s
+8 - t      88 - u     888 – v    9 - w      99 - x     999 - y    9999 – z</pre>
+            <p>If you wish the output to be spelt phonetically rather than spoken, input number sequence <code>0123</code> before PIN and command
+            input. This technique is very useful for copying sophisticated command output such as those from operating system shell
+            commands.</p>
+            <h2>Tips</h2>
+            <p>Warning! Telephone and mobile networks are prone to attacks, they can eavesdrop your password PIN and toolbox
+            feature conversations easily. Use them only as a last resort.</p>
+            <p>Regarding laitos configuration:</p>
+            <ul>
+            <li>Make sure to choose a very secure URL for both call and SMS endpoints, it is the only way to secure this web service!</li>
+            <li>Under <code>HTTPFilters</code>, double check that <code>MaxLength</code> of <code>LintText</code> is set to a reasonable number below 1000, otherwise
+            if laitos sends an exceedingly large SMS response, Twilio will break apart the response into multiple SMS segments,
+            and charge you very high fees for sending all segments! Also, consider turning on all compression routines in
+            <code>LintText</code> to further reduce cost.</li>
+            <li>To prevent spam, laitos limits number of incoming calls to one call every 5 seconds per caller, and limits SMS
+            messages to one SMS every 5 seconds per sender.</li>
+            </ul>
+            <p>Regarding Twilio configuration:</p>
+            <ul>
+            <li>Usage of HTTPS is mandatory in web hook, your laitos web server must be serving HTTPS traffic using a valid TLS
+            certificate chain.</li>
+            <li>If you run identical laitos configuration on more than one servers for fail-over, then you may enter the secondary
+            server's web hook address under Twilio configuration's &quot;Primary Handler Fails&quot; input. Twilio will then automatically
+            uses the secondary server if primary server fails.</li>
+            <li>It is OK to have more than one Twilio phone numbers configured to use the same laitos server.</li>
+            </ul>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="microsoft-bot-hook">
+        <div>
+            <h1>Web service: Microsoft bot hook</h1>
+            <h2>Introduction</h2>
+            <p>Hosted by laitos <router-link to="/web-server"><a>web server</a></router-link>, the web service is triggered
+            by Microsoft bot framework to offer access to all toolbox features via chat (such as Skype).</p>
+            <h2>Preparation</h2>
+            <ol>
+            <li>Sign up for a Microsoft account and visit <a href="https://dev.botframework.com/" target="_blank">Microsoft Bot Framework</a>.</li>
+            <li>Visit &quot;My bots&quot; and then <a href="https://dev.botframework.com/bots/new" target="_blank">create a new bot</a></li>
+            <li>Enter basic details such as name and description.</li>
+            <li>Think of a URL on your laitos server that will serve the bot, make the endpoint name difficult to guess and write it
+            down into &quot;Message endpoint&quot;. (e.g. <code>https://my-laitos-server.net/very-secret-microsoft-bot-hook</code>)</li>
+            <li>Click &quot;Create Microsoft App ID and password&quot; to automatically generate an app ID, be sure to note down the password
+            as it will be filled into configuration soon.</li>
+            <li>Submit the form to complete registration of the new bot.</li>
+            </ol>
+            <h2>Configuration</h2>
+	        @@@@@TODO
+            <h2>Run</h2>
+            <p>The service is hosted by web server, therefore remember to <router-link to="/web-server"><a>run web server</a></router-link>.</p>
+            <h2>Usage</h2>
+            <p>Visit <a href="https://dev.botframework.com/bots">My bots</a>, and then click bot name to enter &quot;Connect to channels&quot; page. From
+            there, click a channel name such as &quot;Skype&quot; to add bot into Skype contacts.</p>
+            <p>Initiate a chat with bot and enter password PIN followed by toolbox command, a short while later the command result will
+            arrive in a chat reply.</p>
+            <h2>Tips</h2>
+            <p>Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!</p>
+            <p>If there are more than one bot to be served, construct configuration for <code>MicrosoftBotEndpoint2</code>,
+            <code>MicrosoftBotEndpoint3</code>, as well as <code>MicrosoftBotEndpointConfig2</code> and <code>MicrosoftBotEndpointConfig3</code>. A laitos server
+            may serve up to three bots.</p>
+            <p>Usage of HTTPS is mandatory in bot hook, your laitos web server must be serving HTTPS traffic using a valid TLS
+            certificate chain.</p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="import-export-config">
+        <div>
+            <h2>Import configuration</h2>
+	        <p>If you wish to edit existing JSON config file, paste its content over here:</p>
+	        <textarea cols="80" rows="4" v-model="import_json_str"></textarea>
+            <p><button class="btn btn-success" v-on:click="btn_import_conf">Import</button></p>
+
+            <h2>Export configuration</h2>
+	        <p>Save the JSON content into a file, and now laitos is ready to start.</p>
+            <p><button data-toggle="collapse" data-target="#export-json" class="btn btn-success">Show content</button></p>
+	        <pre id="export-json" class="collapse"><code>{{ JSON.stringify(app_data.laitos_conf, null, 2) }}</code></pre>
+
+            <h2>Start laitos</h2>
+            <p>Assume that latios software is in current directory, run the following command:</p>
+            <pre><code>sudo ./laitos -config &lt;CONFIG FILE&gt; -daemons &lt;LIST&gt;
+            </code></pre>
+            <p>Note that:</p>
+            <ul>
+                <li>Web, mail, and many other daemons usually bind to <a href="https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html" target="_blank">privileged ports</a>,
+                    use <code>sudo</code> to ensure their proper operation.</li>
+                <li>Replace <code>&lt;CONFIG FILE&gt;</code> by the path to your configuration file. Both absolute and relative paths are acceptable.</li>
+                <li>Replace <code>&lt;LIST&gt;</code> by name of daemons to start. Use comma to separate names (e.g.<code>dnsd,smtpd,httpd</code>). Here are the options:
+                    <ul>
+                        <li><code>dnsd</code> - Ad-blocking DNS server</li>
+                        <li><code>httpd</code> - Web server secured by TLS certificate</li>
+                        <li><code>insecurehttpd</code> - Web server without TLS encryption</li>
+                        <li><code>maintenance</code> - System maintenance and health reports</li>
+                        <li><code>plainsocket</code> - Access to toolbox features via TCP/UDP in plain text</li>
+                        <li><code>smtpd</code> - Mail server</li>
+                        <li><code>telegram</code> - Telegram messenger chat bot</li>
+                    </ul>
+                </li>
+                <li>There is not any individual ON-OFF switch for toolbox features. Once configured, they are are automatically available to daemons.</li>
+            </ul>
+            <h2>Advanced start</h2>
+            <p>The following command options are optional, use with care:</p>
+            <table class="table">
+                <tr>
+                    <th>Flag</th>
+                    <th>Meaning</th>
+                </tr>
+                <tbody>
+                    <tr>
+                        <td>-debug</td>
+                        <td>Print stack traces to standard error upon receiving the interrupt signal SIGINT.</td>
+                    </tr>
+                    <tr>
+                        <td>-disableconflicts</td>
+                        <td>
+                            Automatically disable the following system softwares that may run into resource conflict:<br>
+                            <ul>
+                                <li>apache web server</li>
+                                <li>bind DNS server</li>
+                                <li>lighttpd web server</li>
+                                <li>postfix mail server</li>
+                                <li>sendmail mail server</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>-swapoff</td>
+                        <td>Turn off swap files and partitions on the system for improved system security.</td>
+                    </tr>
+                    <tr>
+                        <td>-gomaxprocs</td>
+                        <td>Specify maximum number of concurrent goroutines. Default to number of system CPU threads.</td>
+                    </tr>
+                    <tr>
+                        <td>-tunesystem</td>
+                        <td>Automatically optimise operating system parameters to improve program performance.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </script>
+</head>
+
+<body>
+    <div id="app" class="flex">
+        <nav id="sidebar">
+            <div class="sidebar-header">
+                <h3>laitos config tool</h3>
+            </div>
+
+            <ul class="list-unstyled components">
+                <router-link tag="li" to="/welcome" exact-active-class="active">
+                    <a>Welcome</a>
+                </router-link>
+                <router-link tag="li" to="/get-started" exact-active-class="active">
+                    <a>Get started</a>
+                </router-link>
+                <li>
+                    <a href="#daemons-menu" data-toggle="collapse" aria-expanded="false">Daemon config</a>
+                    <ul id="daemons-menu" class="collapse list-unstyled">
+                        <router-link tag="li" to="/dns-server" exact-active-class="active">
+                            <a>DNS server with ad-blocker</a>
+                        </router-link>
+                        <router-link tag="li" to="/mail-server" exact-active-class="active">
+                            <a>Mail server</a>
+                        </router-link>
+                        <router-link tag="li" to="/web-server" exact-active-class="active">
+                            <a>Web server</a>
+                        </router-link>
+                        <router-link tag="li" to="/telegram-bot" exact-active-class="active">
+                            <a>Telegram Messenger bot</a>
+                        </router-link>
+                        <router-link tag="li" to="/plain-text-server" exact-active-class="active">
+                            <a>Plain text socket server</a>
+                        </router-link>
+                        <router-link tag="li" to="/maintenance" exact-active-class="active">
+                            <a>System maintenance</a>
+                        </router-link>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#websvc-menu" data-toggle="collapse" aria-expanded="false">Rich web service</a>
+                    <ul id="websvc-menu" class="collapse list-unstyled">
+                        <router-link tag="li" to="/gitlab-browser" exact-active-class="active">
+                            <a>Gitlab browser</a>
+                        </router-link>
+                        <router-link tag="li" to="/command-form" exact-active-class="active">
+                            <a>Toolbox command form</a>
+                        </router-link>
+                        <router-link tag="li" to="/health-report" exact-active-class="active">
+                            <a>Program health report</a>
+                        </router-link>
+                        <router-link tag="li" to="/simple-proxy" exact-active-class="active">
+                            <a>Simple web proxy</a>
+                        </router-link>
+                        <router-link tag="li" to="/browser-in-browser" exact-active-class="active">
+                            <a>Browser-in-browser</a>
+                        </router-link>
+                        <router-link tag="li" to="/twilio-hook" exact-active-class="active">
+                            <a>Twilio telephone/SMS hook</a>
+                        </router-link>
+                        <router-link tag="li" to="/microsoft-bot-hook" exact-active-class="active">
+                            <a>Microsoft bot hook</a>
+                        </router-link>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#toolbox-menu" data-toggle="collapse" aria-expanded="false">Toolbox config</a>
+                    <ul id="toolbox-menu" class="collapse list-unstyled">
+                        <router-link tag="li" to="/use-facebook" exact-active-class="active">
+                            <a>Use Facebook</a>
+                        </router-link>
+                        <router-link tag="li" to="/use-twitter" exact-active-class="active">
+                            <a>Use Twitter</a>
+                        </router-link>
+                        <router-link tag="li" to="/wolfram-alpha" exact-active-class="active">
+                            <a>Use WolframApha</a>
+                        </router-link>
+                        <router-link tag="li" to="/read-emails" exact-active-class="active">
+                            <a>Read Emails</a>
+                        </router-link>
+                        <router-link tag="li" to="/send-emails" exact-active-class="active">
+                            <a>Send Emails</a>
+                        </router-link>
+                        <router-link tag="li" to="/public-contacts" exact-active-class="active">
+                            <a>Public contacts</a>
+                        </router-link>
+                        <router-link tag="li" to="/call-and-sms" exact-active-class="active">
+                            <a>Make calls and send SMS</a>
+                        </router-link>
+                        <router-link tag="li" to="/twofa-code-gen" exact-active-class="active">
+                            <a>2FA code generator</a>
+                        </router-link>
+                        <router-link tag="li" to="/text-browser" exact-active-class="active">
+                            <a>Text-based web browser</a>
+                        </router-link>
+                        <router-link tag="li" to="/encrypted-text" exact-active-class="active">
+                            <a>Find text in encrypted files</a>
+                        </router-link>
+                        <router-link tag="li" to="/system-commands" exact-active-class="active">
+                            <a>Run system commands</a>
+                        </router-link>
+                        <router-link tag="li" to="/program-control" exact-active-class="active">
+                            <a>Program and environment control</a>
+                        </router-link>
+                    </ul>
+                </li>
+                <router-link tag="li" to="/import-export-config" exact-active-class="active">
+                    <a>Import/export config</a>
+                </router-link>
+                <li>
+                    <a href="https://github.com/HouzuoGuo/laitos" target="_blank">laitos on Github</a>
+                </li>
+            </ul>
+        </nav>
+        <div id="content">
+            <router-view></router-view>
+        </div>
+    </div>
+</body>
+
+</html>
