@@ -28,7 +28,7 @@ var DurationStats = misc.NewStats() // DurationStats stores statistics of durati
 
 // Telegram API entity - user
 type APIUser struct {
-	ID        uint64 `json:"id"`
+	ID        int64  `json:"id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	UserName  string `json:"username"`
@@ -36,7 +36,7 @@ type APIUser struct {
 
 // Telegram API entity - chat
 type APIChat struct {
-	ID        uint64 `json:"id"`
+	ID        int64  `json:"id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	UserName  string `json:"username"`
@@ -45,7 +45,7 @@ type APIChat struct {
 
 // Telegram API entity - message
 type APIMessage struct {
-	ID        uint64  `json:"message_id"`
+	ID        int64   `json:"message_id"`
 	From      APIUser `json:"from"`
 	Chat      APIChat `json:"chat"`
 	Timestamp int64   `json:"date"`
@@ -54,7 +54,7 @@ type APIMessage struct {
 
 // Telegram API entity - one bot update
 type APIUpdate struct {
-	ID      uint64     `json:"update_id"`
+	ID      int64      `json:"update_id"`
 	Message APIMessage `json:"message"`
 }
 
@@ -70,7 +70,7 @@ type Daemon struct {
 	RateLimit          int                      `json:"RateLimit"`          // rateLimit determines how many messages may be processed per chat at a regular interval
 	Processor          *common.CommandProcessor `json:"-"`                  // Feature command processor
 
-	messageOffset uint64          // Process chat messages arrived after this point
+	messageOffset int64           // Process chat messages arrived after this point
 	userRateLimit *misc.RateLimit // Prevent user from flooding bot with new messages
 	loopIsRunning int32           // Value is 1 only when message loop is running
 	stop          chan bool       // Signal message loop to stop
@@ -103,12 +103,12 @@ func (bot *Daemon) Initialise() error {
 }
 
 // Send a text reply to the telegram chat.
-func (bot *Daemon) ReplyTo(chatID uint64, text string) error {
+func (bot *Daemon) ReplyTo(chatID int64, text string) error {
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method:     http.MethodPost,
 		TimeoutSec: APICallTimeoutSec,
 		Body: strings.NewReader(url.Values{
-			"chat_id": []string{strconv.FormatUint(chatID, 10)},
+			"chat_id": []string{strconv.FormatInt(chatID, 10)},
 			"text":    []string{text},
 		}.Encode()),
 	}, "https://api.telegram.org/bot%s/sendMessage", bot.AuthorizationToken)

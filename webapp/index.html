@@ -28,7 +28,8 @@
         #sidebar {
             min-width: 250px;
             max-width: 250px;
-            background: rgb(148, 170, 255);
+            background: rgb(50, 70, 110);
+            font-weight: bold;
             color: #fff;
         }
 
@@ -41,7 +42,7 @@
 
         #sidebar .sidebar-header {
             padding: 20px;
-            background: #6d7fcc;
+            background: rgb(20, 30, 50);
         }
 
         #sidebar ul.components {
@@ -55,7 +56,7 @@
         }
 
         #sidebar ul li a:hover {
-            color: #7386D5;
+            color: rgb(20, 30, 50);
             background: #fff;
         }
 
@@ -68,7 +69,7 @@
         #sidebar ul li.active>a,
         a[aria-expanded="true"] {
             color: #fff;
-            background: #6d7fcc;
+            background: rgb(75, 90, 150);
         }
 
         #sidebar a[data-toggle="collapse"] {
@@ -90,80 +91,63 @@
 
     <script type="text/javascript">
         /* Courtesy of https://davidwalsh.name/javascript-deep-merge */
-	    function isMergeableObject(val) {
-		    var nonNullObject = val && typeof val === 'object';
-
-		    return nonNullObject
+	    function can_merge_obj(val) {
+		    var is_not_null_obj = val && typeof val === 'object';
+		    return is_not_null_obj
 				    && Object.prototype.toString.call(val) !== '[object RegExp]'
-				    && Object.prototype.toString.call(val) !== '[object Date]'
+				    && Object.prototype.toString.call(val) !== '[object Date]';
+	    }
+	    function empty_array_or_obj(val) {
+		    return Array.isArray(val) ? [] : {};
 	    }
 
-	    function emptyTarget(val) {
-		    return Array.isArray(val) ? [] : {}
+	    function clone_if_needed(value) {
+		    return can_merge_obj(value) ? deep_merge(empty_array_or_obj(value), value) : value;
 	    }
 
-	    function cloneIfNecessary(value, optionsArgument) {
-		    var clone = optionsArgument && optionsArgument.clone === true
-		    return (clone && isMergeableObject(value)) ? deepmerge(emptyTarget(value), value, optionsArgument) : value
-	    }
-
-	    function defaultArrayMerge(target, source, optionsArgument) {
-		    var destination = target.slice();
-		    source.forEach(function(e, i) {
-			    if (typeof destination[i] === 'undefined') {
-				    destination[i] = cloneIfNecessary(e, optionsArgument)
-			    } else if (isMergeableObject(e)) {
-				    destination[i] = deepmerge(target[i], e, optionsArgument)
-			    } else if (target.indexOf(e) === -1) {
-				    destination.push(cloneIfNecessary(e, optionsArgument))
+	    function merge_array(dest, src) {
+		    var ret = dest.slice();
+		    src.forEach(function(e, i) {
+			    if (typeof ret[i] === 'undefined') {
+				    ret[i] = clone_if_needed(e)
+			    } else if (can_merge_obj(e)) {
+				    ret[i] = deep_merge(dest[i], e)
+			    } else if (dest.indexOf(e) === -1) {
+				    ret.push(clone_if_needed(e))
 			    }
 		    });
-		    return destination
+		    return ret
 	    }
 
-	    function mergeObject(target, source, optionsArgument) {
-		    var destination = {};
-		    if (isMergeableObject(target)) {
-			    Object.keys(target).forEach(function (key) {
-				    destination[key] = cloneIfNecessary(target[key], optionsArgument)
+	    function merge_obj(dest, src) {
+		    var ret = {};
+		    if (can_merge_obj(dest)) {
+			    Object.keys(dest).forEach(function (key) {
+				    ret[key] = clone_if_needed(dest[key]);
 			    })
 		    }
-		    Object.keys(source).forEach(function (key) {
-			    if (!isMergeableObject(source[key]) || !target[key]) {
-				    destination[key] = cloneIfNecessary(source[key], optionsArgument)
+		    Object.keys(src).forEach(function (key) {
+			    if (!can_merge_obj(src[key]) || !dest[key]) {
+				    ret[key] = clone_if_needed(src[key]);
 			    } else {
-				    destination[key] = deepmerge(target[key], source[key], optionsArgument)
+				    ret[key] = deep_merge(dest[key], src[key]);
 			    }
 		    });
-		    return destination
+		    return ret
 	    }
 
-	    function deepmerge(target, source, optionsArgument) {
-		    var array = Array.isArray(source);
-		    var options = optionsArgument || { arrayMerge: defaultArrayMerge };
-		    var arrayMerge = options.arrayMerge || defaultArrayMerge;
-
-		    if (array) {
-			    return Array.isArray(target) ? arrayMerge(target, source, optionsArgument) : cloneIfNecessary(source, optionsArgument)
+	    function deep_merge(dest, src) {
+		    if (Array.isArray(src)) {
+			    return Array.isArray(dest) ? merge_array(dest, src) : clone_if_needed(src)
 		    } else {
-			    return mergeObject(target, source, optionsArgument)
+			    return merge_obj(dest, src)
 		    }
 	    }
-
-	    deepmerge.all = function deepmergeAll(array, optionsArgument) {
-		    if (!Array.isArray(array) || array.length < 2) {
-			    throw new Error('first argument should be an array with at least two elements')
-		    }
-
-		    return array.reduce(function(prev, next) {
-			    return deepmerge(prev, next, optionsArgument)
-		    })
-	    };
 
         $(document).ready(function () {
             var template = {
                 "DNSDaemon": {
-                    "Address": "",
+                    "Address": "0.0.0.0",
                     "AllowQueryIPPrefixes": [],
                     "PerIPLimit": 30,
                     "TCPForwarders": ["8.8.8.8", "8.8.4.4"],
@@ -227,7 +211,7 @@
                     }
                 },
                 "HTTPDaemon": {
-                    "Address": "",
+                    "Address": "0.0.0.0",
                     "BaseRateLimit": 5,
                     "Port": 443,
                     "ServeDirectories": {},
@@ -272,7 +256,7 @@
                     "GitlabBrowserEndpoint": "",
                     "GitlabBrowserEndpointConfig": {
                         "PrivateToken": "",
-                        "Projects": {                            /*"shortcut": "#####",*/ },
+                        "Projects": {/*"shortcut": "#####",*/ },
                         "Recipients": []
                     },
                     "IndexEndpointConfig": {
@@ -406,7 +390,33 @@
                 routes: [
                     { path: '/welcome', component: { template: '#welcome', data: function () { return app_data; } } },
                     { path: '/get-started', component: { template: '#get-started', data: function () { return app_data; } } },
-                    { path: '/dns-server', component: { template: '#dns-server', data: function () { return app_data; } } },
+                    {
+                        path: '/dns-server',
+                        component: {
+                            template: '#dns-server',
+                            data: function () { return app_data; },
+                            methods: {
+	                            btn_add_udp_forwarder: function() {
+	                                app_data.laitos_conf.DNSDaemon.UDPForwarders.push("");
+                                },
+	                            btn_remove_udp_forwarder: function(index) {
+		                            app_data.laitos_conf.DNSDaemon.UDPForwarders.splice(index, 1);
+                                },
+	                            btn_add_tcp_forwarder: function() {
+		                            app_data.laitos_conf.DNSDaemon.TCPForwarders.push("");
+	                            },
+	                            btn_remove_tcp_forwarder: function(index) {
+		                            app_data.laitos_conf.DNSDaemon.TCPForwarders.splice(index, 1);
+	                            },
+                                btn_add_ip_prefix: function() {
+		                            app_data.laitos_conf.DNSDaemon.AllowQueryIPPrefixes.push("");
+	                            },
+	                            btn_remove_ip_prefix: function(index) {
+		                            app_data.laitos_conf.DNSDaemon.AllowQueryIPPrefixes.splice(index, 1);
+	                            }
+                            }
+                        }
+                    },
                     { path: '/mail-server', component: { template: '#mail-server', data: function () { return app_data; } } },
                     { path: '/web-server', component: { template: '#web-server', data: function () { return app_data; } } },
                     { path: '/maintenance', component: { template: '#maintenance', data: function () { return app_data; } } },
@@ -437,9 +447,9 @@
                             template: '#import-export-config',
                             data: function () { return {app_data: app_data, import_json_str: null}; },
                             methods: {
-                                btn_import_conf: function(ev) {
+                                btn_import_conf: function() {
                                     try {
-	                                    app_data.laitos_conf = deepmerge.all([template, JSON.parse(this.import_json_str)]);
+	                                    app_data.laitos_conf = deep_merge(template, JSON.parse(this.import_json_str));
 	                                    alert('Import succeeded!');
                                     } catch (err) {
                                         alert('Import failed - ' + err.message);
@@ -538,7 +548,12 @@
                     </tr>
                     <tr>
                         <td>UDPForwarders</td>
-                        <td>array of strings</td>
+                        <td>
+	                        <div v-for="(_, index) in laitos_conf.DNSDaemon.UDPForwarders">
+		                        <input v-model="laitos_conf.DNSDaemon.UDPForwarders[index]"/><button class="btn btn-sm btn-danger" v-on:click="btn_remove_udp_forwarder(index)">X</button>
+	                        </div>
+	                        <button class="btn btn-sm btn-primary" v-on:click="btn_add_udp_forwarder">Add</button>
+                        </td>
                         <td>
                             If a UDP query is not for an advertisement domain, forward it to any of these public DNS servers.
                             <br/>
@@ -549,12 +564,17 @@
                     </tr>
                     <tr>
                         <td>TCPPort</td>
-                        <td>integer</td>
+	                    <td><input v-model.number="laitos_conf.DNSDaemon.TCPPort" type="number"/></td>
                         <td>TCP port number to listen to. It is usually 53 - the port number designated for DNS.</td>
                     </tr>
                     <tr>
                         <td>TCPForwarders</td>
-                        <td>array of strings</td>
+                        <td>
+                            <div v-for="(_, index) in laitos_conf.DNSDaemon.TCPForwarders">
+	                            <input v-model="laitos_conf.DNSDaemon.TCPForwarders[index]"/><button class="btn btn-sm btn-danger" v-on:click="btn_remove_tcp_forwarder(index)">X</button>
+                            </div>
+	                        <button class="btn btn-sm btn-primary" v-on:click="btn_add_tcp_forwarder">Add</button>
+                        </td>
                         <td>
                             If a TCP query is not for an advertisement domain, forward it to any of these public DNS servers.
                             <br/>
@@ -564,8 +584,13 @@
                         </td>
                     </tr>
                     <tr>
-                        <td>AllowQueryIPPrefix</td>
-                        <td>array of strings</td>
+                        <td>AllowQueryIPPrefixes</td>
+	                    <td>
+		                    <div v-for="(_, index) in laitos_conf.DNSDaemon.AllowQueryIPPrefixes">
+			                    <input v-model="laitos_conf.DNSDaemon.AllowQueryIPPrefixes[index]"/><button class="btn btn-sm btn-danger" v-on:click="btn_remove_ip_prefix(index)">X</button>
+		                    </div>
+		                    <button class="btn btn-sm btn-primary" v-on:click="btn_add_ip_prefix">Add</button>
+	                    </td>
                         <td>
                             An array of IP address prefixes such as ["195.1", "123.4.5"] that are allowed to make DNS queries on the server.
                             <br/>
@@ -574,7 +599,7 @@
                     </tr>
                     <tr>
                         <td>PerIPLimit</td>
-                        <td>integer</td>
+	                    <td><input v-model.number="laitos_conf.DNSDaemon.PerIPLimit" type="number"/></td>
                         <td>
                             How many times in ten-second interval a client (identified by IP) is allowed to query the server.
                             <br/>
@@ -1931,47 +1956,47 @@ A message comes in: Webhook, HTTP POST, and enter laitos server address `TwilioS
                         </router-link>
                     </ul>
                 </li>
-                <li>
-                    <a href="#toolbox-menu" data-toggle="collapse" aria-expanded="false">Toolbox config</a>
-                    <ul id="toolbox-menu" class="collapse list-unstyled">
-                        <router-link tag="li" to="/use-facebook" exact-active-class="active">
-                            <a>Use Facebook</a>
-                        </router-link>
-                        <router-link tag="li" to="/use-twitter" exact-active-class="active">
-                            <a>Use Twitter</a>
-                        </router-link>
-                        <router-link tag="li" to="/wolfram-alpha" exact-active-class="active">
-                            <a>Use WolframApha</a>
-                        </router-link>
-                        <router-link tag="li" to="/read-emails" exact-active-class="active">
-                            <a>Read Emails</a>
-                        </router-link>
-                        <router-link tag="li" to="/send-emails" exact-active-class="active">
-                            <a>Send Emails</a>
-                        </router-link>
-                        <router-link tag="li" to="/public-contacts" exact-active-class="active">
-                            <a>Public contacts</a>
-                        </router-link>
-                        <router-link tag="li" to="/call-and-sms" exact-active-class="active">
-                            <a>Make calls and send SMS</a>
-                        </router-link>
-                        <router-link tag="li" to="/twofa-code-gen" exact-active-class="active">
-                            <a>2FA code generator</a>
-                        </router-link>
-                        <router-link tag="li" to="/text-browser" exact-active-class="active">
-                            <a>Text-based web browser</a>
-                        </router-link>
-                        <router-link tag="li" to="/encrypted-text" exact-active-class="active">
-                            <a>Find text in encrypted files</a>
-                        </router-link>
-                        <router-link tag="li" to="/system-commands" exact-active-class="active">
-                            <a>Run system commands</a>
-                        </router-link>
-                        <router-link tag="li" to="/program-control" exact-active-class="active">
-                            <a>Program and environment control</a>
-                        </router-link>
-                    </ul>
-                </li>
+	            <li>
+		            <a href="#toolbox-menu" data-toggle="collapse" aria-expanded="false">Toolbox config</a>
+		            <ul id="toolbox-menu" class="collapse list-unstyled">
+			            <router-link tag="li" to="/use-facebook" exact-active-class="active">
+				            <a>Use Facebook</a>
+			            </router-link>
+			            <router-link tag="li" to="/use-twitter" exact-active-class="active">
+				            <a>Use Twitter</a>
+			            </router-link>
+			            <router-link tag="li" to="/wolfram-alpha" exact-active-class="active">
+				            <a>Use WolframApha</a>
+			            </router-link>
+			            <router-link tag="li" to="/read-emails" exact-active-class="active">
+				            <a>Read Emails</a>
+			            </router-link>
+			            <router-link tag="li" to="/send-emails" exact-active-class="active">
+				            <a>Send Emails</a>
+			            </router-link>
+			            <router-link tag="li" to="/public-contacts" exact-active-class="active">
+				            <a>Public contacts</a>
+			            </router-link>
+			            <router-link tag="li" to="/call-and-sms" exact-active-class="active">
+				            <a>Make calls and send SMS</a>
+			            </router-link>
+			            <router-link tag="li" to="/twofa-code-gen" exact-active-class="active">
+				            <a>2FA code generator</a>
+			            </router-link>
+			            <router-link tag="li" to="/text-browser" exact-active-class="active">
+				            <a>Text-based web browser</a>
+			            </router-link>
+			            <router-link tag="li" to="/encrypted-text" exact-active-class="active">
+				            <a>Find text in encrypted files</a>
+			            </router-link>
+			            <router-link tag="li" to="/system-commands" exact-active-class="active">
+				            <a>Run system commands</a>
+			            </router-link>
+			            <router-link tag="li" to="/program-control" exact-active-class="active">
+				            <a>Program and environment control</a>
+			            </router-link>
+		            </ul>
+	            </li>
                 <router-link tag="li" to="/import-export-config" exact-active-class="active">
                     <a>Import/export config</a>
                 </router-link>

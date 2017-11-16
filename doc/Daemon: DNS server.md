@@ -55,7 +55,7 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
     </td>
 </tr>
 <tr>
-    <td>AllowQueryIPPrefix</td>
+    <td>AllowQueryIPPrefixes</td>
     <td>array of strings</td>
     <td>
         An array of IP address prefixes such as ["195.1", "123.4.5"] that are allowed to make DNS queries on the server.
