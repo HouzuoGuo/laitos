@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
 	"strings"
 )
@@ -26,12 +27,12 @@ func (wa *WolframAlpha) SelfTest() error {
 	// Make a test query to verify AppID and response data structure
 	resp, err := wa.Query(SelfTestTimeoutSec, "pi")
 	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
-		return errResult.Error
+		return fmt.Errorf("WolframAlpha.SelfTest: query result error - %v", err.Error())
 	}
 	// In case that AppID is incorrect, WolframAlpha will still respond with HTTP OK, only the response gives a clue.
 	lower := strings.ToLower(string(resp.Body))
 	if strings.Contains(lower, "invalid appid") || strings.Contains(lower, "error='true'") || strings.Contains(lower, "success='false'") {
-		return errors.New(lower)
+		return errors.New("WolframAlpha.SelfTest: AppID appears to be incorrect")
 	}
 	return nil
 }

@@ -3,7 +3,7 @@ package httpd
 import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/api"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/inet"
 	"io/ioutil"
 	"math/rand"
@@ -37,8 +37,8 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		Processor:        nil,
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir", "dir": "/tmp/test-laitos-dir"},
 		BaseRateLimit:    0,
-		SpecialHandlers: map[string]api.HandlerFactory{
-			"/": &api.HandleHTMLDocument{HTMLFilePath: indexFile},
+		HandlerCollection: map[string]handler.Handler{
+			"/": &handler.HandleHTMLDocument{HTMLFilePath: indexFile},
 		},
 	}
 	// Must not initialise if rate limit is too small
@@ -59,11 +59,11 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 
 	// Set up API handlers
 	daemon.Processor = common.GetTestCommandProcessor()
-	daemon.SpecialHandlers["/info"] = &api.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
-	daemon.SpecialHandlers["/cmd_form"] = &api.HandleCommandForm{}
-	daemon.SpecialHandlers["/gitlab"] = &api.HandleGitlabBrowser{PrivateToken: "token-does-not-matter-in-this-test"}
-	daemon.SpecialHandlers["/html"] = &api.HandleHTMLDocument{HTMLFilePath: indexFile}
-	daemon.SpecialHandlers["/mail_me"] = &api.HandleMailMe{
+	daemon.HandlerCollection["/info"] = &handler.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
+	daemon.HandlerCollection["/cmd_form"] = &handler.HandleCommandForm{}
+	daemon.HandlerCollection["/gitlab"] = &handler.HandleGitlabBrowser{PrivateToken: "token-does-not-matter-in-this-test"}
+	daemon.HandlerCollection["/html"] = &handler.HandleHTMLDocument{HTMLFilePath: indexFile}
+	daemon.HandlerCollection["/mail_me"] = &handler.HandleMailMe{
 		Recipients: []string{"howard@localhost"},
 		MailClient: inet.MailClient{
 			MailFrom: "howard@localhost",
@@ -71,14 +71,14 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 			MTAPort:  25,
 		},
 	}
-	daemon.SpecialHandlers["/microsoft_bot"] = &api.HandleMicrosoftBot{
+	daemon.HandlerCollection["/microsoft_bot"] = &handler.HandleMicrosoftBot{
 		ClientAppID:     "dummy ID",
 		ClientAppSecret: "dummy secret",
 	}
-	daemon.SpecialHandlers["/proxy"] = &api.HandleWebProxy{MyEndpoint: "/proxy"}
-	daemon.SpecialHandlers["/sms"] = &api.HandleTwilioSMSHook{}
-	daemon.SpecialHandlers["/call_greeting"] = &api.HandleTwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}
-	daemon.SpecialHandlers["/call_command"] = &api.HandleTwilioCallCallback{MyEndpoint: "/endpoint-does-not-matter-in-this-test"}
+	daemon.HandlerCollection["/proxy"] = &handler.HandleWebProxy{OwnEndpoint: "/proxy"}
+	daemon.HandlerCollection["/sms"] = &handler.HandleTwilioSMSHook{}
+	daemon.HandlerCollection["/call_greeting"] = &handler.HandleTwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}
+	daemon.HandlerCollection["/call_command"] = &handler.HandleTwilioCallCallback{MyEndpoint: "/endpoint-does-not-matter-in-this-test"}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}

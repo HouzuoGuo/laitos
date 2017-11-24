@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/api"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
@@ -17,6 +17,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,6 +26,33 @@ const (
 	RateLimitIntervalSec            = 10 // Rate limit is calculated at 10 seconds interval
 	IOTimeoutSec                    = 60 // IO timeout for both read and write operations
 )
+
+// HandlerCollection is a mapping between URL and implementation of handlers. It does not contain directory handlers.
+type HandlerCollection map[string]handler.Handler
+
+// SelfTest invokes self test function on all special handlers and report back if any error is encountered.
+func (col HandlerCollection) SelfTest() error {
+	ret := make([]string, 0, 0)
+	retMutex := &sync.Mutex{}
+	wait := &sync.WaitGroup{}
+	wait.Add(len(col))
+	for _, hand := range col {
+		go func(handler handler.Handler) {
+			err := handler.SelfTest()
+			if err != nil {
+				retMutex.Lock()
+				ret = append(ret, err.Error())
+				retMutex.Unlock()
+			}
+			wait.Done()
+		}(hand)
+	}
+	wait.Wait()
+	if len(ret) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(ret, " | "))
+}
 
 // Generic HTTP daemon.
 type Daemon struct {
@@ -35,26 +63,26 @@ type Daemon struct {
 	BaseRateLimit    int               `json:"BaseRateLimit"`    // How many times in 10 seconds interval the most expensive HTTP handler may be invoked by an IP
 	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
 
-	SpecialHandlers map[string]api.HandlerFactory `json:"-"` // Specialised handlers that implement api.HandlerFactory interface
-	Processor       *common.CommandProcessor      `json:"-"` // Feature command processor
-	AllRateLimits   map[string]*misc.RateLimit    `json:"-"` // Aggregate all routes and their rate limit counters
+	HandlerCollection HandlerCollection          `json:"-"` // Specialised handlers that implement handler.HandlerFactory interface
+	Processor         *common.CommandProcessor   `json:"-"` // Feature command processor
+	AllRateLimits     map[string]*misc.RateLimit `json:"-"` // Aggregate all routes and their rate limit counters
 
 	server *http.Server // server is the HTTP service instance
 	logger misc.Logger
 }
 
-// Return path to HandlerFactory among special handlers that matches the specified type. Primarily used by test case code.
-func (daemon *Daemon) GetHandlerByFactoryType(match api.HandlerFactory) string {
+// Return path to Handler among special handlers that matches the specified type. Primarily used by test case code.
+func (daemon *Daemon) GetHandlerByFactoryType(match handler.Handler) string {
 	matchTypeString := reflect.TypeOf(match).String()
-	for path, handler := range daemon.SpecialHandlers {
-		if reflect.TypeOf(handler).String() == matchTypeString {
+	for path, hand := range daemon.HandlerCollection {
+		if reflect.TypeOf(hand).String() == matchTypeString {
 			return path
 		}
 	}
 	return ""
 }
 
-// RateLimitMiddleware checks client request against rate limit and global lockdown.
+// RateLimitMiddleware acts against rate limited clients and global lockdown.
 func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Put query duration (including IO time) into statistics
@@ -68,18 +96,18 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 				Hence the status code here is OK.
 			*/
 			w.Write([]byte(misc.ErrEmergencyLockDown.Error()))
-			api.DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+			handler.DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			return
 		}
 		// Check client IP against rate limit
-		remoteIP := api.GetRealClientIP(r)
+		remoteIP := handler.GetRealClientIP(r)
 		if ratelimit.Add(remoteIP, true) {
-			daemon.logger.Printf("Handle", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
+			daemon.logger.Printf("Handler", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
 			next(w, r)
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
 		}
-		api.DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		handler.DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}
 }
 
@@ -131,18 +159,17 @@ func (daemon *Daemon) Initialise() error {
 		}
 	}
 	// Collect specialised handlers
-	for urlLocation, handler := range daemon.SpecialHandlers {
-		fun, err := handler.MakeHandler(daemon.logger, daemon.Processor)
-		if err != nil {
+	for urlLocation, hand := range daemon.HandlerCollection {
+		if err := hand.Initialise(daemon.logger, daemon.Processor); err != nil {
 			return err
 		}
 		rl := &misc.RateLimit{
 			UnitSecs: RateLimitIntervalSec,
-			MaxCount: handler.GetRateLimitFactor() * daemon.BaseRateLimit,
+			MaxCount: hand.GetRateLimitFactor() * daemon.BaseRateLimit,
 			Logger:   daemon.logger,
 		}
 		daemon.AllRateLimits[urlLocation] = rl
-		mux.HandleFunc(urlLocation, daemon.Middleware(rl, fun))
+		mux.HandleFunc(urlLocation, daemon.Middleware(rl, hand.Handle))
 	}
 	// Initialise all rate limits
 	for _, limit := range daemon.AllRateLimits {
@@ -192,7 +219,7 @@ func (daemon *Daemon) Stop() {
 	}
 }
 
-// Run unit tests on API handlers of an already started HTTP daemon all API handlers. Essentially, it tests "api" package.
+// Run unit tests on API handlers of an already started HTTP daemon all API handlers. Essentially, it tests "handler" package.
 func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	// When accesses via HTTP, API handlers warn user about safety concern via a authorization prompt.
 	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
@@ -253,7 +280,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	if err != nil || resp.StatusCode != http.StatusBadRequest {
 		t.Fatal(err, string(resp.Body))
 	}
-	microsoftBotDummyChat := api.MicrosoftBotIncomingChat{}
+	microsoftBotDummyChat := handler.MicrosoftBotIncomingChat{}
 	var microsoftBotDummyChatRequest []byte
 	if microsoftBotDummyChatRequest, err = json.Marshal(microsoftBotDummyChat); err != nil {
 		t.Fatal(err)
@@ -275,7 +302,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"incorrect PIN"}}.Encode()),
-	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioSMSHook{}))
+	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Message><![CDATA[Failed to match PIN/shortcut]]></Message>`) {
 		t.Fatal(err, resp)
 	}
@@ -284,7 +311,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
-	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioSMSHook{}))
+	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<![CDATA[01234567890123456789012345678901234]]>`) {
 		t.Fatal(err, resp)
 	}
@@ -296,7 +323,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
 			"From": {"sms number"},
 		}.Encode()),
-	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioSMSHook{}))
+	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<![CDATA[01234567890123456789012345678901234]]>`) {
 		t.Fatal(err, resp)
 	}
@@ -307,7 +334,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
 			"From": {"sms number"},
 		}.Encode()),
-	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioSMSHook{}))
+	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusServiceUnavailable || !strings.Contains(string(resp.Body), `rate limit is exceeded by`) {
 		t.Fatal(err, resp)
 	}
@@ -338,7 +365,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {"0000000"}}.Encode()),
-	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `Failed to match PIN/shortcut`) {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -348,7 +375,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
-		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -356,7 +383,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
-		Body:   strings.NewReader(url.Values{"Digits": {api.TwilioPhoneticSpellingMagic + dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+		Body:   strings.NewReader(url.Values{"Digits": {handler.TwilioPhoneticSpellingMagic + dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	phoneticOutput := `capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango, repeat again, capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango, repeat again, capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango, over.`
 	sayResp := `<Say><![CDATA[` + phoneticOutput + `]]></Say>`
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), sayResp) {
@@ -366,19 +393,19 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
-		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
-		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>You are rate limited.</Say><Hangup/>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Wait for phone number rate limit to expire for SMS, call, and DTMF command, then redo the tests
-	time.Sleep((api.TwilioPhoneNumberRateLimitIntervalSec + 1) * time.Second)
+	time.Sleep((handler.TwilioPhoneNumberRateLimitIntervalSec + 1) * time.Second)
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
@@ -386,7 +413,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
 			"From": {"sms number"},
 		}.Encode()),
-	}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioSMSHook{}))
+	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<![CDATA[01234567890123456789012345678901234]]>`) {
 		t.Fatal(err, resp)
 	}
@@ -401,7 +428,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
-		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&api.HandleTwilioCallCallback{}))
+		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}

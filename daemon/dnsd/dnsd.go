@@ -323,7 +323,7 @@ func (daemon *Daemon) UpdatedAdBlockLists() {
 	mvpsEntries, mvpsErr := daemon.GetAdBlacklistMVPS()
 	if mvpsErr == nil {
 		daemon.logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
-		daemon.logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following liences for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
+		daemon.logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following license for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
 	} else {
 		daemon.logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
 	}

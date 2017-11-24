@@ -48,7 +48,7 @@ func (runner *CommandRunner) Initialise() error {
 
 // Run a health check on mailer and "undocumented" things.
 func (runner *CommandRunner) SelfTest() error {
-	ret := make([]error, 0, 0)
+	ret := make([]string, 0, 0)
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
 	// One mailer and one undocumented
@@ -57,7 +57,7 @@ func (runner *CommandRunner) SelfTest() error {
 		err := runner.ReplyMailClient.SelfTest()
 		if err != nil {
 			retMutex.Lock()
-			ret = append(ret, err)
+			ret = append(ret, err.Error())
 			retMutex.Unlock()
 		}
 		wait.Done()
@@ -67,7 +67,7 @@ func (runner *CommandRunner) SelfTest() error {
 			err := runner.Undocumented1.SelfTest()
 			if err != nil {
 				retMutex.Lock()
-				ret = append(ret, err)
+				ret = append(ret, err.Error())
 				retMutex.Unlock()
 			}
 		}
@@ -78,7 +78,7 @@ func (runner *CommandRunner) SelfTest() error {
 			err := runner.Undocumented2.SelfTest()
 			if err != nil {
 				retMutex.Lock()
-				ret = append(ret, err)
+				ret = append(ret, err.Error())
 				retMutex.Unlock()
 			}
 		}
@@ -88,7 +88,7 @@ func (runner *CommandRunner) SelfTest() error {
 	if len(ret) == 0 {
 		return nil
 	}
-	return fmt.Errorf("%v", ret)
+	return errors.New(strings.Join(ret, " | "))
 }
 
 /*

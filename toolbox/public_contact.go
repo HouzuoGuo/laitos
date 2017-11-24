@@ -86,7 +86,7 @@ func (cs *PublicContact) IsConfigured() bool {
 
 func (cs *PublicContact) SelfTest() error {
 	if cs.textRecords == nil || len(cs.textRecords) == 0 {
-		return errors.New("no contact information available")
+		return errors.New("PublicContact.SelfTest: contact info is unavailable")
 	}
 	return nil
 }

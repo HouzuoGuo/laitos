@@ -2,8 +2,10 @@ package toolbox
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -58,8 +60,8 @@ func (fs *FeatureSet) Initialise() error {
 }
 
 // Run self test of all configured features in parallel. Return test errors if any.
-func (fs *FeatureSet) SelfTest() (ret map[Trigger]error) {
-	ret = make(map[Trigger]error)
+func (fs *FeatureSet) SelfTest() error {
+	ret := make([]string, 0, 0)
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
 	wait.Add(len(fs.LookupByTrigger))
@@ -68,14 +70,17 @@ func (fs *FeatureSet) SelfTest() (ret map[Trigger]error) {
 			err := ref.SelfTest()
 			if err != nil {
 				retMutex.Lock()
-				ret[ref.Trigger()] = err
+				ret = append(ret, fmt.Sprintf("%s: %s", ref.Trigger(), err.Error()))
 				retMutex.Unlock()
 			}
 			wait.Done()
 		}(featureRef)
 	}
 	wait.Wait()
-	return
+	if len(ret) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(ret, " | "))
 }
 
 // Deserialise feature configuration from JSON configuration. The function does not initialise features automatically.

@@ -1,8 +1,9 @@
-package api
+package handler
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -36,12 +37,28 @@ type HandleMicrosoftBot struct {
 
 	latestJwtMutex *sync.Mutex     // latestJwtMutex protects latestJWT from concurrent access.
 	latestJWT      MicrosoftBotJwt // latestJWT is the last retrieved JWT
+
+	logger  misc.Logger
+	cmdProc *common.CommandProcessor
+}
+
+func (hand *HandleMicrosoftBot) Initialise(logger misc.Logger, cmdProc *common.CommandProcessor) error {
+	hand.logger = logger
+	hand.cmdProc = cmdProc
+	hand.latestJwtMutex = new(sync.Mutex)
+	return nil
 }
 
 // RetrieveJWT asks Microsoft for a new JWT.
-func (hand *HandleMicrosoftBot) RetrieveJWT() (jwt MicrosoftBotJwt, err error) {
+func (hand *HandleMicrosoftBot) RetrieveJWT() (MicrosoftBotJwt, error) {
+	hand.latestJwtMutex.Lock()
+	defer hand.latestJwtMutex.Unlock()
+	if hand.latestJWT.AccessToken != "" && time.Now().Before(hand.latestJWT.ExpiresAt) {
+		return hand.latestJWT, nil
+	}
+
 	var httpResp inet.HTTPResponse
-	httpResp, err = inet.DoHTTP(inet.HTTPRequest{
+	httpResp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method:      http.MethodPost,
 		ContentType: "application/x-www-form-urlencoded",
 		TimeoutSec:  MicrosoftBotAPITimeoutSec,
@@ -49,18 +66,21 @@ func (hand *HandleMicrosoftBot) RetrieveJWT() (jwt MicrosoftBotJwt, err error) {
 			"grant_type":    []string{"client_credentials"},
 			"client_id":     []string{hand.ClientAppID},
 			"client_secret": []string{hand.ClientAppSecret},
-			"scope":         []string{"https://api.botframework.com/.default"},
+			"scope":         []string{"https://handler.botframework.com/.default"},
 		}.Encode()),
 	}, "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token")
+
+	hand.logger.Printf("RetrieveJWT", "", err, "attempted to renew JWT")
 	if err != nil {
-		return
+		return MicrosoftBotJwt{}, err
 	}
-	if err = json.Unmarshal(httpResp.Body, &jwt); err != nil {
-		return
+	if err = json.Unmarshal(httpResp.Body, &hand.latestJWT); err != nil {
+		return MicrosoftBotJwt{}, err
 	}
-	// Exact time of expiry is simply time now + validity in seconds (ExpiresIn)
-	jwt.ExpiresAt = time.Now().Add(time.Duration(jwt.ExpiresIn) * time.Second)
-	return
+	// Exact time of expiry is simply time now + validity in seconds (ExpiresIn). Leave a second of buffer just in case.
+	hand.latestJWT.ExpiresAt = time.Now().Add(time.Duration(hand.latestJWT.ExpiresIn-1) * time.Second)
+	hand.logger.Printf("RetrieveJWT", "", err, "successfully renewed JWT")
+	return hand.latestJWT, nil
 }
 
 // MicrosoftBotIncomingConversation is the construct of property "conversation" of MicrosoftBotIncomingChat.
@@ -93,92 +113,80 @@ type MicrosoftBotReply struct {
 	Text         string                           `json:"text"`         // Text is the bot's response text.
 }
 
-func (hand *HandleMicrosoftBot) MakeHandler(logger misc.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
-	hand.latestJwtMutex = new(sync.Mutex)
-	fun := func(w http.ResponseWriter, r *http.Request) {
-		// Deserialise chat message from incoming request
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			logger.Warningf("HandleMicrosoftBot", "", err, "failed to read incoming chat HTTP request")
-			http.Error(w, "failed to read request body", http.StatusBadRequest)
-			return
-		}
-		var incoming MicrosoftBotIncomingChat
-		if err := json.Unmarshal(body, &incoming); err != nil {
-			logger.Warningf("HandleMicrosoftBot", "", err, "failed to interpret incoming chat request as JSON")
-			http.Error(w, "failed to read request body in JSON", http.StatusBadRequest)
-			return
-		}
-		// In the background, process the chat message and formulate a response.
-		go func() {
-			// If JWT has not been acquired or is outdated, request a new one.
-			var jwtCopy MicrosoftBotJwt
-			hand.latestJwtMutex.Lock()
-			if hand.latestJWT.AccessToken == "" || time.Now().After(hand.latestJWT.ExpiresAt) {
-				jwt, err := hand.RetrieveJWT()
-				logger.Printf("HandleMicrosoftBot", "", err, "attempted to renew JWT")
-				if err != nil {
-					return
-				}
-				// Remember the latest valid JWT for consecutive chat responses
-				hand.latestJWT = jwt
-				jwtCopy = jwt
-			} else {
-				jwtCopy = hand.latestJWT
-			}
-			hand.latestJwtMutex.Unlock()
-
-			// Sometimes a chat app establishes a conversation without any content, just ignore it.
-			if incoming.Text == "" {
-				return
-			}
-
-			// Only process an incoming message if it arrived after server started up
-			messageTime, err := time.ParseInLocation("2006-01-02T15:04:05.999999999Z", incoming.Timestamp, time.UTC)
-			if err != nil {
-				logger.Warningf("HandleMicrosoftBot", "", err, "failed to parse timestamp \"%s\" from incoming message", incoming.Timestamp)
-				return
-			}
-			if !messageTime.After(misc.StartupTime.UTC()) {
-				logger.Warningf("HandleMicrosoftBot", "", err, "ignoring message \"%s\" that arrived before server started up", incoming.Text)
-				return
-			}
-
-			// Process feature command from incoming chat text
-			result := cmdProc.Process(toolbox.Command{TimeoutSec: MicrosoftBotCommandTimeoutSec, Content: incoming.Text})
-
-			// Most of the reply properties are directly copied from incoming request
-			var reply MicrosoftBotReply
-			reply.Conversation = incoming.Conversation
-			reply.From = incoming.Recipient
-			reply.Locale = incoming.Locale
-			reply.Recipient = incoming.From
-			reply.ReplyToId = incoming.ID
-			reply.Type = "message"
-			reply.Text = result.CombinedOutput
-			replyBody, err := json.Marshal(reply)
-			if err != nil {
-				logger.Warningf("HandleMicrosoftBot", "", err, "failed to serialise chat reply")
-				return
-			}
-			// Send away the reply
-			_, err = inet.DoHTTP(inet.HTTPRequest{
-				Method:      http.MethodPost,
-				ContentType: "application/json",
-				TimeoutSec:  MicrosoftBotAPITimeoutSec,
-				Header:      http.Header{"Authorization": []string{"Bearer " + jwtCopy.AccessToken}},
-				Body:        bytes.NewReader(replyBody),
-			}, incoming.ServiceURL+"/v3/conversations/%s/activities/%s", incoming.Conversation.ID, incoming.ID)
-			if err != nil {
-				logger.Warningf("HandleMicrosoftBot", "", err, "failed to send chat reply")
-				return
-			}
-		}()
-
+func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
+	// Deserialise chat message from incoming request
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		hand.logger.Warningf("HandleMicrosoftBot", "", err, "failed to read incoming chat HTTP request")
+		http.Error(w, "failed to read request body", http.StatusBadRequest)
+		return
 	}
-	return fun, nil
+	var incoming MicrosoftBotIncomingChat
+	if err := json.Unmarshal(body, &incoming); err != nil {
+		hand.logger.Warningf("HandleMicrosoftBot", "", err, "failed to interpret incoming chat request as JSON")
+		http.Error(w, "failed to read request body in JSON", http.StatusBadRequest)
+		return
+	}
+	// In the background, process the chat message and formulate a response.
+	go func() {
+		// If JWT has not been acquired or is outdated, request a new one.
+		var jwtCopy MicrosoftBotJwt
+
+		// Sometimes a chat app establishes a conversation without any content, just ignore it.
+		if incoming.Text == "" {
+			return
+		}
+
+		// Only process an incoming message if it arrived after server started up
+		messageTime, err := time.ParseInLocation("2006-01-02T15:04:05.999999999Z", incoming.Timestamp, time.UTC)
+		if err != nil {
+			hand.logger.Warningf("HandleMicrosoftBot", "", err, "failed to parse timestamp \"%s\" from incoming message", incoming.Timestamp)
+			return
+		}
+		if !messageTime.After(misc.StartupTime.UTC()) {
+			hand.logger.Warningf("HandleMicrosoftBot", "", err, "ignoring message from \"%s\" that arrived before server started up", incoming.ServiceURL)
+			return
+		}
+
+		// Process feature command from incoming chat text
+		result := hand.cmdProc.Process(toolbox.Command{TimeoutSec: MicrosoftBotCommandTimeoutSec, Content: incoming.Text})
+
+		// Most of the reply properties are directly copied from incoming request
+		var reply MicrosoftBotReply
+		reply.Conversation = incoming.Conversation
+		reply.From = incoming.Recipient
+		reply.Locale = incoming.Locale
+		reply.Recipient = incoming.From
+		reply.ReplyToId = incoming.ID
+		reply.Type = "message"
+		reply.Text = result.CombinedOutput
+		replyBody, err := json.Marshal(reply)
+		if err != nil {
+			hand.logger.Warningf("HandleMicrosoftBot", "", err, "failed to serialise chat reply")
+			return
+		}
+		// Send away the reply
+		_, err = inet.DoHTTP(inet.HTTPRequest{
+			Method:      http.MethodPost,
+			ContentType: "application/json",
+			TimeoutSec:  MicrosoftBotAPITimeoutSec,
+			Header:      http.Header{"Authorization": []string{"Bearer " + jwtCopy.AccessToken}},
+			Body:        bytes.NewReader(replyBody),
+		}, incoming.ServiceURL+"/v3/conversations/%s/activities/%s", incoming.Conversation.ID, incoming.ID)
+		if err != nil {
+			hand.logger.Warningf("HandleMicrosoftBot", "", err, "failed to send chat reply")
+			return
+		}
+	}()
 }
 
 func (hand *HandleMicrosoftBot) GetRateLimitFactor() int {
-	return 1
+	return 5
+}
+
+func (hand *HandleMicrosoftBot) SelfTest() error {
+	if _, err := hand.RetrieveJWT(); err != nil {
+		return fmt.Errorf("HandleMicrosoftBot encountered error: %v", err)
+	}
+	return nil
 }

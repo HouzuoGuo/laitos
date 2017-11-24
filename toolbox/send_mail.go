@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
-	"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -40,11 +39,9 @@ func (email *SendMail) SelfTest() error {
 	if !email.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", email.MailClient.MTAHost, email.MailClient.MTAPort), SelfTestTimeoutSec*time.Second)
-	if err != nil {
-		return err
+	if err := email.MailClient.SelfTest(); err != nil {
+		return fmt.Errorf("SendMail.SelfTest: mail client error - %v", err)
 	}
-	conn.Close()
 	return nil
 }
 

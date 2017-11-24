@@ -1,4 +1,4 @@
-package api
+package handler
 
 import (
 	"errors"
@@ -43,39 +43,50 @@ const HandleMailMePage = `<!doctype html>
 type HandleMailMe struct {
 	Recipients []string        `json:"Recipients"` // Recipients of these mail messages
 	MailClient inet.MailClient `json:"-"`
+
+	logger misc.Logger
 }
 
-func (mm *HandleMailMe) MakeHandler(logger misc.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
+func (mm *HandleMailMe) Initialise(logger misc.Logger, _ *common.CommandProcessor) error {
+	mm.logger = logger
 	if mm.Recipients == nil || len(mm.Recipients) == 0 || !mm.MailClient.IsConfigured() {
-		return nil, errors.New("HandleMailMe.MakeHandler: recipient list is empty or mailer is not configured")
+		return errors.New("HandleMailMe.Initialise: recipient list is empty or mailer is not configured")
 	}
-	fun := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		NoCache(w)
-		if !WarnIfNoHTTPS(r, w) {
-			return
-		}
-		if r.Method == http.MethodGet {
-			// Render the page
+	return nil
+}
+
+func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	NoCache(w)
+	if !WarnIfNoHTTPS(r, w) {
+		return
+	}
+	if r.Method == http.MethodGet {
+		// Render the page
+		w.Write([]byte(fmt.Sprintf(HandleMailMePage, "")))
+	} else if r.Method == http.MethodPost {
+		// Retrieve message and deliver it
+		if msg := r.FormValue("msg"); msg == "" {
 			w.Write([]byte(fmt.Sprintf(HandleMailMePage, "")))
-		} else if r.Method == http.MethodPost {
-			// Retrieve message and deliver it
-			if msg := r.FormValue("msg"); msg == "" {
-				w.Write([]byte(fmt.Sprintf(HandleMailMePage, "")))
+		} else {
+			prompt := "出问题了，发不出去。"
+			if err := mm.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
+				prompt = "发出去了。可以接着写。"
 			} else {
-				prompt := "出问题了，发不出去。"
-				if err := mm.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
-					prompt = "发出去了。可以接着写。"
-				} else {
-					logger.Warningf("HandleMailMe", r.RemoteAddr, err, "failed to deliver mail")
-				}
-				w.Write([]byte(fmt.Sprintf(HandleMailMePage, prompt)))
+				mm.logger.Warningf("HandleMailMe", r.RemoteAddr, err, "failed to deliver mail")
 			}
+			w.Write([]byte(fmt.Sprintf(HandleMailMePage, prompt)))
 		}
 	}
-	return fun, nil
 }
 
 func (mm *HandleMailMe) GetRateLimitFactor() int {
 	return 1
+}
+
+func (mm *HandleMailMe) SelfTest() error {
+	if err := mm.MailClient.SelfTest(); err != nil {
+		return fmt.Errorf("HandleMailMe encountered a mail client error - %v", err)
+	}
+	return nil
 }

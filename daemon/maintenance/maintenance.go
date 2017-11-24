@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/api"
+	"github.com/HouzuoGuo/laitos/daemon/httpd"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
@@ -48,11 +49,12 @@ type Daemon struct {
 		IntervalSec determines the rate of execution of maintenance routine. This is not a sleep duration. The constant
 		rate of execution is maintained by taking away routine's elapsed time from actual interval between runs.
 	*/
-	IntervalSec        int                    `json:"IntervalSec"`
-	MailClient         inet.MailClient        `json:"MailClient"` // Send notification mails via this mailer
-	Recipients         []string               `json:"Recipients"` // Address of recipients of notification mails
-	FeaturesToCheck    *toolbox.FeatureSet    `json:"-"`          // Health check subject - features and their API keys
-	CheckMailCmdRunner *mailcmd.CommandRunner `json:"-"`          // Health check subject - mail processor and its mailer
+	IntervalSec         int                     `json:"IntervalSec"`
+	MailClient          inet.MailClient         `json:"MailClient"` // Send notification mails via this mailer
+	Recipients          []string                `json:"Recipients"` // Address of recipients of notification mails
+	FeaturesToTest      *toolbox.FeatureSet     `json:"-"`          // FeaturesToTest are toolbox features to be tested during health check.
+	MailCmdRunnerToTest *mailcmd.CommandRunner  `json:"-"`          // MailCmdRunnerToTest is mail command runner to be tested during health check.
+	HTTPHandlersToCheck httpd.HandlerCollection `json:"-"`          // HTTPHandlersToCheck are the URL handlers of an HTTP daemon to be tested during health check.
 
 	loopIsRunning int32     // Value is 1 only when maintenance loop is running
 	stop          chan bool // Signal maintenance loop to stop
@@ -61,7 +63,7 @@ type Daemon struct {
 
 /*
 GetLatestStats returns statistic information from all front-end daemons, each on their own line.
-Due to inevitable cyclic import, this function is defined twice, once in api.go of api package, the other in
+Due to inevitable cyclic import, this function is defined twice, once in handler.go of handler package, the other in
 maintenance.go of maintenance package.
 */
 func GetLatestStats() string {
@@ -78,7 +80,7 @@ Telegram commands:    %s
 `,
 		common.DurationStats.Format(factor, numDecimals),
 		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
-		api.DurationStats.Format(factor, numDecimals),
+		handler.DurationStats.Format(factor, numDecimals),
 		mailcmd.DurationStats.Format(factor, numDecimals),
 		plainsocket.TCPDurationStats.Format(factor, numDecimals), plainsocket.UDPDurationStats.Format(factor, numDecimals),
 		smtpd.DurationStats.Format(factor, numDecimals),
@@ -88,6 +90,10 @@ Telegram commands:    %s
 
 // runPortsCheck knocks on TCP ports that are to be checked in parallel, it returns an error if any of the ports fails to connect.
 func (daemon *Daemon) runPortsCheck() error {
+	if daemon.CheckTCPPorts == nil {
+		return nil
+	}
+
 	portErrs := make([]string, 0, 0)
 	portErrsMutex := new(sync.Mutex)
 	wait := new(sync.WaitGroup)
@@ -129,33 +135,41 @@ func (daemon *Daemon) Execute() (string, bool) {
 	daemon.logger.Printf("Execute", "", nil, "running now")
 	// Conduct system maintenance first to ensure an accurate reading of runtime information later on
 	maintResult := daemon.SystemMaintenance()
-	// Do three checks in parallel - ports, features, and mail command runner
-	var featureErrs map[toolbox.Trigger]error
-	var mailCmdRunnerErr error
-	var portsErr error
+	// Do three checks in parallel - ports, toolbox features, and mail command runner
+	var portsErr, featureErr, mailCmdRunnerErr, httpHandlersErr error
 	waitAllChecks := new(sync.WaitGroup)
-	waitAllChecks.Add(3) // will wait for port checks, feature tests, and mail command runner tests.
+	waitAllChecks.Add(4) // will wait for port checks, feature tests, mail command runner, and HTTP handler tests.
 	go func() {
 		// Port checks - the routine itself also uses concurrency internally
 		portsErr = daemon.runPortsCheck()
 		waitAllChecks.Done()
 	}()
 	go func() {
-		// Feature self test - the routine itself also uses concurrency internally
-		featureErrs = daemon.FeaturesToCheck.SelfTest()
+		// Toolbox feature self test - the routine itself also uses concurrency internally
+		if daemon.FeaturesToTest != nil {
+			featureErr = daemon.FeaturesToTest.SelfTest()
+		}
 		waitAllChecks.Done()
 	}()
 	go func() {
 		// Mail command runner test - the routine itself also uses concurrency internally
-		if daemon.CheckMailCmdRunner != nil {
-			mailCmdRunnerErr = daemon.CheckMailCmdRunner.SelfTest()
+		if daemon.MailCmdRunnerToTest != nil {
+			mailCmdRunnerErr = daemon.MailCmdRunnerToTest.SelfTest()
 		}
 		waitAllChecks.Done()
 	}()
+	go func() {
+		// HTTP special handler test - the routine itself also uses concurrency internally
+		if daemon.HTTPHandlersToCheck != nil {
+			httpHandlersErr = daemon.HTTPHandlersToCheck.SelfTest()
+		}
+		waitAllChecks.Done()
+	}()
+
 	waitAllChecks.Wait()
 
 	// Results are ready, time to compose mail body.
-	allOK := len(featureErrs) == 0 && portsErr == nil && mailCmdRunnerErr == nil
+	allOK := portsErr == nil && featureErr == nil && mailCmdRunnerErr == nil && httpHandlersErr == nil
 	var result bytes.Buffer
 	if allOK {
 		result.WriteString("All OK\n")
@@ -167,25 +181,26 @@ func (daemon *Daemon) Execute() (string, bool) {
 	// Latest stats
 	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
 	result.WriteString(GetLatestStats())
-	// Port check results
+	// Self test results
 	if portsErr == nil {
 		result.WriteString("\nPorts: OK\n")
 	} else {
 		result.WriteString(fmt.Sprintf("\nPort errors: %v\n", portsErr))
 	}
-	// Feature check results
-	if len(featureErrs) == 0 {
+	if featureErr == nil {
 		result.WriteString("\nFeatures: OK\n")
 	} else {
-		for trigger, err := range featureErrs {
-			result.WriteString(fmt.Sprintf("\nFeatures %s: %+v\n", trigger, err))
-		}
+		result.WriteString(fmt.Sprintf("\nFeature errors: %v\n", featureErr))
 	}
-	// Mail command runner check results
 	if mailCmdRunnerErr == nil {
 		result.WriteString("\nMail processor: OK\n")
 	} else {
-		result.WriteString(fmt.Sprintf("\nMail processor: %v\n", mailCmdRunnerErr))
+		result.WriteString(fmt.Sprintf("\nMail processor errors: %v\n", mailCmdRunnerErr))
+	}
+	if httpHandlersErr == nil {
+		result.WriteString("\nHTTP handlers: OK\n")
+	} else {
+		result.WriteString(fmt.Sprintf("\nHTTP handlers errors: %v\n", httpHandlersErr))
 	}
 	// Maintenance results, warnings, logs, and stack traces, in that order.
 	result.WriteString("\nSystem maintenance:\n")
@@ -293,12 +308,8 @@ func (daemon *Daemon) SystemMaintenance() string {
 			break
 		}
 	}
-	if pkgManagerName == "" {
-		ret.WriteString("--- Cannot find a compatible package manager, abort.\n")
-		return ret.String()
-	} else {
-		fmt.Fprintf(ret, "--- Package manage is %v\n", pkgManagerPath)
-	}
+	daemon.logger.Printf("SystemMaintenance", "", nil, "package manager is \"%s\"", pkgManagerPath)
+	fmt.Fprintf(ret, "--- Package manage is \"%v\"\n", pkgManagerPath)
 	// Let package manager program inherit my environment variables, $PATH is especially important for apt.
 	myEnv := os.Environ()
 	pkgManagerEnv := make([]string, len(myEnv))
@@ -330,78 +341,81 @@ func (daemon *Daemon) SystemMaintenance() string {
 		sysUpgradeArgs = []string{"--non-interactive", "update", "--recommends", "--auto-agree-with-licenses", "--skip-interactive", "--replacefiles", "--force-resolution"}
 		installArgs = []string{"--non-interactive", "install", "--recommends", "--auto-agree-with-licenses", "--replacefiles", "--force-resolution"}
 	default:
-		fmt.Fprintf(ret, "--- Programming error: missing case for package manager %s\n", pkgManagerName)
-		return ret.String()
+		fmt.Fprintf(ret, "--- Will not install system software: missing implementation for package manager %s\n", pkgManagerName)
 	}
-	// If package manager output contains any of the strings, the output is reduced into "Nothing to do"
-	suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
-	// Upgrade system packages with a time constraint of two hours
-	ret.WriteString("--- Upgrading system packages...\n")
-	daemon.logger.Printf("SystemMaintenance", "", nil, "updating system packages")
-	result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
-	daemon.logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
-	for _, marker := range suppressOutputMarkers {
-		// If nothing was done during system update, suppress the rather useless output.
-		if strings.Contains(result, marker) {
-			result = "Nothing to do"
-			break
-		}
-	}
-	fmt.Fprintf(ret, "--- System upgrade result: %v - %s\n\n", err, strings.TrimSpace(result))
-	/*
-		Install additional software packages.
-		laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
-		several utility applications to help out with system maintenance.
-		Several of the package names are repeated under different names to accommodate the differences in naming convention
-		among distributions.
-	*/
-	pkgs := []string{
-		// Soft and hard dependencies of phantomJS
-		"bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dejavu-fonts-common",
-		"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "fontconfig", "fontconfig-config", "fontpackages-filesystem",
-		"fonts-arphic-ukai", "fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "freetype",
-		"intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libbz2-1", "libbz2-1.0",
-		"liberation2-fonts", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
-		"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libpng", "libpng16-16", "libXfont", "xorg-x11-fonts-Type1",
-		"xorg-x11-font-utils", "zlib", "zlib1g",
-
-		// Utility applications for time maintenance
-		"chrony", "ntp", "ntpd", "ntpdate",
-		// Utility applications for maintaining application zip bundle
-		"unzip", "zip",
-		// Utility applications for conducting network diagnosis
-		"nc", "net-tools", "netcat", "nmap", "traceroute", "whois",
-		// busybox is useful for general maintenance and it can synchronise clock as well
-		"busybox",
-	}
-	/*
-		Although all three package managers can install more than one packages at a time, the packages are still
-		installed one after another, because:
-		- apt-get does not ignore non-existent package names, how inconvenient.
-		- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
-		yum is once again the superior solution among all three.
-	*/
-	for _, name := range pkgs {
-		// Put software name next to installation parameters
-		pkgInstallArgs := make([]string, len(installArgs)+1)
-		copy(pkgInstallArgs, installArgs)
-		pkgInstallArgs[len(installArgs)] = name
-		fmt.Fprintf(ret, "--- Installing/upgrading %s\n", name)
-		// Five minutes should be good enough for every package
-		daemon.logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
-		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, pkgInstallArgs...)
-		daemon.logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
+	if pkgManagerName != "" {
+		// The system package manager is known to laitos
+		// If package manager output contains any of the strings, the output is reduced into "Nothing to do"
+		suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
+		// Upgrade system packages with a time constraint of two hours
+		ret.WriteString("--- Upgrading system packages...\n")
+		daemon.logger.Printf("SystemMaintenance", "", nil, "updating system packages")
+		result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
+		daemon.logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
 		for _, marker := range suppressOutputMarkers {
-			// If nothing was done about the package, suppress the rather useless output.
+			// If nothing was done during system update, suppress the rather useless output.
 			if strings.Contains(result, marker) {
-				result = "Nothing to do"
+				result = "skipped"
 				break
 			}
 		}
-		fmt.Fprintf(ret, "--- %s installation/upgrade result: %v - %s\n\n", name, err, strings.TrimSpace(result))
+		fmt.Fprintf(ret, "--- System upgrade result: %v - %s\n\n", err, strings.TrimSpace(result))
+		/*
+			Install additional software packages.
+			laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
+			several utility applications to help out with system maintenance.
+			Several of the package names are repeated under different names to accommodate the differences in naming convention
+			among distributions.
+		*/
+		pkgs := []string{
+			// Soft and hard dependencies of phantomJS
+			"bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dejavu-fonts-common",
+			"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "fontconfig", "fontconfig-config", "fontpackages-filesystem",
+			"fonts-arphic-ukai", "fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "freetype",
+			"intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libbz2-1", "libbz2-1.0",
+			"liberation2-fonts", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
+			"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libpng", "libpng16-16", "libXfont", "xorg-x11-fonts-Type1",
+			"xorg-x11-font-utils", "zlib", "zlib1g",
+
+			// Utility applications for time maintenance
+			"chrony", "ntp", "ntpd", "ntpdate",
+			// Utility applications for maintaining application zip bundle
+			"unzip", "zip",
+			// Utility applications for conducting network diagnosis
+			"nc", "net-tools", "netcat", "nmap", "traceroute", "whois",
+			// busybox is useful for general maintenance and it can synchronise clock as well
+			"busybox",
+		}
+		/*
+			Although all three package managers can install more than one packages at a time, the packages are still
+			installed one after another, because:
+			- apt-get does not ignore non-existent package names, how inconvenient.
+			- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
+			yum is once again the superior solution among all three.
+		*/
+		for _, name := range pkgs {
+			// Put software name next to installation parameters
+			pkgInstallArgs := make([]string, len(installArgs)+1)
+			copy(pkgInstallArgs, installArgs)
+			pkgInstallArgs[len(installArgs)] = name
+			fmt.Fprintf(ret, "--- Installing/upgrading %s\n", name)
+			// Five minutes should be good enough for every package
+			daemon.logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
+			result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, pkgInstallArgs...)
+			daemon.logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
+			for _, marker := range suppressOutputMarkers {
+				// If nothing was done about the package, suppress the rather useless output.
+				if strings.Contains(result, marker) {
+					result = "Nothing to do"
+					break
+				}
+			}
+			fmt.Fprintf(ret, "--- %s installation/upgrade result: %v - %s\n\n", name, err, strings.TrimSpace(result))
+		}
 	}
+
 	// Use three tools to immediately synchronise system clock
-	result, err = misc.InvokeProgram(nil, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
+	result, err := misc.InvokeProgram(nil, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
 	fmt.Fprintf(ret, "--- clock synchronisation result (ntpdate): %v - %s\n\n", err, strings.TrimSpace(result))
 	result, err = misc.InvokeProgram(nil, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
 	fmt.Fprintf(ret, "--- clock synchronisation result (chronyd): %v - %s\n\n", err, strings.TrimSpace(result))
@@ -425,13 +439,13 @@ func (daemon *Daemon) SystemMaintenance() string {
 
 // Run unit tests on the maintenance daemon. See TestMaintenance_Execute for daemon setup.
 func TestMaintenance(check *Daemon, t testingstub.T) {
-	// Hopefully nothing is listening on that port
+	// Make sure maintenance is checking the ports and reporting their errors
 	check.CheckTCPPorts = map[string][]int{"localhost": {11334}}
-	// If it fails, the failure could only come from mailer of mail processor.
 	if result, ok := check.Execute(); ok || !strings.Contains(result, "Port errors") {
 		t.Fatal(result)
 	}
-	// Listen on the port and test port knocking along with other checks
+
+	// Correct port check errors and continue
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -449,11 +463,11 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 		t.Fatal(result)
 	}
 	// Break a feature
-	check.FeaturesToCheck.LookupByTrigger[".s"] = &toolbox.Shell{}
+	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{}
 	if result, ok := check.Execute(); ok || !strings.Contains(result, ".s") {
 		t.Fatal(result)
 	}
-	check.FeaturesToCheck.LookupByTrigger[".s"] = &toolbox.Shell{InterpreterPath: "/bin/bash"}
+	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{InterpreterPath: "/bin/bash"}
 	// Expect checks to begin within a second
 	if err := check.Initialise(); err != nil {
 		t.Fatal(err)

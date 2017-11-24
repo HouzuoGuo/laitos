@@ -1,4 +1,4 @@
-package api
+package handler
 
 import (
 	"encoding/json"
@@ -46,6 +46,13 @@ type HandleGitlabBrowser struct {
 	Projects     map[string]string `json:"Projects"`     // Project shortcut name VS "gitlab project ID"
 	Recipients   []string          `json:"Recipients"`   // Recipients of notification emails
 	MailClient   inet.MailClient   `json:"-"`            // MTA that delivers file download notification email
+
+	logger misc.Logger
+}
+
+func (lab *HandleGitlabBrowser) Initialise(logger misc.Logger, _ *common.CommandProcessor) error {
+	lab.logger = logger
+	return nil
 }
 
 // An element of gitlab API "/repository/tree" response array.
@@ -60,7 +67,7 @@ type GitlabTreeObject struct {
 Call gitlab API to find out what directories and files are located under that path.
 Directory names come with suffix forward-slash.
 */
-func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string) (dirs []string, fileNameID map[string]string, err error) {
+func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string, maxEntries int) (dirs []string, fileNameID map[string]string, err error) {
 	/*
 		If there is a leading slash when browsing a directory, the result will definitely be empty. The user most likely
 		wants to browse the directory's file list, therefore get rid of the leading slash.
@@ -74,7 +81,7 @@ func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string) (
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
-	}, "https://gitlab.com/api/v4/projects/%s/repository/tree?ref=master&recursive=false&per_page=%s&path=%s", projectID, GitlabMaxObjects, paths)
+	}, "https://gitlab.com/handler/v4/projects/%s/repository/tree?ref=master&recursive=false&per_page=%s&path=%s", projectID, maxEntries, paths)
 	if err != nil {
 		return
 	} else if err = resp.Non2xxToError(); err != nil {
@@ -96,11 +103,11 @@ func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string) (
 }
 
 // Call gitlab API to download a file form git project.
-func (lab *HandleGitlabBrowser) DownloadGitBlob(logger misc.Logger, clientIP, projectID string, paths string, fileName string) (content []byte, err error) {
+func (lab *HandleGitlabBrowser) DownloadGitBlob(clientIP, projectID string, paths string, fileName string) (content []byte, err error) {
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
-	}, "https://gitlab.com/api/v4/projects/%s/repository/files/%s/raw?ref=master", projectID, path.Join(paths, fileName))
+	}, "https://gitlab.com/handler/v4/projects/%s/repository/files/%s/raw?ref=master", projectID, path.Join(paths, fileName))
 	if err != nil {
 		return
 	} else if err = resp.Non2xxToError(); err != nil {
@@ -111,74 +118,84 @@ func (lab *HandleGitlabBrowser) DownloadGitBlob(logger misc.Logger, clientIP, pr
 		go func() {
 			subject := inet.OutgoingMailSubjectKeyword + "-gitlab-download-" + fileName
 			if err := lab.MailClient.Send(subject, fmt.Sprintf("File \"%s\" has been downloaded by %s", paths+fileName, clientIP), lab.Recipients...); err != nil {
-				logger.Warningf("DownloadGitBlob", "", err, "failed to send notification for file \"%s\"", fileName)
+				lab.logger.Warningf("DownloadGitBlob", "", err, "failed to send notification for file \"%s\"", fileName)
 			}
 		}()
 	}
 	return
 }
 
-func (lab *HandleGitlabBrowser) MakeHandler(logger misc.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
-	fun := func(w http.ResponseWriter, r *http.Request) {
-		shortcutName := strings.TrimSpace(r.FormValue("shortcut"))
-		browsePath := r.FormValue("path")
-		fileName := strings.TrimSpace(r.FormValue("file"))
-		submitAction := r.FormValue("submit")
+func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
+	shortcutName := strings.TrimSpace(r.FormValue("shortcut"))
+	browsePath := r.FormValue("path")
+	fileName := strings.TrimSpace(r.FormValue("file"))
+	submitAction := r.FormValue("submit")
 
-		NoCache(w)
-		if !WarnIfNoHTTPS(r, w) {
+	NoCache(w)
+	if !WarnIfNoHTTPS(r, w) {
+		return
+	}
+	switch submitAction {
+	case "Go":
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		projectID, found := lab.Projects[shortcutName]
+		if !found {
+			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 			return
 		}
-		switch submitAction {
-		case "Go":
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			projectID, found := lab.Projects[shortcutName]
-			if !found {
-				w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
-				return
-			}
-			dirs, fileNames, err := lab.ListGitObjects(projectID, browsePath)
-			if err != nil {
-				w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "Error: "+err.Error())))
-				return
-			}
-			// Directory names are already sorted
-			contentList := strings.Join(dirs, "\n")
-			// Sort file names
-			sortedFiles := make([]string, 0, len(fileNames))
-			for fileName := range fileNames {
-				sortedFiles = append(sortedFiles, fileName)
-			}
-			sort.Strings(sortedFiles)
-			contentList += "\n\n"
-			for _, fileName := range sortedFiles {
-				contentList += fmt.Sprintf("%s\n", fileName)
-			}
-			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, contentList)))
-		case "Download":
-			projectID, found := lab.Projects[shortcutName]
-			if !found {
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
-				return
-			}
-			content, err := lab.DownloadGitBlob(logger, GetRealClientIP(r), projectID, browsePath, fileName)
-			if err != nil {
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "Error: "+err.Error())))
-				return
-			}
-			w.Header().Set("Content-Type", "application/octet-stream")
-			w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
-			w.Write(content)
-		default:
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "Enter path to browse or blob ID to download")))
+		dirs, fileNames, err := lab.ListGitObjects(projectID, browsePath, GitlabMaxObjects)
+		if err != nil {
+			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "Error: "+err.Error())))
+			return
 		}
+		// Directory names are already sorted
+		contentList := strings.Join(dirs, "\n")
+		// Sort file names
+		sortedFiles := make([]string, 0, len(fileNames))
+		for fileName := range fileNames {
+			sortedFiles = append(sortedFiles, fileName)
+		}
+		sort.Strings(sortedFiles)
+		contentList += "\n\n"
+		for _, fileName := range sortedFiles {
+			contentList += fmt.Sprintf("%s\n", fileName)
+		}
+		w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, contentList)))
+	case "Download":
+		projectID, found := lab.Projects[shortcutName]
+		if !found {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
+			return
+		}
+		content, err := lab.DownloadGitBlob(GetRealClientIP(r), projectID, browsePath, fileName)
+		if err != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "Error: "+err.Error())))
+			return
+		}
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+		w.Write(content)
+	default:
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(fmt.Sprintf(HandleGitlabPage, shortcutName, browsePath, fileName, "Enter path to browse or blob ID to download")))
 	}
-	return fun, nil
 }
 
 func (_ *HandleGitlabBrowser) GetRateLimitFactor() int {
 	return 5
+}
+
+func (lab *HandleGitlabBrowser) SelfTest() error {
+	errs := make([]error, 0, 0)
+	for shortcut, projectID := range lab.Projects {
+		if _, _, err := lab.ListGitObjects(projectID, "/", 3); err != nil {
+			errs = append(errs, fmt.Errorf("project %s(%s) - %v", shortcut, projectID, err))
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return fmt.Errorf("HandleGitlabBrowser encountered errors: %+v", errs)
 }

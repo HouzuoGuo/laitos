@@ -1,4 +1,4 @@
-package api
+package handler
 
 import (
 	"fmt"
@@ -85,6 +85,10 @@ type HandleBrowser struct {
 	Browsers      browser.Instances `json:"Browsers"`
 }
 
+func (remoteBrowser *HandleBrowser) Initialise(misc.Logger, *common.CommandProcessor) error {
+	return remoteBrowser.Browsers.Initialise()
+}
+
 func (remoteBrowser *HandleBrowser) RenderPage(title string,
 	instanceIndex int, instanceTag string,
 	debugOut string,
@@ -103,7 +107,7 @@ func (remoteBrowser *HandleBrowser) RenderPage(title string,
 		remoteBrowser.ImageEndpoint, instanceIndex, instanceTag))
 }
 
-func (remoteBrowser *HandleBrowser) ParseSubmission(r *http.Request) (instanceIndex int, instanceTag string, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
+func (remoteBrowser *HandleBrowser) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
 	instanceIndex, _ = strconv.Atoi(r.FormValue("instance_index"))
 	instanceTag = r.FormValue("instance_tag")
 	viewWidth, _ = strconv.Atoi(r.FormValue("view_width"))
@@ -121,18 +125,33 @@ func (remoteBrowser *HandleBrowser) ParseSubmission(r *http.Request) (instanceIn
 	typeText = r.FormValue("type_text")
 	return
 }
-func (remoteBrowser *HandleBrowser) MakeHandler(logger misc.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
-	if err := remoteBrowser.Browsers.Initialise(); err != nil {
-		return nil, err
+
+func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	NoCache(w)
+	if !WarnIfNoHTTPS(r, w) {
+		return
 	}
-	fun := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		NoCache(w)
-		if !WarnIfNoHTTPS(r, w) {
+	if r.Method == http.MethodGet {
+		// Start a new browser instance
+		index, instance, err := remoteBrowser.Browsers.Acquire()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 			return
 		}
-		if r.Method == http.MethodGet {
-			// Start a new browser instance
+		w.Write(remoteBrowser.RenderPage(
+			"Empty Browser",
+			index, instance.Tag,
+			instance.GetDebugOutput(BrowserDebugOutputLen),
+			BrowserMinWidth, BrowserMinHeight, browser.GoodUserAgent,
+			"https://www.google.com",
+			0, 0,
+			""))
+	} else if r.Method == http.MethodPost {
+		index, tag, viewWidth, viewHeight, userAgent, pageUrl, pointerX, pointerY, typeText := remoteBrowser.parseSubmission(r)
+		instance := remoteBrowser.Browsers.Retrieve(index, tag)
+		if instance == nil {
+			// Old instance is no longer there, so start a new browser instance
 			index, instance, err := remoteBrowser.Browsers.Acquire()
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
@@ -146,141 +165,131 @@ func (remoteBrowser *HandleBrowser) MakeHandler(logger misc.Logger, _ *common.Co
 				"https://www.google.com",
 				0, 0,
 				""))
-		} else if r.Method == http.MethodPost {
-			index, tag, viewWidth, viewHeight, userAgent, pageUrl, pointerX, pointerY, typeText := remoteBrowser.ParseSubmission(r)
-			instance := remoteBrowser.Browsers.Retrieve(index, tag)
-			if instance == nil {
-				// Old instance is no longer there, so start a new browser instance
-				index, instance, err := remoteBrowser.Browsers.Acquire()
-				if err != nil {
-					http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
-					return
-				}
-				w.Write(remoteBrowser.RenderPage(
-					"Empty Browser",
-					index, instance.Tag,
-					instance.GetDebugOutput(BrowserDebugOutputLen),
-					BrowserMinWidth, BrowserMinHeight, browser.GoodUserAgent,
-					"https://www.google.com",
-					0, 0,
-					""))
-				return
-			}
-			// Process action on the retrieved browser instance
-			switch r.FormValue("action") {
-			case "Redraw":
-				// There is no javascript action required here
-			case "Kill All":
-				remoteBrowser.Browsers.KillAll()
-			case "Back":
-				if err := instance.GoBack(); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "Forward":
-				if err := instance.GoForward(); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "Reload":
-				if err := instance.Reload(); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "Go To":
-				if err := instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "Left Click":
-				if err := instance.Pointer(browser.PointerTypeClick, browser.PointerButtonLeft, pointerX, pointerY); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "Right Click":
-				if err := instance.Pointer(browser.PointerTypeClick, browser.PointerButtonRight, pointerX, pointerY); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "Move To":
-				if err := instance.Pointer(browser.PointerTypeMove, browser.PointerButtonLeft, pointerX, pointerY); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "Backspace":
-				if err := instance.SendKey("", browser.KeyCodeBackspace); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "Enter":
-				if err := instance.SendKey("", browser.KeyCodeEnter); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "Type":
-				if err := instance.SendKey(typeText, 0); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			}
-			pageInfo, err := instance.GetPageInfo()
-			if err != nil {
+			return
+		}
+		// Process action on the retrieved browser instance
+		switch r.FormValue("action") {
+		case "Redraw":
+			// There is no javascript action required here
+		case "Kill All":
+			remoteBrowser.Browsers.KillAll()
+		case "Back":
+			if err := instance.GoBack(); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			w.Write(remoteBrowser.RenderPage(
-				pageInfo.Title,
-				index, instance.Tag,
-				instance.GetDebugOutput(BrowserDebugOutputLen),
-				viewWidth, viewHeight,
-				userAgent, pageInfo.URL,
-				pointerX, pointerY,
-				typeText))
+		case "Forward":
+			if err := instance.GoForward(); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "Reload":
+			if err := instance.Reload(); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "Go To":
+			if err := instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "Left Click":
+			if err := instance.Pointer(browser.PointerTypeClick, browser.PointerButtonLeft, pointerX, pointerY); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "Right Click":
+			if err := instance.Pointer(browser.PointerTypeClick, browser.PointerButtonRight, pointerX, pointerY); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "Move To":
+			if err := instance.Pointer(browser.PointerTypeMove, browser.PointerButtonLeft, pointerX, pointerY); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "Backspace":
+			if err := instance.SendKey("", browser.KeyCodeBackspace); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "Enter":
+			if err := instance.SendKey("", browser.KeyCodeEnter); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "Type":
+			if err := instance.SendKey(typeText, 0); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
+		pageInfo, err := instance.GetPageInfo()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(remoteBrowser.RenderPage(
+			pageInfo.Title,
+			index, instance.Tag,
+			instance.GetDebugOutput(BrowserDebugOutputLen),
+			viewWidth, viewHeight,
+			userAgent, pageInfo.URL,
+			pointerX, pointerY,
+			typeText))
 	}
-	return fun, nil
 }
 
-func (remoteBrowser *HandleBrowser) GetRateLimitFactor() int {
+func (_ *HandleBrowser) GetRateLimitFactor() int {
 	return 10
+}
+
+func (_ *HandleBrowser) SelfTest() error {
+	return nil
 }
 
 type HandleBrowserImage struct {
 	Browsers *browser.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
-func (remoteBrowserImage *HandleBrowserImage) MakeHandler(logger misc.Logger, cmdProc *common.CommandProcessor) (http.HandlerFunc, error) {
-	fun := func(w http.ResponseWriter, r *http.Request) {
-		NoCache(w)
-		if !WarnIfNoHTTPS(r, w) {
-			return
-		}
-		index, err := strconv.Atoi(r.FormValue("instance_index"))
-		if err != nil {
-			http.Error(w, "Bad instance_index", http.StatusBadRequest)
-			return
-		}
-		instance := remoteBrowserImage.Browsers.Retrieve(index, r.FormValue("instance_tag"))
-		if instance == nil {
-			http.Error(w, "That browser session expired", http.StatusBadRequest)
-			return
-		}
-		if err := instance.RenderPage(); err != nil {
-			http.Error(w, "Render error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		pngFile, err := ioutil.ReadFile(instance.RenderImagePath)
-		if err != nil {
-			http.Error(w, "File IO error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "image/png")
-		w.Header().Set("Content-Length", strconv.Itoa(len(pngFile)))
-		w.Write(pngFile)
+func (_ *HandleBrowserImage) Initialise(misc.Logger, *common.CommandProcessor) error {
+	return nil
+}
+
+func (remoteBrowserImage *HandleBrowserImage) Handle(w http.ResponseWriter, r *http.Request) {
+	NoCache(w)
+	/*
+		There is no need to call WarnIfNoHTTPS function in this API, because this API is not reachable unless
+		HandleBrowser has already warned the user.
+	*/
+	index, err := strconv.Atoi(r.FormValue("instance_index"))
+	if err != nil {
+		http.Error(w, "Bad instance_index", http.StatusBadRequest)
+		return
 	}
-	return fun, nil
+	instance := remoteBrowserImage.Browsers.Retrieve(index, r.FormValue("instance_tag"))
+	if instance == nil {
+		http.Error(w, "That browser session expired", http.StatusBadRequest)
+		return
+	}
+	if err := instance.RenderPage(); err != nil {
+		http.Error(w, "Render error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	pngFile, err := ioutil.ReadFile(instance.RenderImagePath)
+	if err != nil {
+		http.Error(w, "File IO error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Length", strconv.Itoa(len(pngFile)))
+	w.Write(pngFile)
 }
 
 func (_ *HandleBrowserImage) GetRateLimitFactor() int {
 	return 10
+}
+
+func (_ *HandleBrowserImage) SelfTest() error {
+	return nil
 }

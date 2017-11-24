@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
 	"net/http"
 	"net/url"
@@ -26,9 +27,12 @@ func (fb *Facebook) SelfTest() error {
 	// Validate access token via a simple API call
 	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: SelfTestTimeoutSec}, "https://graph.facebook.com/v2.10/me/feed?access_token=%s", fb.UserAccessToken)
 	if err != nil {
-		return err
+		return fmt.Errorf("Facebook.SelfTest: API IO error - %v", err)
 	}
-	return resp.Non2xxToError()
+	if err = resp.Non2xxToError(); err != nil {
+		return fmt.Errorf("Facebook.SelfTest: API response error - %v", err)
+	}
+	return nil
 }
 
 func (fb *Facebook) Initialise() error {

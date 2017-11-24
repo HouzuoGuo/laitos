@@ -291,12 +291,12 @@ func (imap *IMAPAccounts) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	for name, account := range imap.Accounts {
-		conn, err := account.ConnectLoginSelect()
+		imapConn, err := account.ConnectLoginSelect()
 		if err != nil {
 			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" has connection error - %v", name, err)
 		}
-		defer conn.LogoutDisconnect()
-		if _, err := conn.GetNumberMessages(account.MailboxName); err != nil {
+		defer imapConn.LogoutDisconnect()
+		if _, err := imapConn.GetNumberMessages(account.MailboxName); err != nil {
 			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" test error - %v", name, err)
 		}
 	}

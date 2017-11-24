@@ -17,9 +17,10 @@ func TestMaintenance_Execute(t *testing.T) {
 			MTAHost:  "localhost",
 			MTAPort:  25,
 		},
-		Recipients:         []string{"howard@localhost"},
-		FeaturesToCheck:    features,
-		CheckMailCmdRunner: nil, // deliberately nil
+		Recipients:          []string{"howard@localhost"},
+		FeaturesToTest:      features,
+		MailCmdRunnerToTest: nil, // deliberately nil because it is not involved in this test
+		HTTPHandlersToCheck: nil, // deliberately nil because it is not involved in this test
 	}
 
 	if err := maint.Initialise(); !strings.Contains(err.Error(), "IntervalSec") {
@@ -39,9 +40,10 @@ func TestSystemMaintenance(t *testing.T) {
 			MTAHost:  "localhost",
 			MTAPort:  25,
 		},
-		Recipients:         []string{"howard@localhost"},
-		FeaturesToCheck:    common.GetTestCommandProcessor().Features,
-		CheckMailCmdRunner: nil, // deliberately nil
+		Recipients:          []string{"howard@localhost"},
+		FeaturesToTest:      common.GetTestCommandProcessor().Features,
+		MailCmdRunnerToTest: nil, // deliberately nil because it is not involved in this test
+		HTTPHandlersToCheck: nil, // deliberately nil because it is not involved in this test
 	}
 	ret := maint.SystemMaintenance()
 	// Developer please manually inspect the output

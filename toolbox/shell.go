@@ -2,6 +2,7 @@ package toolbox
 
 import (
 	"errors"
+	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"path"
@@ -20,11 +21,13 @@ func (sh *Shell) IsConfigured() bool {
 
 func (sh *Shell) SelfTest() error {
 	if !sh.IsConfigured() {
-		return errors.New("Incompatible OS")
+		return errors.New("Shell.SelfTest: OS is not compatible")
 	}
 	// The timeout for testing shell is gracious enough to allow disk to spin up from sleep
-	_, err := misc.InvokeShell(10, sh.InterpreterPath, "echo test")
-	return err
+	if _, err := misc.InvokeShell(10, sh.InterpreterPath, "echo test"); err != nil {
+		return fmt.Errorf("Shell.SelfTest: interpreter \"%s\" is not working - %v", sh.InterpreterPath, err)
+	}
+	return nil
 }
 
 func (sh *Shell) Initialise() error {
@@ -46,7 +49,7 @@ func (sh *Shell) Initialise() error {
 	}
 afterShell:
 	if sh.InterpreterPath == "" {
-		return errors.New("Failed to find a working shell interpreter")
+		return errors.New("Shell.Initialise: failed to find a working shell interpreter")
 	}
 	return nil
 }

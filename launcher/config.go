@@ -7,7 +7,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/api"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
@@ -42,37 +42,42 @@ type StandardFilters struct {
 type HTTPHandlers struct {
 	InformationEndpoint string `json:"InformationEndpoint"`
 
-	BrowserEndpoint       string            `json:"BrowserEndpoint"`
-	BrowserEndpointConfig api.HandleBrowser `json:"BrowserEndpointConfig"`
+	BrowserEndpoint       string                `json:"BrowserEndpoint"`
+	BrowserEndpointConfig handler.HandleBrowser `json:"BrowserEndpointConfig"`
 
 	CommandFormEndpoint string `json:"CommandFormEndpoint"`
 
-	GitlabBrowserEndpoint       string                  `json:"GitlabBrowserEndpoint"`
-	GitlabBrowserEndpointConfig api.HandleGitlabBrowser `json:"GitlabBrowserEndpointConfig"`
+	GitlabBrowserEndpoint       string                      `json:"GitlabBrowserEndpoint"`
+	GitlabBrowserEndpointConfig handler.HandleGitlabBrowser `json:"GitlabBrowserEndpointConfig"`
 
-	IndexEndpoints      []string               `json:"IndexEndpoints"`
-	IndexEndpointConfig api.HandleHTMLDocument `json:"IndexEndpointConfig"`
+	IndexEndpoints      []string                   `json:"IndexEndpoints"`
+	IndexEndpointConfig handler.HandleHTMLDocument `json:"IndexEndpointConfig"`
 
-	MailMeEndpoint       string           `json:"MailMeEndpoint"`
-	MailMeEndpointConfig api.HandleMailMe `json:"MailMeEndpointConfig"`
+	MailMeEndpoint       string               `json:"MailMeEndpoint"`
+	MailMeEndpointConfig handler.HandleMailMe `json:"MailMeEndpointConfig"`
 
-	MicrosoftBotEndpoint1       string                 `json:"MicrosoftBotEndpoint1"`
-	MicrosoftBotEndpointConfig1 api.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig1"`
-	MicrosoftBotEndpoint2       string                 `json:"MicrosoftBotEndpoint2"`
-	MicrosoftBotEndpointConfig2 api.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig2"`
-	MicrosoftBotEndpoint3       string                 `json:"MicrosoftBotEndpoint3"`
-	MicrosoftBotEndpointConfig3 api.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig3"`
+	MicrosoftBotEndpoint1       string                     `json:"MicrosoftBotEndpoint1"`
+	MicrosoftBotEndpointConfig1 handler.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig1"`
+	MicrosoftBotEndpoint2       string                     `json:"MicrosoftBotEndpoint2"`
+	MicrosoftBotEndpointConfig2 handler.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig2"`
+	MicrosoftBotEndpoint3       string                     `json:"MicrosoftBotEndpoint3"`
+	MicrosoftBotEndpointConfig3 handler.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig3"`
 
 	WebProxyEndpoint string `json:"WebProxyEndpoint"`
 
-	TwilioSMSEndpoint        string                   `json:"TwilioSMSEndpoint"`
-	TwilioCallEndpoint       string                   `json:"TwilioCallEndpoint"`
-	TwilioCallEndpointConfig api.HandleTwilioCallHook `json:"TwilioCallEndpointConfig"`
+	TwilioSMSEndpoint        string                       `json:"TwilioSMSEndpoint"`
+	TwilioCallEndpoint       string                       `json:"TwilioCallEndpoint"`
+	TwilioCallEndpointConfig handler.HandleTwilioCallHook `json:"TwilioCallEndpointConfig"`
 }
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
 type Config struct {
-	Features   toolbox.FeatureSet `json:"Features"`   // Feature configuration is shared by all services
+	/*
+		Features are toolbox feature instances shared by all daemons and command runners. Avoid duplicating this
+		structure because certain toolbox features (such as AES file decryption) may hold large amount of data in
+		memory. Therefore, all daemon preparation and initialisation routines operate on reference to this FeatureSet.
+	*/
+	Features   toolbox.FeatureSet `json:"Features"`
 	MailClient inet.MailClient    `json:"MailClient"` // MailClient is the common client configuration for sending notification emails and mail command runner results.
 
 	Maintenance maintenance.Daemon `json:"Maintenance"` // Daemon configures behaviour of periodic health-check/system maintenance
@@ -112,6 +117,7 @@ func (config *Config) Initialise() error {
 	if err := config.Features.Initialise(); err != nil {
 		return err
 	}
+	config.logger.Printf("Initialise", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	return nil
 }
 
@@ -143,10 +149,16 @@ func (config Config) GetDNSD() *dnsd.Daemon {
 // GetMaintenance constructs a system maintenance / health check daemon from configuration and return.
 func (config Config) GetMaintenance() *maintenance.Daemon {
 	ret := config.Maintenance
-	ret.FeaturesToCheck = &config.Features
-	// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
-	ret.CheckMailCmdRunner = config.GetMailCommandRunner()
+	ret.FeaturesToTest = &config.Features
 	ret.MailClient = config.MailClient
+	/*
+		Because all daemons should be able to operate independent from each other, the maintenance daemon will operate
+		using copies of involved daemon structures.
+		Daemons are not supposed to self-modify their configuration, therefore the daemon copies should in theory behave
+		much like the live&online ones.
+	*/
+	ret.MailCmdRunnerToTest = config.GetMailCommandRunner()
+	ret.HTTPHandlersToCheck = config.GetHTTPD().HandlerCollection
 	if err := ret.Initialise(); err != nil {
 		config.logger.Fatalf("GetMaintenance", "", err, "failed to initialise")
 		return nil
@@ -158,7 +170,6 @@ func (config Config) GetMaintenance() *maintenance.Daemon {
 func (config Config) GetHTTPD() *httpd.Daemon {
 	ret := config.HTTPDaemon
 
-	config.logger.Printf("GetHTTPD", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &config.Features,
@@ -174,9 +185,9 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		},
 	}
 	// Make handler factories
-	handlers := map[string]api.HandlerFactory{}
+	handlers := httpd.HandlerCollection{}
 	if config.HTTPHandlers.InformationEndpoint != "" {
-		handlers[config.HTTPHandlers.InformationEndpoint] = &api.HandleSystemInfo{
+		handlers[config.HTTPHandlers.InformationEndpoint] = &handler.HandleSystemInfo{
 			FeaturesToCheck: &config.Features,
 			// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
 			CheckMailCmdRunner: config.GetMailCommandRunner(),
@@ -194,7 +205,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 			return nil
 		}
 		// Image handler needs to operate on browser handler's browser instances
-		browserImageHandler := &api.HandleBrowserImage{}
+		browserImageHandler := &handler.HandleBrowserImage{}
 		browserHandler := config.HTTPHandlers.BrowserEndpointConfig
 		imageEndpoint := "/" + hex.EncodeToString(randBytes)
 		handlers[imageEndpoint] = browserImageHandler
@@ -204,7 +215,7 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		handlers[config.HTTPHandlers.BrowserEndpoint] = &browserHandler
 	}
 	if config.HTTPHandlers.CommandFormEndpoint != "" {
-		handlers[config.HTTPHandlers.CommandFormEndpoint] = &api.HandleCommandForm{}
+		handlers[config.HTTPHandlers.CommandFormEndpoint] = &handler.HandleCommandForm{}
 	}
 	if config.HTTPHandlers.GitlabBrowserEndpoint != "" {
 		config.HTTPHandlers.GitlabBrowserEndpointConfig.MailClient = config.MailClient
@@ -216,28 +227,28 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		}
 	}
 	if config.HTTPHandlers.MailMeEndpoint != "" {
-		handler := config.HTTPHandlers.MailMeEndpointConfig
-		handler.MailClient = config.MailClient
-		handlers[config.HTTPHandlers.MailMeEndpoint] = &handler
+		hand := config.HTTPHandlers.MailMeEndpointConfig
+		hand.MailClient = config.MailClient
+		handlers[config.HTTPHandlers.MailMeEndpoint] = &hand
 	}
-	// I (howard) personally need three bots, hence this ugly approach.
+	// I (howard) personally need three bots, hence this ugly repetition.
 	if config.HTTPHandlers.MicrosoftBotEndpoint1 != "" {
-		handler := config.HTTPHandlers.MicrosoftBotEndpointConfig1
-		handlers[config.HTTPHandlers.MicrosoftBotEndpoint1] = &handler
+		hand := config.HTTPHandlers.MicrosoftBotEndpointConfig1
+		handlers[config.HTTPHandlers.MicrosoftBotEndpoint1] = &hand
 	}
 	if config.HTTPHandlers.MicrosoftBotEndpoint2 != "" {
-		handler := config.HTTPHandlers.MicrosoftBotEndpointConfig2
-		handlers[config.HTTPHandlers.MicrosoftBotEndpoint2] = &handler
+		hand := config.HTTPHandlers.MicrosoftBotEndpointConfig2
+		handlers[config.HTTPHandlers.MicrosoftBotEndpoint2] = &hand
 	}
 	if config.HTTPHandlers.MicrosoftBotEndpoint3 != "" {
-		handler := config.HTTPHandlers.MicrosoftBotEndpointConfig3
-		handlers[config.HTTPHandlers.MicrosoftBotEndpoint3] = &handler
+		hand := config.HTTPHandlers.MicrosoftBotEndpointConfig3
+		handlers[config.HTTPHandlers.MicrosoftBotEndpoint3] = &hand
 	}
 	if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
-		handlers[proxyEndpoint] = &api.HandleWebProxy{MyEndpoint: proxyEndpoint}
+		handlers[proxyEndpoint] = &handler.HandleWebProxy{OwnEndpoint: proxyEndpoint}
 	}
 	if config.HTTPHandlers.TwilioSMSEndpoint != "" {
-		handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &api.HandleTwilioSMSHook{}
+		handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &handler.HandleTwilioSMSHook{}
 	}
 	if config.HTTPHandlers.TwilioCallEndpoint != "" {
 		/*
@@ -257,9 +268,9 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		callEndpointConfig.CallbackEndpoint = callbackEndpoint
 		handlers[config.HTTPHandlers.TwilioCallEndpoint] = &callEndpointConfig
 		// The callback handler will use the callback point that points to itself to carry on with phone conversation
-		handlers[callbackEndpoint] = &api.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
+		handlers[callbackEndpoint] = &handler.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
 	}
-	ret.SpecialHandlers = handlers
+	ret.HandlerCollection = handlers
 	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
 		config.logger.Fatalf("GetHTTPD", "", err, "failed to initialise")
@@ -317,7 +328,6 @@ independent mail command runner is useful in certain scenarios, such as integrat
 func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 	ret := config.MailCommandRunner
 
-	config.logger.Printf("GetMailCommandRunner", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &config.Features,
@@ -358,7 +368,6 @@ It will use common mail client for sending outgoing emails.
 func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 	ret := config.PlainSocketDaemon
 
-	config.logger.Printf("GetPlainSocketDaemon", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble command processor from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &config.Features,
@@ -395,7 +404,6 @@ func (config Config) GetSockDaemon() *sockd.Daemon {
 func (config Config) GetTelegramBot() *telegrambot.Daemon {
 	ret := config.TelegramBot
 
-	config.logger.Printf("GetTelegramBot", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	// Assemble telegram bot from features and filters
 	ret.Processor = &common.CommandProcessor{
 		Features: &config.Features,

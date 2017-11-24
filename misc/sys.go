@@ -169,3 +169,12 @@ func SkipTestIfCI(t testingstub.T) {
 		t.Skip("this test is skipped on CircleCI")
 	}
 }
+
+// SkipIfWSL asks a test to be skipped if it is being run on Windows Subsystem For Linux.
+func SkipIfWSL(t testingstub.T) {
+	cmd := exec.Command("uname", "-a")
+	out, err := cmd.CombinedOutput()
+	if err == nil && strings.Contains(string(out), "Microsoft") {
+		t.Skip("this test is skipped on Windows Subsystem For Linux")
+	}
+}

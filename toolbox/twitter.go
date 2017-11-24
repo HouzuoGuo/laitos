@@ -48,8 +48,11 @@ func (twi *Twitter) SelfTest() error {
 			return twi.reqSigner.SetRequestAuthHeader(req)
 		},
 	}, "https://api.twitter.com/1.1/statuses/user_timeline.json?count=1")
-	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
-		return errResult.Error
+	if err != nil {
+		return fmt.Errorf("Twitter.SelfTest: API IO error - %v", err)
+	}
+	if err = resp.Non2xxToError(); err != nil {
+		return fmt.Errorf("Twitter.SelfTest: API response error - %v", err)
 	}
 	return nil
 }

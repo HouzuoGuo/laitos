@@ -3,8 +3,19 @@ package toolbox
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
+
+// StringContainsAllOf returns an error with detailed message if the input string does not contain all of the substring markers.
+func StringContainsAllOf(s string, markers []Trigger) error {
+	for _, marker := range markers {
+		if !strings.Contains(s, string(marker)) {
+			return fmt.Errorf("string did not contain marker \"%s\"", marker)
+		}
+	}
+	return nil
+}
 
 func TestFeatureSet_SelfTest(t *testing.T) {
 	// Initially, an empty FeatureSet should have three features pre-enabled - shell, environment control, and public contacts.
@@ -27,15 +38,20 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	if len(features.LookupByTrigger) != 5 {
 		t.Fatal(features.LookupByTrigger)
 	}
-	if errs := features.SelfTest(); len(errs) != 0 {
-		t.Fatal(errs)
+	if err := features.SelfTest(); err != nil {
+		t.Fatal(err)
 	}
 	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".2", ".a", ".c", ".e", ".s"}) {
 		t.Fatal(triggers)
 	}
 	// Configure all features via JSON and verify via self test
 	features = TestFeatureSet
-	features.Initialise()
+	if err := features.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if err := features.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
 	if len(features.LookupByTrigger) != 12 {
 		t.Skip(features.LookupByTrigger)
 	}
@@ -45,10 +61,14 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	if len(features.LookupByTrigger) != 12 {
 		t.Fatal(features.LookupByTrigger)
 	}
-	if errs := features.SelfTest(); len(errs) != 0 {
-		t.Fatal(errs)
+	if err := features.SelfTest(); err != nil {
+		t.Fatal(err)
 	}
-	// Give nearly every feature a configuration error and test again
+	/*
+		Give nearly every feature a configuration error and expect them to be reported in self test.
+		Usually, a configuration change must be followed by reinitialisation, however here I am taking a shortcut by
+		directly manipulating the internal feature state, especially in the case of Twitter AccessToken.
+	*/
 	features.AESDecrypt.EncryptedFiles["beta"].FilePath = "does not exist"
 	features.Facebook.UserAccessToken = "very bad"
 	features.IMAPAccounts.Accounts = map[string]*IMAPS{
@@ -68,11 +88,22 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	features.Twitter.reqSigner.AccessToken = "very bad"
 	features.TwoFACodeGenerator.SecretFile.FilePath = "does not exist"
 	features.WolframAlpha.AppID = "very bad"
-	errs := features.SelfTest()
-	if len(errs) != 9 {
-		for prefix, err := range errs {
-			fmt.Printf("Error from %s: %v\n\n", prefix, err)
-		}
-		t.Fatal("wrong number of errors", len(errs))
+
+	errString := features.SelfTest().Error()
+
+	findAllErr := StringContainsAllOf(errString, []Trigger{
+		features.AESDecrypt.Trigger(),
+		features.Facebook.Trigger(),
+		features.IMAPAccounts.Trigger(),
+		features.SendMail.Trigger(),
+		features.Shell.Trigger(),
+		features.Twilio.Trigger(),
+		features.Twitter.Trigger(),
+		features.TwoFACodeGenerator.Trigger(),
+		features.WolframAlpha.Trigger(),
+	})
+
+	if findAllErr != nil {
+		t.Fatal(findAllErr)
 	}
 }

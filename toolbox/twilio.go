@@ -47,9 +47,12 @@ func (twi *Twilio) SelfTest() error {
 		},
 	}, "https://api.twilio.com/2010-04-01/Accounts/%s", twi.AccountSID)
 	if err != nil {
-		return err
+		return fmt.Errorf("Twilio.SelfTest: API IO error - %v", err)
 	}
-	return resp.Non2xxToError()
+	if err = resp.Non2xxToError(); err != nil {
+		return fmt.Errorf("Twilio.SelfTest: API response error - %v", err)
+	}
+	return nil
 }
 
 func (twi *Twilio) Initialise() error {

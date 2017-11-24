@@ -165,8 +165,8 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 func TestGetTestCommandProcessor(t *testing.T) {
 	if proc := GetTestCommandProcessor(); proc == nil {
 		t.Fatal("did not return")
-	} else if testErrs := proc.Features.SelfTest(); len(testErrs) != 0 {
-		t.Fatal(testErrs)
+	} else if testErr := proc.Features.SelfTest(); testErr != nil {
+		t.Fatal(testErr)
 	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
 		t.Fatal(saneErrs)
 	} else if result := proc.Process(toolbox.Command{Content: "verysecret .elog", TimeoutSec: 10}); result.Error != nil {
@@ -177,8 +177,8 @@ func TestGetTestCommandProcessor(t *testing.T) {
 func TestGetEmptyCommandProcessor(t *testing.T) {
 	if proc := GetEmptyCommandProcessor(); proc == nil {
 		t.Fatal("did not return")
-	} else if testErrs := proc.Features.SelfTest(); len(testErrs) != 0 {
-		t.Fatal(testErrs)
+	} else if testErr := proc.Features.SelfTest(); testErr != nil {
+		t.Fatal(testErr)
 	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
 		t.Fatal(saneErrs)
 	} else if result := proc.Process(toolbox.Command{Content: "verysecret .elog", TimeoutSec: 10}); result.Error == nil {

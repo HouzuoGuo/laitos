@@ -1,4 +1,4 @@
-package api
+package handler
 
 import (
 	"errors"
@@ -124,122 +124,134 @@ window.onload = laitos_replace_many;
 </script>
 ` // Snippet of Javascript that has to be injected into proxied web page
 
-// Dumb web page proxy.
+// HandleWebProxy is a pretty dumb client-side rendering web proxy, it does not support anonymity.
 type HandleWebProxy struct {
-	MyEndpoint string `json:"-"` // URL endpoint to the proxy itself, including prefix /.
+	/*
+		OwnEndpoint is the URL endpoint to visit the proxy itself. This is configured by user in HTTP server endpoint
+		configuration, and then the HTTP server initialisation routine assigns this URL endpoint including its prefix (/).
+	*/
+	OwnEndpoint string `json:"-"`
+
+	logger misc.Logger
 }
 
-func (xy *HandleWebProxy) MakeHandler(logger misc.Logger, _ *common.CommandProcessor) (http.HandlerFunc, error) {
-	if xy.MyEndpoint == "" {
-		return nil, errors.New("HandleWebProxy.MakeHandler: own endpoint is empty")
+var ProxyRemoveRequestHeaders = []string{"Host", "Content-Length", "Accept-Encoding", "Content-Security-Policy", "Set-Cookie"}
+var ProxyRemoveResponseHeaders = []string{"Host", "Content-Length", "Transfer-Encoding", "Content-Security-Policy", "Set-Cookie"}
+
+func (xy *HandleWebProxy) Initialise(logger misc.Logger, _ *common.CommandProcessor) error {
+	xy.logger = logger
+	if xy.OwnEndpoint == "" {
+		return errors.New("HandleWebProxy.Initialise: MyEndpoint must not be empty")
 	}
-	var RemoveRequestHeaders = []string{"Host", "Content-Length", "Accept-Encoding", "Content-Security-Policy", "Set-Cookie"}
-	var RemoveResponseHeaders = []string{"Host", "Content-Length", "Transfer-Encoding", "Content-Security-Policy", "Set-Cookie"}
+	return nil
+}
 
-	fun := func(w http.ResponseWriter, r *http.Request) {
-		// Figure out where proxy endpoint is located
-		proxySchemeHost := r.Host
-		if r.TLS == nil {
-			proxySchemeHost = "http://" + proxySchemeHost
-		} else {
-			proxySchemeHost = "https://" + proxySchemeHost
-		}
-		proxyHandlePath := proxySchemeHost + xy.MyEndpoint
-		// Figure out where user wants to go
-		browseURL := r.FormValue("u")
-		if browseURL == "" {
-			http.Error(w, "URL is empty", http.StatusInternalServerError)
-			return
-		}
-		if len(browseURL) > 1024 {
-			logger.Warningf("Proxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes")
-			http.Error(w, "URL is unusually long", http.StatusInternalServerError)
-			return
-		}
-		urlParts, err := url.Parse(browseURL)
-		if err != nil {
-			logger.Warningf("Proxy", browseURL, err, "failed to parse proxy URL")
-			http.Error(w, "Failed to parse proxy URL", http.StatusInternalServerError)
-			return
-		}
+func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
+	// Figure out where proxy endpoint is located
+	proxySchemeHost := r.Host
+	if r.TLS == nil {
+		proxySchemeHost = "http://" + proxySchemeHost
+	} else {
+		proxySchemeHost = "https://" + proxySchemeHost
+	}
+	proxyHandlePath := proxySchemeHost + xy.OwnEndpoint
+	// Figure out where user wants to go
+	browseURL := r.FormValue("u")
+	if browseURL == "" {
+		http.Error(w, "URL is empty", http.StatusInternalServerError)
+		return
+	}
+	if len(browseURL) > 1024 {
+		xy.logger.Warningf("HandleWebProxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes")
+		http.Error(w, "URL is unusually long", http.StatusInternalServerError)
+		return
+	}
+	urlParts, err := url.Parse(browseURL)
+	if err != nil {
+		xy.logger.Warningf("HandleWebProxy", browseURL, err, "failed to parse proxy URL")
+		http.Error(w, "Failed to parse proxy URL", http.StatusInternalServerError)
+		return
+	}
 
-		browseSchemeHost := fmt.Sprintf("%s://%s", urlParts.Scheme, urlParts.Host)
-		browseSchemeHostPath := fmt.Sprintf("%s://%s%s", urlParts.Scheme, urlParts.Host, urlParts.Path)
-		browseSchemeHostPathQuery := browseSchemeHostPath
-		if urlParts.RawQuery != "" {
-			browseSchemeHostPathQuery += "?" + urlParts.RawQuery
-		}
+	browseSchemeHost := fmt.Sprintf("%s://%s", urlParts.Scheme, urlParts.Host)
+	browseSchemeHostPath := fmt.Sprintf("%s://%s%s", urlParts.Scheme, urlParts.Host, urlParts.Path)
+	browseSchemeHostPathQuery := browseSchemeHostPath
+	if urlParts.RawQuery != "" {
+		browseSchemeHostPathQuery += "?" + urlParts.RawQuery
+	}
 
-		myReq, err := http.NewRequest(r.Method, browseSchemeHostPathQuery, r.Body)
-		if err != nil {
-			logger.Warningf("Proxy", browseSchemeHostPathQuery, err, "failed to create request to URL")
-			http.Error(w, "Failed to create request to URL", http.StatusInternalServerError)
-			return
-		}
-		// Remove request headers that are not necessary
-		myReq.Header = r.Header
-		for _, name := range RemoveRequestHeaders {
-			myReq.Header.Del(name)
-		}
-		// Retrieve resource from remote
-		client := http.Client{}
-		remoteResp, err := client.Do(myReq)
-		if err != nil {
-			logger.Warningf("Proxy", browseSchemeHostPathQuery, err, "failed to send request")
-			http.Error(w, "Failed to send request", http.StatusInternalServerError)
-			return
-		}
-		remoteRespBody, err := ioutil.ReadAll(remoteResp.Body)
-		if err != nil {
-			logger.Warningf("Proxy", browseSchemeHostPathQuery, err, "failed to download the URL")
-			http.Error(w, "Failed to download URL", http.StatusInternalServerError)
-			return
-		}
-		// Copy headers from remote response
-		for name, values := range remoteResp.Header {
-			w.Header().Set(name, values[0])
-			for _, val := range values[1:] {
-				w.Header().Add(name, val)
-			}
-		}
-		for _, name := range RemoveResponseHeaders {
-			w.Header().Del(name)
-		}
-		// Just in case they become useful later on
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Expose-Headers", "Content-Type, Authorization")
-		NoCache(w)
-		if !WarnIfNoHTTPS(r, w) {
-			return
-		}
-		// Rewrite HTML response to insert javascript
-		w.WriteHeader(remoteResp.StatusCode)
-		if strings.HasPrefix(remoteResp.Header.Get("Content-Type"), "text/html") {
-			injectedJS := fmt.Sprintf(ProxyInjectJS, proxySchemeHost, proxyHandlePath, browseSchemeHost, browseSchemeHostPath)
-			strBody := string(remoteRespBody)
-			headIndex := strings.Index(strBody, "<head>")
-			if headIndex == -1 {
-				bodyIndex := strings.Index(strBody, "<body")
-				if bodyIndex != -1 {
-					beforeBody := strBody[0 : bodyIndex-5]
-					atAndAfterBody := strBody[bodyIndex:]
-					strBody = fmt.Sprintf("%s<head>%s</head>%s", beforeBody, injectedJS, atAndAfterBody)
-				}
-			} else {
-				strBody = strBody[0:headIndex+6] + injectedJS + strBody[headIndex+6:]
-			}
-			w.Write([]byte(strBody))
-			logger.Printf("Proxy", browseSchemeHostPathQuery, nil, "served modified HTML")
-		} else {
-			w.Write(remoteRespBody)
+	myReq, err := http.NewRequest(r.Method, browseSchemeHostPathQuery, r.Body)
+	if err != nil {
+		xy.logger.Warningf("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to create request to URL")
+		http.Error(w, "Failed to create request to URL", http.StatusInternalServerError)
+		return
+	}
+	// Remove request headers that are not necessary
+	myReq.Header = r.Header
+	for _, name := range ProxyRemoveRequestHeaders {
+		myReq.Header.Del(name)
+	}
+	// Retrieve resource from remote
+	client := http.Client{}
+	remoteResp, err := client.Do(myReq)
+	if err != nil {
+		xy.logger.Warningf("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to send request")
+		http.Error(w, "Failed to send request", http.StatusInternalServerError)
+		return
+	}
+	remoteRespBody, err := ioutil.ReadAll(remoteResp.Body)
+	if err != nil {
+		xy.logger.Warningf("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to download the URL")
+		http.Error(w, "Failed to download URL", http.StatusInternalServerError)
+		return
+	}
+	// Copy headers from remote response
+	for name, values := range remoteResp.Header {
+		w.Header().Set(name, values[0])
+		for _, val := range values[1:] {
+			w.Header().Add(name, val)
 		}
 	}
-	return fun, nil
+	for _, name := range ProxyRemoveResponseHeaders {
+		w.Header().Del(name)
+	}
+	// Just in case they become useful later on
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Access-Control-Expose-Headers", "Content-Type, Authorization")
+	NoCache(w)
+	if !WarnIfNoHTTPS(r, w) {
+		return
+	}
+	// Rewrite HTML response to insert javascript
+	w.WriteHeader(remoteResp.StatusCode)
+	if strings.HasPrefix(remoteResp.Header.Get("Content-Type"), "text/html") {
+		injectedJS := fmt.Sprintf(ProxyInjectJS, proxySchemeHost, proxyHandlePath, browseSchemeHost, browseSchemeHostPath)
+		strBody := string(remoteRespBody)
+		headIndex := strings.Index(strBody, "<head>")
+		if headIndex == -1 {
+			bodyIndex := strings.Index(strBody, "<body")
+			if bodyIndex != -1 {
+				beforeBody := strBody[0 : bodyIndex-5]
+				atAndAfterBody := strBody[bodyIndex:]
+				strBody = fmt.Sprintf("%s<head>%s</head>%s", beforeBody, injectedJS, atAndAfterBody)
+			}
+		} else {
+			strBody = strBody[0:headIndex+6] + injectedJS + strBody[headIndex+6:]
+		}
+		w.Write([]byte(strBody))
+		xy.logger.Printf("HandleWebProxy", browseSchemeHostPathQuery, nil, "served modified HTML")
+	} else {
+		w.Write(remoteRespBody)
+	}
 }
 
 func (xy *HandleWebProxy) GetRateLimitFactor() int {
 	return 50
+}
+
+func (_ *HandleWebProxy) SelfTest() error {
+	return nil
 }
