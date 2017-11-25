@@ -115,7 +115,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Success! Do not unlock handlerMutex anymore because there is no point in visiting this handler again.
-		w.Write([]byte(fmt.Sprintf(PageHTML, "", "success")))
+		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), "success")))
 		// A short moment later, the function will launch laitos supervisor along with daemons.
 		go ws.LaunchMainProgram()
 		return

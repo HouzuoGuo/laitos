@@ -103,6 +103,7 @@ type Config struct {
 	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
 
 	logger misc.Logger // logger handles log output from configuration serialisation and initialisation routines.
+
 }
 
 // Initialise decorates feature configuration and bridges in preparation for daemon operations.
@@ -271,17 +272,9 @@ func (config Config) GetHTTPD() *httpd.Daemon {
 		handlers[callbackEndpoint] = &handler.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
 	}
 	ret.HandlerCollection = handlers
-	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
 		config.logger.Fatalf("GetHTTPD", "", err, "failed to initialise")
 		return nil
-	}
-	for route := range ret.AllRateLimits {
-		shortRoute := route
-		if len(route) > 10 {
-			shortRoute = route[0:10] + "..."
-		}
-		config.logger.Printf("GetHTTPD", "", nil, "installed route %s", shortRoute)
 	}
 	return &ret
 }
@@ -304,17 +297,9 @@ func (config Config) GetInsecureHTTPD() *httpd.Daemon {
 		}
 		ret.Port = iPort
 	}
-	// Call initialise and print out prefixes of installed routes
 	if err := ret.Initialise(); err != nil {
 		config.logger.Fatalf("GetInsecureHTTPD", "", err, "failed to initialise")
 		return nil
-	}
-	for route := range ret.AllRateLimits {
-		shortRoute := route
-		if len(route) > 12 {
-			shortRoute = route[0:12] + "..."
-		}
-		config.logger.Printf("GetInsecureHTTPD", "", nil, "installed route %s", shortRoute)
 	}
 	return ret
 }
