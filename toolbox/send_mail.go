@@ -24,7 +24,8 @@ var (
 
 // Send outgoing emails.
 type SendMail struct {
-	MailClient inet.MailClient `json:"MailClient"`
+	MailClient      inet.MailClient `json:"MailClient"`
+	SOSPersonalInfo string          `json:"SOSPersonalInfo"`
 
 	logger misc.Logger
 }
@@ -93,10 +94,13 @@ func (email *SendMail) Execute(cmd Command) *Result {
 // SendSOS delivers an SOS email to public search-and-rescue institutions.
 func (email *SendMail) SendSOS(subject, body string) {
 	// Prefix body text with some environment information
-	body = fmt.Sprintf(`SOS HELP!
-The time is %s.
-This is the operator of IP address %s.
-Please send help: %s`, time.Now().UTC().Format(time.RFC3339), inet.GetPublicIP(), body)
+	body = fmt.Sprintf(`SOS!
+The computer time is %s.
+This is the operator of IP address %s: %s
+Please send help: %s`,
+		time.Now().UTC().Format(time.RFC3339),
+		inet.GetPublicIP(), email.SOSPersonalInfo,
+		body)
 
 	email.logger.Warningf("SendSOS", subject, nil, "sending SOS email, body is: %s", body)
 
