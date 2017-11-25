@@ -69,7 +69,7 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 		Usually, a configuration change must be followed by reinitialisation, however here I am taking a shortcut by
 		directly manipulating the internal feature state, especially in the case of Twitter AccessToken.
 	*/
-	features.AESDecrypt.EncryptedFiles["beta"].FilePath = "does not exist"
+	features.AESDecrypt.EncryptedFiles[TestAESDecryptFileBetaName].FilePath = "does not exist"
 	features.Facebook.UserAccessToken = "very bad"
 	features.IMAPAccounts.Accounts = map[string]*IMAPS{
 		"a": {

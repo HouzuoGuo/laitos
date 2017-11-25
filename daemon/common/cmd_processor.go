@@ -136,7 +136,7 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result)
 	var matchedFeature toolbox.Feature
 	var overrideLintText filter.LintText
 	var hasOverrideLintText bool
-	logCommandContent := cmd.Content
+	var logCommandContent string
 	// Walk the command through all bridges
 	for _, cmdBridge := range proc.CommandFilters {
 		cmd, bridgeErr = cmdBridge.Transform(cmd)
@@ -149,8 +149,6 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result)
 	if ret = cmd.Trim(); ret != nil {
 		goto result
 	}
-	// If bridges did not throw an error, they should have got rid of bits and pieces of command content that must not be logged.
-	logCommandContent = cmd.Content
 	// Look for PLT (position, length, timeout) override, it is going to affect LintText bridge.
 	if cmd.FindAndRemovePrefix(PrefixCommandPLT) {
 		// Find the configured LintText bridge
@@ -190,9 +188,19 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result)
 			goto result
 		}
 	}
+	/*
+		Now the command has gone through modifications made by command filters. Keep a copy of its content for logging
+		purpose before it is further manipulated by individual feature's routine that may add or remove bits from the
+		content.
+	*/
+	logCommandContent = cmd.Content
 	// Look for command's prefix among configured features
 	for prefix, configuredFeature := range proc.Features.LookupByTrigger {
 		if cmd.FindAndRemovePrefix(string(prefix)) {
+			// Hacky workaround - do not log content of AES decryption commands as they can reveal encryption key
+			if prefix == toolbox.AESDecryptTrigger || prefix == toolbox.TwoFATrigger {
+				logCommandContent = "<hidden due to AESDecryptTrigger or TwoFATrigger>"
+			}
 			matchedFeature = configuredFeature
 			break
 		}
@@ -203,9 +211,9 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result)
 		goto result
 	}
 	// Run the feature
-	proc.logger.Printf("Process", "CommandProcessor", nil, "going to run %+v", cmd)
+	proc.logger.Printf("Process", "CommandProcessor", nil, "going to run %s", logCommandContent)
 	defer func() {
-		proc.logger.Printf("Process", "CommandProcessor", nil, "finished running %+v - %s", cmd, ret.CombinedOutput)
+		proc.logger.Printf("Process", "CommandProcessor", nil, "finished %s (ok? %v)", logCommandContent, ret.Error == nil)
 	}()
 	ret = matchedFeature.Execute(cmd)
 

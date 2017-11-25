@@ -55,11 +55,11 @@ func TestAESDecrypt_Execute(t *testing.T) {
 	}
 	// Decrypt file using bad key
 	// (The key accidentally decrypts into Re0b, so don't use them to test content search)
-	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: "alpha 0000 i"}); ret.Error != nil || ret.Output != "0 " {
+	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: TestAESDecryptFileAlphaName + " 0000 i"}); ret.Error != nil || ret.Output != "0 " {
 		t.Fatal(ret)
 	}
 	// Decrypt file using good key
-	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: "alpha 44a4 a"}); ret.Error != nil || ret.Output != "1 abc" {
+	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: TestAESDecryptFileBetaName + " 44a4 a"}); ret.Error != nil || ret.Output != "1 abc" {
 		t.Fatal(ret)
 	}
 }

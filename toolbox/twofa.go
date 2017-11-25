@@ -73,6 +73,8 @@ func GetTwoFACodes(secret string) (previous, current, next string, err error) {
 	return
 }
 
+const TwoFATrigger = ".2" // TwoFATrigger is the trigger prefix string of TwoFACodeGenerator feature.
+
 /*
 TwoFACodeGenerator generates two factor authentication codes upon request. The generator
 takes an AES encrypted secret seed file as input, that looks like "account_name: secret\n...".
@@ -100,7 +102,7 @@ func (codegen *TwoFACodeGenerator) Initialise() error {
 }
 
 func (codegen *TwoFACodeGenerator) Trigger() Trigger {
-	return ".2"
+	return TwoFATrigger
 }
 
 func (codegen *TwoFACodeGenerator) Execute(cmd Command) (ret *Result) {

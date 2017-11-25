@@ -71,6 +71,8 @@ func (file *AESEncryptedFile) Decrypt(keySuffix []byte) (plainContent []byte, er
 	return
 }
 
+const AESDecryptTrigger = ".a" // AESDecryptTrigger is the trigger prefix string of AESDecrypt feature.
+
 // Decrypt AES-encrypted file and return lines sought by incoming command.
 type AESDecrypt struct {
 	EncryptedFiles map[string]*AESEncryptedFile `json:"EncryptedFiles"` // shortcut (\w+) vs file attributes
@@ -103,7 +105,7 @@ func (crypt *AESDecrypt) Initialise() error {
 }
 
 func (crypt *AESDecrypt) Trigger() Trigger {
-	return ".a"
+	return AESDecryptTrigger
 }
 
 func (crypt *AESDecrypt) Execute(cmd Command) (ret *Result) {
@@ -143,6 +145,11 @@ func (crypt *AESDecrypt) Execute(cmd Command) (ret *Result) {
 	return &Result{Output: fmt.Sprintf("%d %s", numMatch, match.String())}
 }
 
+const (
+	TestAESDecryptFileAlphaName = "alpha"
+	TestAESDecryptFileBetaName  = "beta"
+)
+
 // Return a configured but uninitialised AESDecrypt.
 func GetTestAESDecrypt() AESDecrypt {
 	/*
@@ -170,12 +177,12 @@ func GetTestAESDecrypt() AESDecrypt {
 	}
 	return AESDecrypt{
 		EncryptedFiles: map[string]*AESEncryptedFile{
-			"alpha": {
+			TestAESDecryptFileAlphaName: {
 				FilePath:     filePath,
 				HexIV:        "A28DB439E2D112AB6E9FC2B09A73B605",
 				HexKeyPrefix: "F2A515CDDC967C5B0C73FD09264BF67F08A6E1BD273A598F013F6691AAF1",
 			},
-			"beta": {
+			TestAESDecryptFileBetaName: {
 				FilePath:     filePath,
 				HexIV:        "A28DB439E2D112AB6E9FC2B09A73B605",
 				HexKeyPrefix: "F2A515CDDC967C5B0C73FD09264BF67F08A6E1BD273A598F013F6691AAF1",

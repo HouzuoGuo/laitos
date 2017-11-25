@@ -35,7 +35,7 @@ func TestCommandProcessorProcess(t *testing.T) {
 	// Try mismatching PIN so that command bridge return early
 	cmd := toolbox.Command{TimeoutSec: 5, Content: "badpin.secho alpha"}
 	result := proc.Process(cmd)
-	if !reflect.DeepEqual(result.Command, cmd) ||
+	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ""}) ||
 		result.Error != filter.ErrPINAndShortcutNotFound || result.Output != "" ||
 		result.CombinedOutput != filter.ErrPINAndShortcutNotFound.Error()[0:2] {
 		t.Fatalf("%+v", result)
@@ -75,16 +75,16 @@ func TestCommandProcessorProcess(t *testing.T) {
 	// Override PLT but PLT parameter values are not given
 	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin  .plt   sadf asdf "}
 	result = proc.Process(cmd)
-	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".plt   sadf asdf"}) ||
+	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ""}) ||
 		result.Error != ErrBadPLT || result.Output != "" || result.CombinedOutput != ErrBadPLT.Error()[0:2] {
-		t.Fatalf("'%v' '%v' '%v' '%v'", result.Error, result.Output, result.CombinedOutput, result.Command)
+		t.Fatalf("%v | %v | %v |%+v", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
 	// Override PLT using good PLT parameter values
 	cmd = toolbox.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 4  .s  sleep 2 && echo -n 0123456789 "}
 	result = proc.Process(cmd)
-	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 4, Content: ".plt  2, 5. 4  .s  sleep 2 && echo -n 0123456789"}) ||
+	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 4, Content: "  .s  sleep 2 && echo -n 0123456789"}) ||
 		result.Error != nil || result.Output != "0123456789" || result.CombinedOutput != "23456" {
-		t.Fatalf("'%v' '%v' '%v' '%+v'", result.Error, result.Output, result.CombinedOutput, result.Command)
+		t.Fatalf("%v | %v | %v | %+v", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
 
 	// Trigger emergency lock down and try
@@ -163,9 +163,8 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 }
 
 func TestGetTestCommandProcessor(t *testing.T) {
-	if proc := GetTestCommandProcessor(); proc == nil {
-		t.Fatal("did not return")
-	} else if testErr := proc.Features.SelfTest(); testErr != nil {
+	proc := GetTestCommandProcessor()
+	if testErr := proc.Features.SelfTest(); testErr != nil {
 		t.Fatal(testErr)
 	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
 		t.Fatal(saneErrs)
@@ -174,10 +173,23 @@ func TestGetTestCommandProcessor(t *testing.T) {
 	}
 }
 
+func TestConcealedLogMessages(t *testing.T) {
+	proc := GetTestCommandProcessor()
+	// These two features are the ones to be concealed from log
+	proc.Features.AESDecrypt = toolbox.GetTestAESDecrypt()
+	proc.Features.TwoFACodeGenerator = toolbox.TwoFACodeGenerator{SecretFile: toolbox.GetTestAESDecrypt().EncryptedFiles[toolbox.TestAESDecryptFileAlphaName]}
+	// Reinitialise features so that it understands the two new prefixes
+	if err := proc.Features.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	proc.Process(toolbox.Command{Content: "verysecret .a does not matter", TimeoutSec: 10})
+	proc.Process(toolbox.Command{Content: "verysecret .2 does not matter", TimeoutSec: 10})
+	t.Log("Please observe <hidden due to AESDecryptTrigger or TwoFATrigger> from log output, or this test is failed")
+}
+
 func TestGetEmptyCommandProcessor(t *testing.T) {
-	if proc := GetEmptyCommandProcessor(); proc == nil {
-		t.Fatal("did not return")
-	} else if testErr := proc.Features.SelfTest(); testErr != nil {
+	proc := GetEmptyCommandProcessor()
+	if testErr := proc.Features.SelfTest(); testErr != nil {
 		t.Fatal(testErr)
 	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
 		t.Fatal(saneErrs)

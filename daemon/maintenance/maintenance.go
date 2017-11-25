@@ -200,7 +200,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	if httpHandlersErr == nil {
 		result.WriteString("\nHTTP handlers: OK\n")
 	} else {
-		result.WriteString(fmt.Sprintf("\nHTTP handlers errors: %v\n", httpHandlersErr))
+		result.WriteString(fmt.Sprintf("\nHTTP handler errors: %v\n", httpHandlersErr))
 	}
 	// Maintenance results, warnings, logs, and stack traces, in that order.
 	result.WriteString("\nSystem maintenance:\n")
