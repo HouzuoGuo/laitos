@@ -88,10 +88,16 @@ func (result *Result) ResetCombinedText() string {
 
 // If HTTP status is not 2xx or HTTP response already has an error, return an error result. Otherwise return nil.
 func HTTPErrorToResult(resp inet.HTTPResponse, err error) *Result {
+	// Avoid showing the entire HTTP (quite likely HTML) response to end-user
+	compactBody := resp.Body
+	if len(compactBody) > 256 {
+		compactBody = compactBody[:256]
+	}
+
 	if err != nil {
-		return &Result{Error: err, Output: string(resp.Body)}
+		return &Result{Error: err, Output: string(compactBody)}
 	} else if respErr := resp.Non2xxToError(); respErr != nil {
-		return &Result{Error: respErr, Output: string(resp.Body)}
+		return &Result{Error: respErr, Output: string(compactBody)}
 	}
 	return nil
 }

@@ -41,8 +41,14 @@ type HTTPResponse struct {
 
 // If HTTP status is not 2xx, return an error. Otherwise return nil.
 func (resp *HTTPResponse) Non2xxToError() error {
+	// Avoid showing the entire HTTP (quite likely HTML) response to end-user
+	compactBody := resp.Body
+	if len(compactBody) > 256 {
+		compactBody = compactBody[:256]
+	}
+
 	if resp.StatusCode/200 != 1 {
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(resp.Body))
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(compactBody))
 	} else {
 		return nil
 	}
