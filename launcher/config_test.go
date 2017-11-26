@@ -242,34 +242,13 @@ func TestConfig(t *testing.T) {
 	httpDaemon := config.GetHTTPD()
 	// HTTP daemon is expected to start in two seconds
 	go func() {
-		if err := httpDaemon.StartAndBlock(); err != nil {
+		if err := httpDaemon.StartAndBlockNoTLS(); err != nil {
 			t.Fatal(err)
 		}
 	}()
 	time.Sleep(2 * time.Second)
 	httpd.TestHTTPD(httpDaemon, t)
 	httpd.TestAPIHandlers(httpDaemon, t)
-
-	insecureHTTPDaemon := config.GetInsecureHTTPD()
-	// Insecure HTTP daemon should listen on port 80 in deployment
-	if insecureHTTPDaemon.Port != 80 {
-		t.Fatal("wrong port for insecure HTTP daemon to listen on")
-	}
-	// However, this test case does not run as root, so give it an unprivileged port.
-	insecureHTTPDaemon.Port = 51991
-	// Re-initialise internal states to make new port number effective
-	if err := insecureHTTPDaemon.Initialise(); err != nil {
-		t.Fatal(err)
-	}
-	// Insecure HTTP daemon is expected to start in two seconds
-	go func() {
-		if err := insecureHTTPDaemon.StartAndBlock(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	time.Sleep(2 * time.Second)
-	httpd.TestHTTPD(insecureHTTPDaemon, t)
-	httpd.TestAPIHandlers(insecureHTTPDaemon, t)
 
 	mailcmd.TestCommandRunner(config.GetMailCommandRunner(), t)
 

@@ -18,9 +18,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
-	"os"
-	"strconv"
-	"strings"
+	"sync"
 )
 
 /*
@@ -77,37 +75,77 @@ type Config struct {
 		structure because certain toolbox features (such as AES file decryption) may hold large amount of data in
 		memory. Therefore, all daemon preparation and initialisation routines operate on reference to this FeatureSet.
 	*/
-	Features   toolbox.FeatureSet `json:"Features"`
-	MailClient inet.MailClient    `json:"MailClient"` // MailClient is the common client configuration for sending notification emails and mail command runner results.
+	Features   *toolbox.FeatureSet `json:"Features"`
+	MailClient inet.MailClient     `json:"MailClient"` // MailClient is the common client configuration for sending notification emails and mail command runner results.
 
-	Maintenance maintenance.Daemon `json:"Maintenance"` // Daemon configures behaviour of periodic health-check/system maintenance
+	Maintenance *maintenance.Daemon `json:"Maintenance"` // Daemon configures behaviour of periodic health-check/system maintenance
 
-	DNSDaemon dnsd.Daemon `json:"DNSDaemon"` // DNS daemon configuration
+	DNSDaemon *dnsd.Daemon `json:"DNSDaemon"` // DNS daemon configuration
 
-	HTTPDaemon   httpd.Daemon    `json:"HTTPDaemon"`   // HTTP daemon configuration
+	HTTPDaemon   *httpd.Daemon   `json:"HTTPDaemon"`   // HTTP daemon configuration
 	HTTPFilters  StandardFilters `json:"HTTPFilters"`  // HTTP daemon filter configuration
 	HTTPHandlers HTTPHandlers    `json:"HTTPHandlers"` // HTTP daemon handler configuration
 
-	MailDaemon        smtpd.Daemon          `json:"MailDaemon"`        // SMTP daemon configuration
-	MailCommandRunner mailcmd.CommandRunner `json:"MailCommandRunner"` // MailCommandRunner processes toolbox commands from incoming mail body.
-	MailFilters       StandardFilters       `json:"MailFilters"`       // MailFilters configure command processor for mail command runner
+	MailDaemon        *smtpd.Daemon          `json:"MailDaemon"`        // SMTP daemon configuration
+	MailCommandRunner *mailcmd.CommandRunner `json:"MailCommandRunner"` // MailCommandRunner processes toolbox commands from incoming mail body.
 
-	PlainSocketDaemon  plainsocket.Daemon `json:"PlainSocketDaemon"`  // Plain text protocol TCP and UDP daemon configuration
-	PlainSocketFilters StandardFilters    `json:"PlainSocketFilters"` // Plain text daemon filter configuration
+	MailFilters StandardFilters `json:"MailFilters"` // MailFilters configure command processor for mail command runner
 
-	SockDaemon sockd.Daemon `json:"SockDaemon"` // Intentionally undocumented
+	PlainSocketDaemon  *plainsocket.Daemon `json:"PlainSocketDaemon"`  // Plain text protocol TCP and UDP daemon configuration
+	PlainSocketFilters StandardFilters     `json:"PlainSocketFilters"` // Plain text daemon filter configuration
 
-	TelegramBot     telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
-	TelegramFilters StandardFilters    `json:"TelegramFilters"` // Telegram bot filter configuration
+	SockDaemon *sockd.Daemon `json:"SockDaemon"` // Intentionally undocumented
+
+	TelegramBot     *telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
+	TelegramFilters StandardFilters     `json:"TelegramFilters"` // Telegram bot filter configuration
 
 	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
 
-	logger misc.Logger // logger handles log output from configuration serialisation and initialisation routines.
-
+	logger                misc.Logger // logger handles log output from configuration serialisation and initialisation routines.
+	maintenanceInit       sync.Once
+	dnsDaemonInit         sync.Once
+	httpDaemonInit        sync.Once
+	mailCommandRunnerInit sync.Once
+	mailDaemonInit        sync.Once
+	plainSocketDaemonInit sync.Once
+	sockDaemonInit        sync.Once
+	telegramBotInit       sync.Once
 }
 
 // Initialise decorates feature configuration and bridges in preparation for daemon operations.
 func (config *Config) Initialise() error {
+	/*
+		Fill in some blanks so that Get**** functions will be able to call Initialise() function, which in turn
+		returns an error with meaningful message telling user that daemon is lacking configuration and will not start.
+		If the nil daemons are not empty, user will only see a panic caused by nil, which is not very helpful.
+
+		For the config.Features case, an empty FeatureSet can still offer several useful features such as program
+		environment control and public institution contacts.
+	*/
+	if config.Features == nil {
+		config.Features = &toolbox.FeatureSet{}
+	}
+	if config.DNSDaemon == nil {
+		config.DNSDaemon = &dnsd.Daemon{}
+	}
+	if config.HTTPDaemon == nil {
+		config.HTTPDaemon = &httpd.Daemon{}
+	}
+	if config.MailCommandRunner == nil {
+		config.MailCommandRunner = &mailcmd.CommandRunner{}
+	}
+	if config.MailDaemon == nil {
+		config.MailDaemon = &smtpd.Daemon{}
+	}
+	if config.PlainSocketDaemon == nil {
+		config.PlainSocketDaemon = &plainsocket.Daemon{}
+	}
+	if config.SockDaemon == nil {
+		config.SockDaemon = &sockd.Daemon{}
+	}
+	if config.TelegramBot == nil {
+		config.TelegramBot = &telegrambot.Daemon{}
+	}
 	// All notification filters share the common mail client
 	config.HTTPFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.MailFilters.NotifyViaEmail.MailClient = config.MailClient
@@ -138,170 +176,141 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 }
 
 // Construct a DNS daemon from configuration and return.
-func (config Config) GetDNSD() *dnsd.Daemon {
-	ret := config.DNSDaemon
-	if err := ret.Initialise(); err != nil {
-		config.logger.Fatalf("GetDNSD", "", err, "failed to initialise")
-		return nil
-	}
-	return &ret
+func (config *Config) GetDNSD() *dnsd.Daemon {
+	config.dnsDaemonInit.Do(func() {
+		if err := config.DNSDaemon.Initialise(); err != nil {
+			config.logger.Fatalf("GetDNSD", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.DNSDaemon
 }
 
 // GetMaintenance constructs a system maintenance / health check daemon from configuration and return.
 func (config Config) GetMaintenance() *maintenance.Daemon {
-	ret := config.Maintenance
-	ret.FeaturesToTest = &config.Features
-	ret.MailClient = config.MailClient
-	/*
-		Because all daemons should be able to operate independent from each other, the maintenance daemon will operate
-		using copies of involved daemon structures.
-		Daemons are not supposed to self-modify their configuration, therefore the daemon copies should in theory behave
-		much like the live&online ones.
-	*/
-	ret.MailCmdRunnerToTest = config.GetMailCommandRunner()
-	ret.HTTPHandlersToCheck = config.GetHTTPD().HandlerCollection
-	if err := ret.Initialise(); err != nil {
-		config.logger.Fatalf("GetMaintenance", "", err, "failed to initialise")
-		return nil
-	}
-	return &ret
+	config.maintenanceInit.Do(func() {
+		config.Maintenance.FeaturesToTest = config.Features
+		config.Maintenance.MailClient = config.MailClient
+		config.Maintenance.MailCmdRunnerToTest = config.GetMailCommandRunner()
+		config.Maintenance.HTTPHandlersToCheck = config.GetHTTPD().HandlerCollection
+		if err := config.Maintenance.Initialise(); err != nil {
+			config.logger.Fatalf("GetMaintenance", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.Maintenance
 }
 
 // Construct an HTTP daemon from configuration and return.
 func (config Config) GetHTTPD() *httpd.Daemon {
-	ret := config.HTTPDaemon
-
-	// Assemble command processor from features and filters
-	ret.Processor = &common.CommandProcessor{
-		Features: &config.Features,
-		CommandFilters: []filter.CommandFilter{
-			&config.HTTPFilters.PINAndShortcuts,
-			&config.HTTPFilters.TranslateSequences,
-		},
-		ResultFilters: []filter.ResultFilter{
-			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.HTTPFilters.LintText,
-			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
-			&config.HTTPFilters.NotifyViaEmail,
-		},
-	}
-	// Make handler factories
-	handlers := httpd.HandlerCollection{}
-	if config.HTTPHandlers.InformationEndpoint != "" {
-		handlers[config.HTTPHandlers.InformationEndpoint] = &handler.HandleSystemInfo{
-			FeaturesToCheck: &config.Features,
-			// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
-			CheckMailCmdRunner: config.GetMailCommandRunner(),
+	config.httpDaemonInit.Do(func() {
+		// Assemble command processor from features and filters
+		config.HTTPDaemon.Processor = &common.CommandProcessor{
+			Features: config.Features,
+			CommandFilters: []filter.CommandFilter{
+				&config.HTTPFilters.PINAndShortcuts,
+				&config.HTTPFilters.TranslateSequences,
+			},
+			ResultFilters: []filter.ResultFilter{
+				&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+				&config.HTTPFilters.LintText,
+				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&config.HTTPFilters.NotifyViaEmail,
+			},
 		}
-	}
-	if config.HTTPHandlers.BrowserEndpoint != "" {
-		/*
-		 Configure a browser image endpoint for browser page.
-		 The endpoint name is automatically generated from random bytes.
-		*/
-		randBytes := make([]byte, 32)
-		_, err := rand.Read(randBytes)
-		if err != nil {
-			config.logger.Fatalf("GetHTTPD", "", err, "failed to read random number")
-			return nil
+		// Make handler factories
+		handlers := httpd.HandlerCollection{}
+		if config.HTTPHandlers.InformationEndpoint != "" {
+			handlers[config.HTTPHandlers.InformationEndpoint] = &handler.HandleSystemInfo{
+				FeaturesToCheck: config.Features,
+				// Caller is not going to manipulate with acquired mail processor, so my instance is going to be identical to caller's.
+				CheckMailCmdRunner: config.GetMailCommandRunner(),
+			}
 		}
-		// Image handler needs to operate on browser handler's browser instances
-		browserImageHandler := &handler.HandleBrowserImage{}
-		browserHandler := config.HTTPHandlers.BrowserEndpointConfig
-		imageEndpoint := "/" + hex.EncodeToString(randBytes)
-		handlers[imageEndpoint] = browserImageHandler
-		// Browser handler needs to use image handler's path
-		browserHandler.ImageEndpoint = imageEndpoint
-		browserImageHandler.Browsers = &browserHandler.Browsers
-		handlers[config.HTTPHandlers.BrowserEndpoint] = &browserHandler
-	}
-	if config.HTTPHandlers.CommandFormEndpoint != "" {
-		handlers[config.HTTPHandlers.CommandFormEndpoint] = &handler.HandleCommandForm{}
-	}
-	if config.HTTPHandlers.GitlabBrowserEndpoint != "" {
-		config.HTTPHandlers.GitlabBrowserEndpointConfig.MailClient = config.MailClient
-		handlers[config.HTTPHandlers.GitlabBrowserEndpoint] = &config.HTTPHandlers.GitlabBrowserEndpointConfig
-	}
-	if config.HTTPHandlers.IndexEndpoints != nil {
-		for _, location := range config.HTTPHandlers.IndexEndpoints {
-			handlers[location] = &config.HTTPHandlers.IndexEndpointConfig
+		if config.HTTPHandlers.BrowserEndpoint != "" {
+			/*
+			 Configure a browser image endpoint for browser page.
+			 The endpoint name is automatically generated from random bytes.
+			*/
+			randBytes := make([]byte, 32)
+			_, err := rand.Read(randBytes)
+			if err != nil {
+				config.logger.Fatalf("GetHTTPD", "", err, "failed to read random number")
+				return
+			}
+			// Image handler needs to operate on browser handler's browser instances
+			browserImageHandler := &handler.HandleBrowserImage{}
+			browserHandler := config.HTTPHandlers.BrowserEndpointConfig
+			imageEndpoint := "/" + hex.EncodeToString(randBytes)
+			handlers[imageEndpoint] = browserImageHandler
+			// Browser handler needs to use image handler's path
+			browserHandler.ImageEndpoint = imageEndpoint
+			browserImageHandler.Browsers = &browserHandler.Browsers
+			handlers[config.HTTPHandlers.BrowserEndpoint] = &browserHandler
 		}
-	}
-	if config.HTTPHandlers.MailMeEndpoint != "" {
-		hand := config.HTTPHandlers.MailMeEndpointConfig
-		hand.MailClient = config.MailClient
-		handlers[config.HTTPHandlers.MailMeEndpoint] = &hand
-	}
-	// I (howard) personally need three bots, hence this ugly repetition.
-	if config.HTTPHandlers.MicrosoftBotEndpoint1 != "" {
-		hand := config.HTTPHandlers.MicrosoftBotEndpointConfig1
-		handlers[config.HTTPHandlers.MicrosoftBotEndpoint1] = &hand
-	}
-	if config.HTTPHandlers.MicrosoftBotEndpoint2 != "" {
-		hand := config.HTTPHandlers.MicrosoftBotEndpointConfig2
-		handlers[config.HTTPHandlers.MicrosoftBotEndpoint2] = &hand
-	}
-	if config.HTTPHandlers.MicrosoftBotEndpoint3 != "" {
-		hand := config.HTTPHandlers.MicrosoftBotEndpointConfig3
-		handlers[config.HTTPHandlers.MicrosoftBotEndpoint3] = &hand
-	}
-	if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
-		handlers[proxyEndpoint] = &handler.HandleWebProxy{OwnEndpoint: proxyEndpoint}
-	}
-	if config.HTTPHandlers.TwilioSMSEndpoint != "" {
-		handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &handler.HandleTwilioSMSHook{}
-	}
-	if config.HTTPHandlers.TwilioCallEndpoint != "" {
-		/*
-		 Configure a callback endpoint for Twilio call's callback.
-		 The endpoint name is automatically generated from random bytes.
-		*/
-		randBytes := make([]byte, 32)
-		_, err := rand.Read(randBytes)
-		if err != nil {
-			config.logger.Fatalf("GetHTTPD", "", err, "failed to read random number")
-			return nil
+		if config.HTTPHandlers.CommandFormEndpoint != "" {
+			handlers[config.HTTPHandlers.CommandFormEndpoint] = &handler.HandleCommandForm{}
 		}
-		callbackEndpoint := "/" + hex.EncodeToString(randBytes)
-		// The greeting handler will use the callback endpoint to handle command
-		config.HTTPHandlers.TwilioCallEndpointConfig.CallbackEndpoint = callbackEndpoint
-		callEndpointConfig := config.HTTPHandlers.TwilioCallEndpointConfig
-		callEndpointConfig.CallbackEndpoint = callbackEndpoint
-		handlers[config.HTTPHandlers.TwilioCallEndpoint] = &callEndpointConfig
-		// The callback handler will use the callback point that points to itself to carry on with phone conversation
-		handlers[callbackEndpoint] = &handler.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
-	}
-	ret.HandlerCollection = handlers
-	if err := ret.Initialise(); err != nil {
-		config.logger.Fatalf("GetHTTPD", "", err, "failed to initialise")
-		return nil
-	}
-	return &ret
-}
-
-/*
-Return another HTTP daemon that serves all handlers without TLS. It listens on port number specified in environment
-variable "PORT", or on port 80 if the variable is not defined (i.e. value is empty).
-*/
-func (config Config) GetInsecureHTTPD() *httpd.Daemon {
-	ret := config.GetHTTPD()
-	ret.TLSCertPath = ""
-	ret.TLSKeyPath = ""
-	if envPort := strings.TrimSpace(os.Getenv("PORT")); envPort == "" {
-		ret.Port = 80
-	} else {
-		iPort, err := strconv.Atoi(envPort)
-		if err != nil {
-			config.logger.Fatalf("GetInsecureHTTPD", "", err, "environment variable PORT value is not an integer")
-			return nil
+		if config.HTTPHandlers.GitlabBrowserEndpoint != "" {
+			config.HTTPHandlers.GitlabBrowserEndpointConfig.MailClient = config.MailClient
+			handlers[config.HTTPHandlers.GitlabBrowserEndpoint] = &config.HTTPHandlers.GitlabBrowserEndpointConfig
 		}
-		ret.Port = iPort
-	}
-	if err := ret.Initialise(); err != nil {
-		config.logger.Fatalf("GetInsecureHTTPD", "", err, "failed to initialise")
-		return nil
-	}
-	return ret
+		if config.HTTPHandlers.IndexEndpoints != nil {
+			for _, location := range config.HTTPHandlers.IndexEndpoints {
+				handlers[location] = &config.HTTPHandlers.IndexEndpointConfig
+			}
+		}
+		if config.HTTPHandlers.MailMeEndpoint != "" {
+			hand := config.HTTPHandlers.MailMeEndpointConfig
+			hand.MailClient = config.MailClient
+			handlers[config.HTTPHandlers.MailMeEndpoint] = &hand
+		}
+		// I (howard) personally need three bots, hence this ugly repetition.
+		if config.HTTPHandlers.MicrosoftBotEndpoint1 != "" {
+			hand := config.HTTPHandlers.MicrosoftBotEndpointConfig1
+			handlers[config.HTTPHandlers.MicrosoftBotEndpoint1] = &hand
+		}
+		if config.HTTPHandlers.MicrosoftBotEndpoint2 != "" {
+			hand := config.HTTPHandlers.MicrosoftBotEndpointConfig2
+			handlers[config.HTTPHandlers.MicrosoftBotEndpoint2] = &hand
+		}
+		if config.HTTPHandlers.MicrosoftBotEndpoint3 != "" {
+			hand := config.HTTPHandlers.MicrosoftBotEndpointConfig3
+			handlers[config.HTTPHandlers.MicrosoftBotEndpoint3] = &hand
+		}
+		if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
+			handlers[proxyEndpoint] = &handler.HandleWebProxy{OwnEndpoint: proxyEndpoint}
+		}
+		if config.HTTPHandlers.TwilioSMSEndpoint != "" {
+			handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &handler.HandleTwilioSMSHook{}
+		}
+		if config.HTTPHandlers.TwilioCallEndpoint != "" {
+			/*
+			 Configure a callback endpoint for Twilio call's callback.
+			 The endpoint name is automatically generated from random bytes.
+			*/
+			randBytes := make([]byte, 32)
+			_, err := rand.Read(randBytes)
+			if err != nil {
+				config.logger.Fatalf("GetHTTPD", "", err, "failed to read random number")
+				return
+			}
+			callbackEndpoint := "/" + hex.EncodeToString(randBytes)
+			// The greeting handler will use the callback endpoint to handle command
+			config.HTTPHandlers.TwilioCallEndpointConfig.CallbackEndpoint = callbackEndpoint
+			callEndpointConfig := config.HTTPHandlers.TwilioCallEndpointConfig
+			callEndpointConfig.CallbackEndpoint = callbackEndpoint
+			handlers[config.HTTPHandlers.TwilioCallEndpoint] = &callEndpointConfig
+			// The callback handler will use the callback point that points to itself to carry on with phone conversation
+			handlers[callbackEndpoint] = &handler.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
+		}
+		config.HTTPDaemon.HandlerCollection = handlers
+		if err := config.HTTPDaemon.Initialise(); err != nil {
+			config.logger.Fatalf("GetHTTPD", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.HTTPDaemon
 }
 
 /*
@@ -311,24 +320,24 @@ independent mail command runner is useful in certain scenarios, such as integrat
 "forward-mail-to-program" mechanism.
 */
 func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
-	ret := config.MailCommandRunner
-
-	// Assemble command processor from features and filters
-	ret.Processor = &common.CommandProcessor{
-		Features: &config.Features,
-		CommandFilters: []filter.CommandFilter{
-			&config.MailFilters.PINAndShortcuts,
-			&config.MailFilters.TranslateSequences,
-		},
-		ResultFilters: []filter.ResultFilter{
-			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.MailFilters.LintText,
-			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
-			&config.MailFilters.NotifyViaEmail,
-		},
-	}
-	ret.ReplyMailClient = config.MailClient
-	return &ret
+	config.mailCommandRunnerInit.Do(func() {
+		// Assemble command processor from features and filters
+		config.MailCommandRunner.Processor = &common.CommandProcessor{
+			Features: config.Features,
+			CommandFilters: []filter.CommandFilter{
+				&config.MailFilters.PINAndShortcuts,
+				&config.MailFilters.TranslateSequences,
+			},
+			ResultFilters: []filter.ResultFilter{
+				&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+				&config.MailFilters.LintText,
+				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&config.MailFilters.NotifyViaEmail,
+			},
+		}
+		config.MailCommandRunner.ReplyMailClient = config.MailClient
+	})
+	return config.MailCommandRunner
 }
 
 /*
@@ -336,14 +345,15 @@ Construct an SMTP daemon together with its mail command processor.
 Both SMTP daemon and mail command processor will use the common mail client to forward mails and send replies.
 */
 func (config Config) GetMailDaemon() *smtpd.Daemon {
-	ret := config.MailDaemon
-	ret.CommandRunner = config.GetMailCommandRunner()
-	ret.ForwardMailClient = config.MailClient
-	if err := ret.Initialise(); err != nil {
-		config.logger.Fatalf("GetMailDaemon", "", err, "failed to initialise")
-		return nil
-	}
-	return &ret
+	config.mailDaemonInit.Do(func() {
+		config.MailDaemon.CommandRunner = config.GetMailCommandRunner()
+		config.MailDaemon.ForwardMailClient = config.MailClient
+		if err := config.MailDaemon.Initialise(); err != nil {
+			config.logger.Fatalf("GetMailDaemon", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.MailDaemon
 }
 
 /*
@@ -351,61 +361,62 @@ Construct a plain text protocol TCP&UDP daemon and return.
 It will use common mail client for sending outgoing emails.
 */
 func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
-	ret := config.PlainSocketDaemon
-
-	// Assemble command processor from features and filters
-	ret.Processor = &common.CommandProcessor{
-		Features: &config.Features,
-		CommandFilters: []filter.CommandFilter{
-			&config.PlainSocketFilters.PINAndShortcuts,
-			&config.PlainSocketFilters.TranslateSequences,
-		},
-		ResultFilters: []filter.ResultFilter{
-			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.PlainSocketFilters.LintText,
-			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
-			&config.PlainSocketFilters.NotifyViaEmail,
-		},
-	}
-	// Call initialise so that daemon is ready to start
-	if err := ret.Initialise(); err != nil {
-		config.logger.Fatalf("GetPlainSocketDaemon", "", err, "failed to initialise")
-		return nil
-	}
-	return &ret
+	config.plainSocketDaemonInit.Do(func() {
+		// Assemble command processor from features and filters
+		config.PlainSocketDaemon.Processor = &common.CommandProcessor{
+			Features: config.Features,
+			CommandFilters: []filter.CommandFilter{
+				&config.PlainSocketFilters.PINAndShortcuts,
+				&config.PlainSocketFilters.TranslateSequences,
+			},
+			ResultFilters: []filter.ResultFilter{
+				&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+				&config.PlainSocketFilters.LintText,
+				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&config.PlainSocketFilters.NotifyViaEmail,
+			},
+		}
+		// Call initialise so that daemon is ready to start
+		if err := config.PlainSocketDaemon.Initialise(); err != nil {
+			config.logger.Fatalf("GetPlainSocketDaemon", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.PlainSocketDaemon
 }
 
 // Intentionally undocumented
 func (config Config) GetSockDaemon() *sockd.Daemon {
-	ret := config.SockDaemon
-	if err := ret.Initialise(); err != nil {
-		config.logger.Fatalf("GetSockDaemon", "", err, "failed to initialise")
-		return nil
-	}
-	return &ret
+	config.sockDaemonInit.Do(func() {
+		if err := config.SockDaemon.Initialise(); err != nil {
+			config.logger.Fatalf("GetSockDaemon", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.SockDaemon
 }
 
 // Construct a telegram bot from configuration and return.
 func (config Config) GetTelegramBot() *telegrambot.Daemon {
-	ret := config.TelegramBot
-
-	// Assemble telegram bot from features and filters
-	ret.Processor = &common.CommandProcessor{
-		Features: &config.Features,
-		CommandFilters: []filter.CommandFilter{
-			&config.TelegramFilters.PINAndShortcuts,
-			&config.TelegramFilters.TranslateSequences,
-		},
-		ResultFilters: []filter.ResultFilter{
-			&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
-			&config.TelegramFilters.LintText,
-			&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
-			&config.TelegramFilters.NotifyViaEmail,
-		},
-	}
-	if err := ret.Initialise(); err != nil {
-		config.logger.Fatalf("GetTelegramBot", "", err, "failed to initialise")
-		return nil
-	}
-	return &ret
+	config.telegramBotInit.Do(func() {
+		// Assemble telegram bot from features and filters
+		config.TelegramBot.Processor = &common.CommandProcessor{
+			Features: config.Features,
+			CommandFilters: []filter.CommandFilter{
+				&config.TelegramFilters.PINAndShortcuts,
+				&config.TelegramFilters.TranslateSequences,
+			},
+			ResultFilters: []filter.ResultFilter{
+				&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
+				&config.TelegramFilters.LintText,
+				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&config.TelegramFilters.NotifyViaEmail,
+			},
+		}
+		if err := config.TelegramBot.Initialise(); err != nil {
+			config.logger.Fatalf("GetTelegramBot", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.TelegramBot
 }

@@ -89,7 +89,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	// HTTP daemon is expected to start in two seconds
 	var stoppedNormally bool
 	go func() {
-		if err := daemon.StartAndBlock(); err != nil {
+		if err := daemon.StartAndBlockNoTLS(); err != nil {
 			t.Fatal(err)
 		}
 		stoppedNormally = true
@@ -99,12 +99,12 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	TestAPIHandlers(&daemon, t)
 
 	// Daemon must stop in a second
-	daemon.Stop()
+	daemon.StopNoTLS()
 	time.Sleep(1 * time.Second)
 	if !stoppedNormally {
 		t.Fatal("did not stop")
 	}
 	// Repeatedly stopping the daemon should have no negative consequence
-	daemon.Stop()
-	daemon.Stop()
+	daemon.StopNoTLS()
+	daemon.StopNoTLS()
 }

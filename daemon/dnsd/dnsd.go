@@ -35,12 +35,6 @@ var Forwarders = []string{
 	// Comodo SecureDNS (https://www.comodo.com/secure-dns/)
 	"8.26.56.26:53",
 	"8.20.247.20:53",
-	// Norton ConnectSafe A - Security (https://dns.norton.com/configureRouter.html)
-	"199.85.126.10:53",
-	"199.85.127.10:53",
-	// OpenDNS (https://www.opendns.com/home-internet-security/)
-	"208.67.222.222:53",
-	"208.67.222.220:53",
 	// Neustar free recursive DNS with threat protection (https://www.neustar.biz/security/dns-services/free-recursive-dns-service)
 	"156.154.70.2:53",
 	"156.154.71.2:53",

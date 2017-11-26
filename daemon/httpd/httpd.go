@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -67,8 +68,10 @@ type Daemon struct {
 	Processor         *common.CommandProcessor   `json:"-"` // Feature command processor
 	AllRateLimits     map[string]*misc.RateLimit `json:"-"` // Aggregate all routes and their rate limit counters
 
-	server *http.Server // server is the HTTP service instance
-	logger misc.Logger
+	mux           *http.ServeMux
+	serverWithTLS *http.Server // serverWithTLS is an instance of HTTP server that will be started with TLS listener.
+	serverNoTLS   *http.Server // serverWithTLS is an instance of HTTP server that will be started with an ordinary listener.
+	logger        misc.Logger
 }
 
 // Return path to Handler among special handlers that matches the specified type. Primarily used by test case code.
@@ -135,7 +138,7 @@ func (daemon *Daemon) Initialise() error {
 		return errors.New("httpd.Initialise: missing TLS certificate or key path")
 	}
 	// Install handlers with rate-limiting middleware
-	mux := new(http.ServeMux)
+	daemon.mux = new(http.ServeMux)
 	daemon.AllRateLimits = map[string]*misc.RateLimit{}
 	// Collect directory handlers
 	if daemon.ServeDirectories != nil {
@@ -155,7 +158,7 @@ func (daemon *Daemon) Initialise() error {
 				Logger:   daemon.logger,
 			}
 			daemon.AllRateLimits[urlLocation] = rl
-			mux.HandleFunc(urlLocation, daemon.Middleware(rl, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
+			daemon.mux.HandleFunc(urlLocation, daemon.Middleware(rl, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
 		}
 	}
 	// Collect specialised handlers
@@ -169,53 +172,94 @@ func (daemon *Daemon) Initialise() error {
 			Logger:   daemon.logger,
 		}
 		daemon.AllRateLimits[urlLocation] = rl
-		mux.HandleFunc(urlLocation, daemon.Middleware(rl, hand.Handle))
+		daemon.mux.HandleFunc(urlLocation, daemon.Middleware(rl, hand.Handle))
 	}
 	// Initialise all rate limits
 	for _, limit := range daemon.AllRateLimits {
 		limit.Initialise()
 	}
-	// Configure server with rather generous and sane defaults
-	daemon.server = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", daemon.Address, daemon.Port),
-		Handler:      mux,
+	return nil
+}
+
+/*
+StartAndBlockNoTLS starts HTTP daemon and serve unencrypted connections. Blocks caller until StopNoTLS function is called.
+You may call this function only after having called Initialise()!
+*/
+func (daemon *Daemon) StartAndBlockNoTLS() error {
+	/*
+		In order to determine the listener's port:
+		- On ElasticBeanstalk (and several other scenarios), listen on port number specified in environment PORT value.
+		- If TLS listener has not yet started, listen on the port specified by user configuration (prone to race condition).
+
+		In this way, caller of the function can determine whether to listen for TLS or ordinary traffic, one or the other.
+	*/
+	var port int
+	if envPort := strings.TrimSpace(os.Getenv("PORT")); envPort == "" {
+		if daemon.serverWithTLS == nil {
+			port = daemon.Port
+		} else {
+			return fmt.Errorf("httpd.StartAndBlockNoTLS: was about to listen on port %d but TLS listener is already using it", daemon.Port)
+		}
+	} else {
+		iPort, err := strconv.Atoi(envPort)
+		if err != nil {
+			return fmt.Errorf("httpd.StartAndBlockNoTLS: environment variable PORT value \"%s\" is not an integer", envPort)
+		}
+		port = iPort
+	}
+	// Configure servers with rather generous and sane defaults
+	daemon.serverNoTLS = &http.Server{
+		Addr:         fmt.Sprintf("%s:%d", daemon.Address, port),
+		Handler:      daemon.mux,
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,
+	}
+	daemon.logger.Printf("StartAndBlockNoTLS", "", nil, "going to listen for HTTP connections")
+	if err := daemon.serverNoTLS.ListenAndServe(); err != nil {
+		if strings.Contains(err.Error(), "closed") {
+			return nil
+		}
+		return fmt.Errorf("httpd.StartAndBlockNoTLS: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
 	return nil
 }
 
 /*
+StartAndBlockWithTLS starts HTTP daemon and serve encrypted connections. Blocks caller until StopNoTLS function is called.
 You may call this function only after having called Initialise()!
-Start HTTP daemon and block caller until Stop function is called.
 */
-func (daemon *Daemon) StartAndBlock() error {
-	if daemon.TLSCertPath == "" {
-		daemon.logger.Printf("StartAndBlock", "", nil, "going to listen for HTTP connections")
-		if err := daemon.server.ListenAndServe(); err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return nil
-			}
-			return fmt.Errorf("httpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
+func (daemon *Daemon) StartAndBlockWithTLS() error {
+	daemon.serverWithTLS = &http.Server{
+		Addr:         fmt.Sprintf("%s:%d", daemon.Address, daemon.Port),
+		Handler:      daemon.mux,
+		ReadTimeout:  IOTimeoutSec * time.Second,
+		WriteTimeout: IOTimeoutSec * time.Second,
+	}
+	daemon.logger.Printf("StartAndBlockWithTLS", "", nil, "going to listen for HTTPS connections")
+	if err := daemon.serverWithTLS.ListenAndServeTLS(daemon.TLSCertPath, daemon.TLSKeyPath); err != nil {
+		if strings.Contains(err.Error(), "closed") {
+			return nil
 		}
-	} else {
-		daemon.logger.Printf("StartAndBlock", "", nil, "going to listen for HTTPS connections")
-		if err := daemon.server.ListenAndServeTLS(daemon.TLSCertPath, daemon.TLSKeyPath); err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return nil
-			}
-			return fmt.Errorf("httpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
-		}
+		return fmt.Errorf("httpd.StartAndBlockWithTLS: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
 	return nil
 }
 
-// Stop HTTP daemon.
-func (daemon *Daemon) Stop() {
+// Stop HTTP daemon - the listener without TLS.
+func (daemon *Daemon) StopNoTLS() {
 	constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 	defer cancel()
-	if err := daemon.server.Shutdown(constraints); err != nil {
-		daemon.logger.Warningf("Stop", "", err, "failed to shutdown")
+	if err := daemon.serverNoTLS.Shutdown(constraints); err != nil {
+		daemon.logger.Warningf("StopNoTLS", "", err, "failed to shutdown")
+	}
+}
+
+// Stop HTTP daemon - the listener with TLS.
+func (daemon *Daemon) StopTLS() {
+	constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
+	defer cancel()
+	if err := daemon.serverWithTLS.Shutdown(constraints); err != nil {
+		daemon.logger.Warningf("StopTLS", "", err, "failed to shutdown")
 	}
 }
 
