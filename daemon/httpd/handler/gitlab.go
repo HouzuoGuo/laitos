@@ -81,7 +81,7 @@ func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string, m
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
-	}, "https://gitlab.com/handler/v4/projects/%s/repository/tree?ref=master&recursive=false&per_page=%s&path=%s", projectID, maxEntries, paths)
+	}, "https://gitlab.com/api/v4/projects/%s/repository/tree?ref=master&recursive=false&per_page=%s&path=%s", projectID, maxEntries, paths)
 	if err != nil {
 		return
 	} else if err = resp.Non2xxToError(); err != nil {
@@ -107,7 +107,7 @@ func (lab *HandleGitlabBrowser) DownloadGitBlob(clientIP, projectID string, path
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
-	}, "https://gitlab.com/handler/v4/projects/%s/repository/files/%s/raw?ref=master", projectID, path.Join(paths, fileName))
+	}, "https://gitlab.com/api/v4/projects/%s/repository/files/%s/raw?ref=master", projectID, path.Join(paths, fileName))
 	if err != nil {
 		return
 	} else if err = resp.Non2xxToError(); err != nil {
