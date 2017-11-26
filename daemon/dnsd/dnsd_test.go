@@ -45,9 +45,6 @@ func TestDNSD_DownloadBlacklists(t *testing.T) {
 	}
 }
 
-// TestForwarders are the forwarders chosen for test cases. They are Google (pri+bak), OpenNIC(ns1+ns3), Comodo (pri+bak).
-var TestForwarders = []string{"8.8.8.8:53", "8.8.4.4:53", "185.121.177.177:53", "169.239.202.202:53", "8.26.56.26:53", "8.20.247.20:53"}
-
 func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	daemon := Daemon{}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
@@ -58,10 +55,6 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon.UDPPort = 62151
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "forwarder") == -1 {
-		t.Fatal(err)
-	}
-	daemon.UDPForwarder = TestForwarders
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}
@@ -94,10 +87,6 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon.TCPPort = 18519
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "forwarder") == -1 {
-		t.Fatal(err)
-	}
-	daemon.TCPForwarder = TestForwarders
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}

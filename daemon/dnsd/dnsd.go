@@ -27,6 +27,28 @@ const (
 		` http://creativecommons.org/licenses/by-nc-sa/4.0/ License info for commercial purposes contact Winhelp2002`
 )
 
+/*
+Forwarders is a list of well tested, public, recursive DNS resolvers that must support both TCP and UDP for queries.
+All of the resolvers below claim to improve cypher security to some degree.
+*/
+var Forwarders = []string{
+	// Comodo SecureDNS (https://www.comodo.com/secure-dns/)
+	"8.26.56.26:53",
+	"8.20.247.20:53",
+	// Norton ConnectSafe A - Security (https://dns.norton.com/configureRouter.html)
+	"199.85.126.10:53",
+	"199.85.127.10:53",
+	// OpenDNS (https://www.opendns.com/home-internet-security/)
+	"208.67.222.222:53",
+	"208.67.222.220:53",
+	// Neustar free recursive DNS with threat protection (https://www.neustar.biz/security/dns-services/free-recursive-dns-service)
+	"156.154.70.2:53",
+	"156.154.71.2:53",
+	// Quad9 (https://www.quad9.net)
+	"9.9.9.9:53",
+	"149.112.112.112:53",
+}
+
 // A query to forward to DNS forwarder via DNS.
 type UDPQuery struct {
 	MyServer    *net.UDPConn
@@ -46,10 +68,8 @@ type Daemon struct {
 	AllowQueryIPPrefixes []string `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
 	PerIPLimit           int      `json:"PerIPLimit"`           // How many times in 10 seconds interval an IP may send DNS request
 
-	UDPPort      int      `json:"UDPPort"`       // UDP port to listen on
-	UDPForwarder []string `json:"UDPForwarders"` // Forward UDP DNS queries to these address (IP:Port)
-	TCPPort      int      `json:"TCPPort"`       // TCP port to listen on
-	TCPForwarder []string `json:"TCPForwarders"` // Forward TCP DNS queries to these addresses (IP:Port)
+	UDPPort int `json:"UDPPort"` // UDP port to listen on
+	TCPPort int `json:"TCPPort"` // TCP port to listen on
 
 	tcpListener       net.Listener     // Once TCP daemon is started, this is its listener.
 	udpForwardConn    []net.Conn       // UDP connections made toward forwarder
@@ -73,9 +93,6 @@ func (daemon *Daemon) Initialise() error {
 	}
 	if daemon.UDPPort < 1 && daemon.TCPPort < 1 {
 		return errors.New("DNSD.Initialise: either or both TCP and UDP ports must be specified and be greater than 0")
-	}
-	if (daemon.UDPForwarder == nil || len(daemon.UDPForwarder) == 0) && (daemon.TCPForwarder == nil || len(daemon.TCPForwarder) == 0) {
-		return errors.New("DNSD.Initialise: there must be at least one UDP or TCP forwarder address")
 	}
 	if daemon.PerIPLimit < 10 {
 		return errors.New("DNSD.Initialise: PerIPLimit must be greater than 9")
@@ -106,8 +123,8 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.UDPPort > 0 {
 		numQueues := daemon.PerIPLimit / NumQueueRatio
 		// At very least, each forwarder address has to get a queue.
-		if numQueues < len(daemon.UDPForwarder) {
-			numQueues = len(daemon.UDPForwarder)
+		if numQueues < len(Forwarders) {
+			numQueues = len(Forwarders)
 		}
 		daemon.udpForwardConn = make([]net.Conn, numQueues)
 		daemon.udpForwarderQueue = make([]chan *UDPQuery, numQueues)
@@ -117,7 +134,7 @@ func (daemon *Daemon) Initialise() error {
 				Each queue is connected to a different forwarder.
 				When a DNS query comes in, it is assigned a random forwarder to be processed.
 			*/
-			forwarderAddr, err := net.ResolveUDPAddr("udp", daemon.UDPForwarder[i%len(daemon.UDPForwarder)])
+			forwarderAddr, err := net.ResolveUDPAddr("udp", Forwarders[i%len(Forwarders)])
 			if err != nil {
 				return fmt.Errorf("DNSD.Initialise: failed to resolve UDP address - %v", err)
 			}
