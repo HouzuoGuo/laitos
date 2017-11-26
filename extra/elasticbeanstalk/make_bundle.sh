@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 [ "$(basename $(pwd))" != elasticbeanstalk ] && echo 'Please run the script from "elasticbeanstalk" directory.' && exit 1
 
