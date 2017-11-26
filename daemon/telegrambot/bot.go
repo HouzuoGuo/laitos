@@ -165,12 +165,6 @@ func (bot *Daemon) ProcessMessages(updates APIUpdates) {
 
 // Immediately begin processing incoming chat messages. Block caller indefinitely.
 func (bot *Daemon) StartAndBlock() error {
-	// Make a test API call
-	testResp, testErr := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
-		"https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)
-	if testErr != nil || testResp.StatusCode/200 != 1 {
-		return fmt.Errorf("telegrambot.StartAndBlock: test failed - HTTP %d - %v %s", testResp.StatusCode, testErr, string(testResp.Body))
-	}
 	bot.logger.Printf("StartAndBlock", "", nil, "going to poll for messages")
 	lastIdle := time.Now().Unix()
 	for {
@@ -187,9 +181,12 @@ func (bot *Daemon) StartAndBlock() error {
 		// Poll for new messages
 		updatesResp, updatesErr := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
 			"https://api.telegram.org/bot%s/getUpdates?offset=%s", bot.AuthorizationToken, bot.messageOffset)
+		if updatesErr == nil {
+			updatesErr = updatesResp.Non2xxToError()
+		}
 		var newMessages APIUpdates
-		if updatesErr != nil || updatesResp.StatusCode/200 != 1 {
-			bot.logger.Warningf("Loop", "", updatesErr, "failed to poll due to HTTP %d %s", updatesResp.StatusCode, string(updatesResp.Body))
+		if updatesErr != nil {
+			bot.logger.Warningf("Loop", "", updatesErr, "failed to poll due to HTTP error")
 			goto sleepAndContinue
 		}
 		// Deserialise new messages
