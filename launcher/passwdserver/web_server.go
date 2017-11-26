@@ -107,6 +107,11 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		defer tmpFile.Close()
 		defer os.Remove(tmpFile.Name())
+		/*
+			If a previously launched laitos was killed by user, systemd, or supervisord, it would not have a chance to
+			clean up after its own ramdisk. Therefore, free up after previous laitos exits before extracting new one.
+		*/
+		encarchive.TryDestroyAllRamdisks()
 		// Extract files into ramdisk
 		if err := encarchive.Extract(ws.ArchiveFilePath, tmpFile.Name(), ws.ramdiskDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
 			encarchive.DestroyRamdisk(ws.ramdiskDir)

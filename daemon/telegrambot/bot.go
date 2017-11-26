@@ -165,6 +165,16 @@ func (bot *Daemon) ProcessMessages(updates APIUpdates) {
 
 // Immediately begin processing incoming chat messages. Block caller indefinitely.
 func (bot *Daemon) StartAndBlock() error {
+	/*
+		Make a test API call to verify the correctness of authorization token. This test call must not return in case of
+		IO error or unexpected HTTP response status. As of 2017-11-26, status 404 is the only indication of incorrect
+		authorization token for now.
+	*/
+	testResp, testErr := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
+		"https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)
+	if testErr == nil && testResp.StatusCode == http.StatusNotFound {
+		return errors.New("telegrambot.StartAndBlock: test call failed due to HTTP 404, is the AuthorizationToken correct?")
+	}
 	bot.logger.Printf("StartAndBlock", "", nil, "going to poll for messages")
 	lastIdle := time.Now().Unix()
 	for {

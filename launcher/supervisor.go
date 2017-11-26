@@ -27,9 +27,12 @@ const (
 	SOCKDName         = "sockd"
 	TelegramName      = "telegram"
 
-	// FailureThresholdSec determines the maximum failure interval for supervisor to take action to reduce components.
+	/*
+		FailureThresholdSec determines the maximum failure interval for supervisor to tolerate before taking action to shed
+		off components.
+	*/
 	FailureThresholdSec = 20 * 60
-	// StartAttemptIntervalSec is the amount of time to sleep between supervisor's attempts to start main program.
+	// StartAttemptIntervalSec is the amount of time to wait between supervisor's attempts to start main program.
 	StartAttemptIntervalSec = 10
 )
 
