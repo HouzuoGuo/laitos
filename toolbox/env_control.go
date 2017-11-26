@@ -145,7 +145,8 @@ func TuneLinux() string {
 		"net.ipv4.tcp_keepalive_intvl":  "30",
 		"net.ipv4.tcp_keepalive_probes": "4",
 
-		"net.ipv4.tcp_congestion_control": "hybla",
+		"net.core.default_qdisc":          "fq",
+		"net.ipv4.tcp_congestion_control": "bbr",
 		"net.ipv4.tcp_tw_recycle":         "0",
 		"net.ipv4.tcp_tw_reuse":           "1",
 		"net.ipv4.tcp_fastopen":           "3",
