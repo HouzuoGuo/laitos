@@ -89,7 +89,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	// HTTP daemon is expected to start in two seconds
 	var stoppedNormally bool
 	go func() {
-		if err := daemon.StartAndBlockNoTLS(); err != nil {
+		if err := daemon.StartAndBlockNoTLS(0); err != nil {
 			t.Fatal(err)
 		}
 		stoppedNormally = true

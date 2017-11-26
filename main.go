@@ -265,7 +265,7 @@ func main() {
 			}()
 		case launcher.InsecureHTTPDName:
 			go func() {
-				daemonErrs <- config.GetHTTPD().StartAndBlockNoTLS()
+				daemonErrs <- config.GetHTTPD().StartAndBlockNoTLS(80)
 			}()
 		case launcher.MaintenanceName:
 			go func() {

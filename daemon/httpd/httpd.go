@@ -185,20 +185,20 @@ func (daemon *Daemon) Initialise() error {
 StartAndBlockNoTLS starts HTTP daemon and serve unencrypted connections. Blocks caller until StopNoTLS function is called.
 You may call this function only after having called Initialise()!
 */
-func (daemon *Daemon) StartAndBlockNoTLS() error {
+func (daemon *Daemon) StartAndBlockNoTLS(fallbackPort int) error {
 	/*
 		In order to determine the listener's port:
 		- On ElasticBeanstalk (and several other scenarios), listen on port number specified in environment PORT value.
-		- If TLS listener has not yet started, listen on the port specified by user configuration (prone to race condition).
-
-		In this way, caller of the function can determine whether to listen for TLS or ordinary traffic, one or the other.
+		- If TLS configuration does not exist, listen on the port specified by user configuration.
+		- If TLS configuration exists, then listen on the fallback port.
+		Not very elegant, but it should help to launch HTTP daemon in TLS only, TLS + HTTP, and HTTP only scenarios.
 	*/
 	var port int
 	if envPort := strings.TrimSpace(os.Getenv("PORT")); envPort == "" {
-		if daemon.serverWithTLS == nil {
+		if daemon.TLSCertPath == "" {
 			port = daemon.Port
 		} else {
-			return fmt.Errorf("httpd.StartAndBlockNoTLS: was about to listen on port %d but TLS listener is already using it", daemon.Port)
+			port = fallbackPort
 		}
 	} else {
 		iPort, err := strconv.Atoi(envPort)

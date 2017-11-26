@@ -242,7 +242,7 @@ func TestConfig(t *testing.T) {
 	httpDaemon := config.GetHTTPD()
 	// HTTP daemon is expected to start in two seconds
 	go func() {
-		if err := httpDaemon.StartAndBlockNoTLS(); err != nil {
+		if err := httpDaemon.StartAndBlockNoTLS(0); err != nil {
 			t.Fatal(err)
 		}
 	}()
