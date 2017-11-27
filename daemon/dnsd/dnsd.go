@@ -42,8 +42,8 @@ var Forwarders = []string{
 	"9.9.9.9:53",
 	"149.112.112.112:53",
 	// Norton ConnectSafe A (https://dns.norton.com/configureRouter.html)
-	"199.85.126.10",
-	"199.85.127.10", // 2017-11-27 - this alternative address is unstable in answering TCP requests, though UDP is fine.
+	"199.85.126.10:53",
+	"199.85.127.10:53", // 2017-11-27 - this alternative address is unstable in answering TCP requests, though UDP is fine.
 }
 
 // A query to forward to DNS forwarder via DNS.
