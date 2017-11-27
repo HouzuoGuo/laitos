@@ -3,6 +3,7 @@ package inet
 import (
 	"strings"
 	"sync"
+	"time"
 )
 
 const HTTPPublicIPTimeoutSec = 3 // HTTPPublicIPTimeoutSec is the HTTP timeout for determining public IP address.
@@ -32,55 +33,58 @@ GetPublicIP returns the latest public IP address of the computer. If the IP addr
 an empty string. The function may take up to 3 seconds to return a value.
 */
 func GetPublicIP() string {
-	// There are four ways to retrieve IP address and one failure scenario that returns empty string
-	ipRetrieval := new(sync.WaitGroup)
-	ipRetrieval.Add(4)
-	ipResult := make(chan string, 5)
+	// Use four different ways to retrieve IP address
 	// GCE internal
+	gceInternal := make(chan string)
 	go func() {
-		defer ipRetrieval.Done()
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
 		}, "http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
 		if err == nil && resp.StatusCode/200 == 1 {
-			ipResult <- strings.TrimSpace(string(resp.Body))
+			gceInternal <- strings.TrimSpace(string(resp.Body))
 		}
 	}()
 	// AWS internal
+	awsInternal := make(chan string)
 	go func() {
-		defer ipRetrieval.Done()
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 		}, "http://169.254.169.254/2016-09-02/meta-data/public-ipv4")
 		if err == nil && resp.StatusCode/200 == 1 {
-			ipResult <- strings.TrimSpace(string(resp.Body))
+			awsInternal <- strings.TrimSpace(string(resp.Body))
 		}
 	}()
 	// AWS public
+	awsPublic := make(chan string)
 	go func() {
-		defer ipRetrieval.Done()
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 		}, "http://checkip.amazonaws.com")
 		if err == nil && resp.StatusCode/200 == 1 {
-			ipResult <- strings.TrimSpace(string(resp.Body))
+			awsPublic <- strings.TrimSpace(string(resp.Body))
 		}
 	}()
-	// IPFY public
+	// ipfy.org
+	ipfyPublic := make(chan string)
 	go func() {
-		defer ipRetrieval.Done()
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 		}, "https://api.ipify.org")
 		if err == nil && resp.StatusCode/200 == 1 {
-			ipResult <- strings.TrimSpace(string(resp.Body))
+			ipfyPublic <- strings.TrimSpace(string(resp.Body))
 		}
 	}()
-	// After all four ways failed to determine public IP, return an empty string.
-	go func() {
-		ipRetrieval.Wait()
-		ipResult <- ""
-	}()
-	return <-ipResult
+	select {
+	case ip := <-gceInternal:
+		return ip
+	case ip := <-awsInternal:
+		return ip
+	case ip := <-awsPublic:
+		return ip
+	case ip := <-ipfyPublic:
+		return ip
+	case <-time.After(HTTPPublicIPTimeoutSec * time.Second):
+		return ""
+	}
 }
