@@ -75,7 +75,7 @@ type Daemon struct {
 	udpListener       *net.UDPConn     // Once UDP daemon is started, this is its listener.
 
 	blackListMutex       *sync.Mutex         // Protect against concurrent access to black list
-	blackList            map[string]struct{} // Do not answer to type A queries made toward these domains
+	blackList            map[string]struct{} // blackList is a map of domain names (in lower case), to which DNS queries shall be answered 0.0.0.0.
 	allowQueryMutex      *sync.Mutex         // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
 	allowQueryLastUpdate int64               // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
 	rateLimit            *misc.RateLimit     // Rate limit counter
@@ -212,7 +212,7 @@ func (daemon *Daemon) GetAdBlacklistPGL() ([]string, error) {
 	}
 	names := make([]string, 0, len(lines))
 	for _, line := range lines {
-		names = append(names, strings.TrimSpace(line))
+		names = append(names, strings.ToLower(strings.TrimSpace(line)))
 	}
 	return names, nil
 }
@@ -244,7 +244,7 @@ func (daemon *Daemon) GetAdBlacklistMVPS() ([]string, error) {
 			// The line looks like # this is a comment 0.0.0.0
 			continue
 		}
-		names = append(names, strings.TrimSpace(line[nameBegin:nameEnd]))
+		names = append(names, strings.ToLower(strings.TrimSpace(line[nameBegin:nameEnd])))
 	}
 	if len(names) < 100 {
 		return nil, fmt.Errorf("DNSD.GetAdBlacklistMVPS: MVPS' ad-server list is suspiciously short at only %d lines", len(names))
@@ -308,12 +308,13 @@ func ExtractDomainName(packet []byte) (ret []string) {
 			domainNameBytes[i] = '.'
 		}
 	}
-	// First return value is domain name unchanged
-	domainName := string(domainNameBytes)
+	// Convert the name to lower case because sometimes device queries names in mixed case
+	domainName := strings.ToLower(string(domainNameBytes))
 	if len(domainName) > 1024 {
 		// Domain name is unrealistically long
 		return
 	}
+	// First return value is domain name unchanged
 	ret = append(ret, domainName)
 	// Append more of the same domain name, each with leading component removed.
 	for {
@@ -435,12 +436,12 @@ var githubComTCPQuery, githubComUDPQuery []byte // Sample queries for composing 
 
 func init() {
 	var err error
-	// Prepare two A queries on "github.com" for test cases
-	githubComTCPQuery, err = hex.DecodeString("00274cc7012000010000000000010667697468756203636f6d00000100010000291000000000000000")
+	// Prepare two A queries on "github.coM" (note the capital M, hex 4d) for test cases
+	githubComTCPQuery, err = hex.DecodeString("00274cc7012000010000000000010667697468756203636f4d00000100010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}
-	githubComUDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f6d00000100010000291000000000000000")
+	githubComUDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f4d00000100010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}
