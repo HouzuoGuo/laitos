@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	DirectoryHandlerRateLimitFactor = 10 // 9 times less expensive than the most expensive handler
-	RateLimitIntervalSec            = 10 // Rate limit is calculated at 10 seconds interval
+	DirectoryHandlerRateLimitFactor = 3  // 2 times less expensive than the most expensive handler
+	RateLimitIntervalSec            = 1  // Rate limit is calculated at 1 second interval
 	IOTimeoutSec                    = 60 // IO timeout for both read and write operations
 )
 
@@ -61,7 +61,7 @@ type Daemon struct {
 	Port             int               `json:"Port"`             // Port number to listen on
 	TLSCertPath      string            `json:"TLSCertPath"`      // (Optional) serve HTTPS via this certificate
 	TLSKeyPath       string            `json:"TLSKeyPath"`       // (Optional) serve HTTPS via this certificate (key)
-	BaseRateLimit    int               `json:"BaseRateLimit"`    // How many times in 10 seconds interval the most expensive HTTP handler may be invoked by an IP
+	PerIPLimit       int               `json:"PerIPLimit"`       // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
 	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
 
 	HandlerCollection HandlerCollection          `json:"-"` // Specialised handlers that implement handler.HandlerFactory interface
@@ -131,8 +131,8 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.Port < 1 {
 		return errors.New("httpd.Initialise: listen port must be greater than 0")
 	}
-	if daemon.BaseRateLimit < 1 {
-		return errors.New("httpd.Initialise: BaseRateLimit must be greater than 0")
+	if daemon.PerIPLimit < 1 {
+		return errors.New("httpd.Initialise: PerIPLimit must be greater than 0")
 	}
 	if (daemon.TLSCertPath != "" || daemon.TLSKeyPath != "") && (daemon.TLSCertPath == "" || daemon.TLSKeyPath == "") {
 		return errors.New("httpd.Initialise: missing TLS certificate or key path")
@@ -154,7 +154,7 @@ func (daemon *Daemon) Initialise() error {
 			}
 			rl := &misc.RateLimit{
 				UnitSecs: RateLimitIntervalSec,
-				MaxCount: DirectoryHandlerRateLimitFactor * daemon.BaseRateLimit,
+				MaxCount: DirectoryHandlerRateLimitFactor * daemon.PerIPLimit,
 				Logger:   daemon.logger,
 			}
 			daemon.AllRateLimits[urlLocation] = rl
@@ -168,7 +168,7 @@ func (daemon *Daemon) Initialise() error {
 		}
 		rl := &misc.RateLimit{
 			UnitSecs: RateLimitIntervalSec,
-			MaxCount: hand.GetRateLimitFactor() * daemon.BaseRateLimit,
+			MaxCount: hand.GetRateLimitFactor() * daemon.PerIPLimit,
 			Logger:   daemon.logger,
 		}
 		daemon.AllRateLimits[urlLocation] = rl
@@ -528,19 +528,17 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 	// Test hitting rate limits
 	time.Sleep(RateLimitIntervalSec * time.Second)
 	success := 0
-	for i := 0; i < httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor*2; i++ {
+	for i := 0; i < httpd.PerIPLimit*DirectoryHandlerRateLimitFactor*2; i++ {
 		resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir/a.html")
 		if err == nil && resp.StatusCode == http.StatusOK {
 			success++
 		}
 	}
-	// Assume Daemon's BaseRateLimit is 10
-	if success > httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor*3/2 ||
-		success < httpd.BaseRateLimit*DirectoryHandlerRateLimitFactor/2 {
+	if success < 1 || success > httpd.PerIPLimit*DirectoryHandlerRateLimitFactor*2 {
 		t.Fatal(success)
 	}
-	// Wait till rate limits reset
-	time.Sleep(RateLimitIntervalSec * time.Second)
+	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
+	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
 	// Visit page again after rate limit resets
 	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>

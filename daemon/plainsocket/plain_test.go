@@ -27,7 +27,8 @@ func TestPlainTextDaemon_StartAndBlockTCP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}
-	daemon.PerIPLimit = 10
+	// This per IP limit must be high enough to tolerate consecutive command tests
+	daemon.PerIPLimit = 5
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +48,8 @@ func TestPlainTextDaemon_StartAndBlockUDP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}
-	daemon.PerIPLimit = 10
+	// This per IP limit must be high enough to tolerate consecutive command tests
+	daemon.PerIPLimit = 5
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}

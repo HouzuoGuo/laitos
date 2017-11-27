@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	RateLimitIntervalSec       = 10   // Rate limit is calculated at 10 seconds interval
+	RateLimitIntervalSec       = 1    // Rate limit is calculated at 1 second interval
 	IOTimeoutSec               = 60   // IO timeout for both read and write operations
 	MaxPacketSize              = 9038 // Maximum acceptable UDP packet size
 	NumQueueRatio              = 10   // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
@@ -60,7 +60,7 @@ type TCPForwarderQuery struct {
 type Daemon struct {
 	Address              string   `json:"Address"`              // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
 	AllowQueryIPPrefixes []string `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
-	PerIPLimit           int      `json:"PerIPLimit"`           // How many times in 10 seconds interval an IP may send DNS request
+	PerIPLimit           int      `json:"PerIPLimit"`           // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
 
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
@@ -88,8 +88,8 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.UDPPort < 1 && daemon.TCPPort < 1 {
 		return errors.New("DNSD.Initialise: either or both TCP and UDP ports must be specified and be greater than 0")
 	}
-	if daemon.PerIPLimit < 10 {
-		return errors.New("DNSD.Initialise: PerIPLimit must be greater than 9")
+	if daemon.PerIPLimit < 1 {
+		return errors.New("DNSD.Initialise: PerIPLimit must be greater than 0")
 	}
 	if len(daemon.AllowQueryIPPrefixes) == 0 {
 		return errors.New("DNSD.Initialise: allowable IP prefixes list must not be empty")

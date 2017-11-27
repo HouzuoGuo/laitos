@@ -63,7 +63,7 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (_ *HandleCommandForm) GetRateLimitFactor() int {
-	return 2
+	return 1
 }
 
 func (_ *HandleCommandForm) SelfTest() error {

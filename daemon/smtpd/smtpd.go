@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	RateLimitIntervalSec  = 10 // Rate limit is calculated at 10 seconds interval
+	RateLimitIntervalSec  = 1  // Rate limit is calculated at 1 second interval
 	IOTimeoutSec          = 60 // IO timeout for both read and write operations
 	MaxConversationLength = 64 // Only converse up to this number of messages in an SMTP connection
 )
@@ -30,7 +30,7 @@ type Daemon struct {
 	Port        int      `json:"Port"`        // Port number to listen on
 	TLSCertPath string   `json:"TLSCertPath"` // (Optional) serve StartTLS via this certificate
 	TLSKeyPath  string   `json:"TLSKeyPath"`  // (Optional) serve StartTLS via this certificate (key)
-	PerIPLimit  int      `json:"PerIPLimit"`  // How many times in 10 seconds interval an IP may deliver an email to this server
+	PerIPLimit  int      `json:"PerIPLimit"`  // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
 	MyDomains   []string `json:"MyDomains"`   // Only accept mails addressed to these domain names
 	ForwardTo   []string `json:"ForwardTo"`   // Forward received mails to these addresses
 
@@ -292,11 +292,11 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 			success++
 		}
 	}
-	if success < 5 || success > 15 {
+	if success < 1 || success > smtpd.PerIPLimit*2 {
 		t.Fatal("delivered", success)
 	}
-	// Wait till rate limit expires
-	time.Sleep(RateLimitIntervalSec * time.Second)
+	// Wait till rate limit expires (leave 3 seconds buffer for pending transfer)
+	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
 	// Send an ordinary mail to the daemon
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {

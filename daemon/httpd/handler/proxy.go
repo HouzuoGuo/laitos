@@ -249,7 +249,8 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (xy *HandleWebProxy) GetRateLimitFactor() int {
-	return 50
+	// A typical web page makes plenty of requests nowadays
+	return 20
 }
 
 func (_ *HandleWebProxy) SelfTest() error {

@@ -5,20 +5,8 @@
     "AllowQueryIPPrefixes": [
       "192."
     ],
-    "PerIPLimit": 50,
-    "TCPForwarders": [
-      "8.8.8.8:53",
-      "8.8.4.4:53",
-      "8.26.56.26:53",
-      "8.20.247.20:53"
-    ],
+    "PerIPLimit": 3,
     "TCPPort": 53,
-    "UDPForwarders": [
-      "8.8.8.8:53",
-      "8.8.4.4:53",
-      "8.26.56.26:53",
-      "8.20.247.20:53"
-    ],
     "UDPPort": 53
   },
   "Features": {
@@ -75,7 +63,7 @@
   },
   "HTTPDaemon": {
     "Address": "0.0.0.0",
-    "BaseRateLimit": 5,
+    "PerIPLimit": 3,
     "Port": 80
   },
   "HTTPFilters": {
@@ -173,7 +161,7 @@
     "MyDomains": [
       "localhost"
     ],
-    "PerIPLimit": 5,
+    "PerIPLimit": 3,
     "Port": 25
   },
   "MailFilters": {
@@ -216,7 +204,7 @@
   },
   "PlainSocketDaemon": {
     "Address": "0.0.0.0",
-    "PerIPLimit": 5,
+    "PerIPLimit": 3,
     "TCPPort": 5,
     "UDPPort": 5
   },
@@ -245,14 +233,14 @@
   "SockDaemon": {
     "Address": "0.0.0.0",
     "Password": "simplesimple",
-    "PerIPLimit": 300,
+    "PerIPLimit": 20,
     "TCPPort": 70,
     "UDPPort": 70
   },
   "SupervisorNotificationRecipients": ["i@example.net"],
   "TelegramBot": {
     "AuthorizationToken": "dummy token",
-    "RateLimit": 5
+    "PerUserLimit": 2
   },
   "TelegramFilters": {
     "LintText": {

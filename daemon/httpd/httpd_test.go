@@ -36,16 +36,17 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		Port:             1024 + rand.Intn(65535-1024),
 		Processor:        nil,
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir", "dir": "/tmp/test-laitos-dir"},
-		BaseRateLimit:    0,
+		PerIPLimit:       0,
 		HandlerCollection: map[string]handler.Handler{
 			"/": &handler.HandleHTMLDocument{HTMLFilePath: indexFile},
 		},
 	}
 	// Must not initialise if rate limit is too small
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "BaseRateLimit") {
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "PerIPLimit") {
 		t.Fatal(err)
 	}
-	daemon.BaseRateLimit = 10 // good enough for both sets of test cases
+	// This per IP limit must be high enough to tolerate consecutive tests on identical API endpoints
+	daemon.PerIPLimit = 10
 	// Must be able to initialise if command processor is empty (not used)
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)

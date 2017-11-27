@@ -24,7 +24,8 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "PerIPLimit") {
 		t.Fatal(err)
 	}
-	daemon.PerIPLimit = 10
+	// This per IP limit must be high enough to tolerate consecutive mail tests
+	daemon.PerIPLimit = 5
 	// Must not intialise if forward-to addresses are not there
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "forward address") {
 		t.Fatal(err)

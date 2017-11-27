@@ -144,11 +144,11 @@ func TestUDPServer(server *Daemon, t testingstub.T) {
 		clientConn.Close()
 		success++
 	}
-	if success < 5 || success > 15 {
+	if success < 1 || success > server.PerIPLimit*2 {
 		t.Fatal("succeeded", success)
 	}
-	// Wait till rate limit expires
-	time.Sleep(RateLimitIntervalSec * time.Second)
+	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
+	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
 
 	// Make two normal conversations
 	clientConn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(server.UDPPort))

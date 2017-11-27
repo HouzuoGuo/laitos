@@ -22,7 +22,7 @@ func TestConfig(t *testing.T) {
     "AllowQueryIPPrefixes": [
       "192"
     ],
-    "PerIPLimit": 10,
+    "PerIPLimit": 5,
     "TCPPort": 45115,
     "UDPPort": 23518
   },
@@ -61,7 +61,7 @@ func TestConfig(t *testing.T) {
   },
   "HTTPDaemon": {
     "Address": "127.0.0.1",
-    "BaseRateLimit": 10,
+    "PerIPLimit": 10,
     "Port": 23486,
     "ServeDirectories": {
       "/my/dir": "/tmp/test-laitos-dir",
@@ -145,7 +145,7 @@ func TestConfig(t *testing.T) {
       "example.com",
       "howard.name"
     ],
-    "PerIPLimit": 10,
+    "PerIPLimit": 5,
     "Port": 18573
   },
   "MailCommandRunner": {
@@ -184,7 +184,7 @@ func TestConfig(t *testing.T) {
   },
   "PlainSocketDaemon": {
     "Address": "127.0.0.1",
-    "PerIPLimit": 10,
+    "PerIPLimit": 5,
     "TCPPort": 17011,
     "UDPPort": 43915
   },
@@ -198,7 +198,7 @@ func TestConfig(t *testing.T) {
   "SupervisorNotificationRecipients": ["howard@localhost"],
   "TelegramBot": {
     "AuthorizationToken": "intentionally-bad-token",
-    "RateLimit": 10
+    "PerUserLimit": 2
   },
   "TelegramFilters": {
     "LintText": {

@@ -11,7 +11,7 @@ import (
 const (
 	IOTimeoutSec         = 60               // If a conversation goes silent for this many seconds, the connection is terminated.
 	CommandTimeoutSec    = IOTimeoutSec - 1 // Command execution times out after this manys econds
-	RateLimitIntervalSec = 10               // Rate limit is calculated at 10 seconds interval
+	RateLimitIntervalSec = 1                // Rate limit is calculated at 1 second interval
 )
 
 // Daemon provides to features via plain unencrypted TCP and UDP connections.
@@ -19,7 +19,7 @@ type Daemon struct {
 	Address    string                   `json:"Address"`    // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
 	TCPPort    int                      `json:"TCPPort"`    // TCP port to listen on
 	UDPPort    int                      `json:"UDPPort"`    // UDP port to listen on
-	PerIPLimit int                      `json:"PerIPLimit"` // How many times in 10 seconds interval a client IP may converse (connect/run feature) with server
+	PerIPLimit int                      `json:"PerIPLimit"` // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
 	Processor  *common.CommandProcessor `json:"-"`          // Feature command processor
 
 	tcpListener net.Listener    // Once TCP daemon is started, this is its listener.

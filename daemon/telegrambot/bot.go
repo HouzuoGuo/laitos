@@ -19,7 +19,7 @@ import (
 
 const (
 	ChatTypePrivate   = "private" // Name of the private chat type
-	PollIntervalSec   = 5         // Poll for incoming messages every three seconds
+	PollIntervalSec   = 5         // Poll for incoming messages every five seconds
 	APICallTimeoutSec = 30        // Outgoing API calls are constrained by this timeout
 	CommandTimeoutSec = 30        // Command execution is constrained by this timeout
 )
@@ -67,7 +67,7 @@ type APIUpdates struct {
 // Process feature commands from incoming telegram messages, reply to the chats with command results.
 type Daemon struct {
 	AuthorizationToken string                   `json:"AuthorizationToken"` // Telegram bot API auth token
-	RateLimit          int                      `json:"RateLimit"`          // rateLimit determines how many messages may be processed per chat at a regular interval
+	PerUserLimit       int                      `json:"PerUserLimit"`       // PerUserLimit determines how many messages may be processed per chat at regular interval
 	Processor          *common.CommandProcessor `json:"-"`                  // Feature command processor
 
 	messageOffset int64           // Process chat messages arrived after this point
@@ -89,13 +89,13 @@ func (bot *Daemon) Initialise() error {
 	if bot.AuthorizationToken == "" {
 		return errors.New("telegrambot.Initialise: AuthorizationToken must not be empty")
 	}
-	if bot.RateLimit < 1 {
-		return errors.New("telegrambot.Initialise: RateLimit must be greater than 0")
+	if bot.PerUserLimit < 1 {
+		return errors.New("telegrambot.Initialise: PerUserLimit must be greater than 0")
 	}
 	// Configure rate limit
 	bot.userRateLimit = &misc.RateLimit{
 		UnitSecs: PollIntervalSec,
-		MaxCount: bot.RateLimit,
+		MaxCount: bot.PerUserLimit,
 		Logger:   bot.logger,
 	}
 	bot.userRateLimit.Initialise()
@@ -133,7 +133,7 @@ func (bot *Daemon) ProcessMessages(updates APIUpdates) {
 		}
 		if !bot.userRateLimit.Add(origin, true) {
 			if err := bot.ReplyTo(ding.Message.Chat.ID, "rate limited"); err != nil {
-				bot.logger.Warningf("ProcessMessages", origin, err, "failed to send message reply")
+				bot.logger.Warningf("ProcessMessages", origin, err, "failed to reply rate limited response")
 			}
 			continue
 		}

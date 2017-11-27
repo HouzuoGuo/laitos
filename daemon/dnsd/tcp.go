@@ -172,7 +172,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 
 	packetBuf := make([]byte, MaxPacketSize)
 	success := 0
-	// Try to reach rate limit
+	// Try to reach rate limit - assume rate limit is 10
 	for i := 0; i < 40; i++ {
 		go func() {
 			clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(dnsd.TCPPort))
@@ -180,7 +180,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 				t.Fatal(err)
 			}
 			defer clientConn.Close()
-			if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
+			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := clientConn.Write(githubComTCPQuery); err != nil {
@@ -192,9 +192,9 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 			}
 		}()
 	}
-	// Wait out rate limit
-	time.Sleep(RateLimitIntervalSec * time.Second)
-	if success < 5 || success > 15 {
+	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
+	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
+	if success < 1 || success > dnsd.PerIPLimit*2 {
 		t.Fatal(success)
 	}
 	// Blacklist github and see if query gets a black hole response
@@ -207,7 +207,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 		if err != nil {
 			continue
 		}
-		if err := clientConn.SetDeadline(time.Now().Add((RateLimitIntervalSec - 1) * time.Second)); err != nil {
+		if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
 			clientConn.Close()
 			continue
 		}

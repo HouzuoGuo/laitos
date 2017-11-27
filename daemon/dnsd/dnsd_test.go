@@ -58,7 +58,8 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}
-	daemon.PerIPLimit = 10
+	// This per IP limit must be high enough to tolerate consecutive query tests
+	daemon.PerIPLimit = 5
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "allowable IP") == -1 {
 		t.Fatal(err)
 	}
@@ -90,7 +91,8 @@ func TestDNSD_StartAndBlockTCP(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
 		t.Fatal(err)
 	}
-	daemon.PerIPLimit = 10
+	// This per IP limit must be high enough to tolerate consecutive query tests
+	daemon.PerIPLimit = 5
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "allowable IP") == -1 {
 		t.Fatal(err)
 	}

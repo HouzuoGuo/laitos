@@ -184,7 +184,7 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (_ *HandleGitlabBrowser) GetRateLimitFactor() int {
-	return 5
+	return 1
 }
 
 func (lab *HandleGitlabBrowser) SelfTest() error {
