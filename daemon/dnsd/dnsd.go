@@ -81,7 +81,8 @@ type Daemon struct {
 		The DNS daemon itself isn't too concerned with the IP address, however, this black list serves as a valuable
 		input for blocking IP address access in sockd.
 	*/
-	blackList map[string]struct{}
+	blackList         map[string]struct{}
+	blackListUpdating int32 // blackListUpdating is set to 1 when black list is being updated, and 0 otherwise.
 
 	blackListMutex       *sync.RWMutex   // Protect against concurrent access to black list
 	allowQueryMutex      *sync.Mutex     // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
@@ -322,10 +323,18 @@ func ExtractDomainName(packet []byte) string {
 }
 
 /*
-UpdatedAdBlockLists downloads the latest blacklist files from PGL and MVPS, resolves the IP addresses of each domain,
+UpdatedBlackList downloads the latest blacklist files from PGL and MVPS, resolves the IP addresses of each domain,
 and stores the latest blacklist names and IP addresses into blacklist map.
 */
-func (daemon *Daemon) UpdatedAdBlockLists() {
+func (daemon *Daemon) UpdatedBlackList() {
+	if !atomic.CompareAndSwapInt32(&daemon.blackListUpdating, 0, 1) {
+		daemon.logger.Printf("GetAdBlacklistPGL", "", nil, "will skip this run because update routine is already ongoing")
+		return
+	}
+	defer func() {
+		atomic.StoreInt32(&daemon.blackListUpdating, 0)
+	}()
+	// Download black list data from two sources
 	pglEntries, pglErr := daemon.GetAdBlacklistPGL()
 	if pglErr == nil {
 		daemon.logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
@@ -339,7 +348,7 @@ func (daemon *Daemon) UpdatedAdBlockLists() {
 	} else {
 		daemon.logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
 	}
-	// Put names from both lists into one list
+	// Combine black list data from two sources into one single list
 	allEntries := make([]string, len(pglEntries)+len(mvpsEntries))
 	copy(allEntries, pglEntries)
 	copy(allEntries[len(pglEntries):], mvpsEntries)
@@ -356,7 +365,7 @@ func (daemon *Daemon) UpdatedAdBlockLists() {
 		go func(i int) {
 			for j := i * (len(allEntries) / numRoutines); j < (i+1)*(len(allEntries)/numRoutines); j++ {
 				if j%500 == 1 {
-					daemon.logger.Printf("UpdatedAdBlockLists", "", nil, "resolving IP addresses at index %d", j)
+					daemon.logger.Printf("UpdatedBlackList", "", nil, "resolving IP addresses at index %d", j)
 				}
 				name := strings.ToLower(strings.TrimSpace(allEntries[j]))
 				// In case MVPS or PGL gets mad at me and returns "com" or "net" to block, for a prank :>
@@ -385,7 +394,7 @@ func (daemon *Daemon) UpdatedAdBlockLists() {
 	daemon.blackListMutex.Lock()
 	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
-	daemon.logger.Printf("UpdatedAdBlockLists", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries",
+	daemon.logger.Printf("UpdatedBlackList", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries",
 		len(allEntries), countResolvedNames, countResolvedIPs, countNonResolvableNames, len(newBlackList))
 }
 
@@ -398,13 +407,13 @@ func (daemon *Daemon) StartAndBlock() error {
 	// Keep updating ad-block black list in background
 	stopAdBlockUpdater := make(chan bool, 1)
 	go func() {
-		daemon.UpdatedAdBlockLists()
+		daemon.UpdatedBlackList()
 		for {
 			select {
 			case <-stopAdBlockUpdater:
 				return
 			case <-time.After(BlacklistUpdateIntervalSec * time.Second):
-				daemon.UpdatedAdBlockLists()
+				daemon.UpdatedBlackList()
 			}
 		}
 	}()

@@ -50,7 +50,7 @@ func TestDNSD_DownloadBlacklists(t *testing.T) {
 	if entries, err := daemon.GetAdBlacklistMVPS(); err != nil || len(entries) < 100 {
 		t.Fatal(err, entries)
 	}
-	daemon.UpdatedAdBlockLists()
+	daemon.UpdatedBlackList()
 }
 
 func TestDNSD_StartAndBlockUDP(t *testing.T) {
