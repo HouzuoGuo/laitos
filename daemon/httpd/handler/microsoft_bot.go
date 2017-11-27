@@ -79,7 +79,7 @@ func (hand *HandleMicrosoftBot) RetrieveJWT() (MicrosoftBotJwt, error) {
 		return hand.latestJWT, nil
 	}
 
-	hand.logger.Printf("RetrieveJWT", "", nil, "attempting to renew JWT")
+	hand.logger.Printf("HandleMicrosoftBot.RetrieveJWT", "", nil, "attempting to renew JWT")
 	httpResp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method:      http.MethodPost,
 		ContentType: "application/x-www-form-urlencoded",
@@ -93,20 +93,20 @@ func (hand *HandleMicrosoftBot) RetrieveJWT() (MicrosoftBotJwt, error) {
 	}, "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token")
 
 	if err != nil {
-		hand.logger.Warningf("RetrieveJWT", "", err, "failed due to IO error")
+		hand.logger.Warningf("HandleMicrosoftBot.RetrieveJWT", "", err, "failed due to IO error")
 		return MicrosoftBotJwt{}, err
 	}
 	if err = httpResp.Non2xxToError(); err != nil {
-		hand.logger.Warningf("RetrieveJWT", "", err, "failed due to HTTP error")
+		hand.logger.Warningf("HandleMicrosoftBot.RetrieveJWT", "", err, "failed due to HTTP error")
 		return MicrosoftBotJwt{}, err
 	}
 	if err = json.Unmarshal(httpResp.Body, &hand.latestJWT); err != nil {
-		hand.logger.Warningf("RetrieveJWT", "", err, "failed to deserialise JWT")
+		hand.logger.Warningf("HandleMicrosoftBot.RetrieveJWT", "", err, "failed to deserialise JWT")
 		return MicrosoftBotJwt{}, err
 	}
 	// Exact time of expiry is simply time now + validity in seconds (ExpiresIn). Leave a second of buffer just in case.
 	hand.latestJWT.ExpiresAt = time.Now().Add(time.Duration(hand.latestJWT.ExpiresIn-1) * time.Second)
-	hand.logger.Printf("RetrieveJWT", "", err, "successfully renewed JWT")
+	hand.logger.Printf("HandleMicrosoftBot.RetrieveJWT", "", err, "successfully renewed JWT")
 	return hand.latestJWT, nil
 }
 
