@@ -382,7 +382,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 			// Utility applications for maintaining application zip bundle
 			"unzip", "zip",
 			// Utility applications for conducting network diagnosis
-			"nc", "net-tools", "netcat", "nmap", "traceroute", "whois",
+			"nc", "net-tools", "netcat", "nmap", "tcpdump", "traceroute", "whois",
 			// busybox is useful for general maintenance and it can synchronise clock as well
 			"busybox",
 		}
