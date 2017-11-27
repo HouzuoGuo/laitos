@@ -46,6 +46,9 @@ func (resp *HTTPResponse) Non2xxToError() error {
 	if len(compactBody) > 256 {
 		compactBody = compactBody[:256]
 	}
+	if len(compactBody) == 0 {
+		compactBody = []byte("<empty response>")
+	}
 
 	if resp.StatusCode/200 != 1 {
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(compactBody))

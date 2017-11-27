@@ -19,6 +19,20 @@ import (
 const (
 	MicrosoftBotAPITimeoutSec     = 30 // MicrosoftBotAPITimeoutSec is the timeout seconds for outgoing HTTP calls.
 	MicrosoftBotCommandTimeoutSec = 30 // Command execution for Microsoft bot is constrained by this timeout.
+
+	/*
+		MicrosoftBotAPIRateLimitFactor allows (API rate limit factor * BaseRateLimit) number of requests to be made by
+		Microsoft bot platform, per HTTP server rate limit interval. Be aware that API handlers place an extra rate limit
+		based on incoming chat user.
+		This rate limit is designed to protect brute force PIN attack from accidentally exposed API handler URL.
+	*/
+	MicrosoftBotAPIRateLimitFactor = 20
+
+	/*
+		MicrosoftBotUserRateLimitIntervalSec is an interval measured in number of seconds that an incoming conversation
+		is allowed to invoke bot command routine. This rate limit is designed to prevent spam chats.
+	*/
+	MicrosoftBotUserRateLimitIntervalSec = 5
 )
 
 // MicrosoftBotJwt is a JWT returned by Microsoft bot framework.
@@ -35,8 +49,9 @@ type HandleMicrosoftBot struct {
 	ClientAppID     string `json:"ClientAppID"`     // ClientAppID is the bot's "app ID".
 	ClientAppSecret string `json:"ClientAppSecret"` // ClientAppSecret is the bot's application "password".
 
-	latestJwtMutex *sync.Mutex     // latestJwtMutex protects latestJWT from concurrent access.
-	latestJWT      MicrosoftBotJwt // latestJWT is the last retrieved JWT
+	latestJwtMutex        *sync.Mutex     // latestJwtMutex protects latestJWT from concurrent access.
+	latestJWT             MicrosoftBotJwt // latestJWT is the last retrieved JWT
+	conversationRateLimit *misc.RateLimit // conversationRateLimit prevents excessively chatty conversations from taking place
 
 	logger  misc.Logger
 	cmdProc *common.CommandProcessor
@@ -46,10 +61,17 @@ func (hand *HandleMicrosoftBot) Initialise(logger misc.Logger, cmdProc *common.C
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	hand.latestJwtMutex = new(sync.Mutex)
+	// Allow maximum of 1 message to be received every 5 seconds, per conversation ID.
+	hand.conversationRateLimit = &misc.RateLimit{
+		UnitSecs: MicrosoftBotUserRateLimitIntervalSec,
+		MaxCount: 1,
+		Logger:   logger,
+	}
+	hand.conversationRateLimit.Initialise()
 	return nil
 }
 
-// RetrieveJWT asks Microsoft for a new JWT.
+// RetrieveJWT asks Microsoft for a new JWT for bot API calls.
 func (hand *HandleMicrosoftBot) RetrieveJWT() (MicrosoftBotJwt, error) {
 	hand.latestJwtMutex.Lock()
 	defer hand.latestJwtMutex.Unlock()
@@ -57,7 +79,7 @@ func (hand *HandleMicrosoftBot) RetrieveJWT() (MicrosoftBotJwt, error) {
 		return hand.latestJWT, nil
 	}
 
-	var httpResp inet.HTTPResponse
+	hand.logger.Printf("RetrieveJWT", "", nil, "attempting to renew JWT")
 	httpResp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method:      http.MethodPost,
 		ContentType: "application/x-www-form-urlencoded",
@@ -66,15 +88,20 @@ func (hand *HandleMicrosoftBot) RetrieveJWT() (MicrosoftBotJwt, error) {
 			"grant_type":    []string{"client_credentials"},
 			"client_id":     []string{hand.ClientAppID},
 			"client_secret": []string{hand.ClientAppSecret},
-			"scope":         []string{"https://handler.botframework.com/.default"},
+			"scope":         []string{"https://api.botframework.com/.default"},
 		}.Encode()),
 	}, "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token")
 
-	hand.logger.Printf("RetrieveJWT", "", err, "attempted to renew JWT")
 	if err != nil {
+		hand.logger.Warningf("RetrieveJWT", "", err, "failed due to IO error")
+		return MicrosoftBotJwt{}, err
+	}
+	if err = httpResp.Non2xxToError(); err != nil {
+		hand.logger.Warningf("RetrieveJWT", "", err, "failed due to HTTP error")
 		return MicrosoftBotJwt{}, err
 	}
 	if err = json.Unmarshal(httpResp.Body, &hand.latestJWT); err != nil {
+		hand.logger.Warningf("RetrieveJWT", "", err, "failed to deserialise JWT")
 		return MicrosoftBotJwt{}, err
 	}
 	// Exact time of expiry is simply time now + validity in seconds (ExpiresIn). Leave a second of buffer just in case.
@@ -129,11 +156,25 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	// In the background, process the chat message and formulate a response.
 	go func() {
-		// If JWT has not been acquired or is outdated, request a new one.
-		var jwtCopy MicrosoftBotJwt
+		convID := incoming.Conversation.ID
+		if convID == "" {
+			hand.logger.Warningf("HandleMicrosoftBot", "", nil, "ignore conversation with empty ID")
+			return
+		}
+
+		// Do not proceed if conversation is too fast
+		if !hand.conversationRateLimit.Add(convID, true) {
+			return
+		}
 
 		// Sometimes a chat app establishes a conversation without any content, just ignore it.
 		if incoming.Text == "" {
+			return
+		}
+
+		latestJWT, err := hand.RetrieveJWT()
+		if err != nil {
+			hand.logger.Warningf("HandleMicrosoftBot", incoming.Conversation.ID, err, "cannot reply due to JWT retrieval error")
 			return
 		}
 
@@ -166,22 +207,26 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Send away the reply
-		_, err = inet.DoHTTP(inet.HTTPRequest{
+		resp, err := inet.DoHTTP(inet.HTTPRequest{
 			Method:      http.MethodPost,
 			ContentType: "application/json",
 			TimeoutSec:  MicrosoftBotAPITimeoutSec,
-			Header:      http.Header{"Authorization": []string{"Bearer " + jwtCopy.AccessToken}},
+			Header:      http.Header{"Authorization": []string{"Bearer " + latestJWT.AccessToken}},
 			Body:        bytes.NewReader(replyBody),
 		}, incoming.ServiceURL+"/v3/conversations/%s/activities/%s", incoming.Conversation.ID, incoming.ID)
 		if err != nil {
-			hand.logger.Warningf("HandleMicrosoftBot", "", err, "failed to send chat reply")
+			hand.logger.Warningf("HandleMicrosoftBot", "", err, "failed to send chat reply due to IO error")
+			return
+		}
+		if err = resp.Non2xxToError(); err != nil {
+			hand.logger.Warningf("HandleMicrosoftBot", "", err, "failed to send chat reply due to HTTP error")
 			return
 		}
 	}()
 }
 
 func (hand *HandleMicrosoftBot) GetRateLimitFactor() int {
-	return 5
+	return MicrosoftBotAPIRateLimitFactor
 }
 
 func (hand *HandleMicrosoftBot) SelfTest() error {
