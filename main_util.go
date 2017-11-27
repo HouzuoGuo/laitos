@@ -107,7 +107,7 @@ func DisableConflictingDaemons() {
 
 // SwapOff turns off all swap files and partitions for improved system security.
 func SwapOff() {
-	out, err := misc.InvokeProgram(nil, 60, "swapoff", "-a")
+	out, err := misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "swapoff", "-a")
 	if err == nil {
 		logger.Printf("SwapOff", "", nil, "swap is now off")
 	} else {

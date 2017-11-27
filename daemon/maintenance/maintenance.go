@@ -310,11 +310,8 @@ func (daemon *Daemon) SystemMaintenance() string {
 	}
 	daemon.logger.Printf("SystemMaintenance", "", nil, "package manager is \"%s\"", pkgManagerPath)
 	fmt.Fprintf(ret, "--- Package manage is \"%v\"\n", pkgManagerPath)
-	// Let package manager program inherit my environment variables, $PATH is especially important for apt.
-	myEnv := os.Environ()
-	pkgManagerEnv := make([]string, len(myEnv))
-	copy(pkgManagerEnv, myEnv)
 	// apt-get is too old to be convenient, it has to update the manifest first.
+	pkgManagerEnv := make([]string, 0, 8)
 	if pkgManagerName == "apt-get" {
 		ret.WriteString("--- Updating apt manifests...\n")
 		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
@@ -415,11 +412,11 @@ func (daemon *Daemon) SystemMaintenance() string {
 	}
 
 	// Use three tools to immediately synchronise system clock
-	result, err := misc.InvokeProgram(nil, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
+	result, err := misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
 	fmt.Fprintf(ret, "--- clock synchronisation result (ntpdate): %v - %s\n\n", err, strings.TrimSpace(result))
-	result, err = misc.InvokeProgram(nil, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
+	result, err = misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
 	fmt.Fprintf(ret, "--- clock synchronisation result (chronyd): %v - %s\n\n", err, strings.TrimSpace(result))
-	result, err = misc.InvokeProgram(nil, 60, "busybox", "ntpd", "-n", "-q", "-p", "ie.pool.ntp.org", "ca.pool.ntp.org", "au.pool.ntp.org")
+	result, err = misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "busybox", "ntpd", "-n", "-q", "-p", "ie.pool.ntp.org", "ca.pool.ntp.org", "au.pool.ntp.org")
 	fmt.Fprintf(ret, "--- clock synchronisation result (busybox): %v - %s\n\n", err, strings.TrimSpace(result))
 	/*
 		The program startup time is used to detect outdated commands (such as in telegram bot), in rare case if system clock

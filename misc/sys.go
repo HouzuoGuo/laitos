@@ -77,14 +77,25 @@ func GetSystemUptimeSec() int {
 }
 
 /*
-InvokeProgram launches an external program with time constraints.
+InvokeProgram launches an external program with time constraints. The external program inherits laitos' environment
+mixed with additional input environment variables. The additional variables take precedence over inherited ones.
 Returns stdout+stderr output combined, and error if there is any.
 */
 func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (out string, err error) {
+	// Mix envVars into program environment variables
+	myEnv := os.Environ()
+	var combinedEnv []string
+	if envVars == nil || len(envVars) == 0 {
+		combinedEnv = myEnv
+	} else {
+		combinedEnv = make([]string, len(myEnv)+len(envVars))
+		copy(combinedEnv, myEnv[:])
+		copy(combinedEnv[len(myEnv):], envVars[:])
+	}
 	// Collect stdout and stderr all together in a single buffer
 	var outBuf bytes.Buffer
 	proc := exec.Command(program, args...)
-	proc.Env = envVars
+	proc.Env = combinedEnv
 	proc.Stdout = &outBuf
 	proc.Stderr = &outBuf
 	// Run the program in a separate routine in order to monitor for timeout
@@ -109,21 +120,21 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	return
 }
 
-// PATHForInvokeShell is the PATH environment variable given to shell interpreter before it runs a command.
-const PATHForInvokeShell = "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin"
+/*
+CommonPATH is a PATH environment variable value that includes most common executable locations across Unix and Linux.
+Be aware that, when laitos launches external programs they usually should inherit all of the environment variables from
+parent process, which may include PATH. However, as an exception, AWS ElasticBeanstalk launches programs via a
+"supervisord" that resets PATH variable to deliberately exclude sbin directories, therefore, it is often useful to use
+this hard coded PATH value to launch programs.
+*/
+const CommonPATH = "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin"
 
 /*
 InvokeShell launches an external shell process with time constraints to run a piece of code.
 Returns shell stdout+stderr output combined and error if there is any.
 */
 func InvokeShell(timeoutSec int, interpreter string, content string) (out string, err error) {
-	/*
-		laitos program usually should inherit PATH from parent process when it launches shell interpreter, and the inherited
-		PATH usually covers all of sbin and bin directories.
-		However there is an exception, AWS ElasticBeanstalk launches programs via "supervisord" that resets PATH variable to
-		deliberately exclude sbin directories. Therefore, launch shell with a hard coded PATH right here.
-	*/
-	return InvokeProgram([]string{"PATH=" + PATHForInvokeShell}, timeoutSec, interpreter, "-c", content)
+	return InvokeProgram([]string{"PATH=" + CommonPATH}, timeoutSec, interpreter, "-c", content)
 }
 
 // GetSysctlStr returns string value of a sysctl parameter corresponding to the input key.
