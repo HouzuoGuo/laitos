@@ -84,7 +84,7 @@ type Daemon struct {
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s:%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
+	daemon.logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
 	if daemon.Address == "" {
 		return errors.New("DNSD.Initialise: listen address must not be empty")
 	}

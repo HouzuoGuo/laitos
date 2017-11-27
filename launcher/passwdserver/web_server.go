@@ -7,6 +7,7 @@ import (
 	"github.com/HouzuoGuo/laitos/launcher/encarchive"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -153,7 +154,8 @@ func (ws *WebServer) Start() error {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 	})
 	ws.server = &http.Server{
-		Addr: fmt.Sprintf("0.0.0.0:%d", ws.Port), Handler: mux,
+		Addr:        net.JoinHostPort("0.0.0.0", strconv.Itoa(ws.Port)),
+		Handler:     mux,
 		ReadTimeout: IOTimeout, ReadHeaderTimeout: IOTimeout,
 		WriteTimeout: IOTimeout, IdleTimeout: IOTimeout,
 	}

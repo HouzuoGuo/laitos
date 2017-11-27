@@ -47,7 +47,7 @@ type Daemon struct {
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.logger = misc.Logger{ComponentName: "smtpd", ComponentID: fmt.Sprintf("%s:%d", daemon.Address, daemon.Port)}
+	daemon.logger = misc.Logger{ComponentName: "smtpd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port))}
 	if daemon.Address == "" {
 		return errors.New("smtpd.Initialise: listen address must not be empty")
 	}
@@ -236,7 +236,7 @@ You may call this function only after having called Initialise()!
 Start SMTP daemon and block until daemon is told to stop.
 */
 func (daemon *Daemon) StartAndBlock() (err error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", daemon.Address, daemon.Port))
+	listener, err := net.Listen("tcp", net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port)))
 	if err != nil {
 		return fmt.Errorf("smtpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}

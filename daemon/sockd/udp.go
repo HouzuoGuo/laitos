@@ -175,7 +175,7 @@ func MakeUDPRequestHeader(addr net.Addr) ([]byte, int) {
 }
 
 func (sock *Daemon) StartAndBlockUDP() error {
-	listenAddr := fmt.Sprintf("%s:%d", sock.Address, sock.UDPPort)
+	listenAddr := net.JoinHostPort(sock.Address, strconv.Itoa(sock.UDPPort))
 	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("sockd.StartAndBlockUDP: failed to resolve address %s - %v", listenAddr, err)

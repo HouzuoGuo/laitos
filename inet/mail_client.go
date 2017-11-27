@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/smtp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -30,7 +31,7 @@ func (client *MailClient) IsConfigured() bool {
 // Deliver mail to all recipients. Block until mail is sent or an error has occurred.
 func (client *MailClient) Send(subject string, textBody string, recipients ...string) error {
 	if recipients == nil || len(recipients) == 0 {
-		return fmt.Errorf("No recipient specified for mail \"%s\"", subject)
+		return fmt.Errorf("no recipient specified for mail \"%s\"", subject)
 	}
 	var auth smtp.Auth
 	if client.AuthUsername != "" {
@@ -39,24 +40,24 @@ func (client *MailClient) Send(subject string, textBody string, recipients ...st
 	// Construct appropriate mail headers
 	mailBody := fmt.Sprintf("MIME-Version: 1.0\r\nContent-type: text/plain; charset=utf-8\r\nFrom: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
 		client.MailFrom, strings.Join(recipients, ", "), subject, textBody)
-	return smtp.SendMail(fmt.Sprintf("%s:%d", client.MTAHost, client.MTAPort), auth, client.MailFrom, recipients, []byte(mailBody))
+	return smtp.SendMail(net.JoinHostPort(client.MTAHost, strconv.Itoa(client.MTAPort)), auth, client.MailFrom, recipients, []byte(mailBody))
 }
 
 // Deliver unmodified mail body to all recipients. Block until mail is sent or an error has occurred.
 func (client *MailClient) SendRaw(fromAddr string, rawMailBody []byte, recipients ...string) error {
 	if recipients == nil || len(recipients) == 0 {
-		return fmt.Errorf("No recipient specified for mail from \"%s\"", fromAddr)
+		return fmt.Errorf("no recipient specified for mail from \"%s\"", fromAddr)
 	}
 	var auth smtp.Auth
 	if client.AuthUsername != "" {
 		auth = smtp.PlainAuth("", client.AuthUsername, client.AuthPassword, client.MTAHost)
 	}
-	return smtp.SendMail(fmt.Sprintf("%s:%d", client.MTAHost, client.MTAPort), auth, fromAddr, recipients, rawMailBody)
+	return smtp.SendMail(net.JoinHostPort(client.MTAHost, strconv.Itoa(client.MTAPort)), auth, fromAddr, recipients, rawMailBody)
 }
 
 // Try to contact MTA and see if connection is possible.
 func (client *MailClient) SelfTest() error {
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", client.MTAHost, client.MTAPort), SelfTestTimeoutSec*time.Second)
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(client.MTAHost, strconv.Itoa(client.MTAPort)), SelfTestTimeoutSec*time.Second)
 	if err != nil {
 		return fmt.Errorf("MailClient.SelfTest: connection test failed - %v", err)
 	}

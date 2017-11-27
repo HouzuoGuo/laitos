@@ -32,7 +32,7 @@ type Daemon struct {
 func (daemon *Daemon) Initialise() error {
 	daemon.logger = misc.Logger{
 		ComponentName: "plainsocket",
-		ComponentID:   fmt.Sprintf("%s:%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort),
+		ComponentID:   fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort),
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		return fmt.Errorf("plainsocket.Initialise: command processor and its filters must be configured")

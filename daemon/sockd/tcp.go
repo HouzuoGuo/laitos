@@ -33,7 +33,7 @@ var TCPDurationStats = misc.NewStats()
 
 func (sock *Daemon) StartAndBlockTCP() error {
 	var err error
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", sock.Address, sock.TCPPort))
+	listener, err := net.Listen("tcp", net.JoinHostPort(sock.Address, strconv.Itoa(sock.TCPPort)))
 	if err != nil {
 		return fmt.Errorf("sockd.StartAndBlockTCP: failed to listen on %s:%d - %v", sock.Address, sock.TCPPort, err)
 	}

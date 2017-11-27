@@ -20,7 +20,7 @@ You may call this function only after having called Initialise()!
 Start TCP daemon and block until daemon is told to stop.
 */
 func (daemon *Daemon) StartAndBlockTCP() (err error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", daemon.Address, daemon.TCPPort))
+	listener, err := net.Listen("tcp", net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort)))
 	if err != nil {
 		return fmt.Errorf("plainsocket.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
 	}

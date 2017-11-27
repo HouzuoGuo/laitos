@@ -12,6 +12,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -116,7 +117,7 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.logger = misc.Logger{ComponentName: "httpd", ComponentID: fmt.Sprintf("%s:%d", daemon.Address, daemon.Port)}
+	daemon.logger = misc.Logger{ComponentName: "httpd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port))}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		daemon.logger.Printf("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = common.GetEmptyCommandProcessor()
@@ -209,7 +210,7 @@ func (daemon *Daemon) StartAndBlockNoTLS(fallbackPort int) error {
 	}
 	// Configure servers with rather generous and sane defaults
 	daemon.serverNoTLS = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", daemon.Address, port),
+		Addr:         net.JoinHostPort(daemon.Address, strconv.Itoa(port)),
 		Handler:      daemon.mux,
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,
@@ -230,7 +231,7 @@ You may call this function only after having called Initialise()!
 */
 func (daemon *Daemon) StartAndBlockWithTLS() error {
 	daemon.serverWithTLS = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", daemon.Address, daemon.Port),
+		Addr:         net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port)),
 		Handler:      daemon.mux,
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,

@@ -227,7 +227,7 @@ func randomChallenge() string {
 func (mbox *IMAPS) ConnectLoginSelect() (conn *IMAPSConnection, err error) {
 	clientConn, err := net.DialTimeout(
 		"tcp",
-		fmt.Sprintf("%s:%d", mbox.Host, mbox.Port),
+		net.JoinHostPort(mbox.Host, strconv.Itoa(mbox.Port)),
 		time.Duration(IMAPTimeoutSec)*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("IMAPS.ConnectLoginSelect: connection error - %v", err)

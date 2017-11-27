@@ -126,7 +126,7 @@ You may call this function only after having called Initialise()!
 Start DNS daemon to listen on TCP port only, until daemon is told to stop.
 */
 func (daemon *Daemon) StartAndBlockTCP() error {
-	listenAddr := fmt.Sprintf("%s:%d", daemon.Address, daemon.TCPPort)
+	listenAddr := net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort))
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return err

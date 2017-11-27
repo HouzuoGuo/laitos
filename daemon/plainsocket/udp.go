@@ -25,7 +25,7 @@ You may call this function only after having called Initialise()!
 Start UDP daemon and block until daemon is told to stop.
 */
 func (daemon *Daemon) StartAndBlockUDP() error {
-	listenAddr := fmt.Sprintf("%s:%d", daemon.Address, daemon.UDPPort)
+	listenAddr := net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.UDPPort))
 	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
 		return err

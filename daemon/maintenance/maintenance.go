@@ -110,7 +110,7 @@ func (daemon *Daemon) runPortsCheck() error {
 			wait.Add(1)
 			go func(host string, port int) {
 				// Expect connection to open very shortly
-				dest := fmt.Sprintf("%s:%d", host, port)
+				dest := net.JoinHostPort(host, strconv.Itoa(port))
 				conn, err := net.DialTimeout("tcp", dest, TCPPortCheckTimeoutSec*time.Second)
 				if err != nil {
 					portErrsMutex.Lock()
@@ -455,8 +455,10 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	}()
 	time.Sleep(1 * time.Second)
 	check.CheckTCPPorts = map[string][]int{"localhost": {listener.Addr().(*net.TCPAddr).Port}}
-	// If it fails, the failure could only come from mailer of mail processor.
-	if result, ok := check.Execute(); !ok && !strings.Contains(result, "MailClient.SelfTest") {
+	// If it fails, the failure could mail processor or HTTP handler
+	if result, ok := check.Execute(); !ok &&
+		!strings.Contains(result, "Mail processor errors") &&
+		!strings.Contains(result, "HTTP handler errors") {
 		t.Fatal(result)
 	}
 	// Break a feature

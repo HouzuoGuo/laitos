@@ -6,7 +6,6 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"io"
@@ -48,7 +47,7 @@ type Daemon struct {
 }
 
 func (sock *Daemon) Initialise() error {
-	sock.logger = misc.Logger{ComponentName: "sockd", ComponentID: fmt.Sprintf("%s:%d", sock.Address, sock.TCPPort)}
+	sock.logger = misc.Logger{ComponentName: "sockd", ComponentID: net.JoinHostPort(sock.Address, strconv.Itoa(sock.TCPPort))}
 	if sock.Address == "" {
 		return errors.New("sockd.Initialise: listen address must not be empty")
 	}
