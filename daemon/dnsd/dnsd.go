@@ -74,11 +74,18 @@ type Daemon struct {
 	udpBlackHoleQueue []chan *UDPQuery // Processing queues that handle UDP black-list answers
 	udpListener       *net.UDPConn     // Once UDP daemon is started, this is its listener.
 
-	blackListMutex       *sync.Mutex         // Protect against concurrent access to black list
-	blackList            map[string]struct{} // blackList is a map of domain names (in lower case), to which DNS queries shall be answered 0.0.0.0.
-	allowQueryMutex      *sync.Mutex         // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
-	allowQueryLastUpdate int64               // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
-	rateLimit            *misc.RateLimit     // Rate limit counter
+	/*
+		blackList is a map of domain names (in lower case) and their resolved IP addresses that should be blocked. In
+		the context of DNS, queries made against the domain names will be answered 0.0.0.0 (black hole).
+		The DNS daemon itself isn't too concerned with the IP address, however, this black list serves as a valuable
+		input for blocking IP address access in sockd.
+	*/
+	blackList map[string]struct{}
+
+	blackListMutex       *sync.Mutex     // Protect against concurrent access to black list
+	allowQueryMutex      *sync.Mutex     // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
+	allowQueryLastUpdate int64           // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
+	rateLimit            *misc.RateLimit // Rate limit counter
 	logger               misc.Logger
 }
 
@@ -201,14 +208,14 @@ func (daemon *Daemon) GetAdBlacklistPGL() ([]string, error) {
 	yoyo := "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=nohtml&showintro=0&mimetype=plaintext"
 	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 30}, yoyo)
 	if err != nil {
-		return nil, err
+		return []string{}, err
 	}
 	if statusErr := resp.Non2xxToError(); statusErr != nil {
-		return nil, statusErr
+		return []string{}, statusErr
 	}
 	lines := strings.Split(string(resp.Body), "\n")
 	if len(lines) < 100 {
-		return nil, fmt.Errorf("DNSD.GetAdBlacklistPGL: PGL's ad-server list is suspiciously short at only %d lines", len(lines))
+		return []string{}, fmt.Errorf("DNSD.GetAdBlacklistPGL: PGL's ad-server list is suspiciously short at only %d lines", len(lines))
 	}
 	names := make([]string, 0, len(lines))
 	for _, line := range lines {
@@ -222,10 +229,10 @@ func (daemon *Daemon) GetAdBlacklistMVPS() ([]string, error) {
 	yoyo := "http://winhelp2002.mvps.org/hosts.txt"
 	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 30}, yoyo)
 	if err != nil {
-		return nil, err
+		return []string{}, err
 	}
 	if statusErr := resp.Non2xxToError(); statusErr != nil {
-		return nil, statusErr
+		return []string{}, statusErr
 	}
 	// Collect host names from the hosts file content
 	names := make([]string, 0, 16384)
@@ -247,7 +254,7 @@ func (daemon *Daemon) GetAdBlacklistMVPS() ([]string, error) {
 		names = append(names, strings.ToLower(strings.TrimSpace(line[nameBegin:nameEnd])))
 	}
 	if len(names) < 100 {
-		return nil, fmt.Errorf("DNSD.GetAdBlacklistMVPS: MVPS' ad-server list is suspiciously short at only %d lines", len(names))
+		return []string{}, fmt.Errorf("DNSD.GetAdBlacklistMVPS: MVPS' ad-server list is suspiciously short at only %d lines", len(names))
 	}
 	return names, nil
 }
@@ -286,7 +293,7 @@ E.g. for a query packet that asks for "a.b.github.com", the function returns:
 - b.github.com
 - github.com
 */
-func ExtractDomainName(packet []byte) (ret []string) {
+func ExtractDomainNameCombinations(packet []byte) (ret []string) {
 	ret = make([]string, 0, 8)
 	if packet == nil || len(packet) < MinNameQuerySize {
 		return
@@ -328,6 +335,10 @@ func ExtractDomainName(packet []byte) (ret []string) {
 	return
 }
 
+/*
+UpdatedAdBlockLists downloads the latest blacklist files from PGL and MVPS, resolves the IP addresses of each domain,
+and stores the latest blacklist names and IP addresses into blacklist map.
+*/
 func (daemon *Daemon) UpdatedAdBlockLists() {
 	pglEntries, pglErr := daemon.GetAdBlacklistPGL()
 	if pglErr == nil {
@@ -342,18 +353,41 @@ func (daemon *Daemon) UpdatedAdBlockLists() {
 	} else {
 		daemon.logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
 	}
+	// Put names from both lists into one list
+	allEntries := make([]string, len(pglEntries)+len(mvpsEntries))
+	copy(allEntries, pglEntries)
+	copy(allEntries[len(pglEntries):], mvpsEntries)
+	// Get ready to construct the new blacklist
+	newBlackList := make(map[string]struct{})
+	newBlackListMutex := new(sync.Mutex)
+	// Use a parallel approach to resolve these names
+	numRoutines := 32
+	parallelResolve := new(sync.WaitGroup)
+	parallelResolve.Add(numRoutines)
+	for i := 0; i < numRoutines; i++ {
+		go func(i int) {
+			for j := i * (len(allEntries) / numRoutines); j < (i+1)*(len(allEntries)/numRoutines); j++ {
+				if j%500 == 1 {
+					daemon.logger.Printf("UpdatedAdBlockLists", "", nil, "resolving IP addresses at index %d", j)
+				}
+				name := strings.ToLower(allEntries[j])
+				ips, err := net.LookupIP(name)
+				newBlackListMutex.Lock()
+				if err == nil {
+					newBlackList[name] = struct{}{}
+					for _, ip := range ips {
+						newBlackList[ip.String()] = struct{}{}
+					}
+				}
+				newBlackListMutex.Unlock()
+			}
+			parallelResolve.Done()
+		}(i)
+	}
+	parallelResolve.Wait()
+	// Use the newly constructed blacklist from now on
 	daemon.blackListMutex.Lock()
-	daemon.blackList = make(map[string]struct{})
-	if pglErr == nil {
-		for _, name := range pglEntries {
-			daemon.blackList[name] = struct{}{}
-		}
-	}
-	if mvpsErr == nil {
-		for _, name := range mvpsEntries {
-			daemon.blackList[name] = struct{}{}
-		}
-	}
+	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
 	daemon.logger.Printf("UpdatedAdBlockLists", "", nil, "ad-blacklist now has %d entries", len(daemon.blackList))
 }
@@ -418,13 +452,13 @@ func (daemon *Daemon) Stop() {
 	}
 }
 
-// Return true if any of the input domain names is black listed.
-func (daemon *Daemon) NamesAreBlackListed(names []string) bool {
+// IsInBlacklist returns true if any of the input domain name or IPs is black listed.
+func (daemon *Daemon) IsInBlacklist(nameOrIPs ...string) bool {
 	daemon.blackListMutex.Lock()
 	defer daemon.blackListMutex.Unlock()
 	var blacklisted bool
-	for _, name := range names {
-		_, blacklisted = daemon.blackList[name]
+	for _, name := range nameOrIPs {
+		_, blacklisted = daemon.blackList[strings.ToLower(name)]
 		if blacklisted {
 			return true
 		}

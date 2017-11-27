@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"errors"
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"io"
@@ -32,6 +33,8 @@ type Daemon struct {
 	TCPPort    int    `json:"TCPPort"`
 	UDPPort    int    `json:"UDPPort"`
 
+	DNSDaemon *dnsd.Daemon `json:"-"` // it is assumed to be already initialised
+
 	tcpListener  net.Listener
 	rateLimitTCP *misc.RateLimit
 
@@ -46,80 +49,83 @@ type Daemon struct {
 	logger misc.Logger
 }
 
-func (sock *Daemon) Initialise() error {
-	sock.logger = misc.Logger{ComponentName: "sockd", ComponentID: net.JoinHostPort(sock.Address, strconv.Itoa(sock.TCPPort))}
-	if sock.Address == "" {
+func (daemon *Daemon) Initialise() error {
+	daemon.logger = misc.Logger{ComponentName: "sockd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort))}
+	if daemon.DNSDaemon == nil {
+		return errors.New("sockd.Initialise: dns daemon must be assigned")
+	}
+	if daemon.Address == "" {
 		return errors.New("sockd.Initialise: listen address must not be empty")
 	}
-	if sock.TCPPort < 1 {
+	if daemon.TCPPort < 1 {
 		return errors.New("sockd.Initialise: TCP listen port must be greater than 0")
 	}
-	if len(sock.Password) < 7 {
+	if len(daemon.Password) < 7 {
 		return errors.New("sockd.Initialise: password must be at least 7 characters long")
 	}
-	if sock.PerIPLimit < 10 {
+	if daemon.PerIPLimit < 10 {
 		return errors.New("sockd.Initialise: PerIPLimit must be greater than 9")
 	}
-	sock.rateLimitTCP = &misc.RateLimit{
-		Logger:   sock.logger,
-		MaxCount: sock.PerIPLimit,
+	daemon.rateLimitTCP = &misc.RateLimit{
+		Logger:   daemon.logger,
+		MaxCount: daemon.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
 	}
-	sock.rateLimitTCP.Initialise()
-	sock.rateLimitUDP = &misc.RateLimit{
-		Logger:   sock.logger,
-		MaxCount: sock.PerIPLimit * 100,
+	daemon.rateLimitTCP.Initialise()
+	daemon.rateLimitUDP = &misc.RateLimit{
+		Logger:   daemon.logger,
+		MaxCount: daemon.PerIPLimit * 100,
 		UnitSecs: RateLimitIntervalSec,
 	}
-	sock.rateLimitUDP.Initialise()
+	daemon.rateLimitUDP.Initialise()
 
-	sock.cipher = &Cipher{}
-	sock.cipher.Initialise(sock.Password)
+	daemon.cipher = &Cipher{}
+	daemon.cipher.Initialise(daemon.Password)
 
-	sock.udpBackLog = &UDPBackLog{backlog: make(map[string][]byte), mutex: new(sync.Mutex)}
+	daemon.udpBackLog = &UDPBackLog{backlog: make(map[string][]byte), mutex: new(sync.Mutex)}
 
-	sock.stopUDP = make(chan bool)
+	daemon.stopUDP = make(chan bool)
 	return nil
 }
 
-func (sock *Daemon) StartAndBlock() error {
+func (daemon *Daemon) StartAndBlock() error {
 	numListeners := 0
 	errChan := make(chan error, 2)
-	if sock.TCPPort != 0 {
+	if daemon.TCPPort != 0 {
 		numListeners++
 		go func() {
-			err := sock.StartAndBlockTCP()
+			err := daemon.StartAndBlockTCP()
 			errChan <- err
 		}()
 	}
-	if sock.UDPPort != 0 {
+	if daemon.UDPPort != 0 {
 		numListeners++
 		go func() {
-			err := sock.StartAndBlockUDP()
+			err := daemon.StartAndBlockUDP()
 			errChan <- err
 		}()
 	}
 	for i := 0; i < numListeners; i++ {
 		if err := <-errChan; err != nil {
-			sock.Stop()
+			daemon.Stop()
 			return err
 		}
 	}
 	return nil
 }
 
-func (sock *Daemon) Stop() {
-	if listener := sock.tcpListener; listener != nil {
+func (daemon *Daemon) Stop() {
+	if listener := daemon.tcpListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			sock.logger.Warningf("Stop", "", err, "failed to close TCP listener")
+			daemon.logger.Warningf("Stop", "", err, "failed to close TCP listener")
 		}
 	}
-	if listener := sock.udpListener; listener != nil {
-		if atomic.CompareAndSwapInt32(&sock.udpLoopIsRunning, 1, 0) {
-			sock.stopUDP <- true
+	if listener := daemon.udpListener; listener != nil {
+		if atomic.CompareAndSwapInt32(&daemon.udpLoopIsRunning, 1, 0) {
+			daemon.stopUDP <- true
 		}
 		if err := listener.Close(); err != nil {
-			sock.logger.Warningf("Stop", "", err, "failed to close UDP listener")
+			daemon.logger.Warningf("Stop", "", err, "failed to close UDP listener")
 		}
 	}
 }

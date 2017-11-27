@@ -8,13 +8,13 @@ import (
 )
 
 func TestExtractDomainName(t *testing.T) {
-	if name := ExtractDomainName(nil); !reflect.DeepEqual(name, []string{}) {
+	if name := ExtractDomainNameCombinations(nil); !reflect.DeepEqual(name, []string{}) {
 		t.Fatal(name)
 	}
-	if name := ExtractDomainName([]byte{}); !reflect.DeepEqual(name, []string{}) {
+	if name := ExtractDomainNameCombinations([]byte{}); !reflect.DeepEqual(name, []string{}) {
 		t.Fatal(name)
 	}
-	if name := ExtractDomainName(githubComUDPQuery); !reflect.DeepEqual(name, []string{"github.com", "com"}) {
+	if name := ExtractDomainNameCombinations(githubComUDPQuery); !reflect.DeepEqual(name, []string{"github.com", "com"}) {
 		t.Fatal(name)
 	}
 }
@@ -37,12 +37,20 @@ func TestRespondWith0(t *testing.T) {
 
 func TestDNSD_DownloadBlacklists(t *testing.T) {
 	daemon := Daemon{}
+	daemon.Address = "127.0.0.1"
+	daemon.UDPPort = 33111
+	daemon.PerIPLimit = 5
+	daemon.AllowQueryIPPrefixes = []string{"192."}
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	if entries, err := daemon.GetAdBlacklistPGL(); err != nil || len(entries) < 100 {
 		t.Fatal(err, entries)
 	}
 	if entries, err := daemon.GetAdBlacklistMVPS(); err != nil || len(entries) < 100 {
 		t.Fatal(err, entries)
 	}
+	daemon.UpdatedAdBlockLists()
 }
 
 func TestDNSD_StartAndBlockUDP(t *testing.T) {

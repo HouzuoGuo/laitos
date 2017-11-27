@@ -112,7 +112,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		randForwarder := rand.Intn(len(daemon.udpForwarderQueue))
 		forwardPacket := make([]byte, packetLength)
 		copy(forwardPacket, packetBuf[:packetLength])
-		domainName := ExtractDomainName(forwardPacket)
+		domainName := ExtractDomainNameCombinations(forwardPacket)
 		if len(domainName) == 0 {
 			// If I cannot figure out what domain is from the query, simply forward it without much concern.
 			daemon.logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
@@ -122,7 +122,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 				MyServer:    udpServer,
 				QueryPacket: forwardPacket,
 			}
-		} else if daemon.NamesAreBlackListed(domainName) {
+		} else if daemon.IsInBlacklist(domainName...) {
 			// Requested domain name is black-listed
 			randBlackListResponder := rand.Intn(len(daemon.udpBlackHoleQueue))
 			daemon.logger.Printf(fmt.Sprintf("UDP-%d", randBlackListResponder), clientIP, nil,

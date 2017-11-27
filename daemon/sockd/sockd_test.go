@@ -1,12 +1,17 @@
 package sockd
 
 import (
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"strings"
 	"testing"
 )
 
 func TestSockd_StartAndBlock(t *testing.T) {
 	daemon := Daemon{}
+	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "dns daemon") == -1 {
+		t.Fatal(err)
+	}
+	daemon.DNSDaemon = &dnsd.Daemon{}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
 		t.Fatal(err)
 	}

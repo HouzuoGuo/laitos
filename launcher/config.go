@@ -387,7 +387,9 @@ func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 
 // Intentionally undocumented
 func (config Config) GetSockDaemon() *sockd.Daemon {
+	myDNSD := config.GetDNSD()
 	config.sockDaemonInit.Do(func() {
+		config.SockDaemon.DNSDaemon = myDNSD
 		if err := config.SockDaemon.Initialise(); err != nil {
 			config.logger.Fatalf("GetSockDaemon", "", err, "failed to initialise")
 			return

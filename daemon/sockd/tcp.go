@@ -31,15 +31,15 @@ const (
 
 var TCPDurationStats = misc.NewStats()
 
-func (sock *Daemon) StartAndBlockTCP() error {
+func (daemon *Daemon) StartAndBlockTCP() error {
 	var err error
-	listener, err := net.Listen("tcp", net.JoinHostPort(sock.Address, strconv.Itoa(sock.TCPPort)))
+	listener, err := net.Listen("tcp", net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort)))
 	if err != nil {
-		return fmt.Errorf("sockd.StartAndBlockTCP: failed to listen on %s:%d - %v", sock.Address, sock.TCPPort, err)
+		return fmt.Errorf("sockd.StartAndBlockTCP: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
 	}
 	defer listener.Close()
-	sock.logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
-	sock.tcpListener = listener
+	daemon.logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
+	daemon.tcpListener = listener
 
 	for {
 		if misc.EmergencyLockDown {
@@ -54,8 +54,8 @@ func (sock *Daemon) StartAndBlockTCP() error {
 			}
 		}
 		clientIP := conn.RemoteAddr().(*net.TCPAddr).IP.String()
-		if sock.rateLimitTCP.Add(clientIP, true) {
-			go NewTCPCipherConnection(conn, sock.cipher.Copy(), sock.logger).HandleTCPConnection()
+		if daemon.rateLimitTCP.Add(clientIP, true) {
+			go NewTCPCipherConnection(daemon, conn, daemon.cipher.Copy(), daemon.logger).HandleTCPConnection()
 		} else {
 			conn.Close()
 		}
@@ -65,13 +65,15 @@ func (sock *Daemon) StartAndBlockTCP() error {
 type TCPCipherConnection struct {
 	net.Conn
 	*Cipher
+	daemon            *Daemon
 	readBuf, writeBuf []byte
 	logger            misc.Logger
 }
 
-func NewTCPCipherConnection(netConn net.Conn, cip *Cipher, logger misc.Logger) *TCPCipherConnection {
+func NewTCPCipherConnection(daemon *Daemon, netConn net.Conn, cip *Cipher, logger misc.Logger) *TCPCipherConnection {
 	return &TCPCipherConnection{
 		Conn:     netConn,
+		daemon:   daemon,
 		Cipher:   cip,
 		readBuf:  make([]byte, MaxPacketSize),
 		writeBuf: make([]byte, MaxPacketSize),
@@ -139,7 +141,7 @@ func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
 	return
 }
 
-func (conn *TCPCipherConnection) ParseRequest() (destAddr string, err error) {
+func (conn *TCPCipherConnection) ParseRequest() (destIP, destAddr string, err error) {
 	conn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
 
 	buf := make([]byte, 269)
@@ -171,14 +173,14 @@ func (conn *TCPCipherConnection) ParseRequest() (destAddr string, err error) {
 
 	switch maskedType {
 	case AddressTypeIPv4:
-		destAddr = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv4len]).String()
+		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv4len]).String()
 	case AddressTypeIPv6:
-		destAddr = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv6len]).String()
+		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv6len]).String()
 	case AddressTypeDM:
-		destAddr = string(buf[DMAddrIndex : DMAddrIndex+int(buf[DMAddrLengthIndex])])
+		destIP = string(buf[DMAddrIndex : DMAddrIndex+int(buf[DMAddrLengthIndex])])
 	}
 	port := binary.BigEndian.Uint16(buf[reqEnd-2 : reqEnd])
-	destAddr = net.JoinHostPort(destAddr, strconv.Itoa(int(port)))
+	destAddr = net.JoinHostPort(destIP, strconv.Itoa(int(port)))
 	return
 }
 
@@ -202,7 +204,7 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 		TCPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	remoteAddr := conn.RemoteAddr().String()
-	destAddr, err := conn.ParseRequest()
+	destIP, destAddr, err := conn.ParseRequest()
 	if err != nil {
 		conn.logger.Warningf("HandleTCPConnection", remoteAddr, err, "failed to get destination address")
 		conn.WriteRandAndClose()
@@ -213,9 +215,14 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 		conn.WriteRandAndClose()
 		return
 	}
+	if conn.daemon.DNSDaemon.IsInBlacklist(destIP) {
+		conn.logger.Printf("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destIP)
+		conn.Close()
+		return
+	}
 	dest, err := net.DialTimeout("tcp", destAddr, IOTimeoutSec)
 	if err != nil {
-		conn.logger.Warningf("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
+		conn.logger.Printf("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
 		conn.Close()
 		return
 	}
