@@ -10,6 +10,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -346,9 +347,11 @@ func (daemon *Daemon) UpdatedAdBlockLists() {
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
 	// Use a parallel approach to resolve these names
-	numRoutines := 32
+	numRoutines := 16
 	parallelResolve := new(sync.WaitGroup)
 	parallelResolve.Add(numRoutines)
+	// Collect some nice counter data just for show
+	var countResolvedNames, countNonResolvableNames, countResolvedIPs int64
 	for i := 0; i < numRoutines; i++ {
 		go func(i int) {
 			for j := i * (len(allEntries) / numRoutines); j < (i+1)*(len(allEntries)/numRoutines); j++ {
@@ -363,10 +366,14 @@ func (daemon *Daemon) UpdatedAdBlockLists() {
 				ips, err := net.LookupIP(name)
 				newBlackListMutex.Lock()
 				if err == nil {
+					atomic.AddInt64(&countResolvedNames, 1)
+					atomic.AddInt64(&countResolvedIPs, int64(len(ips)))
 					newBlackList[name] = struct{}{}
 					for _, ip := range ips {
 						newBlackList[ip.String()] = struct{}{}
 					}
+				} else {
+					atomic.AddInt64(&countNonResolvableNames, 1)
 				}
 				newBlackListMutex.Unlock()
 			}
@@ -378,7 +385,8 @@ func (daemon *Daemon) UpdatedAdBlockLists() {
 	daemon.blackListMutex.Lock()
 	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
-	daemon.logger.Printf("UpdatedAdBlockLists", "", nil, "ad-blacklist now has %d entries", len(daemon.blackList))
+	daemon.logger.Printf("UpdatedAdBlockLists", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries",
+		len(allEntries), countResolvedNames, countResolvedIPs, countNonResolvableNames, len(newBlackList))
 }
 
 /*
