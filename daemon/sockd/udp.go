@@ -99,7 +99,6 @@ func (table *UDPTable) Len() (ret int) {
 type UDPCipherConnection struct {
 	net.PacketConn
 	*Cipher
-	daemon *Daemon
 	logger misc.Logger
 }
 
@@ -207,7 +206,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		}
 	}()
 
-	udpEncryptedServer := &UDPCipherConnection{daemon: daemon, PacketConn: udpServer, Cipher: daemon.cipher.Copy()}
+	udpEncryptedServer := &UDPCipherConnection{PacketConn: udpServer, Cipher: daemon.cipher.Copy()}
 	for {
 		if misc.EmergencyLockDown {
 			return misc.ErrEmergencyLockDown

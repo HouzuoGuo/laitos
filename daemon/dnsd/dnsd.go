@@ -82,7 +82,7 @@ type Daemon struct {
 	*/
 	blackList map[string]struct{}
 
-	blackListMutex       *sync.Mutex     // Protect against concurrent access to black list
+	blackListMutex       *sync.RWMutex   // Protect against concurrent access to black list
 	allowQueryMutex      *sync.Mutex     // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
 	allowQueryLastUpdate int64           // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
 	rateLimit            *misc.RateLimit // Rate limit counter
@@ -113,7 +113,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, "127.", "::1")
 
 	daemon.allowQueryMutex = new(sync.Mutex)
-	daemon.blackListMutex = new(sync.Mutex)
+	daemon.blackListMutex = new(sync.RWMutex)
 	daemon.blackList = make(map[string]struct{})
 
 	daemon.rateLimit = &misc.RateLimit{
@@ -287,20 +287,16 @@ func RespondWith0(queryNoLength []byte) []byte {
 }
 
 /*
-Extract domain name asked by the DNS query. Return the domain name itself, and then with leading components removed.
-E.g. for a query packet that asks for "a.b.github.com", the function returns:
-- a.b.github.com
-- b.github.com
-- github.com
+ExtractDomainName extracts domain name requested by input query packet. If the function fails to determine the requested
+name, it returns an empty string.
 */
-func ExtractDomainNameCombinations(packet []byte) (ret []string) {
-	ret = make([]string, 0, 8)
+func ExtractDomainName(packet []byte) string {
 	if packet == nil || len(packet) < MinNameQuerySize {
-		return
+		return ""
 	}
 	indexTypeAClassIN := bytes.Index(packet[13:], []byte{0, 1, 0, 1})
 	if indexTypeAClassIN < 1 {
-		return
+		return ""
 	}
 	indexTypeAClassIN += 13
 	// The byte right before Type-A Class-IN is an empty byte to be discarded
@@ -316,23 +312,12 @@ func ExtractDomainNameCombinations(packet []byte) (ret []string) {
 		}
 	}
 	// Convert the name to lower case because sometimes device queries names in mixed case
-	domainName := strings.ToLower(string(domainNameBytes))
+	domainName := strings.ToLower(strings.TrimSpace(string(domainNameBytes)))
 	if len(domainName) > 1024 {
 		// Domain name is unrealistically long
-		return
+		return ""
 	}
-	// First return value is domain name unchanged
-	ret = append(ret, domainName)
-	// Append more of the same domain name, each with leading component removed.
-	for {
-		index := strings.IndexRune(domainName, '.')
-		if index < 1 || index == len(domainName)-1 {
-			break
-		}
-		domainName = domainName[index+1:]
-		ret = append(ret, domainName)
-	}
-	return
+	return domainName
 }
 
 /*
@@ -370,7 +355,11 @@ func (daemon *Daemon) UpdatedAdBlockLists() {
 				if j%500 == 1 {
 					daemon.logger.Printf("UpdatedAdBlockLists", "", nil, "resolving IP addresses at index %d", j)
 				}
-				name := strings.ToLower(allEntries[j])
+				name := strings.ToLower(strings.TrimSpace(allEntries[j]))
+				// In case MVPS or PGL gets mad at me and returns "com" or "net" to block, for a prank :>
+				if len(name) < 5 {
+					continue
+				}
 				ips, err := net.LookupIP(name)
 				newBlackListMutex.Lock()
 				if err == nil {
@@ -452,15 +441,38 @@ func (daemon *Daemon) Stop() {
 	}
 }
 
-// IsInBlacklist returns true if any of the input domain name or IPs is black listed.
+/*
+IsInBlacklist returns true if any of the input domain name or IPs is black listed. It will correctly identify sub-domain
+names and verify them against blacklist as well.
+*/
 func (daemon *Daemon) IsInBlacklist(nameOrIPs ...string) bool {
-	daemon.blackListMutex.Lock()
-	defer daemon.blackListMutex.Unlock()
-	var blacklisted bool
+	daemon.blackListMutex.RLock()
+	defer daemon.blackListMutex.RUnlock()
 	for _, name := range nameOrIPs {
-		_, blacklisted = daemon.blackList[strings.ToLower(name)]
-		if blacklisted {
-			return true
+		name = strings.ToLower(strings.TrimSpace(name))
+		// In case name is a sub-domain, break it down. If name is an IP, the process won't do any harm.
+		domainBreakdown := make([]string, 0, 4)
+		// First name is simply the verbatim domain name as requested
+		domainBreakdown = append(domainBreakdown, name)
+		// Append more of the same domain name, each with leading component removed.
+		for {
+			index := strings.IndexRune(name, '.')
+			if index < 1 || index == len(name)-1 {
+				break
+			}
+			name = name[index+1:]
+			if len(name) < 4 {
+				// It is impossible to have a domain name shorter than 4 characters, therefore stop breaking down here.
+				continue
+			}
+			domainBreakdown = append(domainBreakdown, name)
+		}
+		// Check each broken-down variation of domain name against black list
+		for _, brokenDownName := range domainBreakdown {
+			_, blacklisted := daemon.blackList[brokenDownName]
+			if blacklisted {
+				return true
+			}
 		}
 	}
 	return false

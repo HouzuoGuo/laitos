@@ -187,7 +187,7 @@ func (config *Config) GetDNSD() *dnsd.Daemon {
 }
 
 // GetMaintenance constructs a system maintenance / health check daemon from configuration and return.
-func (config Config) GetMaintenance() *maintenance.Daemon {
+func (config *Config) GetMaintenance() *maintenance.Daemon {
 	config.maintenanceInit.Do(func() {
 		config.Maintenance.FeaturesToTest = config.Features
 		config.Maintenance.MailClient = config.MailClient
@@ -202,7 +202,7 @@ func (config Config) GetMaintenance() *maintenance.Daemon {
 }
 
 // Construct an HTTP daemon from configuration and return.
-func (config Config) GetHTTPD() *httpd.Daemon {
+func (config *Config) GetHTTPD() *httpd.Daemon {
 	config.httpDaemonInit.Do(func() {
 		// Assemble command processor from features and filters
 		config.HTTPDaemon.Processor = &common.CommandProcessor{
@@ -319,7 +319,7 @@ The command runner is usually built into laitos' own SMTP daemon to process feat
 independent mail command runner is useful in certain scenarios, such as integrating with postfix's
 "forward-mail-to-program" mechanism.
 */
-func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
+func (config *Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 	config.mailCommandRunnerInit.Do(func() {
 		// Assemble command processor from features and filters
 		config.MailCommandRunner.Processor = &common.CommandProcessor{
@@ -344,7 +344,7 @@ func (config Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 Construct an SMTP daemon together with its mail command processor.
 Both SMTP daemon and mail command processor will use the common mail client to forward mails and send replies.
 */
-func (config Config) GetMailDaemon() *smtpd.Daemon {
+func (config *Config) GetMailDaemon() *smtpd.Daemon {
 	config.mailDaemonInit.Do(func() {
 		config.MailDaemon.CommandRunner = config.GetMailCommandRunner()
 		config.MailDaemon.ForwardMailClient = config.MailClient
@@ -360,7 +360,7 @@ func (config Config) GetMailDaemon() *smtpd.Daemon {
 Construct a plain text protocol TCP&UDP daemon and return.
 It will use common mail client for sending outgoing emails.
 */
-func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
+func (config *Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 	config.plainSocketDaemonInit.Do(func() {
 		// Assemble command processor from features and filters
 		config.PlainSocketDaemon.Processor = &common.CommandProcessor{
@@ -386,10 +386,9 @@ func (config Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 }
 
 // Intentionally undocumented
-func (config Config) GetSockDaemon() *sockd.Daemon {
-	myDNSD := config.GetDNSD()
+func (config *Config) GetSockDaemon() *sockd.Daemon {
 	config.sockDaemonInit.Do(func() {
-		config.SockDaemon.DNSDaemon = myDNSD
+		config.SockDaemon.DNSDaemon = config.GetDNSD()
 		if err := config.SockDaemon.Initialise(); err != nil {
 			config.logger.Fatalf("GetSockDaemon", "", err, "failed to initialise")
 			return
@@ -399,7 +398,7 @@ func (config Config) GetSockDaemon() *sockd.Daemon {
 }
 
 // Construct a telegram bot from configuration and return.
-func (config Config) GetTelegramBot() *telegrambot.Daemon {
+func (config *Config) GetTelegramBot() *telegrambot.Daemon {
 	config.telegramBotInit.Do(func() {
 		// Assemble telegram bot from features and filters
 		config.TelegramBot.Processor = &common.CommandProcessor{

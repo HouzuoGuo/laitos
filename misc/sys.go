@@ -89,8 +89,8 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		combinedEnv = myEnv
 	} else {
 		combinedEnv = make([]string, len(myEnv)+len(envVars))
-		copy(combinedEnv, myEnv[:])
-		copy(combinedEnv[len(myEnv):], envVars[:])
+		copy(combinedEnv, myEnv)
+		copy(combinedEnv[len(myEnv):], envVars)
 	}
 	// Collect stdout and stderr all together in a single buffer
 	var outBuf bytes.Buffer

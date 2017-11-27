@@ -51,27 +51,27 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 		daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to read query from client")
 		return
 	}
-	domainNameCombinations := ExtractDomainNameCombinations(queryBuf)
-	// Formulate response
+	// Parse request and formulate a response
+	requestedDomainName := ExtractDomainName(queryBuf)
 	var responseLen int
 	var responseLenBuf []byte
 	var responseBuf []byte
 	var doForward bool
-	if len(domainNameCombinations) == 0 {
+	if requestedDomainName == "" {
 		// If I cannot figure out what domain is from the query, simply forward it without much concern.
 		daemon.logger.Printf("HandleTCPQuery", clientIP, nil, "handle non-name query")
 		doForward = true
 	} else {
 		// This is a domain name query, check the name against black list and then forward.
-		if daemon.IsInBlacklist(domainNameCombinations...) {
-			daemon.logger.Printf("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", domainNameCombinations[0])
+		if daemon.IsInBlacklist(requestedDomainName) {
+			daemon.logger.Printf("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", requestedDomainName)
 			responseBuf = RespondWith0(queryBuf)
 			responseLen = len(responseBuf)
 			responseLenBuf = make([]byte, 2)
 			responseLenBuf[0] = byte(responseLen / 256)
 			responseLenBuf[1] = byte(responseLen % 256)
 		} else {
-			daemon.logger.Printf("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", domainNameCombinations[0])
+			daemon.logger.Printf("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", requestedDomainName)
 			doForward = true
 		}
 	}

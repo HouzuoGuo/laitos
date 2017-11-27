@@ -112,8 +112,8 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		randForwarder := rand.Intn(len(daemon.udpForwarderQueue))
 		forwardPacket := make([]byte, packetLength)
 		copy(forwardPacket, packetBuf[:packetLength])
-		domainName := ExtractDomainNameCombinations(forwardPacket)
-		if len(domainName) == 0 {
+		domainName := ExtractDomainName(forwardPacket)
+		if domainName == "" {
 			// If I cannot figure out what domain is from the query, simply forward it without much concern.
 			daemon.logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
 				"handle non-name query (backlog %d)", len(daemon.udpForwarderQueue[randForwarder]))
@@ -122,11 +122,11 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 				MyServer:    udpServer,
 				QueryPacket: forwardPacket,
 			}
-		} else if daemon.IsInBlacklist(domainName...) {
+		} else if daemon.IsInBlacklist(domainName) {
 			// Requested domain name is black-listed
 			randBlackListResponder := rand.Intn(len(daemon.udpBlackHoleQueue))
 			daemon.logger.Printf(fmt.Sprintf("UDP-%d", randBlackListResponder), clientIP, nil,
-				"handle black-listed domain \"%s\" (backlog %d)", domainName[0], len(daemon.udpBlackHoleQueue[randBlackListResponder]))
+				"handle black-listed domain \"%s\" (backlog %d)", domainName, len(daemon.udpBlackHoleQueue[randBlackListResponder]))
 			daemon.udpBlackHoleQueue[randBlackListResponder] <- &UDPQuery{
 				ClientAddr:  clientAddr,
 				MyServer:    udpServer,
@@ -135,7 +135,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		} else {
 			// This is a normal domain name query and not black-listed
 			daemon.logger.Printf(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
-				"handle domain \"%s\" (backlog %d)", domainName[0], len(daemon.udpForwarderQueue[randForwarder]))
+				"handle domain \"%s\" (backlog %d)", domainName, len(daemon.udpForwarderQueue[randForwarder]))
 			daemon.udpForwarderQueue[randForwarder] <- &UDPQuery{
 				ClientAddr:  clientAddr,
 				MyServer:    udpServer,
