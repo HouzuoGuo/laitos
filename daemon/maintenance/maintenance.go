@@ -370,8 +370,8 @@ func (daemon *Daemon) SystemMaintenance() string {
 			"unzip", "zip",
 			// Utility applications for conducting network diagnosis
 			"nc", "net-tools", "netcat", "nmap", "tcpdump", "traceroute", "whois",
-			// busybox is useful for general maintenance and it can synchronise clock as well
-			"busybox",
+			// busybox is useful for general maintenance and it can synchronise clock as well, lsof is just useful.
+			"busybox", "lsof",
 		}
 		/*
 			Although all three package managers can install more than one packages at a time, the packages are still
