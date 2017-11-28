@@ -235,12 +235,12 @@ func (daemon *Daemon) UpdateBlackList() {
 						atomic.LoadInt64(&countResolutionAttempts), len(allNames))
 				}
 				name := strings.ToLower(strings.TrimSpace(allNames[j]))
+				newBlackList[name] = struct{}{}
 				ips, err := net.LookupIP(name)
 				newBlackListMutex.Lock()
 				if err == nil {
 					atomic.AddInt64(&countResolvedNames, 1)
 					atomic.AddInt64(&countResolvedIPs, int64(len(ips)))
-					newBlackList[name] = struct{}{}
 					for _, ip := range ips {
 						newBlackList[ip.String()] = struct{}{}
 					}
