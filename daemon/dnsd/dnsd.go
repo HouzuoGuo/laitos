@@ -15,17 +15,14 @@ import (
 )
 
 const (
-	RateLimitIntervalSec       = 1    // Rate limit is calculated at 1 second interval
-	IOTimeoutSec               = 60   // IO timeout for both read and write operations
-	MaxPacketSize              = 9038 // Maximum acceptable UDP packet size
-	NumQueueRatio              = 10   // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
-	BlacklistUpdateIntervalSec = 7200 // Update ad-server blacklist at this interval
-	MinNameQuerySize           = 14   // If a query packet is shorter than this length, it cannot possibly be a name query.
-	PublicIPRefreshIntervalSec = 900  // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
-	MVPSLicense                = `Disclaimer: this file is free to use for personal use only. Furthermore it is NOT permitted to ` +
-		`copy any of the contents or host on any other site without permission or meeting the full criteria of the below license ` +
-		` terms. This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike License. ` +
-		` http://creativecommons.org/licenses/by-nc-sa/4.0/ License info for commercial purposes contact Winhelp2002`
+	RateLimitIntervalSec        = 1    // Rate limit is calculated at 1 second interval
+	IOTimeoutSec                = 60   // IO timeout for both read and write operations
+	MaxPacketSize               = 9038 // Maximum acceptable UDP packet size
+	NumQueueRatio               = 10   // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
+	BlacklistUpdateIntervalSec  = 7200 // Update ad-server blacklist at this interval
+	MinNameQuerySize            = 14   // If a query packet is shorter than this length, it cannot possibly be a name query.
+	PublicIPRefreshIntervalSec  = 900  // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
+	BlacklistDownloadTimeoutSec = 30   // BlacklistDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
 )
 
 /*
@@ -36,15 +33,14 @@ var Forwarders = []string{
 	// Comodo SecureDNS (https://www.comodo.com/secure-dns/)
 	"8.26.56.26:53",
 	"8.20.247.20:53",
-	// Neustar free recursive DNS with threat protection (https://www.neustar.biz/security/dns-services/free-recursive-dns-service)
-	"156.154.70.2:53",
-	"156.154.71.2:53",
 	// Quad9 (https://www.quad9.net)
 	"9.9.9.9:53",
 	"149.112.112.112:53",
-	// Norton ConnectSafe A (https://dns.norton.com/configureRouter.html)
-	"199.85.126.10:53",
-	"199.85.127.10:53", // 2017-11-27 - this alternative address is unstable in answering TCP requests, though UDP is fine.
+	// SafeDNS (https://www.safedns.com)
+	"195.46.39.39:53",
+	"195.46.39.40:53",
+	// Do not use neustar based resolvers (neustar.biz, norton connectsafe, etc) as they are teamed up with yahoo search
+	// Do not use OpenDNS as it also sometimes redirects user to search site
 }
 
 // A query to forward to DNS forwarder via DNS.
@@ -205,123 +201,6 @@ func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
 	return false
 }
 
-// Download ad-servers list from pgl.yoyo.org and return those domain names.
-func (daemon *Daemon) GetAdBlacklistPGL() ([]string, error) {
-	yoyo := "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=nohtml&showintro=0&mimetype=plaintext"
-	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 30}, yoyo)
-	if err != nil {
-		return []string{}, err
-	}
-	if statusErr := resp.Non2xxToError(); statusErr != nil {
-		return []string{}, statusErr
-	}
-	lines := strings.Split(string(resp.Body), "\n")
-	if len(lines) < 100 {
-		return []string{}, fmt.Errorf("DNSD.GetAdBlacklistPGL: PGL's ad-server list is suspiciously short at only %d lines", len(lines))
-	}
-	names := make([]string, 0, len(lines))
-	for _, line := range lines {
-		names = append(names, strings.ToLower(strings.TrimSpace(line)))
-	}
-	return names, nil
-}
-
-// Download ad-servers list from winhelp2002.mvps.org and return those domain names.
-func (daemon *Daemon) GetAdBlacklistMVPS() ([]string, error) {
-	yoyo := "http://winhelp2002.mvps.org/hosts.txt"
-	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 30}, yoyo)
-	if err != nil {
-		return []string{}, err
-	}
-	if statusErr := resp.Non2xxToError(); statusErr != nil {
-		return []string{}, statusErr
-	}
-	// Collect host names from the hosts file content
-	names := make([]string, 0, 16384)
-	for _, line := range strings.Split(string(resp.Body), "\n") {
-		indexZero := strings.Index(line, "0.0.0.0")
-		nameEnd := strings.IndexRune(line, '#')
-		if indexZero == -1 {
-			// Skip lines that do not have a host name
-			continue
-		}
-		if nameEnd == -1 {
-			nameEnd = len(line)
-		}
-		nameBegin := indexZero + len("0.0.0.0")
-		if nameBegin >= nameEnd {
-			// The line looks like # this is a comment 0.0.0.0
-			continue
-		}
-		names = append(names, strings.ToLower(strings.TrimSpace(line[nameBegin:nameEnd])))
-	}
-	if len(names) < 100 {
-		return []string{}, fmt.Errorf("DNSD.GetAdBlacklistMVPS: MVPS' ad-server list is suspiciously short at only %d lines", len(names))
-	}
-	return names, nil
-}
-
-var StandardResponseNoError = []byte{129, 128} // DNS response packet flag - standard response, no indication of error.
-
-//                            Domain     A    IN      TTL 1466  IPv4     0.0.0.0
-var BlackHoleAnswer = []byte{192, 12, 0, 1, 0, 1, 0, 0, 5, 186, 0, 4, 0, 0, 0, 0} // DNS answer 0.0.0.0
-
-// Create a DNS response packet without prefix length bytes, that points incoming query to 0.0.0.0.
-func RespondWith0(queryNoLength []byte) []byte {
-	if queryNoLength == nil || len(queryNoLength) < MinNameQuerySize {
-		return []byte{}
-	}
-	answerPacket := make([]byte, 2+2+len(queryNoLength)-4+len(BlackHoleAnswer))
-	// Match transaction ID of original query
-	answerPacket[0] = queryNoLength[0]
-	answerPacket[1] = queryNoLength[1]
-	// 0x8180 - response is a standard query response, without indication of error.
-	copy(answerPacket[2:4], StandardResponseNoError)
-	// Copy of original query structure
-	copy(answerPacket[4:], queryNoLength[4:])
-	// There is exactly one answer RR
-	answerPacket[6] = 0
-	answerPacket[7] = 1
-	// Answer 0.0.0.0 to the query
-	copy(answerPacket[len(answerPacket)-len(BlackHoleAnswer):], BlackHoleAnswer)
-	// Finally, respond!
-	return answerPacket
-}
-
-/*
-ExtractDomainName extracts domain name requested by input query packet. If the function fails to determine the requested
-name, it returns an empty string.
-*/
-func ExtractDomainName(packet []byte) string {
-	if packet == nil || len(packet) < MinNameQuerySize {
-		return ""
-	}
-	indexTypeAClassIN := bytes.Index(packet[13:], []byte{0, 1, 0, 1})
-	if indexTypeAClassIN < 1 {
-		return ""
-	}
-	indexTypeAClassIN += 13
-	// The byte right before Type-A Class-IN is an empty byte to be discarded
-	domainNameBytes := make([]byte, indexTypeAClassIN-13-1)
-	copy(domainNameBytes, packet[13:indexTypeAClassIN-1])
-	/*
-		Restore full-stops of the domain name portion so that it can be checked against black list.
-		Not sure why those byte ranges show up in place of full-stops, probably due to some RFCs.
-	*/
-	for i, b := range domainNameBytes {
-		if b <= 44 || b >= 58 && b <= 64 || b >= 91 && b <= 96 {
-			domainNameBytes[i] = '.'
-		}
-	}
-	// Convert the name to lower case because sometimes device queries names in mixed case
-	domainName := strings.ToLower(strings.TrimSpace(string(domainNameBytes)))
-	if len(domainName) > 1024 {
-		// Domain name is unrealistically long
-		return ""
-	}
-	return domainName
-}
-
 /*
 UpdatedBlackList downloads the latest blacklist files from PGL and MVPS, resolves the IP addresses of each domain,
 and stores the latest blacklist names and IP addresses into blacklist map.
@@ -334,44 +213,28 @@ func (daemon *Daemon) UpdatedBlackList() {
 	defer func() {
 		atomic.StoreInt32(&daemon.blackListUpdating, 0)
 	}()
-	// Download black list data from two sources
-	pglEntries, pglErr := daemon.GetAdBlacklistPGL()
-	if pglErr == nil {
-		daemon.logger.Printf("GetAdBlacklistPGL", "", nil, "successfully retrieved ad-blacklist with %d entries", len(pglEntries))
-	} else {
-		daemon.logger.Warningf("GetAdBlacklistPGL", "", pglErr, "failed to update ad-blacklist")
-	}
-	mvpsEntries, mvpsErr := daemon.GetAdBlacklistMVPS()
-	if mvpsErr == nil {
-		daemon.logger.Printf("GetAdBlacklistMVPS", "", nil, "successfully retrieved ad-blacklist with %d entries", len(mvpsEntries))
-		daemon.logger.Printf("GetAdBlacklistMVPS", "", nil, "Please comply with the following license for your usage of http://winhelp2002.mvps.org/hosts.txt: %s", MVPSLicense)
-	} else {
-		daemon.logger.Warningf("GetAdBlacklistMVPS", "", mvpsErr, "failed to update ad-blacklist")
-	}
-	// Combine black list data from two sources into one single list
-	allEntries := make([]string, len(pglEntries)+len(mvpsEntries))
-	copy(allEntries, pglEntries)
-	copy(allEntries[len(pglEntries):], mvpsEntries)
+
+	// Download black list data from all sources
+	allNames := DownloadAllBlacklists(daemon.logger)
 	// Get ready to construct the new blacklist
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
 	// Use a parallel approach to resolve these names
-	numRoutines := 16
+	numRoutines := 32
 	parallelResolve := new(sync.WaitGroup)
 	parallelResolve.Add(numRoutines)
 	// Collect some nice counter data just for show
-	var countResolvedNames, countNonResolvableNames, countResolvedIPs int64
+	var countResolvedNames, countNonResolvableNames, countResolvedIPs, countResolutionAttempts int64
 	for i := 0; i < numRoutines; i++ {
 		go func(i int) {
-			for j := i * (len(allEntries) / numRoutines); j < (i+1)*(len(allEntries)/numRoutines); j++ {
-				if j%500 == 1 {
-					daemon.logger.Printf("UpdatedBlackList", "", nil, "resolving IP addresses at index %d", j)
+			for j := i * (len(allNames) / numRoutines); j < (i+1)*(len(allNames)/numRoutines); j++ {
+				// Count number of resolution attempts only for logging the progress
+				atomic.AddInt64(&countResolutionAttempts, 1)
+				if atomic.LoadInt64(&countResolutionAttempts)%500 == 1 {
+					daemon.logger.Printf("UpdatedBlackList", "", nil, "resolving IP %d of %d black listed names",
+						atomic.LoadInt64(&countResolutionAttempts), len(allNames))
 				}
-				name := strings.ToLower(strings.TrimSpace(allEntries[j]))
-				// In case MVPS or PGL gets mad at me and returns "com" or "net" to block, for a prank :>
-				if len(name) < 5 {
-					continue
-				}
+				name := strings.ToLower(strings.TrimSpace(allNames[j]))
 				ips, err := net.LookupIP(name)
 				newBlackListMutex.Lock()
 				if err == nil {
@@ -395,7 +258,7 @@ func (daemon *Daemon) UpdatedBlackList() {
 	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
 	daemon.logger.Printf("UpdatedBlackList", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries",
-		len(allEntries), countResolvedNames, countResolvedIPs, countNonResolvableNames, len(newBlackList))
+		len(allNames), countResolvedNames, countResolvedIPs, countNonResolvableNames, len(newBlackList))
 }
 
 /*
@@ -493,6 +356,67 @@ func (daemon *Daemon) IsInBlacklist(nameOrIPs ...string) bool {
 		}
 	}
 	return false
+}
+
+var StandardResponseNoError = []byte{129, 128} // DNS response packet flag - standard response, no indication of error.
+
+//                            Domain     A    IN      TTL 1466  IPv4     0.0.0.0
+var BlackHoleAnswer = []byte{192, 12, 0, 1, 0, 1, 0, 0, 5, 186, 0, 4, 0, 0, 0, 0} // DNS answer 0.0.0.0
+
+// Create a DNS response packet without prefix length bytes, that points incoming query to 0.0.0.0.
+func RespondWith0(queryNoLength []byte) []byte {
+	if queryNoLength == nil || len(queryNoLength) < MinNameQuerySize {
+		return []byte{}
+	}
+	answerPacket := make([]byte, 2+2+len(queryNoLength)-4+len(BlackHoleAnswer))
+	// Match transaction ID of original query
+	answerPacket[0] = queryNoLength[0]
+	answerPacket[1] = queryNoLength[1]
+	// 0x8180 - response is a standard query response, without indication of error.
+	copy(answerPacket[2:4], StandardResponseNoError)
+	// Copy of original query structure
+	copy(answerPacket[4:], queryNoLength[4:])
+	// There is exactly one answer RR
+	answerPacket[6] = 0
+	answerPacket[7] = 1
+	// Answer 0.0.0.0 to the query
+	copy(answerPacket[len(answerPacket)-len(BlackHoleAnswer):], BlackHoleAnswer)
+	// Finally, respond!
+	return answerPacket
+}
+
+/*
+ExtractDomainName extracts domain name requested by input query packet. If the function fails to determine the requested
+name, it returns an empty string.
+*/
+func ExtractDomainName(packet []byte) string {
+	if packet == nil || len(packet) < MinNameQuerySize {
+		return ""
+	}
+	indexTypeAClassIN := bytes.Index(packet[13:], []byte{0, 1, 0, 1})
+	if indexTypeAClassIN < 1 {
+		return ""
+	}
+	indexTypeAClassIN += 13
+	// The byte right before Type-A Class-IN is an empty byte to be discarded
+	domainNameBytes := make([]byte, indexTypeAClassIN-13-1)
+	copy(domainNameBytes, packet[13:indexTypeAClassIN-1])
+	/*
+		Restore full-stops of the domain name portion so that it can be checked against black list.
+		Not sure why those byte ranges show up in place of full-stops, probably due to some RFCs.
+	*/
+	for i, b := range domainNameBytes {
+		if b <= 44 || b >= 58 && b <= 64 || b >= 91 && b <= 96 {
+			domainNameBytes[i] = '.'
+		}
+	}
+	// Convert the name to lower case because sometimes device queries names in mixed case
+	domainName := strings.ToLower(strings.TrimSpace(string(domainNameBytes)))
+	if len(domainName) > 1024 {
+		// Domain name is unrealistically long
+		return ""
+	}
+	return domainName
 }
 
 var githubComTCPQuery, githubComUDPQuery []byte // Sample queries for composing test cases

@@ -35,7 +35,7 @@ func TestRespondWith0(t *testing.T) {
 	}
 }
 
-func TestDNSD_DownloadBlacklists(t *testing.T) {
+func TestUpdateBlackList(t *testing.T) {
 	daemon := Daemon{}
 	daemon.Address = "127.0.0.1"
 	daemon.UDPPort = 33111
@@ -43,12 +43,6 @@ func TestDNSD_DownloadBlacklists(t *testing.T) {
 	daemon.AllowQueryIPPrefixes = []string{"192."}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
-	}
-	if entries, err := daemon.GetAdBlacklistPGL(); err != nil || len(entries) < 100 {
-		t.Fatal(err, entries)
-	}
-	if entries, err := daemon.GetAdBlacklistMVPS(); err != nil || len(entries) < 100 {
-		t.Fatal(err, entries)
 	}
 	daemon.UpdatedBlackList()
 }
