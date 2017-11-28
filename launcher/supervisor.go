@@ -17,7 +17,7 @@ const (
 	SupervisorFlagName = "supervisor" // SupervisorFlagName is the CLI boolean flag that determines whether supervisor should run
 	DaemonsFlagName    = "daemons"    // DaemonsFlagName is the CLI string flag of daemon names (comma separated) to launch
 
-	// Individual daemon names:
+	// Individual daemon names as provided by user in CLI to launch laitos:
 	DNSDName          = "dnsd"
 	HTTPDName         = "httpd"
 	InsecureHTTPDName = "insecurehttpd"
@@ -34,6 +34,8 @@ const (
 	FailureThresholdSec = 20 * 60
 	// StartAttemptIntervalSec is the amount of time to wait between supervisor's attempts to start main program.
 	StartAttemptIntervalSec = 10
+	// MemoriseOutputCapacity is the size of laitos main program output to memorise for notification purpose.
+	MemoriseOutputCapacity = 4 * 1024
 )
 
 // AllDaemons is an unsorted list of string daemon names.
@@ -87,6 +89,10 @@ type Supervisor struct {
 	DaemonNames []string
 	// shedSequence is the sequence at which daemon shedding takes place. Each latter array has one daemon less than the previous.
 	shedSequence [][]string
+	// mainStdout forwards verbatim main program output to stdout and keeps latest several KB for notification.
+	mainStdout *misc.ByteLogWriter
+	// mainStderr forwards verbatim main program output to stdout and keeps latest several KB for notification.
+	mainStderr *misc.ByteLogWriter
 
 	logger misc.Logger
 }
@@ -97,6 +103,8 @@ func (sup *Supervisor) initialise() {
 		ComponentName: "Supervisor",
 		ComponentID:   strconv.Itoa(os.Getpid()),
 	}
+	sup.mainStderr = misc.NewByteLogWriter(os.Stderr, MemoriseOutputCapacity)
+	sup.mainStdout = misc.NewByteLogWriter(os.Stdout, MemoriseOutputCapacity)
 	// Remove daemon names from CLI flags, because they will be appended by GetLaunchParameters.
 	sup.CLIFlags = RemoveFromFlags(func(s string) bool {
 		return strings.HasPrefix(s, "-"+DaemonsFlagName)
@@ -109,7 +117,7 @@ func (sup *Supervisor) initialise() {
 		if len(remainingDaemons) == 1 {
 			break
 		}
-		// Each round has one less daemon in comparison to the previous round
+		// Each round has one less daemon in contrast to the previous round
 		thisRound := make([]string, 0)
 		var willShed bool
 		for _, daemon := range remainingDaemons {
@@ -148,15 +156,21 @@ Sys/prog uptime: %s / %s
 Total/used/prog mem: %d / %d / %d MB
 Sys load: %s
 Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
+
+Latest stdout: %s
+
+Latest stderr: %s
 `, launchErr,
 		cliFlags,
 		time.Now().String(),
 		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Now().Sub(misc.StartupTime).String(),
 		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
 		misc.GetSystemLoad(),
-		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine())
+		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
+		string(sup.mainStdout.Retrieve()),
+		string(sup.mainStderr.Retrieve()))
 
-	if err := mailClient.Send(subject, body, recipients...); err != nil {
+	if err := mailClient.Send(subject, inet.LintMailBody(body), recipients...); err != nil {
 		sup.logger.Warningf("notifyFailure", "", err, "failed to send failure notification email")
 	}
 }
@@ -182,8 +196,8 @@ func (sup *Supervisor) Start() {
 
 		mainProgram := exec.Command(executablePath, cliFlags...)
 		mainProgram.Stdin = os.Stdin
-		mainProgram.Stdout = os.Stdout
-		mainProgram.Stderr = os.Stderr
+		mainProgram.Stdout = sup.mainStdout
+		mainProgram.Stderr = sup.mainStderr
 		if err := mainProgram.Start(); err != nil {
 			sup.logger.Warningf("Start", strconv.Itoa(paramChoice), err, "failed to start main program")
 			sup.notifyFailure(cliFlags, err)

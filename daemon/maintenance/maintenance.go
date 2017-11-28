@@ -24,7 +24,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unicode"
 )
 
 const (
@@ -220,16 +219,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
 		daemon.logger.Warningf("Execute", "", err, "failed to send notification mail")
 	}
-	// Remove weird characters that may appear and cause email display to squeeze all lines together
-	var cleanedResult bytes.Buffer
-	for _, r := range result.String() {
-		if r < 128 && (unicode.IsPrint(r) || unicode.IsSpace(r)) {
-			cleanedResult.WriteRune(r)
-		} else {
-			cleanedResult.WriteRune('?')
-		}
-	}
-	return cleanedResult.String(), allOK
+	return inet.LintMailBody(result.String()), allOK
 }
 
 func (daemon *Daemon) Initialise() error {

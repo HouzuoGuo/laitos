@@ -9,6 +9,7 @@ import (
 	"net/mail"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // RegexMailAddress finds *@*.* that looks much like an Email address
@@ -106,4 +107,20 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 		_, err = fun(prop, body)
 		return err
 	}
+}
+
+/*
+LintMailBody removes weird characters that may appear and cause email display to squeeze all lines together.
+Returns linted string.
+*/
+func LintMailBody(in string) string {
+	var cleanedResult bytes.Buffer
+	for _, r := range in {
+		if r < 128 && (unicode.IsPrint(r) || unicode.IsSpace(r)) {
+			cleanedResult.WriteRune(r)
+		} else {
+			cleanedResult.WriteRune('?')
+		}
+	}
+	return cleanedResult.String()
 }
