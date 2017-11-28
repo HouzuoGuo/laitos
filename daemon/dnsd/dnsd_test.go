@@ -44,7 +44,7 @@ func TestUpdateBlackList(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	daemon.UpdatedBlackList()
+	daemon.UpdateBlackList()
 }
 
 func TestDNSD_StartAndBlockUDP(t *testing.T) {

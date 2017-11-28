@@ -202,12 +202,12 @@ func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
 }
 
 /*
-UpdatedBlackList downloads the latest blacklist files from PGL and MVPS, resolves the IP addresses of each domain,
+UpdateBlackList downloads the latest blacklist files from PGL and MVPS, resolves the IP addresses of each domain,
 and stores the latest blacklist names and IP addresses into blacklist map.
 */
-func (daemon *Daemon) UpdatedBlackList() {
+func (daemon *Daemon) UpdateBlackList() {
 	if !atomic.CompareAndSwapInt32(&daemon.blackListUpdating, 0, 1) {
-		daemon.logger.Printf("GetAdBlacklistPGL", "", nil, "will skip this run because update routine is already ongoing")
+		daemon.logger.Printf("UpdateBlackList", "", nil, "will skip this run because update routine is already ongoing")
 		return
 	}
 	defer func() {
@@ -231,7 +231,7 @@ func (daemon *Daemon) UpdatedBlackList() {
 				// Count number of resolution attempts only for logging the progress
 				atomic.AddInt64(&countResolutionAttempts, 1)
 				if atomic.LoadInt64(&countResolutionAttempts)%500 == 1 {
-					daemon.logger.Printf("UpdatedBlackList", "", nil, "resolving IP %d of %d black listed names",
+					daemon.logger.Printf("UpdateBlackList", "", nil, "resolved %d of %d black listed domain names",
 						atomic.LoadInt64(&countResolutionAttempts), len(allNames))
 				}
 				name := strings.ToLower(strings.TrimSpace(allNames[j]))
@@ -257,7 +257,7 @@ func (daemon *Daemon) UpdatedBlackList() {
 	daemon.blackListMutex.Lock()
 	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
-	daemon.logger.Printf("UpdatedBlackList", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries",
+	daemon.logger.Printf("UpdateBlackList", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries",
 		len(allNames), countResolvedNames, countResolvedIPs, countNonResolvableNames, len(newBlackList))
 }
 
@@ -270,13 +270,13 @@ func (daemon *Daemon) StartAndBlock() error {
 	// Keep updating ad-block black list in background
 	stopAdBlockUpdater := make(chan bool, 1)
 	go func() {
-		daemon.UpdatedBlackList()
+		daemon.UpdateBlackList()
 		for {
 			select {
 			case <-stopAdBlockUpdater:
 				return
 			case <-time.After(BlacklistUpdateIntervalSec * time.Second):
-				daemon.UpdatedBlackList()
+				daemon.UpdateBlackList()
 			}
 		}
 	}()
