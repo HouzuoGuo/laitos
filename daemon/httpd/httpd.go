@@ -248,6 +248,9 @@ func (daemon *Daemon) StartAndBlockWithTLS() error {
 
 // Stop HTTP daemon - the listener without TLS.
 func (daemon *Daemon) StopNoTLS() {
+	if daemon.serverNoTLS == nil {
+		return
+	}
 	constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 	defer cancel()
 	if err := daemon.serverNoTLS.Shutdown(constraints); err != nil {
@@ -257,6 +260,9 @@ func (daemon *Daemon) StopNoTLS() {
 
 // Stop HTTP daemon - the listener with TLS.
 func (daemon *Daemon) StopTLS() {
+	if daemon.serverWithTLS != nil {
+		return
+	}
 	constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 	defer cancel()
 	if err := daemon.serverWithTLS.Shutdown(constraints); err != nil {

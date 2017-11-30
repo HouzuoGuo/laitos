@@ -1,11 +1,11 @@
 {
-  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config simple-config.jsontxt -daemons dnsd,httpd,maintenance,plainsocket,smtpd,sockd,telegram",
+  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config simple-config.json.txt -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,sockd,telegram",
   "DNSDaemon": {
     "Address": "0.0.0.0",
     "AllowQueryIPPrefixes": [
       "192."
     ],
-    "PerIPLimit": 3,
+    "PerIPLimit": 20,
     "TCPPort": 53,
     "UDPPort": 53
   },
@@ -63,8 +63,10 @@
   },
   "HTTPDaemon": {
     "Address": "0.0.0.0",
-    "PerIPLimit": 3,
-    "Port": 80
+    "PerIPLimit": 2,
+    "Port": 80,
+    "TLSCertPath": "simple-config.crt.txt",
+    "TLSKeyPath": "simple-config.crt.key.txt"
   },
   "HTTPFilters": {
     "LintText": {
@@ -161,8 +163,10 @@
     "MyDomains": [
       "localhost"
     ],
-    "PerIPLimit": 3,
-    "Port": 25
+    "PerIPLimit": 2,
+    "Port": 25,
+    "TLSCertPath": "simple-config.crt.txt",
+    "TLSKeyPath": "simple-config.crt.key.txt"
   },
   "MailFilters": {
     "LintText": {
@@ -204,7 +208,7 @@
   },
   "PlainSocketDaemon": {
     "Address": "0.0.0.0",
-    "PerIPLimit": 3,
+    "PerIPLimit": 2,
     "TCPPort": 5,
     "UDPPort": 5
   },
@@ -237,7 +241,9 @@
     "TCPPort": 70,
     "UDPPort": 70
   },
-  "SupervisorNotificationRecipients": ["i@example.net"],
+  "SupervisorNotificationRecipients": [
+    "i@example.net"
+  ],
   "TelegramBot": {
     "AuthorizationToken": "dummy token",
     "PerUserLimit": 2
