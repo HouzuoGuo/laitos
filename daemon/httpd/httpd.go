@@ -248,25 +248,23 @@ func (daemon *Daemon) StartAndBlockWithTLS() error {
 
 // Stop HTTP daemon - the listener without TLS.
 func (daemon *Daemon) StopNoTLS() {
-	if daemon.serverNoTLS == nil {
-		return
-	}
-	constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
-	defer cancel()
-	if err := daemon.serverNoTLS.Shutdown(constraints); err != nil {
-		daemon.logger.Warningf("StopNoTLS", "", err, "failed to shutdown")
+	if server := daemon.serverNoTLS; server != nil {
+		constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
+		defer cancel()
+		if err := server.Shutdown(constraints); err != nil {
+			daemon.logger.Warningf("StopNoTLS", "", err, "failed to shutdown")
+		}
 	}
 }
 
 // Stop HTTP daemon - the listener with TLS.
 func (daemon *Daemon) StopTLS() {
-	if daemon.serverWithTLS != nil {
-		return
-	}
-	constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
-	defer cancel()
-	if err := daemon.serverWithTLS.Shutdown(constraints); err != nil {
-		daemon.logger.Warningf("StopTLS", "", err, "failed to shutdown")
+	if server := daemon.serverWithTLS; server != nil {
+		constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
+		defer cancel()
+		if err := server.Shutdown(constraints); err != nil {
+			daemon.logger.Warningf("StopTLS", "", err, "failed to shutdown")
+		}
 	}
 }
 

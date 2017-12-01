@@ -64,7 +64,7 @@
   "HTTPDaemon": {
     "Address": "0.0.0.0",
     "PerIPLimit": 2,
-    "Port": 80,
+    "Port": 443,
     "TLSCertPath": "simple-config.crt.txt",
     "TLSKeyPath": "simple-config.crt.key.txt"
   },
