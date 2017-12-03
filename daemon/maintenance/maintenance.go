@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	TCPPortCheckTimeoutSec = 10  // TCPPortCheckTimeoutSec is the timeout used in knocking ports.
-	MinimumIntervalSec     = 120 // MinimumIntervalSec is the lowest acceptable value of system maintenance interval.
+	TCPPortCheckTimeoutSec = 10   // TCPPortCheckTimeoutSec is the timeout used in knocking ports.
+	MinimumIntervalSec     = 3600 // MinimumIntervalSec is the lowest acceptable value of system maintenance interval.
 )
 
 /*
@@ -224,7 +224,9 @@ func (daemon *Daemon) Execute() (string, bool) {
 
 func (daemon *Daemon) Initialise() error {
 	daemon.logger = misc.Logger{ComponentName: "maintenance", ComponentID: strconv.Itoa(daemon.IntervalSec)}
-	if daemon.IntervalSec < MinimumIntervalSec {
+	if daemon.IntervalSec == 0 {
+		daemon.IntervalSec = 24 * 3600 // quite reasonable to run maintenance daily
+	} else if daemon.IntervalSec < MinimumIntervalSec {
 		return fmt.Errorf("maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
 	daemon.stop = make(chan bool)

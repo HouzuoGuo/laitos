@@ -118,6 +118,19 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
 	daemon.logger = misc.Logger{ComponentName: "httpd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port))}
+	if daemon.Address == "" {
+		daemon.Address = "0.0.0.0"
+	}
+	if daemon.Port < 1 {
+		if daemon.TLSCertPath == "" {
+			daemon.Port = 80
+		} else {
+			daemon.Port = 443
+		}
+	}
+	if daemon.PerIPLimit < 1 {
+		daemon.PerIPLimit = 5 // reasonable for 3 users of the advanced API endpoints
+	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		daemon.logger.Printf("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = common.GetEmptyCommandProcessor()
@@ -125,15 +138,6 @@ func (daemon *Daemon) Initialise() error {
 	daemon.Processor.SetLogger(daemon.logger)
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("httpd.Initialise: %+v", errs)
-	}
-	if daemon.Address == "" {
-		return errors.New("httpd.Initialise: listen address is empty")
-	}
-	if daemon.Port < 1 {
-		return errors.New("httpd.Initialise: listen port must be greater than 0")
-	}
-	if daemon.PerIPLimit < 1 {
-		return errors.New("httpd.Initialise: PerIPLimit must be greater than 0")
 	}
 	if (daemon.TLSCertPath != "" || daemon.TLSKeyPath != "") && (daemon.TLSCertPath == "" || daemon.TLSKeyPath == "") {
 		return errors.New("httpd.Initialise: missing TLS certificate or key path")

@@ -29,12 +29,7 @@ func TestTelegramBot_StartAndBock(t *testing.T) {
 		t.Fatal(err)
 	}
 	bot.AuthorizationToken = "dummy"
-	if err := bot.Initialise(); !strings.Contains(err.Error(), "PerUserLimit") {
-		t.Fatal(err)
-	}
-
-	bot.PerUserLimit = 2
-	if err := bot.Initialise(); err != nil {
+	if err := bot.Initialise(); err != nil || bot.PerUserLimit != 2 {
 		t.Fatal(err)
 	}
 

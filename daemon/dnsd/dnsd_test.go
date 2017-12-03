@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestExtractDomainName(t *testing.T) {
@@ -47,24 +48,12 @@ func TestUpdateBlackList(t *testing.T) {
 	daemon.UpdateBlackList()
 }
 
-func TestDNSD_StartAndBlockUDP(t *testing.T) {
+func TestDNSD(t *testing.T) {
 	daemon := Daemon{}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
-		t.Fatal(err)
-	}
-	daemon.Address = "127.0.0.1"
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "TCP and UDP ports") == -1 {
-		t.Fatal(err)
-	}
-	daemon.UDPPort = 62151
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
-		t.Fatal(err)
-	}
-	// This per IP limit must be high enough to tolerate consecutive query tests
-	daemon.PerIPLimit = 5
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "allowable IP") == -1 {
 		t.Fatal(err)
 	}
+	// Test missing mandatory settings
 	daemon.AllowQueryIPPrefixes = []string{"192.", ""}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "any allowable IP") == -1 {
 		t.Fatal(err)
@@ -77,38 +66,20 @@ func TestDNSD_StartAndBlockUDP(t *testing.T) {
 		// There should be three prefixes: 127., ::1, 192., and my IP
 		t.Fatal("did not put my own IP into prefixes")
 	}
-	TestUDPQueries(&daemon, t)
-}
-
-func TestDNSD_StartAndBlockTCP(t *testing.T) {
-	daemon := Daemon{}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
-		t.Fatal(err)
+	// Test default settings
+	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 100 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
+		t.Fatalf("%+v", daemon)
 	}
+	// Prepare settings for test
 	daemon.Address = "127.0.0.1"
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "TCP and UDP ports") == -1 {
-		t.Fatal(err)
-	}
+	daemon.UDPPort = 62151
 	daemon.TCPPort = 18519
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
-		t.Fatal(err)
-	}
-	// This per IP limit must be high enough to tolerate consecutive query tests
 	daemon.PerIPLimit = 5
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "allowable IP") == -1 {
-		t.Fatal(err)
-	}
-	daemon.AllowQueryIPPrefixes = []string{"192.", ""}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "any allowable IP") == -1 {
-		t.Fatal(err)
-	}
-	daemon.AllowQueryIPPrefixes = []string{"192."}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(daemon.AllowQueryIPPrefixes) != 4 {
-		// There should be three prefixes: 127., ::1, 192., and my IP
-		t.Fatal("did not put my own IP into prefixes", daemon.AllowQueryIPPrefixes)
-	}
+
+	TestUDPQueries(&daemon, t)
+	time.Sleep(RateLimitIntervalSec * time.Second)
 	TestTCPQueries(&daemon, t)
 }

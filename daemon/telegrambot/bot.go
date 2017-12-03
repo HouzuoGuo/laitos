@@ -79,6 +79,9 @@ type Daemon struct {
 
 func (bot *Daemon) Initialise() error {
 	bot.logger = misc.Logger{ComponentName: "telegrambot", ComponentID: ""}
+	if bot.PerUserLimit < 1 {
+		bot.PerUserLimit = 2 // reasonable for 3 users
+	}
 	if bot.Processor == nil || bot.Processor.IsEmpty() {
 		return fmt.Errorf("telegrambot.Initialise: command processor and its filters must be configured")
 	}
@@ -88,9 +91,6 @@ func (bot *Daemon) Initialise() error {
 	}
 	if bot.AuthorizationToken == "" {
 		return errors.New("telegrambot.Initialise: AuthorizationToken must not be empty")
-	}
-	if bot.PerUserLimit < 1 {
-		return errors.New("telegrambot.Initialise: PerUserLimit must be greater than 0")
 	}
 	// Configure rate limit
 	bot.userRateLimit = &misc.RateLimit{
@@ -234,7 +234,7 @@ func (bot *Daemon) Stop() {
 func TestTelegramBot(bot *Daemon, t testingstub.T) {
 	// Well then it is really difficult to test the chat routine
 	// So I am going to only going to start the daemon using invalid configuration, which is definitely failing.
-	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "HTTP") == -1 {
+	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "AuthorizationToken") == -1 {
 		t.Fatal(err)
 	}
 	// Repeatedly stopping the daemon should have no negative consequence

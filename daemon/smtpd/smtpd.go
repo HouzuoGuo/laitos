@@ -49,16 +49,16 @@ type Daemon struct {
 func (daemon *Daemon) Initialise() error {
 	daemon.logger = misc.Logger{ComponentName: "smtpd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port))}
 	if daemon.Address == "" {
-		return errors.New("smtpd.Initialise: listen address must not be empty")
+		daemon.Address = "0.0.0.0"
 	}
 	if daemon.Port < 1 {
-		return errors.New("smtpd.Initialise: listen port must be greater than 0")
+		daemon.Port = 25
 	}
 	if daemon.PerIPLimit < 1 {
-		return errors.New("smtpd.Initialise: PerIPLimit must be greater than 0")
+		daemon.PerIPLimit = 2 // reasonable for receiving emails and running toolbox feature commands
 	}
 	if daemon.ForwardTo == nil || len(daemon.ForwardTo) == 0 || !daemon.ForwardMailClient.IsConfigured() {
-		return errors.New("smtpd.Initialise: the server is not useful if forward addresses/forward mail client are not configured")
+		return errors.New("smtpd.Initialise: forward address and forward mail client must be configured")
 	}
 	if daemon.MyDomains == nil || len(daemon.MyDomains) == 0 {
 		return errors.New("smtpd.Initialise: my domain names must be configured")
@@ -95,9 +95,10 @@ func (daemon *Daemon) Initialise() error {
 	myPublicIP := inet.GetPublicIP()
 	if (strings.HasPrefix(daemon.ForwardMailClient.MTAHost, "127.") ||
 		daemon.ForwardMailClient.MTAHost == "::1" ||
+		daemon.ForwardMailClient.MTAHost == "0.0.0.0" ||
 		daemon.ForwardMailClient.MTAHost == myPublicIP) &&
 		daemon.ForwardMailClient.MTAPort == daemon.Port {
-		return errors.New("smtpd.Initialise: forward MTA must not be myself")
+		return fmt.Errorf("smtpd.Initialise: forward MTA must not be myself or localhost on port %d", daemon.Port)
 	}
 	// Construct a hash of MyDomains addresses for fast lookup
 	daemon.myDomainsHash = map[string]struct{}{}

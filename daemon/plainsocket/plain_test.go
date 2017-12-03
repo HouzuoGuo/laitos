@@ -4,9 +4,10 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"strings"
 	"testing"
+	"time"
 )
 
-func TestPlainTextDaemon_StartAndBlockTCP(t *testing.T) {
+func TestPlainTextDaemon(t *testing.T) {
 	daemon := Daemon{}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "filters must be configured") == -1 {
 		t.Fatal(err)
@@ -16,42 +17,23 @@ func TestPlainTextDaemon_StartAndBlockTCP(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon.Processor = common.GetTestCommandProcessor()
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
-		t.Fatal(err)
-	}
-	daemon.Address = "127.0.0.1"
+	// Test missing mandatory settings
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "TCP and UDP ports") == -1 {
 		t.Fatal(err)
 	}
+	// Test default settings
 	daemon.TCPPort = 32789
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
-		t.Fatal(err)
+	daemon.UDPPort = 15890
+	if err := daemon.Initialise(); err != nil || daemon.PerIPLimit != 2 {
+		t.Fatalf("%+v %+v\n", err, daemon)
 	}
-	// This per IP limit must be high enough to tolerate consecutive command tests
-	daemon.PerIPLimit = 5
+	// Prepare settings for test
+	daemon.Address = "127.0.0.1"
+	daemon.PerIPLimit = 5 // limit must be high enough to tolerate consecutive command tests
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
 	TestTCPServer(&daemon, t)
-}
-
-func TestPlainTextDaemon_StartAndBlockUDP(t *testing.T) {
-	daemon := Daemon{Processor: common.GetTestCommandProcessor()}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
-		t.Fatal(err)
-	}
-	daemon.Address = "127.0.0.1"
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "TCP and UDP ports") == -1 {
-		t.Fatal(err)
-	}
-	daemon.UDPPort = 15890
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
-		t.Fatal(err)
-	}
-	// This per IP limit must be high enough to tolerate consecutive command tests
-	daemon.PerIPLimit = 5
-	if err := daemon.Initialise(); err != nil {
-		t.Fatal(err)
-	}
+	time.Sleep(RateLimitIntervalSec * time.Second)
 	TestUDPServer(&daemon, t)
 }
