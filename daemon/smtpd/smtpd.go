@@ -47,7 +47,6 @@ type Daemon struct {
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.logger = misc.Logger{ComponentName: "smtpd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port))}
 	if daemon.Address == "" {
 		daemon.Address = "0.0.0.0"
 	}
@@ -57,6 +56,7 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 2 // reasonable for receiving emails and running toolbox feature commands
 	}
+	daemon.logger = misc.Logger{ComponentName: "smtpd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port))}
 	if daemon.ForwardTo == nil || len(daemon.ForwardTo) == 0 || !daemon.ForwardMailClient.IsConfigured() {
 		return errors.New("smtpd.Initialise: forward address and forward mail client must be configured")
 	}

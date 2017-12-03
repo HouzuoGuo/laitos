@@ -30,15 +30,15 @@ type Daemon struct {
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.logger = misc.Logger{
-		ComponentName: "plainsocket",
-		ComponentID:   fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort),
-	}
 	if daemon.Address == "" {
 		daemon.Address = "0.0.0.0"
 	}
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 2 // reasonable for personal use
+	}
+	daemon.logger = misc.Logger{
+		ComponentName: "plainsocket",
+		ComponentID:   fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort),
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		return fmt.Errorf("plainsocket.Initialise: command processor and its filters must be configured")

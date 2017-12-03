@@ -50,13 +50,13 @@ type Daemon struct {
 }
 
 func (daemon *Daemon) Initialise() error {
-	daemon.logger = misc.Logger{ComponentName: "sockd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort))}
 	if daemon.Address == "" {
 		daemon.Address = "0.0.0.0"
 	}
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 200
 	}
+	daemon.logger = misc.Logger{ComponentName: "sockd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort))}
 	if daemon.DNSDaemon == nil {
 		return errors.New("sockd.Initialise: dns daemon must be assigned")
 	}

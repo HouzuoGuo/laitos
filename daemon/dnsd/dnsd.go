@@ -92,7 +92,6 @@ type Daemon struct {
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
 	if daemon.Address == "" {
 		daemon.Address = "0.0.0.0"
 	}
@@ -110,6 +109,7 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.Forwarders == nil || len(daemon.Forwarders) == 0 {
 		daemon.Forwarders = DefaultForwarders
 	}
+	daemon.logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
 	if daemon.AllowQueryIPPrefixes == nil || len(daemon.AllowQueryIPPrefixes) == 0 {
 		return errors.New("DNSD.Initialise: allowable IP prefixes list must not be empty")
 	}
@@ -242,7 +242,7 @@ func (daemon *Daemon) UpdateBlackList() {
 				// Count number of resolution attempts only for logging the progress
 				atomic.AddInt64(&countResolutionAttempts, 1)
 				if atomic.LoadInt64(&countResolutionAttempts)%500 == 1 {
-					daemon.logger.Printf("UpdateBlackList", "", nil, "resolved %d of %d black listed domain names",
+					daemon.logger.Printf("UpdateBlackList", "", nil, "resolving %d of %d black listed domain names",
 						atomic.LoadInt64(&countResolutionAttempts), len(allNames))
 				}
 				name := strings.ToLower(strings.TrimSpace(allNames[j]))

@@ -60,9 +60,9 @@ func TestIMAPAccountsPublicServer(t *testing.T) {
 	accounts := IMAPAccounts{
 		Accounts: map[string]*IMAPS{
 			"hotmail": {
-				Host:               "imap-mail.outlook.com",
-				AuthUsername:       "test@test.com",
-				AuthPassword:       "test",
+				Host:         "imap-mail.outlook.com",
+				AuthUsername: "test@test.com",
+				AuthPassword: "test",
 			},
 		},
 	}

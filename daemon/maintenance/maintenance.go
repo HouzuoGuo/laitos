@@ -223,13 +223,13 @@ func (daemon *Daemon) Execute() (string, bool) {
 }
 
 func (daemon *Daemon) Initialise() error {
-	daemon.logger = misc.Logger{ComponentName: "maintenance", ComponentID: strconv.Itoa(daemon.IntervalSec)}
 	if daemon.IntervalSec < 1 {
 		daemon.IntervalSec = 24 * 3600 // quite reasonable to run maintenance daily
 	} else if daemon.IntervalSec < MinimumIntervalSec {
 		return fmt.Errorf("maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
 	daemon.stop = make(chan bool)
+	daemon.logger = misc.Logger{ComponentName: "maintenance", ComponentID: strconv.Itoa(daemon.IntervalSec)}
 	return nil
 }
 
