@@ -38,7 +38,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.Address = "0.0.0.0"
 	}
 	if daemon.PerIPLimit < 1 {
-		daemon.PerIPLimit = 2 // reasonable for 3 users
+		daemon.PerIPLimit = 2 // reasonable for personal use
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		return fmt.Errorf("plainsocket.Initialise: command processor and its filters must be configured")

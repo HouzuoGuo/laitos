@@ -20,18 +20,18 @@ func TestBrowserInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	instances.PhantomJSExecPath = path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/phantomjs-2.1.1-linux-x86_64")
-	if err := instances.Initialise(); !strings.Contains(err.Error(), "MaxInstances") {
-		t.Fatal(err)
-	}
-	instances.MaxInstances = 2
-	if err := instances.Initialise(); !strings.Contains(err.Error(), "MaxLifetimeSec") {
-		t.Fatal(err)
-	}
-	instances.MaxLifetimeSec = 60
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "BasePortNumber") {
 		t.Fatal(err)
 	}
 	instances.BasePortNumber = 65110
+	// Test default settings
+	if err := instances.Initialise(); err != nil || instances.MaxInstances != 5 || instances.MaxLifetimeSec != 1800 {
+		t.Fatalf("%+v %+v", err, instances)
+	}
+
+	// Prepare settings for tests
+	instances.MaxInstances = 2
+	instances.MaxLifetimeSec = 60
 	if err := instances.Initialise(); err != nil {
 		t.Fatal(err)
 	}

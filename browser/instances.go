@@ -26,17 +26,17 @@ type Instances struct {
 // Check configuration and initialise internal states.
 func (instances *Instances) Initialise() error {
 	instances.logger = misc.Logger{ComponentName: "Instances", ComponentID: ""}
+	if instances.MaxInstances < 1 {
+		instances.MaxInstances = 5 // reasonable for a few consumers
+	}
+	if instances.MaxLifetimeSec < 1 {
+		instances.MaxLifetimeSec = 1800 // half hour is quite reasonable
+	}
 	if _, err := os.Stat(instances.PhantomJSExecPath); err != nil {
 		return fmt.Errorf("Instances.Initialise: cannot find PhantomJS executable \"%s\" - %v", instances.PhantomJSExecPath, err)
 	}
 	if err := os.Chmod(instances.PhantomJSExecPath, 0700); err != nil {
 		return fmt.Errorf("Instances.Initialise: failed to chmod PhantomJS - %v", err)
-	}
-	if instances.MaxInstances < 1 {
-		return errors.New("Instances.Initialise: MaxInstances must be greater than 0")
-	}
-	if instances.MaxLifetimeSec < 60 {
-		return errors.New("Instances.Initialise: MaxLifetimeSec must be greater than 60")
 	}
 	if instances.BasePortNumber < 1024 {
 		return errors.New("Instances.Initialise: BasePortNumber must be greater than 1023")

@@ -61,9 +61,6 @@ func TestIMAPAccountsPublicServer(t *testing.T) {
 		Accounts: map[string]*IMAPS{
 			"hotmail": {
 				Host:               "imap-mail.outlook.com",
-				Port:               993,
-				MailboxName:        "INBOX",
-				InsecureSkipVerify: false,
 				AuthUsername:       "test@test.com",
 				AuthPassword:       "test",
 			},
