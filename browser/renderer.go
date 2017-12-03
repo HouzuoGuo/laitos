@@ -598,9 +598,9 @@ func (instance *Instance) RenderPage() error {
 
 // Kill browser server process and delete rendered web page image.
 func (instance *Instance) Kill() {
+	instance.jsProcMutex.Lock()
+	defer instance.jsProcMutex.Unlock()
 	if instance.jsProcCmd != nil {
-		instance.jsProcMutex.Lock()
-		defer instance.jsProcMutex.Unlock()
 		if err := os.Remove(instance.RenderImagePath); err != nil {
 			instance.logger.Warningf("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
 		}

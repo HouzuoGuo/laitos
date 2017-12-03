@@ -184,7 +184,7 @@ func TestConcealedLogMessages(t *testing.T) {
 	}
 	proc.Process(toolbox.Command{Content: "verysecret .a does not matter", TimeoutSec: 10})
 	proc.Process(toolbox.Command{Content: "verysecret .2 does not matter", TimeoutSec: 10})
-	t.Log("Please observe <hidden due to AESDecryptTrigger or TwoFATrigger> from log output, or this test is failed")
+	t.Log("Please observe <hidden due to AESDecryptTrigger or TwoFATrigger> from log output, otherwise consider this test is failed")
 }
 
 func TestGetEmptyCommandProcessor(t *testing.T) {
