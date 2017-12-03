@@ -69,6 +69,9 @@ func TestIMAPAccountsPublicServer(t *testing.T) {
 	if err := accounts.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	if hotmail := accounts.Accounts["hotmail"]; hotmail.MailboxName != "INBOX" || hotmail.Port != 993 || hotmail.InsecureSkipVerify != false {
+		t.Fatalf("%+v", hotmail)
+	}
 	if err := accounts.SelfTest(); err == nil {
 		t.Fatal("did not perform login test")
 	}
