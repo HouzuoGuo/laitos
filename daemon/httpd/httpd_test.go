@@ -6,7 +6,6 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/inet"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"strings"
 	"testing"
@@ -29,27 +28,12 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rand.Seed(time.Now().UnixNano())
-
 	daemon := Daemon{
-		Address:          "127.0.0.1",
-		Port:             1024 + rand.Intn(65535-1024),
 		Processor:        nil,
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir", "dir": "/tmp/test-laitos-dir"},
-		PerIPLimit:       0,
 		HandlerCollection: map[string]handler.Handler{
 			"/": &handler.HandleHTMLDocument{HTMLFilePath: indexFile},
 		},
-	}
-	// Must not initialise if rate limit is too small
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "PerIPLimit") {
-		t.Fatal(err)
-	}
-	// This per IP limit must be high enough to tolerate consecutive tests on identical API endpoints
-	daemon.PerIPLimit = 10
-	// Must be able to initialise if command processor is empty (not used)
-	if err := daemon.Initialise(); err != nil {
-		t.Fatal(err)
 	}
 	// Must not initialise if command processor is not sane
 	daemon.Processor = common.GetInsaneCommandProcessor()
@@ -57,6 +41,20 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		t.Fatal("did not error due to insane CommandProcessor")
 	}
 	daemon.Processor = common.GetTestCommandProcessor()
+	// Test default settings
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if daemon.PerIPLimit != 5 || daemon.Port != 80 || daemon.Address != "0.0.0.0" {
+		t.Fatalf("%+v", daemon)
+	}
+	// Prepare settings for test
+	daemon.Address = "127.0.0.1"
+	daemon.Port = 43250
+	daemon.PerIPLimit = 10 // limit must be high enough to tolerate consecutive API endpoint tests
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 
 	// Set up API handlers
 	daemon.Processor = common.GetTestCommandProcessor()

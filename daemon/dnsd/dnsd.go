@@ -26,10 +26,12 @@ const (
 )
 
 /*
-Forwarders is a list of well tested, public, recursive DNS resolvers that must support both TCP and UDP for queries.
+DefaultForwarders is a list of well tested, public, recursive DNS resolvers that must support both TCP and UDP for
+queries. When DNS daemon's forwarders are left unspecified, it will use these default forwarders.
+
 All of the resolvers below claim to improve cypher security to some degree.
 */
-var Forwarders = []string{
+var DefaultForwarders = []string{
 	// Comodo SecureDNS (https://www.comodo.com/secure-dns/)
 	"8.26.56.26:53",
 	"8.20.247.20:53",
@@ -61,6 +63,7 @@ type Daemon struct {
 	Address              string   `json:"Address"`              // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
 	AllowQueryIPPrefixes []string `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
 	PerIPLimit           int      `json:"PerIPLimit"`           // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
+	Forwarders           []string `json:"Forwarders"`           // DefaultForwarders are recursive DNS resolvers that will resolve name queries. They must support both TCP and UDP.
 
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
@@ -89,17 +92,25 @@ type Daemon struct {
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
-	daemon.logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
 	if daemon.Address == "" {
-		return errors.New("DNSD.Initialise: listen address must not be empty")
+		daemon.Address = "0.0.0.0"
 	}
 	if daemon.UDPPort < 1 && daemon.TCPPort < 1 {
-		return errors.New("DNSD.Initialise: either or both TCP and UDP ports must be specified and be greater than 0")
+		/*
+			If any port is left at 0, the DNS daemon will not listen for that protocol. But if both are at 0, then
+			by default listen for both protocols.
+		*/
+		daemon.TCPPort = 53
+		daemon.UDPPort = 53
 	}
 	if daemon.PerIPLimit < 1 {
-		return errors.New("DNSD.Initialise: PerIPLimit must be greater than 0")
+		daemon.PerIPLimit = 100 // reasonable for a network of 3 users
 	}
-	if len(daemon.AllowQueryIPPrefixes) == 0 {
+	if daemon.Forwarders == nil || len(daemon.Forwarders) == 0 {
+		daemon.Forwarders = DefaultForwarders
+	}
+	daemon.logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
+	if daemon.AllowQueryIPPrefixes == nil || len(daemon.AllowQueryIPPrefixes) == 0 {
 		return errors.New("DNSD.Initialise: allowable IP prefixes list must not be empty")
 	}
 	for _, prefix := range daemon.AllowQueryIPPrefixes {
@@ -125,8 +136,8 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.UDPPort > 0 {
 		numQueues := daemon.PerIPLimit / NumQueueRatio
 		// At very least, each forwarder address has to get a queue.
-		if numQueues < len(Forwarders) {
-			numQueues = len(Forwarders)
+		if numQueues < len(daemon.Forwarders) {
+			numQueues = len(daemon.Forwarders)
 		}
 		daemon.udpForwardConn = make([]net.Conn, numQueues)
 		daemon.udpForwarderQueue = make([]chan *UDPQuery, numQueues)
@@ -136,7 +147,7 @@ func (daemon *Daemon) Initialise() error {
 				Each queue is connected to a different forwarder.
 				When a DNS query comes in, it is assigned a random forwarder to be processed.
 			*/
-			forwarderAddr, err := net.ResolveUDPAddr("udp", Forwarders[i%len(Forwarders)])
+			forwarderAddr, err := net.ResolveUDPAddr("udp", daemon.Forwarders[i%len(daemon.Forwarders)])
 			if err != nil {
 				return fmt.Errorf("DNSD.Initialise: failed to resolve UDP address - %v", err)
 			}
@@ -231,7 +242,7 @@ func (daemon *Daemon) UpdateBlackList() {
 				// Count number of resolution attempts only for logging the progress
 				atomic.AddInt64(&countResolutionAttempts, 1)
 				if atomic.LoadInt64(&countResolutionAttempts)%500 == 1 {
-					daemon.logger.Printf("UpdateBlackList", "", nil, "resolved %d of %d black listed domain names",
+					daemon.logger.Printf("UpdateBlackList", "", nil, "resolving %d of %d black listed domain names",
 						atomic.LoadInt64(&countResolutionAttempts), len(allNames))
 				}
 				name := strings.ToLower(strings.TrimSpace(allNames[j]))

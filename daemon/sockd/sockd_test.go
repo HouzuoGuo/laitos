@@ -12,25 +12,23 @@ func TestSockd_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon.DNSDaemon = &dnsd.Daemon{}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen address") == -1 {
-		t.Fatal(err)
-	}
-	daemon.Address = "127.0.0.1"
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
 		t.Fatal(err)
 	}
-	daemon.TCPPort = 8720
+	daemon.TCPPort = 27101
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "password") == -1 {
 		t.Fatal(err)
 	}
 	daemon.Password = "abcdefg"
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "PerIPLimit") == -1 {
+	if err := daemon.Initialise(); err != nil || daemon.Address != "0.0.0.0" || daemon.PerIPLimit != 200 {
 		t.Fatal(err)
 	}
+
+	daemon.Address = "127.0.0.1"
+	daemon.TCPPort = 27101
+	daemon.UDPPort = 13781
+	daemon.Password = "abcdefg"
 	daemon.PerIPLimit = 10
-	if err := daemon.Initialise(); err != nil {
-		t.Fatal(err)
-	}
 
 	TestSockd(&daemon, t)
 }

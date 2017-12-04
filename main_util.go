@@ -20,7 +20,7 @@ func LockMemory() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
 		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
-			logger.Fatalf("LockMemory", "", err, "failed to lock memory")
+			logger.Warningf("LockMemory", "", err, "failed to lock memory")
 			return
 		}
 		logger.Warningf("LockMemory", "", nil, "program has been locked into memory for safety reasons")

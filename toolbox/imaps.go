@@ -279,7 +279,7 @@ func (imap *IMAPAccounts) IsConfigured() bool {
 		return false
 	}
 	for _, account := range imap.Accounts {
-		if account.Host == "" || account.Port == 0 || account.MailboxName == "" {
+		if account.Host == "" || account.AuthPassword == "" || account.AuthUsername == "" {
 			return false
 		}
 	}
@@ -304,6 +304,15 @@ func (imap *IMAPAccounts) SelfTest() error {
 }
 
 func (imap *IMAPAccounts) Initialise() error {
+	// Use default port number 993 and default mailbox name INBOX
+	for _, account := range imap.Accounts {
+		if account.Port < 1 {
+			account.Port = 993
+		}
+		if account.MailboxName == "" {
+			account.MailboxName = "INBOX"
+		}
+	}
 	return nil
 }
 

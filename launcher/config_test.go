@@ -101,7 +101,7 @@ func TestConfig(t *testing.T) {
     "WebProxyEndpoint": "/proxy"
   },
   "Maintenance": {
-    "IntervalSec": 300,
+    "IntervalSec": 3600,
     "Recipients": [
       "howard@localhost"
     ],

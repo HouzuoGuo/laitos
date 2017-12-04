@@ -78,7 +78,7 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 	// If queried domain is not black listed, forward the query to forwarder.
 	if doForward {
 		// Ask a randomly chosen TCP forwarder to process the query
-		myForwarder, err := net.DialTimeout("tcp", Forwarders[rand.Intn(len(Forwarders))], IOTimeoutSec*time.Second)
+		myForwarder, err := net.DialTimeout("tcp", daemon.Forwarders[rand.Intn(len(daemon.Forwarders))], IOTimeoutSec*time.Second)
 		if err != nil {
 			daemon.logger.Warningf("HandleTCPQuery", clientIP, err, "failed to connect to forwarder")
 			return

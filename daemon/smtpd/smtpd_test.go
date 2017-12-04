@@ -9,54 +9,49 @@ import (
 )
 
 func TestSMTPD_StartAndBlock(t *testing.T) {
-	goodMailer := inet.MailClient{
-		MailFrom: "howard@localhost",
-		MTAHost:  "127.0.0.1",
-		MTAPort:  25,
-	}
 	daemon := Daemon{
-		Address:           "127.0.0.1",
-		Port:              61358, // hard coded port is a random choice
-		PerIPLimit:        0,
-		ForwardMailClient: goodMailer,
+		ForwardMailClient: inet.MailClient{
+			MailFrom: "howard@localhost",
+			MTAHost:  "smtp.example.com",
+			MTAPort:  25,
+		},
 	}
-	// Must not initialise if per IP limit is too small
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "PerIPLimit") {
-		t.Fatal(err)
-	}
-	// This per IP limit must be high enough to tolerate consecutive mail tests
-	daemon.PerIPLimit = 5
-	// Must not intialise if forward-to addresses are not there
+	// Test missing mandatory parameters
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "forward address") {
 		t.Fatal(err)
 	}
-	daemon.ForwardTo = []string{"root", "howard@example.com"}
-	// Must not initialise if forward mailer is not there
+	daemon.ForwardTo = []string{"root@example.netnetnet", "howard@example.comcomcom"}
+
 	daemon.ForwardMailClient.MTAHost = ""
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "forward mail client") {
 		t.Fatal(err)
 	}
-	// Must not initialise if my domain names are not there
 	daemon.ForwardMailClient = inet.MailClient{
 		MailFrom: "howard@abc",
 		MTAHost:  "a.b.c.d",
 		MTAPort:  61358,
 	}
+
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "my domain names") {
 		t.Fatal(err)
 	}
 	daemon.MyDomains = []string{"example.com", "howard.name"}
+
 	// Must not initialise if forward mailer is myself
 	daemon.ForwardMailClient = inet.MailClient{
 		MailFrom: "howard@localhost",
 		MTAHost:  "127.0.0.1",
-		MTAPort:  61358,
+		MTAPort:  daemon.Port,
 	}
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "forward MTA") {
 		t.Fatal(err)
 	}
-	daemon.ForwardMailClient = goodMailer
 	// One of the forward addresses loops back to server domain
+	daemon.ForwardMailClient = inet.MailClient{
+		MailFrom: "howard@localhost",
+		MTAHost:  "127.0.0.1",
+		MTAPort:  25252, // avoid triggering the init error of looping mails back to daemon itself
+	}
 	daemon.ForwardTo = []string{"howard@example.com", "howard@other.com"}
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "loop back") {
 		t.Fatal(err)
@@ -67,7 +62,22 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon.ForwardTo = []string{"howard@localhost"}
-	// Parameters are now satisfied, however there is not a mail command runner. This should not raise an error
+
+	// Test default settings
+	if err := daemon.Initialise(); err != nil || daemon.Address != "0.0.0.0" || daemon.Port != 25 || daemon.PerIPLimit != 2 {
+		t.Fatalf("%+v %+v", err, daemon)
+	}
+
+	// Prepare settings for tests
+	daemon.ForwardMailClient = inet.MailClient{
+		MailFrom: "howard@localhost",
+		MTAHost:  "127.0.0.1",
+		MTAPort:  25, // allow developer to inspect result by running a postfix
+	}
+	daemon.Address = "127.0.0.1"
+	daemon.Port = 61358   // do not loop back to myself
+	daemon.PerIPLimit = 5 // limit must be high enough to tolerate consecutive mail tests
+	// If parameter values are satisfactory, daemon should properly and successfully initialise even without the presence of a mail command runner
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +103,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	daemon.CommandRunner.ReplyMailClient = inet.MailClient{
 		MailFrom: "howard@localhost",
 		MTAHost:  "127.0.0.1",
-		MTAPort:  61358,
+		MTAPort:  daemon.Port,
 	}
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "reply MTA") {
 		t.Fatal(err)
@@ -103,7 +113,11 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "reply mailer") {
 		t.Fatal(err)
 	}
-	daemon.CommandRunner.ReplyMailClient = goodMailer
+	daemon.CommandRunner.ReplyMailClient = inet.MailClient{
+		MailFrom: "howard@localhost",
+		MTAHost:  "127.0.0.1",
+		MTAPort:  25,
+	}
 
 	TestSMTPD(&daemon, t)
 }

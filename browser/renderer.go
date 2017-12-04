@@ -446,7 +446,7 @@ const (
 }` // Template javascript code that runs on headless browser server
 
 	// GoodUserAgent is the recommended user agent string for rendering all pages
-	GoodUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+	GoodUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36"
 )
 
 var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
@@ -598,9 +598,9 @@ func (instance *Instance) RenderPage() error {
 
 // Kill browser server process and delete rendered web page image.
 func (instance *Instance) Kill() {
+	instance.jsProcMutex.Lock()
+	defer instance.jsProcMutex.Unlock()
 	if instance.jsProcCmd != nil {
-		instance.jsProcMutex.Lock()
-		defer instance.jsProcMutex.Unlock()
 		if err := os.Remove(instance.RenderImagePath); err != nil {
 			instance.logger.Warningf("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
 		}

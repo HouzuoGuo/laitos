@@ -60,17 +60,17 @@ func TestIMAPAccountsPublicServer(t *testing.T) {
 	accounts := IMAPAccounts{
 		Accounts: map[string]*IMAPS{
 			"hotmail": {
-				Host:               "imap-mail.outlook.com",
-				Port:               993,
-				MailboxName:        "INBOX",
-				InsecureSkipVerify: false,
-				AuthUsername:       "test@test.com",
-				AuthPassword:       "test",
+				Host:         "imap-mail.outlook.com",
+				AuthUsername: "test@test.com",
+				AuthPassword: "test",
 			},
 		},
 	}
 	if err := accounts.Initialise(); err != nil {
 		t.Fatal(err)
+	}
+	if hotmail := accounts.Accounts["hotmail"]; hotmail.MailboxName != "INBOX" || hotmail.Port != 993 || hotmail.InsecureSkipVerify != false {
+		t.Fatalf("%+v", hotmail)
 	}
 	if err := accounts.SelfTest(); err == nil {
 		t.Fatal("did not perform login test")

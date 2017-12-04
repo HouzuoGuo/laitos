@@ -50,21 +50,21 @@ type Daemon struct {
 }
 
 func (daemon *Daemon) Initialise() error {
+	if daemon.Address == "" {
+		daemon.Address = "0.0.0.0"
+	}
+	if daemon.PerIPLimit < 1 {
+		daemon.PerIPLimit = 200
+	}
 	daemon.logger = misc.Logger{ComponentName: "sockd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort))}
 	if daemon.DNSDaemon == nil {
 		return errors.New("sockd.Initialise: dns daemon must be assigned")
-	}
-	if daemon.Address == "" {
-		return errors.New("sockd.Initialise: listen address must not be empty")
 	}
 	if daemon.TCPPort < 1 {
 		return errors.New("sockd.Initialise: TCP listen port must be greater than 0")
 	}
 	if len(daemon.Password) < 7 {
 		return errors.New("sockd.Initialise: password must be at least 7 characters long")
-	}
-	if daemon.PerIPLimit < 10 {
-		return errors.New("sockd.Initialise: PerIPLimit must be greater than 9")
 	}
 	daemon.rateLimitTCP = &misc.RateLimit{
 		Logger:   daemon.logger,

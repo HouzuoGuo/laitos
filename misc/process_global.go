@@ -28,7 +28,7 @@ stop functioning or refuse to serve more requests. The program process will keep
 Once the function is called, there is no way to cancel lock-down status other than restarting the program.
 */
 func TriggerEmergencyLockDown() {
-	logger.Warningf("TriggerEmergencyLockDown", "", nil, "features and daemons will be disabled ASAP")
+	logger.Warningf("TriggerEmergencyLockDown", "", nil, "toolbox features and daemons will be disabled ASAP")
 	EmergencyLockDown = true
 }
 

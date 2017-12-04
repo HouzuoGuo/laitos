@@ -30,6 +30,12 @@ type Daemon struct {
 
 // Check configuration and initialise internal states.
 func (daemon *Daemon) Initialise() error {
+	if daemon.Address == "" {
+		daemon.Address = "0.0.0.0"
+	}
+	if daemon.PerIPLimit < 1 {
+		daemon.PerIPLimit = 2 // reasonable for personal use
+	}
 	daemon.logger = misc.Logger{
 		ComponentName: "plainsocket",
 		ComponentID:   fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort),
@@ -41,14 +47,9 @@ func (daemon *Daemon) Initialise() error {
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("plainsocket.Initialise: %+v", errs)
 	}
-	if daemon.Address == "" {
-		return errors.New("plainsocket.Initialise: listen address must not be empty")
-	}
 	if daemon.UDPPort < 1 && daemon.TCPPort < 1 {
+		// No reasonable defaults for these two, sorry.
 		return errors.New("plainsocket.Initialise: either or both TCP and UDP ports must be specified and be greater than 0")
-	}
-	if daemon.PerIPLimit < 1 {
-		return errors.New("plainsocket.Initialise: PerIPLimit must be greater than 0")
 	}
 	daemon.rateLimit = &misc.RateLimit{
 		MaxCount: daemon.PerIPLimit,
