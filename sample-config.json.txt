@@ -1,20 +1,14 @@
 {
-  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config simple-config.json.txt -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,sockd,telegram",
+  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config sample-config.json.txt -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,sockd,telegram",
   "DNSDaemon": {
-    "Address": "0.0.0.0",
     "AllowQueryIPPrefixes": [
       "192."
-    ],
-    "PerIPLimit": 20,
-    "TCPPort": 53,
-    "UDPPort": 53
+    ]
   },
   "Features": {
     "Browser": {
       "Browsers": {
         "BasePortNumber": 12020,
-        "MaxInstances": 5,
-        "MaxLifetimeSec": 1800,
         "PhantomJSExecPath": "./extra/phantomjs-2.1.1-linux-x86_64"
       }
     },
@@ -26,11 +20,7 @@
         "dummy": {
           "AuthPassword": "dummy pass",
           "AuthUsername": "dummy username",
-          "Host": "example.net",
-          "IOTimeoutSec": 30,
-          "InsecureSkipVerify": false,
-          "MailboxName": "INBOX",
-          "Port": 993
+          "Host": "localhost"
         }
       }
     },
@@ -38,9 +28,9 @@
       "MailClient": {
         "AuthPassword": "dummy pass",
         "AuthUsername": "dummy username",
-        "MTAHost": "example.net",
-        "MTAPort": 2525,
-        "MailFrom": "i@example.net"
+        "MTAHost": "localhost",
+        "MTAPort": 25,
+        "MailFrom": "root@localhost"
       }
     },
     "Shell": {
@@ -62,11 +52,8 @@
     }
   },
   "HTTPDaemon": {
-    "Address": "0.0.0.0",
-    "PerIPLimit": 2,
-    "Port": 443,
-    "TLSCertPath": "simple-config.crt.txt",
-    "TLSKeyPath": "simple-config.crt.key.txt"
+    "TLSCertPath": "sample-config.crt.txt",
+    "TLSKeyPath": "sample-config.crt.key.txt"
   },
   "HTTPFilters": {
     "LintText": {
@@ -78,11 +65,11 @@
     },
     "NotifyViaEmail": {
       "Recipients": [
-        "i@example.net"
+        "root@localhost"
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "simplepin",
+      "PIN": "samplepin",
       "Shortcuts": {
         "info": ".einfo",
         "lock": ".elock",
@@ -99,7 +86,7 @@
     }
   },
   "HTTPHandlers": {
-    "BrowserEndpoint": "/simple/browser",
+    "BrowserEndpoint": "/sample/browser",
     "BrowserEndpointConfig": {
       "Browsers": {
         "BasePortNumber": 14120,
@@ -108,27 +95,27 @@
         "PhantomJSExecPath": "./extra/phantomjs-2.1.1-linux-x86_64"
       }
     },
-    "CommandFormEndpoint": "/simple/cmd",
-    "GitlabBrowserEndpoint": "/simple/gitlab",
+    "CommandFormEndpoint": "/sample/cmd",
+    "GitlabBrowserEndpoint": "/sample/gitlab",
     "GitlabBrowserEndpointConfig": {
       "PrivateToken": "dummy token",
       "Projects": {
         "dummy": "00000000"
       },
       "Recipients": [
-        "i@example.net"
+        "root@localhost"
       ]
     },
-    "InformationEndpoint": "/simple/info",
-    "MailMeEndpoint": "/simple/mailme",
+    "InformationEndpoint": "/sample/info",
+    "MailMeEndpoint": "/sample/mailme",
     "MailMeEndpointConfig": {
       "Recipients": [
-        "i@example.net"
+        "root@localhost"
       ]
     },
-    "MicrosoftBotEndpoint1": "/simple/msbot1",
-    "MicrosoftBotEndpoint2": "/simple/msbot2",
-    "MicrosoftBotEndpoint3": "/simple/msbot3",
+    "MicrosoftBotEndpoint1": "/sample/msbot1",
+    "MicrosoftBotEndpoint2": "/sample/msbot2",
+    "MicrosoftBotEndpoint3": "/sample/msbot3",
     "MicrosoftBotEndpointConfig1": {
       "ClientAppID": "dummy id 1",
       "ClientAppSecret": "dummy secret 1"
@@ -141,32 +128,30 @@
       "ClientAppID": "dummy id 3",
       "ClientAppSecret": "dummy id 3"
     },
-    "TwilioCallEndpoint": "/simple/twilio/call",
+    "TwilioCallEndpoint": "/sample/twilio/call",
     "TwilioCallEndpointConfig": {
       "CallGreeting": "Hey"
     },
-    "TwilioSMSEndpoint": "/simple/twilio/sms",
-    "WebProxyEndpoint": "/simple/proxy"
+    "TwilioSMSEndpoint": "/sample/twilio/sms",
+    "WebProxyEndpoint": "/sample/proxy"
   },
   "MailClient": {
     "AuthPassword": "dummy password",
     "AuthUsername": "dummy username",
-    "MTAHost": "example.net",
+    "MTAHost": "localhost",
     "MTAPort": 25,
-    "MailFrom": "i@example.net"
+    "MailFrom": "root@localhost"
   },
   "MailDaemon": {
-    "Address": "0.0.0.0",
     "ForwardTo": [
-      "i@example.net"
+      "root@localhost"
     ],
+    "Port": 2525,
     "MyDomains": [
-      "localhost"
+      "laitos-demo.net"
     ],
-    "PerIPLimit": 2,
-    "Port": 25,
-    "TLSCertPath": "simple-config.crt.txt",
-    "TLSKeyPath": "simple-config.crt.key.txt"
+    "TLSCertPath": "sample-config.crt.txt",
+    "TLSKeyPath": "sample-config.crt.key.txt"
   },
   "MailFilters": {
     "LintText": {
@@ -178,11 +163,11 @@
     },
     "NotifyViaEmail": {
       "Recipients": [
-        "i@example.net"
+        "root@localhost"
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "simplepin",
+      "PIN": "samplepin",
       "Shortcuts": {
         "info": ".einfo",
         "lock": ".elock",
@@ -191,26 +176,15 @@
     }
   },
   "MailProcessor": {
-    "CommandTimeoutSec": 120
   },
   "Maintenance": {
-    "IntervalSec": 43200,
     "Recipients": [
-      "i@example.net"
-    ],
-    "TCPPorts": [
-      5,
-      25,
-      53,
-      70,
-      80
+      "root@localhost"
     ]
   },
   "PlainSocketDaemon": {
-    "Address": "0.0.0.0",
-    "PerIPLimit": 2,
-    "TCPPort": 5,
-    "UDPPort": 5
+    "TCPPort": 2,
+    "UDPPort": 2
   },
   "PlainSocketFilters": {
     "LintText": {
@@ -222,11 +196,11 @@
     },
     "NotifyViaEmail": {
       "Recipients": [
-        "i@example.net"
+        "root@localhost"
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "simplepin",
+      "PIN": "samplepin",
       "Shortcuts": {
         "info": ".einfo",
         "lock": ".elock",
@@ -235,18 +209,15 @@
     }
   },
   "SockDaemon": {
-    "Address": "0.0.0.0",
-    "Password": "simplesimple",
-    "PerIPLimit": 20,
-    "TCPPort": 70,
-    "UDPPort": 70
+    "Password": "samplesample",
+    "TCPPort": 3,
+    "UDPPort": 3
   },
   "SupervisorNotificationRecipients": [
-    "i@example.net"
+    "root@localhost"
   ],
   "TelegramBot": {
-    "AuthorizationToken": "dummy token",
-    "PerUserLimit": 2
+    "AuthorizationToken": "dummy token"
   },
   "TelegramFilters": {
     "LintText": {
@@ -258,11 +229,11 @@
     },
     "NotifyViaEmail": {
       "Recipients": [
-        "i@example.net"
+        "root@localhost"
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "simplepin",
+      "PIN": "samplepin",
       "Shortcuts": {
         "info": ".einfo",
         "lock": ".elock",
