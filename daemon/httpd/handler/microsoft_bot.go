@@ -106,7 +106,7 @@ func (hand *HandleMicrosoftBot) RetrieveJWT() (MicrosoftBotJwt, error) {
 	}
 	// Exact time of expiry is simply time now + validity in seconds (ExpiresIn). Leave a second of buffer just in case.
 	hand.latestJWT.ExpiresAt = time.Now().Add(time.Duration(hand.latestJWT.ExpiresIn-1) * time.Second)
-	hand.logger.Printf("HandleMicrosoftBot.RetrieveJWT", "", err, "successfully renewed JWT")
+	hand.logger.Printf("HandleMicrosoftBot.RetrieveJWT", "", nil, "successfully renewed JWT")
 	return hand.latestJWT, nil
 }
 

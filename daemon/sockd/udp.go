@@ -294,6 +294,10 @@ func (daemon *Daemon) HandleUDPConnection(server *UDPCipherConnection, n int, cl
 		IP:   destIP,
 		Port: int(binary.BigEndian.Uint16(packet[packetLen-2 : packetLen])),
 	}
+	if destAddr.Port < 1 {
+		daemon.logger.Printf("HandleUDPConnection", clientAddr.IP.String(), nil, "will not connect to invalid destination port %s:%d", destIP, destAddr.Port)
+		return
+	}
 	if _, found := daemon.udpBackLog.Get(destAddr.String()); !found {
 		backlogPacket := make([]byte, packetLen)
 		copy(backlogPacket, packet)

@@ -180,6 +180,10 @@ func (conn *TCPCipherConnection) ParseRequest() (destIP, destAddr string, err er
 		destIP = string(buf[DMAddrIndex : DMAddrIndex+int(buf[DMAddrLengthIndex])])
 	}
 	port := binary.BigEndian.Uint16(buf[reqEnd-2 : reqEnd])
+	if port < 1 {
+		err = fmt.Errorf("TCPCipherConnection.ParseRequest: invalid destination port %d", port)
+		return
+	}
 	destAddr = net.JoinHostPort(destIP, strconv.Itoa(int(port)))
 	return
 }
@@ -222,7 +226,7 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	}
 	dest, err := net.DialTimeout("tcp", destAddr, IOTimeoutSec)
 	if err != nil {
-		conn.logger.Printf("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
+		conn.logger.Warningf("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
 		conn.Close()
 		return
 	}
