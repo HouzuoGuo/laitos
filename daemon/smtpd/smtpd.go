@@ -164,8 +164,10 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	var numConversations int
 	var finishedNormally bool
-	var lastConversation, finishReason string
-	// The SMTP conversation carried out by client will fill in these mail parameters
+	var finishReason string
+	// memorise latest conversations for logging purpose
+	latestConv := misc.NewRingBuffer(4)
+	// fromAddr, mailBody, and toAddrs will be filled as SMTP conversation goes on
 	var fromAddr, mailBody string
 	toAddrs := make([]string, 0, 4)
 
@@ -178,11 +180,15 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 			finishReason = "rate limit exceeded or too many conversations"
 			goto done
 		}
-		// Continue conversation to retrieve incoming mail
+		// Carry on with conversation
 		numConversations++
 		ev := smtpConn.Next()
-		// Remember the latest conversation for logging purpose
-		lastConversation = fmt.Sprintf("%v[%v]:%v", ev.What, ev.Cmd, ev.Arg)
+		// Memorise latest conversation for logging
+		logConv := fmt.Sprintf("%v[%v](%v)", ev.What, ev.Cmd, ev.Arg)
+		if len(logConv) > 30 {
+			logConv = logConv[:30]
+		}
+		latestConv.Push(logConv)
 		switch ev.What {
 		case smtp.DONE:
 			finishReason = "done"
@@ -222,13 +228,16 @@ done:
 		finishReason = "rejected mail due to missing parameters"
 		smtpConn.Reject()
 	}
+
 	if finishedNormally {
-		daemon.logger.Printf("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %v", fromAddr, toAddrs)
+		daemon.logger.Printf("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		daemon.ProcessMail(fromAddr, mailBody)
-		daemon.logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s", finishReason, numConversations, lastConversation)
+		daemon.logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s",
+			finishReason, numConversations, strings.Join(latestConv.GetAll(), " | "))
 	} else {
-		daemon.logger.Warningf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s", finishReason, numConversations, lastConversation)
+		daemon.logger.Warningf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s",
+			finishReason, numConversations, strings.Join(latestConv.GetAll(), " | "))
 	}
 }
 

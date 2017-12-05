@@ -52,3 +52,13 @@ func (r *RingBuffer) Iterate(fun func(string) bool) {
 		}
 	}
 }
+
+// GetAll returns all elements of the ring buffer in a string array.
+func (r *RingBuffer) GetAll() (ret []string) {
+	ret = make([]string, 0, r.size)
+	r.Iterate(func(elem string) bool {
+		ret = append(ret, elem)
+		return true
+	})
+	return ret
+}
