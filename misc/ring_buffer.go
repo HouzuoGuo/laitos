@@ -29,11 +29,11 @@ func (r *RingBuffer) Push(elem string) {
 }
 
 /*
-Iterate through the ring buffer, beginning from the latest element through to the oldest element.
+IterateReverse traverses the ring buffer from the latest element to the oldest element.
 The iterator function is fed an element value as sole parameter. If the function returns false, iteration is stopped
 immediately. The total number of elements iterated is not predictable, and iteration loop always skips empty elements.
 */
-func (r *RingBuffer) Iterate(fun func(string) bool) {
+func (r *RingBuffer) IterateReverse(fun func(string) bool) {
 	currentIndex := r.counter % r.size
 	for i := currentIndex; i >= 0; i-- {
 		value := r.buf[i]
@@ -53,12 +53,17 @@ func (r *RingBuffer) Iterate(fun func(string) bool) {
 	}
 }
 
-// GetAll returns all elements of the ring buffer in a string array.
+// GetAll returns all elements (oldest to the latest) of the ring buffer in a string array.
 func (r *RingBuffer) GetAll() (ret []string) {
-	ret = make([]string, 0, r.size)
-	r.Iterate(func(elem string) bool {
-		ret = append(ret, elem)
+	reversed := make([]string, 0, r.size)
+	r.IterateReverse(func(elem string) bool {
+		reversed = append(reversed, elem)
 		return true
 	})
-	return ret
+
+	ret = make([]string, len(reversed))
+	for i, s := range reversed {
+		ret[len(ret)-1-i] = s
+	}
+	return
 }

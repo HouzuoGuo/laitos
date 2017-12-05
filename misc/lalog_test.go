@@ -48,11 +48,11 @@ func TestLogger_Printf(t *testing.T) {
 	logger.Printf("", "", nil, "")
 
 	var countLog, countWarn int
-	LatestLogs.Iterate(func(_ string) bool {
+	LatestLogs.IterateReverse(func(_ string) bool {
 		countLog++
 		return true
 	})
-	LatestWarnings.Iterate(func(_ string) bool {
+	LatestWarnings.IterateReverse(func(_ string) bool {
 		countWarn++
 		return true
 	})
@@ -65,11 +65,11 @@ func TestLogger_Printf(t *testing.T) {
 
 	countLog = 0
 	countWarn = 0
-	LatestLogs.Iterate(func(_ string) bool {
+	LatestLogs.IterateReverse(func(_ string) bool {
 		countLog++
 		return true
 	})
-	LatestWarnings.Iterate(func(_ string) bool {
+	LatestWarnings.IterateReverse(func(_ string) bool {
 		countWarn++
 		return true
 	})
@@ -86,11 +86,11 @@ func TestLogger_Warningf(t *testing.T) {
 	logger.Warningf("", "", nil, "")
 
 	var countLog, countWarn int
-	LatestLogs.Iterate(func(_ string) bool {
+	LatestLogs.IterateReverse(func(_ string) bool {
 		countLog++
 		return true
 	})
-	LatestWarnings.Iterate(func(_ string) bool {
+	LatestWarnings.IterateReverse(func(_ string) bool {
 		countWarn++
 		return true
 	})
@@ -104,11 +104,11 @@ func TestLogger_Warningf(t *testing.T) {
 
 	countWarn = 0
 	countLog = 0
-	LatestLogs.Iterate(func(_ string) bool {
+	LatestLogs.IterateReverse(func(_ string) bool {
 		countLog++
 		return true
 	})
-	LatestWarnings.Iterate(func(_ string) bool {
+	LatestWarnings.IterateReverse(func(_ string) bool {
 		countWarn++
 		return true
 	})

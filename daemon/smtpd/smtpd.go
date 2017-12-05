@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	RateLimitIntervalSec  = 1  // Rate limit is calculated at 1 second interval
-	IOTimeoutSec          = 60 // IO timeout for both read and write operations
-	MaxConversationLength = 64 // Only converse up to this number of messages in an SMTP connection
+	RateLimitIntervalSec  = 1   // Rate limit is calculated at 1 second interval
+	IOTimeoutSec          = 60  // IO timeout for both read and write operations
+	MaxConversationLength = 256 // Only converse up to this number of exchanges in an SMTP connection
 )
 
 var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all SMTP conversations.
@@ -75,9 +75,9 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.smtpConfig = smtp.Config{
 		Limits: &smtp.Limits{
-			MsgSize:   2 * 1024 * 1024,            // Accept mails up to 2 MB large
+			MsgSize:   25 * 1024 * 1024,           // Accept mails up to 25 MB large (same as Gmail)
 			IOTimeout: IOTimeoutSec * time.Second, // IO timeout is a reasonable minute
-			BadCmds:   64,                         // Abort connection after consecutive bad commands
+			BadCmds:   MaxConversationLength / 2,  // Abort connection after consecutive bad commands
 		},
 		// Greet SMTP clients with a list of domain names that this server receives emails for
 		ServerName: strings.Join(daemon.MyDomains, " "),
@@ -85,9 +85,8 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.TLSCertPath != "" {
 		daemon.smtpConfig.TLSConfig = &tls.Config{
 			Certificates: []tls.Certificate{daemon.tlsCert},
-			// There are too many SMTP servers out there that do not have valid TLS certificate
-			InsecureSkipVerify: true,
 		}
+		daemon.smtpConfig.TLSConfig.BuildNameToCertificate()
 	}
 
 	daemon.rateLimit = &misc.RateLimit{
@@ -168,8 +167,9 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	var numConversations int
-	var finishedNormally bool
-	var finishReason string
+	var completedNormally bool
+	// The status string is only used for logging
+	var completionStatus string
 	// memorise latest conversations for logging purpose
 	latestConv := misc.NewRingBuffer(4)
 	// fromAddr, mailBody, and toAddrs will be filled as SMTP conversation goes on
@@ -178,11 +178,13 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 
 	smtpConn := smtp.NewConn(clientConn, daemon.smtpConfig, nil)
 	rateLimitOK := daemon.rateLimit.Add(clientIP, true)
+
 	for {
 		// Politely reject the mail if rate limit is exceeded or too many conversations have taken place
 		if !rateLimitOK || numConversations >= MaxConversationLength {
 			smtpConn.Reply451()
-			finishReason = "rate limit exceeded or too many conversations"
+			completedNormally = false
+			completionStatus = "rate limit exceeded or too many conversations"
 			goto done
 		}
 		// Carry on with conversation
@@ -196,14 +198,12 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 		latestConv.Push(logConv)
 		switch ev.What {
 		case smtp.DONE:
-			finishReason = "done"
-			finishedNormally = true
+			completedNormally = true
+			completionStatus = "done"
 			goto done
 		case smtp.ABORT:
-			finishReason = "aborted"
-			goto done
-		case smtp.TLSERROR:
-			finishReason = "TLS error"
+			completedNormally = false
+			completionStatus = fmt.Sprintf("aborted (%s)", ev.Arg)
 			goto done
 		case smtp.COMMAND:
 			switch ev.Cmd {
@@ -211,17 +211,16 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 				fromAddr = ev.Arg
 			case smtp.RCPTTO:
 				atSign := strings.IndexRune(ev.Arg, '@')
-				if atSign == -1 {
-					finishReason = fmt.Sprintf("rejected address \"%s\" does not contain at-sign", ev.Arg)
-					smtpConn.Reject()
-					goto done
+				if atSign > 0 {
+					if domain, exists := daemon.myDomainsHash[ev.Arg[atSign+1:]]; exists {
+						toAddrs = append(toAddrs, ev.Arg)
+					} else {
+						completedNormally = false
+						completionStatus = fmt.Sprintf("rejected domain \"%s\" that is not among my accepted domains", domain)
+						smtpConn.Reject()
+						goto done
+					}
 				}
-				if domain, exists := daemon.myDomainsHash[ev.Arg[atSign+1:]]; !exists {
-					finishReason = fmt.Sprintf("rejected domain \"%s\" that is not among my accepted domains", domain)
-					smtpConn.Reject()
-					goto done
-				}
-				toAddrs = append(toAddrs, ev.Arg)
 			}
 		case smtp.GOTDATA:
 			mailBody = ev.Arg
@@ -229,21 +228,20 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	}
 done:
 	if fromAddr == "" || len(toAddrs) == 0 {
-		finishedNormally = false
-		finishReason = "rejected mail due to missing parameters"
 		smtpConn.Reject()
+		if completedNormally {
+			completedNormally = false
+			completionStatus = "rejected mail due to missing parameters"
+		}
 	}
 
-	if finishedNormally {
+	if completedNormally {
 		daemon.logger.Printf("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		daemon.ProcessMail(fromAddr, mailBody)
-		daemon.logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s",
-			finishReason, numConversations, strings.Join(latestConv.GetAll(), " | "))
-	} else {
-		daemon.logger.Warningf("HandleConnection", clientIP, nil, "%s after %d conversations, last of which is: %s",
-			finishReason, numConversations, strings.Join(latestConv.GetAll(), " | "))
 	}
+	daemon.logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations (TLS:  %s), last commands: %s",
+		completionStatus, numConversations, smtpConn.TLSHelp, strings.Join(latestConv.GetAll(), " | "))
 }
 
 /*

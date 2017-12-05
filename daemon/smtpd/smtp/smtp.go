@@ -331,6 +331,7 @@ type Conn struct {
 
 	TLSOn    bool                // TLS is on in this connection
 	TLSState tls.ConnectionState // TLS connection state
+	TLSHelp  string              // TLSHelp is a log friendly string indicating the status of TLS negotiation
 }
 
 // An Event is the sort of event that is returned by Conn.Next().
@@ -622,10 +623,12 @@ func (c *Conn) Next() EventInfo {
 			case STARTTLS:
 				if c.Config.TLSConfig == nil || c.TLSOn {
 					c.reply("502 Not supported")
+					c.TLSHelp = "client asked but this server does not support TLS"
 					continue
 				}
 				c.reply("220 Ready to start TLS")
 				if c.state == sAbort {
+					c.TLSHelp = "connection aborted before negotiation"
 					continue
 				}
 				// Since we're about to start chattering on
@@ -635,26 +638,28 @@ func (c *Conn) Next() EventInfo {
 				c.conn.SetDeadline(time.Now().Add(c.Config.Limits.IOTimeout))
 				tlsConn := tls.Server(c.conn, c.Config.TLSConfig)
 				err := tlsConn.Handshake()
-				if err != nil {
-					c.state = sAbort
+				if err == nil {
+					c.TLSHelp = "handshake was successful"
+					// With TLS set up, we now want no read and
+					// write deadlines on the underlying
+					// connection. So cancel all deadlines by
+					// providing a zero value.
+					c.conn.SetReadDeadline(time.Time{})
+					// switch c.conn to tlsConn.
+					c.setupConn(tlsConn)
+					c.TLSOn = true
+					c.TLSState = tlsConn.ConnectionState()
+					// By the STARTTLS RFC, we return to our state
+					// immediately after the greeting banner
+					// and clients must re-EHLO.
+					c.state = sInitial
+				} else {
+					c.TLSHelp = "handshake failure - " + err.Error()
 					evt.What = TLSERROR
-					fmt.Println("!!!!!!!!!!!!!!!!!!!!11 TLS ERROR !!!!!!!!!!!!!!!!!!!!!!!!!!", c.Config.TLSConfig.InsecureSkipVerify)
 					evt.Arg = fmt.Sprintf("%v", err)
-					return evt
+					c.reply("454 TLS handshake failure")
 				}
-				// With TLS set up, we now want no read and
-				// write deadlines on the underlying
-				// connection. So cancel all deadlines by
-				// providing a zero value.
-				c.conn.SetReadDeadline(time.Time{})
-				// switch c.conn to tlsConn.
-				c.setupConn(tlsConn)
-				c.TLSOn = true
-				c.TLSState = tlsConn.ConnectionState()
-				// By the STARTTLS RFC, we return to our state
-				// immediately after the greeting banner
-				// and clients must re-EHLO.
-				c.state = sInitial
+
 			default:
 				c.reply("502 Not supported")
 			}
@@ -665,16 +670,6 @@ func (c *Conn) Next() EventInfo {
 		c.nstate = t.next
 		c.replied = false
 		c.curcmd = res.Cmd
-
-		switch res.Cmd {
-		case MAILFROM, RCPTTO:
-			// RCPT TO:<> is invalid; reject it. Otherwise
-			// defer all address checking to our callers.
-			if res.Cmd == RCPTTO && len(res.Arg) == 0 {
-				c.Reject()
-				continue
-			}
-		}
 
 		// Real, valid, in sequence command. Deliver it to our
 		// caller.
@@ -696,8 +691,6 @@ func (c *Conn) Next() EventInfo {
 	}
 	if c.state == sQuit {
 		evt.What = DONE
-	} else {
-		evt.What = ABORT
 	}
 	return evt
 }
@@ -725,7 +718,7 @@ func (c *Conn) setupConn(conn net.Conn) {
 // connection. Further information is up to whatever is behind 'log'
 // to add.
 func NewConn(conn net.Conn, cfg Config, log io.Writer) *Conn {
-	c := &Conn{state: sStartup, Config: cfg, logger: log}
+	c := &Conn{state: sStartup, Config: cfg, logger: log, TLSHelp: "not used"}
 	c.setupConn(conn)
 	if c.Config.Limits == nil {
 		panic("Limits are not configured")

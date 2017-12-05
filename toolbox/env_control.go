@@ -87,7 +87,7 @@ Program flags: %v
 // Return latest log entry of all kinds in a multi-line text, one log entry per line. Latest log entry comes first.
 func GetLatestLog() string {
 	buf := new(bytes.Buffer)
-	misc.LatestLogs.Iterate(func(entry string) bool {
+	misc.LatestLogs.IterateReverse(func(entry string) bool {
 		buf.WriteString(entry)
 		buf.WriteRune('\n')
 		return true
@@ -98,7 +98,7 @@ func GetLatestLog() string {
 // Return latest warning entries in a multi-line text, one log entry per line. Latest entry comes first.
 func GetLatestWarnings() string {
 	buf := new(bytes.Buffer)
-	misc.LatestWarnings.Iterate(func(entry string) bool {
+	misc.LatestWarnings.IterateReverse(func(entry string) bool {
 		buf.WriteString(entry)
 		buf.WriteRune('\n')
 		return true
