@@ -638,6 +638,7 @@ func (c *Conn) Next() EventInfo {
 				if err != nil {
 					c.state = sAbort
 					evt.What = TLSERROR
+					fmt.Println("!!!!!!!!!!!!!!!!!!!!11 TLS ERROR !!!!!!!!!!!!!!!!!!!!!!!!!!", c.Config.TLSConfig.InsecureSkipVerify)
 					evt.Arg = fmt.Sprintf("%v", err)
 					return evt
 				}

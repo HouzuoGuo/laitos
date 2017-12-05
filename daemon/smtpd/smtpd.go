@@ -83,8 +83,13 @@ func (daemon *Daemon) Initialise() error {
 		ServerName: strings.Join(daemon.MyDomains, " "),
 	}
 	if daemon.TLSCertPath != "" {
-		daemon.smtpConfig.TLSConfig = &tls.Config{Certificates: []tls.Certificate{daemon.tlsCert}}
+		daemon.smtpConfig.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{daemon.tlsCert},
+			// There are too many SMTP servers out there that do not have valid TLS certificate
+			InsecureSkipVerify: true,
+		}
 	}
+
 	daemon.rateLimit = &misc.RateLimit{
 		MaxCount: daemon.PerIPLimit,
 		UnitSecs: RateLimitIntervalSec,
@@ -185,8 +190,8 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 		ev := smtpConn.Next()
 		// Memorise latest conversation for logging
 		logConv := fmt.Sprintf("%v[%v](%v)", ev.What, ev.Cmd, ev.Arg)
-		if len(logConv) > 30 {
-			logConv = logConv[:30]
+		if len(logConv) > 80 {
+			logConv = logConv[:80]
 		}
 		latestConv.Push(logConv)
 		switch ev.What {
