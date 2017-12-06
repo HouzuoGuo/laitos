@@ -230,7 +230,7 @@ done:
 		smtpConn.Reject()
 		completionStatus += " & rejected mail due to missing parameters"
 	}
-	daemon.logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations (TLS:  %s), last commands: %s",
+	daemon.logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations (TLS: %s), last commands: %s",
 		completionStatus, numConversations, smtpConn.TLSHelp, strings.Join(latestConv.GetAll(), " | "))
 }
 
