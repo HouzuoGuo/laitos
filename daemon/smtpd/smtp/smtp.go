@@ -339,12 +339,11 @@ type Event int
 
 // The different types of SMTP events returned by Next()
 const (
-	_        Event = iota // make uninitialized Event an error.
-	COMMAND  Event = iota
-	GOTDATA        // received DATA
-	DONE           // client sent QUIT
-	ABORT          // input or output error or timeout.
-	TLSERROR       // error during TLS setup. Connection is dead.
+	_       Event = iota // make uninitialized Event an error.
+	COMMAND Event = iota
+	GOTDATA       // received DATA
+	DONE          // client sent QUIT
+	ABORT         // input or output error or timeout.
 )
 
 // EventInfo is what Conn.Next() returns to represent events.
@@ -425,7 +424,7 @@ func (c *Conn) readData() string {
 }
 
 func (c *Conn) stopme() bool {
-	return c.state == sAbort || c.badcmds > c.Config.Limits.BadCmds || c.state == sQuit
+	return c.state == sAbort || c.state == sQuit || c.badcmds >= c.Config.Limits.BadCmds
 }
 
 // Accept accepts the current SMTP command, ie gives an appropriate
@@ -475,6 +474,8 @@ func (c *Conn) Accept() {
 		} else {
 			c.reply("250 2.0.0 Ok")
 		}
+	default:
+		c.reply("250 Ok")
 	}
 	c.replied = true
 }
@@ -620,6 +621,7 @@ func (c *Conn) Next() EventInfo {
 			case QUIT:
 				c.state = sQuit
 				c.reply("221 2.0.0 Bye")
+				break
 			case STARTTLS:
 				if c.Config.TLSConfig == nil || c.TLSOn {
 					c.reply("502 Not supported")
@@ -629,7 +631,7 @@ func (c *Conn) Next() EventInfo {
 				c.reply("220 Ready to start TLS")
 				if c.state == sAbort {
 					c.TLSHelp = "connection aborted before negotiation"
-					continue
+					break
 				}
 				// Since we're about to start chattering on
 				// conn outside of our normal framework, we
@@ -655,12 +657,12 @@ func (c *Conn) Next() EventInfo {
 					c.state = sInitial
 				} else {
 					c.TLSHelp = "handshake failure - " + err.Error()
-					evt.What = TLSERROR
 					evt.Arg = fmt.Sprintf("%v", err)
 					c.reply("454 TLS handshake failure")
 				}
 
 			default:
+				c.badcmds++
 				c.reply("502 Not supported")
 			}
 			continue

@@ -167,7 +167,6 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	var numConversations int
-	var completedNormally bool
 	// The status string is only used for logging
 	var completionStatus string
 	// memorise latest conversations for logging purpose
@@ -183,7 +182,6 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 		// Politely reject the mail if rate limit is exceeded or too many conversations have taken place
 		if !rateLimitOK || numConversations >= MaxConversationLength {
 			smtpConn.Reply451()
-			completedNormally = false
 			completionStatus = "rate limit exceeded or too many conversations"
 			goto done
 		}
@@ -198,11 +196,9 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 		latestConv.Push(logConv)
 		switch ev.What {
 		case smtp.DONE:
-			completedNormally = true
 			completionStatus = "done"
 			goto done
 		case smtp.ABORT:
-			completedNormally = false
 			completionStatus = fmt.Sprintf("aborted (%s)", ev.Arg)
 			goto done
 		case smtp.COMMAND:
@@ -215,7 +211,6 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 					if domain, exists := daemon.myDomainsHash[ev.Arg[atSign+1:]]; exists {
 						toAddrs = append(toAddrs, ev.Arg)
 					} else {
-						completedNormally = false
 						completionStatus = fmt.Sprintf("rejected domain \"%s\" that is not among my accepted domains", domain)
 						smtpConn.Reject()
 						goto done
@@ -227,18 +222,13 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 		}
 	}
 done:
-	if fromAddr == "" || len(toAddrs) == 0 {
-		smtpConn.Reject()
-		if completedNormally {
-			completedNormally = false
-			completionStatus = "rejected mail due to missing parameters"
-		}
-	}
-
-	if completedNormally {
+	if fromAddr != "" && len(toAddrs) > 0 && mailBody != "" {
 		daemon.logger.Printf("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		daemon.ProcessMail(fromAddr, mailBody)
+	} else {
+		smtpConn.Reject()
+		completionStatus += " & rejected mail due to missing parameters"
 	}
 	daemon.logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations (TLS:  %s), last commands: %s",
 		completionStatus, numConversations, smtpConn.TLSHelp, strings.Join(latestConv.GetAll(), " | "))
