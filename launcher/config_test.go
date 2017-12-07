@@ -13,9 +13,7 @@ import (
 	"time"
 )
 
-// Most of the daemon test cases are copied from their own unit tests.
-func TestConfig(t *testing.T) {
-	js := `
+var sampleConfigJSON = `
 {
   "DNSDaemon": {
     "Address": "127.0.0.1",
@@ -29,6 +27,15 @@ func TestConfig(t *testing.T) {
   "Features": {
     "Shell": {
       "InterpreterPath": "/bin/bash"
+    }
+  },
+  "HTTPDaemon": {
+    "Address": "127.0.0.1",
+    "PerIPLimit": 10,
+    "Port": 23486,
+    "ServeDirectories": {
+      "/dir": "/tmp/test-laitos-dir",
+      "/my/dir": "/tmp/test-laitos-dir"
     }
   },
   "HTTPFilters": {
@@ -59,15 +66,6 @@ func TestConfig(t *testing.T) {
       ]
     }
   },
-  "HTTPDaemon": {
-    "Address": "127.0.0.1",
-    "PerIPLimit": 10,
-    "Port": 23486,
-    "ServeDirectories": {
-      "/my/dir": "/tmp/test-laitos-dir",
-      "/dir": "/tmp/test-laitos-dir"
-    }
-  },
   "HTTPHandlers": {
     "CommandFormEndpoint": "/cmd_form",
     "GitlabBrowserEndpoint": "/gitlab",
@@ -88,10 +86,10 @@ func TestConfig(t *testing.T) {
         "howard@localhost"
       ]
     },
-	"MicrosoftBotEndpoint1": "/microsoft_bot",
+    "MicrosoftBotEndpoint1": "/microsoft_bot",
     "MicrosoftBotEndpointConfig1": {
-        "ClientAppID": "dummy id",
-        "ClientAppSecret": "dummy secret"
+      "ClientAppID": "dummy id",
+      "ClientAppSecret": "dummy secret"
     },
     "TwilioCallEndpoint": "/call_greeting",
     "TwilioCallEndpointConfig": {
@@ -100,14 +98,26 @@ func TestConfig(t *testing.T) {
     "TwilioSMSEndpoint": "/sms",
     "WebProxyEndpoint": "/proxy"
   },
-  "Maintenance": {
-    "IntervalSec": 3600,
-    "Recipients": [
-      "howard@localhost"
+  "MailClient": {
+    "MTAHost": "127.0.0.1",
+    "MTAPort": 25,
+    "MailFrom": "howard@localhost"
+  },
+  "MailCommandRunner": {
+    "CommandTimeoutSec": 10
+  },
+  "MailDaemon": {
+    "Address": "127.0.0.1",
+    "ForwardTo": [
+      "howard@localhost",
+      "root@localhost"
     ],
-    "TCPPorts": [
-      9114
-    ]
+    "MyDomains": [
+      "example.com",
+      "howard.name"
+    ],
+    "PerIPLimit": 5,
+    "Port": 18573
   },
   "MailFilters": {
     "LintText": {
@@ -135,26 +145,20 @@ func TestConfig(t *testing.T) {
       ]
     }
   },
-  "MailDaemon": {
+  "Maintenance": {
+    "IntervalSec": 3600,
+    "Recipients": [
+      "howard@localhost"
+    ],
+    "TCPPorts": [
+      9114
+    ]
+  },
+  "PlainSocketDaemon": {
     "Address": "127.0.0.1",
-    "ForwardTo": [
-      "howard@localhost",
-      "root@localhost"
-    ],
-    "MyDomains": [
-      "example.com",
-      "howard.name"
-    ],
     "PerIPLimit": 5,
-    "Port": 18573
-  },
-  "MailCommandRunner": {
-    "CommandTimeoutSec": 10
-  },
-  "MailClient": {
-    "MTAHost": "127.0.0.1",
-    "MTAPort": 25,
-    "MailFrom": "howard@localhost"
+    "TCPPort": 17011,
+    "UDPPort": 43915
   },
   "PlainSocketFilters": {
     "LintText": {
@@ -182,12 +186,6 @@ func TestConfig(t *testing.T) {
       ]
     }
   },
-  "PlainSocketDaemon": {
-    "Address": "127.0.0.1",
-    "PerIPLimit": 5,
-    "TCPPort": 17011,
-    "UDPPort": 43915
-  },
   "SockDaemon": {
     "Address": "127.0.0.1",
     "Password": "1234567",
@@ -195,7 +193,9 @@ func TestConfig(t *testing.T) {
     "TCPPort": 6891,
     "UDPPort": 9122
   },
-  "SupervisorNotificationRecipients": ["howard@localhost"],
+  "SupervisorNotificationRecipients": [
+    "howard@localhost"
+  ],
   "TelegramBot": {
     "AuthorizationToken": "intentionally-bad-token",
     "PerUserLimit": 2
@@ -226,10 +226,12 @@ func TestConfig(t *testing.T) {
       ]
     }
   }
-}
-`
+}`
+
+// Most of the daemon test cases are copied from their own unit tests.
+func TestConfig(t *testing.T) {
 	var config Config
-	if err := config.DeserialiseFromJSON([]byte(js)); err != nil {
+	if err := config.DeserialiseFromJSON([]byte(sampleConfigJSON)); err != nil {
 		t.Fatal(err)
 	}
 

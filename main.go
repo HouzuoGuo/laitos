@@ -19,6 +19,10 @@ import (
 	"time"
 )
 
+const (
+	ProfilerHTTPPort = 19151 // ProfilerHTTPPort is to be listened by net/http/pprof HTTP server when benchmark is turned on
+)
+
 var logger = misc.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
 
 // ExtractEncryptedArchive reads password from standard input and extracts archive file into the directory.
@@ -117,7 +121,7 @@ main runs one of several modes, as dictated by input command line flags:
 func main() {
 	// Process command line flags
 	var daemonList string
-	var disableConflicts, tuneSystem, debug, swapOff bool
+	var disableConflicts, tuneSystem, debug, swapOff, benchmark bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (dnsd, httpd, insecurehttpd, maintenance, plainsocket, smtpd, telegram)")
@@ -125,6 +129,7 @@ func main() {
 	flag.BoolVar(&swapOff, "swapoff", false, "(Optional) turn off all swap files and partitions for improved system security")
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
+	flag.BoolVar(&benchmark, "benchmark", false, fmt.Sprintf("(Optional) continuously run benchmark routines on active daemons while exposing net/http/pprof on port %d", ProfilerHTTPPort))
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
 	// Encrypted data archive launcher (password input server) flags
 	var pwdServer bool
@@ -289,6 +294,25 @@ func main() {
 			}()
 		}
 	}
+
+	// ========================================================================
+	// Daemon mode - optionally run benchmark in the background.
+	// ========================================================================
+	if benchmark {
+		logger.Printf("main", "", nil, "benchmark is about to commence in 30 seconds")
+		time.Sleep(30 * time.Second)
+		bench := launcher.Benchmark{
+			Config:      &config,
+			DaemonNames: daemonNames,
+			Logger:      logger,
+			HTTPPort:    ProfilerHTTPPort,
+		}
+		go bench.RunBenchmarkAndProfiler()
+	}
+
+	// ========================================================================
+	// Daemon mode - wait for daemons to crash (ha ha ha).
+	// ========================================================================
 	for i := 0; i < len(daemonNames); i++ {
 		err := <-daemonErrs
 		logger.Warningf("main", "", err, "a daemon has encountered an error and failed to start")

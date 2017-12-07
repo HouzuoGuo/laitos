@@ -177,12 +177,15 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 
 	smtpConn := smtp.NewConn(clientConn, daemon.smtpConfig, nil)
 	rateLimitOK := daemon.rateLimit.Add(clientIP, true)
+	if !rateLimitOK {
+		smtpConn.Reply451()
+		return
+	}
 
 	for {
-		// Politely reject the mail if rate limit is exceeded or too many conversations have taken place
-		if !rateLimitOK || numConversations >= MaxConversationLength {
+		if numConversations >= MaxConversationLength {
 			smtpConn.Reply451()
-			completionStatus = "rate limit exceeded or too many conversations"
+			completionStatus = "conversation is taking too long"
 			goto done
 		}
 		// Carry on with conversation

@@ -15,7 +15,7 @@ func TestExtractDomainName(t *testing.T) {
 	if name := ExtractDomainName([]byte{}); name != "" {
 		t.Fatal(name)
 	}
-	if name := ExtractDomainName(githubComUDPQuery); name != "github.com" {
+	if name := ExtractDomainName(GithubComUDPQuery); name != "github.com" {
 		t.Fatal(name)
 	}
 }
@@ -31,7 +31,7 @@ func TestRespondWith0(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if packet := RespondWith0(githubComUDPQuery); !reflect.DeepEqual(packet, match) {
+	if packet := RespondWith0(GithubComUDPQuery); !reflect.DeepEqual(packet, match) {
 		t.Fatal(hex.EncodeToString(packet))
 	}
 }

@@ -60,6 +60,7 @@ func (col HandlerCollection) SelfTest() error {
 type Daemon struct {
 	Address          string            `json:"Address"`          // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
 	Port             int               `json:"Port"`             // Port number to listen on
+	PlainPort        int               `json:"-"`                // PlainPort is assigned to the port used by NoTLS listener once it starts.
 	TLSCertPath      string            `json:"TLSCertPath"`      // (Optional) serve HTTPS via this certificate
 	TLSKeyPath       string            `json:"TLSKeyPath"`       // (Optional) serve HTTPS via this certificate (key)
 	PerIPLimit       int               `json:"PerIPLimit"`       // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
@@ -198,23 +199,22 @@ func (daemon *Daemon) StartAndBlockNoTLS(fallbackPort int) error {
 		- If TLS configuration exists, then listen on the fallback port.
 		Not very elegant, but it should help to launch HTTP daemon in TLS only, TLS + HTTP, and HTTP only scenarios.
 	*/
-	var port int
 	if envPort := strings.TrimSpace(os.Getenv("PORT")); envPort == "" {
 		if daemon.TLSCertPath == "" {
-			port = daemon.Port
+			daemon.PlainPort = daemon.Port
 		} else {
-			port = fallbackPort
+			daemon.PlainPort = fallbackPort
 		}
 	} else {
 		iPort, err := strconv.Atoi(envPort)
 		if err != nil {
 			return fmt.Errorf("httpd.StartAndBlockNoTLS: environment variable PORT value \"%s\" is not an integer", envPort)
 		}
-		port = iPort
+		daemon.PlainPort = iPort
 	}
 	// Configure servers with rather generous and sane defaults
 	daemon.serverNoTLS = &http.Server{
-		Addr:         net.JoinHostPort(daemon.Address, strconv.Itoa(port)),
+		Addr:         net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.PlainPort)),
 		Handler:      daemon.mux,
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,

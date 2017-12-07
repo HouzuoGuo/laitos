@@ -180,7 +180,7 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := clientConn.Write(githubComUDPQuery); err != nil {
+			if _, err := clientConn.Write(GithubComUDPQuery); err != nil {
 				t.Fatal(err)
 			}
 			length, err := clientConn.Read(packetBuf)
@@ -208,7 +208,7 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 			clientConn.Close()
 			continue
 		}
-		if _, err := clientConn.Write(githubComUDPQuery); err != nil {
+		if _, err := clientConn.Write(GithubComUDPQuery); err != nil {
 			clientConn.Close()
 			continue
 		}

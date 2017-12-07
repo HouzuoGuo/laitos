@@ -1,6 +1,7 @@
 package inet
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,6 +18,7 @@ type HTTPRequest struct {
 	ContentType string                    // Content type header (default to "application/x-www-form-urlencoded")
 	Body        io.Reader                 // HTTPRequest body (default to nil)
 	RequestFunc func(*http.Request) error // Manipulate the HTTP request at will (default to nil)
+	InsecureTLS bool                      // InsecureTLS may be turned on to ignore all TLS verification errors from an HTTPS client connection
 }
 
 // Set blank attributes to their default value.
@@ -73,14 +75,21 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 	if reqParam.Header != nil {
 		req.Header = reqParam.Header
 	}
-	// Let function to further manipulate HTTP request
+	// Let function further manipulate HTTP request
 	if reqParam.RequestFunc != nil {
 		if err = reqParam.RequestFunc(req); err != nil {
 			return
 		}
 	}
 	req.Header.Set("Content-Type", reqParam.ContentType)
+	// Configure timeout and TLS behaviour
 	client := &http.Client{Timeout: time.Duration(reqParam.TimeoutSec) * time.Second}
+	if reqParam.InsecureTLS {
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
+	// Send request away!
 	response, err := client.Do(req)
 	if err != nil {
 		return

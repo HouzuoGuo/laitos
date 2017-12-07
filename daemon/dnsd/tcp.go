@@ -183,7 +183,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := clientConn.Write(githubComTCPQuery); err != nil {
+			if _, err := clientConn.Write(GithubComTCPQuery); err != nil {
 				t.Fatal(err)
 			}
 			resp, err := ioutil.ReadAll(clientConn)
@@ -211,7 +211,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 			clientConn.Close()
 			continue
 		}
-		if _, err := clientConn.Write(githubComTCPQuery); err != nil {
+		if _, err := clientConn.Write(GithubComTCPQuery); err != nil {
 			clientConn.Close()
 			continue
 		}

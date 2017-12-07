@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	pseudoRand "math/rand"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime/pprof"
+	runtimePprof "runtime/pprof"
 	"sync"
 	"syscall"
 	"time"
@@ -35,7 +36,7 @@ func DumpGoroutinesOnInterrupt() {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for range c {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+			runtimePprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
 		}
 	}()
 }
