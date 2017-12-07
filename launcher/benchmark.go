@@ -2,7 +2,6 @@ package launcher
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"math/rand"
@@ -27,8 +26,11 @@ type Benchmark struct {
 RunBenchmarkAndProfiler starts benchmark immediately and continually reports progress via logger. The function kicks off
 more goroutines for benchmarking individual daemons, and therefore does not block caller.
 
-It assumes that daemons are already started and ready to receive requests, therefore caller may wish to consider waiting
-a short while for daemons to settle before running this benchmark routine.
+Benchmark cases usually uses randomly generated data and do not expect a normal response. Therefore, they serve well as
+fuzzy tests too.
+
+The function assumes that daemons are already started and ready to receive requests, therefore caller may wish to
+consider waiting a short while for daemons to settle before running this benchmark routine.
 */
 func (bench *Benchmark) RunBenchmarkAndProfiler() {
 	// Expose profiler APIs via HTTP server running on a fixed port number on localhost
@@ -103,6 +105,13 @@ func (bench *Benchmark) BenchmarkDNSDaemon() {
 				return
 			}
 			trigger()
+
+			buf := make([]byte, 32*1024)
+			if _, err := rand.Read(buf); err != nil {
+				bench.Logger.Panicf("BenchmarkDNSDaemon", "", err, "failed to acquire random bytes")
+				return
+			}
+
 			if doUDP {
 				doUDP = false
 				clientConn, err := net.DialUDP("udp", nil, udpAddr)
@@ -113,7 +122,7 @@ func (bench *Benchmark) BenchmarkDNSDaemon() {
 					clientConn.Close()
 					continue
 				}
-				if _, err := clientConn.Write(dnsd.GithubComUDPQuery); err != nil {
+				if _, err := clientConn.Write(buf); err != nil {
 					clientConn.Close()
 					continue
 				}
@@ -128,7 +137,7 @@ func (bench *Benchmark) BenchmarkDNSDaemon() {
 					clientConn.Close()
 					continue
 				}
-				if _, err := clientConn.Write(dnsd.GithubComTCPQuery); err != nil {
+				if _, err := clientConn.Write(buf); err != nil {
 					clientConn.Close()
 					continue
 				}
@@ -140,15 +149,14 @@ func (bench *Benchmark) BenchmarkDNSDaemon() {
 
 // BenchmarkHTTPDaemonn continually sends HTTP requests in a sequential manner.
 func (bench *Benchmark) BenchmarkHTTPDaemon() {
-	var url string
+	allRoutes := make([]string, 0, 32)
 	for installedRoute := range bench.Config.GetHTTPD().AllRateLimits {
-		url = installedRoute
-		break
+		allRoutes = append(allRoutes, installedRoute)
 	}
-	if url == "" {
+	if len(allRoutes) == 0 {
 		bench.Logger.Fatalf("BenchmarkHTTPDaemon", "", nil, "HTTP daemon does not any route at all, cannot benchmark it.")
 	}
-	url = fmt.Sprintf("http://localhost:%d%s", bench.Config.GetHTTPD().PlainPort, url)
+	urlTemplate := fmt.Sprintf("http://localhost:%d%%s", bench.Config.GetHTTPD().PlainPort)
 
 	bench.reportRatePerSecond(func(trigger func()) {
 		for {
@@ -156,22 +164,21 @@ func (bench *Benchmark) BenchmarkHTTPDaemon() {
 				return
 			}
 			trigger()
-			inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, url)
+			inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
 		}
 	}, "BenchmarkHTTPDaemon", bench.Logger)
 }
 
 // BenchmarkHTTPDaemonn continually sends HTTPS requests in a sequential manner.
 func (bench *Benchmark) BenchmarkHTTPSDaemon() {
-	var url string
+	allRoutes := make([]string, 0, 32)
 	for installedRoute := range bench.Config.GetHTTPD().AllRateLimits {
-		url = installedRoute
-		break
+		allRoutes = append(allRoutes, installedRoute)
 	}
-	if url == "" {
+	if len(allRoutes) == 0 {
 		bench.Logger.Fatalf("BenchmarkHTTPSDaemon", "", nil, "HTTP daemon does not any route at all, cannot benchmark it.")
 	}
-	url = fmt.Sprintf("https://localhost:%d%s", bench.Config.GetHTTPD().Port, url)
+	urlTemplate := fmt.Sprintf("https://localhost:%d%%s", bench.Config.GetHTTPD().PlainPort)
 
 	bench.reportRatePerSecond(func(trigger func()) {
 		for {
@@ -179,7 +186,7 @@ func (bench *Benchmark) BenchmarkHTTPSDaemon() {
 				return
 			}
 			trigger()
-			inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3, InsecureTLS: true}, url)
+			inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
 		}
 	}, "BenchmarkHTTPSDaemon", bench.Logger)
 
@@ -202,6 +209,13 @@ func (bench *Benchmark) BenchmarkPlainSocketDaemon() {
 				return
 			}
 			trigger()
+
+			buf := make([]byte, 32*1024)
+			if _, err := rand.Read(buf); err != nil {
+				bench.Logger.Panicf("BenchmarkPlainSocketDaemon", "", err, "failed to acquire random bytes")
+				return
+			}
+
 			if doUDP {
 				doUDP = false
 				clientConn, err := net.DialUDP("udp", nil, udpAddr)
@@ -212,7 +226,7 @@ func (bench *Benchmark) BenchmarkPlainSocketDaemon() {
 					clientConn.Close()
 					continue
 				}
-				if _, err := clientConn.Write([]byte("arbitrary PIN will not run any command\r\n")); err != nil {
+				if _, err := clientConn.Write(buf); err != nil {
 					clientConn.Close()
 					continue
 				}
@@ -227,7 +241,7 @@ func (bench *Benchmark) BenchmarkPlainSocketDaemon() {
 					clientConn.Close()
 					continue
 				}
-				if _, err := clientConn.Write([]byte("arbitrary PIN will not run any command\r\n")); err != nil {
+				if _, err := clientConn.Write(buf); err != nil {
 					clientConn.Close()
 					continue
 				}
@@ -239,7 +253,6 @@ func (bench *Benchmark) BenchmarkPlainSocketDaemon() {
 
 // BenchmarkSMTPDaemon continually sends emails in a sequential manner.
 func (bench *Benchmark) BenchmarkSMTPDaemon() {
-	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
 	port := bench.Config.GetMailDaemon().Port
 	bench.reportRatePerSecond(func(trigger func()) {
 		for {
@@ -247,7 +260,14 @@ func (bench *Benchmark) BenchmarkSMTPDaemon() {
 				return
 			}
 			trigger()
-			smtp.SendMail(fmt.Sprintf("localhost:%d", port), nil, "ClientFrom@localhost", []string{"ClientTo@does-not-exist.com"}, []byte(testMessage))
+
+			buf := make([]byte, 32*1024)
+			if _, err := rand.Read(buf); err != nil {
+				bench.Logger.Panicf("BenchmarkSMTPDaemon", "", err, "failed to acquire random bytes")
+				return
+			}
+
+			smtp.SendMail(fmt.Sprintf("localhost:%d", port), nil, "ClientFrom@localhost", []string{"ClientTo@does-not-exist.com"}, buf)
 		}
 	}, "BenchmarkSMTPDaemon", bench.Logger)
 
@@ -273,7 +293,7 @@ func (bench *Benchmark) BenchmarkSockDaemon() {
 			}
 			trigger()
 
-			buf := make([]byte, 1024)
+			buf := make([]byte, 32*1024)
 			if _, err := rand.Read(buf); err != nil {
 				bench.Logger.Panicf("BenchmarkSockDaemon", "", err, "failed to acquire random bytes")
 				return
