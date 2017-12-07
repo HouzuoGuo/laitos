@@ -130,8 +130,8 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 func TestTLS(t *testing.T) {
 	t.Skip("This test case is prepared for developer to run manually")
 
-	from := mail.Address{"", "testcase@example.com"}
-	to := mail.Address{"", "testcase@example.com"}
+	from := mail.Address{Name: "", Address: "testcase@example.com"}
+	to := mail.Address{Name: "", Address: "testcase@example.com"}
 	headers := make(map[string]string)
 	headers["From"] = from.String()
 	headers["To"] = to.String()
