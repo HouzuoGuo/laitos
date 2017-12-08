@@ -366,14 +366,16 @@ func (daemon *Daemon) SystemMaintenance() string {
 			"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libpng", "libpng16-16", "libXfont", "xorg-x11-fonts-Type1",
 			"xorg-x11-font-utils", "zlib", "zlib1g",
 
-			// Utility applications for time maintenance
+			// Time maintenance utilities
 			"chrony", "ntp", "ntpd", "ntpdate",
-			// Utility applications for maintaining application zip bundle
+			// Application zip bundle maintenance utilities
 			"unzip", "zip",
-			// Utility applications for conducting network diagnosis
-			"nc", "net-tools", "netcat", "nmap", "tcpdump", "traceroute", "whois",
-			// busybox is useful for general maintenance and it can synchronise clock as well, lsof/sudo/vim are just useful.
-			"busybox", "lsof", "sudo", "vim",
+			// Network diagnosis utilities
+			"curl", "nc", "net-tools", "netcat", "nmap", "tcpdump", "traceroute", "wget", "whois",
+			// busybox is useful for general maintenance and it can synchronise clock as well
+			"busybox",
+			// System maintenance utilities
+			"lsof", "strace", "sudo", "vim",
 		}
 		/*
 			Although all three package managers can install more than one packages at a time, the packages are still
