@@ -25,7 +25,7 @@ func (limit *RateLimit) Initialise() {
 	limit.counter = make(map[string]int)
 	limit.counterMutex = new(sync.Mutex)
 	if limit.UnitSecs < 1 || limit.MaxCount < 1 {
-		limit.Logger.Panicf("Initialise", "RateLimit", nil, "UnitSecs and MaxCount must be greater than 0")
+		limit.Logger.Panic("Initialise", "RateLimit", nil, "UnitSecs and MaxCount must be greater than 0")
 		return
 	}
 }
@@ -42,7 +42,7 @@ func (limit *RateLimit) Add(actor string, logIfLimitHit bool) bool {
 	if count, exists := limit.counter[actor]; exists {
 		if count >= limit.MaxCount {
 			if _, hasLogged := limit.logged[actor]; !hasLogged && logIfLimitHit {
-				limit.Logger.Warningf("Add", "RateLimit", nil, "%s exceeded limit of %d hits per %d seconds", actor, limit.MaxCount, limit.UnitSecs)
+				limit.Logger.Warning("Add", "RateLimit", nil, "%s exceeded limit of %d hits per %d seconds", actor, limit.MaxCount, limit.UnitSecs)
 				limit.logged[actor] = struct{}{}
 			}
 			limit.counterMutex.Unlock()

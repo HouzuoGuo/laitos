@@ -36,7 +36,7 @@ func (bench *Benchmark) RunBenchmarkAndProfiler() {
 	// Expose profiler APIs via HTTP server running on a fixed port number on localhost
 	go func() {
 		if err := http.ListenAndServe(fmt.Sprintf("localhost:%d", bench.HTTPPort), nil); err != nil {
-			bench.Logger.Fatalf("RunBenchmarkAndProfiler", "", err, "failed to start profiler HTTP server")
+			bench.Logger.Abort("RunBenchmarkAndProfiler", "", err, "failed to start profiler HTTP server")
 		}
 	}()
 	for _, daemonName := range bench.DaemonNames {
@@ -79,7 +79,7 @@ func (bench *Benchmark) reportRatePerSecond(loop func(func()), name string, logg
 			}
 			<-ticker.C
 			counter := atomic.LoadInt64(&counter)
-			logger.Printf("reportRatePerSecond", name, nil, "%d/s (total %d)", atomic.SwapInt64(&counter, 0)/int64(unitTimeSec), counter)
+			logger.Info("reportRatePerSecond", name, nil, "%d/s (total %d)", atomic.SwapInt64(&counter, 0)/int64(unitTimeSec), counter)
 		}
 	}()
 	loop(func() {
@@ -94,7 +94,7 @@ func (bench *Benchmark) BenchmarkDNSDaemon() {
 
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(bench.Config.GetDNSD().UDPPort))
 	if err != nil {
-		bench.Logger.Panicf("BenchmarkDNSDaemon", "", err, "failed to init UDP address")
+		bench.Logger.Panic("BenchmarkDNSDaemon", "", err, "failed to init UDP address")
 		return
 	}
 	tcpPort := bench.Config.GetDNSD().TCPPort
@@ -108,7 +108,7 @@ func (bench *Benchmark) BenchmarkDNSDaemon() {
 
 			buf := make([]byte, 32*1024)
 			if _, err := rand.Read(buf); err != nil {
-				bench.Logger.Panicf("BenchmarkDNSDaemon", "", err, "failed to acquire random bytes")
+				bench.Logger.Panic("BenchmarkDNSDaemon", "", err, "failed to acquire random bytes")
 				return
 			}
 
@@ -154,7 +154,7 @@ func (bench *Benchmark) BenchmarkHTTPDaemon() {
 		allRoutes = append(allRoutes, installedRoute)
 	}
 	if len(allRoutes) == 0 {
-		bench.Logger.Fatalf("BenchmarkHTTPDaemon", "", nil, "HTTP daemon does not any route at all, cannot benchmark it.")
+		bench.Logger.Abort("BenchmarkHTTPDaemon", "", nil, "HTTP daemon does not any route at all, cannot benchmark it.")
 	}
 	urlTemplate := fmt.Sprintf("http://localhost:%d%%s", bench.Config.GetHTTPD().PlainPort)
 
@@ -176,7 +176,7 @@ func (bench *Benchmark) BenchmarkHTTPSDaemon() {
 		allRoutes = append(allRoutes, installedRoute)
 	}
 	if len(allRoutes) == 0 {
-		bench.Logger.Fatalf("BenchmarkHTTPSDaemon", "", nil, "HTTP daemon does not any route at all, cannot benchmark it.")
+		bench.Logger.Abort("BenchmarkHTTPSDaemon", "", nil, "HTTP daemon does not any route at all, cannot benchmark it.")
 	}
 	urlTemplate := fmt.Sprintf("https://localhost:%d%%s", bench.Config.GetHTTPD().PlainPort)
 
@@ -198,7 +198,7 @@ func (bench *Benchmark) BenchmarkPlainSocketDaemon() {
 
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(bench.Config.GetPlainSocketDaemon().UDPPort))
 	if err != nil {
-		bench.Logger.Panicf("BenchmarkPlainSocketDaemon", "", err, "failed to init UDP address")
+		bench.Logger.Panic("BenchmarkPlainSocketDaemon", "", err, "failed to init UDP address")
 		return
 	}
 	tcpPort := bench.Config.GetPlainSocketDaemon().TCPPort
@@ -212,7 +212,7 @@ func (bench *Benchmark) BenchmarkPlainSocketDaemon() {
 
 			buf := make([]byte, 32*1024)
 			if _, err := rand.Read(buf); err != nil {
-				bench.Logger.Panicf("BenchmarkPlainSocketDaemon", "", err, "failed to acquire random bytes")
+				bench.Logger.Panic("BenchmarkPlainSocketDaemon", "", err, "failed to acquire random bytes")
 				return
 			}
 
@@ -263,7 +263,7 @@ func (bench *Benchmark) BenchmarkSMTPDaemon() {
 
 			buf := make([]byte, 32*1024)
 			if _, err := rand.Read(buf); err != nil {
-				bench.Logger.Panicf("BenchmarkSMTPDaemon", "", err, "failed to acquire random bytes")
+				bench.Logger.Panic("BenchmarkSMTPDaemon", "", err, "failed to acquire random bytes")
 				return
 			}
 
@@ -279,7 +279,7 @@ func (bench *Benchmark) BenchmarkSockDaemon() {
 
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(bench.Config.GetSockDaemon().UDPPort))
 	if err != nil {
-		bench.Logger.Panicf("BenchmarkSockDaemon", "", err, "failed to init UDP address")
+		bench.Logger.Panic("BenchmarkSockDaemon", "", err, "failed to init UDP address")
 		return
 	}
 	tcpPort := bench.Config.GetSockDaemon().TCPPort
@@ -295,7 +295,7 @@ func (bench *Benchmark) BenchmarkSockDaemon() {
 
 			buf := make([]byte, 32*1024)
 			if _, err := rand.Read(buf); err != nil {
-				bench.Logger.Panicf("BenchmarkSockDaemon", "", err, "failed to acquire random bytes")
+				bench.Logger.Panic("BenchmarkSockDaemon", "", err, "failed to acquire random bytes")
 				return
 			}
 

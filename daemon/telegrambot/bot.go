@@ -133,30 +133,30 @@ func (bot *Daemon) ProcessMessages(updates APIUpdates) {
 		}
 		if !bot.userRateLimit.Add(origin, true) {
 			if err := bot.ReplyTo(ding.Message.Chat.ID, "rate limited"); err != nil {
-				bot.logger.Warningf("ProcessMessages", origin, err, "failed to reply rate limited response")
+				bot.logger.Warning("ProcessMessages", origin, err, "failed to reply rate limited response")
 			}
 			continue
 		}
 		// Do not process messages that arrived prior to server startup
 		if ding.Message.Timestamp < misc.StartupTime.Unix() {
-			bot.logger.Warningf("ProcessMessages", origin, nil, "ignore message from \"%s\" that arrived before server started up", ding.Message.Chat.UserName)
+			bot.logger.Warning("ProcessMessages", origin, nil, "ignore message from \"%s\" that arrived before server started up", ding.Message.Chat.UserName)
 			continue
 		}
 		// Do not process non-private chats
 		if ding.Message.Chat.Type != ChatTypePrivate {
-			bot.logger.Warningf("ProcessMessages", origin, nil, "ignore non-private chat %d", ding.Message.Chat.ID)
+			bot.logger.Warning("ProcessMessages", origin, nil, "ignore non-private chat %d", ding.Message.Chat.ID)
 			continue
 		}
 		// /start is not a command
 		if ding.Message.Text == "/start" {
-			bot.logger.Printf("ProcessMessages", origin, nil, "chat %d is started by %s", ding.Message.Chat.ID, ding.Message.Chat.UserName)
+			bot.logger.Info("ProcessMessages", origin, nil, "chat %d is started by %s", ding.Message.Chat.ID, ding.Message.Chat.UserName)
 			continue
 		}
 		// Find and run command in background
 		go func(ding APIUpdate, beginTimeNano int64) {
 			result := bot.Processor.Process(toolbox.Command{TimeoutSec: CommandTimeoutSec, Content: ding.Message.Text})
 			if err := bot.ReplyTo(ding.Message.Chat.ID, result.CombinedOutput); err != nil {
-				bot.logger.Warningf("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
+				bot.logger.Warning("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
 			}
 			DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 		}(ding, beginTimeNano)
@@ -175,7 +175,7 @@ func (bot *Daemon) StartAndBlock() error {
 	if testErr == nil && testResp.StatusCode == http.StatusNotFound {
 		return errors.New("telegrambot.StartAndBlock: test call failed due to HTTP 404, is the AuthorizationToken correct?")
 	}
-	bot.logger.Printf("StartAndBlock", "", nil, "going to poll for messages")
+	bot.logger.Info("StartAndBlock", "", nil, "going to poll for messages")
 	lastIdle := time.Now().Unix()
 	for {
 		if misc.EmergencyLockDown {
@@ -185,7 +185,7 @@ func (bot *Daemon) StartAndBlock() error {
 		atomic.StoreInt32(&bot.loopIsRunning, 1)
 		// Log a message if the loop has not processed messages for a while
 		if time.Now().Unix()-lastIdle > 1800 {
-			bot.logger.Printf("Loop", "", nil, "has been idle for %d seconds", 1800)
+			bot.logger.Info("Loop", "", nil, "has been idle for %d seconds", 1800)
 			lastIdle = time.Now().Unix()
 		}
 		// Poll for new messages
@@ -196,16 +196,16 @@ func (bot *Daemon) StartAndBlock() error {
 		}
 		var newMessages APIUpdates
 		if updatesErr != nil {
-			bot.logger.Warningf("Loop", "", updatesErr, "failed to poll due to HTTP error")
+			bot.logger.Warning("Loop", "", updatesErr, "failed to poll due to HTTP error")
 			goto sleepAndContinue
 		}
 		// Deserialise new messages
 		if err := json.Unmarshal(updatesResp.Body, &newMessages); err != nil {
-			bot.logger.Warningf("Loop", "", err, "failed to decode response JSON")
+			bot.logger.Warning("Loop", "", err, "failed to decode response JSON")
 			goto sleepAndContinue
 		}
 		if !newMessages.OK {
-			bot.logger.Warningf("Loop", "", nil, "API response is not OK - %s", string(updatesResp.Body))
+			bot.logger.Warning("Loop", "", nil, "API response is not OK - %s", string(updatesResp.Body))
 			goto sleepAndContinue
 		}
 		// Process new messages

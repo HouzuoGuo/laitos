@@ -36,7 +36,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 	}
 	defer udpServer.Close()
 	daemon.udpListener = udpServer
-	daemon.logger.Printf("StartAndBlockUDP", listenAddr, nil, "going to listen for commands")
+	daemon.logger.Info("StartAndBlockUDP", listenAddr, nil, "going to listen for commands")
 	// Process incoming requests
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
@@ -66,7 +66,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAddr, packet []byte) {
 	listener := daemon.udpListener
 	if listener == nil {
-		daemon.logger.Warningf("HandleUDPConnection", clientIP, nil, "listener is closed before request can be processed")
+		daemon.logger.Warning("HandleUDPConnection", clientIP, nil, "listener is closed before request can be processed")
 		return
 	}
 	// Put processing duration (including IO time) into statistics
@@ -75,14 +75,14 @@ func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAd
 		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
-	daemon.logger.Printf("HandleUDPConnection", clientIP, nil, "working on the connection")
+	daemon.logger.Info("HandleUDPConnection", clientIP, nil, "working on the connection")
 	reader := bufio.NewReader(bytes.NewReader(packet))
 	for {
 		// Read one line of command
 		line, _, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				daemon.logger.Warningf("HandleUDPConnection", clientIP, err, "failed to read received packet")
+				daemon.logger.Warning("HandleUDPConnection", clientIP, err, "failed to read received packet")
 			}
 			return
 		}
@@ -94,11 +94,11 @@ func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAd
 		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec})
 		daemon.udpListener.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := daemon.udpListener.WriteToUDP([]byte(result.CombinedOutput), clientAddr); err != nil {
-			daemon.logger.Warningf("HandleUDPConnection", clientIP, err, "failed to write response")
+			daemon.logger.Warning("HandleUDPConnection", clientIP, err, "failed to write response")
 			return
 		}
 		if _, err := daemon.udpListener.WriteToUDP([]byte("\r\n"), clientAddr); err != nil {
-			daemon.logger.Warningf("HandleUDPConnection", clientIP, err, "failed to write response")
+			daemon.logger.Warning("HandleUDPConnection", clientIP, err, "failed to write response")
 			return
 		}
 	}

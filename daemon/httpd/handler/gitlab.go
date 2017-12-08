@@ -118,7 +118,7 @@ func (lab *HandleGitlabBrowser) DownloadGitBlob(clientIP, projectID string, path
 		go func() {
 			subject := inet.OutgoingMailSubjectKeyword + "-gitlab-download-" + fileName
 			if err := lab.MailClient.Send(subject, fmt.Sprintf("File \"%s/%s\" has been downloaded by %s", paths, fileName, clientIP), lab.Recipients...); err != nil {
-				lab.logger.Warningf("DownloadGitBlob", "", err, "failed to send notification for file \"%s\"", fileName)
+				lab.logger.Warning("DownloadGitBlob", "", err, "failed to send notification for file \"%s\"", fileName)
 			}
 		}()
 	}

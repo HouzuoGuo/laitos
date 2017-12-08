@@ -33,7 +33,7 @@ func MakeRamdisk(sizeMB int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("MakeRamdisk: mount command failed due to error %v - %s", err, out)
 	}
-	misc.DefaultLogger.Warningf("MakeRamdisk", "", nil, "successfully created a %d MB ramdisk at %s", sizeMB, mountPoint)
+	misc.DefaultLogger.Warning("MakeRamdisk", "", nil, "successfully created a %d MB ramdisk at %s", sizeMB, mountPoint)
 	return mountPoint, nil
 }
 
@@ -42,7 +42,7 @@ func TryDestroyRamdisk(mountPoint string) bool {
 	misc.InvokeShell(RamdiskCommandTimeoutSec, "/bin/sh", fmt.Sprintf("umount '%s'", mountPoint))
 	err2 := os.Remove(mountPoint)
 	if err2 == nil {
-		misc.DefaultLogger.Warningf("TryDestroyRamdisk", "", nil, "successfully destroyed ramdisk at %s", mountPoint)
+		misc.DefaultLogger.Warning("TryDestroyRamdisk", "", nil, "successfully destroyed ramdisk at %s", mountPoint)
 		return true
 	}
 	return false
@@ -74,11 +74,11 @@ func DestroyRamdisk(mountPoint string) {
 		out, err = misc.InvokeShell(RamdiskCommandTimeoutSec, "/bin/sh", fmt.Sprintf("umount -lfr '%s'", mountPoint))
 	}
 	if err != nil {
-		misc.DefaultLogger.Warningf("DestroyRamdisk", mountPoint, err, "umount command failed, output is - %s", out)
+		misc.DefaultLogger.Warning("DestroyRamdisk", mountPoint, err, "umount command failed, output is - %s", out)
 	}
 	if err := os.RemoveAll(mountPoint); err == nil {
-		misc.DefaultLogger.Warningf("DestroyRamdisk", "", nil, "successfully destroyed ramdisk at %s", mountPoint)
+		misc.DefaultLogger.Warning("DestroyRamdisk", "", nil, "successfully destroyed ramdisk at %s", mountPoint)
 	} else {
-		misc.DefaultLogger.Warningf("DestroyRamdisk", mountPoint, err, "failed to remove mount point directory, output is - %s", out)
+		misc.DefaultLogger.Warning("DestroyRamdisk", mountPoint, err, "failed to remove mount point directory, output is - %s", out)
 	}
 }

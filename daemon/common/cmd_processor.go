@@ -211,9 +211,9 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result)
 		goto result
 	}
 	// Run the feature
-	proc.logger.Printf("Process", "CommandProcessor", nil, "going to run %s", logCommandContent)
+	proc.logger.Info("Process", "CommandProcessor", nil, "going to run %s", logCommandContent)
 	defer func() {
-		proc.logger.Printf("Process", "CommandProcessor", nil, "finished %s (ok? %v)", logCommandContent, ret.Error == nil)
+		proc.logger.Info("Process", "CommandProcessor", nil, "finished %s (ok? %v)", logCommandContent, ret.Error == nil)
 	}()
 	ret = matchedFeature.Execute(cmd)
 

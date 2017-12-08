@@ -28,17 +28,17 @@ stop functioning or refuse to serve more requests. The program process will keep
 Once the function is called, there is no way to cancel lock-down status other than restarting the program.
 */
 func TriggerEmergencyLockDown() {
-	logger.Warningf("TriggerEmergencyLockDown", "", nil, "toolbox features and daemons will be disabled ASAP")
+	logger.Warning("TriggerEmergencyLockDown", "", nil, "toolbox features and daemons will be disabled ASAP")
 	EmergencyLockDown = true
 }
 
 // TriggerEmergencyStop crashes the program with an abort signal in 10 seconds.
 func TriggerEmergencyStop() {
-	logger.Warningf("TriggerEmergencyStop", "", nil, "program will crash soon")
+	logger.Warning("TriggerEmergencyStop", "", nil, "program will crash soon")
 	// Do not crash immediately. Give caller a short 10 seconds window to send a final notification Email if it wishes.
 	go func() {
 		time.Sleep(10 * time.Second)
-		logger.Fatalf("TriggerEmergencyStop", "", nil, "program crashes now")
+		logger.Abort("TriggerEmergencyStop", "", nil, "program crashes now")
 	}()
 }
 
@@ -47,7 +47,7 @@ TriggerEmergencyKill wipes as much data as possible from all storage attached to
 This is a very dangerous operation!
 */
 func TriggerEmergencyKill() {
-	logger.Warningf("TriggerEmergencyKill", "", nil, "computer storage will be destroyed ASAP and then this program will crash")
+	logger.Warning("TriggerEmergencyKill", "", nil, "computer storage will be destroyed ASAP and then this program will crash")
 	// Do not kill immediately. Give caller a short 10 seconds window to send a final notification Email if it wishes.
 	go func() {
 		filesToKill := getFilesToKill()
@@ -57,14 +57,14 @@ func TriggerEmergencyKill() {
 		// Begin overwriting files to destroy them
 		go func() {
 			// Destroy files in parallel
-			logger.Warningf("TriggerEmergencyKill", "", nil, "going to kill files - %v", filesToKill)
+			logger.Warning("TriggerEmergencyKill", "", nil, "going to kill files - %v", filesToKill)
 			for _, fileToKill := range filesToKill {
 				go func() {
 					// Ignore but log failure and keep going
 					for {
-						logger.Printf("TriggerEmergencyKill", "", nil, "attempt to destroy file - %s", fileToKill)
+						logger.Info("TriggerEmergencyKill", "", nil, "attempt to destroy file - %s", fileToKill)
 						err := overwriteWithZero(fileToKill)
-						logger.Printf("TriggerEmergencyKill", "", err, "finished attempt at destroying file - %s", fileToKill)
+						logger.Info("TriggerEmergencyKill", "", err, "finished attempt at destroying file - %s", fileToKill)
 						// Avoid overwhelming disk or CPU due to the deliberately infinite loop
 						time.Sleep(1 * time.Second)
 					}
@@ -75,15 +75,15 @@ func TriggerEmergencyKill() {
 		// Four seconds later, begin destroying directories.
 		time.Sleep(4 * time.Second)
 		go func() {
-			logger.Warningf("TriggerEmergencyKill", "", nil, "going to kill directories - %v", dirsToKill)
+			logger.Warning("TriggerEmergencyKill", "", nil, "going to kill directories - %v", dirsToKill)
 			for _, dirToKill := range dirsToKill {
 				// Destroy directories in parallel
 				go func() {
 					// Ignore but log failure and keep going
 					for {
-						logger.Printf("TriggerEmergencyKill", "", nil, "attempt to destroy directory - %s", dirToKill)
+						logger.Info("TriggerEmergencyKill", "", nil, "attempt to destroy directory - %s", dirToKill)
 						err := os.RemoveAll(dirToKill)
-						logger.Printf("TriggerEmergencyKill", "", err, "finished attempt at destroying directory - %s", dirToKill)
+						logger.Info("TriggerEmergencyKill", "", err, "finished attempt at destroying directory - %s", dirToKill)
 						// Avoid overwhelming disk or CPU due to the deliberately infinite loop
 						time.Sleep(1 * time.Second)
 					}
@@ -94,15 +94,15 @@ func TriggerEmergencyKill() {
 		// 10 more seconds later, begin destroying the disk
 		time.Sleep(10 * time.Second)
 		go func() {
-			logger.Warningf("TriggerEmergencyKill", "", nil, "going to kill disks - %v", disksToKill)
+			logger.Warning("TriggerEmergencyKill", "", nil, "going to kill disks - %v", disksToKill)
 			for _, diskToKill := range disksToKill {
 				// Destroy disks in parallel
 				go func() {
 					// Ignore but log failure and keep going
 					for {
-						logger.Printf("TriggerEmergencyKill", "", nil, "attempt to destroy disk - %s", diskToKill)
+						logger.Info("TriggerEmergencyKill", "", nil, "attempt to destroy disk - %s", diskToKill)
 						err := overwriteWithZero(diskToKill)
-						logger.Printf("TriggerEmergencyKill", "", err, "finished attempt at destroying disk - %s", diskToKill)
+						logger.Info("TriggerEmergencyKill", "", err, "finished attempt at destroying disk - %s", diskToKill)
 						// Avoid overwhelming disk or CPU due to the deliberately infinite loop
 						time.Sleep(1 * time.Second)
 					}
@@ -113,7 +113,7 @@ func TriggerEmergencyKill() {
 
 		// 120 seconds should be enough to cause sufficient damage, time to quit.
 		time.Sleep(120 * time.Second)
-		logger.Fatalf("TriggerEmergencyKill", "", nil, "sufficient damage has been done, good bye.")
+		logger.Abort("TriggerEmergencyKill", "", nil, "sufficient damage has been done, good bye.")
 	}()
 }
 

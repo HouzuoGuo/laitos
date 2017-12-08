@@ -21,12 +21,12 @@ func LockMemory() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
 		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
-			logger.Warningf("LockMemory", "", err, "failed to lock memory")
+			logger.Warning("LockMemory", "", err, "failed to lock memory")
 			return
 		}
-		logger.Warningf("LockMemory", "", nil, "program has been locked into memory for safety reasons")
+		logger.Warning("LockMemory", "", nil, "program has been locked into memory for safety reasons")
 	} else {
-		logger.Warningf("LockMemory", "", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information will leak into swap.")
+		logger.Warning("LockMemory", "", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information will leak into swap.")
 	}
 }
 
@@ -49,7 +49,7 @@ func ReseedPseudoRand() {
 			seedBytes := make([]byte, 8)
 			_, err := cryptoRand.Read(seedBytes)
 			if err != nil {
-				logger.Fatalf("ReseedPseudoRand", "", err, "failed to read from random generator")
+				logger.Abort("ReseedPseudoRand", "", err, "failed to read from random generator")
 			}
 			seed, _ := binary.Varint(seedBytes)
 			if seed == 0 {
@@ -60,7 +60,7 @@ func ReseedPseudoRand() {
 				break
 			}
 		}
-		logger.Printf("ReseedPseudoRand", "", nil, "succeeded after %d attempt(s)", numAttempts)
+		logger.Info("ReseedPseudoRand", "", nil, "succeeded after %d attempt(s)", numAttempts)
 		time.Sleep(2 * time.Minute)
 	}()
 }
@@ -68,7 +68,7 @@ func ReseedPseudoRand() {
 // Stop and disable daemons that may run into port usage conflicts with laitos.
 func DisableConflictingDaemons() {
 	if os.Getuid() != 0 {
-		logger.Fatalf("DisableConflictingDaemons", "", nil, "you must run laitos as root user if you wish to automatically disable conflicting daemons")
+		logger.Abort("DisableConflictingDaemons", "", nil, "you must run laitos as root user if you wish to automatically disable conflicting daemons")
 	}
 	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
 	waitGroup := new(sync.WaitGroup)
@@ -99,7 +99,7 @@ func DisableConflictingDaemons() {
 				time.Sleep(1 * time.Second)
 			}
 			if success {
-				logger.Printf("DisableConflictingDaemons", name, nil, "the daemon has been successfully stopped and disabled")
+				logger.Info("DisableConflictingDaemons", name, nil, "the daemon has been successfully stopped and disabled")
 			}
 		}(name)
 	}
@@ -110,9 +110,9 @@ func DisableConflictingDaemons() {
 func SwapOff() {
 	out, err := misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "swapoff", "-a")
 	if err == nil {
-		logger.Printf("SwapOff", "", nil, "swap is now off")
+		logger.Info("SwapOff", "", nil, "swap is now off")
 	} else {
-		logger.Warningf("SwapOff", "", err, "failed to turn off swap - %s", out)
+		logger.Warning("SwapOff", "", err, "failed to turn off swap - %s", out)
 	}
 }
 
@@ -122,7 +122,7 @@ func SetTermEcho(echo bool) {
 	stdout := os.Stdout.Fd()
 	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, stdout, syscall.TCGETS, uintptr(unsafe.Pointer(term)))
 	if err != 0 {
-		logger.Warningf("SetTermEcho", "", err, "syscall failed")
+		logger.Warning("SetTermEcho", "", err, "syscall failed")
 		return
 	}
 	if echo {
@@ -132,7 +132,7 @@ func SetTermEcho(echo bool) {
 	}
 	_, _, err = syscall.Syscall(syscall.SYS_IOCTL, stdout, uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(term)))
 	if err != 0 {
-		logger.Warningf("SetTermEcho", "", err, "syscall failed")
+		logger.Warning("SetTermEcho", "", err, "syscall failed")
 		return
 	}
 }

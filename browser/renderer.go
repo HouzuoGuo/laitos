@@ -507,7 +507,7 @@ func (instance *Instance) Start() error {
 	go func() {
 		select {
 		case err := <-processErrChan:
-			instance.logger.Printf("Start", "", err, "PhantomJS process has quit")
+			instance.logger.Info("Start", "", err, "PhantomJS process has quit")
 		case <-time.After(time.Duration(instance.AutoKillTimeoutSec) * time.Second):
 		}
 		instance.Kill()
@@ -562,7 +562,7 @@ func (instance *Instance) SendRequest(actionName string, params map[string]inter
 			}
 		}
 	}
-	instance.logger.Printf("SendRequest", "", err, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
+	instance.logger.Info("SendRequest", "", err, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
 	return
 }
 
@@ -602,10 +602,10 @@ func (instance *Instance) Kill() {
 	defer instance.jsProcMutex.Unlock()
 	if instance.jsProcCmd != nil {
 		if err := os.Remove(instance.RenderImagePath); err != nil {
-			instance.logger.Warningf("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
+			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
 		}
 		if err := instance.jsProcCmd.Process.Kill(); err != nil {
-			instance.logger.Warningf("Kill", "", err, "failed to kill PhantomJS process")
+			instance.logger.Warning("Kill", "", err, "failed to kill PhantomJS process")
 		}
 		instance.jsProcCmd = nil
 	}

@@ -38,7 +38,7 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 		return fmt.Errorf("sockd.StartAndBlockTCP: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
 	}
 	defer listener.Close()
-	daemon.logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
+	daemon.logger.Info("StartAndBlockTCP", "", nil, "going to listen for connections")
 	daemon.tcpListener = listener
 
 	for {
@@ -193,12 +193,12 @@ func (conn *TCPCipherConnection) WriteRandAndClose() {
 	randBuf := make([]byte, RandNum(1, 20, 300))
 	_, err := cryptRand.Read(randBuf)
 	if err != nil {
-		conn.logger.Warningf("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to get random bytes")
+		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to get random bytes")
 		return
 	}
 	conn.SetDeadline(time.Now().Add(IOTimeoutSec))
 	if _, err := conn.Write(randBuf); err != nil {
-		conn.logger.Warningf("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to write random bytes")
+		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to write random bytes")
 	}
 }
 
@@ -210,23 +210,23 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	remoteAddr := conn.RemoteAddr().String()
 	destIP, destAddr, err := conn.ParseRequest()
 	if err != nil {
-		conn.logger.Warningf("HandleTCPConnection", remoteAddr, err, "failed to get destination address")
+		conn.logger.Warning("HandleTCPConnection", remoteAddr, err, "failed to get destination address")
 		conn.WriteRandAndClose()
 		return
 	}
 	if strings.ContainsRune(destAddr, 0x00) {
-		conn.logger.Warningf("HandleTCPConnection", remoteAddr, nil, "will not serve invalid destination address with 0 in it")
+		conn.logger.Warning("HandleTCPConnection", remoteAddr, nil, "will not serve invalid destination address with 0 in it")
 		conn.WriteRandAndClose()
 		return
 	}
 	if conn.daemon.DNSDaemon.IsInBlacklist(destIP) {
-		conn.logger.Printf("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destIP)
+		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destIP)
 		conn.Close()
 		return
 	}
 	dest, err := net.DialTimeout("tcp", destAddr, IOTimeoutSec)
 	if err != nil {
-		conn.logger.Warningf("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
+		conn.logger.Warning("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
 		conn.Close()
 		return
 	}
@@ -261,18 +261,18 @@ func WriteRand(conn net.Conn) {
 	for i := 0; i < RandNum(1, 2, 3); i++ {
 		randBuf := make([]byte, RandNum(40, 60, 900))
 		if _, err := pseudoRand.Read(randBuf); err != nil {
-			misc.DefaultLogger.Warningf("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
+			misc.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
 			break
 		}
 		conn.SetDeadline(time.Now().Add(time.Duration(RandNum(140, 220, 350)) * time.Millisecond))
 		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
-			misc.DefaultLogger.Warningf("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
+			misc.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
 			break
 		} else {
 			randBytesWritten += n
 		}
 	}
 	if pseudoRand.Intn(100) < 2 {
-		misc.DefaultLogger.Printf("sockd.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
+		misc.DefaultLogger.Info("sockd.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
 	}
 }

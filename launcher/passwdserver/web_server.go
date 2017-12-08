@@ -89,7 +89,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	switch r.Method {
 	case http.MethodPost:
-		ws.logger.Printf("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
+		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
 		ws.handlerMutex.Lock()
 		// Ramdisk size in MB = archive size (unencrypted archive) + archive size (extracted files) + 8 (just in case)
 		var err error
@@ -126,7 +126,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		go ws.LaunchMainProgram()
 		return
 	default:
-		ws.logger.Printf("pageHandler", r.RemoteAddr, nil, "just visiting")
+		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
 		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), "")))
 		return
 	}
@@ -142,7 +142,7 @@ func (ws *WebServer) Start() error {
 	// Page handler needs to know the size in order to prepare ramdisk
 	stat, err := os.Stat(ws.ArchiveFilePath)
 	if err != nil {
-		ws.logger.Warningf("Start", "", err, "failed to read archive file at %s", ws.ArchiveFilePath)
+		ws.logger.Warning("Start", "", err, "failed to read archive file at %s", ws.ArchiveFilePath)
 		return err
 	}
 	ws.archiveFileSize = int(stat.Size())
@@ -159,12 +159,12 @@ func (ws *WebServer) Start() error {
 		ReadTimeout: IOTimeout, ReadHeaderTimeout: IOTimeout,
 		WriteTimeout: IOTimeout, IdleTimeout: IOTimeout,
 	}
-	ws.logger.Printf("Start", "", nil, "will listen on TCP port %d", ws.Port)
+	ws.logger.Info("Start", "", nil, "will listen on TCP port %d", ws.Port)
 	if err := ws.server.ListenAndServe(); err != nil && strings.Index(err.Error(), "closed") == -1 {
-		ws.logger.Warningf("Start", "", err, "failed to listen on TCP port")
+		ws.logger.Warning("Start", "", err, "failed to listen on TCP port")
 		return err
 	}
-	ws.logger.Printf("Start", "", nil, "web server has stopped")
+	ws.logger.Info("Start", "", nil, "web server has stopped")
 	return nil
 }
 
@@ -210,7 +210,7 @@ func (ws *WebServer) LaunchMainProgram() {
 	flagsNoExec = launcher.RemoveFromFlags(func(s string) bool {
 		return strings.HasPrefix(s, "-"+CLIFlag)
 	}, flagsNoExec)
-	ws.logger.Printf("LaunchMainProgram", "", nil, "about to launch with CLI flagsNoExec %v", flagsNoExec)
+	ws.logger.Info("LaunchMainProgram", "", nil, "about to launch with CLI flagsNoExec %v", flagsNoExec)
 	cmd = exec.Command(executablePath, flagsNoExec...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -223,11 +223,11 @@ func (ws *WebServer) LaunchMainProgram() {
 		fatalMsg = fmt.Sprintf("main program has abnormally exited due to - %v", err)
 		goto fatalExit
 	}
-	ws.logger.Printf("LaunchMainProgram", "", nil, "main program has exited cleanly")
+	ws.logger.Info("LaunchMainProgram", "", nil, "main program has exited cleanly")
 	// In both normal and abnormal paths, the ramdisk must be destroyed.
 	encarchive.DestroyRamdisk(ws.ramdiskDir)
 	return
 fatalExit:
 	encarchive.DestroyRamdisk(ws.ramdiskDir)
-	ws.logger.Fatalf("LaunchMainProgram", "", nil, fatalMsg)
+	ws.logger.Abort("LaunchMainProgram", "", nil, fatalMsg)
 }

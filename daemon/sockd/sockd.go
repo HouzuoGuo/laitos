@@ -117,7 +117,7 @@ func (daemon *Daemon) StartAndBlock() error {
 func (daemon *Daemon) Stop() {
 	if listener := daemon.tcpListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			daemon.logger.Warningf("Stop", "", err, "failed to close TCP listener")
+			daemon.logger.Warning("Stop", "", err, "failed to close TCP listener")
 		}
 	}
 	if listener := daemon.udpListener; listener != nil {
@@ -125,7 +125,7 @@ func (daemon *Daemon) Stop() {
 			daemon.stopUDP <- true
 		}
 		if err := listener.Close(); err != nil {
-			daemon.logger.Warningf("Stop", "", err, "failed to close UDP listener")
+			daemon.logger.Warning("Stop", "", err, "failed to close UDP listener")
 		}
 	}
 }

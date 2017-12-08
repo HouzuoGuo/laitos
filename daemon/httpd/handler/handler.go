@@ -43,7 +43,7 @@ type Handler interface {
 func XMLEscape(in string) string {
 	var escapeOutput bytes.Buffer
 	if err := xml.EscapeText(&escapeOutput, []byte(in)); err != nil {
-		misc.DefaultLogger.Warningf("XMLEscape", "", err, "failed to escape input string")
+		misc.DefaultLogger.Warning("XMLEscape", "", err, "failed to escape input string")
 	}
 	return escapeOutput.String()
 }

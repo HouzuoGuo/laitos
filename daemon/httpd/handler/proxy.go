@@ -162,13 +162,13 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(browseURL) > 1024 {
-		xy.logger.Warningf("HandleWebProxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes")
+		xy.logger.Warning("HandleWebProxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes")
 		http.Error(w, "URL is unusually long", http.StatusInternalServerError)
 		return
 	}
 	urlParts, err := url.Parse(browseURL)
 	if err != nil {
-		xy.logger.Warningf("HandleWebProxy", browseURL, err, "failed to parse proxy URL")
+		xy.logger.Warning("HandleWebProxy", browseURL, err, "failed to parse proxy URL")
 		http.Error(w, "Failed to parse proxy URL", http.StatusInternalServerError)
 		return
 	}
@@ -182,7 +182,7 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	myReq, err := http.NewRequest(r.Method, browseSchemeHostPathQuery, r.Body)
 	if err != nil {
-		xy.logger.Warningf("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to create request to URL")
+		xy.logger.Warning("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to create request to URL")
 		http.Error(w, "Failed to create request to URL", http.StatusInternalServerError)
 		return
 	}
@@ -195,13 +195,13 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 	client := http.Client{}
 	remoteResp, err := client.Do(myReq)
 	if err != nil {
-		xy.logger.Warningf("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to send request")
+		xy.logger.Warning("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to send request")
 		http.Error(w, "Failed to send request", http.StatusInternalServerError)
 		return
 	}
 	remoteRespBody, err := ioutil.ReadAll(remoteResp.Body)
 	if err != nil {
-		xy.logger.Warningf("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to download the URL")
+		xy.logger.Warning("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to download the URL")
 		http.Error(w, "Failed to download URL", http.StatusInternalServerError)
 		return
 	}
@@ -242,7 +242,7 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 			strBody = strBody[0:headIndex+6] + injectedJS + strBody[headIndex+6:]
 		}
 		w.Write([]byte(strBody))
-		xy.logger.Printf("HandleWebProxy", browseSchemeHostPathQuery, nil, "served modified HTML")
+		xy.logger.Info("HandleWebProxy", browseSchemeHostPathQuery, nil, "served modified HTML")
 	} else {
 		w.Write(remoteRespBody)
 	}

@@ -111,7 +111,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 		if strings.Contains(prop.Subject, inet.OutgoingMailSubjectKeyword) {
 			return false, errors.New("ignore email sent by this program itself")
 		}
-		runner.logger.Printf("Process", prop.FromAddress, nil, "process message of type %s, subject \"%s\"", prop.ContentType, prop.Subject)
+		runner.logger.Info("Process", prop.FromAddress, nil, "process message of type %s, subject \"%s\"", prop.ContentType, prop.Subject)
 		// By contract, PIN processor finds command among input lines.
 		result := runner.Processor.Process(toolbox.Command{
 			Content:    string(body),

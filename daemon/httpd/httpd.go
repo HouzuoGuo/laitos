@@ -107,7 +107,7 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 		// Check client IP against rate limit
 		remoteIP := handler.GetRealClientIP(r)
 		if ratelimit.Add(remoteIP, true) {
-			daemon.logger.Printf("Handler", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
+			daemon.logger.Info("Handler", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
 			next(w, r)
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
@@ -132,7 +132,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.PerIPLimit = 5 // reasonable for 3 users of the advanced API endpoints
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
-		daemon.logger.Printf("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
+		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = common.GetEmptyCommandProcessor()
 	}
 	daemon.logger = misc.Logger{ComponentName: "httpd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port))}
@@ -219,7 +219,7 @@ func (daemon *Daemon) StartAndBlockNoTLS(fallbackPort int) error {
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,
 	}
-	daemon.logger.Printf("StartAndBlockNoTLS", "", nil, "going to listen for HTTP connections")
+	daemon.logger.Info("StartAndBlockNoTLS", "", nil, "going to listen for HTTP connections")
 	if err := daemon.serverNoTLS.ListenAndServe(); err != nil {
 		if strings.Contains(err.Error(), "closed") {
 			return nil
@@ -240,7 +240,7 @@ func (daemon *Daemon) StartAndBlockWithTLS() error {
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,
 	}
-	daemon.logger.Printf("StartAndBlockWithTLS", "", nil, "going to listen for HTTPS connections")
+	daemon.logger.Info("StartAndBlockWithTLS", "", nil, "going to listen for HTTPS connections")
 	if err := daemon.serverWithTLS.ListenAndServeTLS(daemon.TLSCertPath, daemon.TLSKeyPath); err != nil {
 		if strings.Contains(err.Error(), "closed") {
 			return nil
@@ -256,7 +256,7 @@ func (daemon *Daemon) StopNoTLS() {
 		constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 		defer cancel()
 		if err := server.Shutdown(constraints); err != nil {
-			daemon.logger.Warningf("StopNoTLS", "", err, "failed to shutdown")
+			daemon.logger.Warning("StopNoTLS", "", err, "failed to shutdown")
 		}
 	}
 }
@@ -267,7 +267,7 @@ func (daemon *Daemon) StopTLS() {
 		constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 		defer cancel()
 		if err := server.Shutdown(constraints); err != nil {
-			daemon.logger.Warningf("StopTLS", "", err, "failed to shutdown")
+			daemon.logger.Warning("StopTLS", "", err, "failed to shutdown")
 		}
 	}
 }

@@ -92,7 +92,7 @@ func DTMFDecode(digits string) string {
 		} else {
 			decoded, found := DTMFDecodeTable[seq]
 			if !found {
-				misc.DefaultLogger.Warningf("DTMFDecode", "", nil, "failed to decode sequence - %s", seq)
+				misc.DefaultLogger.Warning("DTMFDecode", "", nil, "failed to decode sequence - %s", seq)
 				continue
 			}
 			if shift {

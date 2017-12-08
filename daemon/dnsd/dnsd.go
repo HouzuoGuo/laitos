@@ -180,7 +180,7 @@ func (daemon *Daemon) allowMyPublicIP() {
 	latestIP := inet.GetPublicIP()
 	if latestIP == "" {
 		// Not a fatal error if IP cannot be determined
-		daemon.logger.Warningf("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
+		daemon.logger.Warning("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
 		return
 	}
 	foundMyIP := false
@@ -193,7 +193,7 @@ func (daemon *Daemon) allowMyPublicIP() {
 	if !foundMyIP {
 		// Place latest IP into the array, but do not erase the old IP entries.
 		daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, latestIP)
-		daemon.logger.Printf("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", latestIP)
+		daemon.logger.Info("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", latestIP)
 	}
 }
 
@@ -218,7 +218,7 @@ and stores the latest blacklist names and IP addresses into blacklist map.
 */
 func (daemon *Daemon) UpdateBlackList() {
 	if !atomic.CompareAndSwapInt32(&daemon.blackListUpdating, 0, 1) {
-		daemon.logger.Printf("UpdateBlackList", "", nil, "will skip this run because update routine is already ongoing")
+		daemon.logger.Info("UpdateBlackList", "", nil, "will skip this run because update routine is already ongoing")
 		return
 	}
 	defer func() {
@@ -242,7 +242,7 @@ func (daemon *Daemon) UpdateBlackList() {
 				// Count number of resolution attempts only for logging the progress
 				atomic.AddInt64(&countResolutionAttempts, 1)
 				if atomic.LoadInt64(&countResolutionAttempts)%500 == 1 {
-					daemon.logger.Printf("UpdateBlackList", "", nil, "resolving %d of %d black listed domain names",
+					daemon.logger.Info("UpdateBlackList", "", nil, "resolving %d of %d black listed domain names",
 						atomic.LoadInt64(&countResolutionAttempts), len(allNames))
 				}
 				name := strings.ToLower(strings.TrimSpace(allNames[j]))
@@ -268,7 +268,7 @@ func (daemon *Daemon) UpdateBlackList() {
 	daemon.blackListMutex.Lock()
 	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
-	daemon.logger.Printf("UpdateBlackList", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries",
+	daemon.logger.Info("UpdateBlackList", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries",
 		len(allNames), countResolvedNames, countResolvedIPs, countNonResolvableNames, len(newBlackList))
 }
 
@@ -322,12 +322,12 @@ func (daemon *Daemon) StartAndBlock() error {
 func (daemon *Daemon) Stop() {
 	if listener := daemon.tcpListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			daemon.logger.Warningf("Stop", "", err, "failed to close TCP listener")
+			daemon.logger.Warning("Stop", "", err, "failed to close TCP listener")
 		}
 	}
 	if listener := daemon.udpListener; listener != nil {
 		if err := listener.Close(); err != nil {
-			daemon.logger.Warningf("Stop", "", err, "failed to close UDP listener")
+			daemon.logger.Warning("Stop", "", err, "failed to close UDP listener")
 		}
 	}
 }

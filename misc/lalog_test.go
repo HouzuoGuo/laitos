@@ -38,14 +38,14 @@ func TestLogger_Panicf(t *testing.T) {
 		recover()
 	}()
 	logger := Logger{}
-	logger.Panicf("", "", nil, "")
+	logger.Panic("", "", nil, "")
 	t.Fatal("did not panic")
 }
 
 func TestLogger_Printf(t *testing.T) {
 	logger := Logger{}
-	logger.Printf("", "", nil, "")
-	logger.Printf("", "", nil, "")
+	logger.Info("", "", nil, "")
+	logger.Info("", "", nil, "")
 
 	var countLog, countWarn int
 	LatestLogs.IterateReverse(func(_ string) bool {
@@ -60,8 +60,8 @@ func TestLogger_Printf(t *testing.T) {
 		t.Fatal(countLog, countWarn)
 	}
 
-	logger.Printf("", "", errors.New(""), "")
-	logger.Printf("", "", errors.New(""), "")
+	logger.Info("", "", errors.New(""), "")
+	logger.Info("", "", errors.New(""), "")
 
 	countLog = 0
 	countWarn = 0
@@ -73,7 +73,7 @@ func TestLogger_Printf(t *testing.T) {
 		countWarn++
 		return true
 	})
-	// Depending on the test case execution order, the count may be higher if Warningf test has already run.
+	// Depending on the test case execution order, the count may be higher if Warning test has already run.
 	if countLog < 4 || countWarn < 2 {
 		t.Fatal(countLog, countWarn)
 	}
@@ -82,8 +82,8 @@ func TestLogger_Printf(t *testing.T) {
 
 func TestLogger_Warningf(t *testing.T) {
 	logger := Logger{}
-	logger.Warningf("", "", nil, "")
-	logger.Warningf("", "", nil, "")
+	logger.Warning("", "", nil, "")
+	logger.Warning("", "", nil, "")
 
 	var countLog, countWarn int
 	LatestLogs.IterateReverse(func(_ string) bool {
@@ -94,13 +94,13 @@ func TestLogger_Warningf(t *testing.T) {
 		countWarn++
 		return true
 	})
-	// Depending on the test case execution order, the count may be higher if Printf test has already run.
+	// Depending on the test case execution order, the count may be higher if Info test has already run.
 	if countLog < 2 || countWarn < 2 {
 		t.Fatal(countLog, countWarn)
 	}
 
-	logger.Warningf("", "", errors.New(""), "")
-	logger.Warningf("", "", errors.New(""), "")
+	logger.Warning("", "", errors.New(""), "")
+	logger.Warning("", "", errors.New(""), "")
 
 	countWarn = 0
 	countLog = 0
@@ -112,7 +112,7 @@ func TestLogger_Warningf(t *testing.T) {
 		countWarn++
 		return true
 	})
-	// Depending on the test case execution order, the count may be higher if Printf test has already run.
+	// Depending on the test case execution order, the count may be higher if Info test has already run.
 	if countLog < 4 || countWarn < 4 {
 		t.Fatal(countLog, countWarn)
 	}

@@ -103,7 +103,7 @@ func (daemon *Daemon) runPortsCheck() error {
 		}
 		for _, port := range ports {
 			if port == 25 && inet.IsGCE() {
-				daemon.logger.Printf("runPortsCheck", "", nil, "because Google cloud forbids connection to port 25, port check will skip %s:25", host)
+				daemon.logger.Info("runPortsCheck", "", nil, "because Google cloud forbids connection to port 25, port check will skip %s:25", host)
 				continue
 			}
 			wait.Add(1)
@@ -131,7 +131,7 @@ func (daemon *Daemon) runPortsCheck() error {
 
 // Check TCP ports and features, return all-OK or not.
 func (daemon *Daemon) Execute() (string, bool) {
-	daemon.logger.Printf("Execute", "", nil, "running now")
+	daemon.logger.Info("Execute", "", nil, "running now")
 	// Conduct system maintenance first to ensure an accurate reading of runtime information later on
 	maintResult := daemon.SystemMaintenance()
 	// Do three checks in parallel - ports, toolbox features, and mail command runner
@@ -212,12 +212,12 @@ func (daemon *Daemon) Execute() (string, bool) {
 	result.WriteString(toolbox.GetGoroutineStacktraces())
 	// Send away!
 	if allOK {
-		daemon.logger.Printf("Execute", "", nil, "completed with everything being OK")
+		daemon.logger.Info("Execute", "", nil, "completed with everything being OK")
 	} else {
-		daemon.logger.Warningf("Execute", "", nil, "completed with some errors")
+		daemon.logger.Warning("Execute", "", nil, "completed with some errors")
 	}
 	if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
-		daemon.logger.Warningf("Execute", "", err, "failed to send notification mail")
+		daemon.logger.Warning("Execute", "", err, "failed to send notification mail")
 	}
 	return inet.LintMailBody(result.String()), allOK
 }
@@ -300,7 +300,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 			break
 		}
 	}
-	daemon.logger.Printf("SystemMaintenance", "", nil, "package manager is \"%s\"", pkgManagerPath)
+	daemon.logger.Info("SystemMaintenance", "", nil, "package manager is \"%s\"", pkgManagerPath)
 	fmt.Fprintf(ret, "--- Package manage is \"%v\"\n", pkgManagerPath)
 	// apt-get is too old to be convenient, it has to update the manifest first.
 	pkgManagerEnv := make([]string, 0, 8)
@@ -308,9 +308,9 @@ func (daemon *Daemon) SystemMaintenance() string {
 		ret.WriteString("--- Updating apt manifests...\n")
 		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
 		// Five minutes should be enough to grab the latest manifest
-		daemon.logger.Printf("SystemMaintenance", "", nil, "updating apt manifests")
+		daemon.logger.Info("SystemMaintenance", "", nil, "updating apt manifests")
 		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
-		daemon.logger.Printf("SystemMaintenance", "", err, "finished updating apt manifests")
+		daemon.logger.Info("SystemMaintenance", "", err, "finished updating apt manifests")
 		// There is no need to suppress this output according to markers
 		fmt.Fprintf(ret, "--- apt-get result: %v - %s\n\n", err, strings.TrimSpace(result))
 	}
@@ -338,9 +338,9 @@ func (daemon *Daemon) SystemMaintenance() string {
 		suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
 		// Upgrade system packages with a time constraint of two hours
 		ret.WriteString("--- Upgrading system packages...\n")
-		daemon.logger.Printf("SystemMaintenance", "", nil, "updating system packages")
+		daemon.logger.Info("SystemMaintenance", "", nil, "updating system packages")
 		result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
-		daemon.logger.Printf("SystemMaintenance", "", err, "finished updating system packages")
+		daemon.logger.Info("SystemMaintenance", "", err, "finished updating system packages")
 		for _, marker := range suppressOutputMarkers {
 			// If nothing was done during system update, suppress the rather useless output.
 			if strings.Contains(result, marker) {
@@ -391,9 +391,9 @@ func (daemon *Daemon) SystemMaintenance() string {
 			pkgInstallArgs[len(installArgs)] = name
 			fmt.Fprintf(ret, "--- Installing/upgrading %s\n", name)
 			// Five minutes should be good enough for every package
-			daemon.logger.Printf("SystemMaintenance", "", nil, "installing package %s", name)
+			daemon.logger.Info("SystemMaintenance", "", nil, "installing package %s", name)
 			result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, pkgInstallArgs...)
-			daemon.logger.Printf("SystemMaintenance", "", err, "finished installing package %s", name)
+			daemon.logger.Info("SystemMaintenance", "", err, "finished installing package %s", name)
 			for _, marker := range suppressOutputMarkers {
 				// If nothing was done about the package, suppress the rather useless output.
 				if strings.Contains(result, marker) {
@@ -424,7 +424,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 	}
 
 	ret.WriteString("--- System maintenance has finished.\n")
-	daemon.logger.Printf("SystemMaintenance", "", nil, "maintenance is finished")
+	daemon.logger.Info("SystemMaintenance", "", nil, "maintenance is finished")
 	return ret.String()
 }
 

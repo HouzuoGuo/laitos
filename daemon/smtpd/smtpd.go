@@ -121,7 +121,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	// Initialise the optional toolbox command runner
 	if daemon.CommandRunner == nil || daemon.CommandRunner.Processor == nil || daemon.CommandRunner.Processor.IsEmpty() {
-		daemon.logger.Printf("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
+		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 	} else {
 		if err := daemon.CommandRunner.Initialise(); err != nil {
 			return fmt.Errorf("smtpd.Initialise: %+v", err)
@@ -145,14 +145,14 @@ func (daemon *Daemon) ProcessMail(fromAddr, mailBody string) {
 	bodyBytes := []byte(mailBody)
 	// Forward the mail
 	if err := daemon.ForwardMailClient.SendRaw(daemon.ForwardMailClient.MailFrom, bodyBytes, daemon.ForwardTo...); err == nil {
-		daemon.logger.Printf("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
+		daemon.logger.Info("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
 	} else {
-		daemon.logger.Warningf("ProcessMail", fromAddr, err, "failed to forward email")
+		daemon.logger.Warning("ProcessMail", fromAddr, err, "failed to forward email")
 	}
 	// Run feature command from mail body
 	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
 		if err := daemon.CommandRunner.Process(bodyBytes, daemon.ForwardTo...); err != nil {
-			daemon.logger.Warningf("ProcessMail", fromAddr, err, "failed to process toolbox command from mail body")
+			daemon.logger.Warning("ProcessMail", fromAddr, err, "failed to process toolbox command from mail body")
 		}
 	}
 }
@@ -226,14 +226,14 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	}
 done:
 	if fromAddr != "" && len(toAddrs) > 0 && mailBody != "" {
-		daemon.logger.Printf("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
+		daemon.logger.Info("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		daemon.ProcessMail(fromAddr, mailBody)
 	} else {
 		smtpConn.Reject()
 		completionStatus += " & rejected mail due to missing parameters"
 	}
-	daemon.logger.Printf("HandleConnection", clientIP, nil, "%s after %d conversations (TLS: %s), last commands: %s",
+	daemon.logger.Info("HandleConnection", clientIP, nil, "%s after %d conversations (TLS: %s), last commands: %s",
 		completionStatus, numConversations, smtpConn.TLSHelp, strings.Join(latestConv.GetAll(), " | "))
 }
 
@@ -249,7 +249,7 @@ func (daemon *Daemon) StartAndBlock() (err error) {
 	defer listener.Close()
 	daemon.listener = listener
 	// Process incoming TCP connections
-	daemon.logger.Printf("StartAndBlock", "", nil, "going to listen for connections")
+	daemon.logger.Info("StartAndBlock", "", nil, "going to listen for connections")
 	for {
 		if misc.EmergencyLockDown {
 			return misc.ErrEmergencyLockDown
@@ -269,7 +269,7 @@ func (daemon *Daemon) StartAndBlock() (err error) {
 func (daemon *Daemon) Stop() {
 	if listener := daemon.listener; listener != nil {
 		if err := listener.Close(); err != nil {
-			daemon.logger.Warningf("Stop", "", err, "failed to close listener")
+			daemon.logger.Warning("Stop", "", err, "failed to close listener")
 		}
 	}
 }

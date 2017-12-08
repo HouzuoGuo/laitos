@@ -27,7 +27,7 @@ func (daemon *Daemon) StartAndBlockTCP() (err error) {
 	defer listener.Close()
 	daemon.tcpListener = listener
 	// Process incoming TCP conversations
-	daemon.logger.Printf("StartAndBlockTCP", "", nil, "going to listen for connections")
+	daemon.logger.Info("StartAndBlockTCP", "", nil, "going to listen for connections")
 	for {
 		if misc.EmergencyLockDown {
 			return misc.ErrEmergencyLockDown
@@ -56,7 +56,7 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 	if !daemon.rateLimit.Add(clientIP, true) {
 		return
 	}
-	daemon.logger.Printf("HandleTCPConnection", clientIP, nil, "working on the connection")
+	daemon.logger.Info("HandleTCPConnection", clientIP, nil, "working on the connection")
 	reader := bufio.NewReader(clientConn)
 	for {
 		// Read one line of command
@@ -64,7 +64,7 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 		line, _, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				daemon.logger.Warningf("HandleTCPConnection", clientIP, err, "failed to read from client")
+				daemon.logger.Warning("HandleTCPConnection", clientIP, err, "failed to read from client")
 			}
 			return
 		}

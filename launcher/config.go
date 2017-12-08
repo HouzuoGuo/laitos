@@ -156,7 +156,7 @@ func (config *Config) Initialise() error {
 	if err := config.Features.Initialise(); err != nil {
 		return err
 	}
-	config.logger.Printf("Initialise", "", nil, "enabled features are - %v", config.Features.GetTriggers())
+	config.logger.Info("Initialise", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	return nil
 }
 
@@ -179,7 +179,7 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 func (config *Config) GetDNSD() *dnsd.Daemon {
 	config.dnsDaemonInit.Do(func() {
 		if err := config.DNSDaemon.Initialise(); err != nil {
-			config.logger.Fatalf("GetDNSD", "", err, "failed to initialise")
+			config.logger.Abort("GetDNSD", "", err, "failed to initialise")
 			return
 		}
 	})
@@ -194,7 +194,7 @@ func (config *Config) GetMaintenance() *maintenance.Daemon {
 		config.Maintenance.MailCmdRunnerToTest = config.GetMailCommandRunner()
 		config.Maintenance.HTTPHandlersToCheck = config.GetHTTPD().HandlerCollection
 		if err := config.Maintenance.Initialise(); err != nil {
-			config.logger.Fatalf("GetMaintenance", "", err, "failed to initialise")
+			config.logger.Abort("GetMaintenance", "", err, "failed to initialise")
 			return
 		}
 	})
@@ -235,7 +235,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			randBytes := make([]byte, 32)
 			_, err := rand.Read(randBytes)
 			if err != nil {
-				config.logger.Fatalf("GetHTTPD", "", err, "failed to read random number")
+				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
 				return
 			}
 			// Image handler needs to operate on browser handler's browser instances
@@ -292,7 +292,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			randBytes := make([]byte, 32)
 			_, err := rand.Read(randBytes)
 			if err != nil {
-				config.logger.Fatalf("GetHTTPD", "", err, "failed to read random number")
+				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
 				return
 			}
 			callbackEndpoint := "/" + hex.EncodeToString(randBytes)
@@ -306,7 +306,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		}
 		config.HTTPDaemon.HandlerCollection = handlers
 		if err := config.HTTPDaemon.Initialise(); err != nil {
-			config.logger.Fatalf("GetHTTPD", "", err, "failed to initialise")
+			config.logger.Abort("GetHTTPD", "", err, "failed to initialise")
 			return
 		}
 	})
@@ -349,7 +349,7 @@ func (config *Config) GetMailDaemon() *smtpd.Daemon {
 		config.MailDaemon.CommandRunner = config.GetMailCommandRunner()
 		config.MailDaemon.ForwardMailClient = config.MailClient
 		if err := config.MailDaemon.Initialise(); err != nil {
-			config.logger.Fatalf("GetMailDaemon", "", err, "failed to initialise")
+			config.logger.Abort("GetMailDaemon", "", err, "failed to initialise")
 			return
 		}
 	})
@@ -378,7 +378,7 @@ func (config *Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 		}
 		// Call initialise so that daemon is ready to start
 		if err := config.PlainSocketDaemon.Initialise(); err != nil {
-			config.logger.Fatalf("GetPlainSocketDaemon", "", err, "failed to initialise")
+			config.logger.Abort("GetPlainSocketDaemon", "", err, "failed to initialise")
 			return
 		}
 	})
@@ -390,7 +390,7 @@ func (config *Config) GetSockDaemon() *sockd.Daemon {
 	config.sockDaemonInit.Do(func() {
 		config.SockDaemon.DNSDaemon = config.GetDNSD()
 		if err := config.SockDaemon.Initialise(); err != nil {
-			config.logger.Fatalf("GetSockDaemon", "", err, "failed to initialise")
+			config.logger.Abort("GetSockDaemon", "", err, "failed to initialise")
 			return
 		}
 	})
@@ -415,7 +415,7 @@ func (config *Config) GetTelegramBot() *telegrambot.Daemon {
 			},
 		}
 		if err := config.TelegramBot.Initialise(); err != nil {
-			config.logger.Fatalf("GetTelegramBot", "", err, "failed to initialise")
+			config.logger.Abort("GetTelegramBot", "", err, "failed to initialise")
 			return
 		}
 	})

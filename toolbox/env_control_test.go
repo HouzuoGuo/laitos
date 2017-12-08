@@ -26,8 +26,8 @@ func TestEnvControl_Execute(t *testing.T) {
 	}
 	// Test log retrieval
 	logger := misc.Logger{}
-	logger.Printf("envinfo printf test", "", nil, "")
-	logger.Warningf("envinfo warningf test", "", nil, "")
+	logger.Info("envinfo printf test", "", nil, "")
+	logger.Warning("envinfo warningf test", "", nil, "")
 	if ret := info.Execute(Command{Content: "log"}); ret.Error != nil || strings.Index(ret.Output, "envinfo printf test") == -1 {
 		t.Fatal(ret)
 	}

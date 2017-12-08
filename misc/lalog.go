@@ -55,7 +55,7 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 }
 
 // Print a log message and keep the message in warnings buffer.
-func (logger *Logger) Warningf(functionName, actorName string, err error, template string, values ...interface{}) {
+func (logger *Logger) Warning(functionName, actorName string, err error, template string, values ...interface{}) {
 	msg := logger.Format(functionName, actorName, err, template, values...)
 	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
 	LatestLogs.Push(msgWithTime)
@@ -64,7 +64,7 @@ func (logger *Logger) Warningf(functionName, actorName string, err error, templa
 }
 
 // Print a log message and keep the message in latest log buffer. If there is an error, also keep the message in warnings buffer.
-func (logger *Logger) Printf(functionName, actorName string, err error, template string, values ...interface{}) {
+func (logger *Logger) Info(functionName, actorName string, err error, template string, values ...interface{}) {
 	msg := logger.Format(functionName, actorName, err, template, values...)
 	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
 	LatestLogs.Push(msgWithTime)
@@ -75,11 +75,11 @@ func (logger *Logger) Printf(functionName, actorName string, err error, template
 	log.Print(msg)
 }
 
-func (logger *Logger) Fatalf(functionName, actorName string, err error, template string, values ...interface{}) {
+func (logger *Logger) Abort(functionName, actorName string, err error, template string, values ...interface{}) {
 	log.Fatal(logger.Format(functionName, actorName, err, template, values...))
 }
 
-func (logger *Logger) Panicf(functionName, actorName string, err error, template string, values ...interface{}) {
+func (logger *Logger) Panic(functionName, actorName string, err error, template string, values ...interface{}) {
 	log.Panic(logger.Format(functionName, actorName, err, template, values...))
 }
 

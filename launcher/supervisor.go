@@ -139,7 +139,7 @@ func (sup *Supervisor) notifyFailure(cliFlags []string, launchErr error) {
 	recipients := sup.Config.SupervisorNotificationRecipients
 	mailClient := sup.Config.MailClient
 	if !mailClient.IsConfigured() || recipients == nil || len(recipients) == 0 {
-		sup.logger.Warningf("notifyFailure", "", nil, "will not send Email notification due to missing recipients or mail client config")
+		sup.logger.Warning("notifyFailure", "", nil, "will not send Email notification due to missing recipients or mail client config")
 		return
 	}
 
@@ -171,7 +171,7 @@ Latest stderr: %s
 		string(sup.mainStderr.Retrieve()))
 
 	if err := mailClient.Send(subject, inet.LintMailBody(body), recipients...); err != nil {
-		sup.logger.Warningf("notifyFailure", "", err, "failed to send failure notification email")
+		sup.logger.Warning("notifyFailure", "", err, "failed to send failure notification email")
 	}
 }
 
@@ -186,20 +186,20 @@ func (sup *Supervisor) Start() {
 	lastAttemptTime := time.Now().Unix()
 	executablePath, err := os.Executable()
 	if err != nil {
-		sup.logger.Fatalf("Start", "", err, "failed to determine path to this program executable")
+		sup.logger.Abort("Start", "", err, "failed to determine path to this program executable")
 		return
 	}
 
 	for {
 		cliFlags, _ := sup.GetLaunchParameters(paramChoice)
-		sup.logger.Printf("Start", strconv.Itoa(paramChoice), nil, "attempting to start main program with CLI flags - %v", cliFlags)
+		sup.logger.Info("Start", strconv.Itoa(paramChoice), nil, "attempting to start main program with CLI flags - %v", cliFlags)
 
 		mainProgram := exec.Command(executablePath, cliFlags...)
 		mainProgram.Stdin = os.Stdin
 		mainProgram.Stdout = sup.mainStdout
 		mainProgram.Stderr = sup.mainStderr
 		if err := mainProgram.Start(); err != nil {
-			sup.logger.Warningf("Start", strconv.Itoa(paramChoice), err, "failed to start main program")
+			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "failed to start main program")
 			sup.notifyFailure(cliFlags, err)
 			if time.Now().Unix()-lastAttemptTime < FailureThresholdSec {
 				paramChoice++
@@ -208,7 +208,7 @@ func (sup *Supervisor) Start() {
 			continue
 		}
 		if err := mainProgram.Wait(); err != nil {
-			sup.logger.Warningf("Start", strconv.Itoa(paramChoice), err, "main program has crashed")
+			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "main program has crashed")
 			sup.notifyFailure(cliFlags, err)
 			if time.Now().Unix()-lastAttemptTime < FailureThresholdSec {
 				paramChoice++

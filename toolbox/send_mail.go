@@ -102,12 +102,12 @@ Please send help: %s`,
 		inet.GetPublicIP(), email.SOSPersonalInfo,
 		body)
 
-	email.logger.Warningf("SendSOS", subject, nil, "sending SOS email, body is: %s", body)
+	email.logger.Warning("SendSOS", subject, nil, "sending SOS email, body is: %s", body)
 
 	for _, recipient := range GetAllSAREmails() {
 		go func(recipient string) {
 			err := email.MailClient.Send("SOS HELP "+subject, body, recipient)
-			email.logger.Warningf("SendSOS", "", err, "attempted to deliver to %s", recipient)
+			email.logger.Warning("SendSOS", "", err, "attempted to deliver to %s", recipient)
 		}(recipient)
 	}
 }

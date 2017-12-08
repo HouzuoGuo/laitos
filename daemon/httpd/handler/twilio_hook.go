@@ -67,7 +67,7 @@ func (hand *HandleTwilioSMSHook) Handle(w http.ResponseWriter, r *http.Request) 
 	}
 	// Apply rate limit to the sender
 	phoneNumber := r.FormValue("From")
-	hand.logger.Printf("HandleTwilioSMSHook", phoneNumber, nil, "has received an SMS")
+	hand.logger.Info("HandleTwilioSMSHook", phoneNumber, nil, "has received an SMS")
 	if phoneNumber != "" {
 		if !hand.senderRateLimit.Add(phoneNumber, true) {
 			/*
@@ -130,7 +130,7 @@ func (hand *HandleTwilioCallHook) Handle(w http.ResponseWriter, r *http.Request)
 	}
 	// Apply rate limit to the caller
 	phoneNumber := r.FormValue("From")
-	hand.logger.Printf("HandleTwilioCallHook", phoneNumber, nil, "has received a call")
+	hand.logger.Info("HandleTwilioCallHook", phoneNumber, nil, "has received a call")
 	if phoneNumber != "" {
 		if !hand.senderRateLimit.Add(phoneNumber, true) {
 			w.Write([]byte(xml.Header + `<Response><Reject/></Response>`))
@@ -186,7 +186,7 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
 	}
 	// Apply rate limit to the caller
 	phoneNumber := r.FormValue("From")
-	hand.logger.Printf("HandleTwilioCallCallback", phoneNumber, nil, "has received DTMF command via call")
+	hand.logger.Info("HandleTwilioCallCallback", phoneNumber, nil, "has received DTMF command via call")
 	if phoneNumber != "" {
 		if !hand.senderRateLimit.Add(phoneNumber, true) {
 			w.Write([]byte(xml.Header + `<Response><Say>You are rate limited.</Say><Hangup/></Response>`))

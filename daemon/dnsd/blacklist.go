@@ -26,14 +26,14 @@ func DownloadAllBlacklists(logger misc.Logger) []string {
 		go func(i int, url string) {
 			resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: BlacklistDownloadTimeoutSec}, url)
 			names := ExtractNamesFromHostsContent(string(resp.Body))
-			logger.Printf("DownloadAllBlacklists", url, err, "downloaded %d names, please obey the license in which the list author publishes the data.", len(names))
+			logger.Info("DownloadAllBlacklists", url, err, "downloaded %d names, please obey the license in which the list author publishes the data.", len(names))
 			lists[i] = ExtractNamesFromHostsContent(string(resp.Body))
 			defer wg.Done()
 		}(i, url)
 	}
 	wg.Wait()
 	ret := UniqueStrings(lists...)
-	logger.Printf("DownloadAllBlacklists", "", nil, "downloaded %d unique names in total", len(ret))
+	logger.Info("DownloadAllBlacklists", "", nil, "downloaded %d unique names in total", len(ret))
 	return ret
 }
 

@@ -33,7 +33,7 @@ func ExtractEncryptedArchive(destDir, archivePath string) {
 	password, _, err := reader.ReadLine()
 	SetTermEcho(true)
 	if err != nil {
-		misc.DefaultLogger.Fatalf("ExtractEncryptedArchive", "main", err, "failed to read password")
+		misc.DefaultLogger.Abort("ExtractEncryptedArchive", "main", err, "failed to read password")
 		return
 	}
 	/*
@@ -42,13 +42,13 @@ func ExtractEncryptedArchive(destDir, archivePath string) {
 	*/
 	tmpFile, err := ioutil.TempFile("", "laitos-launcher-utility-extract")
 	if err != nil {
-		misc.DefaultLogger.Fatalf("ExtractEncryptedArchive", "main", err, "failed to create temporary file")
+		misc.DefaultLogger.Abort("ExtractEncryptedArchive", "main", err, "failed to create temporary file")
 		return
 	}
 	tmpFile.Close()
 	defer func() {
 		if err := os.Remove(tmpFile.Name()); err != nil && !os.IsNotExist(err) {
-			misc.DefaultLogger.Printf("ExtractEncryptedArchive", "main", err, "failed to delete temporary file")
+			misc.DefaultLogger.Info("ExtractEncryptedArchive", "main", err, "failed to delete temporary file")
 		}
 	}()
 	password = []byte(strings.TrimSpace(string(password)))
@@ -68,7 +68,7 @@ func MakeEncryptedArchive(srcDir, archivePath string) {
 	password, _, err := reader.ReadLine()
 	SetTermEcho(true)
 	if err != nil {
-		misc.DefaultLogger.Fatalf("ExtractEncryptedArchive", "main", err, "failed to read password")
+		misc.DefaultLogger.Abort("ExtractEncryptedArchive", "main", err, "failed to read password")
 		return
 	}
 	password = []byte(strings.TrimSpace(string(password)))
@@ -98,11 +98,11 @@ func StartPasswordWebServer(port int, url, archivePath string) {
 			time.Sleep(5 * 365 * 24 * time.Hour)
 		} else {
 			// Retry upon failure
-			logger.Printf("StartPasswordWebServer", "main", err, "failed to start the web server (attempt %d)", i)
+			logger.Info("StartPasswordWebServer", "main", err, "failed to start the web server (attempt %d)", i)
 			time.Sleep(5 * time.Second)
 		}
 	}
-	logger.Fatalf("StartPasswordWebServer", "main", nil, "failed to start the web server after many attempts")
+	logger.Abort("StartPasswordWebServer", "main", nil, "failed to start the web server after many attempts")
 	return
 
 }
@@ -161,7 +161,7 @@ func main() {
 		case "archive":
 			MakeEncryptedArchive(dataUtilDir, dataUtilFile)
 		default:
-			logger.Fatalf("main", "", nil, "please provide mode of operation (extract|archive) for parameter \"-datautil\"")
+			logger.Abort("main", "", nil, "please provide mode of operation (extract|archive) for parameter \"-datautil\"")
 		}
 		return
 	}
@@ -184,28 +184,28 @@ func main() {
 	LockMemory()
 	// Parse configuration JSON file
 	if misc.ConfigFilePath == "" {
-		logger.Fatalf("main", "", nil, "please provide a configuration file (-config)")
+		logger.Abort("main", "", nil, "please provide a configuration file (-config)")
 		return
 	}
 	var err error
 	misc.ConfigFilePath, err = filepath.Abs(misc.ConfigFilePath)
 	if err != nil {
-		logger.Fatalf("main", "", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
+		logger.Abort("main", "", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
 	}
 	var config launcher.Config
 	configBytes, err := ioutil.ReadFile(misc.ConfigFilePath)
 	if err != nil {
-		logger.Fatalf("main", "", err, "failed to read config file \"%s\"", misc.ConfigFilePath)
+		logger.Abort("main", "", err, "failed to read config file \"%s\"", misc.ConfigFilePath)
 		return
 	}
 	if err := config.DeserialiseFromJSON(configBytes); err != nil {
-		logger.Fatalf("main", "", err, "failed to deserialise config file \"%s\"", misc.ConfigFilePath)
+		logger.Abort("main", "", err, "failed to deserialise config file \"%s\"", misc.ConfigFilePath)
 		return
 	}
 	// Figure out what daemons are to be started
 	daemonNames := regexp.MustCompile(`\w+`).FindAllString(daemonList, -1)
 	if daemonNames == nil || len(daemonNames) == 0 {
-		logger.Fatalf("main", "", nil, "please provide comma-separated list of daemon services to start (-daemons).")
+		logger.Abort("main", "", nil, "please provide comma-separated list of daemon services to start (-daemons).")
 		return
 	}
 	// Make sure all daemon names are valid
@@ -217,7 +217,7 @@ func main() {
 			}
 		}
 		if !found {
-			logger.Fatalf("main", "", err, "unknown daemon name \"%s\"", daemonName)
+			logger.Abort("main", "", err, "unknown daemon name \"%s\"", daemonName)
 		}
 	}
 
@@ -239,9 +239,9 @@ func main() {
 	// Prepare some environmental changes
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
-		logger.Warningf("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
+		logger.Warning("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
 	} else {
-		logger.Warningf("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
+		logger.Warning("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
 	}
 	if debug {
 		DumpGoroutinesOnInterrupt()
@@ -253,7 +253,7 @@ func main() {
 		SwapOff()
 	}
 	if tuneSystem {
-		logger.Warningf("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
+		logger.Warning("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
 	}
 	ReseedPseudoRand()
 	daemonErrs := make(chan error, len(daemonNames))
@@ -299,7 +299,7 @@ func main() {
 	// Daemon mode - optionally run benchmark in the background.
 	// ========================================================================
 	if benchmark {
-		logger.Printf("main", "", nil, "benchmark is about to commence in 30 seconds")
+		logger.Info("main", "", nil, "benchmark is about to commence in 30 seconds")
 		time.Sleep(30 * time.Second)
 		bench := launcher.Benchmark{
 			Config:      &config,
@@ -315,7 +315,7 @@ func main() {
 	// ========================================================================
 	for i := 0; i < len(daemonNames); i++ {
 		err := <-daemonErrs
-		logger.Warningf("main", "", err, "a daemon has encountered an error and failed to start")
+		logger.Warning("main", "", err, "a daemon has encountered an error and failed to start")
 	}
-	logger.Fatalf("main", "", nil, "all daemons have failed to start, laitos will now exit.")
+	logger.Abort("main", "", nil, "all daemons have failed to start, laitos will now exit.")
 }
