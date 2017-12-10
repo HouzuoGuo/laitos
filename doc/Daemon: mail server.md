@@ -1,7 +1,7 @@
 # Daemon: mail server
 
 ## Introduction
-The mail server forwards arriving mails as-is to your personal Email address. No mails are stored on the server after
+The mail server forwards arriving mails as-is to your personal mail address. No mails are stored on the server after
 they are forwarded.
 
 With additional configuration, the server will process toolbox feature command from incoming mail, and mail response to
@@ -25,60 +25,51 @@ The [laitos DNS server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-ser
 hosting service.
 
 ## Configuration
-Construct the following JSON object and place it under JSON key `MailDaemon` in configuration file. The following
-properties are mandatory:
+Construct the following JSON object and place it under JSON key `MailDaemon` in configuration file:
 <table>
 <tr>
     <th>Property</th>
     <th>Type</th>
     <th>Meaning</th>
-</tr>
-<tr>
-    <td>Address</td>
-    <td>string</td>
-    <td>The address network to listen to. It is usually "0.0.0.0", which means listen on all network interfaces.</td>
-</tr>
-<tr>
-    <td>Port</td>
-    <td>integer</td>
-    <td>Port number to listen on. It is usually 25 - the port number designated for SMTP.</td>
+    <th>Default value</th>
 </tr>
 <tr>
     <td>MyDomains</td>
     <td>array of strings</td>
     <td>
-        Domain names to receive emails for.
+        Domain names to receive mails for.
         <br/>
         Example: ["my-blog.net", "my-homepage.org"].
     </td>
+    <td>(This is a mandatory property without a default value)</td>
 </tr>
 <tr>
     <td>ForwardTo</td>
     <td>array of strings</td>
     <td>
-        Forward incoming mails to these Email addresses.
+        Forward incoming mails to these addresses.
         <br/>
         Example: ["me@gmail.com", "me@hotmail.com"].
     </td>
+    <td>(This is a mandatory property without a default value)</td>
+</tr>
+<tr>
+    <td>Address</td>
+    <td>string</td>
+    <td>The address network to listen on.</td>
+    <td>"0.0.0.0" - listen on all network interfaces.</td>
+</tr>
+<tr>
+    <td>Port</td>
+    <td>integer</td>
+    <td>UDP port number to listen on.</td>
+    <td>25 - the well-known port number designated for mail service (SMTP).</td>
 </tr>
 <tr>
     <td>PerIPLimit</td>
     <td>integer</td>
-    <td>
-        How many times in ten-second interval server will accept mails from a client (identified by IP).
-        <br/>
-        3 is usually enough.
-    </td>
-</tr>
-</table>
-
-The following properties are optional under JSON key `MailDaemon`:
-
-<table>
-<tr>
-    <th>Property</th>
-    <th>Type</th>
-    <th>Meaning</th>
+    <td>Maximum number of mails a client (identified by IP) may deliver to this server in a second.</td>
+    <td>2 - good enough to prevent flood of spam</td>
 </tr>
 <tr>
     <td>TLSCertPath</td>
@@ -88,24 +79,22 @@ The following properties are optional under JSON key `MailDaemon`:
         <br/>
         The file may contain a certificate chain with server certificate on top and CA authority toward bottom.
     </td>
+    ><td>(Not enabled by default)</td>
 </tr>
 <tr>
     <td>TLSKeyPath</td>
     <td>string</td>
-    <td>Absolute or relative path to PEM-encoded TLS certificate key.</td>
+    <td>(Not enabled by default) Absolute or relative path to PEM-encoded TLS certificate key.</td>
 </tr>
 </table>
 
-Here is an example setup made for two imaginary domain names:
+
+Here is a minimal setup example that enables TLS as well:
 <pre>
 {
     ...
     
     "MailDaemon": {
-        "Address": "0.0.0.0",
-        "Port": 25
-        "PerIPLimit": 3,
-        
         "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
         "MyDomains": ["howard-homepage.net", "howard-blog.org"],
         
@@ -118,23 +107,19 @@ Here is an example setup made for two imaginary domain names:
 </pre>
 
 ## Toolbox command processor
-In order to let mail server process toolbox feature commands from mail body, complete all of the following:
+In order for mail server to process toolbox feature commands from mail content, complete all of the following:
 
 1. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
    JSON key `MailFilters`.
-2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) to construct
-   configuration for sending Email responses.
+2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) to
+   construct configuration for sending mail replies.
 
-Here is an example setup of mail server with command processor:
+Here is a minimal setup example that comes enables command processor:
 <pre>
 {
     ...
     
     "MailDaemon": {
-        "Address": "0.0.0.0",
-        "Port": 25
-        "PerIPLimit": 3,
-        
         "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
         "MyDomains": ["howard-homepage.net", "howard-blog.org"],
         
@@ -231,5 +216,7 @@ Send it out, wait a short moment, and check the sender's inbox for command respo
 Don't forget to put password PIN in front of the toolbox command!
 
 ## Tips
-Mail servers are often targeted by spam mails. But don't worry, use a personal mail service that comes with strong spam
-filter (such as Gmail) as `ForwardTo` address, and spam mails will not bother you any longer.
+- Mail servers are often targeted by spam mails - but don't worry, use a personal mail service that comes with strong
+  spam filter (such as Gmail) as `ForwardTo` address, then spam mails will not bother you any longer.
+- Occasionally spam filter (such as Gmail's) may consider legitimate mails forwarded by laitos as spam, therefore please
+  check your spam folders regularly.

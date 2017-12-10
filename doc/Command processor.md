@@ -18,7 +18,7 @@ To use toolbox feature via a daemon, the following events take place:
    Once done, the result is presented in an easy-to-read text.
 5. Filter the result through `LintText` mechanism - compact and clean result text when necessary.
 6. If result is empty, inform user by replacing it to `EMPTY OUTPUT`.
-7. Notify user the command input and result via Email.
+7. Notify user the command input and result via Email
 
 ## Configuration
 Construct the following objects under JSON key (e.g. `HTTPFilters`, `MailFilters`) named by individual daemon - you may
@@ -238,3 +238,7 @@ Regarding toolbox usage via SMS/telephone:
   and restrict `MaxLength` to 160 - maximum length of a single SMS text.
 - Some mobile phones using pre-2007 design cannot input the pipe character `|` that is commonly used in system commands.
   To work around the issue, configure a `TranslateSequences` such as `["#/", "|"]`.
+
+Regarding mail notification and logging: the input of 2FA code generator and AES-encrypted content search are concealed
+from all mail notifications and log messages in order to protect their encryption key. However their command output will
+still appear as-is.

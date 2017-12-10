@@ -4,9 +4,49 @@
 Via any of enabled laitos daemons, you may send Emails to friends and anyone online.
 
 ## Configuration
-This toolbox feature uses the common [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).
+This toolbox feature uses 
 
 Complete the common outgoing mail configuration, and this feature will be automatically enabled.
+
+
+## Configuration
+Complete all of the following:
+- The common [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).
+- Under JSON object `Features`, construct a JSON object called `SendMail`:
+<table>
+<tr>
+    <th>Property</th>
+    <th>Type</th>
+    <th>Meaning</th>
+</tr>
+<tr>
+    <td>SOSPersonalInfo</td>
+    <td>string</td>
+    <td>
+        Important personal information such as name, date-of-birth, country of residence. The information will be sent
+        in outgoing SOS mails. If you do not wish to reveal this information, you may leave it empty.
+    </td>
+</tr>
+</table>
+
+Here is an example:
+<pre>
+{
+    ...
+
+    "Features": {
+        ...
+
+        "SendMail": {
+            "SOSPersonalInfo": "This is Howard born of 1900-01-01 and lives in Greenland."
+        },
+        
+        ...
+    },
+
+    ...
+}
+</pre>
 
 ## Usage
 Use any capable laitos daemon to send an email:
@@ -45,7 +85,7 @@ The SOS email looks like:
 
     Subject: SOS HELP <and your subject>
     Body:
-    SOS HELP!
-    The time is <UTC time of laitos server>.
-    This is the operator of IP address <public IP address of laitos server>.
+    SOS!
+    The computer time is <UTC time of laitos server>.
+    This is the operator of IP address <public IP address of laitos server>: <SOSPersonalInfo>
     Please send help: <and your Email body content>.

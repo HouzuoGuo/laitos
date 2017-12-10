@@ -10,12 +10,12 @@ fun ways such as telephone call, SMS, Telegram chat, and even satellite terminal
 
 ## Highlights
 
-- <strong>Powerful</strong> - web, mail and DNS servers beautifully re-invented in just 10K lines of code.
-- <strong>Fun</strong> - access personal mails and social networks via telephone, SMS, and more!
+- <strong>Powerful</strong> - host a homepage, receive mails, and block advertisements at DNS level, plus much more!
+- <strong>Fun</strong> - access personal mails and social networks via telephone, SMS, satellites, and chat bots.
 - <strong>Hyped by Buzzwords</strong> - certified to run in any container, PaaS, IaaS, *aaS.
-- <strong>Lightweight</strong> - uses as little as 18MB of memory and 8MB of disk.
+- <strong>Lightweight</strong> - uses as little as 36MB of memory and 12MB of disk.
 - <strong>Portable</strong> - runs on any flavour of Linux and Unix.
-- <strong>Independent</strong> - reliable stand-alone operation, no need for additional softwares.
+- <strong>Independent</strong> - reliable stand-alone operation with built-in automated house-keeping.
 
 <strong>Did you know?</strong> laitos has a cool component that gets you modern & rich web experience on nostalgic
 computers that run Windows 98! Explore more in the comprehensive [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
@@ -33,7 +33,7 @@ I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gm
 
 Copyright
 ====================
-Copyright (C) 2017 Houzuo (Howard) Guo <guohouzuo@gmail.com>
+Copyright (C) 2016-2018 Houzuo (Howard) Guo <guohouzuo@gmail.com>
 
 This program is free software:
 you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,

@@ -1,96 +1,83 @@
 # Daemon: DNS server
 
 ## Introduction
-The DNS server daemon provides an ad-free web experience.
+The DNS server daemon is a recursive DNS resolver that provides a safer web experience by blocking most of advertisement
+and malicious domains.
 
-It downloads the latest ad-domain list from well-known [yoyo.org](http://pgl.yoyo.org) and [mvps.org](http://winhelp2002.mvps.org)
-on startup and then every 2 hours.
+Every two hours, the blacklists are automatically updated from well-known sources:
+- [yoyo.org](http://pgl.yoyo.org)
+- [mvps.org](http://winhelp2002.mvps.org)
+- [malwaredomainlist.com](http://www.malwaredomainlist.com)
+- [someonewhocares.org](http://someonewhocares.org/hosts/hosts)
 
-The daemon then forwards all name queries to a reputable public DNS of your choice; if a query is an advertisement domain,
-it produces a black-hole answer (0.0.0.0) instead of forwarding the query. This effectively blocks most advertisements.
+Beyond blacklist filter, the daemon uses redundant set of secure and trusted public DNS services provided by:
+- [Comodo SecureDNS](https://www.comodo.com/secure-dns)
+- [Quad9](https://www.quad9.net)
+- [SafeDNS](https://www.safedns.com)
 
 ## Configuration
-Construct the following JSON object and place it under key `DNSDaemon` in configuration file. All of them are mandatory:
+Construct the following JSON object and place it under key `DNSDaemon` in configuration file:
 <table>
 <tr>
     <th>Property</th>
     <th>Type</th>
     <th>Meaning</th>
-</tr>
-<tr>
-    <td>Address</td>
-    <td>string</td>
-    <td>The address network to listen to. It is usually "0.0.0.0", which means listen on all network interfaces.</td>
-</tr>
-<tr>
-    <td>UDPPort</td>
-    <td>integer</td>
-    <td>UDP port number to listen on. It is usually 53 - the port number designated for DNS.</td>
-</tr>
-<tr>
-    <td>UDPForwarders</td>
-    <td>array of strings</td>
-    <td>
-        If a UDP query is not for an advertisement domain, forward it to any of these public DNS servers.
-        <br/>
-        Example: ["8.8.8.8:53"] (Google public DNS)
-        <br/>
-        These public servers must be capable of handling UDP queries.
-    </td>
-</tr>
-<tr>
-    <td>TCPPort</td>
-    <td>integer</td>
-    <td>TCP port number to listen to. It is usually 53 - the port number designated for DNS.</td>
-</tr>
-<tr>
-    <td>TCPForwarders</td>
-    <td>array of strings</td>
-    <td>
-        If a TCP query is not for an advertisement domain, forward it to any of these public DNS servers.
-        <br/>
-        Example: ["8.8.8.8:53"] (Google public DNS)
-        <br/>
-        These public servers must be capable of handling TCP (not UDP) queries.
-    </td>
+    <th>Default value</th>
 </tr>
 <tr>
     <td>AllowQueryIPPrefixes</td>
     <td>array of strings</td>
     <td>
-        An array of IP address prefixes such as ["195.1", "123.4.5"] that are allowed to make DNS queries on the server.
+        An array of IP address prefixes such as ["195.1", "123.4.5"] that are allowed to make DNS queries.
         <br/>
-        The public IP addresses of your computers and phones should be here.
+        The public IP address of your wireless routers, computers, and phones should be listed here.
     </td>
+    <td>(This is a mandatory property without a default value)</td>
+</tr>
+<tr>
+    <td>Address</td>
+    <td>string</td>
+    <td>The address network to listen on.</td>
+    <td>"0.0.0.0" - listen on all network interfaces.</td>
+</tr>
+<tr>
+    <td>Forwarders</td>
+    <td>array of strings</td>
+    <td>Public DNS resolvers (IP:Port) to use. They must be able to handle both UDP and TCP for queries.</td>
+    <td>Comodo SecureDNS, Quad9, SafeDNS</td>
+</tr>
+<tr>
+    <td>UDPPort</td>
+    <td>integer</td>
+    <td>UDP port number to listen on.</td>
+    <td>53 - the well-known port number designated for DNS.</td>
+</tr>
+<tr>
+    <td>TCPPort</td>
+    <td>integer</td>
+    <td>TCP port number to listen on.</td>
+    <td>53 - the well-known port designated for DNS.</td>
 </tr>
 <tr>
     <td>PerIPLimit</td>
     <td>integer</td>
     <td>
-        How many times in ten-second interval a client (identified by IP) is allowed to query the server.
+        Maximum number of queries a client (identified by IP) may make in a second. 
         <br/>
-        Each computer/phone usually uses about 15.
+        Each computer/phone usually uses less than 20.
     </td>
+    <td>100 - good enough for 5 devices</td>
 </tr>
 </table>
 
-Here is an example setup made for two home devices (limit = 2 * 15) and forwards to Google public DNS. 
+Here is a minimal setup example:
 
 <pre>
 {
     ...
     
     "DNSDaemon": {
-        "Address": "0.0.0.0",
-
-        "UDPPort": 53,
-        "UDPForwarders": ["8.8.8.8:53", "8.8.4.4:53"],
-
-        "TCPPort": 53,
-        "TCPForwarders": ["8.8.8.8:53", "8.8.4.4:53"],
-
-        "AllowQueryIPPrefixes": ["195", "35.196", "35.158.249.12"],
-        "PerIPLimit": 30
+        "AllowQueryIPPrefixes": ["195", "35.196", "35.158.249.12"]
     },
      
     ...
@@ -140,8 +127,6 @@ Regarding usage:
   Internet.
 
 Regarding configuration:
-- In almost all cases DNS queries are carried out in UDP. You usually do not need a DNS server that runs on TCP.
-- If you are setting up DNS over TCP, make sure that the TCP forwarders are able to handle TCP queries. Not all public
-  DNS servers can handle TCP queries.
-- The Google public DNS (8.8.8.8:53 and 8.8.4.4:53) are able to handle both UDP and TCP queries. They are good to be
-  forwarders.
+- Not all DNS services support TCP for queries. The default forwarders (Comodo SecureDNS, Quad9, and SafeDNS) support
+  both TCP and UDP very well.
+- By specifying forwarders explicitly, the default forwarders will no longer be used.

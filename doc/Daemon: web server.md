@@ -9,47 +9,40 @@ Additionally, specialised web services such as [Twilio telephone/SMS hook](https
 are also hosted by the web server.
 
 ## Configuration
-Construct the following JSON object and place it under JSON key `HTTPDaemon` in configuration file. The following
-properties are mandatory:
+Construct the following JSON object and place it under JSON key `HTTPDaemon` in configuration file:
 <table>
 <tr>
     <th>Property</th>
     <th>Type</th>
     <th>Meaning</th>
+    <th>Default value</th>
 </tr>
 <tr>
     <td>Address</td>
     <td>string</td>
-    <td>The address network to listen to. It is usually "0.0.0.0", which means listen on all network interfaces.</td>
+    <td>The address network to listen on.</td>
+    <td>"0.0.0.0" - listen on all network interfaces.</td>
 </tr>
 <tr>
     <td>Port</td>
     <td>integer</td>
     <td>Port number to listen on. It is usually 443 for TLS-enabled server, or 80 for non-TLS server.</td>
+    <td>443 (if TLS is enabled) or 80 (if TLS is not enabled)</td>
 </tr>
 <tr>
-    <td>BaseRateLimit</td>
+    <td>PerIPLimit</td>
     <td>integer</td>
     <td>
-        How many visitors are to be expected in 10-seconds interval.
+        Maximum number of visits a visitor (identified by IP) may make in a second.
         <br/>
         The number acts as a multiplier in initialising rate limit of file, directory, and web service access. 
     </td>
+    <td> 5 - resonable for a personal website</td>
 </tr>
 <tr>
     <td>ServeDirectories</td>
     <td>{"/the/url/location": "/path/to/directory"...}</td>
     <td>Serve the directories at the specified URL location. The prefix slash in URL location string is mandatory.</td>
-</tr>
-</table>
-
-The following properties are optional under JSON key `HTTPDaemon`:
-
-<table>
-<tr>
-    <th>Property</th>
-    <th>Type</th>
-    <th>Meaning</th>
 </tr>
 <tr>
     <td>TLSCertPath</td>
@@ -59,11 +52,12 @@ The following properties are optional under JSON key `HTTPDaemon`:
         <br/>
         The file may contain a certificate chain with server certificate on top and CA authority toward bottom.
     </td>
+    ><td>(Not enabled by default)</td>
 </tr>
 <tr>
     <td>TLSKeyPath</td>
     <td>string</td>
-    <td>Absolute or relative path to PEM-encoded TLS certificate key.</td>
+    <td>(Not enabled by default) Absolute or relative path to PEM-encoded TLS certificate key.</td>
 </tr>
 </table>
 

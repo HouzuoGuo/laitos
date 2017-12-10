@@ -9,7 +9,6 @@ on-demand to show:
 - Program status:
   * Public IP address, uptime.
   * Daemon usage statistics.
-- Health check - test all API credentials and passwords.
 - Latest log entries and stack traces.
 
 ## Configuration
@@ -42,7 +41,4 @@ In a web browser, navigate to `InformationEndpoint` of laitos web server, and in
 ## Tips
 Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!
 
-The health report serves very well as a health check URL if a load balancer needs it.
-
-Be aware that expired/incorrect API credentials will still produce a HTTP 200 OK response, because technically it is a
-fault of configuration that has to be manually corrected.
+The service endpoint serves very well as a health check URL, if your advanced load balancer setup needs it.

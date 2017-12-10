@@ -14,44 +14,41 @@ After chat bot is successfully created, Telegram Messenger will tell you the `Au
 place into the configuration.
 
 ## Configuration
-1. Construct the following JSON object and place it under JSON key `TelegramBot` in configuration file.
-   The following properties are mandatory:
+1. Construct the following JSON object and place it under JSON key `TelegramBot` in configuration file:
 <table>
 <tr>
     <th>Property</th>
     <th>Type</th>
     <th>Meaning</th>
+    <th>Default value</th>
 </tr>
 <tr>
     <td>AuthorizationToken</td>
     <td>string</td>
     <td>Registered bot authorisation token.</td>
+    <td>(This is a mandatory property without a default value)</td>
 </tr>
 <tr>
-    <td>RateLimit</td>
+    <td>PerUserLimit</td>
     <td>integer</td>
-    <td>Maximum number of toolbox commands the chat bot will process in a ten-second interval.</td>
+    <td>Maximum number of toolbox commands a chat may send in a second.</td>
+    <td>2 - good enough for personal use </td>
 </tr>
 </table>
 
 2. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
    JSON key `TelegramFilters`.
 
-Here is an example setup of Telegram:
+Here is an example setup:
 <pre>
 {
     ...
     
     "TelegramBot": {
         "AuthorizationToken": "425712345:ABCDEFGHIJKLMNOPERSTUVWXYZ",
-        "Port": 25
-        "PerIPLimit": 3,
         
         "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
         "MyDomains": ["howard-homepage.net", "howard-blog.org"],
-        
-        "TLSCertPath": "/root/howard-blog.org.crt",
-        "TLSKeyPath": "/root/howard-blog.org.key"
     },
     "TelegramFilters": {
         "PINAndShortcuts": {
@@ -95,5 +92,8 @@ command in a chat message. Wait a short moment, and the command response will be
 Don't forget to put password PIN in front of the toolbox command!
 
 ## Tips
-The chat bot server will not process messages that arrived before the server started, which means, you cannot leave a
-message to the chat bot while server is offline.
+- The chat bot server will not process messages that arrived before the server started, which means, you cannot leave a
+  message to the chat bot while server is offline.
+- If you run multiple instances of laitos, feel free to use identical AuthorizationToken in all of their configuration.
+  Your toolbox command will be processed by all laitos instances simultaneously, and each instance will send its own
+  reply.

@@ -2,13 +2,14 @@
 
 ## Introduction
 The daemon regularly conducts system maintenance to ensure smooth and safe operation of your laitos server:
+- Validate API credentials (Facebook, Twitter, chatbot, etc) used by toolbox commands and HTTP handlers.
 - Install latest security updates.
 - Install/update additional softwares that are useful to laitos' operation.
 - Synchronise system clock.
 - Check network ports.
 - Collect latest network stats and program logs.
 
-At end of each run, your Email address will receive a nicely formatted summary report.
+At end of each run, your will receive a nicely formatted summary report via mail.
 
 It is compatible with the following Linux package managers for security updates and software installation:
 - `apt-get` (Debian, Ubuntu, etc)
@@ -16,44 +17,45 @@ It is compatible with the following Linux package managers for security updates 
 - `zypper` (openSUSE, SLES, SLED, etc)
 
 ## Configuration
-Construct the following JSON object and place it under JSON key `Maintenance` in configuration file. The following
-properties are mandatory:
+Construct the following JSON object and place it under JSON key `Maintenance` in configuration file:
 <table>
 <tr>
     <th>Property</th>
     <th>Type</th>
     <th>Meaning</th>
+    <th>Default value</th>
 </tr>
 <tr>
     <td>IntervalSec</td>
     <td>integer</td>
-    <td>Interval at which system maintenance is run. 43200 (12 hours) is often good enough.</td>
+    <td>Interval at which system maintenance routine runs.</td>
+    <td>86400 - daily maintenance is good enough</td>
 </tr>
 <tr>
     <td>Recipients</td>
     <td>array of strings</td>
     <td>These Email addresses will receive the maintenance summary report.</td>
+    <td>(Not used)</td>
 </tr>
 <tr>
-    <td>TCPPorts</td>
-    <td>array of integers</td>
-    <td>Check the status of these TCP ports during maintenance. It is useful to have all daemon ports (such as HTTP 80, mail 25) here.</td>
-</tr>
+    <td>CheckTCPPorts</td>
+    <td>array of "host:ip" strings</td>
+    <td>Check that these TCP ports are open on their corresponding host during maintenance routine.</tr>
+    <td>(Not used)</td>
 </table>
 
-Here is an example configuration that also checks the port status of mail(25), DNS(53), and HTTP(80, 443) daemons:
+Here is an example configuration that also checks whether mail(25), DNS(53), and HTTP(80, 443) daemons are working:
 <pre>
 {
     ...
 
     "Maintenance": {
-        "IntervalSec": 43200,
         "Recipients": ["howard@gmail.com"],
-        "TCPPorts": [
-            25,
-            53,
-            80,
-            443
+        "CheckTCPPorts": [
+            "localhost:25",
+            "localhost:53",
+            "localhost:80",
+            "localhost:443"
         ]
     },
 
@@ -67,19 +69,18 @@ Tell laitos to run periodic system maintenance in the command line:
     sudo ./laitos -config <CONFIG FILE> -daemons ...,maintenance,...
 
 ## Usage
-System maintenance is run automatically 10 minutes after laitos daemon starts up, and then at regular interval
-(specified in configuration).
+System maintenance is run automatically 10 minutes after laitos daemon starts up, and then at regular interval specified
+in configuration.
 
 Manual action is not required.
 
 ## Tips
-System maintenance does not have to run too often. Running at interval of 12 hours (432000 seconds) or 24 hours
-(864000 seconds) is often good enough.
+System maintenance does not have to run too often. Let it run daily is usually good enough.
 
 The additional softwares installed during maintenance are:
 - Dependencies of PhantomJS, used by [browser-in-browser](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-browser-in-browser)
   and [text-based interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-interactive-web-browser).
   The two features may not function properly until system maintenance has run for the first time.
-- Utilities for synchronising system clock.
-- Zip file tools that are useful for maintaining application bundles for [public cloud](https://github.com/HouzuoGuo/laitos/wiki/Public-cloud).
-- Network diagnosis tools.
+- Clock synchronisation tools.
+- Zip file manipulation tools.
+- Network and system diagnosis tools.
