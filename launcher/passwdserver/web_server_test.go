@@ -46,6 +46,12 @@ func TestWebServer(t *testing.T) {
 	if err != nil || !strings.Contains(string(resp.Body), "Clock") || !strings.Contains(string(resp.Body), "Enter password") {
 		t.Fatal(string(resp.Body))
 	}
+	// Pretend that unlock attempt has been made successfully, the client shall get an OK prompt upon next visit.
+	ws.alreadyUnlocked = true
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, "http://localhost:54396/test-url")
+	if err != nil || string(resp.Body) != "OK" {
+		t.Fatal(string(resp.Body))
+	}
 	// Server should shut down within a second
 	err = ws.Shutdown()
 	time.Sleep(1 * time.Second)

@@ -76,8 +76,10 @@ type WebServer struct {
 	server          *http.Server // server is the HTTP server after it is started.
 	archiveFileSize int          // archiveFileSize is the size of the archive file, it is set when web server starts.
 	ramdiskDir      string       // ramdiskDir is set after archive has been successfully extracted.
-	handlerMutex    *sync.Mutex  // handlerMutex prevents concurrent operations on ramdisk.
-	logger          *misc.Logger
+	handlerMutex    *sync.Mutex  // handlerMutex prevents concurrent unlocking attempts from being made at once.
+	alreadyUnlocked bool         // alreadyUnlocked is set to true after a successful unlocking attempt has been made
+
+	logger *misc.Logger
 }
 
 /*
@@ -87,23 +89,27 @@ configuration and data from the unencrypted (and unpacked) archive.
 */
 func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	ws.handlerMutex.Lock()
+	defer ws.handlerMutex.Unlock()
+	if ws.alreadyUnlocked {
+		// If an unlock attempt has already been successfully carried out, do not allow a second attempt to be made
+		w.Write([]byte("OK"))
+		return
+	}
 	switch r.Method {
 	case http.MethodPost:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
-		ws.handlerMutex.Lock()
 		// Ramdisk size in MB = archive size (unencrypted archive) + archive size (extracted files) + 8 (just in case)
 		var err error
 		ws.ramdiskDir, err = encarchive.MakeRamdisk(ws.archiveFileSize/1048576*2 + 8)
 		if err != nil {
 			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), err.Error())))
-			ws.handlerMutex.Unlock()
 			return
 		}
 		// Create extract temp file inside ramdisk
 		tmpFile, err := ioutil.TempFile(ws.ramdiskDir, "launcher-extract-temp-file")
 		if err != nil {
 			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), err.Error())))
-			ws.handlerMutex.Unlock()
 			return
 		}
 		defer tmpFile.Close()
@@ -117,11 +123,11 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		if err := encarchive.Extract(ws.ArchiveFilePath, tmpFile.Name(), ws.ramdiskDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
 			encarchive.DestroyRamdisk(ws.ramdiskDir)
 			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), err.Error())))
-			ws.handlerMutex.Unlock()
 			return
 		}
 		// Success! Do not unlock handlerMutex anymore because there is no point in visiting this handler again.
 		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), "success")))
+		ws.alreadyUnlocked = true
 		// A short moment later, the function will launch laitos supervisor along with daemons.
 		go ws.LaunchMainProgram()
 		return
