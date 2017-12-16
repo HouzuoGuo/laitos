@@ -27,7 +27,7 @@ func (wa *WolframAlpha) SelfTest() error {
 	// Make a test query to verify AppID and response data structure
 	resp, err := wa.Query(SelfTestTimeoutSec, "pi")
 	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
-		return fmt.Errorf("WolframAlpha.SelfTest: query result error - %v", err.Error())
+		return fmt.Errorf("WolframAlpha.SelfTest: query result error - %v", errResult.Error)
 	}
 	// In case that AppID is incorrect, WolframAlpha will still respond with HTTP OK, only the response gives a clue.
 	lower := strings.ToLower(string(resp.Body))
