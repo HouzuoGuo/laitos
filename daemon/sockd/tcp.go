@@ -10,6 +10,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -66,6 +67,7 @@ type TCPCipherConnection struct {
 	net.Conn
 	*Cipher
 	daemon            *Daemon
+	mutex             sync.Mutex
 	readBuf, writeBuf []byte
 	logger            misc.Logger
 }
@@ -112,6 +114,7 @@ func (conn *TCPCipherConnection) Read(b []byte) (n int, err error) {
 }
 
 func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
+	conn.mutex.Lock()
 	bufSize := len(buf)
 	headerLen := len(buf) - bufSize
 
@@ -138,6 +141,7 @@ func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
 	if n >= headerLen {
 		n -= headerLen
 	}
+	conn.mutex.Unlock()
 	return
 }
 
