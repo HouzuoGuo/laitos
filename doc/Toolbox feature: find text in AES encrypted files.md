@@ -106,9 +106,16 @@ Where:
 The command response will be the plain text lines among which `search-text` is found.
 
 ## Tips
+Generally:
 - Do not use any program but OpenSSL to prepare the encrypted secrets file. laitos only recognises the encrypted file
   format specific to OpenSSL.
-- The OpenSSL command supplied with Cygwin appears to work, but in fact it cannot encrypt file properly. Therefore do
-  not use the OpenSSL command from Cygwin.
 - For safety reasons, the decryption operation is conducted entirely in system memory, therefore make sure that free
   system memory amounts to at least twice the size of all encrypted files combined.
+
+About OpenSSL versions and compatibility:
+- laitos can decrypt files made by OpenSSL version 1.0.x and 1.1.x.
+- Version 1.1.x use SHA256 as default method of message digest, if your computer recently upgraded OpenSSL from version
+  1.0.x to 1.1.x, laitos will continue to function with both old and newly encrypted files. However, if you wish to use
+  command line to manually decrypt an old file after the upgrade, remember to specify parameter `-md md5` in order for
+  OpenSSL to successfully decrypt file content.
+- The OpenSSL version distributed via Cygwin does not function with laitos.
