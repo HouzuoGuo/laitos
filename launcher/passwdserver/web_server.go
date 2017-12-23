@@ -212,7 +212,6 @@ func (ws *WebServer) LaunchMainProgram() {
 		goto fatalExit
 	}
 	// Remove password web server flagsNoExec from CLI flagsNoExec
-	fmt.Println("Flags were", flagsNoExec)
 	flagsNoExec = launcher.RemoveFromFlags(func(s string) bool {
 		return strings.HasPrefix(s, "-"+CLIFlag)
 	}, flagsNoExec)

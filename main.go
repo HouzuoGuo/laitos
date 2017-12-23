@@ -247,7 +247,7 @@ func main() {
 		DumpGoroutinesOnInterrupt()
 	}
 	if disableConflicts {
-		DisableConflictingDaemons()
+		DisableConflicts()
 	}
 	if swapOff {
 		SwapOff()

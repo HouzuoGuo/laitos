@@ -5,11 +5,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
+	"io/ioutil"
 	pseudoRand "math/rand"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	runtimePprof "runtime/pprof"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -65,10 +67,10 @@ func ReseedPseudoRand() {
 	}()
 }
 
-// Stop and disable daemons that may run into port usage conflicts with laitos.
-func DisableConflictingDaemons() {
+// DisableConflicts prevents system daemons from conflicting with laitos, this is usually done by disabling them.
+func DisableConflicts() {
 	if os.Getuid() != 0 {
-		logger.Abort("DisableConflictingDaemons", "", nil, "you must run laitos as root user if you wish to automatically disable conflicting daemons")
+		logger.Abort("DisableConflicts", "", nil, "you must run laitos as root user if you wish to automatically disable system conflicts")
 	}
 	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
 	waitGroup := new(sync.WaitGroup)
@@ -99,11 +101,29 @@ func DisableConflictingDaemons() {
 				time.Sleep(1 * time.Second)
 			}
 			if success {
-				logger.Info("DisableConflictingDaemons", name, nil, "the daemon has been successfully stopped and disabled")
+				logger.Info("DisableConflicts", name, nil, "the daemon has been successfully stopped and disabled")
 			}
 		}(name)
 	}
 	waitGroup.Wait()
+	// Prevent systemd-resolved from interfering with laitos DNS daemon
+	if _, err := misc.InvokeShell(5, "/bin/sh", "systemctl is-active systemd-resolved"); err == nil {
+		/*
+			Tell systemd-resolved to only listen on UDP port, otherwise it listens on TCP 127.0.0.53:53 and laitos DNS
+			daemon will not be able to listen on TCP 0.0.0.0:53.
+		*/
+		if err := EditKeyValue("/etc/systemd/resolved.conf", "DNSStubListener", "udp"); err == nil {
+			if _, err := misc.InvokeShell(5, "/bin/sh", "systemctl restart systemd-resolved"); err == nil {
+				logger.Info("DisableConflicts", "systemd-resolved", nil, "systemd-resolved now only listens on UDP port")
+			} else {
+				logger.Warning("DisableConflicts", "systemd-resolved", nil, "systemd-resolved has been reconfigured but it failed to restart")
+			}
+		} else {
+			logger.Warning("DisableConflicts", "systemd-resolved", err, "failed to edit /etc/systemd/resolved.conf")
+		}
+	} else {
+		logger.Info("DisableConflicts", "systemd-resolved", nil, "will not touch systemd-resolved as it is not active")
+	}
 }
 
 // SwapOff turns off all swap files and partitions for improved system security.
@@ -135,4 +155,30 @@ func SetTermEcho(echo bool) {
 		logger.Warning("SetTermEcho", "", err, "syscall failed")
 		return
 	}
+}
+
+// EditKeyValue modifies or inserts a key=value pair into the specified file.
+func EditKeyValue(filePath, key, value string) error {
+	content, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+	originalLines := strings.Split(string(content), "\n")
+	newLines := make([]string, 0, len(originalLines)+1)
+	var foundKey bool
+	// Look for all instances of the key appearing as line prefix
+	for _, line := range originalLines {
+		if trimmedLine := strings.TrimSpace(line); strings.HasPrefix(trimmedLine, key+"=") || strings.HasPrefix(trimmedLine, key+" ") {
+			// Successfully matched "key = value" or "key=value"
+			foundKey = true
+			newLines = append(newLines, fmt.Sprintf("%s=%s", key, value))
+		} else {
+			// Preserve prefix and suffix spaces
+			newLines = append(newLines, line)
+		}
+	}
+	if !foundKey {
+		newLines = append(newLines, fmt.Sprintf("%s=%s", key, value))
+	}
+	return ioutil.WriteFile(filePath, []byte(strings.Join(newLines, "\n")), 0600)
 }
