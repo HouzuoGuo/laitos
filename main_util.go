@@ -4,6 +4,7 @@ import (
 	cryptoRand "crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	pseudoRand "math/rand"
@@ -108,21 +109,27 @@ func DisableConflicts() {
 	waitGroup.Wait()
 	// Prevent systemd-resolved from interfering with laitos DNS daemon
 	if _, err := misc.InvokeShell(5, "/bin/sh", "systemctl is-active systemd-resolved"); err == nil {
-		/*
-			Tell systemd-resolved to only listen on UDP port, otherwise it listens on TCP 127.0.0.53:53 and laitos DNS
-			daemon will not be able to listen on TCP 0.0.0.0:53.
-		*/
-		if err := EditKeyValue("/etc/systemd/resolved.conf", "DNSStubListener", "udp"); err == nil {
-			if _, err := misc.InvokeShell(5, "/bin/sh", "systemctl restart systemd-resolved"); err == nil {
-				logger.Info("DisableConflicts", "systemd-resolved", nil, "systemd-resolved now only listens on UDP port")
-			} else {
-				logger.Warning("DisableConflicts", "systemd-resolved", nil, "systemd-resolved has been reconfigured but it failed to restart")
+		// Distributions that use systemd-resolved usually makes resolv.conf a symbol link to an automatically generated file
+		os.RemoveAll("/etc/resolv.conf")
+		// Overwrite its content with a sane set of servers used as default forwarders in DNS daemon
+		newContent := "options rotate timeout:3 attempts:3\n"
+		for _, serverPort := range dnsd.DefaultForwarders {
+			newContent += "nameserver " + strings.TrimSuffix(serverPort, ":53") + "\n"
+		}
+		if err := ioutil.WriteFile("/etc/resolv.conf", []byte(newContent), 0644); err == nil {
+			logger.Info("DisableConflicts", "systemd-resolved", nil, "/etc/resolv.conf has been overwritten with new content")
+			// Completely disable systemd-resolved
+			if _, err := misc.InvokeShell(5, "/bin/sh", "systemctl stop systemd-resolved"); err != nil {
+				logger.Warning("DisableConflicts", "systemd-resolved", err, "failed to stop the interfering daemon")
+			}
+			if _, err := misc.InvokeShell(5, "/bin/sh", "systemctl mask systemd-resolved"); err != nil {
+				logger.Warning("DisableConflicts", "systemd-resolved", err, "failed to mask the interfering daemon")
 			}
 		} else {
-			logger.Warning("DisableConflicts", "systemd-resolved", err, "failed to edit /etc/systemd/resolved.conf")
+			logger.Warning("DisableConflicts", "systemd-resolved", nil, "failed to overwrite /etc/resolv.conf, name resolution may malfunction!")
 		}
 	} else {
-		logger.Info("DisableConflicts", "systemd-resolved", nil, "will not touch systemd-resolved as it is not active")
+		logger.Info("DisableConflicts", "systemd-resolved", nil, "will not touch name resolution settings as resolved is not active")
 	}
 }
 
