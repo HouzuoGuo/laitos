@@ -102,7 +102,7 @@ func (daemon *Daemon) runPortsCheck() error {
 			continue
 		}
 		for _, port := range ports {
-			if port == 25 && inet.IsGCE() {
+			if port == 25 && (inet.IsGCE() || inet.IsAzure()) {
 				daemon.logger.Info("runPortsCheck", "", nil, "because Google cloud forbids connection to port 25, port check will skip %s:25", host)
 				continue
 			}

@@ -1,6 +1,7 @@
 package inet
 
 import (
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,10 @@ var (
 	// isGCE is true only if IsGCE function has determined that the program is running on Google compute engine.
 	isGCE     bool
 	isGCEOnce = new(sync.Once)
+
+	// isAzure is true only if IsAzure function has determined that the program is running on Microsoft Azure.
+	isAzure     bool
+	isAzureOnce = new(sync.Once)
 )
 
 // IsGCE returns true only if the program is running on Google compute engine (or Google cloud platform, same thing).
@@ -26,6 +31,19 @@ func IsGCE() bool {
 		}
 	})
 	return isGCE
+}
+
+// IsAzure returns true only if the program is running on Microsoft Azure virtual machine.
+func IsAzure() bool {
+	isAzureOnce.Do(func() {
+		content, err := ioutil.ReadFile("/var/lib/dhcp/dhclient.eth0.leases")
+		if err == nil {
+			if strings.Contains(string(content), "unknown-245") {
+				isAzure = true
+			}
+		}
+	})
+	return isAzure
 }
 
 /*
