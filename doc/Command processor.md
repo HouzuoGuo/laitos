@@ -10,8 +10,8 @@ The following daemon components have an embedded command processor to let users 
 - Web service [Microsoft bot hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Microsoft-bot-hook)
 
 To use toolbox feature via a daemon, the following events take place:
-1. Input a command. For example, web server collects input in an HTML form, and mail server collects input from incoming
-   mail content.
+1. Input a command. For example, HTML form submission collected via web server, and mail content including a command
+   reaches to mail server.
 2. Filter command through `PINAndShortcuts` mechanism - match access password (PIN) and translate shortcut entries.
 3. Filter it further through `TranslateSequences` mechanism - replace sequence of characters by another sequence.
 4. Execute toolbox feature identified by the `prefix` name, and give the parameters to the toolbox feature as context.

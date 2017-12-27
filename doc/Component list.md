@@ -7,144 +7,158 @@ laitos components go into two categories:
 - Toolbox - access to email, post to Twitter/Facebook, etc.
 - Daemons - web server, mail server, and chat bots. Daemons grant access to all toolbox features.
 
-TODO: Make some screenshots.
-
 ## Daemons
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Usage</th>
+    </tr>
+    <tr>
+        <td>DNS server</td>
+        <td>DNS server automatically and blocks advertising and malware domains for a safer web experience.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Mail server</td>
+        <td>Mail server forwards arriving mails to your personal email address.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Telegram messenger chat-bot</td>
+        <td>Chat-bot provides access to all toolbox features via secure infrastructure provided by Telegram Messenger.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Plain-text sockets</td>
+        <td>The socket servers provide unencrypted access to all toolbox features via TCP and UDP that are accessible via basic tools such HyperTerminal.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-plain-text-sockets" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>System maintenance</td>
+        <td>Periodic maintenance patches the system for security updates, and checks for environment and program health.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Web server</td>
+        <td>Host a static personal website made of text and media files, along with rich web services (see below).</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server" target="_blank">Link</a></td>
+    </tr>
+</table>
 
-### DNS server
-DNS server automatically retrieves ad-domain list, and blocks the domains for an ad-free web experience.
-It supports DNS-over-TCP as well as UDP.
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server)
+#### Rich web services
+The following services are hosted by web server and enabled on your demand:
 
-### Mail server
-Mail server forwards arriving mails to your personal email address. It uses TLS certificate for communication secrecy.
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Usage</th>
+    </tr>
+    <tr>
+        <td>GitLab browser</td>
+        <td>List and download files from your Git projects.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-GitLab-browser" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Toolbox command form</td>
+        <td>Run toolbox commands via a web form.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Program health report</td>
+        <td>Display program stats and environment info in a comprehensive report.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-health-report" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Simple web proxy</td>
+        <td>Let laitos download web page and send to your browser.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-simple-proxy" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Browser-in-browser</td>
+        <td>Hand you control over a remote browser app that runs on laitos server.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-browser-in-browser" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Twilio telephone/SMS hook</td>
+        <td>Run toolbox commands on telephone, SMS, satellite terminals via Twilio platform (telephone and SMS programming).d>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Microsoft bot hook</td>
+        <td>Run toolbox commands on Skype and Cortana via Microsoft Bot Framework.d>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Microsoft-bot-hook" target="_blank">Link</a></td>
+    </tr>
+</table>
 
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server)
-
-### Telegram messenger chat-bot
-Chat-bot provides access to all toolbox features via secure infrastructure provided by Telegram Messenger LLP.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot)
-
-### Plain-text sockets
-The socket servers provide unencrypted access to all toolbox features via TCP and UDP that are accessible via basic
-tools such as `telnet`, `netcat`, and `HyperTerminal`.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-plain-text-sockets)
-
-### System maintenance
-Periodic maintenance patches the system for security updates, and checks for environment and program health.
-
-The results are presented in a report sent to your email address.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
-
-### Web server
-Web server hosts a static personal website made of HTML files, media, and other assets.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server)
-
-### Web service - GitLab browser
-GitLab browser lists project files and downloads them by specifying file path.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-GitLab-browser)
-
-### Web service - toolbox features form.
-The form offers access to all toolbox features.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form)
-
-### Web service - program health report
-Gather program information and conduct a comprehensive program health check, the results are presented in a text report.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-health-report)
-
-### Web service - simple proxy
-A basic proxy downloads web pages for your on server-side. It however does not provide additional security or anonymity.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-simple-proxy)
-
-### Web service - browser-in-browser
-The browser renders web sites on the server and sends back screenshots, enabling you to browse modern Internet using
-nostalgic technologies such as IE 5 on Windows 98.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-browser-in-browser)
-
-### Web service - Twilio telephone/SMS hook
-Triggered by [Twilio](https://www.twilio.com) (API platform for programming telephone and SMS), the web hook enables
-access to all toolbox features via ordinary telephone, SMS, and even satellite terminals.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
-
-### Web service - Microsoft bot hook
-Triggered by [Microsoft Bot Framework](https://dev.botframework.com/), the web hook enables access to all toolbox
-features via several bot channels such as Skype and Cortana.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Microsoft-bot-hook)
 
 ## Toolbox features
-
-### Social network - Facebook
-Post updates to Facebook time-line.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Facebook)
-
-### Social network - Twitter
-Read and post tweets.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Twitter)
-
-### Social network - reading emails
-Read mails from personal email addresses.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-emails)
-
-### Social network - sending emails
-Send mails to friends.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-emails)
-
-### Making calls and send SMS
-Send text to friend's phone number, or call a friend to speak a short message.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-making-calls-and-send-SMS)
-
-### Contact information of public institutions
-Look up contact details (phone number and email address) of public institutions such as search-and-rescue organisations.
-
-[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-public-institution-contacts)
-
-### Utility - two factor authentication code generator
-Generate two-factor authentication code for secure website login.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-two-factor-authentication-code-generator)
-
-### Utility - interactive web browser
-Browse modern websites interactively via a text oriented routine.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser)
-
-### Utility - WolframAlpha
-Ask about weather and all sorts of questions on WolframAlpha - the computational knowledge engine.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-WolframAlpha)
-
-### Utility - find text in AES-encrypted files
-Decrypt AES-encrypted files (e.g. password book) and search for keywords among the content.
-
-[Configuration and usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-find-text-in-AES-encrypted-files)
-
-### System operation - run commands
-Run operating system commands (shell commands) on Linux and Unix operating systems.
-
-This feature is always available and does not require configuration.
-
-[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-run-system-commands)
-
-### System operation - inspect and control server environment
-Retrieve server environment information such as IP address, memory usage, log entries, and more.
-
-This feature is always available and does not require configuration.
-
-[Usage](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-and-control-server-environment)
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Usage</th>
+    </tr>
+    <tr>
+        <td>Use Facebook</td>
+        <td>Post updates to Facebook time-line.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Facebook" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Use Twitter</td>
+        <td>Read and post tweets.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Twitter" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Use WolframAlpha</td>
+        <td>Ask about weather and all sorts of questions on WolframAlpha - the computational knowledge engine.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-WolframAlpha" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Web browser</td>
+        <td>Take control over a fully feature web browser via text commands.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Read Emails</td>
+        <td>List and read personal Emails from popular services such as Hotmail and Gmail.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-emails" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Send Emails</td>
+        <td>Send Emails to friends, and send SOS emails in situations of distress.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-emails" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Make calls and send SMS</td>
+        <td>Send text to friend's phone number, or call a friend to speak a short message.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-making-calls-and-send-SMS" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Public contacts</td>
+        <td>Look up contact information from several public institutions.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-public-institution-contacts" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>2FA code generator</td>
+        <td>Generate two-factor authentication codes for .</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-two-factor-authentication-code-generator" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Password book</td>
+        <td>Decrypt AES-encrypted files (e.g. password book) and search for keywords among the content.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-find-text-in-AES-encrypted-files" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Run system commands</td>
+        <td>Run Linux/Unix shell commands on laitos host.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-run-system-commands" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Program control</td>
+        <td>Retrieve laitos server environment information and control program state.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-and-control-server-environment" target="_blank">Link</a></td>
+    </tr>
+</table>
