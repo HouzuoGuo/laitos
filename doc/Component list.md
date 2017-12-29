@@ -143,7 +143,7 @@ The following services are hosted by web server and enabled on your demand:
     </tr>
     <tr>
         <td>2FA code generator</td>
-        <td>Generate two-factor authentication codes for .</td>
+        <td>Generate two-factor authentication codes.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-two-factor-authentication-code-generator" target="_blank">Link</a></td>
     </tr>
     <tr>
