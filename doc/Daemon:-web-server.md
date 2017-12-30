@@ -5,7 +5,7 @@ The web server hosts a static personal website that consists of:
 - A home page in an HTML file.
 - Media files and other assets in directories.
 
-Additionally, specialised web services such as [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
+Additionally, specialised web services such as [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook)
 are also hosted by the web server.
 
 ## Configuration

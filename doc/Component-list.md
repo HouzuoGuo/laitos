@@ -69,7 +69,7 @@ The following services are hosted by web server and enabled on your demand:
     <tr>
         <td>Program health report</td>
         <td>Display program stats and environment info in a comprehensive report.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-health-report" target="_blank">Link</a></td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-program-health-report" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Simple web proxy</td>
@@ -84,7 +84,7 @@ The following services are hosted by web server and enabled on your demand:
     <tr>
         <td>Twilio telephone/SMS hook</td>
         <td>Run toolbox commands on telephone, SMS, satellite terminals via Twilio platform (telephone and SMS programming).d>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio" target="_blank">Link</a></td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Microsoft bot hook</td>

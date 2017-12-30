@@ -6,7 +6,7 @@ The following daemon components have an embedded command processor to let users 
 - [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot)
 - [Plain-text sockets](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-plain-text-sockets)
 - Web service [invoke toolbox features in a form](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form)
-- Web service [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
+- Web service [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook)
 - Web service [Microsoft bot hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Microsoft-bot-hook)
 
 To use toolbox feature via a daemon, the following events take place:
@@ -115,7 +115,7 @@ to construct configuration for sending Email responses.
 ## Configuration example
 Here is an example configuration for [web server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server),
 used by both [HTML toolbox form](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form)
-and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio):
+and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook):
 
 <pre>
 {
@@ -226,12 +226,12 @@ Regarding password PIN:
   avoid setting rate limit too high or password may be prone to brute-force attack.
 - Incorrect password entry does not result in an Email notification, however,
   the attempts are logged in warnings and can be inspected via [environment inspection](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-and-control-server-environment)
-  or [health report](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-health-report).
+  or [program health report](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-program-health-report).
 
 Regarding toolbox usage via SMS/telephone:
 - Telephone and mobile networks are prone to attacks, they can eavesdrop your password PIN and toolbox feature
   conversations easily. Use them only as a last resort.
-- The [Twilio SMS/telephone hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-telephone-and-SMS-hook-with-Twilio)
+- The [Twilio SMS/telephone hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook)
   runs in the web server daemon, therefore the corresponding command processor configuration is in JSON key `HTTPFilters`.
   Check out the feature's manual for techniques of command entry via telephone number pad.
 - To avoid a high SMS bill, consider turning on all `LintText` flags to compact SMS replies,
