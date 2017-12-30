@@ -11,7 +11,7 @@ fun ways such as telephone call, SMS, Telegram/Skype chat, and even satellite te
 
 ## Highlights
 
-- <strong>Powerful</strong> - HTTP, SMTP, and DNS servers are readily available for your web server. 
+- <strong>Powerful</strong> - HTTP, SMTP, and DNS servers are readily available for your web server.
 - <strong>Fun</strong> - access mails and social networks via telephone, SMS, chat bots, and satellites.
 - <strong>Hyped by Buzzwords</strong> - certified to run in any container, as well as PaaS, IaaS, *aaS.
 - <strong>Efficient</strong> - consume as little as 36MB of memory and 12MB of disk.

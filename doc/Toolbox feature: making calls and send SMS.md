@@ -58,7 +58,7 @@ Here is an example:
               "AuthToken": "689781347878abcdefg895897892342",
               "PhoneNumber": "+4915123456789"
             },
-        
+
         ...
     },
 

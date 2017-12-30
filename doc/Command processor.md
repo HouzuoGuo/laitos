@@ -95,7 +95,7 @@ Mandatory `LintText` - compact and clean command result:
 </tr>
 </table>
 
-Optional `NotifyViaEmail` - send notification Email for the command input and result: 
+Optional `NotifyViaEmail` - send notification Email for the command input and result:
 <table>
 <tr>
     <th>Property</th>
@@ -146,7 +146,7 @@ and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-ser
             "Recipients": ["howard@gmail.com", "howard@hotmail.com"]
         }
     },
-     
+
     ...
 }
 </pre>

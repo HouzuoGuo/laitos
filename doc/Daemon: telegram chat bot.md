@@ -43,10 +43,10 @@ Here is an example setup:
 <pre>
 {
     ...
-    
+
     "TelegramBot": {
         "AuthorizationToken": "425712345:ABCDEFGHIJKLMNOPERSTUVWXYZ",
-        
+
         "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
         "MyDomains": ["howard-homepage.net", "howard-blog.org"],
     },
@@ -75,7 +75,7 @@ Here is an example setup:
             "Recipients": ["howard@gmail.com"]
         }
     },
-    
+
     ...
 }
 </pre>

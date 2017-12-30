@@ -9,7 +9,7 @@ site looks while navigating around. Only one website can be browsed at a time.
 
 ## Configuration
 Under JSON object `Features`, construct a JSON object called `Browser` and its inner object `Browsers` that has the
-following mandatory properties: 
+following mandatory properties:
 <table>
 <tr>
     <th>Property</th>
@@ -87,7 +87,7 @@ To interact with keyboard on the page:
 - Press the Enter key via `.benter`
 - Press the Backspace key via `.bbacksp`
 - Enter arbitrary text into current element via `.be this is text`
-- Set current element value (such as text box value) via `.bval this is new value` 
+- Set current element value (such as text box value) via `.bval this is new value`
 
 For example, to conduct a Google search:
 1. Go to google: `.bg google.com`

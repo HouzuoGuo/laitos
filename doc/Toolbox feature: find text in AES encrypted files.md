@@ -32,7 +32,7 @@ Repeat the procedure for as many files as you wish.s
 
 ## Configuration
 Under JSON object `Features`, construct a JSON object called `AESDecrypt` that has an inner object called
-`EncryptedFiles`. Each key of the inner object is a "shortcut word" that may not include space, later the shortcut word 
+`EncryptedFiles`. Each key of the inner object is a "shortcut word" that may not include space, later the shortcut word
 will be specified in command usage; value of the shortcut word key must come with the following mandatory properties:
 <table>
 <tr>

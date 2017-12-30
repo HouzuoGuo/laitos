@@ -51,7 +51,7 @@ Here is a minimal setup example:
 <pre>
 {
     ...
-    
+
     "PlainSocketDaemon": {
         "TCPPort": 53,
         "UDPPort": 53
@@ -81,7 +81,7 @@ Here is a minimal setup example:
             "Recipients": ["howard@gmail.com"]
         }
     },
-    
+
     ...
 }
 </pre>

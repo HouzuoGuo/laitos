@@ -35,7 +35,7 @@ Construct the following JSON object and place it under JSON key `HTTPDaemon` in 
     <td>
         Maximum number of visits a visitor (identified by IP) may make in a second.
         <br/>
-        The number acts as a multiplier in initialising rate limit of file, directory, and web service access. 
+        The number acts as a multiplier in initialising rate limit of file, directory, and web service access.
     </td>
     <td> 5 - resonable for a personal website</td>
 </tr>
@@ -105,12 +105,12 @@ Here is an example setup that hosts a home page and media files:
     },
     "HTTPHandlers": {
         ...
-        
+
         "IndexEndpointConfig": {
             "HTMLFilePath": "index.html"
         },
         "IndexEndpoints": ["/", "/index.html"],
-        
+
         ...
     },
 
@@ -194,13 +194,13 @@ Use a web browser to visit laitos web server on your domain name, pay special at
 1. The home page HTML is slightly processed in this way:
     - `#LAITOS_CLIENTADDR` is substituted to visitor's IP address.
     - `#LAITOS_3339TIME` is substituted to current system date and time.
-    
+
     For example, the following HTML snippet:
-    
+
         <p>Welcome, visitor! Your IP is #LAITOS_CLIENTADDR and the time is now #LAITOS_3339TIME.</p>
-    
+
     Will be rendered as (IP and time are examples):
-    
+
         <p>Welcome, visitor! Your IP is 41.156.72.9 and the time is now 2017-08-22T15:04:05Z07:00</p>
 2. When you access specialised web services via the plain HTTP daemon, your will be warned about this usage of
    unencrypted HTTP connection. The warning comes in an authentication dialog that accepts any username password input.

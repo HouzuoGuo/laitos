@@ -38,7 +38,7 @@ Here is an example:
         "WolframAlpha": {
             "AppID": "XXXXXX-1234567890"
         },
-        
+
         ...
     },
 
@@ -51,7 +51,7 @@ Use any capable laitos daemon to run the following toolbox command:
 
     .w this is a question for wolfram alpha to solve
 
-A short moment later, WolframAlpha's answer will appear in the response. 
+A short moment later, WolframAlpha's answer will appear in the response.
 
 ## Tips
 The application you created with WolframAlpha is for non-commercial use. As of 2017-11-07, you may use WolframAlpha for

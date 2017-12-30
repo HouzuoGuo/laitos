@@ -50,7 +50,7 @@ Here is an example for using [SendGrid](https://sendgrid.com/) to send outgoing 
 <pre>
 {
     ...
-    
+
     "MailClient": {
         "AuthPassword": "SG.aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz",
         "AuthUsername": "apikey",
@@ -58,7 +58,7 @@ Here is an example for using [SendGrid](https://sendgrid.com/) to send outgoing 
         "MTAPort": 2525,
         "MailFrom": "i@howard.gg"
     },
-    
+
     ...
 }
 </pre>

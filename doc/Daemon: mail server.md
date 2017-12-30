@@ -93,15 +93,15 @@ Here is a minimal setup example that enables TLS as well:
 <pre>
 {
     ...
-    
+
     "MailDaemon": {
         "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
         "MyDomains": ["howard-homepage.net", "howard-blog.org"],
-        
+
         "TLSCertPath": "/root/howard-blog.org.crt",
         "TLSKeyPath": "/root/howard-blog.org.key"
     },
-     
+
     ...
 }
 </pre>
@@ -118,15 +118,15 @@ Here is a minimal setup example that comes enables command processor:
 <pre>
 {
     ...
-    
+
     "MailDaemon": {
         "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
         "MyDomains": ["howard-homepage.net", "howard-blog.org"],
-        
+
         "TLSCertPath": "/root/howard-blog.org.crt",
         "TLSKeyPath": "/root/howard-blog.org.key"
     },
-    
+
     "MailFilters": {
         "PINAndShortcuts": {
             "PIN": "VerySecretPassword",
@@ -152,7 +152,7 @@ Here is a minimal setup example that comes enables command processor:
             "Recipients": ["howard@gmail.com"]
         }
     },
-     
+
     ...
 }
 </pre>

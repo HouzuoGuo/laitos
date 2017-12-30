@@ -7,7 +7,7 @@ laitos uses IMAP to communicate with your Email accounts, and it enforces usage 
 
 ## Configuration
 Under JSON object `Features`, construct a JSON object called `IMAPAccounts` that has an object `Accounts`.
- 
+
 Give each of your accounts a nick name (such as "personal", "work"), then create an object for each account in
 `Accounts`. The object must have the following properties:
 <table>

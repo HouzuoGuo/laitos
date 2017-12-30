@@ -68,11 +68,11 @@ crash occurs, the recipients may be specified in JSON configuration:
 
     {
       ...
-      
+
       "SupervisorNotificationRecipients": [
         "server-owner@hotmail.com"
       ],
-      
+
       ...
     }
 

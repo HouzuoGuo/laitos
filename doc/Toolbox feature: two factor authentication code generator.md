@@ -113,7 +113,7 @@ The output will contain three sequences of digits:
 
 The first sequence is the previous code from 30 seconds ago; the middle code is the current code to use for sign-in; and
 the last code is for 30 seconds into future. Use the middle code to sign-in to your Internet account right away.
- 
+
 ## Tips
 - If your Internet account settings only reveals barcode and cannot reveal text secret, then unfortunately it cannot be
   used with laitos.

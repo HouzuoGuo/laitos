@@ -4,7 +4,7 @@
 Via any of enabled laitos daemons, you may send Emails to friends and anyone online.
 
 ## Configuration
-This toolbox feature uses 
+This toolbox feature uses
 
 Complete the common outgoing mail configuration, and this feature will be automatically enabled.
 
@@ -40,7 +40,7 @@ Here is an example:
         "SendMail": {
             "SOSPersonalInfo": "This is Howard born of 1900-01-01 and lives in Greenland."
         },
-        
+
         ...
     },
 

@@ -100,7 +100,7 @@ To use keyboard:
 
 Additionally, "Backspace" button discards a character, and "Enter" button sends an enter key to web page.
 
-While using the browser, you must regularly click "Redraw" button to view the latest rendered page. 
+While using the browser, you must regularly click "Redraw" button to view the latest rendered page.
 
 ## Tips
 Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!

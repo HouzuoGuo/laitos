@@ -13,7 +13,7 @@ Use any capable laitos daemon to run the following toolbox command:
     .e <action>
 
 Where action can be:
-- `info` - Get program status such as current clock, memory usage, load, etc. 
+- `info` - Get program status such as current clock, memory usage, load, etc.
 - `log` - Get latest log entries of all kinds - information and warnings.
 - `warn` - Get latest warning log entries.
 - `stack` - Get the latest stack traces.

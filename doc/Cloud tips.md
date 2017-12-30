@@ -13,7 +13,7 @@ computer starts up. Create a service file `/etc/systemd/system/laitos.service` a
     [Unit]
     Description=laitos - web server infrastructure
     After=network.target
-    
+
     [Service]
     ExecStart=/root/laitos/laitos -config /root/laitos/config.json -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,sockd,telegram
     User=root
@@ -22,7 +22,7 @@ computer starts up. Create a service file `/etc/systemd/system/laitos.service` a
     PrivateTmp=true
     RestartSec=10
     Restart=always
-    
+
     [Install]
     WantedBy=multi-user.target
 
@@ -30,9 +30,16 @@ Make sure to alter the paths in `ExecStart` and `WorkingDirectory` according to 
 laitos program (e.g. `/root/laitos/laitos`) and its data directory (e.g. `/root/laitos`) in a location accessible only
 by superuser `root`.
 
+After the service file is in place, run these commands as root user:
+
+    # systemctl daemon-reload    (Re-read all service files, including the new one)
+    # systemctl enable laitos    (Remember to start laitos when system boots up)
+    # systemctl start laitos     (tell systemd to start laitos immediately)
+
 ## Deploy on Amazon Web Service
-In classic scenarios, simply copy laitos program and its data onto an EC2 instance and start laitos right away. All
-flavours of Linux distributions supported by EC2 can run laitos.
+In ordinary scenarios, simply copy laitos program and its data onto an EC2 instance and start laitos right away. It is
+often useful to use systemd integration to launch laitos automatically upon system boot. All flavours of Linux
+distributions supported by EC2 can run laitos.
 
 For a fancier setup, Amazon Web Service offers Platform-as-a-Service called "ElasticBeanstalk" that deploys application
 (laitos) on automatically managed EC2 instances. Here are some tips for using laitos on ElasticBeanstalk:
@@ -41,13 +48,13 @@ For a fancier setup, Amazon Web Service offers Platform-as-a-Service called "Ela
 - ElasticBeanstalk always expects their application to serve a web server on port 5000, otherwise it will consider
   an application (laitos) to be malfunctioning. If your laitos configuration has already set up web server, you must
   start `insecurehttpd` that will automatically listen on port 5000 when it detects ElasticBeanstalk environment.
-  ElasticBeanstalk system will then proxy Internet traffic on port 80 to laitos `insecurehttpd` on port 5000.
-- If your configuration does not set up a web server, please set one up just for ElasticBeanstalk, or use the classic
-  deployment scenarios.
+  ElasticBeanstalk system will then serve (proxy) Internet visitors on port 80 using laitos web server on port 5000.
+- If your configuration does not set up a web server, please set one up just for ElasticBeanstalk, or use the ordinary
+  deployment method.
 - ElasticBeanstalk application is packed into a zip file called "application bundle", that typically contains:
 
-      Procfile                       (launch command)
-      .ebextensions/options.config   (user workaround)
+      Procfile                       (launch command line text)
+      .ebextensions/options.config   (workaround - launch laitos as root)
 
       laitos       (program executable)
       config.json  (configuration file)
@@ -64,7 +71,7 @@ For a fancier setup, Amazon Web Service offers Platform-as-a-Service called "Ela
 - `.ebextensions/options.config` alters operating system configuration in order to launch laitos as user root.
   Otherwise ElasticBeanstalk launches program using an unprivileged user that will cause laitos to malfunction.
   The file shall contain the following content:
-  
+
       ---
       commands:
         0_run_as_root:
@@ -75,8 +82,19 @@ For a fancier setup, Amazon Web Service offers Platform-as-a-Service called "Ela
 
 - Remember to adjust firewall (security group) to open ports for all services (e.g. DNS, SMTP, HTTPS) served by laitos.
 
-## Deploy on Microsoft Azure
+## Deploy on Microsoft Azure and Google Compute Engine
+Simply copy laitos program and its data onto a Linux virtual machine and start laitos right away. It is often useful to
+use systemd integration to launch laitos automatically upon system boot. All flavours of Linux distributions supported
+by Azure can run laitos.
 
-## Deploy on Google Compute Engine
+Be aware that both Azure and GCE block virtual machines from _outgoing_ connections to port 25, that means while laitos
+will be perfectly capable of receiving mails, it will not be able to forward them to you; therefore, for laitos outgoing
+mail configuration, please sign up for a dedicated mail delivery service such as [sendgrid](https://sendgrid.com/)
+that accepts connection to a port different from 25. Sendgrid accepts incoming connection on port 2525.
 
 ## Deploy on other cloud providers
+laitos runs on nearly all flavours of Linux system, therefore as long as your cloud provider supports Linux compute
+instance, you can be almost certain that it will run laitos smoothly and well.
+
+Beyond AWS, Azure, and GCE, the author of laitos has also successfully deployed it on generic KVM virtual machine,
+OpenStack, Linode, and several cheap hosting services advertised on [lowendbox.com](https://lowendbox.com/).

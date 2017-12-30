@@ -47,13 +47,13 @@ Here is an example:
 
     "HTTPHandlers": {
         ...
-        
+
         "MicrosoftBotEndpoint1": "/very-secret-microsoft-bot-hook",
         "MicrosoftBotEndpointConfig1": {
             "ClientAppID": "abcde-fghijkl-mnopqrs-xyz012",
             "ClientAppSecret": "b54xni73chmixdd9as3288"
         },
-        
+
         ...
     },
 

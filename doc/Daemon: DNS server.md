@@ -62,7 +62,7 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
     <td>PerIPLimit</td>
     <td>integer</td>
     <td>
-        Maximum number of queries a client (identified by IP) may make in a second. 
+        Maximum number of queries a client (identified by IP) may make in a second.
         <br/>
         Each computer/phone usually uses less than 20.
     </td>
@@ -75,11 +75,11 @@ Here is a minimal setup example:
 <pre>
 {
     ...
-    
+
     "DNSDaemon": {
         "AllowQueryIPPrefixes": ["195", "35.196", "35.158.249.12"]
     },
-     
+
     ...
 }
 </pre>
