@@ -63,8 +63,11 @@ for smoother deployment experience.
 ### Supervisor
 laitos uses a built-in supervisor mechanism to restart main program in the unlikely event of crash. If under extremely
 rare cirsumstanses laitos crashes more than once in quick succession (20 minutes), the supervisor will restart main
-program using reduced number of components. Optionally, the supervisor can send server owner a notification mail when a
-crash occurs, the recipients may be specified in JSON configuration:
+program using reduced number of components.
+
+Optionally, the supervisor can send server owner a notification mail when a crash occurs. To enable the notification,
+follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) and then
+specify recipients in program JSON configuration:
 
     {
       ...

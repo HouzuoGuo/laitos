@@ -17,7 +17,7 @@ It is compatible with the following Linux package managers for security updates 
 - `zypper` (openSUSE, SLES, SLED, etc)
 
 ## Configuration
-Construct the following JSON object and place it under JSON key `Maintenance` in configuration file:
+1. Construct the following JSON object and place it under JSON key `Maintenance` in configuration file:
 <table>
 <tr>
     <th>Property</th>
@@ -43,6 +43,7 @@ Construct the following JSON object and place it under JSON key `Maintenance` in
     <td>Check that these TCP ports are open on their corresponding host during maintenance routine.</tr>
     <td>(Not used)</td>
 </table>
+2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).
 
 Here is an example configuration that also checks whether mail(25), DNS(53), and HTTP(80, 443) daemons are working:
 <pre>

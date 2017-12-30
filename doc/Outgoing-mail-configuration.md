@@ -7,9 +7,10 @@ A shared outgoing mail configuration must be created, in order for the following
 - Web service: [GitLab browser](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-GitLab-browser)
 - `NotifyViaEmail` of [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) together with daemons that embed command processor.
 - Toolbox feature: [sending emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-emails).
+- Program [supervisor](https://github.com/HouzuoGuo/laitos/wiki/Get-started#supervisor)
 
 ## Configuration
-Construct the following object under JSON key `MailClient`, all properties are mandatory:
+Construct the following object under JSON key `MailClient`:
 
 <table>
 <tr>

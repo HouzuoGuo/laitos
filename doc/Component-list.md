@@ -134,7 +134,7 @@ The following services are hosted by web server and enabled on your demand:
     <tr>
         <td>Make calls and send SMS</td>
         <td>Send text to friend's phone number, or call a friend to speak a short message.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-making-calls-and-send-SMS" target="_blank">Link</a></td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-make-calls-and-send-SMS" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Public contacts</td>
