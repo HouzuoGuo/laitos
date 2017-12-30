@@ -14,7 +14,7 @@ Via any of enabled laitos daemons, you may leave a voice message to friends and 
 4. Visit [phone numbers](https://www.twilio.com/console/phone-numbers/incoming) and note down the phone number including
    country code. Later this number will be used to dial calls and send SMS.
 
-If you have or plan to use [web service hook for Twilio telephone and SMS](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook),
+If you have or plan to use [web service hook for Twilio telephone and SMS](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-make-calls-and-send-SMS),
 feel free to share the Twilio account and phone number with the web service as well.
 
 ## Configuration

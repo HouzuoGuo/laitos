@@ -40,8 +40,9 @@ It is compatible with the following Linux package managers for security updates 
 <tr>
     <td>CheckTCPPorts</td>
     <td>array of "host:ip" strings</td>
-    <td>Check that these TCP ports are open on their corresponding host during maintenance routine.</tr>
+    <td>Check that these TCP ports are open on their corresponding host during maintenance routine.</td>
     <td>(Not used)</td>
+</tr>
 </table>
 2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).
 
@@ -80,7 +81,7 @@ System maintenance does not have to run too often. Let it run daily is usually g
 
 The additional softwares installed during maintenance are:
 - Dependencies of PhantomJS, used by [browser-in-browser](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-browser-in-browser)
-  and [text-based interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox:-interactive-web-browser).
+  and [text-based interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser).
   The two features may not function properly until system maintenance has run for the first time.
 - Clock synchronisation tools.
 - Zip file manipulation tools.
