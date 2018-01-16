@@ -14,7 +14,7 @@ func TestMailer_Send(t *testing.T) {
 	// Hopefully nobody buys the domain name to mess with this test
 	m.MTAHost = "waundnvbeuunixnfvncueiawnxzvkjdd.rich"
 	m.MTAPort = 25
-	if err := m.Send("laitos mailer test subject", "test body", m.MailFrom); err == nil {
+	if err := m.Send("laitos mail client test subject", "test body", m.MailFrom); err == nil {
 		t.Fatal("did not error")
 	}
 	if err := m.SelfTest(); err == nil {
@@ -25,12 +25,22 @@ func TestMailer_Send(t *testing.T) {
 	if _, err := net.Dial("tcp", "localhost:25"); err == nil {
 		m.MTAHost = "localhost"
 		m.MTAPort = 25
-		if err := m.Send("laitos mailer test subject", "test body", m.MailFrom); err != nil {
+		if err := m.Send("laitos mail client test subject", "test body", m.MailFrom); err != nil {
 			t.Fatal(err)
 		}
-		rawBody := "From: FromAddr@localhost\r\nTo: ToAddr@localhost\r\nSubject: laitos mailer test raw subject\r\n\r\nrawBody"
+		if err := m.Send("laitos mail client test subject", "test body", "does-not-exist@localhost"); err == nil {
+			t.Fatal("did not error")
+		} else {
+			t.Log("Send to non-existent recipient: ", err)
+		}
+		rawBody := "From: FromAddr@localhost\r\nTo: ToAddr@localhost\r\nSubject: laitos mail client test raw subject\r\n\r\nraw body"
 		if err := m.SendRaw("howard@localhost", []byte(rawBody), "howard@localhost"); err != nil {
 			t.Fatal(err)
+		}
+		if err := m.SendRaw("howard@localhost", []byte(rawBody), "does-not-exist@localhost"); err == nil {
+			t.Fatal("did not error")
+		} else {
+			t.Log("Send to non-existent recipient: ", err)
 		}
 		t.Log("Check howard@localhost mail box")
 		if err := m.SelfTest(); err != nil {
