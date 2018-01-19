@@ -14,9 +14,6 @@ func TestMailer_Send(t *testing.T) {
 	// Hopefully nobody buys the domain name to mess with this test
 	m.MTAHost = "waundnvbeuunixnfvncueiawnxzvkjdd.rich"
 	m.MTAPort = 25
-	if err := m.Send("laitos mail client test subject", "test body", m.MailFrom); err == nil {
-		t.Fatal("did not error")
-	}
 	if err := m.SelfTest(); err == nil {
 		t.Fatal("did not error")
 	}
