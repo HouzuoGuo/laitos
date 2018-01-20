@@ -27,6 +27,7 @@ such as the forwarding-mail-to-program mechanism from postfix.
 type CommandRunner struct {
 	Undocumented1   Undocumented1            `json:"Undocumented1"` // Intentionally undocumented he he he he
 	Undocumented2   Undocumented2            `json:"Undocumented2"` // Intentionally undocumented he he he he
+	Undocumented3   Undocumented3            `json:"Undocumented3"` // Intentionally undocumented he he he he
 	Processor       *common.CommandProcessor `json:"-"`             // Feature configuration
 	ReplyMailClient inet.MailClient          `json:"-"`             // To deliver Email replies
 
@@ -129,17 +130,24 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 		commandIsProcessed = true
 		// Normally the result should be sent as Email reply, but there are undocumented scenarios.
 		if runner.Undocumented1.MayReplyTo(prop) {
-			if undoc1Err := runner.Undocumented1.SendMessage(result.CombinedOutput); undoc1Err == nil {
+			if undocErr := runner.Undocumented1.SendMessage(result.CombinedOutput); undocErr == nil {
 				return false, nil
 			} else {
-				return false, undoc1Err
+				return false, undocErr
 			}
 		}
 		if runner.Undocumented2.MayReplyTo(prop) {
-			if undoc1Err := runner.Undocumented2.SendMessage(result.CombinedOutput); undoc1Err == nil {
+			if undocErr := runner.Undocumented2.SendMessage(result.CombinedOutput); undocErr == nil {
 				return false, nil
 			} else {
-				return false, undoc1Err
+				return false, undocErr
+			}
+		}
+		if runner.Undocumented3.MayReplyTo(prop) {
+			if undocErr := runner.Undocumented3.SendMessage(result.CombinedOutput); undocErr == nil {
+				return false, nil
+			} else {
+				return false, undocErr
 			}
 		}
 		// The Email address suffix did not satisfy undocumented scenario, so send the result as a normal Email reply.
@@ -162,9 +170,14 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 	return nil
 }
 
-var TestUndocumented1Message = ""             // Content is set by init_mail_test.go
-var TestWolframAlpha = toolbox.WolframAlpha{} // Details are set by init_mail_test.go
-var TestUndocumented2Message = ""             // Content is set by init_mail_test.go
+var (
+	// The content of the following variables are set by init_mailcmd_test.go
+
+	TestUndocumented1Message = ""
+	TestWolframAlpha         = toolbox.WolframAlpha{}
+	TestUndocumented2Message = ""
+	TestUndocumented3Message = ""
+)
 
 // Run unit tests on mail processor. See TestMailProcessor_Process for processor setup.
 func TestCommandRunner(runner *CommandRunner, t testingstub.T) {

@@ -86,3 +86,31 @@ func TestMailProcessor_Process_Undocumented2Reply(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestMailProcessor_Process_Undocumented3Reply(t *testing.T) {
+	if TestUndocumented3Message == "" {
+		t.Skip()
+	}
+	runner := CommandRunner{
+		ReplyMailClient: inet.MailClient{
+			MTAHost:  "127.0.0.1",
+			MTAPort:  25,
+			MailFrom: "howard@localhost",
+		},
+		Undocumented3: TestUndocumented3,
+	}
+	// Prepare a good processor
+	runner.Processor = common.GetTestCommandProcessor()
+	runner.Processor.Features.WolframAlpha = TestWolframAlpha
+	runner.Processor.Features.LookupByTrigger[TestWolframAlpha.Trigger()] = &TestWolframAlpha
+	if err := runner.Process([]byte(TestUndocumented3Message)); err != nil {
+		t.Fatal(err)
+	}
+	// Real MTA is required for the self test
+	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
+		t.Skip("there is no mta running on 127.0.0.1")
+	}
+	if err := runner.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -3,6 +3,7 @@ package mailcmd
 import (
 	"errors"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/browser"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 	"strings"
 )
 
-const Undocumented1HTTPTimeoutSec = 30
+const UndocumentedHTTPTimeoutSec = 30
 
 // (GA - DE - IR) Intentionally undocumented he he he.
 type Undocumented1 struct {
@@ -32,7 +33,7 @@ func (und *Undocumented1) SelfTest() error {
 		return toolbox.ErrIncompleteConfig
 	}
 	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: toolbox.SelfTestTimeoutSec}, und.URL)
-	// Only consider IO error and 404 response to be actual errors
+	// Only consider IO error and 404 response to be actual errors. Other status codes most likely result from incomplete request.
 	if err != nil {
 		return err
 	} else if resp.StatusCode == http.StatusNotFound {
@@ -56,7 +57,7 @@ func (und *Undocumented1) SendMessage(message string) error {
 	}
 
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
-		TimeoutSec: Undocumented1HTTPTimeoutSec,
+		TimeoutSec: UndocumentedHTTPTimeoutSec,
 		Method:     http.MethodPost,
 		Body: strings.NewReader(url.Values{
 			"MessageId":    {und.MessageID},
@@ -66,7 +67,7 @@ func (und *Undocumented1) SendMessage(message string) error {
 		}.Encode()),
 		RequestFunc: func(req *http.Request) error {
 			req.Header.Set("X-Requested-With", "XMLHttpRequest")
-			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36")
+			req.Header.Set("User-Agent", browser.GoodUserAgent)
 			return nil
 		},
 	}, und.URL)
