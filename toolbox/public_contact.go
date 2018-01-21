@@ -52,11 +52,14 @@ var SARContacts = []SARContact{
 	{"GR", "JRCC", "+302104112500", "jrccpgr@yen.gr"},
 	// http://www.raja.fi/contact/contact
 	{"FI", "MRCC", "+3582941000", "mrcc@raja.fi"},
-	// https://www.inmarsat.com/services/safety/maritime-rescue-co-ordination-centres/
-	{"CN", "MRCC", "+861065292221", "cnmrcc@mot.gov.cn"},
-	{"IL", "MRCC", "+97248632145", "rcc@mot.gov.il"},
 	// http://www.smrcc.ru/
 	{"RU", "MRCC", "+74956261052", "odsmrcc@morflot.ru"},
+	// https://www.inmarsat.com/services/safety/maritime-rescue-co-ordination-centres/
+	{"CN", "MRCC", "+861065292221", "cnmrcc@mot.gov.cn"},
+	{"IL", "RCC", "+97248632145", "rcc@mot.gov.il"},
+	{"NO", "JRCC", "+4751517000", "operations@jrcc-stavanger.no"},
+	{"KR", "MRCC", "+82328352594", "mrcckorea@korea.kr"},
+	{"US", "ACC", "+17573986700", "lantwatch@uscg.mil"},
 }
 
 // GetAllSAREmails returns all SAR institution Email addresses.
@@ -109,6 +112,10 @@ func (cs *PublicContact) Execute(cmd Command) *Result {
 	// Return all entries if there is no search term, therefore do not return the error.
 	if err := cmd.Trim(); err != nil {
 		return &Result{Error: nil, Output: strings.Join(cs.textRecords, "\n")}
+	}
+	// Do not allow search term to be excessively long to avoid a potential
+	if len(cmd.Content) > 128 {
+		cmd.Content = cmd.Content[:128]
 	}
 	// Look for the search term among contact information lines
 	for i := len(cmd.Content); i > 1; i-- {

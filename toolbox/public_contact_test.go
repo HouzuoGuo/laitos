@@ -55,9 +55,12 @@ func TestGetAllSAREmails(t *testing.T) {
 		"op@kaiho.mlit.go.jp",
 		"jrccpgr@yen.gr",
 		"mrcc@raja.fi",
+		"odsmrcc@morflot.ru",
 		"cnmrcc@mot.gov.cn",
 		"rcc@mot.gov.il",
-		"odsmrcc@morflot.ru",
+		"operations@jrcc-stavanger.no",
+		"mrcckorea@korea.kr",
+		"lantwatch@uscg.mil",
 	}
 	if ret := GetAllSAREmails(); !reflect.DeepEqual(ret, mails) {
 		t.Fatal(ret)
