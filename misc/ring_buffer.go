@@ -11,7 +11,7 @@ type RingBuffer struct {
 	buf     []string
 }
 
-// Pre-allocate string buffer of the specified size and initialise ring buffer.
+// NewRingBuffer initialises a new string ring buffer by pre-allocating its internals.
 func NewRingBuffer(size int64) *RingBuffer {
 	if size < 1 {
 		panic("NewRingBuffer: size must be greater than 0")
@@ -22,10 +22,18 @@ func NewRingBuffer(size int64) *RingBuffer {
 	}
 }
 
-// Add a new element into ring buffer.
+// Push places a new element into ring buffer.
 func (r *RingBuffer) Push(elem string) {
 	elemIndex := atomic.AddInt64(&r.counter, 1)
 	r.buf[elemIndex%r.size] = elem
+}
+
+/*
+Clear sets all buffered elements to empty string, consequently GetAll function will return an empty string array
+indicating there's no element.
+*/
+func (r *RingBuffer) Clear() {
+	r.buf = make([]string, r.size)
 }
 
 /*

@@ -26,4 +26,13 @@ func TestRingBuffer_Push(t *testing.T) {
 	if !reflect.DeepEqual(r.GetAll(), []string{"2", "3"}) {
 		t.Fatal(r.GetAll())
 	}
+
+	r.Clear()
+	if !reflect.DeepEqual(r.GetAll(), []string{}) {
+		t.Fatal(r.GetAll())
+	}
+	r.Push("a")
+	if !reflect.DeepEqual(r.GetAll(), []string{"a"}) {
+		t.Fatal(r.GetAll())
+	}
 }

@@ -21,6 +21,9 @@ const (
 		temporarily alter execution timeout. PLT stands for "position, length, timeout".
 	*/
 	PrefixCommandPLT = ".plt"
+
+	// TestCommandProcessorPIN is the PIN secret used in test command processor, as returned by GetTestCommandProcessor.
+	TestCommandProcessorPIN = "verysecret"
 )
 
 // ErrBadPrefix is a command execution error triggered if the command does not contain a valid toolbox feature trigger.
@@ -241,14 +244,17 @@ result:
 
 // Return a realistic command processor for test cases. The only feature made available and initialised is shell execution.
 func GetTestCommandProcessor() *CommandProcessor {
-	// Prepare feature set - the shell execution feature should be available even without configuration
+	/*
+		Prepare feature set - certain simple features such as shell commands and environment control will be available
+		right away without configuration.
+	*/
 	features := &toolbox.FeatureSet{}
 	if err := features.Initialise(); err != nil {
 		panic(err)
 	}
 	// Prepare realistic command bridges
 	commandBridges := []filter.CommandFilter{
-		&filter.PINAndShortcuts{PIN: "verysecret"},
+		&filter.PINAndShortcuts{PIN: TestCommandProcessorPIN},
 		&filter.TranslateSequences{Sequences: [][]string{{"alpha", "beta"}}},
 	}
 	// Prepare realistic result bridges

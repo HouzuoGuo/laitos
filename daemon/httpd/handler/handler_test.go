@@ -10,4 +10,4 @@ func TestXMLEscape(t *testing.T) {
 	}
 }
 
-// API handlers are tested in httpd_test.go
+// API handler tests are written in httpd.go and run in httpd_test.go
