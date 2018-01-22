@@ -344,6 +344,17 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body))
 	}
+	// Notifications - setup page
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/notif")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	// Notifications - retrieve results
+	time.Sleep(time.Duration(httpd.HandlerCollection["/notif"].(*handler.HandleNotification).Timers["channel2"].IntervalSec+1) * time.Second) // give timer commands a moment to trigger
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/notif?retrieve=channel2")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "this is channel2") {
+		t.Fatal(err, string(resp.Body))
+	}
 	// Proxy (visit https://github.com)
 	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/proxy?u=https%%3A%%2F%%2Fgithub.com")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "github") || !strings.Contains(string(resp.Body), "laitos_rewrite_url") {

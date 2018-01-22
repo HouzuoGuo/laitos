@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"strconv"
@@ -40,10 +41,17 @@ type CommandTimer struct {
 }
 
 // Initialise prepares internal states of a new CommandTimer.
-func (timer *CommandTimer) Initialise() {
+func (timer *CommandTimer) Initialise() error {
+	if timer.IntervalSec < 1 {
+		return fmt.Errorf("CommandTimer.Initialise: IntervalSec must be greater than 0")
+	}
+	if timer.MaxResults < 1 {
+		return fmt.Errorf("CommandTimer.Initialise: MaxResults must be greater than 0")
+	}
 	timer.results = misc.NewRingBuffer(int64(timer.MaxResults))
 	timer.transientCommands = make([]string, 0, 10)
 	timer.stop = make(chan struct{})
+	return nil
 }
 
 /*
@@ -110,6 +118,7 @@ func (timer *CommandTimer) Start() {
 		return
 	}
 	timer.mutex.Unlock()
+	misc.DefaultLogger.Info("CommandTimer.Start", strconv.Itoa(timer.IntervalSec), nil, "timer has started")
 	for {
 		timer.running = true
 		select {

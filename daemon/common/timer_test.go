@@ -2,19 +2,25 @@ package common
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestCommandTimer(t *testing.T) {
-	timer := CommandTimer{
-		CommandProcessor: GetTestCommandProcessor(),
-		PreConfiguredCommands: []string{
-			TestCommandProcessorPIN + ".s echo first",
-			TestCommandProcessorPIN + ".s echo second",
-		},
-		IntervalSec: 1, // run all commands at 1 second interval
-		MaxResults:  4, // retain 4 results
+	timer := CommandTimer{}
+	if err := timer.Initialise(); !strings.Contains(err.Error(), "IntervalSec") {
+		t.Fatal(err)
+	}
+	timer.IntervalSec = 1
+	if err := timer.Initialise(); !strings.Contains(err.Error(), "MaxResults") {
+		t.Fatal(err)
+	}
+	timer.MaxResults = 4
+	timer.CommandProcessor = GetTestCommandProcessor()
+	timer.PreConfiguredCommands = []string{
+		TestCommandProcessorPIN + ".s echo first",
+		TestCommandProcessorPIN + ".s echo second",
 	}
 	timer.Initialise()
 

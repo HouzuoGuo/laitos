@@ -61,6 +61,9 @@ type HTTPHandlers struct {
 	MicrosoftBotEndpoint3       string                     `json:"MicrosoftBotEndpoint3"`
 	MicrosoftBotEndpointConfig3 handler.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig3"`
 
+	NotificationEndpoint       string                     `json:"NotificationEndpoint"`
+	NotificationEndpointConfig handler.HandleNotification `json:"NotificationEndpointConfig"`
+
 	WebProxyEndpoint string `json:"WebProxyEndpoint"`
 
 	TwilioSMSEndpoint        string                       `json:"TwilioSMSEndpoint"`
@@ -277,6 +280,9 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		if config.HTTPHandlers.MicrosoftBotEndpoint3 != "" {
 			hand := config.HTTPHandlers.MicrosoftBotEndpointConfig3
 			handlers[config.HTTPHandlers.MicrosoftBotEndpoint3] = &hand
+		}
+		if config.HTTPHandlers.NotificationEndpoint != "" {
+			handlers[config.HTTPHandlers.NotificationEndpoint] = &config.HTTPHandlers.NotificationEndpointConfig
 		}
 		if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
 			handlers[proxyEndpoint] = &handler.HandleWebProxy{OwnEndpoint: proxyEndpoint}
