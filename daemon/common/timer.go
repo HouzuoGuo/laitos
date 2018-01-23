@@ -48,6 +48,9 @@ func (timer *CommandTimer) Initialise() error {
 	if timer.MaxResults < 1 {
 		return fmt.Errorf("CommandTimer.Initialise: MaxResults must be greater than 0")
 	}
+	if timer.PreConfiguredCommands == nil {
+		timer.PreConfiguredCommands = []string{}
+	}
 	timer.results = misc.NewRingBuffer(int64(timer.MaxResults))
 	timer.transientCommands = make([]string, 0, 10)
 	timer.stop = make(chan struct{})
