@@ -498,10 +498,8 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	}
 }
 
-// Run unit test on HTTP daemon. See TestHTTPD_StartAndBlock for daemon setup.
-func TestHTTPD(httpd *Daemon, t testingstub.T) {
-	// Create a temporary directory of file
-	// Caller is supposed to set up the handler on /my/dir
+// PrepareForTestHTTPD sets up a directory and HTML file to be hosted by HTTPD during tests. Returns a tear-down function that removes the created files.
+func PrepareForTestHTTPD(t testingstub.T) func() {
 	htmlDir := "/tmp/test-laitos-dir"
 	if err := os.MkdirAll(htmlDir, 0755); err != nil {
 		t.Fatal(err)
@@ -509,6 +507,15 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 	if err := ioutil.WriteFile(htmlDir+"/a.html", []byte("a html"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	return func() {
+		os.RemoveAll(htmlDir)
+	}
+}
+
+// Run unit test on HTTP daemon. See TestHTTPD_StartAndBlock for daemon setup.
+func TestHTTPD(httpd *Daemon, t testingstub.T) {
+	tearDown := PrepareForTestHTTPD(t)
+	defer tearDown()
 
 	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
 

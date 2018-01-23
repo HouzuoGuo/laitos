@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"testing"
 	"time"
 )
@@ -10,6 +11,9 @@ func TestBenchmark(t *testing.T) {
 	if err := config.DeserialiseFromJSON([]byte(sampleConfigJSON)); err != nil {
 		t.Fatal(err)
 	}
+
+	tearDown := httpd.PrepareForTestHTTPD(t)
+	defer tearDown()
 
 	// Start benchmark daemons on rather arbitrary ports
 	go func() {
