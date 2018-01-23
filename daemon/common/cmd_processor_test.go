@@ -34,7 +34,7 @@ func TestCommandProcessorProcess(t *testing.T) {
 
 	// Try mismatching PIN so that command bridge return early
 	cmd := toolbox.Command{TimeoutSec: 5, Content: "badpin.secho alpha"}
-	result := proc.Process(cmd)
+	result := proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ""}) ||
 		result.Error != filter.ErrPINAndShortcutNotFound || result.Output != "" ||
 		result.CombinedOutput != filter.ErrPINAndShortcutNotFound.Error()[0:2] {
@@ -43,7 +43,7 @@ func TestCommandProcessorProcess(t *testing.T) {
 
 	// Run a failing command
 	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin.secho alpha && false"}
-	result = proc.Process(cmd)
+	result = proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".secho beta && false"}) ||
 		result.Error == nil || result.Output != "beta\n" || result.CombinedOutput != result.Error.Error()[0:2] {
 		t.Fatalf("%+v", result)
@@ -51,7 +51,7 @@ func TestCommandProcessorProcess(t *testing.T) {
 
 	// Run a command that does not trigger a configured feature
 	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin.tg"}
-	result = proc.Process(cmd)
+	result = proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".tg"}) ||
 		result.Error != ErrBadPrefix || result.Output != "" || result.CombinedOutput != ErrBadPrefix.Error()[0:2] {
 		t.Fatalf("%+v", result)
@@ -59,14 +59,14 @@ func TestCommandProcessorProcess(t *testing.T) {
 
 	// Run a successful command
 	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin.secho alpha"}
-	result = proc.Process(cmd)
+	result = proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".secho beta"}) ||
 		result.Error != nil || result.Output != "beta\n" || result.CombinedOutput != "be" {
 		t.Fatalf("%+v", result)
 	}
 	// Test the tolerance to extra spaces in feature prefix matcher
 	cmd = toolbox.Command{TimeoutSec: 5, Content: " mypin .s echo alpha "}
-	result = proc.Process(cmd)
+	result = proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".s echo beta"}) ||
 		result.Error != nil || result.Output != "beta\n" || result.CombinedOutput != "be" {
 		t.Fatalf("%+v", result)
@@ -74,14 +74,14 @@ func TestCommandProcessorProcess(t *testing.T) {
 
 	// Override PLT but PLT parameter values are not given
 	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin  .plt   sadf asdf "}
-	result = proc.Process(cmd)
+	result = proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ""}) ||
 		result.Error != ErrBadPLT || result.Output != "" || result.CombinedOutput != ErrBadPLT.Error()[0:2] {
 		t.Fatalf("%v | %v | %v |%+v", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
 	// Override PLT using good PLT parameter values
 	cmd = toolbox.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 4  .s  sleep 2 && echo -n 0123456789 "}
-	result = proc.Process(cmd)
+	result = proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 4, Content: "  .s  sleep 2 && echo -n 0123456789"}) ||
 		result.Error != nil || result.Output != "0123456789" || result.CombinedOutput != "23456" {
 		t.Fatalf("%v | %v | %v | %+v", result.Error, result.Output, result.CombinedOutput, result.Command)
@@ -90,7 +90,7 @@ func TestCommandProcessorProcess(t *testing.T) {
 	// Trigger emergency lock down and try
 	misc.TriggerEmergencyLockDown()
 	cmd = toolbox.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 3  .s  sleep 2 && echo -n 0123456789 "}
-	if result := proc.Process(cmd); result.Error != misc.ErrEmergencyLockDown {
+	if result := proc.Process(cmd, true); result.Error != misc.ErrEmergencyLockDown {
 		t.Fatal(result)
 	}
 	misc.EmergencyLockDown = false
@@ -182,8 +182,8 @@ func TestConcealedLogMessages(t *testing.T) {
 	if err := proc.Features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	proc.Process(toolbox.Command{Content: "verysecret .a does not matter", TimeoutSec: 10})
-	proc.Process(toolbox.Command{Content: "verysecret .2 does not matter", TimeoutSec: 10})
+	proc.Process(toolbox.Command{Content: "verysecret .a does not matter", TimeoutSec: 10}, true)
+	proc.Process(toolbox.Command{Content: "verysecret .2 does not matter", TimeoutSec: 10}, true)
 	t.Log("Please observe <hidden due to AESDecryptTrigger or TwoFATrigger> from log output, otherwise consider this test is failed")
 }
 
@@ -193,7 +193,7 @@ func TestGetEmptyCommandProcessor(t *testing.T) {
 		t.Fatal(testErr)
 	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
 		t.Fatal(saneErrs)
-	} else if result := proc.Process(toolbox.Command{Content: "verysecret .elog", TimeoutSec: 10}); result.Error == nil {
+	} else if result := proc.Process(toolbox.Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error == nil {
 		t.Fatal("did not error")
 	}
 }

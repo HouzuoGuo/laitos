@@ -154,7 +154,7 @@ func (bot *Daemon) ProcessMessages(updates APIUpdates) {
 		}
 		// Find and run command in background
 		go func(ding APIUpdate, beginTimeNano int64) {
-			result := bot.Processor.Process(toolbox.Command{TimeoutSec: CommandTimeoutSec, Content: ding.Message.Text})
+			result := bot.Processor.Process(toolbox.Command{TimeoutSec: CommandTimeoutSec, Content: ding.Message.Text}, true)
 			if err := bot.ReplyTo(ding.Message.Chat.ID, result.CombinedOutput); err != nil {
 				bot.logger.Warning("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
 			}

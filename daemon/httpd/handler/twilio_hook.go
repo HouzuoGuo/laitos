@@ -83,7 +83,7 @@ func (hand *HandleTwilioSMSHook) Handle(w http.ResponseWriter, r *http.Request) 
 	ret := hand.cmdProc.Process(toolbox.Command{
 		TimeoutSec: TwilioHandlerTimeoutSec,
 		Content:    r.FormValue("Body"),
-	})
+	}, true)
 	// Generate normal XML response
 	w.Write([]byte(fmt.Sprintf(xml.Header+`
 <Response><Message><![CDATA[%s]]></Message></Response>
@@ -205,7 +205,7 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
 	ret := hand.cmdProc.Process(toolbox.Command{
 		TimeoutSec: TwilioHandlerTimeoutSec,
 		Content:    DTMFDecode(dtmfInput),
-	})
+	}, true)
 	combinedOutput := ret.CombinedOutput
 	if phoneticSpelling {
 		combinedOutput = SpellPhonetically(combinedOutput)

@@ -56,7 +56,7 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 			result := form.cmdProc.Process(toolbox.Command{
 				Content:    cmd,
 				TimeoutSec: CommandFormTimeoutSec,
-			})
+			}, true)
 			w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, html.EscapeString(result.CombinedOutput))))
 		}
 	}

@@ -117,7 +117,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 		result := runner.Processor.Process(toolbox.Command{
 			Content:    string(body),
 			TimeoutSec: CommandTimeoutSec,
-		})
+		}, true)
 		// If this part does not have a PIN/shortcut match, simply move on to the next part.
 		if result.Error == filter.ErrPINAndShortcutNotFound {
 			// Move on, do not return error.

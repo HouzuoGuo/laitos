@@ -73,7 +73,7 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 			return
 		}
 		// Process line of command and respond
-		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec})
+		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec}, true)
 		clientConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		clientConn.Write([]byte(result.CombinedOutput))
 		clientConn.Write([]byte("\r\n"))

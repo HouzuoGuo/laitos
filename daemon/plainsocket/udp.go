@@ -91,7 +91,7 @@ func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAd
 			return
 		}
 		// Process line of command and respond
-		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec})
+		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec}, true)
 		daemon.udpListener.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		if _, err := daemon.udpListener.WriteToUDP([]byte(result.CombinedOutput), clientAddr); err != nil {
 			daemon.logger.Warning("HandleUDPConnection", clientIP, err, "failed to write response")

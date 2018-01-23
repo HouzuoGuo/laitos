@@ -190,7 +190,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Process feature command from incoming chat text
-		result := hand.cmdProc.Process(toolbox.Command{TimeoutSec: MicrosoftBotCommandTimeoutSec, Content: incoming.Text})
+		result := hand.cmdProc.Process(toolbox.Command{TimeoutSec: MicrosoftBotCommandTimeoutSec, Content: incoming.Text}, true)
 
 		// Most of the reply properties are directly copied from incoming request
 		var reply MicrosoftBotReply

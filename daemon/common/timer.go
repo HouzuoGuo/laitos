@@ -88,10 +88,11 @@ func (timer *CommandTimer) runAllCommands() {
 	//	Access to the commands array is not protected by mutex since no other function modifies it
 	if timer.PreConfiguredCommands != nil {
 		for _, cmd := range timer.PreConfiguredCommands {
+			// Skip result filters that may send notifications or manipulate result in other means
 			timer.results.Push(timer.CommandProcessor.Process(toolbox.Command{
 				TimeoutSec: TimerCommandTimeoutSec,
 				Content:    cmd,
-			}).CombinedOutput)
+			}, false).CombinedOutput)
 		}
 	}
 	// Make a copy of the latest transient commands to run
@@ -101,10 +102,11 @@ func (timer *CommandTimer) runAllCommands() {
 	timer.mutex.Unlock()
 	// Run transient commands one after another
 	for _, cmd := range transientCommands {
+		// Skip result filters that may send notifications or manipulate result in other means
 		timer.results.Push(timer.CommandProcessor.Process(toolbox.Command{
 			TimeoutSec: TimerCommandTimeoutSec,
 			Content:    cmd,
-		}).CombinedOutput)
+		}, false).CombinedOutput)
 	}
 }
 

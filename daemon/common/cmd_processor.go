@@ -125,7 +125,7 @@ filters to the execution result and return.
 A special content prefix called "PLT prefix" alters filter settings to temporarily override timeout and max.length
 settings, and it may optionally discard a number of characters from the beginning.
 */
-func (proc *CommandProcessor) Process(cmd toolbox.Command) (ret *toolbox.Result) {
+func (proc *CommandProcessor) Process(cmd toolbox.Command, runResultFilters bool) (ret *toolbox.Result) {
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
@@ -230,13 +230,15 @@ result:
 	*/
 	ret.Command.Content = logCommandContent
 	// Walk through result bridges
-	for _, resultBridge := range proc.ResultFilters {
-		// LintText bridge may have been manipulated by override
-		if _, isLintText := resultBridge.(*filter.LintText); isLintText && hasOverrideLintText {
-			resultBridge = &overrideLintText
-		}
-		if err := resultBridge.Transform(ret); err != nil {
-			return &toolbox.Result{Command: ret.Command, Error: bridgeErr}
+	if runResultFilters {
+		for _, resultBridge := range proc.ResultFilters {
+			// LintText bridge may have been manipulated by override
+			if _, isLintText := resultBridge.(*filter.LintText); isLintText && hasOverrideLintText {
+				resultBridge = &overrideLintText
+			}
+			if err := resultBridge.Transform(ret); err != nil {
+				return &toolbox.Result{Command: ret.Command, Error: bridgeErr}
+			}
 		}
 	}
 	return
