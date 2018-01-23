@@ -106,12 +106,15 @@ sendMailWithRetry collects addresses of the MTA host via DNS lookup, and tries t
 randomly selected MTA IP for up to 12 times within couple of days. The function blocks caller until it has exhausted
 all delivery attempts.
 */
-func (client *MailClient) sendMailWithRetry(auth smtp.Auth, from string, recipients []string, message []byte) {
+func (client *MailClient) sendMailWithRetry(from string, recipients []string, message []byte) {
+	var auth smtp.Auth
+
 	CommonMailLogger.Info("sendMailWithRetry", from, nil, "attempting to deliver mail to %v", recipients)
 	// Retry mail delivery up to couple of days, introduce a random initial delay to avoid triggering MTA's rate limit.
 	sleep := time.Duration(30+rand.Intn(30)) * time.Second
 	for i := 0; i < 12; i++ {
 		var smtpClient *smtp.Client
+		var mtaIP string
 		var tlsErr error
 
 		// Find the latest set of IP addresses belonging to the MTA
@@ -121,7 +124,11 @@ func (client *MailClient) sendMailWithRetry(auth smtp.Auth, from string, recipie
 			goto sleepAndRetry
 		}
 		// Try connecting to one of the MTA's IP addresses to deliver the mail
-		smtpClient, tlsErr, err = dialMTA(mtaIPs[i%len(mtaIPs)].IP.String(), client.MTAHost, client.MTAPort)
+		mtaIP = mtaIPs[i%len(mtaIPs)].IP.String()
+		if client.AuthUsername != "" {
+			auth = smtp.PlainAuth("", client.AuthUsername, client.AuthPassword, mtaIP)
+		}
+		smtpClient, tlsErr, err = dialMTA(mtaIP, client.MTAHost, client.MTAPort)
 		if err != nil {
 			goto sleepAndRetry
 		}
@@ -134,7 +141,7 @@ func (client *MailClient) sendMailWithRetry(auth smtp.Auth, from string, recipie
 		smtpClient.Close()
 		return
 	sleepAndRetry:
-		CommonMailLogger.Warning("sendMailWithRetry", from, err, "failed to deliver mail to %v in the latest attempt (tls error? %v)", recipients, tlsErr)
+		CommonMailLogger.Warning("sendMailWithRetry", from, err, "failed to deliver mail to %v in the attempt %d (tls error? %v)", recipients, i, tlsErr)
 		time.Sleep(sleep)
 		sleep = sleep * 2
 	}
@@ -146,14 +153,10 @@ func (client *MailClient) Send(subject string, textBody string, recipients ...st
 	if recipients == nil || len(recipients) == 0 {
 		return fmt.Errorf("no recipient specified for mail \"%s\"", subject)
 	}
-	var auth smtp.Auth
-	if client.AuthUsername != "" {
-		auth = smtp.PlainAuth("", client.AuthUsername, client.AuthPassword, client.MTAHost)
-	}
 	// Construct appropriate mail headers
 	mailBody := fmt.Sprintf("MIME-Version: 1.0\r\nContent-type: text/plain; charset=utf-8\r\nFrom: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
 		client.MailFrom, strings.Join(recipients, ", "), subject, textBody)
-	go client.sendMailWithRetry(auth, client.MailFrom, recipients, []byte(mailBody))
+	go client.sendMailWithRetry(client.MailFrom, recipients, []byte(mailBody))
 	return nil
 }
 
@@ -162,11 +165,7 @@ func (client *MailClient) SendRaw(fromAddr string, rawMailBody []byte, recipient
 	if recipients == nil || len(recipients) == 0 {
 		return fmt.Errorf("no recipient specified for mail from \"%s\"", fromAddr)
 	}
-	var auth smtp.Auth
-	if client.AuthUsername != "" {
-		auth = smtp.PlainAuth("", client.AuthUsername, client.AuthPassword, client.MTAHost)
-	}
-	go client.sendMailWithRetry(auth, client.MailFrom, recipients, rawMailBody)
+	go client.sendMailWithRetry(client.MailFrom, recipients, rawMailBody)
 	return nil
 }
 

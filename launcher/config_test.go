@@ -95,12 +95,12 @@ var sampleConfigJSON = `
 	"NotificationEndpointConfig": {
 		"Timers": {
 			"channel1": {
-				"PreConfiguredCommands": ["verysecret.s this is channel1"],
+				"PreConfiguredCommands": ["verysecret.s echo this is channel1"],
 				"IntervalSec": 1,
 				"MaxResults": 4
 			},
 			"channel2": {
-				"PreConfiguredCommands": ["verysecret.s this is channel2"],
+				"PreConfiguredCommands": ["verysecret.s echo this is channel2"],
 				"IntervalSec": 1,
 				"MaxResults": 4
 			}
