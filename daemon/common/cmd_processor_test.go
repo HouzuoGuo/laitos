@@ -168,7 +168,7 @@ func TestGetTestCommandProcessor(t *testing.T) {
 		t.Fatal(testErr)
 	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
 		t.Fatal(saneErrs)
-	} else if result := proc.Process(toolbox.Command{Content: "verysecret .elog", TimeoutSec: 10}); result.Error != nil {
+	} else if result := proc.Process(toolbox.Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error != nil {
 		t.Fatal(result.Error)
 	}
 }
