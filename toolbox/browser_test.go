@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/browser"
 	"github.com/HouzuoGuo/laitos/misc"
-	"os"
-	"path"
 	"runtime"
 	"strings"
 	"testing"
@@ -16,6 +14,8 @@ func TestBrowser_Execute(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
+	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
+	misc.PrepareUtilities(misc.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
 	bro := Browser{}
@@ -23,9 +23,8 @@ func TestBrowser_Execute(t *testing.T) {
 		t.Fatal("should not be configured")
 	}
 	bro.Renderers = &browser.Instances{
-		PhantomJSExecPath: path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/phantomjs-2.1.1-linux-x86_64"),
-		MaxLifetimeSec:    60,
-		BasePortNumber:    60122,
+		MaxLifetimeSec: 60,
+		BasePortNumber: 60122,
 	}
 	if !bro.IsConfigured() {
 		t.Fatal("should be configured")

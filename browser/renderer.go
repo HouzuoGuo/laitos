@@ -485,7 +485,10 @@ func (instance *Instance) Start() error {
 	} else if err := serverJS.Close(); err != nil {
 		return fmt.Errorf("Instance.Start: failed to write PhantomJS server code - %v", err)
 	}
-	// Start server process
+	/*
+		    Start PhantomJS process, but be aware of an interesting detail:
+			Usually the user will specify PhantomJS executable path with a relative or absolute path, in which case the
+	*/
 	instance.jsProcCmd = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
 	instance.jsProcCmd.Stdout = instance.jsDebugOutput
 	instance.jsProcCmd.Stderr = instance.jsDebugOutput
@@ -525,7 +528,7 @@ func (instance *Instance) Start() error {
 	}
 	if !portIsOpen {
 		instance.Kill()
-		return errors.New("Instance.Start: port is not listening after multiple atempts")
+		return errors.New("Instance.Start: port is not listening after multiple attempts")
 	}
 	return nil
 }

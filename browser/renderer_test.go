@@ -4,19 +4,18 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
-	"path"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
 
-var phantomJSPath = path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/phantomjs-2.1.1-linux-x86_64")
-
 func TestInteractiveBrowser(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
+	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
+	misc.PrepareUtilities(misc.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
 	renderOutput, err := ioutil.TempFile("", "laitos-TestInteractiveBrowser")
@@ -24,8 +23,8 @@ func TestInteractiveBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	instance := &Instance{
-		PhantomJSExecPath:  phantomJSPath,
 		RenderImagePath:    renderOutput.Name() + ".png",
+		PhantomJSExecPath:  "phantomjs", // PrepareUtilities makes it available
 		Port:               41599,
 		AutoKillTimeoutSec: 30,
 	}
@@ -37,8 +36,8 @@ func TestInteractiveBrowser(t *testing.T) {
 	if err := instance.GoTo(GoodUserAgent, "https://www.microsoft.com", 1024, 1024); err != nil {
 		t.Fatal(err, instance.GetDebugOutput(1000))
 	}
-	// Expect page to be ready in three seconds
-	time.Sleep(3 * time.Second)
+	// Expect page to be ready in five seconds
+	time.Sleep(5 * time.Second)
 	if err := instance.RenderPage(); err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +80,8 @@ func TestLineOrientedBrowser(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
+	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
+	misc.PrepareUtilities(misc.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
 	renderOutput, err := ioutil.TempFile("", "laitos-TestLineOrientedBrowser")
@@ -88,8 +89,8 @@ func TestLineOrientedBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	instance := &Instance{
-		PhantomJSExecPath:  phantomJSPath,
 		RenderImagePath:    renderOutput.Name() + ".png",
+		PhantomJSExecPath:  "phantomjs", // PrepareUtilities makes it available
 		Port:               51600,
 		AutoKillTimeoutSec: 30,
 	}

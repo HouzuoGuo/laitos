@@ -256,6 +256,9 @@ func main() {
 		logger.Warning("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
 	}
 	ReseedPseudoRand()
+
+	// Prepare utility programs that are not essential but helpful to certain toolbox features and daemons
+	misc.PrepareUtilities(logger)
 	daemonErrs := make(chan error, len(daemonNames))
 	for _, daemonName := range daemonNames {
 		// Daemons are started asynchronously, the order of startup does not matter.

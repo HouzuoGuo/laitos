@@ -364,7 +364,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 			"intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libbz2-1", "libbz2-1.0",
 			"liberation2-fonts", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
 			"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libpng", "libpng16-16", "libXfont", "xorg-x11-fonts-Type1",
-			"xorg-x11-font-utils", "zlib", "zlib1g",
+			"xorg-x11-font-utils", "zlib", "zlib1g", "icu", "libicu", "libicu57", "libicu60_2",
 
 			// Time maintenance utilities
 			"chrony", "ntp", "ntpd", "ntpdate",

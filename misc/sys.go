@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"github.com/HouzuoGuo/laitos/testingstub"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -77,20 +78,94 @@ func GetSystemUptimeSec() int {
 }
 
 /*
+UtilityDir is an element of PATH that points to a directory where laitos bundled utility programs are stored. The
+utility programs are not essential to most of laitos operations, however they come in handy in certain scenarios:
+- statically linked "busybox" (maintenance daemon uses it to synchronise system clock)
+- statically linked "toybox" (its rich set of utilities help with shell usage)
+- dynamically linked "phantomjs" (used by text interactive web browser feature and browser-in-browser HTTP handler)
+*/
+const UtilityDir = "/tmp/laitos-util"
+
+/*
+CommonPATH is a PATH environment variable value that includes most common executable locations across Unix and Linux.
+Be aware that, when laitos launches external programs they usually should inherit all of the environment variables from
+parent process, which may include PATH. However, as an exception, AWS ElasticBeanstalk launches programs via a
+"supervisord" that resets PATH variable to deliberately exclude sbin directories, therefore, it is often useful to use
+this hard coded PATH value to launch programs.
+*/
+const CommonPATH = UtilityDir + ":/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin"
+
+/*
+PrepareUtilities resets program environment PATH to be a comprehensive list of common executable locations, then
+it copies non-essential laitos utility programs to a designated directory. This is a rather expensive function due to
+involvement of heavy file IO.
+*/
+func PrepareUtilities(progress Logger) {
+	logger.Info("PrepareUtilities", "", nil, "going to reset program environment PATH and copy non-essential utility programs to "+UtilityDir)
+	os.Setenv("PATH", CommonPATH)
+	if err := os.MkdirAll(UtilityDir, 0755); err != nil {
+		progress.Warning("PrepareUtilities", "", err, "failed to create directory %s", UtilityDir)
+		return
+	}
+	srcDestName := []string{
+		"busybox-1.26.2-x86_64", "busybox",
+		"busybox-x86_64", "busybox",
+		"busybox", "busybox",
+		"toybox-0.7.5-x86_64", "toybox",
+		"toybox-x86_64", "toybox",
+		"toybox", "toybox",
+		"phantomjs-2.1.1-x86_64", "phantomjs",
+		"phantomjs", "phantomjs",
+	}
+	// The GOPATH directory is useful for developing test cases, and CWD is useful for running deployed laitos.
+	findInPaths := []string{path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/"), "./"}
+	for i := 0; i < len(srcDestName); i += 2 {
+		srcName := srcDestName[i]
+		destName := srcDestName[i+1]
+		for _, aPath := range findInPaths {
+			srcPath := path.Join(aPath, srcName)
+			if _, err := os.Stat(srcPath); err != nil {
+				continue
+			}
+			from, err := os.Open(srcPath)
+			if err != nil {
+				continue
+			}
+			defer from.Close()
+			destPath := path.Join(UtilityDir, destName)
+			to, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
+			if err != nil {
+				continue
+			}
+			defer to.Close()
+			if err := os.Chmod(destPath, 0755); err != nil {
+				continue
+			}
+			if _, err = io.Copy(to, from); err == nil {
+				progress.Info("PrepareUtilities", destName, nil, "successfully copied from %s to %s", srcPath, destPath)
+			}
+		}
+	}
+}
+
+/*
 InvokeProgram launches an external program with time constraints. The external program inherits laitos' environment
 mixed with additional input environment variables. The additional variables take precedence over inherited ones.
 Returns stdout+stderr output combined, and error if there is any.
 */
 func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (out string, err error) {
-	// Mix envVars into program environment variables
+	// Make an environment variable array of common PATH, inherited values, and newly specified values.
 	myEnv := os.Environ()
-	var combinedEnv []string
-	if envVars == nil || len(envVars) == 0 {
-		combinedEnv = myEnv
-	} else {
-		combinedEnv = make([]string, len(myEnv)+len(envVars))
-		copy(combinedEnv, myEnv)
-		copy(combinedEnv[len(myEnv):], envVars)
+	combinedEnv := make([]string, 0, 1+len(myEnv))
+	// Inherit environment variables from program environment
+	combinedEnv = append(combinedEnv, myEnv...)
+	/*
+		Put common PATH values into the mix. Since go 1.9, when environment variables contain duplicated keys, only the
+		last value of duplicated key is effective. This behaviour enables caller to override PATH if deemede necessary.
+	*/
+	combinedEnv = append(combinedEnv, "PATH="+CommonPATH)
+	if envVars != nil {
+		combinedEnv = append(combinedEnv, envVars...)
 	}
 	// Collect stdout and stderr all together in a single buffer
 	var outBuf bytes.Buffer
@@ -121,20 +196,11 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 }
 
 /*
-CommonPATH is a PATH environment variable value that includes most common executable locations across Unix and Linux.
-Be aware that, when laitos launches external programs they usually should inherit all of the environment variables from
-parent process, which may include PATH. However, as an exception, AWS ElasticBeanstalk launches programs via a
-"supervisord" that resets PATH variable to deliberately exclude sbin directories, therefore, it is often useful to use
-this hard coded PATH value to launch programs.
-*/
-const CommonPATH = "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin"
-
-/*
 InvokeShell launches an external shell process with time constraints to run a piece of code.
 Returns shell stdout+stderr output combined and error if there is any.
 */
 func InvokeShell(timeoutSec int, interpreter string, content string) (out string, err error) {
-	return InvokeProgram([]string{"PATH=" + CommonPATH}, timeoutSec, interpreter, "-c", content)
+	return InvokeProgram(nil, timeoutSec, interpreter, "-c", content)
 }
 
 // GetSysctlStr returns string value of a sysctl parameter corresponding to the input key.

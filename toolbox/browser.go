@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/browser"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -26,15 +25,16 @@ type Browser struct {
 }
 
 func (bro *Browser) IsConfigured() bool {
-	return bro.Renderers != nil && bro.Renderers.PhantomJSExecPath != ""
+	return bro.Renderers != nil && bro.Renderers.BasePortNumber != 0
 }
 
 func (bro *Browser) SelfTest() error {
 	if !bro.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	if _, err := os.Stat(bro.Renderers.PhantomJSExecPath); err != nil {
-		return fmt.Errorf("Browser.SelfTest: phantomJS executable \"%s\" is no longer readable", bro.Renderers.PhantomJSExecPath)
+	if err := bro.Renderers.TestPhantomJSExecutable(); err != nil {
+		return fmt.Errorf("Browser.SelfTest: there is an error with PhantomJS executable - %v", err)
+
 	}
 	return nil
 }

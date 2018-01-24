@@ -1,6 +1,8 @@
 package misc
 
 import (
+	"os"
+	"path"
 	"runtime"
 	"strings"
 	"testing"
@@ -95,5 +97,14 @@ func TestInvokeShell(t *testing.T) {
 	out, err := InvokeShell(1, "/bin/bash", "printenv PATH")
 	if err != nil || out != CommonPATH+"\n" {
 		t.Fatal(err, out)
+	}
+}
+
+func TestPrepareUtilities(t *testing.T) {
+	PrepareUtilities(Logger{})
+	for _, utilName := range []string{"busybox", "toybox", "phantomjs"} {
+		if _, err := os.Stat(path.Join(UtilityDir, utilName)); err != nil {
+			t.Fatal("cannot find program "+utilName, err)
+		}
 	}
 }

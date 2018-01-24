@@ -2,6 +2,7 @@ package toolbox
 
 import (
 	"fmt"
+	"github.com/HouzuoGuo/laitos/misc"
 	"reflect"
 	"strings"
 	"testing"
@@ -18,6 +19,8 @@ func StringContainsAllOf(s string, markers []Trigger) error {
 }
 
 func TestFeatureSet_SelfTest(t *testing.T) {
+	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
+	misc.PrepareUtilities(misc.Logger{})
 	// Initially, an empty FeatureSet should have three features pre-enabled - shell, environment control, and public contacts.
 	features := FeatureSet{}
 	if err := features.Initialise(); err != nil {

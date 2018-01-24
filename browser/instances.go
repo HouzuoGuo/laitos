@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"os"
+	"os/exec"
 	"path"
+	"strings"
 	"sync"
 	"time"
 )
@@ -32,18 +34,42 @@ func (instances *Instances) Initialise() error {
 	if instances.MaxLifetimeSec < 1 {
 		instances.MaxLifetimeSec = 1800 // half hour is quite reasonable
 	}
-	if _, err := os.Stat(instances.PhantomJSExecPath); err != nil {
-		return fmt.Errorf("Instances.Initialise: cannot find PhantomJS executable \"%s\" - %v", instances.PhantomJSExecPath, err)
-	}
-	if err := os.Chmod(instances.PhantomJSExecPath, 0700); err != nil {
-		return fmt.Errorf("Instances.Initialise: failed to chmod PhantomJS - %v", err)
+	if instances.PhantomJSExecPath == "" {
+		instances.PhantomJSExecPath = "phantomjs" // find it among $PATH
 	}
 	if instances.BasePortNumber < 1024 {
 		return errors.New("Instances.Initialise: BasePortNumber must be greater than 1023")
 	}
+	if err := instances.TestPhantomJSExecutable(); err != nil {
+		return err
+	}
+
 	instances.browserMutex = new(sync.Mutex)
 	instances.browsers = make([]*Instance, instances.MaxInstances)
 	instances.browserCounter = -1
+	return nil
+}
+
+// TestPhantomJSExecutable returns an error only if there is a problem with using the PhantomJS executable.
+func (instances *Instances) TestPhantomJSExecutable() error {
+	if _, err := os.Stat(instances.PhantomJSExecPath); err == nil {
+		// If the executable path appears to be a file that is readable, then make sure it has the correct executable permission.
+		if err := os.Chmod(instances.PhantomJSExecPath, 0755); err != nil {
+			return fmt.Errorf("Instances.Initialise: failed to chmod PhantomJS - %v", err)
+		}
+	} else if strings.ContainsRune(instances.PhantomJSExecPath, '/') {
+		/*
+			If the executable path looks like a file path (i.e., "programs/phantomjs" instead of "phantomjs"), but it
+			cannot be read, then it is a severe configuration error.
+		*/
+		return fmt.Errorf("Instances.Initialise: cannot find PhantomJS executable \"%s\" - %v", instances.PhantomJSExecPath, err)
+	} else if _, err := exec.LookPath(instances.PhantomJSExecPath); err != nil {
+		/*
+			If the executable path does not look like a file path and looks like a command name instead, make sure it
+			can be found among $PATH.
+		*/
+		return fmt.Errorf("Instances.Initialise: cannot find PhantomJS executable among $PATH \"%s\" - %v", instances.PhantomJSExecPath, err)
+	}
 	return nil
 }
 

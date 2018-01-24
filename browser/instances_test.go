@@ -2,8 +2,6 @@ package browser
 
 import (
 	"github.com/HouzuoGuo/laitos/misc"
-	"os"
-	"path"
 	"runtime"
 	"strings"
 	"testing"
@@ -13,17 +11,20 @@ func TestBrowserInstances(t *testing.T) {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
+	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
+	misc.PrepareUtilities(misc.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
 	instances := Instances{}
-	if err := instances.Initialise(); !strings.Contains(err.Error(), "cannot find PhantomJS") {
-		t.Fatal(err)
-	}
-	instances.PhantomJSExecPath = path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/phantomjs-2.1.1-linux-x86_64")
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "BasePortNumber") {
 		t.Fatal(err)
 	}
 	instances.BasePortNumber = 65110
+	instances.PhantomJSExecPath = "this does not exist"
+	if err := instances.Initialise(); !strings.Contains(err.Error(), "cannot find PhantomJS") {
+		t.Fatal(err)
+	}
+	instances.PhantomJSExecPath = "" // use default that is a command name
 	// Test default settings
 	if err := instances.Initialise(); err != nil || instances.MaxInstances != 5 || instances.MaxLifetimeSec != 1800 {
 		t.Fatalf("%+v %+v", err, instances)
