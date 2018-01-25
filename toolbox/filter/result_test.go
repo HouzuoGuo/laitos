@@ -1,7 +1,6 @@
 package filter
 
 import (
-	"errors"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"net"
