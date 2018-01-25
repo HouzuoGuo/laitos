@@ -219,7 +219,6 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command, runResultFilters bool
 		proc.logger.Info("Process", "CommandProcessor", nil, "finished %s (ok? %v)", logCommandContent, ret.Error == nil)
 	}()
 	ret = matchedFeature.Execute(cmd)
-
 result:
 	// Command in the result structure is mainly used for logging purpose
 	ret.Command = cmd
@@ -229,6 +228,8 @@ result:
 		after triggering bridges, and before triggering features.
 	*/
 	ret.Command.Content = logCommandContent
+	// Set combined text for easier retrieval of result+error in one text string
+	ret.ResetCombinedText()
 	// Walk through result bridges
 	if runResultFilters {
 		for _, resultBridge := range proc.ResultFilters {
@@ -261,7 +262,6 @@ func GetTestCommandProcessor() *CommandProcessor {
 	}
 	// Prepare realistic result bridges
 	resultBridges := []filter.ResultFilter{
-		&filter.ResetCombinedText{},
 		&filter.LintText{TrimSpaces: true, MaxLength: 35},
 		&filter.SayEmptyOutput{},
 		&filter.NotifyViaEmail{},
@@ -289,7 +289,6 @@ func GetEmptyCommandProcessor() *CommandProcessor {
 			&filter.PINAndShortcuts{PIN: hex.EncodeToString(randPIN)},
 		},
 		ResultFilters: []filter.ResultFilter{
-			&filter.ResetCombinedText{},
 			&filter.LintText{MaxLength: 35},
 			&filter.SayEmptyOutput{},
 		},
@@ -311,7 +310,6 @@ func GetInsaneCommandProcessor() *CommandProcessor {
 			&filter.PINAndShortcuts{PIN: "short"},
 		},
 		ResultFilters: []filter.ResultFilter{
-			&filter.ResetCombinedText{},
 			&filter.LintText{MaxLength: 10},
 			&filter.SayEmptyOutput{},
 		},

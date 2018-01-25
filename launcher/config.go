@@ -215,7 +215,6 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 				&config.HTTPFilters.TranslateSequences,
 			},
 			ResultFilters: []filter.ResultFilter{
-				&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 				&config.HTTPFilters.LintText,
 				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.HTTPFilters.NotifyViaEmail,
@@ -335,7 +334,6 @@ func (config *Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 				&config.MailFilters.TranslateSequences,
 			},
 			ResultFilters: []filter.ResultFilter{
-				&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 				&config.MailFilters.LintText,
 				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.MailFilters.NotifyViaEmail,
@@ -376,7 +374,6 @@ func (config *Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 				&config.PlainSocketFilters.TranslateSequences,
 			},
 			ResultFilters: []filter.ResultFilter{
-				&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 				&config.PlainSocketFilters.LintText,
 				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.PlainSocketFilters.NotifyViaEmail,
@@ -414,7 +411,6 @@ func (config *Config) GetTelegramBot() *telegrambot.Daemon {
 				&config.TelegramFilters.TranslateSequences,
 			},
 			ResultFilters: []filter.ResultFilter{
-				&filter.ResetCombinedText{}, // this is mandatory but not configured by user's config file
 				&config.TelegramFilters.LintText,
 				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.TelegramFilters.NotifyViaEmail,

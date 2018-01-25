@@ -368,7 +368,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Body:   strings.NewReader(url.Values{"Body": {"incorrect PIN"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Message><![CDATA[Failed to match PIN/shortcut]]></Message>`) {
-		t.Fatal(err, resp)
+		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
@@ -377,7 +377,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<![CDATA[01234567890123456789012345678901234]]>`) {
-		t.Fatal(err, resp)
+		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - prevent SMS spam according to incoming phone number
 	resp, err = inet.DoHTTP(inet.HTTPRequest{

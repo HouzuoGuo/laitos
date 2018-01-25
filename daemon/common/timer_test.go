@@ -19,8 +19,8 @@ func TestCommandTimer(t *testing.T) {
 	timer.MaxResults = 4
 	timer.CommandProcessor = GetTestCommandProcessor()
 	timer.PreConfiguredCommands = []string{
-		TestCommandProcessorPIN + ".s echo first",
-		TestCommandProcessorPIN + ".s echo second",
+		TestCommandProcessorPIN + ".s echo -n first",
+		TestCommandProcessorPIN + ".s echo -n second",
 	}
 	timer.Initialise()
 
@@ -44,8 +44,8 @@ func TestCommandTimer(t *testing.T) {
 	}
 
 	// Add two proper transient commands
-	timer.AddTransientCommand(TestCommandProcessorPIN + ".s echo third")
-	timer.AddTransientCommand(TestCommandProcessorPIN + ".s echo fourth")
+	timer.AddTransientCommand(TestCommandProcessorPIN + ".s echo -n third")
+	timer.AddTransientCommand(TestCommandProcessorPIN + ".s echo -n fourth")
 
 	// Collect result from all four commands
 	timer.runAllCommands()

@@ -18,19 +18,6 @@ type ResultFilter interface {
 	SetLogger(misc.Logger)           // Assign a logger to use
 }
 
-// Call "ResetCombinedText()" function on the command result, so that the text will be available for further manipulation.
-type ResetCombinedText struct {
-}
-
-func (_ *ResetCombinedText) Transform(result *toolbox.Result) error {
-	// This looks dumb
-	result.ResetCombinedText()
-	return nil
-}
-
-func (_ *ResetCombinedText) SetLogger(_ misc.Logger) {
-}
-
 /*
 Lint combined text string in the following order (each step is turned on by respective attribute)
 1. Trim all leading and trailing spaces from lines.

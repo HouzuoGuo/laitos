@@ -21,7 +21,6 @@ func TestCommandProcessorProcess(t *testing.T) {
 	}
 	// Prepare all kinds of result bridges
 	resultBridges := []filter.ResultFilter{
-		&filter.ResetCombinedText{},
 		&filter.LintText{TrimSpaces: true, MaxLength: 2},
 		&filter.NotifyViaEmail{},
 	}

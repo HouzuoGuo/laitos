@@ -79,22 +79,6 @@ func TestNotifyViaEmail_Transform(t *testing.T) {
 	}
 }
 
-func TestResetCombinedText_Transform(t *testing.T) {
-	combo := ResetCombinedText{}
-	result := &toolbox.Result{}
-	if err := combo.Transform(result); err != nil {
-		t.Fatal(err)
-	}
-
-	result.Error = errors.New("test")
-	if err := combo.Transform(result); err != nil {
-		t.Fatal(err)
-	}
-	if result.CombinedOutput != "test" {
-		t.Fatal(result.CombinedOutput)
-	}
-}
-
 func TestSayEmptyOutput_Transform(t *testing.T) {
 	empty := SayEmptyOutput{}
 	result := &toolbox.Result{CombinedOutput: "    \t\r\n    "}

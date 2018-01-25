@@ -81,12 +81,12 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.HandlerCollection["/notif"] = &handler.HandleNotification{
 		Timers: map[string]*common.CommandTimer{
 			"channel1": {
-				PreConfiguredCommands: []string{common.TestCommandProcessorPIN + ".s echo this is channel1"},
+				PreConfiguredCommands: []string{common.TestCommandProcessorPIN + ".s echo -n this is channel1"},
 				IntervalSec:           1,
 				MaxResults:            4,
 			},
 			"channel2": {
-				PreConfiguredCommands: []string{common.TestCommandProcessorPIN + ".s echo this is channel2"},
+				PreConfiguredCommands: []string{common.TestCommandProcessorPIN + ".s echo -n this is channel2"},
 				IntervalSec:           1,
 				MaxResults:            4,
 			},
@@ -96,7 +96,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	for route := range daemon.AllRateLimits {
-		fmt.Println("install route", route)
+		fmt.Println("HTTP server has a route", route)
 	}
 	// Start server and run tests
 	// HTTP daemon is expected to start in two seconds

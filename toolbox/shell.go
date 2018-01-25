@@ -62,7 +62,6 @@ func (sh *Shell) Execute(cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}
-
 	procOut, procErr := misc.InvokeShell(cmd.TimeoutSec, sh.InterpreterPath, cmd.Content)
 	return &Result{Error: procErr, Output: procOut}
 }

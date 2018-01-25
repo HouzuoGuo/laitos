@@ -108,6 +108,7 @@ func (timer *CommandTimer) runAllCommands() {
 			Content:    cmd,
 		}, false).CombinedOutput)
 	}
+
 }
 
 /*
