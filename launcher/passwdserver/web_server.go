@@ -79,7 +79,7 @@ type WebServer struct {
 	handlerMutex    *sync.Mutex  // handlerMutex prevents concurrent unlocking attempts from being made at once.
 	alreadyUnlocked bool         // alreadyUnlocked is set to true after a successful unlocking attempt has been made
 
-	logger *misc.Logger
+	logger misc.Logger
 }
 
 /*
@@ -140,7 +140,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 
 // Start runs the web server and blocks until the server shuts down from a successful unlocking attempt.
 func (ws *WebServer) Start() error {
-	ws.logger = &misc.Logger{
+	ws.logger = misc.Logger{
 		ComponentName: "passwdserver.WebServer",
 		ComponentID:   strconv.Itoa(ws.Port),
 	}
@@ -215,6 +215,9 @@ func (ws *WebServer) LaunchMainProgram() {
 	flagsNoExec = launcher.RemoveFromFlags(func(s string) bool {
 		return strings.HasPrefix(s, "-"+CLIFlag)
 	}, flagsNoExec)
+	// Prepare utility programs that are not essential but helpful to certain toolbox features and daemons
+	// The utility programs are copied from the now unlocked data archive
+	misc.PrepareUtilities(ws.logger)
 	ws.logger.Info("LaunchMainProgram", "", nil, "about to launch with CLI flagsNoExec %v", flagsNoExec)
 	cmd = exec.Command(executablePath, flagsNoExec...)
 	cmd.Stdin = os.Stdin

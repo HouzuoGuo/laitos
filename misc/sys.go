@@ -125,16 +125,19 @@ func PrepareUtilities(progress Logger) {
 		for _, aPath := range findInPaths {
 			srcPath := path.Join(aPath, srcName)
 			if _, err := os.Stat(srcPath); err != nil {
+				//progress.Info("PrepareUtilities", destName, nil, "failed to stat srcPath", srcPath)
 				continue
 			}
 			from, err := os.Open(srcPath)
 			if err != nil {
+				//progress.Info("PrepareUtilities", destName, nil, "failed to open srcPath", srcPath)
 				continue
 			}
 			defer from.Close()
 			destPath := path.Join(UtilityDir, destName)
 			to, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
 			if err != nil {
+				//progress.Info("PrepareUtilities", destName, nil, "failed to open destPath", destPath)
 				continue
 			}
 			defer to.Close()
