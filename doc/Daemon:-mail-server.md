@@ -79,12 +79,13 @@ Construct the following JSON object and place it under JSON key `MailDaemon` in 
         <br/>
         The file may contain a certificate chain with server certificate on top and CA authority toward bottom.
     </td>
-    ><td>(Not enabled by default)</td>
+    <td>(Not enabled by default)</td>
 </tr>
 <tr>
     <td>TLSKeyPath</td>
     <td>string</td>
-    <td>(Not enabled by default) Absolute or relative path to PEM-encoded TLS certificate key.</td>
+    <td>Absolute or relative path to PEM-encoded TLS certificate key.</td>
+    <td>(Not enabled by default)</td>
 </tr>
 </table>
 

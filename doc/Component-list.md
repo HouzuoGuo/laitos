@@ -83,13 +83,18 @@ The following services are hosted by web server and enabled on your demand:
     </tr>
     <tr>
         <td>Twilio telephone/SMS hook</td>
-        <td>Run toolbox commands on telephone, SMS, satellite terminals via Twilio platform (telephone and SMS programming).d>
+        <td>Run toolbox commands on telephone, SMS, satellite terminals via Twilio platform (telephone and SMS programming).</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Microsoft bot hook</td>
         <td>Run toolbox commands on Skype and Cortana via Microsoft Bot Framework.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Microsoft-bot-hook" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Recurring commands</td>
+        <td>Run toolbox commands at regular interval, and retrieve result text.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-recurring-commands" target="_blank">Link</a></td>
     </tr>
 </table>
 

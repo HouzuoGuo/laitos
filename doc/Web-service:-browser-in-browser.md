@@ -43,14 +43,6 @@ Construct the following properties under JSON key `HTTPHandlers`:
     <td>integer</td>
     <td>Stop a browser instance after this number of seconds elapse, regardless of whether the instance is in-use.</td>
 </tr>
-<tr>
-    <td>PhantomJSExecPath</td>
-    <td>string</td>
-    <td>
-        Absolute or relative path to PhantomJS executable. You may download it from PhantomJS website, or acquire a copy
-        from <a href="https://github.com/HouzuoGuo/laitos/tree/master/extra">laitos source tree</a>.
-    </td>
-</tr>
 </table>
 
 Here is an example:
@@ -103,17 +95,15 @@ Additionally, "Backspace" button discards a character, and "Enter" button sends 
 While using the browser, you must regularly click "Redraw" button to view the latest rendered page.
 
 ## Tips
-Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!
+- The instance port number from configuration is only for internal localhost use. They do not have to be open on your
+  network firewall.
 
-The web service relies on PhantomJS software that has several software dependencies:
-- bzip2, expat, zlib, fontconfig.
-- Various fonts.
-
-You may install the software dependencies manually, or reply on [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
+- The web service relies on PhantomJS software that has several software dependencies:
+  * bzip2, expat, zlib, fontconfig.
+  * Various fonts.
+  
+  You may install the software dependencies manually, or reply on [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
 to automatically install the dependencies.
-
-If you wish to use the web service on a legacy browser such as IE 5.5, then remember to start plain HTTP daemon
-(i.e. `insecurehttpd`), because legacy browsers do not support modern TLS (HTTPS).
-
-The instance port numbers from configuration are only for internal localhost use. They do not have to be open on your
-network firewall.
+- laitos will find PhantomJS software by filename `phantomjs` or `phantomjs-2.1.1-x86_64` in the current working
+  directory, and copy it to `/tmp/laitos-util` for use. Therefore remember to download PhantomJS software for laitos
+  deployment, you may find a copy of PhantomJSin [laitos source tree](https://github.com/HouzuoGuo/laitos/blob/master/extra/phantomjs-2.1.1-x86_64).

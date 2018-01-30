@@ -43,6 +43,7 @@ Construct the following JSON object and place it under JSON key `HTTPDaemon` in 
     <td>ServeDirectories</td>
     <td>{"/the/url/location": "/path/to/directory"...}</td>
     <td>Serve the directories at the specified URL location. The prefix slash in URL location string is mandatory.</td>
+    <td>(Not used by default)</td>
 </tr>
 <tr>
     <td>TLSCertPath</td>
@@ -52,12 +53,13 @@ Construct the following JSON object and place it under JSON key `HTTPDaemon` in 
         <br/>
         The file may contain a certificate chain with server certificate on top and CA authority toward bottom.
     </td>
-    ><td>(Not enabled by default)</td>
+    <td>(Not enabled by default)</td>
 </tr>
 <tr>
     <td>TLSKeyPath</td>
     <td>string</td>
-    <td>(Not enabled by default) Absolute or relative path to PEM-encoded TLS certificate key.</td>
+    <td>Absolute or relative path to PEM-encoded TLS certificate key.</td>
+    <td>(Not enabled by default)</td>
 </tr>
 </table>
 
@@ -91,9 +93,6 @@ Here is an example setup that hosts a home page and media files:
     ...
 
     "HTTPDaemon": {
-        "Address": "0.0.0.0",
-        "BaseRateLimit": 3,
-        "Port": 443,
         "TLSCertPath": "howard-dot-net.crt",
         "TLSKeyPath": "howard-dot-net.key",
         "ServeDirectories": {
