@@ -128,6 +128,18 @@
       "ClientAppID": "dummy id 3",
       "ClientAppSecret": "dummy id 3"
     },
+    "RecurringCommandEndpoint": "/sample/recurring_commands",
+    "RecurringCommandEndpointConfig": {
+      "RecurringCommands": {
+        "channel1": {
+          "IntervalSec": 10,
+          "MaxResults": 10,
+          "PreConfiguredCommands": [
+            "samplepin.s date"
+          ]
+        }
+      }
+    },
     "TwilioCallEndpoint": "/sample/twilio/call",
     "TwilioCallEndpointConfig": {
       "CallGreeting": "Hey"
@@ -146,10 +158,10 @@
     "ForwardTo": [
       "root@localhost"
     ],
-    "Port": 2525,
     "MyDomains": [
       "laitos-demo.net"
     ],
+    "Port": 2525,
     "TLSCertPath": "sample-config.crt.txt",
     "TLSKeyPath": "sample-config.crt.key.txt"
   },
@@ -175,8 +187,7 @@
       }
     }
   },
-  "MailProcessor": {
-  },
+  "MailProcessor": {},
   "Maintenance": {
     "Recipients": [
       "root@localhost"

@@ -91,9 +91,9 @@ var sampleConfigJSON = `
       "ClientAppID": "dummy id",
       "ClientAppSecret": "dummy secret"
     },
-	"NotificationEndpoint": "/notif",
-	"NotificationEndpointConfig": {
-		"Timers": {
+	"RecurringCommandsEndpoint": "/recurring_cmds",
+	"RecurringCommandsEndpointConfig": {
+		"RecurringCommands": {
 			"channel1": {
 				"PreConfiguredCommands": ["verysecret.s echo -n this is channel1"],
 				"IntervalSec": 1,

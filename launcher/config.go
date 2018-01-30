@@ -61,8 +61,8 @@ type HTTPHandlers struct {
 	MicrosoftBotEndpoint3       string                     `json:"MicrosoftBotEndpoint3"`
 	MicrosoftBotEndpointConfig3 handler.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig3"`
 
-	NotificationEndpoint       string                     `json:"NotificationEndpoint"`
-	NotificationEndpointConfig handler.HandleNotification `json:"NotificationEndpointConfig"`
+	RecurringCommandsEndpoint       string                          `json:"RecurringCommandsEndpoint"`
+	RecurringCommandsEndpointConfig handler.HandleRecurringCommands `json:"RecurringCommandsEndpointConfig"`
 
 	WebProxyEndpoint string `json:"WebProxyEndpoint"`
 
@@ -280,8 +280,8 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			hand := config.HTTPHandlers.MicrosoftBotEndpointConfig3
 			handlers[config.HTTPHandlers.MicrosoftBotEndpoint3] = &hand
 		}
-		if config.HTTPHandlers.NotificationEndpoint != "" {
-			handlers[config.HTTPHandlers.NotificationEndpoint] = &config.HTTPHandlers.NotificationEndpointConfig
+		if config.HTTPHandlers.RecurringCommandsEndpoint != "" {
+			handlers[config.HTTPHandlers.RecurringCommandsEndpoint] = &config.HTTPHandlers.RecurringCommandsEndpointConfig
 		}
 		if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
 			handlers[proxyEndpoint] = &handler.HandleWebProxy{OwnEndpoint: proxyEndpoint}

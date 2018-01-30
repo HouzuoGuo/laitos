@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -14,12 +13,12 @@ const (
 )
 
 /*
-CommandTimer executes series of commands, one at a time, at regular interval. Execution results of recent commands are
+RecurringCommands executes series of commands, one at a time, at regular interval. Execution results of recent commands are
 memorised and can be retrieved at a later time. Beyond command execution results, arbitrary text messages may also be
-memorised and retrieved together with command results. CommandTimer is a useful structure for implementing notification
+memorised and retrieved together with command results. RecurringCommands is a useful structure for implementing notification
 kind of mechanism.
 */
-type CommandTimer struct {
+type RecurringCommands struct {
 	// PreConfiguredCommands are toolbox commands pre-configured to run by user, they never deleted upon clearing.
 	PreConfiguredCommands []string `json:"PreConfiguredCommands"`
 	// IntervalSec is the number of seconds to sleep between execution of all commands.
@@ -40,20 +39,20 @@ type CommandTimer struct {
 	stop              chan struct{}    // stop channel signals Run function to return soon.
 }
 
-// Initialise prepares internal states of a new CommandTimer.
-func (timer *CommandTimer) Initialise() error {
-	if timer.IntervalSec < 1 {
-		return fmt.Errorf("CommandTimer.Initialise: IntervalSec must be greater than 0")
+// Initialise prepares internal states of a new RecurringCommands.
+func (cmds *RecurringCommands) Initialise() error {
+	if cmds.IntervalSec < 1 {
+		return fmt.Errorf("RecurringCommands.Initialise: IntervalSec must be greater than 0")
 	}
-	if timer.MaxResults < 1 {
-		return fmt.Errorf("CommandTimer.Initialise: MaxResults must be greater than 0")
+	if cmds.MaxResults < 1 {
+		return fmt.Errorf("RecurringCommands.Initialise: MaxResults must be greater than 0")
 	}
-	if timer.PreConfiguredCommands == nil {
-		timer.PreConfiguredCommands = []string{}
+	if cmds.PreConfiguredCommands == nil {
+		cmds.PreConfiguredCommands = []string{}
 	}
-	timer.results = misc.NewRingBuffer(int64(timer.MaxResults))
-	timer.transientCommands = make([]string, 0, 10)
-	timer.stop = make(chan struct{})
+	cmds.results = misc.NewRingBuffer(int64(cmds.MaxResults))
+	cmds.transientCommands = make([]string, 0, 10)
+	cmds.stop = make(chan struct{})
 	return nil
 }
 
@@ -61,49 +60,49 @@ func (timer *CommandTimer) Initialise() error {
 GetTransientCommands returns a copy of all transient commands memorises for execution. If there is none, it returns
 an empty string array.
 */
-func (timer *CommandTimer) GetTransientCommands() []string {
-	timer.mutex.Lock()
-	defer timer.mutex.Unlock()
-	ret := make([]string, len(timer.transientCommands))
-	copy(ret, timer.transientCommands)
+func (cmds *RecurringCommands) GetTransientCommands() []string {
+	cmds.mutex.Lock()
+	defer cmds.mutex.Unlock()
+	ret := make([]string, len(cmds.transientCommands))
+	copy(ret, cmds.transientCommands)
 	return ret
 }
 
 // AddTransientCommand places a new toolbox command toward the end of transient command list.
-func (timer *CommandTimer) AddTransientCommand(cmd string) {
-	timer.mutex.Lock()
-	defer timer.mutex.Unlock()
-	timer.transientCommands = append(timer.transientCommands, cmd)
+func (cmds *RecurringCommands) AddTransientCommand(cmd string) {
+	cmds.mutex.Lock()
+	defer cmds.mutex.Unlock()
+	cmds.transientCommands = append(cmds.transientCommands, cmd)
 }
 
 // ClearTransientCommands removes all transient commands.
-func (timer *CommandTimer) ClearTransientCommands() {
-	timer.mutex.Lock()
-	defer timer.mutex.Unlock()
-	timer.transientCommands = make([]string, 0, 10)
+func (cmds *RecurringCommands) ClearTransientCommands() {
+	cmds.mutex.Lock()
+	defer cmds.mutex.Unlock()
+	cmds.transientCommands = make([]string, 0, 10)
 }
 
 // runAllCommands executes all pre-configured and transient commands one after another and store their results.
-func (timer *CommandTimer) runAllCommands() {
+func (cmds *RecurringCommands) runAllCommands() {
 	//	Access to the commands array is not protected by mutex since no other function modifies it
-	if timer.PreConfiguredCommands != nil {
-		for _, cmd := range timer.PreConfiguredCommands {
+	if cmds.PreConfiguredCommands != nil {
+		for _, cmd := range cmds.PreConfiguredCommands {
 			// Skip result filters that may send notifications or manipulate result in other means
-			timer.results.Push(timer.CommandProcessor.Process(toolbox.Command{
+			cmds.results.Push(cmds.CommandProcessor.Process(toolbox.Command{
 				TimeoutSec: TimerCommandTimeoutSec,
 				Content:    cmd,
 			}, false).CombinedOutput)
 		}
 	}
 	// Make a copy of the latest transient commands to run
-	timer.mutex.Lock()
-	transientCommands := make([]string, len(timer.transientCommands))
-	copy(transientCommands, timer.transientCommands)
-	timer.mutex.Unlock()
+	cmds.mutex.Lock()
+	transientCommands := make([]string, len(cmds.transientCommands))
+	copy(transientCommands, cmds.transientCommands)
+	cmds.mutex.Unlock()
 	// Run transient commands one after another
 	for _, cmd := range transientCommands {
 		// Skip result filters that may send notifications or manipulate result in other means
-		timer.results.Push(timer.CommandProcessor.Process(toolbox.Command{
+		cmds.results.Push(cmds.CommandProcessor.Process(toolbox.Command{
 			TimeoutSec: TimerCommandTimeoutSec,
 			Content:    cmd,
 		}, false).CombinedOutput)
@@ -116,21 +115,21 @@ Start runs an infinite loop to execute all commands one after another, then slee
 The function blocks caller until Stop function is called.
 If Start function is already running, calling it a second time will do nothing and return immediately.
 */
-func (timer *CommandTimer) Start() {
-	timer.mutex.Lock()
-	if timer.running {
-		misc.DefaultLogger.Warning("CommandTimer.Start", strconv.Itoa(timer.IntervalSec), nil, "starting an already started CommandTimer becomes a nop")
-		timer.mutex.Unlock()
+func (cmds *RecurringCommands) Start() {
+	cmds.mutex.Lock()
+	if cmds.running {
+		misc.DefaultLogger.Warning("RecurringCommands.Start", fmt.Sprintf("Intv%d", cmds.IntervalSec), nil, "starting an already started RecurringCommands becomes a nop")
+		cmds.mutex.Unlock()
 		return
 	}
-	timer.mutex.Unlock()
-	misc.DefaultLogger.Info("CommandTimer.Start", strconv.Itoa(timer.IntervalSec), nil, "timer has started")
+	cmds.mutex.Unlock()
+	misc.DefaultLogger.Info("RecurringCommands.Start", fmt.Sprintf("Intv%d", cmds.IntervalSec), nil, "command execution now starts")
 	for {
-		timer.running = true
+		cmds.running = true
 		select {
-		case <-time.After(time.Duration(timer.IntervalSec) * time.Second):
-			timer.runAllCommands()
-		case <-timer.stop:
+		case <-time.After(time.Duration(cmds.IntervalSec) * time.Second):
+			cmds.runAllCommands()
+		case <-cmds.stop:
 			return
 		}
 	}
@@ -140,26 +139,27 @@ func (timer *CommandTimer) Start() {
 Stop informs the running command processing loop to terminate as early as possible. Blocks until the loop has
 terminated. Calling the function while command processing loop is not running yields no effect.
 */
-func (timer *CommandTimer) Stop() {
-	timer.mutex.Lock()
-	if timer.running {
-		timer.stop <- struct{}{}
-		timer.running = false
+func (cmds *RecurringCommands) Stop() {
+	cmds.mutex.Lock()
+	if cmds.running {
+		cmds.stop <- struct{}{}
+		cmds.running = false
 	}
-	timer.mutex.Unlock()
+	cmds.mutex.Unlock()
+	misc.DefaultLogger.Info("RecurringCommands.Stop", fmt.Sprintf("Intv%d", cmds.IntervalSec), nil, "stopped on request")
 }
 
 // AddArbitraryTextToResult simply places an arbitrary text string into result.
-func (timer *CommandTimer) AddArbitraryTextToResult(text string) {
+func (cmds *RecurringCommands) AddArbitraryTextToResult(text string) {
 	// RingBuffer supports concurrent push access, there is no need to protect it with timer's own mutex.
-	timer.results.Push(text)
+	cmds.results.Push(text)
 }
 
 // GetResults returns the latest command execution results and text messages, then clears the result buffer.
-func (timer *CommandTimer) GetResults() []string {
-	timer.mutex.Lock()
-	defer timer.mutex.Unlock()
-	ret := timer.results.GetAll()
-	timer.results.Clear()
+func (cmds *RecurringCommands) GetResults() []string {
+	cmds.mutex.Lock()
+	defer cmds.mutex.Unlock()
+	ret := cmds.results.GetAll()
+	cmds.results.Clear()
 	return ret
 }

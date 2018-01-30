@@ -78,8 +78,8 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.HandlerCollection["/sms"] = &handler.HandleTwilioSMSHook{}
 	daemon.HandlerCollection["/call_greeting"] = &handler.HandleTwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}
 	daemon.HandlerCollection["/call_command"] = &handler.HandleTwilioCallCallback{MyEndpoint: "/endpoint-does-not-matter-in-this-test"}
-	daemon.HandlerCollection["/notif"] = &handler.HandleNotification{
-		Timers: map[string]*common.CommandTimer{
+	daemon.HandlerCollection["/notif"] = &handler.HandleRecurringCommands{
+		RecurringCommands: map[string]*common.RecurringCommands{
 			"channel1": {
 				PreConfiguredCommands: []string{common.TestCommandProcessorPIN + ".s echo -n this is channel1"},
 				IntervalSec:           1,

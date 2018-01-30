@@ -8,11 +8,11 @@ import (
 	"net/http"
 )
 
-const HandleNotificationSetupPage = `<!doctype html>
+const HandleRecurringCommandsSetupPage = `<!doctype html>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Notification setup</title>
+    <title>Recurring commands setup</title>
 </head>
 <body>
     <form action="#" method="get">
@@ -34,20 +34,20 @@ const HandleNotificationSetupPage = `<!doctype html>
 `
 
 /*
-HandleNotification is an HTML form for user to manipulate timer commands.
-The timers inside should be shared with a HandleNotificationRetrieval HTTP handler.
+HandleRecurringCommands is an HTML form for user to manipulate recurring commands, such as adding/clearing transient
+commands and pushing text message directly into result.
 */
-type HandleNotification struct {
-	Timers map[string]*common.CommandTimer `json:"Timers"` // Timers are mappings between arbitrary ID string and associated command timer.
-	logger misc.Logger
+type HandleRecurringCommands struct {
+	RecurringCommands map[string]*common.RecurringCommands `json:"RecurringCommands"` // are mappings between arbitrary ID string and associated command timer.
+	logger            misc.Logger
 }
 
-func (notif *HandleNotification) Initialise(logger misc.Logger, cmdProc *common.CommandProcessor) error {
+func (notif *HandleRecurringCommands) Initialise(logger misc.Logger, cmdProc *common.CommandProcessor) error {
 	notif.logger = logger
-	if notif.Timers == nil || len(notif.Timers) == 0 {
-		return fmt.Errorf("HandleNotification: there are no timers")
+	if notif.RecurringCommands == nil || len(notif.RecurringCommands) == 0 {
+		return fmt.Errorf("HandleRecurringCommands: there must be at least one recurring command channel in configuration")
 	}
-	for _, timer := range notif.Timers {
+	for _, timer := range notif.RecurringCommands {
 		timer.CommandProcessor = cmdProc
 		if err := timer.Initialise(); err != nil {
 			return err
@@ -58,15 +58,15 @@ func (notif *HandleNotification) Initialise(logger misc.Logger, cmdProc *common.
 	return nil
 }
 
-func (_ *HandleNotification) GetRateLimitFactor() int {
+func (_ *HandleRecurringCommands) GetRateLimitFactor() int {
 	return 5
 }
 
-func (_ *HandleNotification) SelfTest() error {
+func (_ *HandleRecurringCommands) SelfTest() error {
 	return nil
 }
 
-func (notif *HandleNotification) Handle(w http.ResponseWriter, r *http.Request) {
+func (notif *HandleRecurringCommands) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
 	if !WarnIfNoHTTPS(r, w) {
 		return
@@ -84,7 +84,7 @@ func (notif *HandleNotification) Handle(w http.ResponseWriter, r *http.Request) 
 				conclusion = "Please enter pre-configured channel ID."
 			} else if newCommand != "" {
 				// Store a new command
-				timer, exists := notif.Timers[channel]
+				timer, exists := notif.RecurringCommands[channel]
 				if exists {
 					timer.AddTransientCommand(newCommand)
 					conclusion = "Successfully stored new command: " + newCommand
@@ -93,7 +93,7 @@ func (notif *HandleNotification) Handle(w http.ResponseWriter, r *http.Request) 
 				}
 			} else if textToStore != "" {
 				// Store arbitrary text message
-				timer, exists := notif.Timers[channel]
+				timer, exists := notif.RecurringCommands[channel]
 				if exists {
 					timer.AddArbitraryTextToResult(textToStore)
 					conclusion = "Successfully stored text message: " + textToStore
@@ -104,7 +104,7 @@ func (notif *HandleNotification) Handle(w http.ResponseWriter, r *http.Request) 
 				conclusion = "Please enter a new command or text message to store."
 			}
 		case "Clear all entered commands":
-			timer, exists := notif.Timers[channel]
+			timer, exists := notif.RecurringCommands[channel]
 			if exists {
 				timer.ClearTransientCommands()
 				conclusion = "All newly stored commands have been cleared for: " + channel
@@ -113,10 +113,10 @@ func (notif *HandleNotification) Handle(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(fmt.Sprintf(HandleNotificationSetupPage, channel, newCommand, textToStore, conclusion)))
+		w.Write([]byte(fmt.Sprintf(HandleRecurringCommandsSetupPage, channel, newCommand, textToStore, conclusion)))
 	} else {
 		// Retrieve results in JSON format
-		timer, exists := notif.Timers[retrieveFromChannel]
+		timer, exists := notif.RecurringCommands[retrieveFromChannel]
 		if exists {
 			resp, err := json.Marshal(timer.GetResults())
 			if err == nil {
