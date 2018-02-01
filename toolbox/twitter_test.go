@@ -19,14 +19,14 @@ func TestTwitter_Execute(t *testing.T) {
 	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"}); ret.Error != ErrBadTwitterParam {
 		t.Fatal(ret)
 	}
-	// Retrieve one latest tweet
+	// Retrieve 10 latest tweets
 	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds}); ret.Error != nil ||
-		len(ret.Output) < 10 || len(ret.Output) > 200 {
+		len(ret.Output) < 50 || len(ret.Output) > 1000 {
 		t.Fatal(ret)
 	}
-	// Bad number - still retrieve one latest tweet
+	// Bad number - still retrieve 10 latest tweets
 	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "a, b"}); ret.Error != nil ||
-		len(ret.Output) < 10 || len(ret.Output) > 200 {
+		len(ret.Output) < 50 || len(ret.Output) > 1000 {
 		t.Fatal(ret)
 	}
 	// Retrieve 5 tweets after skipping the latest three tweets

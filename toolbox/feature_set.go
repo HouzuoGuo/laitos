@@ -20,6 +20,7 @@ type FeatureSet struct {
 	EnvControl         EnvControl          `json:"EnvControl"`
 	Facebook           Facebook            `json:"Facebook"`
 	IMAPAccounts       IMAPAccounts        `json:"IMAPAccounts"`
+	RSS                RSS                 `json:"RSS"`
 	SendMail           SendMail            `json:"SendMail"`
 	Shell              Shell               `json:"Shell"`
 	Twilio             Twilio              `json:"Twilio"`
@@ -41,6 +42,7 @@ func (fs *FeatureSet) Initialise() error {
 		fs.EnvControl.Trigger():         &fs.EnvControl,         // e
 		fs.Facebook.Trigger():           &fs.Facebook,           // f
 		fs.IMAPAccounts.Trigger():       &fs.IMAPAccounts,       // i
+		fs.RSS.Trigger():                &fs.RSS,                // r
 		fs.SendMail.Trigger():           &fs.SendMail,           // m
 		fs.Shell.Trigger():              &fs.Shell,              // s
 		fs.Twilio.Trigger():             &fs.Twilio,             // p
@@ -97,6 +99,7 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 		"EnvControl":         &fs.EnvControl,
 		"Facebook":           &fs.Facebook,
 		"IMAPAccounts":       &fs.IMAPAccounts,
+		"RSS":                &fs.RSS,
 		"SendMail":           &fs.SendMail,
 		"Shell":              &fs.Shell,
 		"Twilio":             &fs.Twilio,

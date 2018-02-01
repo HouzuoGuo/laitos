@@ -104,9 +104,9 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 			return &Result{Error: ErrBadTwitterParam}
 		}
 	}
-	// If neither count nor skip was given in the input command, retrieve one latest tweet.
+	// If neither count nor skip was given in the input command, retrieve 10 latest tweets.
 	if count == 0 && skip == 0 {
-		count = 1
+		count = 10
 	} else {
 		// Twitter API will not retrieve more than 200 tweets, so limit the parameters accordingly.
 		if skip > 199 {

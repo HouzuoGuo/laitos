@@ -21,15 +21,16 @@ func StringContainsAllOf(s string, markers []Trigger) error {
 func TestFeatureSet_SelfTest(t *testing.T) {
 	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
 	misc.PrepareUtilities(misc.Logger{})
-	// Initially, an empty FeatureSet should have three features pre-enabled - shell, environment control, and public contacts.
+	// Initially, an empty FeatureSet should have four features pre-enabled - shell, environment control, public contacts, RSS.
 	features := FeatureSet{}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 3 ||
-		features.LookupByTrigger[".c"] == nil ||
-		features.LookupByTrigger[".e"] == nil ||
-		features.LookupByTrigger[".s"] == nil {
+	if len(features.LookupByTrigger) != 4 ||
+		features.LookupByTrigger[".c"] == nil || // public contacts
+		features.LookupByTrigger[".e"] == nil || // environment control
+		features.LookupByTrigger[".r"] == nil ||
+		features.LookupByTrigger[".s"] == nil { // shell
 		t.Fatal(features.LookupByTrigger)
 	}
 	// Configure AES decrypt and 2fa code generator
@@ -37,14 +38,14 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// Public contacts, environment control, shell commands, AESDecrypt, TwoFACodeGenerator
-	if len(features.LookupByTrigger) != 5 {
+	// 4 always-available features + 2 newly configured features (AES + 2FA)
+	if len(features.LookupByTrigger) != 6 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if err := features.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".2", ".a", ".c", ".e", ".s"}) {
+	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".2", ".a", ".c", ".e", ".r", ".s"}) {
 		t.Fatal(triggers)
 	}
 	// Configure all features via JSON and verify via self test
@@ -55,13 +56,13 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	if err := features.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 12 {
+	if len(features.LookupByTrigger) != 13 {
 		t.Skip(features.LookupByTrigger)
 	}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 12 {
+	if len(features.LookupByTrigger) != 13 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if err := features.SelfTest(); err != nil {
@@ -84,6 +85,7 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 		},
 	}
 	features.IMAPAccounts.Initialise()
+	features.RSS.Sources[0] = "this rss url does not work"
 	features.SendMail.MailClient.MTAHost = "very bad"
 	features.Shell.InterpreterPath = "very bad"
 	features.Twilio.AccountSID = "very bad"
@@ -98,6 +100,7 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 		features.AESDecrypt.Trigger(),
 		features.Facebook.Trigger(),
 		features.IMAPAccounts.Trigger(),
+		features.RSS.Trigger(),
 		features.SendMail.Trigger(),
 		features.Shell.Trigger(),
 		features.Twilio.Trigger(),

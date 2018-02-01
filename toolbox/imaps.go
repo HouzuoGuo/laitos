@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	MailboxList    = "l" // Prefix string to trigger listing messages
-	MailboxRead    = "r" // Prefix string to trigger reading message body
-	IMAPTimeoutSec = 30  // IMAPTimeoutSec is the IO timeout (in seconds) for every IMAP conversation
+	MailboxList    = "l" // Prefix string to trigger listing messages.
+	MailboxRead    = "r" // Prefix string to trigger reading message body.
+	IMAPTimeoutSec = 30  // IMAPTimeoutSec is the IO timeout (in seconds) used for each IMAP conversation.
 )
 
 var (

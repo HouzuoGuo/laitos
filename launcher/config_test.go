@@ -24,11 +24,6 @@ var sampleConfigJSON = `
     "TCPPort": 45115,
     "UDPPort": 23518
   },
-  "Features": {
-    "Shell": {
-      "InterpreterPath": "/bin/bash"
-    }
-  },
   "HTTPDaemon": {
     "Address": "127.0.0.1",
     "PerIPLimit": 10,
