@@ -3,6 +3,7 @@ package toolbox
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
 	"sort"
@@ -16,7 +17,7 @@ const RSSDownloadTimeoutSec = 10 // RSSDownloadTimeoutSec is the IO timeout used
 
 var (
 	// ErrBadRSSParam is the error response for incorrectly entering numeric parameters for retrieving RSS feeds.
-	ErrBadRSSParam = fmt.Errorf("Example: .s skip# count#", TwitterPostTweet)
+	ErrBadRSSParam = errors.New("Example: .s skip# count#")
 
 	// DefaultRSSSources is a list of RSS of news headlines published by major news agencies around the world.
 	DefaultRSSSources = []string{
