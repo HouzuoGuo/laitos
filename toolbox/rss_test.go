@@ -70,6 +70,13 @@ func TestRSS_Execute(t *testing.T) {
 	if err := rss.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
+	// Break a URL and test again
+	oldURL := rss.Sources[0]
+	rss.Sources[0] = "this url does not exist"
+	if err := rss.SelfTest(); err == nil {
+		t.Fatal("did not error")
+	}
+	rss.Sources[0] = oldURL
 	// Retrieve 10 latest feeds (I don't suppose the built-in sources will send more than 5KB per feed..)
 	if ret := rss.Execute(Command{TimeoutSec: 30, Content: ""}); ret.Error != nil ||
 		len(ret.Output) < 50 || len(ret.Output) > 50*1024 {

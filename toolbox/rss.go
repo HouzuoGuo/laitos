@@ -214,5 +214,13 @@ func DownloadRSSFeeds(timeoutSec int, xmlURLs ...string) (items []RSSItem, err e
 	sort.Slice(items, func(i1, i2 int) bool {
 		return items[i1].PubDate.After(items[i2].PubDate.Time)
 	})
+	// Collect error information
+	var errMsg string
+	for aURL, err := range errs {
+		errMsg += fmt.Sprintf("%s - %v\n", aURL, err)
+	}
+	if len(errs) > 0 {
+		err = errors.New(errMsg)
+	}
 	return
 }
