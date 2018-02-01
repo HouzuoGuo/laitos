@@ -143,6 +143,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 		commandIsProcessed = true
 		// Normally the result should be sent as Email reply, but there are undocumented scenarios.
 		if runner.Undocumented1.MayReplyTo(prop) {
+			runner.logger.Info("Process", prop.FromAddress, nil, "invoke Undocumented1")
 			if undocErr := runner.Undocumented1.SendMessage(result.CombinedOutput); undocErr == nil {
 				return false, nil
 			} else {
@@ -150,6 +151,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 			}
 		}
 		if runner.Undocumented2.MayReplyTo(prop) {
+			runner.logger.Info("Process", prop.FromAddress, nil, "invoke Undocumented2")
 			if undocErr := runner.Undocumented2.SendMessage(result.CombinedOutput); undocErr == nil {
 				return false, nil
 			} else {
@@ -157,6 +159,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 			}
 		}
 		if runner.Undocumented3.MayReplyTo(prop) {
+			runner.logger.Info("Process", prop.FromAddress, nil, "invoke Undocumented3")
 			if undocErr := runner.Undocumented3.SendMessage(prop, result.CombinedOutput); undocErr == nil {
 				return false, nil
 			} else {
