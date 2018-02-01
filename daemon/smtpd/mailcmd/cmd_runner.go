@@ -41,6 +41,8 @@ func (runner *CommandRunner) Initialise() error {
 	}
 	runner.logger = misc.Logger{ComponentName: "mailcmd", ComponentID: runner.ReplyMailClient.MailFrom}
 	runner.Processor.SetLogger(runner.logger)
+	runner.Undocumented3.Logger = runner.logger
+	runner.Undocumented3.MailClient = runner.ReplyMailClient
 	if errs := runner.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("mailcmd.Process: %+v", errs)
 	}
@@ -52,8 +54,8 @@ func (runner *CommandRunner) SelfTest() error {
 	ret := make([]string, 0, 0)
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
-	// One mailer and one undocumented
-	wait.Add(3)
+	// One mailer and 3 undocumented
+	wait.Add(4)
 	go func() {
 		err := runner.ReplyMailClient.SelfTest()
 		if err != nil {
@@ -77,6 +79,17 @@ func (runner *CommandRunner) SelfTest() error {
 	go func() {
 		if runner.Undocumented2.IsConfigured() {
 			err := runner.Undocumented2.SelfTest()
+			if err != nil {
+				retMutex.Lock()
+				ret = append(ret, err.Error())
+				retMutex.Unlock()
+			}
+		}
+		wait.Done()
+	}()
+	go func() {
+		if runner.Undocumented3.IsConfigured() {
+			err := runner.Undocumented3.SelfTest()
 			if err != nil {
 				retMutex.Lock()
 				ret = append(ret, err.Error())
@@ -144,7 +157,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 			}
 		}
 		if runner.Undocumented3.MayReplyTo(prop) {
-			if undocErr := runner.Undocumented3.SendMessage(result.CombinedOutput); undocErr == nil {
+			if undocErr := runner.Undocumented3.SendMessage(prop, result.CombinedOutput); undocErr == nil {
 				return false, nil
 			} else {
 				return false, undocErr

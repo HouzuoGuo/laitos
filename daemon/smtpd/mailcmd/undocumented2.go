@@ -70,6 +70,7 @@ func (und *Undocumented2) SendMessage(message string) error {
 			return nil
 		},
 	}, und.URL)
+
 	if err != nil {
 		return fmt.Errorf("Undocumented2.SendMessage: HTTP failure - %v", err)
 	} else if respErr := resp.Non2xxToError(); respErr != nil {
