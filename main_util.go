@@ -45,29 +45,51 @@ func DumpGoroutinesOnInterrupt() {
 }
 
 /*
-ReseedPseudoRand regularly reseeds global pseudo random generator using cryptographic random number generator. Some
-laitos daemons use the common PRNG instance for their operations.
+ReseedPseudoRandAndContinue immediately re-seeds PRNG using cryptographic RNG, and then continues in background at
+regular interval (2 minutes). This helps some laitos daemons that use the common PRNG instance for their operations.
 */
-func ReseedPseudoRand() {
-	go func() {
-		numAttempts := 1
-		for ; ; numAttempts++ {
-			seedBytes := make([]byte, 8)
-			_, err := cryptoRand.Read(seedBytes)
-			if err != nil {
-				logger.Abort("ReseedPseudoRand", "", err, "failed to read from random generator")
-			}
-			seed, _ := binary.Varint(seedBytes)
-			if seed == 0 {
-				// If random entropy decodes into an integer that overflows, simply retry.
-				continue
-			} else {
-				pseudoRand.Seed(seed)
-				break
-			}
+func ReseedPseudoRandAndInBackground() {
+	reseedFun := func() {
+		seedBytes := make([]byte, 8)
+		_, err := cryptoRand.Read(seedBytes)
+		if err != nil {
+			logger.Abort("ReseedPseudoRandAndInBackground", "", err, "failed to read from random generator")
 		}
-		logger.Info("ReseedPseudoRand", "", nil, "succeeded after %d attempt(s)", numAttempts)
+		seed, _ := binary.Varint(seedBytes)
+		if seed <= 0 {
+			// If the random entropy fails to decode into an integer, seed PRNG with the system time.
+			pseudoRand.Seed(time.Now().UnixNano())
+		} else {
+			pseudoRand.Seed(seed)
+		}
+	}
+	reseedFun()
+	go func() {
+		reseedFun()
+		logger.Info("ReseedPseudoRandAndInBackground", "", nil, "has reseeded just now")
 		time.Sleep(2 * time.Minute)
+	}()
+}
+
+/*
+PrepareUtilitiesAndInBackground immediately copies utility programs that are not essential but helpful to certain
+toolbox features and daemons, and then continues in background at regular interval (1 hour).
+
+This helps with certain web services (such as browser-in-browser) that will validate the availability of some of these
+utility programs and report error if they are not available, which may in turn cause failure in launching HTTP daemon.
+
+It is usually only necessary to copy the utilities once, but on AWS ElasticBeanstalk the OS template aggressively clears
+/tmp at regular interval, losing all of the copied utilities in the progress, therefore the function launches a
+background goroutine to copy the programs at regular interval.
+*/
+func PrepareUtilitiesAndInBackground() {
+	misc.PrepareUtilities(logger)
+	go func() {
+		for {
+			misc.PrepareUtilities(logger)
+			logger.Info("PrepareUtilitiesAndInBackground", "", nil, "has run PrepareUtilities just now")
+			time.Sleep(1 * time.Hour)
+		}
 	}()
 }
 

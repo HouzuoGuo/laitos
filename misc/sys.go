@@ -97,8 +97,11 @@ const CommonPATH = UtilityDir + ":/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/
 
 /*
 PrepareUtilities resets program environment PATH to be a comprehensive list of common executable locations, then
-it copies non-essential laitos utility programs to a designated directory. This is a rather expensive function due to
-involvement of heavy file IO.
+it copies non-essential laitos utility programs to a designated directory.
+
+This is a rather expensive function due to involvement of heavy file IO, and be aware that the OS template on AWS
+ElasticBeanstalk aggressively clears /tmp at regular interval, therefore caller may want to to invoke this function at
+regular interval.
 */
 func PrepareUtilities(progress Logger) {
 	logger.Info("PrepareUtilities", "", nil, "going to reset program environment PATH and copy non-essential utility programs to "+UtilityDir)

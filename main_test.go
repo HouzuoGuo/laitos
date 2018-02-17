@@ -6,8 +6,12 @@ import (
 	"testing"
 )
 
-func TestReseedPseudoRand(t *testing.T) {
-	ReseedPseudoRand()
+func TestReseedPseudoRandAndInBackground(t *testing.T) {
+	ReseedPseudoRandAndInBackground()
+}
+
+func TestPrepareUtilitiesAndInBackground(t *testing.T) {
+	PrepareUtilitiesAndInBackground()
 }
 
 func TestEditKeyValue(t *testing.T) {

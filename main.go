@@ -166,7 +166,7 @@ func main() {
 
 	// Common diagnosis and security practices
 	LockMemory()
-	ReseedPseudoRand()
+	ReseedPseudoRandAndInBackground()
 	if debug {
 		DumpGoroutinesOnInterrupt()
 	}
@@ -270,9 +270,8 @@ func main() {
 	if tuneSystem {
 		logger.Warning("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
 	}
+	PrepareUtilitiesAndInBackground()
 
-	// Prepare utility programs that are not essential but helpful to certain toolbox features and daemons
-	misc.PrepareUtilities(logger)
 	daemonErrs := make(chan error, len(daemonNames))
 	for _, daemonName := range daemonNames {
 		// Daemons are started asynchronously because the order of startup does not matter.
