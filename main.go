@@ -25,7 +25,10 @@ const (
 
 var logger = misc.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
 
-// ExtractEncryptedArchive reads password from standard input and extracts archive file into the directory.
+/*
+ExtractEncryptedArchive is a distinct routine of laitos main program, it reads password from standard input, decrypts
+the encrypted archive file and extract it into the destination directory.
+*/
 func ExtractEncryptedArchive(destDir, archivePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter password to decrypt archive (no echo):")
@@ -60,7 +63,10 @@ func ExtractEncryptedArchive(destDir, archivePath string) {
 	}
 }
 
-// MakeEncryptedArchive reads password from standard input and uses it to encrypt and archive the directory.
+/*
+MakeEncryptedArchive is a distinct routine of laitos main program, it reads password from standard input and uses it to
+encrypt the directory and archive into a single file.
+*/
 func MakeEncryptedArchive(srcDir, archivePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter a password to encrypt the archive (no echo):")
@@ -80,7 +86,10 @@ func MakeEncryptedArchive(srcDir, archivePath string) {
 	}
 }
 
-// StartPasswordWebServer starts the password input web server.
+/*
+StartPasswordWebServer is a distinct routine of laitos main program, it starts a simple web server to accept a password
+input in order to decrypt laitos program data and launch the daemons.
+*/
 func StartPasswordWebServer(port int, url, archivePath string) {
 	ws := passwdserver.WebServer{
 		Port:            port,
@@ -108,15 +117,19 @@ func StartPasswordWebServer(port int, url, archivePath string) {
 }
 
 /*
-main runs one of several modes, as dictated by input command line flags:
+main runs one of several distinct routines as dictated by input command line flags:
 
-- Utilities for maintaining encrypted data archive (-slu extract|archive)
+- Utilities for maintaining encrypted program data archive (-datautil=extract|archive).
 
-- (Optional) encrypted data launcher (-sl) will eventually start the supervisor (-supervisor=true)
+- Password input web server that accepts a password input to launch laitos daemons in supervisor mode by decrypting its
+  program data (-pwdserver & -pwdserverport= & -pwdserverdata= & -pwdserverurl=).
 
-- Supervisor (-supervisor=true) is responsible for forking main process to launch daemons:
+- Supervisor runs laitos daemons in a seperate process and re-launches them in case of crash. Supervisor is turned on by
+  default (-supervisor=true).
 
-- The forked main process runs with flag -supervisor=false
+- Whether launched by supervisor or launched independently, start daemons (-config= & -daemons=).
+
+- Benchmark routine that runs after daemons have been launched.
 */
 func main() {
 	// Process command line flags
@@ -151,8 +164,15 @@ func main() {
 
 	flag.Parse()
 
+	// Common diagnosis and security practices
+	LockMemory()
+	ReseedPseudoRand()
+	if debug {
+		DumpGoroutinesOnInterrupt()
+	}
+
 	// ========================================================================
-	// Utility mode - Encrypted data archive utilities do not run daemons.
+	// Utility routines - maintain encrypted laitos program data, no need to run any daemon.
 	// ========================================================================
 	if dataUtil != "" {
 		switch dataUtil {
@@ -167,21 +187,19 @@ func main() {
 	}
 
 	// ========================================================================
-	// Encrypted data archive launcher mode - launch the password input web server.
+	// Password input web server - start the web server to accept password input for decrypting program data.
 	// ========================================================================
 	if pwdServer {
 		StartPasswordWebServer(pwdServerPort, pwdServerURL, pwdServerData)
 		return
 	}
 	/*
-		Encrypted data launcher (if any) has finished its task to decrypt program data, now it is time to launch supervisor
-		which then launches daemons.
+		If the password web server succeeded in decrypting program data, it will launch laitos daemons under supervisor;
+		if the server is not relevant/involved in user's deployment, the user may simply ignore its program flags and
+		launch laitos daemons right away.
+		Be ware that supervisor is always turned on by default.
+		Here come the preparation for both supervisor and daemons:
 	*/
-
-	// ========================================================================
-	// Prepare configuration for supervisor mode or daemon mode.
-	// ========================================================================
-	LockMemory()
 	// Parse configuration JSON file
 	if misc.ConfigFilePath == "" {
 		logger.Abort("main", "", nil, "please provide a configuration file (-config)")
@@ -222,9 +240,10 @@ func main() {
 	}
 
 	// ========================================================================
-	// Supervisor mode - fork a main process to run daemons.
-	// This mode flag is turned on by default so that when laitos daemons are
-	// protected by supervisor by default.
+	// Supervisor routine - launch an independent laitos process to run daemons.
+	// The command line flag is turned on by default so that laitos daemons are
+	// always protected by the supervisor by default. There is no good reason
+	// for a user to turn it off manually.
 	// ========================================================================
 	if isSupervisor {
 		supervisor := &launcher.Supervisor{CLIFlags: os.Args[1:], Config: config, DaemonNames: daemonNames}
@@ -233,18 +252,14 @@ func main() {
 	}
 
 	// ========================================================================
-	// Daemon mode - launch all daemons at once.
-	// This is the mode launched by supervisor in a forked process.
+	// Daemon routine - launch all daemons at once.
 	// ========================================================================
-	// Prepare some environmental changes
+	// Prepare environmental changes
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
 		logger.Warning("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
 	} else {
 		logger.Warning("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
-	}
-	if debug {
-		DumpGoroutinesOnInterrupt()
 	}
 	if disableConflicts {
 		DisableConflicts()
@@ -255,13 +270,12 @@ func main() {
 	if tuneSystem {
 		logger.Warning("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
 	}
-	ReseedPseudoRand()
 
 	// Prepare utility programs that are not essential but helpful to certain toolbox features and daemons
 	misc.PrepareUtilities(logger)
 	daemonErrs := make(chan error, len(daemonNames))
 	for _, daemonName := range daemonNames {
-		// Daemons are started asynchronously, the order of startup does not matter.
+		// Daemons are started asynchronously because the order of startup does not matter.
 		switch daemonName {
 		case launcher.DNSDName:
 			go func() {
@@ -273,6 +287,11 @@ func main() {
 			}()
 		case launcher.InsecureHTTPDName:
 			go func() {
+				/*
+					There is not an independent port settings for launching both TLS-enabled and TLS-free HTTP servers
+					at the same time. If user really wishes to launch both at the same time, the TLS-free HTTP server
+					will fallback to use port number 80.
+				*/
 				daemonErrs <- config.GetHTTPD().StartAndBlockNoTLS(80)
 			}()
 		case launcher.MaintenanceName:
@@ -298,9 +317,7 @@ func main() {
 		}
 	}
 
-	// ========================================================================
-	// Daemon mode - optionally run benchmark in the background.
-	// ========================================================================
+	// Optionally, wait a short while for daemons to settle and then run benchmark in the background.
 	if benchmark {
 		logger.Info("main", "", nil, "benchmark is about to commence in 30 seconds")
 		time.Sleep(30 * time.Second)
@@ -313,9 +330,7 @@ func main() {
 		go bench.RunBenchmarkAndProfiler()
 	}
 
-	// ========================================================================
-	// Daemon mode - wait for daemons to crash (ha ha ha).
-	// ========================================================================
+	// Wait for daemons to quit (they really should not).
 	for i := 0; i < len(daemonNames); i++ {
 		err := <-daemonErrs
 		logger.Warning("main", "", err, "a daemon has encountered an error and failed to start")

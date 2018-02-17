@@ -19,7 +19,7 @@ import (
 	"unsafe"
 )
 
-// LockMemory locks program memory to prevent swapping.
+// LockMemory locks program memory to prevent swapping, protecting sensitive user data.
 func LockMemory() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
