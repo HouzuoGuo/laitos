@@ -9,6 +9,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -19,9 +20,16 @@ import (
 
 const (
 	ChatTypePrivate   = "private" // Name of the private chat type
-	PollIntervalSec   = 5         // Poll for incoming messages every five seconds
 	APICallTimeoutSec = 30        // Outgoing API calls are constrained by this timeout
 	CommandTimeoutSec = 30        // Command execution is constrained by this timeout
+
+	/*
+		PollIntervalSecMin and PollIntervalSecMax together determine the range of random number of seconds to wait between
+		each message polling attempt. The randomness helps multiple laitos instances to poll messages simultaneously
+		without starving any specific instance.
+	*/
+	PollIntervalSecMin = 2
+	PollIntervalSecMax = 5
 )
 
 var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all chat conversations served.
@@ -94,7 +102,7 @@ func (bot *Daemon) Initialise() error {
 	}
 	// Configure rate limit
 	bot.userRateLimit = &misc.RateLimit{
-		UnitSecs: PollIntervalSec,
+		UnitSecs: PollIntervalSecMax,
 		MaxCount: bot.PerUserLimit,
 		Logger:   bot.logger,
 	}
@@ -196,7 +204,17 @@ func (bot *Daemon) StartAndBlock() error {
 		}
 		var newMessages APIUpdates
 		if updatesErr != nil {
-			bot.logger.Warning("Loop", "", updatesErr, "failed to poll due to HTTP error")
+			/*
+				Before February 2018, if two or more program instances poll for messages at the same time, Telegram API
+				would not complain, but lately it begins to complain:
+				"terminated by other getUpdates request; make sure that only one bot instance is running"
+				despite that all program instances continue to function well and successfully poll all messages in its
+				next attempt. Therefore, suppress the log message in this case, and randomise the number of seconds to
+				wait between polling attempts.
+			*/
+			if updatesResp.StatusCode != http.StatusConflict {
+				bot.logger.Warning("Loop", "", updatesErr, "failed to poll due to HTTP error")
+			}
 			goto sleepAndContinue
 		}
 		// Deserialise new messages
@@ -214,11 +232,12 @@ func (bot *Daemon) StartAndBlock() error {
 			bot.ProcessMessages(newMessages)
 		}
 	sleepAndContinue:
+		randSleepSec := PollIntervalSecMin + rand.Intn(PollIntervalSecMax-PollIntervalSecMin)
 		select {
 		case <-bot.stop:
 			atomic.StoreInt32(&bot.loopIsRunning, 0)
 			return nil
-		case <-time.After(PollIntervalSec * time.Second):
+		case <-time.After(time.Duration(randSleepSec) * time.Second):
 		}
 	}
 }

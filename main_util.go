@@ -44,7 +44,10 @@ func DumpGoroutinesOnInterrupt() {
 	}()
 }
 
-// ReseedPseudoRand regularly reseeds global pseudo random generator using cryptographic random number generator.
+/*
+ReseedPseudoRand regularly reseeds global pseudo random generator using cryptographic random number generator. Some
+laitos daemons use the common PRNG instance for their operations.
+*/
 func ReseedPseudoRand() {
 	go func() {
 		numAttempts := 1
