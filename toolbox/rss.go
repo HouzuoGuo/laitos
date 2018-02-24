@@ -90,9 +90,9 @@ func (rss *RSS) Execute(cmd Command) *Result {
 	if count == 0 {
 		count = 10
 	}
-	sortedItems, err := DownloadRSSFeeds(cmd.TimeoutSec, rss.Sources...)
-	if err != nil {
-		return &Result{Error: err}
+	sortedItems, _ := DownloadRSSFeeds(cmd.TimeoutSec, rss.Sources...)
+	if sortedItems == nil || len(sortedItems) == 0 {
+		return &Result{Error: errors.New("all RSS sources failed to respond or gave no response")}
 	}
 	// Skip and limit number of items, but make sure at least one feed will be returned.
 	begin := skip

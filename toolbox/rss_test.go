@@ -71,30 +71,29 @@ func TestRSS_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Break a URL and test again
-	oldURL := rss.Sources[0]
 	rss.Sources[0] = "this url does not exist"
 	if err := rss.SelfTest(); err == nil {
 		t.Fatal("did not error")
 	}
-	rss.Sources[0] = oldURL
+	// The broken URL may not hinder other sources from providing their response
 	// Retrieve 10 latest feeds (I don't suppose the built-in sources will send more than 5KB per feed..)
 	if ret := rss.Execute(Command{TimeoutSec: 30, Content: ""}); ret.Error != nil ||
-		len(ret.Output) < 50 || len(ret.Output) > 50*1024 {
+		len(ret.Output) < 100 || len(ret.Output) > 50*1024 {
 		t.Fatal(ret)
 	}
 	// Bad number - still retrieve 10 latest feeds
 	if ret := rss.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "a, b"}); ret.Error != nil ||
-		len(ret.Output) < 50 || len(ret.Output) > 50*1024 {
+		len(ret.Output) < 100 || len(ret.Output) > 50*1024 {
 		t.Fatal(ret)
 	}
 	// Retrieve 5 feeds after skipping the latest 3 feeds
 	if ret := rss.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "3, 5"}); ret.Error != nil ||
-		len(ret.Output) < 50 || len(ret.Output) > 50*1024 {
+		len(ret.Output) < 100 || len(ret.Output) > 50*1024 {
 		t.Fatal(ret)
 	}
 	// Retrieve plenty of feeds
 	if ret := rss.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "3, 5000"}); ret.Error != nil ||
-		len(ret.Output) < 50 {
+		len(ret.Output) < 100 {
 		t.Fatal(ret)
 	}
 }
