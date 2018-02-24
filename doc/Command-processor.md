@@ -177,6 +177,7 @@ The following prefixes are accepted, see individual feature manual for their usa
 - `.i` - [Read Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-Emails)
 - `.m` - [Send Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-Emails)
 - `.p` - [Call friends and send texts](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-make-calls-and-send-SMS)
+- `.r` - [RSS reader](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-RSS-reader)
 - `.s` - [Run system commands](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-run-system-commands)
 - `.t` - [Read and post tweets](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Twitter)
 - `.w` - [WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-WolframAlpha)

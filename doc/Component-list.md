@@ -122,6 +122,11 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-WolframAlpha" target="_blank">Link</a></td>
     </tr>
     <tr>
+        <td>Read RSS feeds</td>
+            <td>Read news feeds and briefings via RSS.</td>
+            <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-RSS-reader" target="_blank">Link</a></td>
+        </tr>
+    <tr>
         <td>Web browser</td>
         <td>Take control over a fully feature web browser via text commands.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser" target="_blank">Link</a></td>

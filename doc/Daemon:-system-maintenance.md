@@ -2,7 +2,7 @@
 
 ## Introduction
 The daemon regularly conducts system maintenance to ensure smooth and safe operation of your laitos server:
-- Validate API credentials (Facebook, Twitter, chatbot, etc) used by toolbox commands and HTTP handlers.
+- Validate configuration (such as API credentials for Facebook/Twitter) used by toolbox commands and HTTP handlers.
 - Install latest security updates.
 - Install/update additional softwares that are useful to laitos' operation.
 - Synchronise system clock.
