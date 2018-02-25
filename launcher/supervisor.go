@@ -101,7 +101,7 @@ type Supervisor struct {
 func (sup *Supervisor) initialise() {
 	sup.logger = misc.Logger{
 		ComponentName: "Supervisor",
-		ComponentID:   strconv.Itoa(os.Getpid()),
+		ComponentID:   []misc.LoggerIDField{{"PID", os.Getpid()}, {"Daemons", sup.DaemonNames}},
 	}
 	sup.mainStderr = misc.NewByteLogWriter(os.Stderr, MemoriseOutputCapacity)
 	sup.mainStdout = misc.NewByteLogWriter(os.Stdout, MemoriseOutputCapacity)

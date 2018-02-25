@@ -19,7 +19,7 @@ var (
 	ErrEmergencyLockDown = errors.New("LOCKED DOWN")
 
 	// logger is used by global actions
-	logger = Logger{ComponentID: "ProcessGlobal"}
+	logger = Logger{ComponentName: "ProcessGlobal", ComponentID: []LoggerIDField{{"PID", os.Getpid()}}}
 )
 
 /*

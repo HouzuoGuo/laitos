@@ -47,7 +47,7 @@ func (email *SendMail) SelfTest() error {
 }
 
 func (email *SendMail) Initialise() error {
-	email.logger = misc.Logger{ComponentID: email.MailClient.MailFrom, ComponentName: "SendMail"}
+	email.logger = misc.Logger{ComponentName: "SendMail", ComponentID: []misc.LoggerIDField{{"MailFrom", email.MailClient.MailFrom}}}
 	return nil
 }
 

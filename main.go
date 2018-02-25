@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -23,7 +22,7 @@ const (
 	ProfilerHTTPPort = 19151 // ProfilerHTTPPort is to be listened by net/http/pprof HTTP server when benchmark is turned on
 )
 
-var logger = misc.Logger{ComponentName: "laitos", ComponentID: strconv.Itoa(os.Getpid())}
+var logger = misc.Logger{ComponentName: "main", ComponentID: []misc.LoggerIDField{{"PID", os.Getpid()}}}
 
 /*
 ExtractEncryptedArchive is a distinct routine of laitos main program, it reads password from standard input, decrypts

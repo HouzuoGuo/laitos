@@ -20,12 +20,12 @@ func TestLogger_Format(t *testing.T) {
 	if msg := logger.Format("fun", "act", errors.New("test"), "a"); msg != "fun(act): Error \"test\" - a" {
 		t.Fatal(msg)
 	}
-	logger.ComponentID = "ha"
-	if msg := logger.Format("fun", "act", errors.New("test"), "a"); msg != "[ha].fun(act): Error \"test\" - a" {
+	logger.ComponentID = []LoggerIDField{{"a", 1}, {"b", "c"}}
+	if msg := logger.Format("fun", "act", errors.New("test"), "a"); msg != "[a=1;b=c].fun(act): Error \"test\" - a" {
 		t.Fatal(msg)
 	}
 	logger.ComponentName = "comp"
-	if msg := logger.Format("fun", "act", errors.New("test"), "a"); msg != "comp[ha].fun(act): Error \"test\" - a" {
+	if msg := logger.Format("fun", "act", errors.New("test"), "a"); msg != "comp[a=1;b=c].fun(act): Error \"test\" - a" {
 		t.Fatal(msg)
 	}
 	if msg := logger.Format("fun", "act", errors.New("test"), strings.Repeat("a", MaxLogMessageLen)); len(msg) != MaxLogMessageLen {

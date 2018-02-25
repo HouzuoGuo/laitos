@@ -89,7 +89,7 @@ func (bot *Daemon) Initialise() error {
 	if bot.PerUserLimit < 1 {
 		bot.PerUserLimit = 2 // reasonable for personal use
 	}
-	bot.logger = misc.Logger{ComponentName: "telegrambot", ComponentID: strconv.Itoa(bot.PerUserLimit)}
+	bot.logger = misc.Logger{ComponentName: "telegrambot", ComponentID: []misc.LoggerIDField{{"PerUserLimit", bot.PerUserLimit}}}
 	if bot.Processor == nil || bot.Processor.IsEmpty() {
 		return fmt.Errorf("telegrambot.Initialise: command processor and its filters must be configured")
 	}

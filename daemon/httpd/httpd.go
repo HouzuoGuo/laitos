@@ -135,7 +135,10 @@ func (daemon *Daemon) Initialise() error {
 		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = common.GetEmptyCommandProcessor()
 	}
-	daemon.logger = misc.Logger{ComponentName: "httpd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port))}
+	daemon.logger = misc.Logger{
+		ComponentName: "httpd",
+		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"Port", daemon.Port}},
+	}
 	daemon.Processor.SetLogger(daemon.logger)
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("httpd.Initialise: %+v", errs)

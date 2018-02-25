@@ -142,7 +142,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 func (ws *WebServer) Start() error {
 	ws.logger = misc.Logger{
 		ComponentName: "passwdserver.WebServer",
-		ComponentID:   strconv.Itoa(ws.Port),
+		ComponentID:   []misc.LoggerIDField{{"Port", ws.Port}},
 	}
 	ws.handlerMutex = new(sync.Mutex)
 	// Page handler needs to know the size in order to prepare ramdisk

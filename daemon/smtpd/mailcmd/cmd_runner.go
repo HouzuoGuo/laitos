@@ -39,7 +39,10 @@ func (runner *CommandRunner) Initialise() error {
 	if runner.Processor == nil || runner.Processor.IsEmpty() {
 		return fmt.Errorf("mailcmd.Initialise: command processor and its filters must be configured")
 	}
-	runner.logger = misc.Logger{ComponentName: "mailcmd", ComponentID: runner.ReplyMailClient.MailFrom}
+	runner.logger = misc.Logger{
+		ComponentName: "mailcmd",
+		ComponentID:   []misc.LoggerIDField{{"ReplyFrom", runner.ReplyMailClient.MailFrom}},
+	}
 	runner.Processor.SetLogger(runner.logger)
 	runner.Undocumented3.Logger = runner.logger
 	runner.Undocumented3.MailClient = runner.ReplyMailClient

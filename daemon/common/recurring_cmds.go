@@ -118,12 +118,12 @@ If Start function is already running, calling it a second time will do nothing a
 func (cmds *RecurringCommands) Start() {
 	cmds.mutex.Lock()
 	if cmds.running {
-		misc.DefaultLogger.Warning("RecurringCommands.Start", fmt.Sprintf("Intv%d", cmds.IntervalSec), nil, "starting an already started RecurringCommands becomes a nop")
+		misc.DefaultLogger.Warning("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "starting an already started RecurringCommands becomes a nop")
 		cmds.mutex.Unlock()
 		return
 	}
 	cmds.mutex.Unlock()
-	misc.DefaultLogger.Info("RecurringCommands.Start", fmt.Sprintf("Intv%d", cmds.IntervalSec), nil, "command execution now starts")
+	misc.DefaultLogger.Info("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "command execution now starts")
 	for {
 		cmds.running = true
 		select {
@@ -146,7 +146,7 @@ func (cmds *RecurringCommands) Stop() {
 		cmds.running = false
 	}
 	cmds.mutex.Unlock()
-	misc.DefaultLogger.Info("RecurringCommands.Stop", fmt.Sprintf("Intv%d", cmds.IntervalSec), nil, "stopped on request")
+	misc.DefaultLogger.Info("RecurringCommands.Stop", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "stopped on request")
 }
 
 // AddArbitraryTextToResult simply places an arbitrary text string into result.

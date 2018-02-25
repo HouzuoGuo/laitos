@@ -56,7 +56,10 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 200
 	}
-	daemon.logger = misc.Logger{ComponentName: "sockd", ComponentID: net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort))}
+	daemon.logger = misc.Logger{
+		ComponentName: "sockd",
+		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
+	}
 	if daemon.DNSDaemon == nil {
 		return errors.New("sockd.Initialise: dns daemon must be assigned")
 	}

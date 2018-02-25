@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"os"
 	"time"
 )
 
@@ -15,22 +16,38 @@ const (
 var LatestLogs = NewRingBuffer(NumLatestLogEntries)     // Keep latest log entry of all kinds in the buffer
 var LatestWarnings = NewRingBuffer(NumLatestLogEntries) // Keep latest warnings and log entries that come with error in the buffer
 
+/*
+LoggerIDField is a field of Logger's ComponentID, all fields that make up a ComponentID offer log entry a clue as to
+which component instance generated the log message.
+*/
+type LoggerIDField struct {
+	Key   string      // Key is an arbitrary string key
+	Value interface{} // Value is an arbitrary value that will be converted to string upon printing a log entry.
+}
+
 // Help to write log messages in a regular format.
 type Logger struct {
-	ComponentName string // Component name, such as HTTPD, SMTPD.
-	ComponentID   string // Clue of which component instance the message comes from, e.g. "0.0.0.0:25"
+	ComponentName string          // ComponentName is similar to a class name, or a category name.
+	ComponentID   []LoggerIDField // ComponentID comprises key-value pairs that give log entry a clue as to its origin.
 }
 
 // Format a log message and return, but do not print it.
 func (logger *Logger) Format(functionName, actorName string, err error, template string, values ...interface{}) string {
 	// Message is going to look like this:
-	// ComponentName[ID].FunctionName(actorName): Error "no such file" - failed to start component
+	// ComponentName[IDKey1-IDVal1;IDKey2-IDVal2].FunctionName(actorName): Error "no such file" - failed to start component
 	var msg bytes.Buffer
 	if logger.ComponentName != "" {
 		msg.WriteString(logger.ComponentName)
 	}
-	if logger.ComponentID != "" {
-		msg.WriteString(fmt.Sprintf("[%s]", logger.ComponentID))
+	if logger.ComponentID != nil && len(logger.ComponentID) > 0 {
+		msg.WriteRune('[')
+		for i, field := range logger.ComponentID {
+			msg.WriteString(fmt.Sprintf("%s=%v", field.Key, field.Value))
+			if i < len(logger.ComponentID)-1 {
+				msg.WriteRune(';')
+			}
+		}
+		msg.WriteRune(']')
 	}
 	if msg.Len() > 0 {
 		msg.WriteRune('.')
@@ -84,4 +101,4 @@ func (logger *Logger) Panic(functionName, actorName string, err error, template 
 }
 
 // DefaultLogger must be used when it is not possible to acquire a reference to a more dedicated logger.
-var DefaultLogger = &Logger{ComponentName: "default", ComponentID: ""}
+var DefaultLogger = &Logger{ComponentName: "default", ComponentID: []LoggerIDField{{"PID", os.Getpid()}}}

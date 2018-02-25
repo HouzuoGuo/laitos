@@ -229,7 +229,7 @@ func (daemon *Daemon) Initialise() error {
 		return fmt.Errorf("maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
 	daemon.stop = make(chan bool)
-	daemon.logger = misc.Logger{ComponentName: "maintenance", ComponentID: strconv.Itoa(daemon.IntervalSec)}
+	daemon.logger = misc.Logger{ComponentName: "maintenance", ComponentID: []misc.LoggerIDField{{"Intv", daemon.IntervalSec}}}
 	return nil
 }
 

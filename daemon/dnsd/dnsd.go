@@ -109,7 +109,10 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.Forwarders == nil || len(daemon.Forwarders) == 0 {
 		daemon.Forwarders = DefaultForwarders
 	}
-	daemon.logger = misc.Logger{ComponentName: "DNSD", ComponentID: fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort)}
+	daemon.logger = misc.Logger{
+		ComponentName: "DNSD",
+		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
+	}
 	if daemon.AllowQueryIPPrefixes == nil || len(daemon.AllowQueryIPPrefixes) == 0 {
 		return errors.New("DNSD.Initialise: allowable IP prefixes list must not be empty")
 	}

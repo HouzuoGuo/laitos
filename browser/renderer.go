@@ -472,7 +472,10 @@ func (instance *Instance) Start() error {
 	instance.jsProcMutex = new(sync.Mutex)
 	instance.jsDebugOutput = new(bytes.Buffer)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
-	instance.logger = misc.Logger{ComponentID: fmt.Sprintf("%s-%s", time.Now().Format(time.Kitchen), instance.Tag), ComponentName: "Instance"}
+	instance.logger = misc.Logger{
+		ComponentName: "browser.Instance",
+		ComponentID:   []misc.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
+	}
 	// Store server javascript into a temporary file
 	serverJS, err := ioutil.TempFile("", "laitos-browser")
 	if err != nil {

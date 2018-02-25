@@ -27,7 +27,10 @@ type Instances struct {
 
 // Check configuration and initialise internal states.
 func (instances *Instances) Initialise() error {
-	instances.logger = misc.Logger{ComponentName: "Instances", ComponentID: ""}
+	instances.logger = misc.Logger{
+		ComponentName: "browser.Instances",
+		ComponentID:   []misc.LoggerIDField{{"MaxInst", instances.MaxInstances}, {"MaxLifetime", instances.MaxLifetimeSec}},
+	}
 	if instances.MaxInstances < 1 {
 		instances.MaxInstances = 5 // reasonable for a few consumers
 	}

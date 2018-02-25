@@ -58,7 +58,7 @@ func TestDeserialiseRSSItems(t *testing.T) {
 func TestDownloadRSSFeeds(t *testing.T) {
 	feeds, err := DownloadRSSFeeds(10, "http://feeds.bbci.co.uk/news/rss.xml")
 	if err != nil || len(feeds) < 10 {
-		t.Fatal("%+v %+v", err, feeds)
+		t.Fatalf("%+v %+v", err, feeds)
 	}
 }
 

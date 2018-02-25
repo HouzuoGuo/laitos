@@ -84,7 +84,7 @@ func sendMail(smtpClient *smtp.Client, serverTLSName string, auth smtp.Auth, fro
 
 var CommonMailLogger = misc.Logger{
 	ComponentName: "MailClient",
-	ComponentID:   "Common",
+	ComponentID:   []misc.LoggerIDField{{"Common", "Shared"}},
 } // CommonMailLogger is shared by all mail clients to log mail delivery progress.
 
 // Send emails via SMTP.

@@ -38,7 +38,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.logger = misc.Logger{
 		ComponentName: "plainsocket",
-		ComponentID:   fmt.Sprintf("%s-%d&%d", daemon.Address, daemon.TCPPort, daemon.UDPPort),
+		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		return fmt.Errorf("plainsocket.Initialise: command processor and its filters must be configured")
