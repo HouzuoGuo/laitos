@@ -23,4 +23,7 @@ func TestDoHTTP(t *testing.T) {
 	if resp.Non2xxToError() != nil {
 		t.Fatal(err)
 	}
+	if body := resp.GetBodyUpTo(10); len(body) != 10 {
+		t.Fatal(body)
+	}
 }

@@ -282,7 +282,7 @@ If either TCP or UDP port fails to listen, all listeners are closed and an error
 */
 func (daemon *Daemon) StartAndBlock() error {
 	// Keep updating ad-block black list in background
-	stopAdBlockUpdater := make(chan bool, 1)
+	stopAdBlockUpdater := make(chan bool, 2)
 	go func() {
 		daemon.UpdateBlackList()
 		for {

@@ -26,6 +26,7 @@ const (
 	SMTPDName         = "smtpd"
 	SOCKDName         = "sockd"
 	TelegramName      = "telegram"
+	AutoUnlockName    = "autounlock"
 
 	/*
 		FailureThresholdSec determines the maximum failure interval for supervisor to tolerate before taking action to shed
@@ -39,10 +40,10 @@ const (
 )
 
 // AllDaemons is an unsorted list of string daemon names.
-var AllDaemons = []string{DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, PlainSocketName, SMTPDName, SOCKDName, TelegramName}
+var AllDaemons = []string{DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, PlainSocketName, SMTPDName, SOCKDName, TelegramName, AutoUnlockName}
 
 // ShedOrder is the sequence of daemon names to be taken offline one after another in case of program crash.
-var ShedOrder = []string{MaintenanceName, DNSDName, SOCKDName, SMTPDName, HTTPDName, InsecureHTTPDName, PlainSocketName, TelegramName}
+var ShedOrder = []string{MaintenanceName, DNSDName, SOCKDName, SMTPDName, HTTPDName, InsecureHTTPDName, PlainSocketName, TelegramName, AutoUnlockName}
 
 /*
 RemoveFromFlags removes CLI flag from input flags base on a condition function (true to remove). The input flags must

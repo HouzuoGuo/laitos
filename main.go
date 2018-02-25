@@ -136,7 +136,7 @@ func main() {
 	var disableConflicts, tuneSystem, debug, swapOff, benchmark bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (dnsd, httpd, insecurehttpd, maintenance, plainsocket, smtpd, telegram)")
+	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (dnsd, httpd, insecurehttpd, maintenance, plainsocket, smtpd, telegram, autounlock)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&swapOff, "swapoff", false, "(Optional) turn off all swap files and partitions for improved system security")
 	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
@@ -311,6 +311,10 @@ func main() {
 		case launcher.TelegramName:
 			go func() {
 				daemonErrs <- config.GetTelegramBot().StartAndBlock()
+			}()
+		case launcher.AutoUnlockName:
+			go func() {
+				daemonErrs <- config.GetAutoUnlock().StartAndBlock()
 			}()
 		}
 	}

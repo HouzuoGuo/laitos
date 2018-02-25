@@ -19,15 +19,30 @@ import (
 )
 
 const (
-	// IOTimeout is the timeout (in seconds) used in password launcher's web server transfers.
+	/*
+		The constants ContentLocationMagic and PasswordInputName are copied into autounlock package in order to avoid
+		import cycle. Looks ugly, sorry.
+	*/
+
+	/*
+		ContentLocationMagic is a rather randomly typed string that is sent as Content-Location header value when a
+		client successfully reaches the password unlock URL (and only that URL). Clients may look for this magic
+		in order to know that the URL reached indeed belongs to a laitos password input web server.
+	*/
+	ContentLocationMagic = "vmseuijt5oj4d5x7fygfqj4398"
+	// PasswordInputName is the HTML element name that accepts password input.
+	PasswordInputName = "password"
+
+	// IOTimeout is the timeout (in seconds) used for transfering data between password input web server and clients.
 	IOTimeout = 30 * time.Second
 	/*
-		ShutdownTimeout is the maximum number of seconds to wait for completion of pending IO transfers,
-		before shutting down the password launcher's web server.
+		ShutdownTimeout is the maximum number of seconds to wait for completion of pending IO transfers, before shutting
+		down the password input web server.
 	*/
 	ShutdownTimeout = 10 * time.Second
-	CLIFlag         = `pwdserver` // CLIFlag is the command line flag that enables this password web server to launch.
-
+	// CLIFlag is the command line flag that enables this password input web server to launch.
+	CLIFlag = `pwdserver`
+	// PageHTML is the content of HTML page that asks for a password input.
 	PageHTML = `<!doctype html>
 <html>
 <head>
@@ -37,13 +52,13 @@ const (
 <body>
 	<pre>%s</pre>
     <form action="#" method="post">
-        <p>Enter password to launch main program: <input type="password" name="password"/></p>
+        <p>Enter password to launch main program: <input type="password" name="` + PasswordInputName + `"/></p>
         <p><input type="submit" value="Launch"/></p>
         <p>%s</p>
     </form>
 </body>
 </html>
-	` // PageHTML is the content of HTML page that asks for a password to decrypt and launch main program.
+	`
 )
 
 // GetSysInfoText returns system information in human-readable text that is to be displayed on the password web page.
@@ -83,12 +98,13 @@ type WebServer struct {
 }
 
 /*
-pageHandler serves an HTML page that allows visitor to decrypt an archive via a correct password.
+pageHandler serves an HTML page that allows visitor to decrypt a program data archive via a correct password.
 If successful, the web server will stop, and then launches laitos supervisor program along with daemons using
 configuration and data from the unencrypted (and unpacked) archive.
 */
 func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Content-Location", ContentLocationMagic)
 	ws.handlerMutex.Lock()
 	defer ws.handlerMutex.Unlock()
 	if ws.alreadyUnlocked {

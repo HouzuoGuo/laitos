@@ -107,6 +107,7 @@ func (bot *Daemon) Initialise() error {
 		Logger:   bot.logger,
 	}
 	bot.userRateLimit.Initialise()
+	bot.stop = make(chan bool)
 	return nil
 }
 

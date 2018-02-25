@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
@@ -235,6 +236,12 @@ var sampleConfigJSON = `
         ]
       ]
     }
+  },
+  "AutoUnlock": {
+    "IntervalSec": 30,
+    "URLAndPassword": {
+      "http://example.com/does-not-matter": "password does not matter"
+    }
   }
 }`
 
@@ -272,4 +279,6 @@ func TestConfig(t *testing.T) {
 	sockd.TestSockd(config.GetSockDaemon(), t)
 
 	telegrambot.TestTelegramBot(config.GetTelegramBot(), t)
+
+	autounlock.TestAutoUnlock(config.GetAutoUnlock(), t)
 }

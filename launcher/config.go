@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
@@ -102,6 +103,8 @@ type Config struct {
 	TelegramBot     *telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
 	TelegramFilters StandardFilters     `json:"TelegramFilters"` // Telegram bot filter configuration
 
+	AutoUnlock *autounlock.Daemon `json:"AutoUnlock"` // AutoUnlock daemon
+
 	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
 
 	logger                misc.Logger // logger handles log output from configuration serialisation and initialisation routines.
@@ -113,6 +116,7 @@ type Config struct {
 	plainSocketDaemonInit sync.Once
 	sockDaemonInit        sync.Once
 	telegramBotInit       sync.Once
+	autoUnlockInit        sync.Once
 }
 
 // Initialise decorates feature configuration and bridges in preparation for daemon operations.
@@ -148,6 +152,9 @@ func (config *Config) Initialise() error {
 	}
 	if config.TelegramBot == nil {
 		config.TelegramBot = &telegrambot.Daemon{}
+	}
+	if config.AutoUnlock == nil {
+		config.AutoUnlock = &autounlock.Daemon{}
 	}
 	// All notification filters share the common mail client
 	config.HTTPFilters.NotifyViaEmail.MailClient = config.MailClient
@@ -422,4 +429,15 @@ func (config *Config) GetTelegramBot() *telegrambot.Daemon {
 		}
 	})
 	return config.TelegramBot
+}
+
+// GetAutoUnlock constructs the auto-unlock prober and returns.
+func (config *Config) GetAutoUnlock() *autounlock.Daemon {
+	config.autoUnlockInit.Do(func() {
+		if err := config.AutoUnlock.Initialise(); err != nil {
+			config.logger.Abort("GetAutoUnlock", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.AutoUnlock
 }

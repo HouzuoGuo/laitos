@@ -45,10 +45,11 @@ type HTTPResponse struct {
 func (resp *HTTPResponse) Non2xxToError() error {
 	// Avoid showing the entire HTTP (quite likely HTML) response to end-user
 	compactBody := resp.Body
-	if len(compactBody) > 256 {
+	if compactBody == nil {
+		compactBody = []byte("<no response>")
+	} else if len(compactBody) > 256 {
 		compactBody = compactBody[:256]
-	}
-	if len(compactBody) == 0 {
+	} else if len(compactBody) == 0 {
 		compactBody = []byte("<empty response>")
 	}
 
@@ -57,6 +58,18 @@ func (resp *HTTPResponse) Non2xxToError() error {
 	} else {
 		return nil
 	}
+}
+
+// GetBodyUpTo returns response body but only up to the specified number of bytes.
+func (resp *HTTPResponse) GetBodyUpTo(nBytes int) []byte {
+	if resp.Body == nil {
+		return []byte{}
+	}
+	ret := resp.Body
+	if len(resp.Body) > nBytes {
+		ret = resp.Body[:nBytes]
+	}
+	return ret
 }
 
 // Generic function for sending an HTTP request. Placeholders in URL template must be "%s".
