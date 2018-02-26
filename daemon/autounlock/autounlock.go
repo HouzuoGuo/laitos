@@ -30,6 +30,8 @@ const (
 	PasswordInputName = "password"
 )
 
+var UnlockStats = misc.NewStats() // UnlockStats stores statistics of duration of data unlocking events.
+
 /*
 Daemon periodically probes URLs where laitos password input servers ("passwdserver") are located in order to unlock
 their program data, and submits stored passwords to those laitos URLs to unlock their data.
@@ -77,6 +79,7 @@ func (daemon *Daemon) StartAndBlock() error {
 				probeResp, probeErr := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 10}, strings.Replace(aURL, "%", "%%", -1))
 				if probeErr == nil && probeResp.StatusCode/200 == 1 && probeResp.Header.Get("Content-Location") == ContentLocationMagic {
 					// The URL is responding successfully and is indeed a password input web server
+					begin := time.Now().UnixNano()
 					daemon.logger.Warning("StartAndBlock", "", nil, "trying to unlock data on domain %s", parsedURL.Host)
 					// Use form submission to input password
 					submitResp, submitErr := inet.DoHTTP(inet.HTTPRequest{
@@ -92,6 +95,7 @@ func (daemon *Daemon) StartAndBlock() error {
 					} else {
 						daemon.logger.Warning("StartAndBlock", "", nil, "successfully unlocked domain %s, response is: %s", parsedURL.Host, submitResp.GetBodyUpTo(1024))
 					}
+					UnlockStats.Trigger(float64(time.Now().UnixNano() - begin))
 				}
 			}
 		}

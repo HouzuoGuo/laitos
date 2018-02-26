@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
@@ -101,6 +102,7 @@ Text server TCP|UDP:  %s | %s
 Mail server:          %s
 Sock server TCP|UDP:  %s | %s
 Telegram commands:    %s
+Auto-unlock events:   %s
 `,
 		common.DurationStats.Format(factor, numDecimals),
 		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
@@ -109,7 +111,8 @@ Telegram commands:    %s
 		plainsocket.TCPDurationStats.Format(factor, numDecimals), plainsocket.UDPDurationStats.Format(factor, numDecimals),
 		smtpd.DurationStats.Format(factor, numDecimals),
 		sockd.TCPDurationStats.Format(factor, numDecimals), sockd.UDPDurationStats.Format(factor, numDecimals),
-		telegrambot.DurationStats.Format(factor, numDecimals))
+		telegrambot.DurationStats.Format(factor, numDecimals),
+		autounlock.UnlockStats.Format(factor, numDecimals))
 }
 
 // Inspect system and environment and return their information in text form. Double as a health check endpoint.

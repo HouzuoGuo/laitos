@@ -3,6 +3,7 @@ package maintenance
 import (
 	"bytes"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
@@ -76,6 +77,7 @@ Text server TCP|UDP:  %s | %s
 Mail server:          %s
 Sock server TCP|UDP:  %s | %s
 Telegram commands:    %s
+Auto-unlock events:   %s
 `,
 		common.DurationStats.Format(factor, numDecimals),
 		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
@@ -84,7 +86,8 @@ Telegram commands:    %s
 		plainsocket.TCPDurationStats.Format(factor, numDecimals), plainsocket.UDPDurationStats.Format(factor, numDecimals),
 		smtpd.DurationStats.Format(factor, numDecimals),
 		sockd.TCPDurationStats.Format(factor, numDecimals), sockd.UDPDurationStats.Format(factor, numDecimals),
-		telegrambot.DurationStats.Format(factor, numDecimals))
+		telegrambot.DurationStats.Format(factor, numDecimals),
+		autounlock.UnlockStats.Format(factor, numDecimals))
 }
 
 // runPortsCheck knocks on TCP ports that are to be checked in parallel, it returns an error if any of the ports fails to connect.
