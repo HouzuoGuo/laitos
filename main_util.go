@@ -46,7 +46,7 @@ func DumpGoroutinesOnInterrupt() {
 
 /*
 ReseedPseudoRandAndContinue immediately re-seeds PRNG using cryptographic RNG, and then continues in background at
-regular interval (2 minutes). This helps some laitos daemons that use the common PRNG instance for their operations.
+regular interval (3 minutes). This helps some laitos daemons that use the common PRNG instance for their operations.
 */
 func ReseedPseudoRandAndInBackground() {
 	reseedFun := func() {
@@ -65,9 +65,11 @@ func ReseedPseudoRandAndInBackground() {
 	}
 	reseedFun()
 	go func() {
-		reseedFun()
-		logger.Info("ReseedPseudoRandAndInBackground", "", nil, "has reseeded just now")
-		time.Sleep(2 * time.Minute)
+		for {
+			time.Sleep(3 * time.Minute)
+			reseedFun()
+			logger.Info("ReseedPseudoRandAndInBackground", "", nil, "has reseeded just now")
+		}
 	}()
 }
 
@@ -86,9 +88,9 @@ func PrepareUtilitiesAndInBackground() {
 	misc.PrepareUtilities(logger)
 	go func() {
 		for {
+			time.Sleep(1 * time.Hour)
 			misc.PrepareUtilities(logger)
 			logger.Info("PrepareUtilitiesAndInBackground", "", nil, "has run PrepareUtilities just now")
-			time.Sleep(1 * time.Hour)
 		}
 	}()
 }

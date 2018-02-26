@@ -44,8 +44,8 @@ type Daemon struct {
 }
 
 func (daemon *Daemon) Initialise() error {
-	if daemon.IntervalSec < 5*60 {
-		daemon.IntervalSec = 5 * 60 // 5 minutes is reasonable for almost all cases
+	if daemon.IntervalSec < 10*60 {
+		daemon.IntervalSec = 10 * 60 // 10 minutes is reasonable for almost all cases
 	}
 	daemon.logger = misc.Logger{ComponentName: "AutoUnlock", ComponentID: []misc.LoggerIDField{{"Intv", daemon.IntervalSec}}}
 	// Make sure that all URLs and passwords are present, and URLs can be parsed.
