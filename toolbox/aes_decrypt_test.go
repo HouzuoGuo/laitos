@@ -22,7 +22,7 @@ func TestAESDecrypt_Execute(t *testing.T) {
 		t.Fatal("did not error")
 	}
 	decrypt.EncryptedFiles = map[string]*AESEncryptedFile{
-		"alpha": &AESEncryptedFile{
+		"alpha": {
 			FilePath:     "this file does not exist",
 			HexIV:        "A28DB439E2D112AB6E9FC2B09A73B605",
 			HexKeyPrefix: "A28DB439E2D112AB6E9FC2B09A73B605",

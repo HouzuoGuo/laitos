@@ -219,7 +219,12 @@ func (daemon *Daemon) Execute() (string, bool) {
 	} else {
 		daemon.logger.Warning("Execute", "", nil, "completed with some errors")
 	}
-	if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
+	if daemon.Recipients == nil || len(daemon.Recipients) == 0 {
+		// If there are no recipients, print the report to standard output.
+		daemon.logger.Info("Execute", "", nil, "report will now be printed to standard output")
+		fmt.Println("Maintenance report:")
+		fmt.Println(result.String())
+	} else if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
 		daemon.logger.Warning("Execute", "", err, "failed to send notification mail")
 	}
 	return inet.LintMailBody(result.String()), allOK
