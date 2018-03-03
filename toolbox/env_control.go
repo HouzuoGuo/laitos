@@ -67,10 +67,12 @@ func (info *EnvControl) Execute(cmd Command) *Result {
 // Return runtime information (uptime, CPUs, goroutines, memory usage) in a multi-line text.
 func GetRuntimeInfo() string {
 	usedMem, totalMem := misc.GetSystemMemoryUsageKB()
+	usedRoot, freeRoot, totalRoot := misc.GetRootDiskUsageKB()
 	return fmt.Sprintf(`IP: %s
 Clock: %s
 Sys/prog uptime: %s / %s
 Total/used/prog mem: %d / %d / %d MB
+Total/used/free rootfs: %d / %d / %d MB
 Sys load: %s
 Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
 Program flags: %v
@@ -79,6 +81,7 @@ Program flags: %v
 		time.Now().String(),
 		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Now().Sub(misc.StartupTime).String(),
 		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
+		totalRoot/1024, usedRoot/1024, freeRoot/1024,
 		misc.GetSystemLoad(),
 		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
 		os.Args[1:])

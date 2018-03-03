@@ -78,6 +78,19 @@ func GetSystemUptimeSec() int {
 	return FindNumInRegexGroup(RegexTotalUptimeSec, string(content), 1)
 }
 
+// GetRootDiskUsageKB returns used and total space of the file system mounted on /. Returns 0 if they cannot be determined.
+func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int) {
+	fs := syscall.Statfs_t{}
+	err := syscall.Statfs("/", &fs)
+	if err != nil {
+		return
+	}
+	totalKB = int(int64(fs.Blocks) * fs.Bsize / 1024)
+	freeKB = int(int64(fs.Bfree) * fs.Bsize / 1024)
+	usedKB = totalKB - freeKB
+	return
+}
+
 /*
 UtilityDir is an element of PATH that points to a directory where laitos bundled utility programs are stored. The
 utility programs are not essential to most of laitos operations, however they come in handy in certain scenarios:

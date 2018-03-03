@@ -56,6 +56,14 @@ func TestGetSystemUptimeSec(t *testing.T) {
 	}
 }
 
+func TestGetRootDiskUsageKB(t *testing.T) {
+	SkipTestIfCI(t)
+	used, free, total := GetRootDiskUsageKB()
+	if used == 0 || free == 0 || total == 0 || used+free != total {
+		t.Fatal(used/1024, free/1024, total/1024)
+	}
+}
+
 func TestGetSysctl(t *testing.T) {
 	key := "kernel.pid_max"
 	if runtime.GOOS != "linux" {
