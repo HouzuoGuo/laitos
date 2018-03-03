@@ -287,8 +287,12 @@ func (daemon *Daemon) Stop() {
 }
 
 /*
-SystemMaintenance uses Linux package manager to ensure that all system packages are up to date and laitos dependencies
-are installed and up to date. Returns human-readable result output.
+SystemMaintenance is a long routine that conducts general system maintenance tasks:
+- Use Linux package manager to ensure that all system packages are up to date.
+- Install and update laitos optional dependencies and useful utilities.
+- Synchronise system clock.
+- Tune kernel parameters.
+- Enable "laitos.service".
 */
 func (daemon *Daemon) SystemMaintenance() string {
 	ret := new(bytes.Buffer)
@@ -360,8 +364,8 @@ func (daemon *Daemon) SystemMaintenance() string {
 		/*
 			Install additional software packages.
 			laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
-			several utility applications to help out with system maintenance.
-			Several of the package names are repeated under different names to accommodate the differences in naming convention
+			several phantomJS dependencies, as well as utility applications to help out with system diagnosis.
+			Several of the packages are repeated under different names to accommodate the differences in naming convention
 			among distributions.
 		*/
 		pkgs := []string{
@@ -430,6 +434,14 @@ func (daemon *Daemon) SystemMaintenance() string {
 		// The earliest possible opportunity for system maintenance to run is now minus minimum interval
 		misc.StartupTime = time.Now().Add(-MinimumIntervalSec * time.Second)
 	}
+
+	// Re-tune kernel parameters
+	fmt.Fprintf(ret, "--- system tuning result: \n%s\n\n", toolbox.TuneLinux())
+
+	// Enable "laitos.service" in case the user forgot to do so
+	// If user has a "laitos.service" but would not want it to run automatically, just mask it manually.
+	enableOut, enableErr := misc.InvokeProgram(nil, 10, "systemctl", "enable", "laitos.service")
+	fmt.Fprintf(ret, "--- enable laitos.service result: %v - %s\n\n", enableErr, enableOut)
 
 	ret.WriteString("--- System maintenance has finished.\n")
 	daemon.logger.Info("SystemMaintenance", "", nil, "maintenance is finished")
