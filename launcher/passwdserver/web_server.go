@@ -64,16 +64,19 @@ const (
 // GetSysInfoText returns system information in human-readable text that is to be displayed on the password web page.
 func GetSysInfoText() string {
 	usedMem, totalMem := misc.GetSystemMemoryUsageKB()
+	usedRoot, freeRoot, totalRoot := misc.GetRootDiskUsageKB()
 	return fmt.Sprintf(`
 Clock: %s
 Sys/prog uptime: %s / %s
 Total/used/prog mem: %d / %d / %d MB
+Total/used/free rootfs: %d / %d / %d MB
 Sys load: %s
 Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
 `,
 		time.Now().String(),
 		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Now().Sub(misc.StartupTime).String(),
 		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
+		totalRoot/1024, usedRoot/1024, freeRoot/1024,
 		misc.GetSystemLoad(),
 		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine())
 }
