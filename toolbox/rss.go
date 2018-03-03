@@ -25,12 +25,12 @@ var (
 		"http://www.abc.net.au/news/feed/45910/rss.xml",
 		// "News front page" from BBC
 		"http://feeds.bbci.co.uk/news/rss.xml",
+		// Home page from The Guardian
+		"https://www.theguardian.com/uk/rss",
 		// "Top news" from Reuters
 		"http://feeds.reuters.com/reuters/topNews",
 		// "Top news" from CNBC
 		"https://www.cnbc.com/id/100003114/device/rss/rss.html",
-		// "Top stories" from CNN
-		"http://rss.cnn.com/rss/edition.rss",
 		// "Homepage" from Jerusalem Post
 		"http://www.jpost.com/Rss/RssFeedsFrontPage.aspx",
 	}
