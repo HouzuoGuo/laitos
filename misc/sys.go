@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -160,6 +161,9 @@ mixed with additional input environment variables. The additional variables take
 Returns stdout+stderr output combined, and error if there is any.
 */
 func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (out string, err error) {
+	if timeoutSec < 1 {
+		return "", errors.New("invalid time limit")
+	}
 	// Make an environment variable array of common PATH, inherited values, and newly specified values.
 	myEnv := os.Environ()
 	combinedEnv := make([]string, 0, 1+len(myEnv))
@@ -179,25 +183,24 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	proc.Env = combinedEnv
 	proc.Stdout = &outBuf
 	proc.Stderr = &outBuf
-	// Run the program in a separate routine in order to monitor for timeout
-	procRunChan := make(chan error, 1)
-	go func() {
-		procRunChan <- proc.Run()
-	}()
-	select {
-	case procErr := <-procRunChan:
-		// Retrieve result upon program completion
-		out = outBuf.String()
-		err = procErr
-	case <-time.After(time.Duration(timeoutSec) * time.Second):
-		// If timeout is reached yet the process still has not completed, kill it.
-		out = outBuf.String()
-		if proc.Process != nil {
-			if err = proc.Process.Kill(); err == nil {
-				err = errors.New("Program timed out")
-			}
+	// Use process group so that child processes are also killed upon time out
+	proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Monitor for time out
+	var timedOut bool
+	timeOutTimer := time.AfterFunc(time.Duration(timeoutSec)*time.Second, func() {
+		// Instead of using Kill() function that only kills one process, use syscall to kill the entire process group.
+		if killErr := syscall.Kill(-proc.Process.Pid, syscall.SIGKILL); killErr != nil {
+			logger.Warning("InvokeProgram", program, killErr, "failed to kill after time limit exceeded")
 		}
+		timedOut = true
+	})
+	err = proc.Run()
+	timeOutTimer.Stop()
+
+	if timedOut {
+		err = errors.New("time limit exceeded")
 	}
+	out = outBuf.String()
 	return
 }
 

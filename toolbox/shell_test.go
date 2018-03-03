@@ -53,14 +53,19 @@ func TestShell_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.Remove(tmpFile.Name())
-	ret = sh.Execute(Command{TimeoutSec: 2, Content: `echo -n abc && sleep 4 && rm ` + tmpFile.Name()})
-	if !strings.Contains(ret.Error.Error(), "timed out") ||
+	start := time.Now().Unix()
+	ret = sh.Execute(Command{TimeoutSec: 2, Content: `echo -n abc && sleep 5 && rm ` + tmpFile.Name()})
+	if !strings.Contains(ret.Error.Error(), "time limit") ||
 		ret.Output != "abc" ||
-		!strings.Contains(ret.ResetCombinedText(), "timed out") || !strings.Contains(ret.ResetCombinedText(), CombinedTextSeparator+"abc") {
+		!strings.Contains(ret.ResetCombinedText(), "time limit") || !strings.Contains(ret.ResetCombinedText(), CombinedTextSeparator+"abc") {
 		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
 	}
+	end := time.Now().Unix()
+	if end-start < 1 || end-start > 3 {
+		t.Fatal("did not kill in time")
+	}
 	// If the command was truly killed, the file would still remain.
-	time.Sleep(3 * time.Second)
+	time.Sleep(6 * time.Second)
 	if _, err := os.Stat(tmpFile.Name()); err != nil {
 		t.Fatal(err)
 	}
