@@ -155,7 +155,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	}()
 	go func() {
 		// Mail command runner test - the routine itself also uses concurrency internally
-		if daemon.MailCmdRunnerToTest != nil {
+		if daemon.MailCmdRunnerToTest != nil && daemon.MailCmdRunnerToTest.ReplyMailClient.IsConfigured() {
 			mailCmdRunnerErr = daemon.MailCmdRunnerToTest.SelfTest()
 		}
 		waitAllChecks.Done()
@@ -195,12 +195,12 @@ func (daemon *Daemon) Execute() (string, bool) {
 		result.WriteString(fmt.Sprintf("\nFeature errors: %v\n", featureErr))
 	}
 	if mailCmdRunnerErr == nil {
-		result.WriteString("\nMail processor: OK\n")
+		result.WriteString("\nMail processor (if present): OK\n")
 	} else {
 		result.WriteString(fmt.Sprintf("\nMail processor errors: %v\n", mailCmdRunnerErr))
 	}
 	if httpHandlersErr == nil {
-		result.WriteString("\nHTTP handlers: OK\n")
+		result.WriteString("\nHTTP handlers (if present): OK\n")
 	} else {
 		result.WriteString(fmt.Sprintf("\nHTTP handler errors: %v\n", httpHandlersErr))
 	}
