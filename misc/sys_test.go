@@ -116,3 +116,10 @@ func TestPrepareUtilities(t *testing.T) {
 		}
 	}
 }
+
+func TestGetLocalUserNames(t *testing.T) {
+	names := GetLocalUserNames()
+	if len(names) < 2 || !names["root"] {
+		t.Fatal(names)
+	}
+}

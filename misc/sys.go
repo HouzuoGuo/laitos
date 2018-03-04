@@ -277,3 +277,19 @@ func SkipIfWSL(t testingstub.T) {
 		t.Skip("this test is skipped on Windows Subsystem For Linux")
 	}
 }
+
+// GetLocalUserNames returns all user names from /etc/passwd, or an empty map if they cannot be read.
+func GetLocalUserNames() (ret map[string]bool) {
+	ret = make(map[string]bool)
+	passwd, err := ioutil.ReadFile("/etc/passwd")
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(passwd), "\n") {
+		idx := strings.IndexRune(line, ':')
+		if idx > 0 {
+			ret[line[:idx]] = true
+		}
+	}
+	return
+}

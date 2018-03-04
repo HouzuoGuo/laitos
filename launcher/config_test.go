@@ -157,6 +157,7 @@ var sampleConfigJSON = `
     }
   },
   "Maintenance": {
+    "BlockSystemLoginExcept": ["root", "howard"],
     "IntervalSec": 3600,
     "Recipients": [
       "howard@localhost"

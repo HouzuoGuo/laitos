@@ -45,6 +45,13 @@ type Daemon struct {
 		the host, the check is considered a failure.
 	*/
 	CheckTCPPorts map[string][]int `json:"CheckTCPPorts"`
+
+	/*
+		BlockSystemLoginExcept is a list of Unix user names. If the array is not empty, system maintenance routine will
+		disable login access to all local users except the names among the array in an effort to harden system security.
+	*/
+	BlockSystemLoginExcept []string `json:"BlockSystemLoginExcept"`
+
 	/*
 		IntervalSec determines the rate of execution of maintenance routine. This is not a sleep duration. The constant
 		rate of execution is maintained by taking away routine's elapsed time from actual interval between runs.
@@ -293,12 +300,39 @@ SystemMaintenance is a long routine that conducts general system maintenance tas
 - Use Linux package manager to ensure that all system packages are up to date.
 - Install and update laitos optional dependencies and useful utilities.
 - Synchronise system clock.
+- Block unused system users from login.
 - Tune kernel parameters.
 - Enable "laitos.service".
 */
 func (daemon *Daemon) SystemMaintenance() string {
-	ret := new(bytes.Buffer)
-	ret.WriteString("--- Conducting system maintenance...\n")
+	daemon.logger.Info("SystemMaintenance", "", nil, "begins now")
+	out := new(bytes.Buffer)
+	out.WriteString("--- Conducting system maintenance\n")
+
+	daemon.UpgradeInstallSoftware(out)
+	daemon.SynchroniseSystemClock(out)
+
+	// Re-tune kernel parameters
+	fmt.Fprintf(out, "--- system tuning result: \n%s\n\n", toolbox.TuneLinux())
+
+	// Block unused system users from login
+	daemon.BlockUnusedLogin(out)
+
+	// Enable "laitos.service" in case the user forgot to do so
+	// If user has a "laitos.service" but would not want it to run automatically, just mask it manually.
+	enableOut, enableErr := misc.InvokeProgram(nil, 10, "systemctl", "enable", "laitos.service")
+	fmt.Fprintf(out, "--- enable laitos.service result: %v - %s\n\n", enableErr, enableOut)
+
+	out.WriteString("--- System maintenance has finished.\n")
+	daemon.logger.Info("SystemMaintenance", "", nil, "maintenance is finished")
+	return out.String()
+}
+
+/*
+UpgradeInstallSoftware uses Linux package manager to ensure that all system packages are up to date and installs
+optional laitos dependencies as well as diagnosis utilities.
+*/
+func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 	// Find a system package manager
 	var pkgManagerPath, pkgManagerName string
 	for _, binPrefix := range []string{"/sbin", "/bin", "/usr/sbin", "/usr/bin", "/usr/sbin/local", "/usr/bin/local"} {
@@ -315,18 +349,18 @@ func (daemon *Daemon) SystemMaintenance() string {
 		}
 	}
 	daemon.logger.Info("SystemMaintenance", "", nil, "package manager is \"%s\"", pkgManagerPath)
-	fmt.Fprintf(ret, "--- Package manage is \"%v\"\n", pkgManagerPath)
+	fmt.Fprintf(out, "--- Package manage is \"%v\"\n", pkgManagerPath)
 	// apt-get is too old to be convenient, it has to update the manifest first.
 	pkgManagerEnv := make([]string, 0, 8)
 	if pkgManagerName == "apt-get" {
-		ret.WriteString("--- Updating apt manifests...\n")
+		out.WriteString("--- Updating apt manifests...\n")
 		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
 		// Five minutes should be enough to grab the latest manifest
 		daemon.logger.Info("SystemMaintenance", "", nil, "updating apt manifests")
 		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
 		daemon.logger.Info("SystemMaintenance", "", err, "finished updating apt manifests")
 		// There is no need to suppress this output according to markers
-		fmt.Fprintf(ret, "--- apt-get result: %v - %s\n\n", err, strings.TrimSpace(result))
+		fmt.Fprintf(out, "--- apt-get result: %v - %s\n\n", err, strings.TrimSpace(result))
 	}
 	// Determine package manager invocation parameters
 	var sysUpgradeArgs, installArgs []string
@@ -344,14 +378,14 @@ func (daemon *Daemon) SystemMaintenance() string {
 		sysUpgradeArgs = []string{"--non-interactive", "update", "--recommends", "--auto-agree-with-licenses", "--skip-interactive", "--replacefiles", "--force-resolution"}
 		installArgs = []string{"--non-interactive", "install", "--recommends", "--auto-agree-with-licenses", "--replacefiles", "--force-resolution"}
 	default:
-		fmt.Fprintf(ret, "--- Will not install system software: missing implementation for package manager %s\n", pkgManagerName)
+		fmt.Fprintf(out, "--- Will not install system software: missing implementation for package manager %s\n", pkgManagerName)
 	}
 	if pkgManagerName != "" {
 		// The system package manager is known to laitos
 		// If package manager output contains any of the strings, the output is reduced into "Nothing to do"
 		suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
 		// Upgrade system packages with a time constraint of two hours
-		ret.WriteString("--- Upgrading system packages...\n")
+		out.WriteString("--- Upgrading system packages...\n")
 		daemon.logger.Info("SystemMaintenance", "", nil, "updating system packages")
 		result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
 		daemon.logger.Info("SystemMaintenance", "", err, "finished updating system packages")
@@ -362,7 +396,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 				break
 			}
 		}
-		fmt.Fprintf(ret, "--- System upgrade result: %v - %s\n\n", err, strings.TrimSpace(result))
+		fmt.Fprintf(out, "--- System upgrade result: %v - %s\n\n", err, strings.TrimSpace(result))
 		/*
 			Install additional software packages.
 			laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
@@ -403,7 +437,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 			pkgInstallArgs := make([]string, len(installArgs)+1)
 			copy(pkgInstallArgs, installArgs)
 			pkgInstallArgs[len(installArgs)] = name
-			fmt.Fprintf(ret, "--- Installing/upgrading %s\n", name)
+			fmt.Fprintf(out, "--- Installing/upgrading %s\n", name)
 			// Five minutes should be good enough for every package
 			daemon.logger.Info("SystemMaintenance", "", nil, "installing package %s", name)
 			result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, pkgInstallArgs...)
@@ -415,39 +449,72 @@ func (daemon *Daemon) SystemMaintenance() string {
 					break
 				}
 			}
-			fmt.Fprintf(ret, "--- %s installation/upgrade result: %v - %s\n\n", name, err, strings.TrimSpace(result))
+			fmt.Fprintf(out, "--- %s installation/upgrade result: %v - %s\n\n", name, err, strings.TrimSpace(result))
 		}
 	}
+}
 
+// SynchroniseSystemClock uses three different tools to immediately synchronise system clock via NTP servers.
+func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
+	daemon.logger.Info("SynchroniseSystemClock", "", nil, "going to synchronise system clock")
 	// Use three tools to immediately synchronise system clock
 	result, err := misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
-	fmt.Fprintf(ret, "--- clock synchronisation result (ntpdate): %v - %s\n\n", err, strings.TrimSpace(result))
+	fmt.Fprintf(out, "--- clock synchronisation result (ntpdate): %v - %s\n", err, strings.TrimSpace(result))
 	result, err = misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
-	fmt.Fprintf(ret, "--- clock synchronisation result (chronyd): %v - %s\n\n", err, strings.TrimSpace(result))
+	fmt.Fprintf(out, "--- clock synchronisation result (chronyd): %v - %s\n", err, strings.TrimSpace(result))
 	result, err = misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "busybox", "ntpd", "-n", "-q", "-p", "ie.pool.ntp.org", "ca.pool.ntp.org", "au.pool.ntp.org")
-	fmt.Fprintf(ret, "--- clock synchronisation result (busybox): %v - %s\n\n", err, strings.TrimSpace(result))
+	fmt.Fprintf(out, "--- clock synchronisation result (busybox): %v - %s\n", err, strings.TrimSpace(result))
 	/*
 		The program startup time is used to detect outdated commands (such as in telegram bot), in rare case if system clock
 		was severely skewed, causing program startup time to be in the future, the detection mechanisms will misbehave.
 		Therefore, correct the situation here.
 	*/
 	if misc.StartupTime.After(time.Now()) {
-		fmt.Fprint(ret, "--- clock was severely skewed, reset program startup time.\n")
+		fmt.Fprint(out, "--- clock was severely skewed, reset program startup time.\n")
 		// The earliest possible opportunity for system maintenance to run is now minus minimum interval
 		misc.StartupTime = time.Now().Add(-MinimumIntervalSec * time.Second)
 	}
+	fmt.Fprint(out, "\n")
+}
 
-	// Re-tune kernel parameters
-	fmt.Fprintf(ret, "--- system tuning result: \n%s\n\n", toolbox.TuneLinux())
-
-	// Enable "laitos.service" in case the user forgot to do so
-	// If user has a "laitos.service" but would not want it to run automatically, just mask it manually.
-	enableOut, enableErr := misc.InvokeProgram(nil, 10, "systemctl", "enable", "laitos.service")
-	fmt.Fprintf(ret, "--- enable laitos.service result: %v - %s\n\n", enableErr, enableOut)
-
-	ret.WriteString("--- System maintenance has finished.\n")
-	daemon.logger.Info("SystemMaintenance", "", nil, "maintenance is finished")
-	return ret.String()
+// BlockUnusedLogin will block/disable system login from users not listed in the exception list.
+func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
+	if daemon.BlockSystemLoginExcept == nil || len(daemon.BlockSystemLoginExcept) == 0 {
+		daemon.logger.Info("BlockUnusedLogin", "", nil, "skipped due to empty exception list")
+		fmt.Fprint(out, "--- block unused system login - skipped\n\n")
+		return
+	}
+	daemon.logger.Info("BlockUnusedLogin", "", nil, "going to block unused system login")
+	fmt.Fprint(out, "--- block unused system login\n")
+	exceptionMap := make(map[string]bool)
+	for _, name := range daemon.BlockSystemLoginExcept {
+		exceptionMap[name] = true
+	}
+	for user := range misc.GetLocalUserNames() {
+		if exceptionMap[user] {
+			continue
+		}
+		succeededForUser := true
+		progOut, err := misc.InvokeProgram(nil, 3, "chsh", "-s", "/bin/false", user)
+		if err != nil {
+			succeededForUser = false
+			fmt.Fprintf(out, "--- block unused system login - chsh failed (%s) - %v - %s\n", user, err, strings.TrimSpace(progOut))
+		}
+		progOut, err = misc.InvokeProgram(nil, 3, "passwd", "-l", user)
+		if err != nil {
+			succeededForUser = false
+			fmt.Fprintf(out, "--- block unused system login - passwd failed (%s) - %v - %s\n", user, err, strings.TrimSpace(progOut))
+		}
+		progOut, err = misc.InvokeProgram(nil, 3, "usermod", "--expiredate", "1", user)
+		if err != nil {
+			succeededForUser = false
+			fmt.Fprintf(out, "--- block unused system login - usermod failed (%s) - %v - %s\n", user, err, strings.TrimSpace(progOut))
+		}
+		if succeededForUser {
+			fmt.Fprintf(out, "--- block unused system login - successfully blocked user %s\n", user)
+		}
+	}
+	fmt.Fprint(out, "--- finished blocking unused system login\n\n")
 }
 
 // Run unit tests on the maintenance daemon. See TestMaintenance_Execute for daemon setup.
