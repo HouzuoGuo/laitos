@@ -12,6 +12,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"net/http"
@@ -103,6 +104,7 @@ Mail server:          %s
 Sock server TCP|UDP:  %s | %s
 Telegram commands:    %s
 Auto-unlock events:   %s
+Outstanding mails:    %d KB
 `,
 		common.DurationStats.Format(factor, numDecimals),
 		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
@@ -112,7 +114,8 @@ Auto-unlock events:   %s
 		smtpd.DurationStats.Format(factor, numDecimals),
 		sockd.TCPDurationStats.Format(factor, numDecimals), sockd.UDPDurationStats.Format(factor, numDecimals),
 		telegrambot.DurationStats.Format(factor, numDecimals),
-		autounlock.UnlockStats.Format(factor, numDecimals))
+		autounlock.UnlockStats.Format(factor, numDecimals),
+		inet.OutstandingMailBytes/1024)
 }
 
 // Inspect system and environment and return their information in text form. Double as a health check endpoint.

@@ -10,12 +10,19 @@ import (
 	"net/smtp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 const (
 	OutgoingMailSubjectKeyword = "laitos" // Outgoing emails are encouraged to carry this string in their subject
 	MailIOTimeoutSec           = 10       // MailIOTimeoutSec is the timeout for contacting MTA
+
+	/*
+		MaxOutstandingMailSize is the maximum size of mails buffered in memory, waiting to be delivered. Mails that arrive
+		after this limit is reached will cause earlier mails to be dropped permanently.
+	*/
+	MaxOutstandingMailSize = 200 * 1048576
 )
 
 /*
@@ -82,10 +89,14 @@ func sendMail(smtpClient *smtp.Client, serverTLSName string, auth smtp.Auth, fro
 	return smtpClient.Quit()
 }
 
+// CommonMailLogger is shared by all mail clients to log mail delivery progress.
 var CommonMailLogger = misc.Logger{
 	ComponentName: "MailClient",
 	ComponentID:   []misc.LoggerIDField{{"Common", "Shared"}},
-} // CommonMailLogger is shared by all mail clients to log mail delivery progress.
+}
+
+// OutstandingMailBytes is the total size of all outstanding mails waiting to be delivered.
+var OutstandingMailBytes int64
 
 // Send emails via SMTP.
 type MailClient struct {
@@ -108,6 +119,12 @@ all delivery attempts.
 */
 func (client *MailClient) sendMailWithRetry(from string, recipients []string, message []byte) {
 	var auth smtp.Auth
+
+	// Count the size of this Email
+	atomic.AddInt64(&OutstandingMailBytes, int64(len(message)))
+	defer func() {
+		atomic.AddInt64(&OutstandingMailBytes, -int64(len(message)))
+	}()
 
 	CommonMailLogger.Info("sendMailWithRetry", from, nil, "attempting to deliver mail to %v", recipients)
 	// Retry mail delivery up to couple of days, introduce a random initial delay to avoid triggering MTA's rate limit.
@@ -142,6 +159,12 @@ func (client *MailClient) sendMailWithRetry(from string, recipients []string, me
 		return
 	sleepAndRetry:
 		CommonMailLogger.Warning("sendMailWithRetry", from, err, "failed to deliver mail to %v in the attempt %d (tls error? %v)", recipients, i, tlsErr)
+		// At least one attempt of mail delivery must have been made in order to consider dropping the mail
+		if atomic.LoadInt64(&OutstandingMailBytes) > MaxOutstandingMailSize {
+			CommonMailLogger.Warning("sendMailWithRetry", from, nil, "max outstanding mail size is reached, permanently dropping mail of size %d", len(message))
+			return
+		}
+		// Exponentially prolong sleep interval
 		time.Sleep(sleep)
 		sleep = sleep * 2
 	}

@@ -78,6 +78,7 @@ Mail server:          %s
 Sock server TCP|UDP:  %s | %s
 Telegram commands:    %s
 Auto-unlock events:   %s
+Outstanding mails:    %d KB
 `,
 		common.DurationStats.Format(factor, numDecimals),
 		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
@@ -87,7 +88,8 @@ Auto-unlock events:   %s
 		smtpd.DurationStats.Format(factor, numDecimals),
 		sockd.TCPDurationStats.Format(factor, numDecimals), sockd.UDPDurationStats.Format(factor, numDecimals),
 		telegrambot.DurationStats.Format(factor, numDecimals),
-		autounlock.UnlockStats.Format(factor, numDecimals))
+		autounlock.UnlockStats.Format(factor, numDecimals),
+		inet.OutstandingMailBytes/1024)
 }
 
 // runPortsCheck knocks on TCP ports that are to be checked in parallel, it returns an error if any of the ports fails to connect.
