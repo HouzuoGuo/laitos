@@ -16,6 +16,12 @@ import (
 
 var sampleConfigJSON = `
 {
+  "AutoUnlock": {
+    "IntervalSec": 30,
+    "URLAndPassword": {
+      "http://example.com/does-not-matter": "password does not matter"
+    }
+  },
   "DNSDaemon": {
     "Address": "127.0.0.1",
     "AllowQueryIPPrefixes": [
@@ -87,21 +93,25 @@ var sampleConfigJSON = `
       "ClientAppID": "dummy id",
       "ClientAppSecret": "dummy secret"
     },
-	"RecurringCommandsEndpoint": "/recurring_cmds",
-	"RecurringCommandsEndpointConfig": {
-		"RecurringCommands": {
-			"channel1": {
-				"PreConfiguredCommands": ["verysecret.s echo -n this is channel1"],
-				"IntervalSec": 1,
-				"MaxResults": 4
-			},
-			"channel2": {
-				"PreConfiguredCommands": ["verysecret.s echo -n this is channel2"],
-				"IntervalSec": 1,
-				"MaxResults": 4
-			}
-		}
-	},
+    "RecurringCommandsEndpoint": "/recurring_cmds",
+    "RecurringCommandsEndpointConfig": {
+      "RecurringCommands": {
+        "channel1": {
+          "IntervalSec": 1,
+          "MaxResults": 4,
+          "PreConfiguredCommands": [
+            "verysecret.s echo -n this is channel1"
+          ]
+        },
+        "channel2": {
+          "IntervalSec": 1,
+          "MaxResults": 4,
+          "PreConfiguredCommands": [
+            "verysecret.s echo -n this is channel2"
+          ]
+        }
+      }
+    },
     "TwilioCallEndpoint": "/call_greeting",
     "TwilioCallEndpointConfig": {
       "CallGreeting": "Hi there"
@@ -157,14 +167,29 @@ var sampleConfigJSON = `
     }
   },
   "Maintenance": {
-    "BlockSystemLoginExcept": ["root", "howard"],
+    "BlockSystemLoginExcept": [
+      "root",
+      "howard"
+    ],
+    "DisableStopServices": [
+      "does-not-exist"
+    ],
+    "EnableStartServices": [
+      "does-not-exist"
+    ],
+    "InstallPackages": [
+      "htop"
+    ],
     "IntervalSec": 3600,
     "Recipients": [
       "howard@localhost"
     ],
+    "SetTimeZone": "UTC",
+    "SwapOff": true,
     "TCPPorts": [
       9114
-    ]
+    ],
+    "TuneLinux": true
   },
   "PlainSocketDaemon": {
     "Address": "127.0.0.1",
@@ -236,12 +261,6 @@ var sampleConfigJSON = `
           "456"
         ]
       ]
-    }
-  },
-  "AutoUnlock": {
-    "IntervalSec": 30,
-    "URLAndPassword": {
-      "http://example.com/does-not-matter": "password does not matter"
     }
   }
 }`

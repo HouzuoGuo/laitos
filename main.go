@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/daemon/maintenance"
 	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/launcher/encarchive"
 	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
 	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -133,13 +133,11 @@ main runs one of several distinct routines as dictated by input command line fla
 func main() {
 	// Process command line flags
 	var daemonList string
-	var disableConflicts, tuneSystem, debug, swapOff, benchmark bool
+	var disableConflicts, debug, benchmark bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (dnsd, httpd, insecurehttpd, maintenance, plainsocket, smtpd, telegram, autounlock)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
-	flag.BoolVar(&swapOff, "swapoff", false, "(Optional) turn off all swap files and partitions for improved system security")
-	flag.BoolVar(&tuneSystem, "tunesystem", false, "(Optional) tune operating system parameters for optimal performance")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.BoolVar(&benchmark, "benchmark", false, fmt.Sprintf("(Optional) continuously run benchmark routines on active daemons while exposing net/http/pprof on port %d", ProfilerHTTPPort))
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
@@ -263,12 +261,6 @@ func main() {
 	if disableConflicts {
 		DisableConflicts()
 	}
-	if swapOff {
-		misc.SwapOff()
-	}
-	if tuneSystem {
-		logger.Warning("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())
-	}
 	PrepareUtilitiesAndInBackground()
 
 	daemonErrs := make(chan error, len(daemonNames))
@@ -319,10 +311,10 @@ func main() {
 		}
 	}
 
-	// Optionally, wait a short while for daemons to settle and then run benchmark in the background.
 	if benchmark {
+		// Wait a while for daemons to settle and maintenance to run its first round, then run benchmark in the background.
 		logger.Info("main", "", nil, "benchmark is about to commence in 30 seconds")
-		time.Sleep(30 * time.Second)
+		time.Sleep(maintenance.InitialDelaySec * 2)
 		bench := launcher.Benchmark{
 			Config:      &config,
 			DaemonNames: daemonNames,

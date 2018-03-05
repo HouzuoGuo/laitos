@@ -129,9 +129,14 @@ func TestBlockUserLogin(t *testing.T) {
 	t.Log(BlockUserLogin("nobody"))
 }
 
-func TestDisableDaemon(t *testing.T) {
+func TestDisableStopDaemon(t *testing.T) {
 	// just make sure it does not panic
-	t.Log(DisableDaemon("this-service-does-not-exist"))
+	t.Log(DisableStopDaemon("this-service-does-not-exist"))
+}
+
+func TestEnableStartDaemon(t *testing.T) {
+	// just make sure it does not panic
+	t.Log(EnableStartDaemon("this-service-does-not-exist"))
 }
 
 func TestDisableInterferingResolvd(t *testing.T) {
@@ -153,4 +158,9 @@ func TestSetTermEcho(t *testing.T) {
 func TestLockMemory(t *testing.T) {
 	// just make sure it does not panic
 	LockMemory()
+}
+
+func TestSetTimeZone(t *testing.T) {
+	// just make sure it does not panic
+	t.Log(SetTimeZone("UTC"))
 }

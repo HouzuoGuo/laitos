@@ -57,12 +57,6 @@ func ReseedPseudoRandAndInBackground() {
 PrepareUtilitiesAndInBackground immediately copies utility programs that are not essential but helpful to certain
 toolbox features and daemons, and then continues in background at regular interval (1 hour).
 
-This helps with certain web services (such as browser-in-browser) that will validate the availability of some of these
-utility programs and report error if they are not available, which may in turn cause failure in launching HTTP daemon.
-
-It is usually only necessary to copy the utilities once, but on AWS ElasticBeanstalk the OS template aggressively clears
-/tmp at regular interval, losing all of the copied utilities in the progress, therefore the function launches a
-background goroutine to copy the programs at regular interval.
 */
 func PrepareUtilitiesAndInBackground() {
 	misc.PrepareUtilities(logger)
@@ -86,7 +80,7 @@ func DisableConflicts() {
 	for _, name := range list {
 		go func(name string) {
 			defer waitGroup.Done()
-			if misc.DisableDaemon(name) {
+			if misc.DisableStopDaemon(name) {
 				logger.Info("DisableConflicts", name, nil, "the daemon has been successfully stopped and disabled")
 			}
 		}(name)

@@ -10,6 +10,12 @@ func TestMaintenance_Execute(t *testing.T) {
 	features := common.GetTestCommandProcessor().Features
 	maint := Daemon{
 		BlockSystemLoginExcept: []string{"root", "howard"},
+		EnableStartServices:    []string{"does-not-exist"},
+		DisableStopServices:    []string{"does-not-exist"},
+		InstallPackages:        []string{"htop"},
+		SetTimeZone:            "UTC",
+		TuneLinux:              true,
+		SwapOff:                true,
 		FeaturesToTest:         features,
 		MailCmdRunnerToTest:    nil, // deliberately nil because it is not involved in this test
 		HTTPHandlersToCheck:    nil, // deliberately nil because it is not involved in this test

@@ -242,7 +242,7 @@ func (sup *Supervisor) GetLaunchParameters(nthAttempt int) (cliFlags []string, d
 	if nthAttempt >= 1 {
 		/*
 			The second attempt removes all but essential program flag (-config), this means system environment
-			will not be altered by the advanced start option such as -gomaxprocs and -tunesystem.
+			will not be altered by the advanced start option such as -gomaxprocs.
 		*/
 		cliFlags = RemoveFromFlags(func(f string) bool {
 			return !strings.HasPrefix(f, "-"+ConfigFlagName)

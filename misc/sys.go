@@ -317,23 +317,19 @@ func BlockUserLogin(userName string) (ok bool, out string) {
 	return
 }
 
-// Disable a system daemon program and prevent it from ever starting again.
-func DisableDaemon(daemonNameNoSuffix string) (ok bool) {
+// DisableStopDaemon disables a system daemon program and prevent it from ever starting again.
+func DisableStopDaemon(daemonNameNoSuffix string) (ok bool) {
 	// Disable+stop intensifies two times...
 	for i := 0; i < 2; i++ {
 		// Some hosting providers still have not used systemd yet, such as the OS on Elastic Beanstalk.
-		if _, err := InvokeProgram(nil, 5, "/etc/init.d/"+daemonNameNoSuffix, "stop"); err == nil {
-			ok = true
-		}
+		InvokeProgram(nil, 5, "/etc/init.d/"+daemonNameNoSuffix, "stop")
 		if _, err := InvokeProgram(nil, 5, "chkconfig", " --level", "0123456", daemonNameNoSuffix, "off"); err == nil {
 			ok = true
 		}
 		if _, err := InvokeProgram(nil, 5, "chmod", "0000", "/etc/init.d/"+daemonNameNoSuffix); err == nil {
 			ok = true
 		}
-		if _, err := InvokeProgram(nil, 5, "systemctl", "stop", daemonNameNoSuffix+".service"); err == nil {
-			ok = true
-		}
+		InvokeProgram(nil, 5, "systemctl", "stop", daemonNameNoSuffix+".service")
 		if _, err := InvokeProgram(nil, 5, "systemctl", "disable", daemonNameNoSuffix+".service"); err == nil {
 			ok = true
 		}
@@ -342,6 +338,26 @@ func DisableDaemon(daemonNameNoSuffix string) (ok bool) {
 		}
 		// Do not overwhelm system with too many consecutive commands
 		time.Sleep(1 * time.Second)
+	}
+	return
+}
+
+// EnableStartDaemon enables and starts a system program.
+func EnableStartDaemon(daemonNameNoSuffix string) (ok bool) {
+	// Some hosting providers still have not used systemd yet, such as the OS on Elastic Beanstalk.
+	InvokeProgram(nil, 5, "chmod", "0755", "/etc/init.d/"+daemonNameNoSuffix)
+	if _, err := InvokeProgram(nil, 5, "chkconfig", " --level", "345", daemonNameNoSuffix, "on"); err == nil {
+		ok = true
+	}
+	if _, err := InvokeProgram(nil, 5, "/etc/init.d/"+daemonNameNoSuffix, "restart"); err == nil {
+		ok = true
+	}
+	InvokeProgram(nil, 5, "systemctl", "unmask", daemonNameNoSuffix+".service")
+	if _, err := InvokeProgram(nil, 5, "systemctl", "enable", daemonNameNoSuffix+".service"); err == nil {
+		ok = true
+	}
+	if _, err := InvokeProgram(nil, 5, "systemctl", "start", daemonNameNoSuffix+".service"); err == nil {
+		ok = true
 	}
 	return
 }
@@ -356,7 +372,7 @@ func DisableInterferingResolved() (relevant bool, out string) {
 	}
 	relevant = true
 	// Completely disable systemd-resolved
-	if DisableDaemon("systemd-resolved") {
+	if DisableStopDaemon("systemd-resolved") {
 		out += "systemd-resolved is disabled\n"
 	} else {
 		out += "failed to disable systemd-resolved\n"
@@ -382,13 +398,12 @@ nameserver 8.20.247.20
 }
 
 // SwapOff turns off all swap files and partitions for improved system security.
-func SwapOff() {
+func SwapOff() error {
 	out, err := InvokeProgram(nil, 60, "swapoff", "-a")
-	if err == nil {
-		logger.Info("SwapOff", "", nil, "swap is now off")
-	} else {
-		logger.Warning("SwapOff", "", err, "failed to turn off swap - %s", out)
+	if err != nil {
+		return fmt.Errorf("SwapOff: %v - %s", err, out)
 	}
+	return nil
 }
 
 // Enable or disable terminal echo.
@@ -424,4 +439,17 @@ func LockMemory() {
 	} else {
 		logger.Warning("LockMemory", "", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information will leak into swap.")
 	}
+}
+
+// SetTimeZone changes system time zone to the specified value (such as "UTC").
+func SetTimeZone(zone string) error {
+	zoneInfoPath := path.Join("/usr/share/zoneinfo/", zone)
+	if stat, err := os.Stat(zoneInfoPath); err != nil || stat.IsDir() {
+		return fmt.Errorf("failed to read zoneinfo file of %s - %v", zone, err)
+	}
+	os.Remove("/etc/localtime")
+	if err := os.Symlink(zoneInfoPath, "/etc/localtime"); err != nil {
+		return fmt.Errorf("failed to make localtime symlink: %v", err)
+	}
+	return nil
 }

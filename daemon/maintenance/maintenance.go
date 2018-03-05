@@ -30,6 +30,7 @@ import (
 const (
 	TCPPortCheckTimeoutSec = 10   // TCPPortCheckTimeoutSec is the timeout used in knocking ports.
 	MinimumIntervalSec     = 3600 // MinimumIntervalSec is the lowest acceptable value of system maintenance interval.
+	InitialDelaySec        = 120  // InitialDelaySec is the number of seconds to wait for the first maintenance run.
 )
 
 /*
@@ -45,12 +46,23 @@ type Daemon struct {
 		the host, the check is considered a failure.
 	*/
 	CheckTCPPorts map[string][]int `json:"CheckTCPPorts"`
-
 	/*
 		BlockSystemLoginExcept is a list of Unix user names. If the array is not empty, system maintenance routine will
 		disable login access to all local users except the names among the array in an effort to harden system security.
 	*/
 	BlockSystemLoginExcept []string `json:"BlockSystemLoginExcept"`
+	// DisableStopServices is an array of system services to be stopped, disabled, and prevented from starting again.
+	DisableStopServices []string `json:"DisableStopServices"`
+	// EnableStartServices is an array of system services to be enabled and restarted.
+	EnableStartServices []string `json:"EnableStartServices"`
+	// InstallPackages is an array of software packages to be installed and upgraded.
+	InstallPackages []string `json:"InstallPackages"`
+	// TuneLinux enables Linux kernel tuning routine as a maintenance step
+	TuneLinux bool `json:"TuneLinux"`
+	// SwapOff turns off swap as a maintenance step
+	SwapOff bool `json:"SwapOff"`
+	// SetTimeZone changes system time zone to the specified value (such as "UTC").
+	SetTimeZone string `json:"SetTimeZone"`
 
 	/*
 		IntervalSec determines the rate of execution of maintenance routine. This is not a sleep duration. The constant
@@ -256,8 +268,8 @@ Start health check loop and block caller until Stop function is called.
 */
 func (daemon *Daemon) StartAndBlock() error {
 	firstTime := true
-	// The very first health check is executed soon (10 minutes) after health check daemon starts up
-	nextRunAt := time.Now().Add(10 * time.Minute)
+	// Maintenance is run for the very first time soon (2 minutes) after starting up
+	nextRunAt := time.Now().Add(InitialDelaySec * time.Second)
 	for {
 		if misc.EmergencyLockDown {
 			atomic.StoreInt32(&daemon.loopIsRunning, 0)
@@ -295,37 +307,71 @@ func (daemon *Daemon) Stop() {
 	}
 }
 
-/*
-SystemMaintenance is a long routine that conducts general system maintenance tasks:
-- Use Linux package manager to ensure that all system packages are up to date.
-- Install and update laitos optional dependencies and useful utilities.
-- Synchronise system clock.
-- Block unused system users from login.
-- Tune kernel parameters.
-- Enable "laitos.service".
-*/
-func (daemon *Daemon) SystemMaintenance() string {
-	daemon.logger.Info("SystemMaintenance", "", nil, "begins now")
-	out := new(bytes.Buffer)
-	out.WriteString("--- Conducting system maintenance\n")
+// logPrintStage reports the start/finish of a maintenance stage to output buffer and log.
+func (daemon *Daemon) logPrintStage(out *bytes.Buffer, template string, a ...interface{}) {
+	fmt.Fprintf(out, "\n---"+template+"\n", a...)
+	daemon.logger.Info("maintenance", "", nil, "Stage: "+template, a...)
+}
 
+// logPrintStage reports the start/finish of a maintenance step to output buffer and log.
+func (daemon *Daemon) logPrintStageStep(out *bytes.Buffer, template string, a ...interface{}) {
+	fmt.Fprintf(out, "---"+template+"\n", a...)
+	daemon.logger.Info("maintenance", "", nil, "Step: "+template, a...)
+}
+
+// SystemMaintenance is a long routine that conducts comprehensive general system maintenance tasks.
+func (daemon *Daemon) SystemMaintenance() string {
+	out := new(bytes.Buffer)
+	daemon.logPrintStage(out, "begin system maintenance")
+
+	if daemon.TuneLinux {
+		daemon.logPrintStage(out, "tune linux kernel: %s", toolbox.TuneLinux())
+	}
+
+	if daemon.SwapOff {
+		daemon.logPrintStage(out, "turn off swap")
+		if err := misc.SwapOff(); err != nil {
+			daemon.logPrintStageStep(out, "failed to turn off swap: %v", err)
+		}
+	}
+
+	if daemon.SetTimeZone != "" {
+		daemon.logPrintStage(out, "set system time zone")
+		if err := misc.SetTimeZone(daemon.SetTimeZone); err != nil {
+			daemon.logPrintStageStep(out, "failed to set time zone: %v", err)
+		}
+	}
+
+	/*
+		It is usually only necessary to copy the utilities once, but on AWS ElasticBeanstalk the OS template
+		aggressively clears /tmp at regular interval, losing all of the copied utilities in the progress, therefore
+		re-copy the utility programs during maintenance.
+	*/
+	daemon.logPrintStage(out, "re-copy non-essential laitos utilities")
+	misc.PrepareUtilities(daemon.logger)
+
+	daemon.BlockUnusedLogin(out)
+	daemon.MaintainServices(out)
 	daemon.UpgradeInstallSoftware(out)
 	daemon.SynchroniseSystemClock(out)
 
-	// Re-tune kernel parameters
-	fmt.Fprintf(out, "--- system tuning result: \n%s\n\n", toolbox.TuneLinux())
-
-	// Block unused system users from login
-	daemon.BlockUnusedLogin(out)
-
-	// Enable "laitos.service" in case the user forgot to do so
-	// If user has a "laitos.service" but would not want it to run automatically, just mask it manually.
-	enableOut, enableErr := misc.InvokeProgram(nil, 10, "systemctl", "enable", "laitos.service")
-	fmt.Fprintf(out, "--- enable laitos.service result: %v - %s\n\n", enableErr, enableOut)
-
-	out.WriteString("--- System maintenance has finished.\n")
-	daemon.logger.Info("SystemMaintenance", "", nil, "maintenance is finished")
+	daemon.logPrintStage(out, "concluded system maintenance")
 	return out.String()
+}
+
+// MaintainServices manipulate service state according to configuration.
+func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
+	daemon.logPrintStage(out, "maintain service state")
+	if daemon.DisableStopServices != nil {
+		for _, name := range daemon.DisableStopServices {
+			daemon.logPrintStageStep(out, "disable&stop %s: success? %v", name, misc.DisableStopDaemon(name))
+		}
+	}
+	if daemon.EnableStartServices != nil {
+		for _, name := range daemon.EnableStartServices {
+			daemon.logPrintStageStep(out, "enable&start %s: success? %v", name, misc.EnableStartDaemon(name))
+		}
+	}
 }
 
 /*
@@ -348,20 +394,11 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 			break
 		}
 	}
-	daemon.logger.Info("SystemMaintenance", "", nil, "package manager is \"%s\"", pkgManagerPath)
-	fmt.Fprintf(out, "--- Package manage is \"%v\"\n", pkgManagerPath)
-	// apt-get is too old to be convenient, it has to update the manifest first.
-	pkgManagerEnv := make([]string, 0, 8)
-	if pkgManagerName == "apt-get" {
-		out.WriteString("--- Updating apt manifests...\n")
-		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
-		// Five minutes should be enough to grab the latest manifest
-		daemon.logger.Info("SystemMaintenance", "", nil, "updating apt manifests")
-		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
-		daemon.logger.Info("SystemMaintenance", "", err, "finished updating apt manifests")
-		// There is no need to suppress this output according to markers
-		fmt.Fprintf(out, "--- apt-get result: %v - %s\n\n", err, strings.TrimSpace(result))
+	if pkgManagerName == "" {
+		daemon.logPrintStage(out, "failed to find package manager")
+		return
 	}
+	daemon.logPrintStage(out, "package maintenance via %s", pkgManagerPath)
 	// Determine package manager invocation parameters
 	var sysUpgradeArgs, installArgs []string
 	switch pkgManagerName {
@@ -378,101 +415,103 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		sysUpgradeArgs = []string{"--non-interactive", "update", "--recommends", "--auto-agree-with-licenses", "--skip-interactive", "--replacefiles", "--force-resolution"}
 		installArgs = []string{"--non-interactive", "install", "--recommends", "--auto-agree-with-licenses", "--replacefiles", "--force-resolution"}
 	default:
-		fmt.Fprintf(out, "--- Will not install system software: missing implementation for package manager %s\n", pkgManagerName)
+		daemon.logPrintStageStep(out, "failed to find a compatible package manager")
+		return
 	}
-	if pkgManagerName != "" {
-		// The system package manager is known to laitos
-		// If package manager output contains any of the strings, the output is reduced into "Nothing to do"
-		suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
-		// Upgrade system packages with a time constraint of two hours
-		out.WriteString("--- Upgrading system packages...\n")
-		daemon.logger.Info("SystemMaintenance", "", nil, "updating system packages")
-		result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
-		daemon.logger.Info("SystemMaintenance", "", err, "finished updating system packages")
+	// apt-get is too old to be convenient, it has to update the manifest first.
+	pkgManagerEnv := make([]string, 0, 8)
+	if pkgManagerName == "apt-get" {
+		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
+		// Five minutes should be enough to grab the latest manifest
+		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
+		// There is no need to suppress this output according to markers
+		daemon.logPrintStageStep(out, "update apt manifests: %v - %s", err, strings.TrimSpace(result))
+	}
+	// If package manager output contains any of the strings, the output is reduced into "Nothing to do"
+	suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
+	// Upgrade system packages with a time constraint of two hours
+	result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
+	for _, marker := range suppressOutputMarkers {
+		// If nothing was done during system update, suppress the rather useless output.
+		if strings.Contains(result, marker) {
+			result = "(nothing to do or upgrade not available)"
+			break
+		}
+	}
+	daemon.logPrintStageStep(out, "upgrade system: %v - %s", err, strings.TrimSpace(result))
+	/*
+		Install additional software packages.
+		laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
+		several phantomJS dependencies, as well as utility applications to help out with system diagnosis.
+		Several of the packages are repeated under different names to accommodate the differences in naming convention
+		among distributions.
+	*/
+	pkgs := []string{
+		// Soft and hard dependencies of phantomJS
+		"bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dejavu-fonts-common",
+		"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "fontconfig", "fontconfig-config", "fontpackages-filesystem",
+		"fonts-arphic-ukai", "fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "freetype",
+		"intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libbz2-1", "libbz2-1.0",
+		"liberation2-fonts", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
+		"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libpng", "libpng16-16", "libXfont", "xorg-x11-fonts-Type1",
+		"xorg-x11-font-utils", "zlib", "zlib1g", "icu", "libicu", "libicu57", "libicu60_2",
+
+		// Time maintenance utilities
+		"chrony", "ntp", "ntpd", "ntpdate",
+		// Application zip bundle maintenance utilities
+		"unzip", "zip",
+		// Network diagnosis utilities
+		"curl", "nc", "net-tools", "netcat", "nmap", "telnet", "tcpdump", "traceroute", "wget", "whois",
+		// busybox is useful for general maintenance and it can synchronise clock as well
+		"busybox",
+		// System maintenance utilities
+		"lsof", "strace", "sudo", "vim",
+	}
+	pkgs = append(pkgs, daemon.InstallPackages...)
+	/*
+		Although all three package managers can install more than one packages at a time, the packages are still
+		installed one after another, because:
+		- apt-get does not ignore non-existent package names, how inconvenient.
+		- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
+		yum is once again the superior solution among all three.
+	*/
+	for _, name := range pkgs {
+		// Put software name next to installation parameters
+		pkgInstallArgs := make([]string, len(installArgs)+1)
+		copy(pkgInstallArgs, installArgs)
+		pkgInstallArgs[len(installArgs)] = name
+		// Ten minutes should be good enough for each package
+		result, err := misc.InvokeProgram(pkgManagerEnv, 10*60, pkgManagerPath, pkgInstallArgs...)
 		for _, marker := range suppressOutputMarkers {
-			// If nothing was done during system update, suppress the rather useless output.
+			// If nothing was done about the package, suppress the rather useless output.
 			if strings.Contains(result, marker) {
-				result = "skipped"
+				result = "(nothing to do or package not available)"
 				break
 			}
 		}
-		fmt.Fprintf(out, "--- System upgrade result: %v - %s\n\n", err, strings.TrimSpace(result))
-		/*
-			Install additional software packages.
-			laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
-			several phantomJS dependencies, as well as utility applications to help out with system diagnosis.
-			Several of the packages are repeated under different names to accommodate the differences in naming convention
-			among distributions.
-		*/
-		pkgs := []string{
-			// Soft and hard dependencies of phantomJS
-			"bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dejavu-fonts-common",
-			"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "fontconfig", "fontconfig-config", "fontpackages-filesystem",
-			"fonts-arphic-ukai", "fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "freetype",
-			"intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libbz2-1", "libbz2-1.0",
-			"liberation2-fonts", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
-			"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libpng", "libpng16-16", "libXfont", "xorg-x11-fonts-Type1",
-			"xorg-x11-font-utils", "zlib", "zlib1g", "icu", "libicu", "libicu57", "libicu60_2",
-
-			// Time maintenance utilities
-			"chrony", "ntp", "ntpd", "ntpdate",
-			// Application zip bundle maintenance utilities
-			"unzip", "zip",
-			// Network diagnosis utilities
-			"curl", "nc", "net-tools", "netcat", "nmap", "telnet", "tcpdump", "traceroute", "wget", "whois",
-			// busybox is useful for general maintenance and it can synchronise clock as well
-			"busybox",
-			// System maintenance utilities
-			"lsof", "strace", "sudo", "vim",
-		}
-		/*
-			Although all three package managers can install more than one packages at a time, the packages are still
-			installed one after another, because:
-			- apt-get does not ignore non-existent package names, how inconvenient.
-			- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
-			yum is once again the superior solution among all three.
-		*/
-		for _, name := range pkgs {
-			// Put software name next to installation parameters
-			pkgInstallArgs := make([]string, len(installArgs)+1)
-			copy(pkgInstallArgs, installArgs)
-			pkgInstallArgs[len(installArgs)] = name
-			fmt.Fprintf(out, "--- Installing/upgrading %s\n", name)
-			// Five minutes should be good enough for every package
-			daemon.logger.Info("SystemMaintenance", "", nil, "installing package %s", name)
-			result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, pkgInstallArgs...)
-			daemon.logger.Info("SystemMaintenance", "", err, "finished installing package %s", name)
-			for _, marker := range suppressOutputMarkers {
-				// If nothing was done about the package, suppress the rather useless output.
-				if strings.Contains(result, marker) {
-					result = "Nothing to do"
-					break
-				}
-			}
-			fmt.Fprintf(out, "--- %s installation/upgrade result: %v - %s\n\n", name, err, strings.TrimSpace(result))
-		}
+		daemon.logPrintStageStep(out, "install/upgrade %s: %v - %s", name, err, strings.TrimSpace(result))
 	}
 }
 
 // SynchroniseSystemClock uses three different tools to immediately synchronise system clock via NTP servers.
 func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
-	daemon.logger.Info("SynchroniseSystemClock", "", nil, "going to synchronise system clock")
+	daemon.logPrintStage(out, "synchronise clock")
 	// Use three tools to immediately synchronise system clock
 	result, err := misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
-	fmt.Fprintf(out, "--- clock synchronisation result (ntpdate): %v - %s\n", err, strings.TrimSpace(result))
+	daemon.logPrintStageStep(out, "ntpdate: %v - %s", err, strings.TrimSpace(result))
 	result, err = misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
-	fmt.Fprintf(out, "--- clock synchronisation result (chronyd): %v - %s\n", err, strings.TrimSpace(result))
+	daemon.logPrintStageStep(out, "chronyd: %v - %s", err, strings.TrimSpace(result))
 	result, err = misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "busybox", "ntpd", "-n", "-q", "-p", "ie.pool.ntp.org", "ca.pool.ntp.org", "au.pool.ntp.org")
-	fmt.Fprintf(out, "--- clock synchronisation result (busybox): %v - %s\n", err, strings.TrimSpace(result))
+	daemon.logPrintStageStep(out, "busybox ntpd: %v - %s", err, strings.TrimSpace(result))
 	/*
 		The program startup time is used to detect outdated commands (such as in telegram bot), in rare case if system clock
 		was severely skewed, causing program startup time to be in the future, the detection mechanisms will misbehave.
 		Therefore, correct the situation here.
 	*/
 	if misc.StartupTime.After(time.Now()) {
-		fmt.Fprint(out, "--- clock was severely skewed, reset program startup time.\n")
-		// The earliest possible opportunity for system maintenance to run is now minus minimum interval
-		misc.StartupTime = time.Now().Add(-MinimumIntervalSec * time.Second)
+		daemon.logPrintStageStep(out, "clock was severely skewed, reset program startup time.")
+		// The earliest possible opportunity for system maintenance to run is now minus initial delay
+		misc.StartupTime = time.Now().Add(-InitialDelaySec * time.Second)
 	}
 	fmt.Fprint(out, "\n")
 }
@@ -480,12 +519,9 @@ func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
 // BlockUnusedLogin will block/disable system login from users not listed in the exception list.
 func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 	if daemon.BlockSystemLoginExcept == nil || len(daemon.BlockSystemLoginExcept) == 0 {
-		daemon.logger.Info("BlockUnusedLogin", "", nil, "skipped due to empty exception list")
-		fmt.Fprint(out, "--- block unused system login - skipped\n\n")
 		return
 	}
-	daemon.logger.Info("BlockUnusedLogin", "", nil, "going to block unused system login")
-	fmt.Fprint(out, "--- block unused system login\n")
+	daemon.logPrintStage(out, "block unused system login")
 	exceptionMap := make(map[string]bool)
 	for _, name := range daemon.BlockSystemLoginExcept {
 		exceptionMap[name] = true
@@ -495,12 +531,12 @@ func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 			continue
 		}
 		if ok, blockOut := misc.BlockUserLogin(userName); ok {
+			daemon.logPrintStageStep(out, "blocked user %s", userName)
 			fmt.Fprintf(out, "--- block unused system login - successfully blocked user %s\n", userName)
 		} else {
-			fmt.Fprintf(out, "--- block unused system login - failed for user %s - \n%s\n", userName, blockOut)
+			daemon.logPrintStageStep(out, "failed to block user %s - %v", userName, blockOut)
 		}
 	}
-	fmt.Fprint(out, "--- finished blocking unused system login\n\n")
 }
 
 // Run unit tests on the maintenance daemon. See TestMaintenance_Execute for daemon setup.
