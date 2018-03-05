@@ -202,7 +202,7 @@ var (
 func TestCommandRunner(runner *CommandRunner, t testingstub.T) {
 	// Real MTA is required to run the tests
 	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
-		t.Skip("there is no MTA running on 127.0.0.1")
+		fmt.Println("skip the test due to no MTA running on 127.0.0.1")
 		return
 	}
 	if err := runner.SelfTest(); err != nil {
