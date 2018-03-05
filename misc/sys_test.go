@@ -123,3 +123,34 @@ func TestGetLocalUserNames(t *testing.T) {
 		t.Fatal(names)
 	}
 }
+
+func TestBlockUserLogin(t *testing.T) {
+	// just make sure it does not panic
+	t.Log(BlockUserLogin("nobody"))
+}
+
+func TestDisableDaemon(t *testing.T) {
+	// just make sure it does not panic
+	t.Log(DisableDaemon("this-service-does-not-exist"))
+}
+
+func TestDisableInterferingResolvd(t *testing.T) {
+	// just make sure it does not panic
+	t.Log(DisableInterferingResolved())
+}
+
+func TestSwapOff(t *testing.T) {
+	// just make sure it does not panic
+	SwapOff()
+}
+
+func TestSetTermEcho(t *testing.T) {
+	// just make sure it does not panic
+	SetTermEcho(false)
+	SetTermEcho(true)
+}
+
+func TestLockMemory(t *testing.T) {
+	// just make sure it does not panic
+	LockMemory()
+}

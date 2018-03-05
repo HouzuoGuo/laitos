@@ -31,9 +31,9 @@ the encrypted archive file and extract it into the destination directory.
 func ExtractEncryptedArchive(destDir, archivePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter password to decrypt archive (no echo):")
-	SetTermEcho(false)
+	misc.SetTermEcho(false)
 	password, _, err := reader.ReadLine()
-	SetTermEcho(true)
+	misc.SetTermEcho(true)
 	if err != nil {
 		misc.DefaultLogger.Abort("ExtractEncryptedArchive", "main", err, "failed to read password")
 		return
@@ -69,9 +69,9 @@ encrypt the directory and archive into a single file.
 func MakeEncryptedArchive(srcDir, archivePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter a password to encrypt the archive (no echo):")
-	SetTermEcho(false)
+	misc.SetTermEcho(false)
 	password, _, err := reader.ReadLine()
-	SetTermEcho(true)
+	misc.SetTermEcho(true)
 	if err != nil {
 		misc.DefaultLogger.Abort("ExtractEncryptedArchive", "main", err, "failed to read password")
 		return
@@ -164,7 +164,7 @@ func main() {
 	flag.Parse()
 
 	// Common diagnosis and security practices
-	LockMemory()
+	misc.LockMemory()
 	ReseedPseudoRandAndInBackground()
 	if debug {
 		DumpGoroutinesOnInterrupt()
@@ -264,7 +264,7 @@ func main() {
 		DisableConflicts()
 	}
 	if swapOff {
-		SwapOff()
+		misc.SwapOff()
 	}
 	if tuneSystem {
 		logger.Warning("main", "", nil, "System tuning result is: \n%s", toolbox.TuneLinux())

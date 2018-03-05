@@ -3,6 +3,7 @@ package misc
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"io"
 	"io/ioutil"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unsafe"
 )
 
 var RegexVmRss = regexp.MustCompile(`VmRSS:\s*(\d+)\s*kB`)               // Parse VmRss value from /proc/*/status line
@@ -292,4 +294,134 @@ func GetLocalUserNames() (ret map[string]bool) {
 		}
 	}
 	return
+}
+
+// BlockUserLogin uses three separate mechanisms to stop a user from logging into the system.
+func BlockUserLogin(userName string) (ok bool, out string) {
+	ok = true
+	progOut, err := InvokeProgram(nil, 3, "chsh", "-s", "/bin/false", userName)
+	if err != nil {
+		ok = false
+		out += fmt.Sprintf("chsh failed: %v - %s\n", err, strings.TrimSpace(progOut))
+	}
+	progOut, err = InvokeProgram(nil, 3, "passwd", "-l", userName)
+	if err != nil {
+		ok = false
+		out += fmt.Sprintf("passwd failed: %v - %s\n", err, strings.TrimSpace(progOut))
+	}
+	progOut, err = InvokeProgram(nil, 3, "usermod", "--expiredate", "1", userName)
+	if err != nil {
+		ok = false
+		out += fmt.Sprintf("usermod failed: %v - %s\n", err, strings.TrimSpace(progOut))
+	}
+	return
+}
+
+// Disable a system daemon program and prevent it from ever starting again.
+func DisableDaemon(daemonNameNoSuffix string) (ok bool) {
+	// Disable+stop intensifies two times...
+	for i := 0; i < 2; i++ {
+		// Some hosting providers still have not used systemd yet, such as the OS on Elastic Beanstalk.
+		if _, err := InvokeProgram(nil, 5, "/etc/init.d/"+daemonNameNoSuffix, "stop"); err == nil {
+			ok = true
+		}
+		if _, err := InvokeProgram(nil, 5, "chkconfig", " --level", "0123456", daemonNameNoSuffix, "off"); err == nil {
+			ok = true
+		}
+		if _, err := InvokeProgram(nil, 5, "chmod", "0000", "/etc/init.d/"+daemonNameNoSuffix); err == nil {
+			ok = true
+		}
+		if _, err := InvokeProgram(nil, 5, "systemctl", "stop", daemonNameNoSuffix+".service"); err == nil {
+			ok = true
+		}
+		if _, err := InvokeProgram(nil, 5, "systemctl", "disable", daemonNameNoSuffix+".service"); err == nil {
+			ok = true
+		}
+		if _, err := InvokeProgram(nil, 5, "systemctl", "mask", daemonNameNoSuffix+".service"); err == nil {
+			ok = true
+		}
+		// Do not overwhelm system with too many consecutive commands
+		time.Sleep(1 * time.Second)
+	}
+	return
+}
+
+/*
+DisableInterferingResolvd prevents systemd-resolved from interfering with laitos DNS daemon. Due to a systemd quirk,
+a running resolved prevents DNS from listening on all interfaces.
+*/
+func DisableInterferingResolved() (relevant bool, out string) {
+	if _, err := InvokeProgram(nil, 5, "systemctl", "is-active", "systemd-resolved"); err != nil {
+		return false, "will not touch name resolution settings as resolved is not active"
+	}
+	relevant = true
+	// Completely disable systemd-resolved
+	if DisableDaemon("systemd-resolved") {
+		out += "systemd-resolved is disabled\n"
+	} else {
+		out += "failed to disable systemd-resolved\n"
+	}
+	// Distributions that use systemd-resolved usually makes resolv.conf a symbol link to an automatically generated file
+	os.RemoveAll("/etc/resolv.conf")
+	// Overwrite its content with a sane set of public DNS servers (2 x Quad9, 2 x SafeDNS, 2 x Comodo SecureDNS)
+	newContent := `
+options rotate timeout:3 attempts:3
+nameserver 9.9.9.9
+nameserver 149.112.112.112
+nameserver 195.46.39.39
+nameserver 195.46.39.40
+nameserver 8.26.56.26
+nameserver 8.20.247.20
+`
+	if err := ioutil.WriteFile("/etc/resolv.conf", []byte(newContent), 0644); err == nil {
+		out += "resolv.conf is reset\n"
+	} else {
+		out += fmt.Sprintf("failed to write into resolv.conf - %v\n", err)
+	}
+	return
+}
+
+// SwapOff turns off all swap files and partitions for improved system security.
+func SwapOff() {
+	out, err := InvokeProgram(nil, 60, "swapoff", "-a")
+	if err == nil {
+		logger.Info("SwapOff", "", nil, "swap is now off")
+	} else {
+		logger.Warning("SwapOff", "", err, "failed to turn off swap - %s", out)
+	}
+}
+
+// Enable or disable terminal echo.
+func SetTermEcho(echo bool) {
+	term := &syscall.Termios{}
+	stdout := os.Stdout.Fd()
+	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, stdout, syscall.TCGETS, uintptr(unsafe.Pointer(term)))
+	if err != 0 {
+		logger.Warning("SetTermEcho", "", err, "syscall failed")
+		return
+	}
+	if echo {
+		term.Lflag |= syscall.ECHO
+	} else {
+		term.Lflag &^= syscall.ECHO
+	}
+	_, _, err = syscall.Syscall(syscall.SYS_IOCTL, stdout, uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(term)))
+	if err != 0 {
+		logger.Warning("SetTermEcho", "", err, "syscall failed")
+		return
+	}
+}
+
+// LockMemory locks program memory to prevent swapping, protecting sensitive user data.
+func LockMemory() {
+	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
+	if os.Geteuid() == 0 {
+		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
+			logger.Warning("LockMemory", "", err, "failed to lock memory")
+			return
+		}
+		logger.Warning("LockMemory", "", nil, "program has been locked into memory for safety reasons")
+	} else {
+		logger.Warning("LockMemory", "", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information will leak into swap.")
+	}
 }

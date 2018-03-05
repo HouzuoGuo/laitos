@@ -32,15 +32,15 @@ queries. When DNS daemon's forwarders are left unspecified, it will use these de
 All of the resolvers below claim to improve cypher security to some degree.
 */
 var DefaultForwarders = []string{
-	// Comodo SecureDNS (https://www.comodo.com/secure-dns/)
-	"8.26.56.26:53",
-	"8.20.247.20:53",
 	// Quad9 (https://www.quad9.net)
 	"9.9.9.9:53",
 	"149.112.112.112:53",
 	// SafeDNS (https://www.safedns.com)
 	"195.46.39.39:53",
 	"195.46.39.40:53",
+	// Comodo SecureDNS (https://www.comodo.com/secure-dns/)
+	"8.26.56.26:53",
+	"8.20.247.20:53",
 	// Do not use neustar based resolvers (neustar.biz, norton connectsafe, etc) as they are teamed up with yahoo search
 	// Do not use OpenDNS as it also sometimes redirects user to search site
 }

@@ -490,28 +490,14 @@ func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 	for _, name := range daemon.BlockSystemLoginExcept {
 		exceptionMap[name] = true
 	}
-	for user := range misc.GetLocalUserNames() {
-		if exceptionMap[user] {
+	for userName := range misc.GetLocalUserNames() {
+		if exceptionMap[userName] {
 			continue
 		}
-		succeededForUser := true
-		progOut, err := misc.InvokeProgram(nil, 3, "chsh", "-s", "/bin/false", user)
-		if err != nil {
-			succeededForUser = false
-			fmt.Fprintf(out, "--- block unused system login - chsh failed (%s) - %v - %s\n", user, err, strings.TrimSpace(progOut))
-		}
-		progOut, err = misc.InvokeProgram(nil, 3, "passwd", "-l", user)
-		if err != nil {
-			succeededForUser = false
-			fmt.Fprintf(out, "--- block unused system login - passwd failed (%s) - %v - %s\n", user, err, strings.TrimSpace(progOut))
-		}
-		progOut, err = misc.InvokeProgram(nil, 3, "usermod", "--expiredate", "1", user)
-		if err != nil {
-			succeededForUser = false
-			fmt.Fprintf(out, "--- block unused system login - usermod failed (%s) - %v - %s\n", user, err, strings.TrimSpace(progOut))
-		}
-		if succeededForUser {
-			fmt.Fprintf(out, "--- block unused system login - successfully blocked user %s\n", user)
+		if ok, blockOut := misc.BlockUserLogin(userName); ok {
+			fmt.Fprintf(out, "--- block unused system login - successfully blocked user %s\n", userName)
+		} else {
+			fmt.Fprintf(out, "--- block unused system login - failed for user %s - \n%s\n", userName, blockOut)
 		}
 	}
 	fmt.Fprint(out, "--- finished blocking unused system login\n\n")
