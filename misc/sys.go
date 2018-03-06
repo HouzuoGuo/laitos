@@ -319,25 +319,20 @@ func BlockUserLogin(userName string) (ok bool, out string) {
 
 // DisableStopDaemon disables a system daemon program and prevent it from ever starting again.
 func DisableStopDaemon(daemonNameNoSuffix string) (ok bool) {
-	// Disable+stop intensifies two times...
-	for i := 0; i < 2; i++ {
-		// Some hosting providers still have not used systemd yet, such as the OS on Elastic Beanstalk.
-		InvokeProgram(nil, 5, "/etc/init.d/"+daemonNameNoSuffix, "stop")
-		if _, err := InvokeProgram(nil, 5, "chkconfig", " --level", "0123456", daemonNameNoSuffix, "off"); err == nil {
-			ok = true
-		}
-		if _, err := InvokeProgram(nil, 5, "chmod", "0000", "/etc/init.d/"+daemonNameNoSuffix); err == nil {
-			ok = true
-		}
-		InvokeProgram(nil, 5, "systemctl", "stop", daemonNameNoSuffix+".service")
-		if _, err := InvokeProgram(nil, 5, "systemctl", "disable", daemonNameNoSuffix+".service"); err == nil {
-			ok = true
-		}
-		if _, err := InvokeProgram(nil, 5, "systemctl", "mask", daemonNameNoSuffix+".service"); err == nil {
-			ok = true
-		}
-		// Do not overwhelm system with too many consecutive commands
-		time.Sleep(1 * time.Second)
+	// Some hosting providers still have not used systemd yet, such as the OS on Elastic Beanstalk.
+	InvokeProgram(nil, 5, "/etc/init.d/"+daemonNameNoSuffix, "stop")
+	if _, err := InvokeProgram(nil, 5, "chkconfig", " --level", "0123456", daemonNameNoSuffix, "off"); err == nil {
+		ok = true
+	}
+	if _, err := InvokeProgram(nil, 5, "chmod", "0000", "/etc/init.d/"+daemonNameNoSuffix); err == nil {
+		ok = true
+	}
+	InvokeProgram(nil, 5, "systemctl", "stop", daemonNameNoSuffix+".service")
+	if _, err := InvokeProgram(nil, 5, "systemctl", "disable", daemonNameNoSuffix+".service"); err == nil {
+		ok = true
+	}
+	if _, err := InvokeProgram(nil, 5, "systemctl", "mask", daemonNameNoSuffix+".service"); err == nil {
+		ok = true
 	}
 	return
 }
