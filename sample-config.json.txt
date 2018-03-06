@@ -9,7 +9,7 @@
     "Browser": {
       "Browsers": {
         "BasePortNumber": 12020,
-        "PhantomJSExecPath": "./extra/phantomjs-2.1.1-linux-x86_64"
+        "PhantomJSExecPath": "./extra/phantomjs-2.1.1-x86_64"
       }
     },
     "Facebook": {
@@ -92,7 +92,7 @@
         "BasePortNumber": 14120,
         "MaxInstances": 5,
         "MaxLifetimeSec": 1800,
-        "PhantomJSExecPath": "./extra/phantomjs-2.1.1-linux-x86_64"
+        "PhantomJSExecPath": "./extra/phantomjs-2.1.1-x86_64"
       }
     },
     "CommandFormEndpoint": "/sample/cmd",
