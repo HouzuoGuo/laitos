@@ -1,8 +1,11 @@
 package misc
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -91,5 +94,37 @@ NewKey=NewValue`
 	if content, err := ioutil.ReadFile(tmp.Name()); err != nil || string(content) != matchContent {
 		t.Fatal(err, string(content))
 	}
+}
 
+func TestReadAllUpTo(t *testing.T) {
+	if b, err := ReadAllUpTo(nil, 10); err != ErrInputReaderNil || !reflect.DeepEqual(b, []byte{}) {
+		t.Fatal(b, err)
+	}
+	if b, err := ReadAllUpTo(strings.NewReader(""), -1); err != ErrInputCapacityInvalid || !reflect.DeepEqual(b, []byte{}) {
+		t.Fatal(b, err)
+	}
+	if b, err := ReadAllUpTo(strings.NewReader("a"), 0); err != nil || !reflect.DeepEqual(b, []byte{}) {
+		t.Fatal(b, err)
+	}
+	if b, err := ReadAllUpTo(strings.NewReader("a"), 1); err != nil || !reflect.DeepEqual(b, []byte{'a'}) {
+		t.Fatal(b, err)
+	}
+	if b, err := ReadAllUpTo(strings.NewReader("a"), 20000); err != nil || !reflect.DeepEqual(b, []byte{'a'}) {
+		t.Fatal(b, err)
+	}
+
+	r := strings.NewReader(strings.Repeat("a", 20000))
+	if b, err := ReadAllUpTo(r, 2); err != nil || !reflect.DeepEqual(b, []byte{'a', 'a'}) {
+		t.Fatal(b, err)
+	}
+	if i, err := r.Seek(0, io.SeekCurrent); i != 2 {
+		t.Fatal(i, err)
+	}
+	// Read remainder of the input
+	if b, err := ReadAllUpTo(r, 20000); err != nil || len(b) != 20000-2 {
+		t.Fatal(b, err)
+	}
+	if b, err := ReadAllUpTo(r, 20000); err != nil || !reflect.DeepEqual(b, []byte{}) {
+		t.Fatal(b, err)
+	}
 }

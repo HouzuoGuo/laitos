@@ -104,9 +104,11 @@ func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string, m
 
 // Call gitlab API to download a file form git project.
 func (lab *HandleGitlabBrowser) DownloadGitBlob(clientIP, projectID string, paths string, fileName string) (content []byte, err error) {
+	// Download blob up to 256MB in size
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
+		MaxBytes:   256 * 1048576,
 	}, "https://gitlab.com/api/v4/projects/%s/repository/files/%s/raw?ref=master", projectID, path.Join(paths, fileName))
 	if err != nil {
 		return

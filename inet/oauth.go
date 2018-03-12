@@ -7,6 +7,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -146,7 +147,7 @@ func collectParameters(req *http.Request, oauthParams map[string]string) (map[st
 	}
 	if req.Body != nil && req.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
 		// reads data to a []byte, draining req.Body
-		b, err := ioutil.ReadAll(req.Body)
+		b, err := misc.ReadAllUpTo(req.Body, 32*1048576)
 		if err != nil {
 			return nil, err
 		}

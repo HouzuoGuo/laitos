@@ -2,8 +2,8 @@ package inet
 
 import (
 	"bytes"
+	"github.com/HouzuoGuo/laitos/misc"
 	"io"
-	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net/mail"
@@ -82,7 +82,7 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 				return err
 			}
 			// Read body of the current part
-			body, err := ioutil.ReadAll(part)
+			body, err := misc.ReadAllUpTo(part, 32*1048576)
 			if err != nil {
 				return err
 			}
@@ -100,7 +100,7 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 		}
 	} else {
 		// Use the entire message on function
-		body, err := ioutil.ReadAll(parsedMail.Body)
+		body, err := misc.ReadAllUpTo(parsedMail.Body, 32*1048576)
 		if err != nil {
 			return err
 		}

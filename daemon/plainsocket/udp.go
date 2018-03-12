@@ -9,6 +9,7 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"io"
 	"net"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
@@ -76,10 +77,10 @@ func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAd
 	}()
 	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
 	daemon.logger.Info("HandleUDPConnection", clientIP, nil, "working on the connection")
-	reader := bufio.NewReader(bytes.NewReader(packet))
+	reader := textproto.NewReader(bufio.NewReader(bytes.NewReader(packet)))
 	for {
 		// Read one line of command
-		line, _, err := reader.ReadLine()
+		line, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
 				daemon.logger.Warning("HandleUDPConnection", clientIP, err, "failed to read received packet")
@@ -89,6 +90,11 @@ func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAd
 		// Check against conversation rate limit
 		if !daemon.rateLimit.Add(clientIP, true) {
 			return
+		}
+		// Trim and ignore empty line
+		line = textproto.TrimString(line)
+		if line == "" {
+			continue
 		}
 		// Process line of command and respond
 		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec}, true)

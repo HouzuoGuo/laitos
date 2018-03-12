@@ -8,6 +8,7 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"io"
 	"net"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
@@ -57,11 +58,12 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 		return
 	}
 	daemon.logger.Info("HandleTCPConnection", clientIP, nil, "working on the connection")
-	reader := bufio.NewReader(clientConn)
+	// Allow up to 4MB of commands to be recieved per connection
+	reader := textproto.NewReader(bufio.NewReader(io.LimitReader(clientConn, 4*1048576)))
 	for {
-		// Read one line of command
+		// Read one line of command that may be at most 1MB long
 		clientConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second))
-		line, _, err := reader.ReadLine()
+		line, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
 				daemon.logger.Warning("HandleTCPConnection", clientIP, err, "failed to read from client")
@@ -71,6 +73,11 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 		// Check against conversation rate limit
 		if !daemon.rateLimit.Add(clientIP, true) {
 			return
+		}
+		// Trim and ignore empty line
+		line = textproto.TrimString(line)
+		if line == "" {
+			continue
 		}
 		// Process line of command and respond
 		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec}, true)

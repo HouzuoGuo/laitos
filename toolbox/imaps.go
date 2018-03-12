@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
+	"io"
 	"math/rand"
 	"net"
+	"net/textproto"
 	"regexp"
 	"strconv"
 	"strings"
@@ -51,10 +53,11 @@ func (conn *IMAPSConnection) converse(request string) (status, body string, err 
 	}
 	// IMAP protocol is very much line-oriented in both of its request and response
 	var allLines bytes.Buffer
-	reader := bufio.NewReader(conn.tlsConn)
+	// Allow up to 32MB of data to be received per conversation
+	reader := textproto.NewReader(bufio.NewReader(io.LimitReader(conn.tlsConn, 32*1048576)))
 	for {
-		var line []byte
-		line, _, err = reader.ReadLine()
+		var line string
+		line, err = reader.ReadLine()
 		if err != nil {
 			conn.disconnect()
 			return
@@ -83,7 +86,7 @@ func (conn *IMAPSConnection) converse(request string) (status, body string, err 
 			return
 		} else {
 			// Continue to receive response body
-			allLines.Write(line)
+			allLines.WriteString(line)
 			allLines.WriteRune('\n')
 		}
 	}

@@ -1,7 +1,9 @@
 package misc
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strings"
 )
@@ -30,4 +32,24 @@ func EditKeyValue(filePath, key, value string) error {
 		newLines = append(newLines, fmt.Sprintf("%s=%s", key, value))
 	}
 	return ioutil.WriteFile(filePath, []byte(strings.Join(newLines, "\n")), 0600)
+}
+
+var (
+	ErrInputReaderNil       = errors.New("input reader is nil")
+	ErrInputCapacityInvalid = errors.New("input capacity is invalid")
+)
+
+// ReadAllUpTo reads data from input reader until the limited capacity is reached or reader is exhausted (EOF).
+func ReadAllUpTo(r io.Reader, upTo int) (ret []byte, err error) {
+	ret = []byte{}
+	if r == nil {
+		err = ErrInputReaderNil
+		return
+	}
+	if upTo < 0 {
+		err = ErrInputCapacityInvalid
+		return
+	}
+
+	return ioutil.ReadAll(io.LimitReader(r, int64(upTo)))
 }

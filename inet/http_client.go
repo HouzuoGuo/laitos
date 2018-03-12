@@ -3,8 +3,8 @@ package inet
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/misc"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -19,6 +19,7 @@ type HTTPRequest struct {
 	Body        io.Reader                 // HTTPRequest body (default to nil)
 	RequestFunc func(*http.Request) error // Manipulate the HTTP request at will (default to nil)
 	InsecureTLS bool                      // InsecureTLS may be turned on to ignore all TLS verification errors from an HTTPS client connection
+	MaxBytes    int                       // MaxBytes is the maximum number of bytes of response body to read (default to 4MB)
 }
 
 // Set blank attributes to their default value.
@@ -31,6 +32,9 @@ func (req *HTTPRequest) FillBlanks() {
 	}
 	if req.ContentType == "" {
 		req.ContentType = "application/x-www-form-urlencoded"
+	}
+	if req.MaxBytes <= 0 {
+		req.MaxBytes = 4 * 1048576
 	}
 }
 
@@ -108,7 +112,7 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 		return
 	}
 	defer response.Body.Close()
-	resp.Body, err = ioutil.ReadAll(response.Body)
+	resp.Body, err = misc.ReadAllUpTo(response.Body, reqParam.MaxBytes)
 	resp.Header = response.Header
 	resp.StatusCode = response.StatusCode
 	return

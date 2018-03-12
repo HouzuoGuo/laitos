@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
-const ProxyInjectJS = `
+const (
+	// ProxyInjectJS is a javascript snippet injected into proxy-target web page for activation of proxy on page elements.
+	ProxyInjectJS = `
 <script type="text/javascript">
 laitos_proxy_scheme_host = '%s';
 laitos_proxy_scheme_host_slash = laitos_proxy_scheme_host + '/';
@@ -122,7 +124,9 @@ setTimeout(laitos_place_btns, 3000);
 
 window.onload = laitos_replace_many;
 </script>
-` // Snippet of Javascript that has to be injected into proxied web page
+`
+	ProxyTargetTimeoutSec = 120 // ProxyTimeoutSec is the IO timeout for downloading proxy's target URL.
+)
 
 // HandleWebProxy is a pretty dumb client-side rendering web proxy, it does not support anonymity.
 type HandleWebProxy struct {
@@ -192,14 +196,16 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 		myReq.Header.Del(name)
 	}
 	// Retrieve resource from remote
-	client := http.Client{}
+	client := http.Client{Timeout: ProxyTargetTimeoutSec * time.Second}
 	remoteResp, err := client.Do(myReq)
 	if err != nil {
 		xy.logger.Warning("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to send request")
 		http.Error(w, "Failed to send request", http.StatusInternalServerError)
 		return
 	}
-	remoteRespBody, err := ioutil.ReadAll(remoteResp.Body)
+	defer remoteResp.Body.Close()
+	// Download up to 32MB of data from the proxy target
+	remoteRespBody, err := misc.ReadAllUpTo(remoteResp.Body, 32*1048576)
 	if err != nil {
 		xy.logger.Warning("HandleWebProxy", browseSchemeHostPathQuery, err, "failed to download the URL")
 		http.Error(w, "Failed to download URL", http.StatusInternalServerError)

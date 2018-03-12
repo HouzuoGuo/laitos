@@ -8,7 +8,6 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -141,13 +140,14 @@ type MicrosoftBotReply struct {
 }
 
 func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
-	// Deserialise chat message from incoming request
-	body, err := ioutil.ReadAll(r.Body)
+	// The payload sent by Microsoft cannot possibly exceed 4 MB
+	body, err := misc.ReadAllUpTo(r.Body, 4*1048576)
 	if err != nil {
 		hand.logger.Warning("HandleMicrosoftBot", "", err, "failed to read incoming chat HTTP request")
 		http.Error(w, "failed to read request body", http.StatusBadRequest)
 		return
 	}
+	// Deserialise chat message from incoming request
 	var incoming MicrosoftBotIncomingChat
 	if err := json.Unmarshal(body, &incoming); err != nil {
 		hand.logger.Warning("HandleMicrosoftBot", "", err, "failed to interpret incoming chat request as JSON")
