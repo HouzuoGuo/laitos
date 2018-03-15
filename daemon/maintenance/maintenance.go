@@ -457,7 +457,7 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// Application zip bundle maintenance utilities
 		"unzip", "zip",
 		// Network diagnosis utilities
-		"curl", "nc", "net-tools", "netcat", "nmap", "telnet", "tcpdump", "traceroute", "wget", "whois",
+		"curl", "nc", "net-tools", "netcat", "nmap", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
 		// busybox is useful for general maintenance and it can synchronise clock as well
 		"busybox",
 		// System maintenance utilities
