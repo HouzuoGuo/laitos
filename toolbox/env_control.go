@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -121,6 +122,7 @@ TuneLinux tweaks Linux-specific system parameters to ensure optimal operation an
 resources. Returns human-readable description of how values have been tweaked (i.e. the differences).
 */
 func TuneLinux() string {
+	_, memSizeKB := misc.GetSystemMemoryUsageKB()
 	// The following settings have little influence on system resources
 	assignment := map[string]string{
 		// Optimise system security
@@ -130,7 +132,7 @@ func TuneLinux() string {
 
 		// Optimise system stability in low memory situation
 		"vm.zone_reclaim_mode": "1",
-		"vm.min_free_kbytes":   "65536",
+		"vm.min_free_kbytes":   strconv.Itoa(memSizeKB / 32), // reserve 1MB for every 32MB of system memory
 
 		// Optimise network security
 		"net.ipv4.ip_forward":                   "0",
@@ -172,7 +174,6 @@ func TuneLinux() string {
 		"net.ipv4.tcp_keepalive_probes": "4",
 	}
 	// The following settings are influenced by system memory size
-	_, memSizeKB := misc.GetSystemMemoryUsageKB()
 	atLeast := map[string]int{
 		/// Optimise network availability
 		"net.core.somaxconn":           memSizeKB / 1024 / 512 * 256,  // 256 per 512MB of mem
