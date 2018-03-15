@@ -243,7 +243,12 @@ func main() {
 	// for a user to turn it off manually.
 	// ========================================================================
 	if isSupervisor {
-		supervisor := &launcher.Supervisor{CLIFlags: os.Args[1:], Config: config, DaemonNames: daemonNames}
+		supervisor := &launcher.Supervisor{
+			CLIFlags:               os.Args[1:],
+			NotificationRecipients: config.SupervisorNotificationRecipients,
+			MailClient:             config.MailClient,
+			DaemonNames:            daemonNames,
+		}
 		supervisor.Start()
 		return
 	}

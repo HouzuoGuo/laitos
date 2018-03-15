@@ -135,7 +135,7 @@ func (client *MailClient) sendMailWithRetry(from string, recipients []string, me
 		var tlsErr error
 
 		// Find the latest set of IP addresses belonging to the MTA
-		timeout, _ := context.WithTimeout(context.Background(), MailIOTimeoutSec*time.Second)
+		timeout, cancel := context.WithTimeout(context.Background(), MailIOTimeoutSec*time.Second)
 		mtaIPs, err := net.DefaultResolver.LookupIPAddr(timeout, client.MTAHost)
 		if err != nil {
 			goto sleepAndRetry
@@ -154,10 +154,12 @@ func (client *MailClient) sendMailWithRetry(from string, recipients []string, me
 			goto sleepAndRetry
 		}
 		// Success!
+		cancel()
 		CommonMailLogger.Info("sendMailWithRetry", from, nil, "successfully delivered mail to %v", recipients)
 		smtpClient.Close()
 		return
 	sleepAndRetry:
+		cancel()
 		CommonMailLogger.Warning("sendMailWithRetry", from, err, "failed to deliver mail to %v in the attempt %d (tls error? %v)", recipients, i, tlsErr)
 		// At least one attempt of mail delivery must have been made in order to consider dropping the mail
 		if atomic.LoadInt64(&OutstandingMailBytes) > MaxOutstandingMailSize {

@@ -127,7 +127,7 @@ func (daemon *Daemon) runPortsCheck() error {
 		}
 		for _, port := range ports {
 			if port == 25 && (inet.IsGCE() || inet.IsAzure()) {
-				daemon.logger.Info("runPortsCheck", "", nil, "because Google cloud forbids connection to port 25, port check will skip %s:25", host)
+				daemon.logger.Info("runPortsCheck", "", nil, "because Google and Azure cloud forbid connection to port 25, port check will skip %s:25", host)
 				continue
 			}
 			wait.Add(1)
@@ -191,7 +191,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 
 	waitAllChecks.Wait()
 
-	// Results are ready, time to compose mail body.
+	// Results are now ready. When composing the mail body, place the most important&interesting piece of information at top.
 	allOK := portsErr == nil && featureErr == nil && mailCmdRunnerErr == nil && httpHandlersErr == nil
 	var result bytes.Buffer
 	if allOK {
@@ -199,12 +199,9 @@ func (daemon *Daemon) Execute() (string, bool) {
 	} else {
 		result.WriteString("There are errors!!!\n")
 	}
-	// Latest runtime info
 	result.WriteString(toolbox.GetRuntimeInfo())
-	// Latest stats
 	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
 	result.WriteString(GetLatestStats())
-	// Self test results
 	if portsErr == nil {
 		result.WriteString("\nPorts: OK\n")
 	} else {
@@ -225,13 +222,12 @@ func (daemon *Daemon) Execute() (string, bool) {
 	} else {
 		result.WriteString(fmt.Sprintf("\nHTTP handler errors: %v\n", httpHandlersErr))
 	}
-	// Maintenance results, warnings, logs, and stack traces, in that order.
-	result.WriteString("\nSystem maintenance:\n")
-	result.WriteString(maintResult)
 	result.WriteString("\nWarnings:\n")
 	result.WriteString(toolbox.GetLatestWarnings())
 	result.WriteString("\nLogs:\n")
 	result.WriteString(toolbox.GetLatestLog())
+	result.WriteString("\nSystem maintenance:\n")
+	result.WriteString(maintResult)
 	result.WriteString("\nStack traces:\n")
 	result.WriteString(toolbox.GetGoroutineStacktraces())
 	// Send away!
