@@ -104,6 +104,17 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 	if !proc.IsEmpty() {
 		t.Fatal("not empty")
 	}
+	// Give it some filters but leave PIN empty, it should still be considered an empty configuration.
+	proc.CommandFilters = []filter.CommandFilter{
+		&filter.PINAndShortcuts{}, // leave PIN empty
+	}
+	proc.ResultFilters = []filter.ResultFilter{
+		&filter.SayEmptyOutput{},
+	}
+	if !proc.IsEmpty() {
+		t.Fatal("not empty")
+	}
+	// Empty configuration is not sane for facing visitors from the public Internet
 	if errs := proc.IsSaneForInternet(); len(errs) != 3 {
 		t.Fatal(errs)
 	}

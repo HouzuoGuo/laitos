@@ -55,12 +55,22 @@ func (proc *CommandProcessor) SetLogger(logger misc.Logger) {
 }
 
 /*
-IsEmpty returns true only if the command processor does not have any command filter configuration, which means the
-command processor is not configured for use.
-Normally, a command processor configuration should at least have a PIN filter.
+IsEmpty returns true only if the command processor does not appear to have a meaningful configuration, which means:
+- It does not have a PIN filter (the password protection).
+- There are no filters configured at all.
 */
 func (proc *CommandProcessor) IsEmpty() bool {
-	return proc.CommandFilters == nil || len(proc.CommandFilters) == 0
+	if proc.CommandFilters == nil || len(proc.CommandFilters) == 0 {
+		// An empty processor does not have any filter configuration
+		return true
+	}
+	for _, cmdFilter := range proc.CommandFilters {
+		// An empty processor does not have a PIN
+		if pinFilter, ok := cmdFilter.(*filter.PINAndShortcuts); ok && pinFilter.PIN == "" {
+			return true
+		}
+	}
+	return false
 }
 
 /*
