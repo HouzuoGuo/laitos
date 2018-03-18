@@ -111,12 +111,4 @@ Use the following command line options with extra care:
         </ul>
     </td>
 </tr>
-<tr>
-    <td>-swapoff</td>
-    <td>Turn off swap (virtual memory) files and partitions on the system for improved program security.</td>
-</tr>
-<tr>
-    <td>-tunesystem</td>
-    <td>Automatically optimise operating system parameters to improve program performance.</td>
-</tr>
 </table>

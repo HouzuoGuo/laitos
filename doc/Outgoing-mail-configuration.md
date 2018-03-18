@@ -72,3 +72,6 @@ This is usually done to prevent spam.
 In that case, you will have to use a mail delivery service such as [SendGrid](https://sendgrid.com/) to send emails.
 For the case of Google Compute Engine, check out this detailed topic written by Google:
 [Sending Email from an Instance](https://cloud.google.com/compute/docs/tutorials/sending-mail/)
+
+As a security measure, a program-wide 200MB temporary buffer stores outstanding outgoing mail. Once the buffer fills up,
+new mails will not be queued or delivered.

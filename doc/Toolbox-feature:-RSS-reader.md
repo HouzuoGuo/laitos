@@ -16,7 +16,7 @@ Under JSON object `Features`, construct a JSON object called `RSS` that has the 
     <td>Sources</td>
     <td>array of strings</td>
     <td>URLs to various RSS sources.</td>
-    <td>Top stories/home page from A(ustralia)BC, BBC, Reuters, CNBC, CNN, and Jerusalem Post.</td>
+    <td>Top stories/home page from A(ustralia)BC, BBC, Reuters, The Guardian, CNBC, and Jerusalem Post.</td>
 </tr>
 </table>
 
@@ -31,7 +31,7 @@ Here is an example:
          "RSS": {
               "Sources": [
                   "http://feeds.reuters.com/reuters/topNews",
-                  "http://rss.cnn.com/rss/edition.rss"
+                  "https://www.theguardian.com/uk/rss"
               ]
             },
 
