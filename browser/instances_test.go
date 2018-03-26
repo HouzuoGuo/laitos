@@ -24,7 +24,7 @@ func TestBrowserInstances(t *testing.T) {
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "cannot find PhantomJS") {
 		t.Fatal(err)
 	}
-	instances.PhantomJSExecPath = "" // use default that is a command name
+	instances.PhantomJSExecPath = "" // automatically find phantomjs among $PATH
 	// Test default settings
 	if err := instances.Initialise(); err != nil || instances.MaxInstances != 5 || instances.MaxLifetimeSec != 1800 {
 		t.Fatalf("%+v %+v", err, instances)

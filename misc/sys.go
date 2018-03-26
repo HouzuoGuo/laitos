@@ -143,28 +143,30 @@ func PrepareUtilities(progress Logger) {
 		destName := srcDestName[i+1]
 		for _, aPath := range findInPaths {
 			srcPath := path.Join(aPath, srcName)
+			//progress.Info("PrepareUtilities", destName, nil, "looking for %s", srcPath)
 			if _, err := os.Stat(srcPath); err != nil {
-				//progress.Info("PrepareUtilities", destName, nil, "failed to stat srcPath", srcPath)
+				//progress.Info("PrepareUtilities", destName, err, "failed to stat srcPath %s", srcPath)
 				continue
 			}
 			from, err := os.Open(srcPath)
 			if err != nil {
-				//progress.Info("PrepareUtilities", destName, nil, "failed to open srcPath", srcPath)
+				//progress.Info("PrepareUtilities", destName, err, "failed to open srcPath %s", srcPath)
 				continue
 			}
 			defer from.Close()
 			destPath := path.Join(UtilityDir, destName)
 			to, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
 			if err != nil {
-				//progress.Info("PrepareUtilities", destName, nil, "failed to open destPath", destPath)
+				//progress.Info("PrepareUtilities", destName, err, "failed to open destPath %s ", destPath)
 				continue
 			}
 			defer to.Close()
 			if err := os.Chmod(destPath, 0755); err != nil {
+				//progress.Info("PrepareUtilities", destName, err, "failed to chmod %s", destPath)
 				continue
 			}
 			if _, err = io.Copy(to, from); err == nil {
-				progress.Info("PrepareUtilities", destName, nil, "successfully copied from %s to %s", srcPath, destPath)
+				progress.Info("PrepareUtilities", destName, err, "successfully copied from %s to %s", srcPath, destPath)
 			}
 		}
 	}

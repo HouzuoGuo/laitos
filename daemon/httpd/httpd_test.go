@@ -45,7 +45,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if daemon.PerIPLimit != 5 || daemon.Port != 80 || daemon.Address != "0.0.0.0" {
+	if daemon.PerIPLimit != 16 || daemon.Port != 80 || daemon.Address != "0.0.0.0" {
 		t.Fatalf("%+v", daemon)
 	}
 	// Prepare settings for test
