@@ -29,7 +29,7 @@ const (
 		per HTTP server rate limit interval. Be aware that API handlers place an extra rate limit based on incoming phone number.
 		This rate limit is designed to protect brute force PIN attack from accidentally exposed API handler URL.
 	*/
-	TwilioAPIRateLimitFactor = 20
+	TwilioAPIRateLimitFactor = 16
 
 	/*
 		TwilioPhoneNumberRateLimitIntervalSec is an interval measured in number of seconds that an incoming phone number is

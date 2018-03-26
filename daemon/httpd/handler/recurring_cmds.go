@@ -59,7 +59,7 @@ func (notif *HandleRecurringCommands) Initialise(logger misc.Logger, cmdProc *co
 }
 
 func (_ *HandleRecurringCommands) GetRateLimitFactor() int {
-	return 5
+	return 4
 }
 
 func (_ *HandleRecurringCommands) SelfTest() error {

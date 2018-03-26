@@ -241,7 +241,7 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 }
 
 func (_ *HandleBrowser) GetRateLimitFactor() int {
-	return 1
+	return 2
 }
 
 func (_ *HandleBrowser) SelfTest() error {
@@ -287,7 +287,7 @@ func (remoteBrowserImage *HandleBrowserImage) Handle(w http.ResponseWriter, r *h
 }
 
 func (_ *HandleBrowserImage) GetRateLimitFactor() int {
-	return 1
+	return 2
 }
 
 func (_ *HandleBrowserImage) SelfTest() error {

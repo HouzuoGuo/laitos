@@ -51,7 +51,7 @@ func (_ *HandleHTMLDocument) GetRateLimitFactor() int {
 		Elastic Beanstalk will consider the instance unhealthy. Therefore, the factor here allows 4x as many requests
 		to be processed.
 	*/
-	return 4
+	return 8
 }
 
 func (_ *HandleHTMLDocument) SelfTest() error {

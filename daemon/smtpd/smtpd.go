@@ -54,7 +54,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.Port = 25
 	}
 	if daemon.PerIPLimit < 1 {
-		daemon.PerIPLimit = 1 // reasonable for receiving emails and running toolbox feature commands
+		daemon.PerIPLimit = 8 // reasonable for receiving emails and running toolbox feature commands
 	}
 	daemon.logger = misc.Logger{
 		ComponentName: "smtpd",

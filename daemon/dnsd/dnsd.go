@@ -104,7 +104,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.UDPPort = 53
 	}
 	if daemon.PerIPLimit < 1 {
-		daemon.PerIPLimit = 100 // reasonable for a network of 3 users
+		daemon.PerIPLimit = 128 // reasonable for a network of 3 users
 	}
 	if daemon.Forwarders == nil || len(daemon.Forwarders) == 0 {
 		daemon.Forwarders = DefaultForwarders

@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	DirectoryHandlerRateLimitFactor = 3  // 2 times less expensive than the most expensive handler
+	DirectoryHandlerRateLimitFactor = 8  // DirectoryHandlerRateLimitFactor is 7 times less expensive than the most expensive handler
 	RateLimitIntervalSec            = 1  // Rate limit is calculated at 1 second interval
 	IOTimeoutSec                    = 60 // IO timeout for both read and write operations
 )
@@ -129,7 +129,7 @@ func (daemon *Daemon) Initialise() error {
 		}
 	}
 	if daemon.PerIPLimit < 1 {
-		daemon.PerIPLimit = 5 // reasonable for 3 users of the advanced API endpoints
+		daemon.PerIPLimit = 16 // reasonable for 3 users of the advanced API endpoints
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")

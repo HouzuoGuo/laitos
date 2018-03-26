@@ -25,7 +25,7 @@ const (
 		based on incoming chat user.
 		This rate limit is designed to protect brute force PIN attack from accidentally exposed API handler URL.
 	*/
-	MicrosoftBotAPIRateLimitFactor = 20
+	MicrosoftBotAPIRateLimitFactor = 16
 
 	/*
 		MicrosoftBotUserRateLimitIntervalSec is an interval measured in number of seconds that an incoming conversation
@@ -140,6 +140,7 @@ type MicrosoftBotReply struct {
 }
 
 func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
+	NoCache(w)
 	// The payload sent by Microsoft cannot possibly exceed 4 MB
 	body, err := misc.ReadAllUpTo(r.Body, 4*1048576)
 	if err != nil {

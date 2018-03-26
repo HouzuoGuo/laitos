@@ -54,7 +54,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.Address = "0.0.0.0"
 	}
 	if daemon.PerIPLimit < 1 {
-		daemon.PerIPLimit = 200
+		daemon.PerIPLimit = 256
 	}
 	daemon.logger = misc.Logger{
 		ComponentName: "sockd",
