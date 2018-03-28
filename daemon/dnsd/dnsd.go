@@ -42,8 +42,10 @@ var DefaultForwarders = []string{
 	// Comodo SecureDNS (https://www.comodo.com/secure-dns/)
 	"8.26.56.26:53",
 	"8.20.247.20:53",
+	// OpenDNS (https://www.opendns.com/setupguide/)
+	"208.67.222.222",
+	"208.67.220.220",
 	// Do not use neustar based resolvers (neustar.biz, norton connectsafe, etc) as they are teamed up with yahoo search
-	// Do not use OpenDNS as it also sometimes redirects user to search site
 }
 
 // A query to forward to DNS forwarder via DNS.
