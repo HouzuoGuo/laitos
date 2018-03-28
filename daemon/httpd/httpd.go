@@ -129,7 +129,7 @@ func (daemon *Daemon) Initialise() error {
 		}
 	}
 	if daemon.PerIPLimit < 1 {
-		daemon.PerIPLimit = 16 // reasonable for 3 users of the advanced API endpoints
+		daemon.PerIPLimit = 12 // reasonable for couple of users that use advanced API endpoints in parallel
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")

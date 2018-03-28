@@ -22,7 +22,7 @@ func (daemon *Daemon) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net
 		// Put query duration (including IO time) into statistics
 		beginTimeNano := time.Now().UnixNano()
 		// Set deadline for IO with forwarder
-		forwarderConn.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
+		forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second))
 		if _, err := forwarderConn.Write(query.QueryPacket); err != nil {
 			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "failed to write to forwarder")
 			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
@@ -35,7 +35,7 @@ func (daemon *Daemon) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net
 			continue
 		}
 		// Set deadline for responding to my DNS client
-		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
+		query.MyServer.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(packetBuf[:packetLength], query.ClientAddr); err != nil {
 			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "failed to answer to client")
 			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
@@ -53,7 +53,7 @@ func (daemon *Daemon) HandleBlackHoleAnswer(myQueue chan *UDPQuery) {
 		beginTimeNano := time.Now().UnixNano()
 		// Set deadline for responding to my DNS client
 		blackHoleAnswer := RespondWith0(query.QueryPacket)
-		query.MyServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
+		query.MyServer.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(blackHoleAnswer, query.ClientAddr); err != nil {
 			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "IO failure")
 		}

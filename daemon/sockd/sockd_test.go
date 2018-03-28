@@ -20,7 +20,7 @@ func TestSockd_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon.Password = "abcdefg"
-	if err := daemon.Initialise(); err != nil || daemon.Address != "0.0.0.0" || daemon.PerIPLimit != 256 {
+	if err := daemon.Initialise(); err != nil || daemon.Address != "0.0.0.0" || daemon.PerIPLimit != 288 {
 		t.Fatal(err)
 	}
 

@@ -69,7 +69,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	daemon.ForwardTo = []string{"howard@localhost"}
 
 	// Test default settings
-	if err := daemon.Initialise(); err != nil || daemon.Address != "0.0.0.0" || daemon.Port != 25 || daemon.PerIPLimit != 8 {
+	if err := daemon.Initialise(); err != nil || daemon.Address != "0.0.0.0" || daemon.Port != 25 || daemon.PerIPLimit != 4 {
 		t.Fatalf("%+v %+v", err, daemon)
 	}
 

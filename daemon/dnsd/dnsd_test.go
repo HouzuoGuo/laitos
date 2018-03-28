@@ -67,7 +67,7 @@ func TestDNSD(t *testing.T) {
 		t.Fatal("did not put my own IP into prefixes")
 	}
 	// Test default settings
-	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 128 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
+	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 48 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
 		t.Fatalf("%+v", daemon)
 	}
 	// Prepare settings for test
@@ -75,6 +75,8 @@ func TestDNSD(t *testing.T) {
 	daemon.UDPPort = 62151
 	daemon.TCPPort = 18519
 	daemon.PerIPLimit = 5
+	// Non-functioning forwarders should not abort initialisation or fail the daemon operation
+	daemon.Forwarders = append(daemon.Forwarders, "does-not-exist:53", "also-does-not-exist:12")
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}

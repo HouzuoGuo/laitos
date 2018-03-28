@@ -15,14 +15,15 @@ import (
 )
 
 const (
-	RateLimitIntervalSec        = 1    // Rate limit is calculated at 1 second interval
-	IOTimeoutSec                = 60   // IO timeout for both read and write operations
-	MaxPacketSize               = 9038 // Maximum acceptable UDP packet size
-	NumQueueRatio               = 10   // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
-	BlacklistUpdateIntervalSec  = 7200 // Update ad-server blacklist at this interval
-	MinNameQuerySize            = 14   // If a query packet is shorter than this length, it cannot possibly be a name query.
-	PublicIPRefreshIntervalSec  = 900  // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
-	BlacklistDownloadTimeoutSec = 30   // BlacklistDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
+	RateLimitIntervalSec        = 1      // Rate limit is calculated at 1 second interval
+	ForwarderTimeoutSec         = 1 * 2  // ForwarderTimeoutSec is the IO timeout for a round trip interaction with forwarders
+	ClientTimeoutSec            = 30 * 2 // AnswerTimeoutSec is the IO timeout for a round trip interaction with DNS clients
+	MaxPacketSize               = 9038   // Maximum acceptable UDP packet size
+	NumQueueRatio               = 8      // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
+	BlacklistUpdateIntervalSec  = 7200   // Update ad-server blacklist at this interval
+	MinNameQuerySize            = 14     // If a query packet is shorter than this length, it cannot possibly be a name query.
+	PublicIPRefreshIntervalSec  = 900    // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
+	BlacklistDownloadTimeoutSec = 30     // BlacklistDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
 )
 
 /*
@@ -104,10 +105,11 @@ func (daemon *Daemon) Initialise() error {
 		daemon.UDPPort = 53
 	}
 	if daemon.PerIPLimit < 1 {
-		daemon.PerIPLimit = 128 // reasonable for a network of 3 users
+		daemon.PerIPLimit = 48 // reasonable for a network of 3 users
 	}
 	if daemon.Forwarders == nil || len(daemon.Forwarders) == 0 {
-		daemon.Forwarders = DefaultForwarders
+		daemon.Forwarders = make([]string, len(DefaultForwarders))
+		copy(daemon.Forwarders, DefaultForwarders)
 	}
 	daemon.logger = misc.Logger{
 		ComponentName: "DNSD",
@@ -134,37 +136,46 @@ func (daemon *Daemon) Initialise() error {
 		Logger:   daemon.logger,
 	}
 	daemon.rateLimit.Initialise()
-	// Create a number of forwarder queues to handle incoming UDP DNS queries
-	// Keep in mind, TCP queries are not handled by queues.
+	/*
+		Create a small number of shallow queues to cover all UDP forwarders. Keep in mind that TCP queries are handled
+		on-demand, hence TCP queries do not involve queueing.
+	*/
 	if daemon.UDPPort > 0 {
+		// The number of UDP queues shall at least cover all UDP forwarders
 		numQueues := daemon.PerIPLimit / NumQueueRatio
-		// At very least, each forwarder address has to get a queue.
 		if numQueues < len(daemon.Forwarders) {
 			numQueues = len(daemon.Forwarders)
 		}
-		daemon.udpForwardConn = make([]net.Conn, numQueues)
-		daemon.udpForwarderQueue = make([]chan *UDPQuery, numQueues)
-		daemon.udpBlackHoleQueue = make([]chan *UDPQuery, numQueues)
+		daemon.udpForwardConn = make([]net.Conn, 0, numQueues)
+		daemon.udpForwarderQueue = make([]chan *UDPQuery, 0, numQueues)
+		daemon.udpBlackHoleQueue = make([]chan *UDPQuery, 0, numQueues)
 		for i := 0; i < numQueues; i++ {
 			/*
-				Each queue is connected to a different forwarder.
-				When a DNS query comes in, it is assigned a random forwarder to be processed.
+				Connect queues to forwarders in a round-robin fashion. UDP queries are assigned to randomly chosen
+				queues upon their arrival.
 			*/
-			forwarderAddr, err := net.ResolveUDPAddr("udp", daemon.Forwarders[i%len(daemon.Forwarders)])
+			forwarder := daemon.Forwarders[i%len(daemon.Forwarders)]
+			forwarderAddr, err := net.ResolveUDPAddr("udp", forwarder)
 			if err != nil {
-				return fmt.Errorf("DNSD.Initialise: failed to resolve UDP address - %v", err)
+				daemon.logger.Warning("Initialise", forwarder, err, "failed to resolve forwarder's address")
+				continue
 			}
-			forwarderConn, err := net.DialTimeout("udp", forwarderAddr.String(), IOTimeoutSec*time.Second)
+			forwarderConn, err := net.DialTimeout("udp", forwarderAddr.String(), ForwarderTimeoutSec*time.Second)
 			if err != nil {
-				return fmt.Errorf("DNSD.Initialise: failed to connect to UDP forwarder - %v", err)
+				daemon.logger.Warning("Initialise", forwarder, err, "failed to dial forwarder's address")
+				continue
 			}
-			daemon.udpForwardConn[i] = forwarderConn
-			daemon.udpForwarderQueue[i] = make(chan *UDPQuery, 16) // there really is no need for a deeper queue
-			daemon.udpBlackHoleQueue[i] = make(chan *UDPQuery, 4)  // there is also no need for a deeper queue here
+			daemon.udpForwardConn = append(daemon.udpForwardConn, forwarderConn)
+			// Each queue does not have to be deep, a deeper queue doesn't result in better throughput.
+			daemon.udpForwarderQueue = append(daemon.udpForwarderQueue, make(chan *UDPQuery, 16))
+			daemon.udpBlackHoleQueue = append(daemon.udpBlackHoleQueue, make(chan *UDPQuery, 4))
+		}
+		if len(daemon.udpForwardConn) == 0 {
+			return fmt.Errorf("DNSD.Initialise: does not have a working UDP forwarder")
 		}
 	}
 
-	// Always allow server to query itself via public IP
+	// Always allow server itself to query the DNS servers via its public IP
 	daemon.allowMyPublicIP()
 	return nil
 }

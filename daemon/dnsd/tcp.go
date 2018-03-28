@@ -32,7 +32,7 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 		return
 	}
 	// Read query length
-	clientConn.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
+	clientConn.SetDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
 	queryLenBuf := make([]byte, 2)
 	_, err := clientConn.Read(queryLenBuf)
 	if err != nil {
@@ -78,14 +78,14 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 	// If queried domain is not black listed, forward the query to forwarder.
 	if doForward {
 		// Ask a randomly chosen TCP forwarder to process the query
-		myForwarder, err := net.DialTimeout("tcp", daemon.Forwarders[rand.Intn(len(daemon.Forwarders))], IOTimeoutSec*time.Second)
+		myForwarder, err := net.DialTimeout("tcp", daemon.Forwarders[rand.Intn(len(daemon.Forwarders))], ForwarderTimeoutSec*time.Second)
 		if err != nil {
 			daemon.logger.Warning("HandleTCPQuery", clientIP, err, "failed to connect to forwarder")
 			return
 		}
 		defer myForwarder.Close()
 		// Send original query to forwarder without modification
-		myForwarder.SetDeadline(time.Now().Add(IOTimeoutSec * time.Second))
+		myForwarder.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second))
 		if _, err = myForwarder.Write(queryLenBuf); err != nil {
 			daemon.logger.Warning("HandleTCPQuery", clientIP, err, "failed to write length to forwarder")
 			return

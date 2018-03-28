@@ -24,7 +24,7 @@ func TestPlainTextDaemon(t *testing.T) {
 	// Test default settings
 	daemon.TCPPort = 32789
 	daemon.UDPPort = 15890
-	if err := daemon.Initialise(); err != nil || daemon.PerIPLimit != 1 {
+	if err := daemon.Initialise(); err != nil || daemon.PerIPLimit != 2 {
 		t.Fatalf("%+v %+v\n", err, daemon)
 	}
 	// Prepare settings for test
