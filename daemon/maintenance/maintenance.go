@@ -378,8 +378,11 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 	// Find a system package manager
 	var pkgManagerPath, pkgManagerName string
 	for _, binPrefix := range []string{"/sbin", "/bin", "/usr/sbin", "/usr/bin", "/usr/sbin/local", "/usr/bin/local"} {
-		// Prefer zypper over apt-get bacause opensuse has a weird "apt-get wrapper" that is not remotely functional
-		for _, execName := range []string{"yum", "zypper", "apt-get"} {
+		/*
+			Prefer zypper over apt-get bacause opensuse has a weird "apt-get wrapper" that is not remotely functional.
+			Prefer apt over apt-get because some public cloud OS templates can upgrade kernel via apt but not with apt-get.
+		*/
+		for _, execName := range []string{"yum", "zypper", "apt", "apt-get"} {
 			pkgManagerPath = path.Join(binPrefix, execName)
 			if _, err := os.Stat(pkgManagerPath); err == nil {
 				pkgManagerName = execName
@@ -402,12 +405,14 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// yum is simple and easy
 		sysUpgradeArgs = []string{"-y", "-t", "--skip-broken", "update"}
 		installArgs = []string{"-y", "-t", "--skip-broken", "install"}
+	case "apt":
+		// apt and apt-get are too old to be convenient
+		fallthrough
 	case "apt-get":
-		// apt is too old to be convenient
 		sysUpgradeArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade"}
 		installArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "install"}
 	case "zypper":
-		// zypper cannot English
+		// zypper cannot English and integrity
 		sysUpgradeArgs = []string{"--non-interactive", "update", "--recommends", "--auto-agree-with-licenses", "--skip-interactive", "--replacefiles", "--force-resolution"}
 		installArgs = []string{"--non-interactive", "install", "--recommends", "--auto-agree-with-licenses", "--replacefiles", "--force-resolution"}
 	default:
@@ -457,9 +462,9 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// Application zip bundle maintenance utilities
 		"unzip", "zip",
 		// Network diagnosis utilities
-		"curl", "nc", "net-tools", "netcat", "nmap", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
-		// busybox is useful for general maintenance and it can synchronise clock as well
-		"busybox",
+		"curl", "dnsutils", "nc", "net-tools", "netcat", "nmap", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
+		// busybox and toybox are useful for general maintenance, and busybox can synchronise system clock as well.
+		"busybox", "toybox",
 		// System maintenance utilities
 		"lsof", "strace", "sudo", "vim",
 	}
