@@ -114,7 +114,7 @@ func (daemon *Daemon) Initialise() error {
 		copy(daemon.Forwarders, DefaultForwarders)
 	}
 	daemon.logger = misc.Logger{
-		ComponentName: "DNSD",
+		ComponentName: "dnsd",
 		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
 	}
 	if daemon.AllowQueryIPPrefixes == nil || len(daemon.AllowQueryIPPrefixes) == 0 {
