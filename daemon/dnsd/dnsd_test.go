@@ -64,7 +64,7 @@ func TestDNSD(t *testing.T) {
 	}
 	if len(daemon.AllowQueryIPPrefixes) != 4 {
 		// There should be three prefixes: 127., ::1, 192., and my IP
-		t.Fatal("did not put my own IP into prefixes")
+		t.Fatal("did not put my own IP into prefixes", daemon.AllowQueryIPPrefixes)
 	}
 	// Test default settings
 	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 48 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {

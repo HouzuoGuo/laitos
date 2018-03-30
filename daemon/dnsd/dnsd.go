@@ -39,12 +39,10 @@ var DefaultForwarders = []string{
 	// SafeDNS (https://www.safedns.com)
 	"195.46.39.39:53",
 	"195.46.39.40:53",
-	// Comodo SecureDNS (https://www.comodo.com/secure-dns/)
-	"8.26.56.26:53",
-	"8.20.247.20:53",
 	// OpenDNS (https://www.opendns.com/setupguide/)
-	"208.67.222.222",
-	"208.67.220.220",
+	"208.67.222.222:53",
+	"208.67.220.220:53",
+	// Do not use Comodo SecureDNS because it has severe reliability issue as of 2018-03-30
 	// Do not use neustar based resolvers (neustar.biz, norton connectsafe, etc) as they are teamed up with yahoo search
 }
 
