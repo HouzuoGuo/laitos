@@ -145,7 +145,7 @@ func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
 	return
 }
 
-func (conn *TCPCipherConnection) ParseRequest() (destIP, destAddr string, err error) {
+func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destAddr string, err error) {
 	conn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
 
 	buf := make([]byte, 269)
@@ -174,21 +174,24 @@ func (conn *TCPCipherConnection) ParseRequest() (destIP, destAddr string, err er
 	if _, err = io.ReadFull(conn, buf[reqStart:reqEnd]); err != nil {
 		return
 	}
-
-	switch maskedType {
-	case AddressTypeIPv4:
-		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv4len]).String()
-	case AddressTypeIPv6:
-		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv6len]).String()
-	case AddressTypeDM:
-		destIP = string(buf[DMAddrIndex : DMAddrIndex+int(buf[DMAddrLengthIndex])])
-	}
 	port := binary.BigEndian.Uint16(buf[reqEnd-2 : reqEnd])
 	if port < 1 {
 		err = fmt.Errorf("TCPCipherConnection.ParseRequest: invalid destination port %d", port)
 		return
 	}
-	destAddr = net.JoinHostPort(destIP, strconv.Itoa(int(port)))
+
+	switch maskedType {
+	case AddressTypeIPv4:
+		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv4len])
+		destAddr = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
+	case AddressTypeIPv6:
+		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv6len])
+		destAddr = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
+	case AddressTypeDM:
+		dest := string(buf[DMAddrIndex : DMAddrIndex+int(buf[DMAddrLengthIndex])])
+		destIP = net.ParseIP(dest)
+		destAddr = net.JoinHostPort(dest, strconv.Itoa(int(port)))
+	}
 	return
 }
 
@@ -223,8 +226,13 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 		conn.WriteRandAndClose()
 		return
 	}
-	if conn.daemon.DNSDaemon.IsInBlacklist(destIP) {
-		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destIP)
+	if destIP != nil && IsReservedAddr(destIP) {
+		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve reserved address %s", destAddr)
+		conn.Close()
+		return
+	}
+	if destIP != nil && conn.daemon.DNSDaemon.IsInBlacklist(destIP.String()) {
+		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destAddr)
 		conn.Close()
 		return
 	}

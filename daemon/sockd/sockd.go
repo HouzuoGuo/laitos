@@ -20,10 +20,37 @@ import (
 
 const (
 	MD5SumLength         = 16
-	IOTimeoutSec         = time.Duration(60 * time.Second)
+	IOTimeoutSec         = time.Duration(300 * time.Second)
 	RateLimitIntervalSec = 1
 	MaxPacketSize        = 9038
 )
+
+var BlockedReservedCIDR = []net.IPNet{
+	{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+	{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)},
+	{IP: net.IPv4(127, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+	{IP: net.IPv4(169, 254, 0, 0), Mask: net.CIDRMask(16, 32)},
+	{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
+	{IP: net.IPv4(192, 0, 0, 0), Mask: net.CIDRMask(24, 32)},
+	{IP: net.IPv4(192, 0, 2, 0), Mask: net.CIDRMask(24, 32)},
+	{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
+	{IP: net.IPv4(198, 18, 0, 0), Mask: net.CIDRMask(15, 32)},
+	{IP: net.IPv4(198, 51, 100, 0), Mask: net.CIDRMask(24, 32)},
+	{IP: net.IPv4(203, 0, 113, 0), Mask: net.CIDRMask(24, 32)},
+	{IP: net.IPv4(240, 0, 0, 0), Mask: net.CIDRMask(4, 32)},
+}
+
+func IsReservedAddr(addr net.IP) bool {
+	if addr == nil {
+		return false
+	}
+	for _, reservedCIDR := range BlockedReservedCIDR {
+		if reservedCIDR.Contains(addr) {
+			return true
+		}
+	}
+	return false
+}
 
 // Daemon is intentionally undocumented magic ^____^
 type Daemon struct {

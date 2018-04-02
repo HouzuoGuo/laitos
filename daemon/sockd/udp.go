@@ -266,18 +266,19 @@ func (daemon *Daemon) HandleUDPConnection(server *UDPCipherConnection, n int, cl
 			server.WriteRand(clientAddr)
 			return
 		}
-		resolveName := string(packet[DMAddrHeaderLength : DMAddrHeaderLength+int(packet[DMAddrLengthIndex])])
-		if strings.ContainsRune(resolveName, 0x00) {
-			daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "dm address contains invalid byte 0")
+		dest := string(packet[DMAddrHeaderLength : DMAddrHeaderLength+int(packet[DMAddrLengthIndex])])
+		destIP = net.ParseIP(dest)
+		if destIP != nil && IsReservedAddr(destIP) {
+			daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve reserved address %s", dest)
 			return
 		}
-		if daemon.DNSDaemon.IsInBlacklist(resolveName) {
-			daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve blacklisted address %s", destIP)
+		if daemon.DNSDaemon.IsInBlacklist(dest) {
+			daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve blacklisted domain name %s", dest)
 			return
 		}
-		resolveDestIP, err := net.ResolveIPAddr("ip", resolveName)
+		resolveDestIP, err := net.ResolveIPAddr("ip", dest)
 		if err != nil {
-			daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to resolve domain name \"%s\"", resolveName)
+			daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to resolve domain name \"%s\"", dest)
 			return
 		}
 		destIP = resolveDestIP.IP
@@ -286,8 +287,12 @@ func (daemon *Daemon) HandleUDPConnection(server *UDPCipherConnection, n int, cl
 		server.WriteRand(clientAddr)
 		return
 	}
+	if IsReservedAddr(destIP) {
+		daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve reserved address %s", destIP.String())
+		return
+	}
 	if daemon.DNSDaemon.IsInBlacklist(destIP.String()) {
-		daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve blacklisted address %s", destIP)
+		daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve blacklisted address %s", destIP.String())
 		return
 	}
 	destAddr := &net.UDPAddr{
@@ -295,7 +300,8 @@ func (daemon *Daemon) HandleUDPConnection(server *UDPCipherConnection, n int, cl
 		Port: int(binary.BigEndian.Uint16(packet[packetLen-2 : packetLen])),
 	}
 	if destAddr.Port < 1 {
-		daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not connect to invalid destination port %s:%d", destIP, destAddr.Port)
+		daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not connect to invalid destination port %s:%d", destIP.String(), destAddr.Port)
+		server.WriteRand(clientAddr)
 		return
 	}
 	if _, found := daemon.udpBackLog.Get(destAddr.String()); !found {
