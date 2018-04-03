@@ -145,7 +145,7 @@ func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
 	return
 }
 
-func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destAddr string, err error) {
+func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, destWithPort string, err error) {
 	conn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
 
 	buf := make([]byte, 269)
@@ -183,14 +183,17 @@ func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destAddr string,
 	switch maskedType {
 	case AddressTypeIPv4:
 		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv4len])
-		destAddr = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
+		destNoPort = destIP.String()
+		destWithPort = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
 	case AddressTypeIPv6:
 		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv6len])
-		destAddr = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
+		destNoPort = destIP.String()
+		destWithPort = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
 	case AddressTypeDM:
 		dest := string(buf[DMAddrIndex : DMAddrIndex+int(buf[DMAddrLengthIndex])])
+		destNoPort = dest
 		destIP = net.ParseIP(dest)
-		destAddr = net.JoinHostPort(dest, strconv.Itoa(int(port)))
+		destWithPort = net.JoinHostPort(dest, strconv.Itoa(int(port)))
 	}
 	return
 }
@@ -215,30 +218,30 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 		TCPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	remoteAddr := conn.RemoteAddr().String()
-	destIP, destAddr, err := conn.ParseRequest()
+	destIP, destNoPort, destWithPort, err := conn.ParseRequest()
 	if err != nil {
 		conn.logger.Warning("HandleTCPConnection", remoteAddr, err, "failed to get destination address")
 		conn.WriteRandAndClose()
 		return
 	}
-	if strings.ContainsRune(destAddr, 0x00) {
+	if strings.ContainsRune(destWithPort, 0x00) {
 		conn.logger.Warning("HandleTCPConnection", remoteAddr, nil, "will not serve invalid destination address with 0 in it")
 		conn.WriteRandAndClose()
 		return
 	}
 	if destIP != nil && IsReservedAddr(destIP) {
-		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve reserved address %s", destAddr)
+		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve reserved address %s", destNoPort)
 		conn.Close()
 		return
 	}
-	if destIP != nil && conn.daemon.DNSDaemon.IsInBlacklist(destIP.String()) {
-		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destAddr)
+	if conn.daemon.DNSDaemon.IsInBlacklist(destNoPort) {
+		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destNoPort)
 		conn.Close()
 		return
 	}
-	dest, err := net.DialTimeout("tcp", destAddr, IOTimeoutSec)
+	dest, err := net.DialTimeout("tcp", destWithPort, IOTimeoutSec)
 	if err != nil {
-		conn.logger.Warning("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destAddr)
+		conn.logger.Warning("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destWithPort)
 		conn.Close()
 		return
 	}
