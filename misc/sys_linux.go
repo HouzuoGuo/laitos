@@ -1,5 +1,11 @@
 package misc
 
+import (
+	"os"
+	"syscall"
+	"unsafe"
+)
+
 // Enable or disable terminal echo.
 func SetTermEcho(echo bool) {
 	term := &syscall.Termios{}
