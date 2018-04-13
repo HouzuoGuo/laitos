@@ -89,9 +89,9 @@ func (daemon *Daemon) StartAndBlock() error {
 						Body:        strings.NewReader(url.Values{PasswordInputName: []string{passwd}}.Encode()),
 					}, strings.Replace(aURL, "%", "%%", -1))
 					if submitErr != nil {
-						daemon.logger.Warning("StartAndBlock", "", submitErr, "failed to submit password to domain %s")
+						daemon.logger.Warning("StartAndBlock", "", submitErr, "failed to submit password to domain %s", parsedURL.Host)
 					} else if submitHTTPErr := submitResp.Non2xxToError(); submitHTTPErr != nil {
-						daemon.logger.Warning("StartAndBlock", "", submitHTTPErr, "failed to submit password to domain %s")
+						daemon.logger.Warning("StartAndBlock", "", submitHTTPErr, "failed to submit password to domain %s", parsedURL.Host)
 					} else {
 						daemon.logger.Warning("StartAndBlock", "", nil, "successfully unlocked domain %s, response is: %s", parsedURL.Host, submitResp.GetBodyUpTo(1024))
 					}

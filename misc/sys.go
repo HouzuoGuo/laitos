@@ -15,7 +15,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"unsafe"
 )
 
 var RegexVmRss = regexp.MustCompile(`VmRSS:\s*(\d+)\s*kB`)               // Parse VmRss value from /proc/*/status line
@@ -87,8 +86,8 @@ func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int) {
 	if err != nil {
 		return
 	}
-	totalKB = int(int64(fs.Blocks) * fs.Bsize / 1024)
-	freeKB = int(int64(fs.Bfree) * fs.Bsize / 1024)
+	totalKB = int(int64(fs.Blocks) * int64(fs.Bsize) / 1024)
+	freeKB = int(int64(fs.Bfree) * int64(fs.Bsize) / 1024)
 	usedKB = totalKB - freeKB
 	return
 }
@@ -401,27 +400,6 @@ func SwapOff() error {
 		return fmt.Errorf("SwapOff: %v - %s", err, out)
 	}
 	return nil
-}
-
-// Enable or disable terminal echo.
-func SetTermEcho(echo bool) {
-	term := &syscall.Termios{}
-	stdout := os.Stdout.Fd()
-	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, stdout, syscall.TCGETS, uintptr(unsafe.Pointer(term)))
-	if err != 0 {
-		logger.Warning("SetTermEcho", "", err, "syscall failed")
-		return
-	}
-	if echo {
-		term.Lflag |= syscall.ECHO
-	} else {
-		term.Lflag &^= syscall.ECHO
-	}
-	_, _, err = syscall.Syscall(syscall.SYS_IOCTL, stdout, uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(term)))
-	if err != 0 {
-		logger.Warning("SetTermEcho", "", err, "syscall failed")
-		return
-	}
 }
 
 // LockMemory locks program memory to prevent swapping, protecting sensitive user data.
