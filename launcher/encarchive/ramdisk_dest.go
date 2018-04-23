@@ -20,7 +20,7 @@ const (
 	RamdiskParentDir = "/root"
 
 	// RamdiskTmpdirNamePrefix is the prefix name of temporary directory which is to become mount point for ramdisk.
-	RamdiskTmpdirNamePrefix = "ramdisk-laitos-unextracted-bundle"
+	RamdiskTmpdirNamePrefix = "ramdisk-laitos-extracted-bundle"
 )
 
 // MakeRamdisk uses mount command to create a ramdisk in a temporary directory and return the directory's path.
@@ -33,7 +33,7 @@ func MakeRamdisk(sizeMB int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("MakeRamdisk: mount command failed due to error %v - %s", err, out)
 	}
-	misc.DefaultLogger.Warning("MakeRamdisk", "", nil, "successfully created a %d MB ramdisk at %s", sizeMB, mountPoint)
+	misc.DefaultLogger.Warning("MakeRamdisk", mountPoint, nil, "successfully created a %d MB ramdisk", sizeMB)
 	return mountPoint, nil
 }
 
@@ -42,7 +42,7 @@ func TryDestroyRamdisk(mountPoint string) bool {
 	misc.InvokeShell(RamdiskCommandTimeoutSec, "/bin/sh", fmt.Sprintf("umount '%s'", mountPoint))
 	err2 := os.Remove(mountPoint)
 	if err2 == nil {
-		misc.DefaultLogger.Warning("TryDestroyRamdisk", "", nil, "successfully destroyed ramdisk at %s", mountPoint)
+		misc.DefaultLogger.Warning("TryDestroyRamdisk", mountPoint, nil, "successfully destroyed ramdisk")
 		return true
 	}
 	return false
@@ -77,7 +77,7 @@ func DestroyRamdisk(mountPoint string) {
 		misc.DefaultLogger.Warning("DestroyRamdisk", mountPoint, err, "umount command failed, output is - %s", out)
 	}
 	if err := os.RemoveAll(mountPoint); err == nil {
-		misc.DefaultLogger.Warning("DestroyRamdisk", "", nil, "successfully destroyed ramdisk at %s", mountPoint)
+		misc.DefaultLogger.Warning("DestroyRamdisk", mountPoint, nil, "successfully destroyed ramdisk")
 	} else {
 		misc.DefaultLogger.Warning("DestroyRamdisk", mountPoint, err, "failed to remove mount point directory, output is - %s", out)
 	}

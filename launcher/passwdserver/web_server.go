@@ -91,11 +91,21 @@ type WebServer struct {
 	URL             string // URL is the secretive URL that serves the unlock page. The URL must include leading slash.
 	ArchiveFilePath string // ArchiveFilePath is the absolute or relative path to encrypted archive file.
 
-	server          *http.Server // server is the HTTP server after it is started.
-	archiveFileSize int          // archiveFileSize is the size of the archive file, it is set when web server starts.
-	ramdiskDir      string       // ramdiskDir is set after archive has been successfully extracted.
-	handlerMutex    *sync.Mutex  // handlerMutex prevents concurrent unlocking attempts from being made at once.
-	alreadyUnlocked bool         // alreadyUnlocked is set to true after a successful unlocking attempt has been made
+	/*
+		InsecureExtraction alters the behaviour of extracting program data archive.
+		The default and secure value is false, which means data archive is extracted into ramdisk and does not touch
+		disk storage. However, doing so requires elevated (root) access as well as "mount" command.
+		The other option (true) will let data archive extract into a directory on disk storage, this is less secure
+		because a file recovery operation will reveal the decrypted program data, however this operation does not
+		require elevated access or mount command.
+	*/
+	InsecureExtraction bool
+
+	server           *http.Server // server is the HTTP server after it is started.
+	archiveFileSize  int          // archiveFileSize is the size of the archive file, it is set when web server starts.
+	extractedDataDir string       // extractedDataDir is destination location into which encrypted program data is extracted.
+	handlerMutex     *sync.Mutex  // handlerMutex prevents concurrent unlocking attempts from being made at once.
+	alreadyUnlocked  bool         // alreadyUnlocked is set to true after a successful unlocking attempt has been made
 
 	logger misc.Logger
 }
@@ -118,33 +128,34 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
-		// Ramdisk size in MB = archive size (unencrypted archive) + archive size (extracted files) + 8 (just in case)
+
 		var err error
-		ws.ramdiskDir, err = encarchive.MakeRamdisk(ws.archiveFileSize/1048576*2 + 8)
+		if ws.InsecureExtraction {
+			// Create a plain directory to hold decrypted program data, this is the less secure way for lack of elevated privilege.
+			ws.extractedDataDir, err = encarchive.MakePlainDestDir()
+		} else {
+			// Ramdisk size in MB = archive size (unencrypted archive) + archive size (extracted files) + 8 (just in case)
+			ws.extractedDataDir, err = encarchive.MakeRamdisk(ws.archiveFileSize/1048576*2 + 8)
+		}
 		if err != nil {
 			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), err.Error())))
 			return
 		}
-		// Create extract temp file inside ramdisk
-		tmpFile, err := ioutil.TempFile(ws.ramdiskDir, "launcher-extract-temp-file")
+		// Create a temporary file to hold the decrypted program archive
+		tmpFile, err := ioutil.TempFile(ws.extractedDataDir, "launcher-extract-temp-file")
 		if err != nil {
 			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), err.Error())))
 			return
 		}
 		defer tmpFile.Close()
 		defer os.Remove(tmpFile.Name())
-		/*
-			If a previously launched laitos was killed by user, systemd, or supervisord, it would not have a chance to
-			clean up after its own ramdisk. Therefore, free up after previous laitos exits before extracting new one.
-		*/
-		encarchive.TryDestroyAllRamdisks()
-		// Extract files into ramdisk
-		if err := encarchive.Extract(ws.ArchiveFilePath, tmpFile.Name(), ws.ramdiskDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
-			encarchive.DestroyRamdisk(ws.ramdiskDir)
+		// Extract program archive
+		if err := encarchive.Extract(ws.ArchiveFilePath, tmpFile.Name(), ws.extractedDataDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
+			encarchive.DestroyRamdisk(ws.extractedDataDir)
 			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), err.Error())))
 			return
 		}
-		// Success! Do not unlock handlerMutex anymore because there is no point in visiting this handler again.
+		// Success!
 		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), "success")))
 		ws.alreadyUnlocked = true
 		// A short moment later, the function will launch laitos supervisor along with daemons.
@@ -178,6 +189,15 @@ func (ws *WebServer) Start() error {
 	// All other URLs simply render an empty page
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 	})
+
+	/*
+		If a previously launched laitos was killed by user, systemd, or supervisord, it would not have a chance to
+		clean up after its own ramdisk. Therefore, free them up for this new launch.
+	*/
+	encarchive.TryDestroyAllRamdisks()
+	encarchive.TryDestroyAllPlainDestDirs()
+
+	// Start web server
 	ws.server = &http.Server{
 		Addr:        net.JoinHostPort("0.0.0.0", strconv.Itoa(ws.Port)),
 		Handler:     mux,
@@ -226,17 +246,14 @@ func (ws *WebServer) LaunchMainProgram() {
 		goto fatalExit
 	}
 	// Switch to the ramdisk directory full of decrypted data for launching supervisor and daemons
-	if err := os.Chdir(ws.ramdiskDir); err != nil {
-		fatalMsg = fmt.Sprintf("failed to cd to %s - %v", ws.ramdiskDir, err)
+	if err := os.Chdir(ws.extractedDataDir); err != nil {
+		fatalMsg = fmt.Sprintf("failed to cd to %s - %v", ws.extractedDataDir, err)
 		goto fatalExit
 	}
-	// Remove password web server flagsNoExec from CLI flagsNoExec
+	// Remove CLI flags that were used to launch the web server from the flags used to launch laitos main program
 	flagsNoExec = launcher.RemoveFromFlags(func(s string) bool {
 		return strings.HasPrefix(s, "-"+CLIFlag)
 	}, flagsNoExec)
-	// Prepare utility programs that are not essential but helpful to certain toolbox features and daemons
-	// The utility programs are copied from the now unlocked data archive
-	misc.PrepareUtilities(ws.logger)
 	ws.logger.Info("LaunchMainProgram", "", nil, "about to launch with CLI flagsNoExec %v", flagsNoExec)
 	cmd = exec.Command(executablePath, flagsNoExec...)
 	cmd.Stdin = os.Stdin
@@ -251,10 +268,12 @@ func (ws *WebServer) LaunchMainProgram() {
 		goto fatalExit
 	}
 	ws.logger.Info("LaunchMainProgram", "", nil, "main program has exited cleanly")
-	// In both normal and abnormal paths, the ramdisk must be destroyed.
-	encarchive.DestroyRamdisk(ws.ramdiskDir)
+	// In both normal and abnormal paths, the ramdisk/temporary directory must be destroyed.
+	encarchive.DestroyRamdisk(ws.extractedDataDir)
+	encarchive.DestoryPlainDestDir(ws.extractedDataDir)
 	return
 fatalExit:
-	encarchive.DestroyRamdisk(ws.ramdiskDir)
+	encarchive.DestroyRamdisk(ws.extractedDataDir)
+	encarchive.DestoryPlainDestDir(ws.extractedDataDir)
 	ws.logger.Abort("LaunchMainProgram", "", nil, fatalMsg)
 }

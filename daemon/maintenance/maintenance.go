@@ -448,6 +448,9 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		among distributions.
 	*/
 	pkgs := []string{
+		// For outgoing HTTPS connections
+		"ca-certificates",
+
 		// Soft and hard dependencies of phantomJS
 		"bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dejavu-fonts-common",
 		"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "fontconfig", "fontconfig-config", "fontpackages-filesystem",
