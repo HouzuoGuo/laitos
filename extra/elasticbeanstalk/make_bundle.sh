@@ -10,7 +10,7 @@ procfile=$2
 set -e
 
 pushd ../../
-env CGO_ENABLED=0 go build
+env CGO_ENABLED=0 GOOS=linux go build
 popd
 
 rm -rf bundle/
