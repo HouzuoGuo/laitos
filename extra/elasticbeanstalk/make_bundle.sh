@@ -16,7 +16,7 @@ popd
 rm -rf bundle/
 mkdir bundle/
 cp "$archive" "$procfile" bundle/
-cp -R ../../laitos ./.ebextensions/ bundle/
+cp -R ../../laitos ./.ebextensions bundle/
 chmod -R 755 bundle/
 
 pushd bundle
@@ -24,6 +24,6 @@ zip -r bundle.zip ./
 mv bundle.zip ../
 popd
 
-rm -rf bundle
+rm -rf ./bundle
 
 echo "bundle.zip is ready!"
