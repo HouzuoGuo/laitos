@@ -53,7 +53,7 @@ an empty string. The function may take up to 3 seconds to return a value.
 func GetPublicIP() string {
 	// Use four different ways to retrieve IP address
 	// GCE internal
-	gceInternal := make(chan string)
+	gceInternal := make(chan string, 1)
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
@@ -64,7 +64,7 @@ func GetPublicIP() string {
 		}
 	}()
 	// AWS internal
-	awsInternal := make(chan string)
+	awsInternal := make(chan string, 1)
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
@@ -74,7 +74,7 @@ func GetPublicIP() string {
 		}
 	}()
 	// AWS public
-	awsPublic := make(chan string)
+	awsPublic := make(chan string, 1)
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
@@ -84,7 +84,7 @@ func GetPublicIP() string {
 		}
 	}()
 	// ipfy.org
-	ipfyPublic := make(chan string)
+	ipfyPublic := make(chan string, 1)
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
