@@ -215,7 +215,16 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
 	w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say><![CDATA[%s, repeat again, %s, repeat again, %s, over.]]></Say>
+        <Say><![CDATA[%s.
+
+    repeat again.    
+
+%s.
+
+    repeat again.    
+
+%s.
+over.]]></Say>
     </Gather>
 </Response>
 `, hand.MyEndpoint, combinedOutput, combinedOutput, combinedOutput)))

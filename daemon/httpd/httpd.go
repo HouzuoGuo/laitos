@@ -297,9 +297,9 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Header: basicAuth,
-		Body:   strings.NewReader(url.Values{"cmd": {"verysecret.sls /"}}.Encode()),
+		Body:   strings.NewReader(url.Values{"cmd": {"verysecret.secho cmd_form_test"}}.Encode()),
 	}, addr+"/cmd_form")
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "bin") {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "cmd_form_test") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Gitlab handle
@@ -443,7 +443,16 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
+
+    repeat again.    
+
+EMPTY OUTPUT.
+
+    repeat again.    
+
+EMPTY OUTPUT.
+over.]]></Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - check command execution result via phone call and ask output to be spelt phonetically
@@ -451,7 +460,16 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {handler.TwilioPhoneticSpellingMagic + dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	phoneticOutput := `capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango, repeat again, capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango, repeat again, capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango, over.`
+	phoneticOutput := `capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango.
+
+    repeat again.    
+
+capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango.
+
+    repeat again.    
+
+capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango.
+over.`
 	sayResp := `<Say><![CDATA[` + phoneticOutput + `]]></Say>`
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), sayResp) {
 		t.Fatal(err, string(resp.Body))
@@ -461,7 +479,16 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
+
+    repeat again.    
+
+EMPTY OUTPUT.
+
+    repeat again.    
+
+EMPTY OUTPUT.
+over.]]></Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
@@ -496,7 +523,16 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT, repeat again, EMPTY OUTPUT, repeat again, EMPTY OUTPUT, over.]]></Say>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
+
+    repeat again.    
+
+EMPTY OUTPUT.
+
+    repeat again.    
+
+EMPTY OUTPUT.
+over.]]></Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 }

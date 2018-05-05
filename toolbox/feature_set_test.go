@@ -26,10 +26,11 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 4 ||
+	if len(features.LookupByTrigger) != 5 ||
 		features.LookupByTrigger[".c"] == nil || // public contacts
 		features.LookupByTrigger[".e"] == nil || // environment control
-		features.LookupByTrigger[".r"] == nil ||
+		features.LookupByTrigger[".j"] == nil || // joke
+		features.LookupByTrigger[".r"] == nil || // RSS reader
 		features.LookupByTrigger[".s"] == nil { // shell
 		t.Fatal(features.LookupByTrigger)
 	}
@@ -39,13 +40,13 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 4 always-available features + 2 newly configured features (AES + 2FA)
-	if len(features.LookupByTrigger) != 6 {
+	if len(features.LookupByTrigger) != 7 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if err := features.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".2", ".a", ".c", ".e", ".r", ".s"}) {
+	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".2", ".a", ".c", ".e", ".j", ".r", ".s"}) {
 		t.Fatal(triggers)
 	}
 	// Configure all features via JSON and verify via self test
@@ -56,13 +57,13 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	if err := features.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 13 {
+	if len(features.LookupByTrigger) != 14 {
 		t.Skip(features.LookupByTrigger)
 	}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 13 {
+	if len(features.LookupByTrigger) != 14 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if err := features.SelfTest(); err != nil {
