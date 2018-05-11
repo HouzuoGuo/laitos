@@ -75,8 +75,6 @@ const (
 </body>
 </html>` // Browser page content
 	BrowserDebugOutputLen = 1024 // Display this much debug output on page
-	BrowserMinWidth       = 1024 // Default browser width in pixels
-	BrowserMinHeight      = 1024 // Default browser height in pixels
 )
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
@@ -112,12 +110,6 @@ func (remoteBrowser *HandleBrowser) parseSubmission(r *http.Request) (instanceIn
 	instanceTag = r.FormValue("instance_tag")
 	viewWidth, _ = strconv.Atoi(r.FormValue("view_width"))
 	viewHeight, _ = strconv.Atoi(r.FormValue("view_height"))
-	if viewWidth < BrowserMinWidth {
-		viewWidth = BrowserMinWidth
-	}
-	if viewHeight < BrowserMinHeight {
-		viewHeight = BrowserMinHeight
-	}
 	userAgent = r.FormValue("user_agent")
 	pageUrl = r.FormValue("page_url")
 	pointerX, _ = strconv.Atoi(r.FormValue("pointer_x"))
@@ -143,7 +135,7 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 			"Empty Browser",
 			index, instance.Tag,
 			instance.GetDebugOutput(BrowserDebugOutputLen),
-			BrowserMinWidth, BrowserMinHeight, browser.GoodUserAgent,
+			800, 800, browser.GoodUserAgent,
 			"https://www.google.com",
 			0, 0,
 			""))
@@ -161,7 +153,7 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 				"Empty Browser",
 				index, instance.Tag,
 				instance.GetDebugOutput(BrowserDebugOutputLen),
-				BrowserMinWidth, BrowserMinHeight, browser.GoodUserAgent,
+				800, 800, browser.GoodUserAgent,
 				"https://www.google.com",
 				0, 0,
 				""))
