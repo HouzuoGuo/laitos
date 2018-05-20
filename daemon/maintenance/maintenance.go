@@ -465,7 +465,7 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// Application zip bundle maintenance utilities
 		"unzip", "zip",
 		// Network diagnosis utilities
-		"curl", "dnsutils", "nc", "net-tools", "netcat", "nmap", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
+		"curl", "dnsutils", "nc", "net-tools", "netcat", "nmap", "procps", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
 		// busybox and toybox are useful for general maintenance, and busybox can synchronise system clock as well.
 		"busybox", "toybox",
 		// System maintenance utilities
