@@ -31,7 +31,7 @@ const (
         if (!browser) {
             return false;
         }
-        browser.render('%s');
+        browser.render('%s', {format: 'jpg', onlyViewPort: true});
         return true;
     };
 
@@ -75,7 +75,15 @@ const (
         }
         b_lo_reset();
         browser.settings.userAgent = param.user_agent;
+		param.view_width = parseInt(param.view_width);
+		param.view_height = parseInt(param.view_height);
         browser.viewportSize = {
+            width: param.view_width,
+            height: param.view_height
+        };
+        browser.clipRect = {
+            top: 0,
+            left: 0,
             width: param.view_width,
             height: param.view_height
         };
@@ -274,7 +282,7 @@ const (
                     width = elem.offsetWidth,
                     elem_inner = elem.innerHTML;
                 // Only consider elements that are at least 9 square pixels large and content does not look exceedingly long
-                if (height > 3 && width > 3 && (!elem_inner || elem_inner && elem_inner.length < 1000)) {
+                if (height > 3 && width > 3 && (!elem_inner || elem_inner && elem_inner.length < 8192)) {
                     if (elem.tagName === tag && elem.id === id && elem.name === name && elem_inner === inner) {
                         matched = true;
                         return true;
