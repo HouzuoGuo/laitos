@@ -3,7 +3,7 @@ package mailcmd
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browser"
+	"github.com/HouzuoGuo/laitos/browserp"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"net/http"
@@ -67,7 +67,7 @@ func (und *Undocumented1) SendMessage(message string) error {
 		}.Encode()),
 		RequestFunc: func(req *http.Request) error {
 			req.Header.Set("X-Requested-With", "XMLHttpRequest")
-			req.Header.Set("User-Agent", browser.GoodUserAgent)
+			req.Header.Set("User-Agent", browserp.GoodUserAgent)
 			return nil
 		},
 	}, und.URL)

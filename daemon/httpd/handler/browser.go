@@ -2,7 +2,7 @@ package handler
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browser"
+	"github.com/HouzuoGuo/laitos/browserp"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
@@ -79,8 +79,8 @@ const (
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowser struct {
-	ImageEndpoint string            `json:"-"`
-	Browsers      browser.Instances `json:"Browsers"`
+	ImageEndpoint string             `json:"-"`
+	Browsers      browserp.Instances `json:"Browsers"`
 }
 
 func (remoteBrowser *HandleBrowser) Initialise(misc.Logger, *common.CommandProcessor) error {
@@ -135,7 +135,7 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 			"Empty Browser",
 			index, instance.Tag,
 			instance.GetDebugOutput(BrowserDebugOutputLen),
-			800, 800, browser.GoodUserAgent,
+			800, 800, browserp.GoodUserAgent,
 			"https://www.google.com",
 			0, 0,
 			""))
@@ -153,7 +153,7 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 				"Empty Browser",
 				index, instance.Tag,
 				instance.GetDebugOutput(BrowserDebugOutputLen),
-				800, 800, browser.GoodUserAgent,
+				800, 800, browserp.GoodUserAgent,
 				"https://www.google.com",
 				0, 0,
 				""))
@@ -186,27 +186,27 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 				return
 			}
 		case "Left Click":
-			if err := instance.Pointer(browser.PointerTypeClick, browser.PointerButtonLeft, pointerX, pointerY); err != nil {
+			if err := instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonLeft, pointerX, pointerY); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		case "Right Click":
-			if err := instance.Pointer(browser.PointerTypeClick, browser.PointerButtonRight, pointerX, pointerY); err != nil {
+			if err := instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonRight, pointerX, pointerY); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		case "Move To":
-			if err := instance.Pointer(browser.PointerTypeMove, browser.PointerButtonLeft, pointerX, pointerY); err != nil {
+			if err := instance.Pointer(browserp.PointerTypeMove, browserp.PointerButtonLeft, pointerX, pointerY); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		case "Backspace":
-			if err := instance.SendKey("", browser.KeyCodeBackspace); err != nil {
+			if err := instance.SendKey("", browserp.KeyCodeBackspace); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		case "Enter":
-			if err := instance.SendKey("", browser.KeyCodeEnter); err != nil {
+			if err := instance.SendKey("", browserp.KeyCodeEnter); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -241,7 +241,7 @@ func (_ *HandleBrowser) SelfTest() error {
 }
 
 type HandleBrowserImage struct {
-	Browsers *browser.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
+	Browsers *browserp.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
 func (_ *HandleBrowserImage) Initialise(misc.Logger, *common.CommandProcessor) error {

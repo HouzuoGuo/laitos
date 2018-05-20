@@ -1,4 +1,4 @@
-package browser
+package browserp
 
 import (
 	"bytes"
@@ -459,7 +459,7 @@ const (
 
 var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
 
-// Instance is a single headless browser server that acts on on commands received via HTTP.
+// Instance is a single headless browser server (PhantomJS) that acts on on commands received via HTTP.
 type Instance struct {
 	PhantomJSExecPath  string // Absolute or relative path to PhantomJS executable
 	RenderImagePath    string // Place to store rendered web page image
@@ -481,25 +481,21 @@ func (instance *Instance) Start() error {
 	instance.jsDebugOutput = new(bytes.Buffer)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
 	instance.logger = misc.Logger{
-		ComponentName: "browser.Instance",
+		ComponentName: "browserp.Instance",
 		ComponentID:   []misc.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
 	}
 	// Store server javascript into a temporary file
-	serverJS, err := ioutil.TempFile("", "laitos-browser")
+	serverJS, err := ioutil.TempFile("", "laitos-browserp")
 	if err != nil {
-		return fmt.Errorf("Instance.Start: failed to create temporary file for PhantomJS code - %v", err)
+		return fmt.Errorf("browserp.Instance.Start: failed to create temporary file for PhantomJS code - %v", err)
 	}
 	if _, err := serverJS.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImagePath, instance.Port))); err != nil {
-		return fmt.Errorf("Instance.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("browserp.Instance.Start: failed to write PhantomJS server code - %v", err)
 	} else if err := serverJS.Sync(); err != nil {
-		return fmt.Errorf("Instance.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("browserp.Instance.Start: failed to write PhantomJS server code - %v", err)
 	} else if err := serverJS.Close(); err != nil {
-		return fmt.Errorf("Instance.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("browserp.Instance.Start: failed to write PhantomJS server code - %v", err)
 	}
-	/*
-		    Start PhantomJS process, but be aware of an interesting detail:
-			Usually the user will specify PhantomJS executable path with a relative or absolute path, in which case the
-	*/
 	instance.jsProcCmd = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
 	instance.jsProcCmd.Stdout = instance.jsDebugOutput
 	instance.jsProcCmd.Stderr = instance.jsDebugOutput
@@ -514,7 +510,7 @@ func (instance *Instance) Start() error {
 	// Expect server process to remain running for at least a second for a successful start
 	select {
 	case err := <-processErrChan:
-		return fmt.Errorf("Instance.Start: PhantomJS process failed - %v", err)
+		return fmt.Errorf("browserp.Instance.Start: PhantomJS process failed - %v", err)
 	case <-time.After(1 * time.Second):
 	}
 	// Unconditionally kill the server process after a period of time
@@ -539,7 +535,7 @@ func (instance *Instance) Start() error {
 	}
 	if !portIsOpen {
 		instance.Kill()
-		return errors.New("Instance.Start: port is not listening after multiple attempts")
+		return errors.New("browserp.Instance.Start: port is not listening after multiple attempts")
 	}
 	return nil
 }
@@ -568,11 +564,11 @@ func (instance *Instance) SendRequest(actionName string, params map[string]inter
 	}, fmt.Sprintf("http://127.0.0.1:%d/%s", instance.Port, actionName))
 	if err == nil {
 		if resp.StatusCode/200 != 1 {
-			err = fmt.Errorf("Instance.SendRequest: HTTP failure - %v", string(resp.Body))
+			err = fmt.Errorf("browserp.Instance.SendRequest: HTTP failure - %v", string(resp.Body))
 		}
 		if jsonReceiver != nil {
 			if jsonErr := json.Unmarshal(resp.Body, &jsonReceiver); jsonErr != nil {
-				err = fmt.Errorf("Instance.SendRequest: - %v", jsonErr)
+				err = fmt.Errorf("browserp.Instance.SendRequest: - %v", jsonErr)
 			}
 		}
 	}
@@ -607,7 +603,7 @@ func (instance *Instance) RenderPage() error {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return errors.New("Instance.RenderPage: render is not completed")
+	return errors.New("browserp.Instance.RenderPage: render is not completed")
 }
 
 // Kill browser server process and delete rendered web page image.

@@ -2,7 +2,7 @@ package toolbox
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browser"
+	"github.com/HouzuoGuo/laitos/browserp"
 	"github.com/HouzuoGuo/laitos/misc"
 	"runtime"
 	"strings"
@@ -22,7 +22,7 @@ func TestBrowser_Execute(t *testing.T) {
 	if bro.IsConfigured() {
 		t.Fatal("should not be configured")
 	}
-	bro.Renderers = &browser.Instances{
+	bro.Renderers = &browserp.Instances{
 		MaxLifetimeSec: 60,
 		BasePortNumber: 60122,
 	}

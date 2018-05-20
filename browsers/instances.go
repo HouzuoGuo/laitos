@@ -1,23 +1,23 @@
-package browser
+package browsers
 
 import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"os"
-	"os/exec"
 	"path"
-	"strings"
 	"sync"
 	"time"
 )
 
-// Instances manage lifecycle of a fixed number of browser server instances.
+// SlimerJSImageTag is the latet name and tag of the SlimerJS+Firefox docker image that works best on this version of laitos.
+const SlimerJSImageTag = "hzgl/slimerjs:20180520"
+
+// Instances manage lifecycle of a fixed number of browser server instances (SlimerJS via Docker).
 type Instances struct {
-	PhantomJSExecPath string `json:"PhantomJSExecPath"` // Absolute or relative path to PhantomJS executable
-	MaxInstances      int    `json:"MaxInstances"`      // Maximum number of instances
-	MaxLifetimeSec    int    `json:"MaxLifetimeSec"`    // Unconditionally kill instance after this number of seconds elapse
-	BasePortNumber    int    `json:"BasePortNumber"`    // Browser instances listen on a port number beginning from this one
+	MaxInstances   int `json:"MaxInstances"`   // Maximum number of instances
+	MaxLifetimeSec int `json:"MaxLifetimeSec"` // Unconditionally kill instance after this number of seconds elapse
+	BasePortNumber int `json:"BasePortNumber"` // Browser instances listen on a port number beginning from this one
 
 	browserMutex   *sync.Mutex // Protect against concurrent modification to browsers
 	browsers       []*Instance // All browsers
@@ -28,7 +28,7 @@ type Instances struct {
 // Check configuration and initialise internal states.
 func (instances *Instances) Initialise() error {
 	instances.logger = misc.Logger{
-		ComponentName: "browser.Instances",
+		ComponentName: "browsers.Instances",
 		ComponentID:   []misc.LoggerIDField{{"MaxInst", instances.MaxInstances}, {"MaxLifetime", instances.MaxLifetimeSec}},
 	}
 	if instances.MaxInstances < 1 {
@@ -37,14 +37,8 @@ func (instances *Instances) Initialise() error {
 	if instances.MaxLifetimeSec < 1 {
 		instances.MaxLifetimeSec = 1800 // half hour is quite reasonable
 	}
-	if instances.PhantomJSExecPath == "" {
-		instances.PhantomJSExecPath = "phantomjs" // find it among $PATH
-	}
 	if instances.BasePortNumber < 1024 {
-		return errors.New("Instances.Initialise: BasePortNumber must be greater than 1023")
-	}
-	if err := instances.TestPhantomJSExecutable(); err != nil {
-		return err
+		return errors.New("browsers.Instances.Initialise: BasePortNumber must be greater than 1023")
 	}
 
 	instances.browserMutex = new(sync.Mutex)
@@ -53,25 +47,14 @@ func (instances *Instances) Initialise() error {
 	return nil
 }
 
-// TestPhantomJSExecutable returns an error only if there is a problem with using the PhantomJS executable.
-func (instances *Instances) TestPhantomJSExecutable() error {
-	if _, err := os.Stat(instances.PhantomJSExecPath); err == nil {
-		// If the executable path appears to be a file that is readable, then make sure it has the correct executable permission.
-		if err := os.Chmod(instances.PhantomJSExecPath, 0755); err != nil {
-			return fmt.Errorf("Instances.Initialise: failed to chmod PhantomJS - %v", err)
-		}
-	} else if strings.ContainsRune(instances.PhantomJSExecPath, '/') {
-		/*
-			If the executable path looks like a file path (i.e., "programs/phantomjs" instead of "phantomjs"), but it
-			cannot be read, then it is a severe configuration error.
-		*/
-		return fmt.Errorf("Instances.Initialise: cannot find PhantomJS executable \"%s\" - %v", instances.PhantomJSExecPath, err)
-	} else if _, err := exec.LookPath(instances.PhantomJSExecPath); err != nil {
-		/*
-			If the executable path does not look like a file path and looks like a command name instead, make sure it
-			can be found among $PATH.
-		*/
-		return fmt.Errorf("Instances.Initialise: cannot find PhantomJS executable among $PATH \"%s\" - %v", instances.PhantomJSExecPath, err)
+/*
+PrepareDockerImage assumes that docker daemon is already running on the host, and downloads the SlimerJS image.
+This may take a while, so caller may consider running this in background.
+*/
+func (instances *Instances) PrepareDockerImage() error {
+	out, err := misc.InvokeProgram(nil, 1800, "docker", "pull", SlimerJSImageTag)
+	if err != nil {
+		return fmt.Errorf("PrepareDockerImage: failed to pull image - %v: %s", err, out)
 	}
 	return nil
 }
@@ -86,8 +69,7 @@ func (instances *Instances) Acquire() (index int, browser *Instance, err error) 
 		instance.Kill()
 	}
 	browser = &Instance{
-		PhantomJSExecPath:  instances.PhantomJSExecPath,
-		RenderImagePath:    path.Join(os.TempDir(), fmt.Sprintf("laitos-browser-instance-render-%d-%d.png", time.Now().Unix(), index)),
+		RenderImagePath:    path.Join(os.TempDir(), fmt.Sprintf("laitos-browser-instance-render-slimerjs-%d-%d.png", time.Now().Unix(), index)),
 		Port:               instances.BasePortNumber + int(index),
 		AutoKillTimeoutSec: instances.MaxLifetimeSec,
 		Index:              index,

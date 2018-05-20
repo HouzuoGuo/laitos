@@ -1,4 +1,4 @@
-package browser
+package browserp
 
 import (
 	"github.com/HouzuoGuo/laitos/misc"

@@ -363,6 +363,8 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 			daemon.logPrintStageStep(out, "disable&stop %s: success? %v", name, misc.DisableStopDaemon(name))
 		}
 	}
+	// Enable & start docker for slimerjs container for the browser feature
+	daemon.logPrintStageStep(out, "enable&start %s: success? %v", "docker", misc.EnableStartDaemon("docker"))
 	if daemon.EnableStartServices != nil {
 		for _, name := range daemon.EnableStartServices {
 			daemon.logPrintStageStep(out, "enable&start %s: success? %v", name, misc.EnableStartDaemon(name))
@@ -443,7 +445,7 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 	/*
 		Install additional software packages.
 		laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
-		several phantomJS dependencies, as well as utility applications to help out with system diagnosis.
+		several PhantomJS/SlimerJS dependencies, as well as utility applications to help out with system diagnosis.
 		Several of the packages are repeated under different names to accommodate the differences in naming convention
 		among distributions.
 	*/
@@ -451,14 +453,15 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// For outgoing HTTPS connections
 		"ca-certificates",
 
-		// Soft and hard dependencies of phantomJS
-		"bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dejavu-fonts-common",
-		"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "fontconfig", "fontconfig-config", "fontpackages-filesystem",
-		"fonts-arphic-ukai", "fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "freetype",
-		"intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libbz2-1", "libbz2-1.0",
-		"liberation2-fonts", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
-		"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libpng", "libpng16-16", "libXfont", "xorg-x11-fonts-Type1",
-		"xorg-x11-font-utils", "zlib", "zlib1g", "icu", "libicu", "libicu57", "libicu60_2",
+		// Soft and hard dependencies of PhantomJS / SlimerJS
+		"bzip2", "bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dbus", "dejavu-fonts-common",
+		"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "firefox", "font-noto", "fontconfig", "fontconfig-config",
+		"fontpackages-filesystem", "fonts-arphic-ukai", "fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "freetype",
+		"gnutls", "icu", "intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libXfont", "libbz2-1",
+		"libbz2-1.0", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
+		"liberation2-fonts", "libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libicu", "libicu57", "libicu60_2",
+		"libpng", "libpng16-16", "nss", "openssl", "ttf-dejavu", "ttf-freefont", "ttf-liberation", "wqy-zenhei", "xorg-x11-font-utils",
+		"xorg-x11-fonts-Type1", "zlib", "zlib1g",
 
 		// Time maintenance utilities
 		"chrony", "ntp", "ntpd", "ntpdate",

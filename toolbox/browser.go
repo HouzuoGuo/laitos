@@ -3,7 +3,7 @@ package toolbox
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browser"
+	"github.com/HouzuoGuo/laitos/browserp"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,9 +19,9 @@ var (
 
 // Browser offers remote control to phantomJS page.
 type Browser struct {
-	Renderers *browser.Instances `json:"Browsers"` // Instances configure and manage phantomJS processes.
-	renderer  *browser.Instance  // renderer is the one and only browser instance tied to this feature
-	mutex     *sync.Mutex        // mutex protects renderer from concurrent access.
+	Renderers *browserp.Instances `json:"Browsers"` // Instances configure and manage phantomJS processes.
+	renderer  *browserp.Instance  // renderer is the one and only browser instance tied to this feature
+	mutex     *sync.Mutex         // mutex protects renderer from concurrent access.
 }
 
 func (bro *Browser) IsConfigured() bool {
@@ -57,7 +57,7 @@ func (bro *Browser) Trigger() Trigger {
 }
 
 // FormatElementInfoArray prints element information into strings.
-func FormatElementInfoArray(elements []browser.ElementInfo) string {
+func FormatElementInfoArray(elements []browserp.ElementInfo) string {
 	if elements == nil || len(elements) == 0 {
 		return "(nothing)"
 	}
@@ -103,12 +103,12 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 		err = bro.renderer.GoBack()
 	case "p":
 		// Go to previous element
-		var elements []browser.ElementInfo
+		var elements []browserp.ElementInfo
 		elements, err = bro.renderer.LOPreviousElement()
 		output = FormatElementInfoArray(elements)
 	case "n":
 		// Go to next element
-		var elements []browser.ElementInfo
+		var elements []browserp.ElementInfo
 		elements, err = bro.renderer.LONextElement()
 		output = FormatElementInfoArray(elements)
 	case "nn":
@@ -120,7 +120,7 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 		if err != nil {
 			return &Result{Error: errors.New("nn: bad number")}
 		}
-		var elements []browser.ElementInfo
+		var elements []browserp.ElementInfo
 		elements, err = bro.renderer.LONextNElements(n)
 		output = FormatElementInfoArray(elements)
 	case "0":
@@ -140,10 +140,10 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 			return &Result{Error: errors.New("Usage g: url")}
 		}
 		// Hard code dimension for now, it does not really matter.
-		err = bro.renderer.GoTo(browser.GoodUserAgent, params[2], 2560, 1440)
+		err = bro.renderer.GoTo(browserp.GoodUserAgent, params[2], 2560, 1440)
 	case "i":
 		// Get page info
-		var info browser.RemotePageInfo
+		var info browserp.RemotePageInfo
 		info, err = bro.renderer.GetPageInfo()
 		output = fmt.Sprintf("%s-%s", info.Title, info.URL)
 	case "ptr":
@@ -172,10 +172,10 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 		err = bro.renderer.SendKey(params[2], 0)
 	case "enter":
 		// Press enter key on currently focused element
-		err = bro.renderer.SendKey("", browser.KeyCodeEnter)
+		err = bro.renderer.SendKey("", browserp.KeyCodeEnter)
 	case "backsp":
 		// Press backspace key on currently focused element
-		err = bro.renderer.SendKey("", browser.KeyCodeBackspace)
+		err = bro.renderer.SendKey("", browserp.KeyCodeBackspace)
 	case "render":
 		// For debugging purpose, render the page screenshot.
 		err = bro.renderer.RenderPage()
@@ -185,7 +185,7 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 	// If there is no other output and no error, result is page info (title - URL).
 	if err == nil && output == "" {
 		time.Sleep(1 * time.Second)
-		var info browser.RemotePageInfo
+		var info browserp.RemotePageInfo
 		info, err = bro.renderer.GetPageInfo()
 		output = fmt.Sprintf("%s-%s", info.Title, info.URL)
 		if err != nil {
