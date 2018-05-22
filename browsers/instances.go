@@ -11,7 +11,7 @@ import (
 )
 
 // SlimerJSImageTag is the latet name and tag of the SlimerJS+Firefox docker image that works best on this version of laitos.
-const SlimerJSImageTag = "hzgl/slimerjs:20180520"
+const SlimerJSImageTag = "registry.hub.docker.com/hzgl/slimerjs:20180520"
 
 // Instances manage lifecycle of a fixed number of browser server instances (SlimerJS via Docker).
 type Instances struct {
