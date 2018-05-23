@@ -32,7 +32,7 @@ func TestBrowserInstances(t *testing.T) {
 
 	// Prepare settings for tests
 	instances.MaxInstances = 2
-	instances.MaxLifetimeSec = 60
+	instances.MaxLifetimeSec = 300
 	if err := instances.Initialise(); err != nil {
 		t.Fatal(err)
 	}

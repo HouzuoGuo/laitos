@@ -205,8 +205,8 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	var timedOut bool
 	timeOutTimer := time.AfterFunc(time.Duration(timeoutSec)*time.Second, func() {
 		// Instead of using Kill() function that only kills one process, use syscall to kill the entire process group.
-		if killErr := syscall.Kill(-proc.Process.Pid, syscall.SIGKILL); killErr != nil {
-			logger.Warning("InvokeProgram", program, killErr, "failed to kill after time limit exceeded")
+		if !KillProcess(proc.Process) {
+			logger.Warning("InvokeProgram", program, nil, "failed to kill after time limit exceeded")
 		}
 		timedOut = true
 	})
@@ -217,6 +217,22 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		err = errors.New("time limit exceeded")
 	}
 	out = outBuf.String()
+	return
+}
+
+// KillProcess kills the process or the group of processes associated with it.
+func KillProcess(proc *os.Process) (success bool) {
+	// Kill process group if it is one
+	if killErr := syscall.Kill(-proc.Pid, syscall.SIGKILL); killErr == nil {
+		success = true
+	}
+	if killErr := syscall.Kill(proc.Pid, syscall.SIGKILL); killErr == nil {
+		success = true
+	}
+	if proc.Kill() == nil {
+		success = true
+	}
+	proc.Wait()
 	return
 }
 

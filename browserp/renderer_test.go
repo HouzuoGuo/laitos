@@ -23,7 +23,7 @@ func TestInteractiveBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	instance := &Instance{
-		RenderImagePath:    renderOutput.Name() + ".png",
+		RenderImagePath:    renderOutput.Name() + ".jpg",
 		PhantomJSExecPath:  "phantomjs", // PrepareUtilities makes it available
 		Port:               22987,
 		AutoKillTimeoutSec: 300,
@@ -89,7 +89,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	instance := &Instance{
-		RenderImagePath:    renderOutput.Name() + ".png",
+		RenderImagePath:    renderOutput.Name() + ".jpg",
 		PhantomJSExecPath:  "phantomjs", // PrepareUtilities makes it available
 		Port:               48111,
 		AutoKillTimeoutSec: 300,

@@ -273,7 +273,7 @@ func (remoteBrowserImage *HandleBrowserImage) Handle(w http.ResponseWriter, r *h
 		http.Error(w, "File IO error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Content-Length", strconv.Itoa(len(pngFile)))
 	w.Write(pngFile)
 }

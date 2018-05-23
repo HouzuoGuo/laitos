@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,7 +31,7 @@ const (
         if (!browser) {
             return false;
         }
-        browser.render('%s', {format: 'jpg', onlyViewPort: true});
+        browser.render('%s', {format: 'jpeg', onlyViewPort: true});
         return true;
     };
 
@@ -468,6 +468,7 @@ type Instance struct {
 	Tag                string // Uniquely identifies this browser server after it is started
 	Index              int    // index is the instance number assigned by renderer lifecycle management.
 
+	serverJSFile  *os.File      // serverJSFile stores javascript code for web driver
 	jsDebugOutput *bytes.Buffer // Store standard output and error from PhantomJS executable
 	jsProcCmd     *exec.Cmd     // Headless server process
 	jsProcMutex   *sync.Mutex   // Protect against concurrent access to server process
@@ -485,18 +486,19 @@ func (instance *Instance) Start() error {
 		ComponentID:   []misc.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
 	}
 	// Store server javascript into a temporary file
-	serverJS, err := ioutil.TempFile("", "laitos-browserp")
+	var err error
+	instance.serverJSFile, err = os.OpenFile(path.Join(os.TempDir(), fmt.Sprintf("laitos-browserp-%d.js", time.Now().UnixNano())), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("browserp.Instance.Start: failed to create temporary file for PhantomJS code - %v", err)
 	}
-	if _, err := serverJS.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImagePath, instance.Port))); err != nil {
+	if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImagePath, instance.Port))); err != nil {
 		return fmt.Errorf("browserp.Instance.Start: failed to write PhantomJS server code - %v", err)
-	} else if err := serverJS.Sync(); err != nil {
+	} else if err := instance.serverJSFile.Sync(); err != nil {
 		return fmt.Errorf("browserp.Instance.Start: failed to write PhantomJS server code - %v", err)
-	} else if err := serverJS.Close(); err != nil {
+	} else if err := instance.serverJSFile.Close(); err != nil {
 		return fmt.Errorf("browserp.Instance.Start: failed to write PhantomJS server code - %v", err)
 	}
-	instance.jsProcCmd = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
+	instance.jsProcCmd = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", instance.serverJSFile.Name())
 	instance.jsProcCmd.Stdout = instance.jsDebugOutput
 	instance.jsProcCmd.Stderr = instance.jsDebugOutput
 	//instance.jsProcCmd.Stdout = os.Stderr
@@ -611,13 +613,18 @@ func (instance *Instance) Kill() {
 	instance.jsProcMutex.Lock()
 	defer instance.jsProcMutex.Unlock()
 	if instance.jsProcCmd != nil {
-		if err := os.Remove(instance.RenderImagePath); err != nil {
-			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
-		}
-		if err := instance.jsProcCmd.Process.Kill(); err != nil {
-			instance.logger.Warning("Kill", "", err, "failed to kill PhantomJS process")
+		instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
+		if !misc.KillProcess(instance.jsProcCmd.Process) {
+			instance.logger.Warning("Kill", "", nil, "failed to kill process")
 		}
 		instance.jsProcCmd = nil
+		if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {
+			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
+		}
+		if err := os.Remove(instance.serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
+			instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", instance.serverJSFile.Name())
+		}
+		instance.serverJSFile = nil
 	}
 }
 
