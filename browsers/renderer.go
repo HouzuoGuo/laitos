@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,7 +31,7 @@ const (
         if (!browser) {
             return false;
         }
-        browser.render('%s', {format: 'jpg', onlyViewPort: true});
+        browser.render('%s', {format: 'jpeg', onlyViewPort: true});
         return true;
     };
 
@@ -133,6 +133,7 @@ const (
     };
 
     // Run a web server that receives commands from HTTP clients.
+    // In contrast to PhantomJS's version, this web server listens on all network interfaces, so that it will be reachable via docker port mapping.
     var server = require('webserver').create().listen('0.0.0.0:%d', function (req, resp) {
         resp.statusCode = 200;
         resp.headers = {
@@ -467,7 +468,8 @@ type Instance struct {
 	Tag                string // Uniquely identifies this browser server after it is started
 	Index              int    // index is the instance number assigned by renderer lifecycle management.
 
-	jsDebugOutput *bytes.Buffer // Store standard output and error from PhantomJS executable
+	serverJSFile  *os.File      // serverJSFile stores javascript code for web driver
+	jsDebugOutput *bytes.Buffer // Store standard output and error from SlimerJS executable
 	jsProcCmd     *exec.Cmd     // Headless server process
 	jsProcMutex   *sync.Mutex   // Protect against concurrent access to server process
 	logger        misc.Logger
@@ -484,26 +486,42 @@ func (instance *Instance) Start() error {
 		ComponentID:   []misc.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
 	}
 	// Store server javascript into a temporary file
-	serverJS, err := ioutil.TempFile("", "laitos-browser")
+	var err error
+	instance.serverJSFile, err = os.OpenFile(path.Join(os.TempDir(), fmt.Sprintf("laitos-browsers-%d.js", time.Now().UnixNano())), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("browsers.Instance.Start: failed to create temporary file for PhantomJS code - %v", err)
+		return fmt.Errorf("browsers.Instance.Start: failed to create temporary file for SlimerJS code - %v", err)
 	}
-	if _, err := serverJS.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImagePath, instance.Port))); err != nil {
-		return fmt.Errorf("browsers.Instance.Start: failed to write PhantomJS server code - %v", err)
-	} else if err := serverJS.Sync(); err != nil {
-		return fmt.Errorf("browsers.Instance.Start: failed to write PhantomJS server code - %v", err)
-	} else if err := serverJS.Close(); err != nil {
-		return fmt.Errorf("browsers.Instance.Start: failed to write PhantomJS server code - %v", err)
+	if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImagePath, instance.Port))); err != nil {
+		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)
+	} else if err := instance.serverJSFile.Sync(); err != nil {
+		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)
+	} else if err := instance.serverJSFile.Close(); err != nil {
+		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)
 	}
-	/*
-		    Start PhantomJS process, but be aware of an interesting detail:
-			Usually the user will specify PhantomJS executable path with a relative or absolute path, in which case the
-	*/
-	instance.jsProcCmd = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", serverJS.Name())
-	instance.jsProcCmd.Stdout = instance.jsDebugOutput
-	instance.jsProcCmd.Stderr = instance.jsDebugOutput
-	//instance.jsProcCmd.Stdout = os.Stderr
-	//instance.jsProcCmd.Stderr = os.Stderr
+	// Start SlimerJS container
+	dockerArgs := []string{"run", "-i",
+		// expose SlimerJS web server port to docker host
+		"-p", fmt.Sprintf("%d:%d", instance.Port, instance.Port),
+		// let SlimerJS render page screen shot to this location
+		"-v", fmt.Sprintf("%s:%s:rw", instance.RenderImagePath, instance.RenderImagePath),
+		// here is the server javascript file to run
+		"-v", fmt.Sprintf("%s:%s:ro", instance.serverJSFile.Name(), instance.serverJSFile.Name()),
+		// automatically remove container after exiting
+		"--rm",
+		// run this docker image
+		SlimerJSImageTag,
+		// run SlimerJS executable with parameters,
+		"slimerjs",
+		// allow SlimerJS to browse HTTPS websites
+		"--ssl-protocol=any",
+		instance.serverJSFile.Name(),
+	}
+	instance.logger.Info("Start", "", err, "going to run docker with args %v", dockerArgs)
+	instance.jsProcCmd = exec.Command("docker", dockerArgs...)
+	//instance.jsProcCmd.Stdout = instance.jsDebugOutput
+	//instance.jsProcCmd.Stderr = instance.jsDebugOutput
+	instance.jsProcCmd.Stdout = os.Stderr
+	instance.jsProcCmd.Stderr = os.Stderr
 	processErrChan := make(chan error, 1)
 	go func() {
 		if err := instance.jsProcCmd.Start(); err != nil {
@@ -513,14 +531,14 @@ func (instance *Instance) Start() error {
 	// Expect server process to remain running for at least a second for a successful start
 	select {
 	case err := <-processErrChan:
-		return fmt.Errorf("browsers.Instance.Start: PhantomJS process failed - %v", err)
+		return fmt.Errorf("browsers.Instance.Start: SlimerJS process failed - %v", err)
 	case <-time.After(1 * time.Second):
 	}
 	// Unconditionally kill the server process after a period of time
 	go func() {
 		select {
 		case err := <-processErrChan:
-			instance.logger.Info("Start", "", err, "PhantomJS process has quit")
+			instance.logger.Info("Start", "", err, "SlimerJS process has quit")
 		case <-time.After(time.Duration(instance.AutoKillTimeoutSec) * time.Second):
 		}
 		instance.Kill()
@@ -614,13 +632,18 @@ func (instance *Instance) Kill() {
 	instance.jsProcMutex.Lock()
 	defer instance.jsProcMutex.Unlock()
 	if instance.jsProcCmd != nil {
-		if err := os.Remove(instance.RenderImagePath); err != nil {
-			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
-		}
-		if err := instance.jsProcCmd.Process.Kill(); err != nil {
-			instance.logger.Warning("Kill", "", err, "failed to kill PhantomJS process")
+		instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
+		if !misc.KillProcess(instance.jsProcCmd.Process) {
+			instance.logger.Warning("Kill", "", nil, "failed to kill process")
 		}
 		instance.jsProcCmd = nil
+		if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {
+			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
+		}
+		if err := os.Remove(instance.serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
+			instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", instance.serverJSFile.Name())
+		}
+		instance.serverJSFile = nil
 	}
 }
 

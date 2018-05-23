@@ -20,20 +20,22 @@ func TestInteractiveBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	instance := &Instance{
-		RenderImagePath:    renderOutput.Name() + ".png",
+		RenderImagePath:    renderOutput.Name() + ".jpg",
 		Port:               41599,
-		AutoKillTimeoutSec: 30,
+		AutoKillTimeoutSec: 300,
 	}
 	if err := instance.Start(); err != nil {
 		t.Fatal(err)
 	}
 	defer instance.Kill()
-	// Browse microsoft home page
-	if err := instance.GoTo(GoodUserAgent, "https://www.microsoft.com", 1024, 1024); err != nil {
+	// Prepare docker
+	prepareDocker(misc.Logger{})
+	// Browse distrowatch home page
+	if err := instance.GoTo(GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
 		t.Fatal(err, instance.GetDebugOutput(1000))
 	}
-	// Expect page to be ready in five seconds
-	time.Sleep(5 * time.Second)
+	// Expect page to be ready soon
+	time.Sleep(15 * time.Second)
 	if err := instance.RenderPage(); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +46,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	// Expect some output to be already present in output buffer
 	t.Log(instance.GetDebugOutput(1000))
 	// The image render action should have written a line of log that looks like "POST /redraw - {}: true\n"
-	if out := instance.GetDebugOutput(500); !strings.Contains(out, "/redraw - {}: true") {
+	if out := instance.GetDebugOutput(1000); !strings.Contains(out, "/redraw - {}: true") {
 		t.Fatalf(out)
 	}
 	// Try several other browser actions
@@ -85,20 +87,22 @@ func TestLineOrientedBrowser(t *testing.T) {
 	instance := &Instance{
 		RenderImagePath:    renderOutput.Name() + ".png",
 		Port:               51600,
-		AutoKillTimeoutSec: 30,
+		AutoKillTimeoutSec: 300,
 	}
 	if err := instance.Start(); err != nil {
 		t.Fatal(err)
 	}
 	defer instance.Kill()
-	// Browse github home page
-	if err := instance.GoTo(GoodUserAgent, "https://github.com", 1024, 1024); err != nil {
+	// Prepare docker
+	prepareDocker(misc.Logger{})
+	// Browse distrowatch home page
+	if err := instance.GoTo(GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
 		t.Fatal(err, instance.GetDebugOutput(1000))
 	}
-	// Expect page to be ready in three seconds
-	time.Sleep(3 * time.Second)
+	// Expect page to be ready in a few seconds
+	time.Sleep(15 * time.Second)
 	delay := func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 	// Navigate to first element
 	firstElements, err := instance.LONextElement()

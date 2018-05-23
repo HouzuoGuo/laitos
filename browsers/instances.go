@@ -10,8 +10,15 @@ import (
 	"time"
 )
 
-// SlimerJSImageTag is the latet name and tag of the SlimerJS+Firefox docker image that works best on this version of laitos.
-const SlimerJSImageTag = "registry.hub.docker.com/hzgl/slimerjs:20180520"
+const (
+	// SlimerJSImageTag is the latet name and tag of the SlimerJS+Firefox docker image that works best on this version of laitos.
+	SlimerJSImageTag = "registry.hub.docker.com/hzgl/slimerjs:20180520"
+
+	// DockerMaintenanceIntervalSec is the interval between runs of docker maintenance routine - daemon startup and image pulling.
+	DockerMaintenanceIntervalSec = 3600
+)
+
+var prepareDockerOnce = new(sync.Once)
 
 // Instances manage lifecycle of a fixed number of browser server instances (SlimerJS via Docker).
 type Instances struct {
@@ -44,19 +51,34 @@ func (instances *Instances) Initialise() error {
 	instances.browserMutex = new(sync.Mutex)
 	instances.browsers = make([]*Instance, instances.MaxInstances)
 	instances.browserCounter = -1
+
+	prepareDockerOnce.Do(func() {
+		go func() {
+			// Start this background routine in an infinite loop to keep docker running and image available
+			for {
+				// Enable and start docker daemon
+				prepareDocker(instances.logger)
+				time.Sleep(DockerMaintenanceIntervalSec * time.Second)
+			}
+		}()
+	})
 	return nil
 }
 
 /*
-PrepareDockerImage assumes that docker daemon is already running on the host, and downloads the SlimerJS image.
-This may take a while, so caller may consider running this in background.
+prepareDocker starts docker daemon, ensures that docker keeps running, and pulls the docker image for SlimerJS. The
+routine requires root privilege to run.
 */
-func (instances *Instances) PrepareDockerImage() error {
-	out, err := misc.InvokeProgram(nil, 1800, "docker", "pull", SlimerJSImageTag)
-	if err != nil {
-		return fmt.Errorf("PrepareDockerImage: failed to pull image - %v: %s", err, out)
+func prepareDocker(logger misc.Logger) {
+	if !misc.EnableStartDaemon("docker") {
+		logger.Info("PrepareDocker", "", nil, "failed to enable/start docker daemon")
+		// Nevertheless, move on.
 	}
-	return nil
+	// Download the SlimerJS docker image
+	logger.Info("PrepareDocker", "", nil, "pulling %s", SlimerJSImageTag)
+	out, err := misc.InvokeProgram(nil, 1800, "docker", "pull", SlimerJSImageTag)
+	logger.Info("PrepareDocker", "", nil, "image pulling result: %v - %s", err, out)
+
 }
 
 // Acquire a new instance instance. If necessary, kill an existing instance to free up the space for the new instance.
@@ -69,7 +91,7 @@ func (instances *Instances) Acquire() (index int, browser *Instance, err error) 
 		instance.Kill()
 	}
 	browser = &Instance{
-		RenderImagePath:    path.Join(os.TempDir(), fmt.Sprintf("laitos-browser-instance-render-slimerjs-%d-%d.png", time.Now().Unix(), index)),
+		RenderImagePath:    path.Join(os.TempDir(), fmt.Sprintf("laitos-browser-instance-render-slimerjs-%d-%d.jpg", time.Now().Unix(), index)),
 		Port:               instances.BasePortNumber + int(index),
 		AutoKillTimeoutSec: instances.MaxLifetimeSec,
 		Index:              index,
