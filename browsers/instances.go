@@ -90,8 +90,10 @@ func (instances *Instances) Acquire() (index int, browser *Instance, err error) 
 	if instance := instances.browsers[index]; instance != nil {
 		instance.Kill()
 	}
+
+	renderImagePath := path.Join(os.TempDir(), fmt.Sprintf("laitos-browser-instance-render-slimerjs-%d-%d.jpg", time.Now().Unix(), index))
 	browser = &Instance{
-		RenderImagePath:    path.Join(os.TempDir(), fmt.Sprintf("laitos-browser-instance-render-slimerjs-%d-%d.jpg", time.Now().Unix(), index)),
+		RenderImagePath:    renderImagePath,
 		Port:               instances.BasePortNumber + int(index),
 		AutoKillTimeoutSec: instances.MaxLifetimeSec,
 		Index:              index,

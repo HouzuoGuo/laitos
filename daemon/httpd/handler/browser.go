@@ -74,7 +74,6 @@ const (
 </form>
 </body>
 </html>` // Browser page content
-	BrowserDebugOutputLen = 1024 // Display this much debug output on page
 )
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
@@ -134,7 +133,7 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 		w.Write(remoteBrowser.RenderPage(
 			"Empty Browser",
 			index, instance.Tag,
-			instance.GetDebugOutput(BrowserDebugOutputLen),
+			instance.GetDebugOutput(),
 			800, 800, browserp.GoodUserAgent,
 			"https://www.google.com",
 			0, 0,
@@ -152,7 +151,7 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 			w.Write(remoteBrowser.RenderPage(
 				"Empty Browser",
 				index, instance.Tag,
-				instance.GetDebugOutput(BrowserDebugOutputLen),
+				instance.GetDebugOutput(),
 				800, 800, browserp.GoodUserAgent,
 				"https://www.google.com",
 				0, 0,
@@ -224,7 +223,7 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 		w.Write(remoteBrowser.RenderPage(
 			pageInfo.Title,
 			index, instance.Tag,
-			instance.GetDebugOutput(BrowserDebugOutputLen),
+			instance.GetDebugOutput(),
 			viewWidth, viewHeight,
 			userAgent, pageInfo.URL,
 			pointerX, pointerY,

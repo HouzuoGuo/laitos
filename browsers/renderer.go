@@ -1,12 +1,12 @@
 package browsers
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -468,10 +468,10 @@ type Instance struct {
 	Tag                string // Uniquely identifies this browser server after it is started
 	Index              int    // index is the instance number assigned by renderer lifecycle management.
 
-	serverJSFile  *os.File      // serverJSFile stores javascript code for web driver
-	jsDebugOutput *bytes.Buffer // Store standard output and error from SlimerJS executable
-	jsProcCmd     *exec.Cmd     // Headless server process
-	jsProcMutex   *sync.Mutex   // Protect against concurrent access to server process
+	serverJSFile  *os.File            // serverJSFile stores javascript code for web driver
+	jsDebugOutput *misc.ByteLogWriter // Store standard output and error from SlimerJS executable
+	jsProcCmd     *exec.Cmd           // Headless server process
+	jsProcMutex   *sync.Mutex         // Protect against concurrent access to server process
 	logger        misc.Logger
 }
 
@@ -479,7 +479,8 @@ type Instance struct {
 func (instance *Instance) Start() error {
 	// Instance is an internal API, hence its parameters are not validated before use.
 	instance.jsProcMutex = new(sync.Mutex)
-	instance.jsDebugOutput = new(bytes.Buffer)
+	// Keep latest 1KB of standard error and standard output from javascript server
+	instance.jsDebugOutput = misc.NewByteLogWriter(ioutil.Discard, 1024)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
 	instance.logger = misc.Logger{
 		ComponentName: "browsers.Instance",
@@ -497,6 +498,12 @@ func (instance *Instance) Start() error {
 		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)
 	} else if err := instance.serverJSFile.Close(); err != nil {
 		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)
+	}
+	// Create the render image file so that slimerjs will be able to write into it
+	if fh, err := os.OpenFile(instance.RenderImagePath, os.O_CREATE|os.O_WRONLY, 0600); err != nil {
+		return err
+	} else {
+		fh.Close()
 	}
 	// Start SlimerJS container
 	dockerArgs := []string{"run", "-i",
@@ -561,14 +568,12 @@ func (instance *Instance) Start() error {
 	return nil
 }
 
-// Return last N bytes of text from debug output buffer.
-func (instance *Instance) GetDebugOutput(lastNBytes int) string {
-	all := instance.jsDebugOutput.Bytes()
-	if len(all) > lastNBytes {
-		return string(all[len(all)-lastNBytes:])
-	} else {
-		return string(all)
+// GetDebugOutput retrieves the latest standard output and standard error content from javascript server.
+func (instance *Instance) GetDebugOutput() string {
+	if instance.jsDebugOutput == nil {
+		return ""
 	}
+	return string(instance.jsDebugOutput.Retrieve())
 }
 
 // Send a control request via HTTP to the browser server, optionally deserialise the response into receiver.

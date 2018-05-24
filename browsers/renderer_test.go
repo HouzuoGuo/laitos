@@ -32,7 +32,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	prepareDocker(misc.Logger{})
 	// Browse distrowatch home page
 	if err := instance.GoTo(GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
-		t.Fatal(err, instance.GetDebugOutput(1000))
+		t.Fatal(err, instance.GetDebugOutput())
 	}
 	// Expect page to be ready soon
 	time.Sleep(15 * time.Second)
@@ -40,13 +40,13 @@ func TestInteractiveBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	if stat, err := os.Stat(instance.RenderImagePath); err != nil || stat.Size() < 4096 {
-		t.Fatal(err, stat.Size(), instance.GetDebugOutput(1000))
+		t.Fatal(err, stat.Size(), instance.GetDebugOutput())
 	}
 	os.Remove(instance.RenderImagePath)
 	// Expect some output to be already present in output buffer
-	t.Log(instance.GetDebugOutput(1000))
+	t.Log(instance.GetDebugOutput())
 	// The image render action should have written a line of log that looks like "POST /redraw - {}: true\n"
-	if out := instance.GetDebugOutput(1000); !strings.Contains(out, "/redraw - {}: true") {
+	if out := instance.GetDebugOutput(); !strings.Contains(out, "/redraw - {}: true") {
 		t.Fatalf(out)
 	}
 	// Try several other browser actions
@@ -97,7 +97,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 	prepareDocker(misc.Logger{})
 	// Browse distrowatch home page
 	if err := instance.GoTo(GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
-		t.Fatal(err, instance.GetDebugOutput(1000))
+		t.Fatal(err, instance.GetDebugOutput())
 	}
 	// Expect page to be ready in a few seconds
 	time.Sleep(15 * time.Second)
