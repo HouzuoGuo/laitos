@@ -2,6 +2,7 @@ package dnsd
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
@@ -16,7 +17,7 @@ var UDPDurationStats = misc.NewStats() // UDPDurationStats stores statistics of 
 
 // Send forward queries to forwarder and forward the response to my DNS client.
 func (daemon *Daemon) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net.Conn) {
-	packetBuf := make([]byte, MaxPacketSize)
+	forwarderResp := make([]byte, MaxPacketSize)
 	for {
 		query := <-myQueue
 		// Put query duration (including IO time) into statistics
@@ -28,15 +29,22 @@ func (daemon *Daemon) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net
 			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			continue
 		}
-		packetLength, err := forwarderConn.Read(packetBuf)
+		respLength, err := forwarderConn.Read(forwarderResp)
 		if err != nil {
 			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "failed to read from forwarder")
 			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			continue
 		}
+		if respLength < 3 {
+			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "forwarder response is abnormally small")
+			continue
+		}
+		// Match response TX ID with the one from original query
+		forwarderResp[0] = query.QueryPacket[0]
+		forwarderResp[1] = query.QueryPacket[1]
 		// Set deadline for responding to my DNS client
 		query.MyServer.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
-		if _, err := query.MyServer.WriteTo(packetBuf[:packetLength], query.ClientAddr); err != nil {
+		if _, err := query.MyServer.WriteTo(forwarderResp[:respLength], query.ClientAddr); err != nil {
 			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "failed to answer to client")
 			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			continue
@@ -107,7 +115,10 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 			daemon.logger.Warning("UDPLoop", clientIP, nil, "client IP is not allowed to query")
 			continue
 		}
-
+		if packetLength < 3 {
+			daemon.logger.Warning("UDPLoop", clientIP, nil, "received packet is abnormally small")
+			continue
+		}
 		// Prepare parameters for forwarding the query
 		randForwarder := rand.Intn(len(daemon.udpForwarderQueue))
 		forwardPacket := make([]byte, packetLength)
@@ -135,7 +146,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		} else {
 			// This is a normal domain name query and not black-listed
 			daemon.logger.Info(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
-				"handle domain \"%s\" (backlog %d)", domainName, len(daemon.udpForwarderQueue[randForwarder]))
+				"handle domain \"%s\" in TX ID %s (backlog %d)", domainName, hex.EncodeToString(forwardPacket[:2]), len(daemon.udpForwarderQueue[randForwarder]))
 			daemon.udpForwarderQueue[randForwarder] <- &UDPQuery{
 				ClientAddr:  clientAddr,
 				MyServer:    udpServer,

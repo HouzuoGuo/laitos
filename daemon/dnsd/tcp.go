@@ -41,8 +41,8 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 	}
 	queryLen := int(queryLenBuf[0])*256 + int(queryLenBuf[1])
 	// Read query
-	if queryLen > MaxPacketSize || queryLen < 1 {
-		daemon.logger.Warning("HandleTCPQuery", clientIP, nil, "bad query length from client")
+	if queryLen > MaxPacketSize || queryLen < 3 {
+		daemon.logger.Warning("HandleTCPQuery", clientIP, nil, "invalid query length from client")
 		return
 	}
 	queryBuf := make([]byte, queryLen)
@@ -53,9 +53,9 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 	}
 	// Parse request and formulate a response
 	requestedDomainName := ExtractDomainName(queryBuf)
-	var responseLen int
-	var responseLenBuf []byte
-	var responseBuf []byte
+	var forwarderRespLen int
+	var forwardRespLenBuf []byte
+	var forwarderResp []byte
 	var doForward bool
 	if requestedDomainName == "" {
 		// If I cannot figure out what domain is from the query, simply forward it without much concern.
@@ -65,11 +65,11 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 		// This is a domain name query, check the name against black list and then forward.
 		if daemon.IsInBlacklist(requestedDomainName) {
 			daemon.logger.Info("HandleTCPQuery", clientIP, nil, "handle black-listed domain \"%s\"", requestedDomainName)
-			responseBuf = RespondWith0(queryBuf)
-			responseLen = len(responseBuf)
-			responseLenBuf = make([]byte, 2)
-			responseLenBuf[0] = byte(responseLen / 256)
-			responseLenBuf[1] = byte(responseLen % 256)
+			forwarderResp = RespondWith0(queryBuf)
+			forwarderRespLen = len(forwarderResp)
+			forwardRespLenBuf = make([]byte, 2)
+			forwardRespLenBuf[0] = byte(forwarderRespLen / 256)
+			forwardRespLenBuf[1] = byte(forwarderRespLen % 256)
 		} else {
 			daemon.logger.Info("HandleTCPQuery", clientIP, nil, "handle domain \"%s\"", requestedDomainName)
 			doForward = true
@@ -94,27 +94,30 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 			return
 		}
 		// Retrieve forwarder's response
-		responseLenBuf = make([]byte, 2)
-		if _, err = myForwarder.Read(responseLenBuf); err != nil {
+		forwardRespLenBuf = make([]byte, 2)
+		if _, err = myForwarder.Read(forwardRespLenBuf); err != nil {
 			daemon.logger.Warning("HandleTCPQuery", clientIP, err, "failed to read length from forwarder")
 			return
 		}
-		responseLen = int(responseLenBuf[0])*256 + int(responseLenBuf[1])
-		if responseLen > MaxPacketSize || responseLen < 1 {
+		forwarderRespLen = int(forwardRespLenBuf[0])*256 + int(forwardRespLenBuf[1])
+		if forwarderRespLen > MaxPacketSize || forwarderRespLen < 1 {
 			daemon.logger.Warning("HandleTCPQuery", clientIP, nil, "bad response length from forwarder")
 			return
 		}
-		responseBuf = make([]byte, responseLen)
-		if _, err = myForwarder.Read(responseBuf); err != nil {
+		forwarderResp = make([]byte, forwarderRespLen)
+		if _, err = myForwarder.Read(forwarderResp); err != nil {
 			daemon.logger.Warning("HandleTCPQuery", clientIP, err, "failed to read response from forwarder")
 			return
 		}
 	}
+	// Match response TX ID with the one from original query
+	forwarderResp[0] = queryBuf[0]
+	forwarderResp[1] = queryBuf[1]
 	// Send response to my client
-	if _, err = clientConn.Write(responseLenBuf); err != nil {
+	if _, err = clientConn.Write(forwardRespLenBuf); err != nil {
 		daemon.logger.Warning("HandleTCPQuery", clientIP, err, "failed to answer length to client")
 		return
-	} else if _, err = clientConn.Write(responseBuf); err != nil {
+	} else if _, err = clientConn.Write(forwarderResp); err != nil {
 		daemon.logger.Warning("HandleTCPQuery", clientIP, err, "failed to answer to client")
 		return
 	}
