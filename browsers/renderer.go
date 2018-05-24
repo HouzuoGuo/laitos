@@ -7,7 +7,6 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,6 +20,14 @@ import (
 )
 
 const (
+	// Be aware that JSCodeTemplate is _not_ identical to the version used in PhantomJS!
+
+	/*
+		RenderFilePathSuffix is the suffix path pointing to a file called "render.jpg" underneath the directory in which
+		SlimerJS is told to place page screenshot.
+	*/
+	RenderFilePathSuffix = "/render.jpg"
+
 	JSCodeTemplate = `try {
     var browser; // the browser page instance after very first URL is visited
 
@@ -31,7 +38,7 @@ const (
         if (!browser) {
             return false;
         }
-        browser.render('%s', {format: 'jpeg', onlyViewPort: true});
+        browser.render('%s/render.jpg', {format: 'jpeg', onlyViewPort: true});
         return true;
     };
 
@@ -193,6 +200,7 @@ const (
 
     // ===================== ONLY FOR LINE-ORIENTED INTERFACE =================
 
+
     // The very previous element and its own previous/next element that were navigated into.
     var exact_info = null, before_info = null, after_info = null;
 
@@ -214,6 +222,12 @@ const (
 
     // Install several functions that help line-oriented browsing into window object.
     var lo_install_func = function () {
+		window.laitos_pjs_tag = null;
+		window.laitos_pjs_id = null;
+		window.laitos_pjs_name = null;
+		window.laitos_pjs_inner = null;
+		window.laitos_pjs_stop_at_first = null;
+
         // Look for an element, and return brief details of the element along with its previous and next element. Give the exact match the focus.
         window.laitos_pjs_find_before_after = function (tag, id, name, inner) {
             var before = null, exact = null, after = null, stop_next = false;
@@ -462,12 +476,13 @@ var TagCounter = int64(0) // Increment only counter that assigns each started br
 
 // Instance is a single headless browser server that acts on on commands received via HTTP.
 type Instance struct {
-	RenderImagePath    string // Place to store rendered web page image
+	RenderImageDir     string // RenderImageTempDir is a temporary directory for storing rendered web page image ("render.jpg").
 	Port               int    // Port number for headless server to listen for commands on
 	AutoKillTimeoutSec int    // Process is unconditionally killed after the time elapses
 	Tag                string // Uniquely identifies this browser server after it is started
 	Index              int    // index is the instance number assigned by renderer lifecycle management.
 
+	containerName string              // containerName is the name of SlimerJS container, once it is started.
 	serverJSFile  *os.File            // serverJSFile stores javascript code for web driver
 	jsDebugOutput *misc.ByteLogWriter // Store standard output and error from SlimerJS executable
 	jsProcCmd     *exec.Cmd           // Headless server process
@@ -492,29 +507,37 @@ func (instance *Instance) Start() error {
 	if err != nil {
 		return fmt.Errorf("browsers.Instance.Start: failed to create temporary file for SlimerJS code - %v", err)
 	}
-	if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImagePath, instance.Port))); err != nil {
+	if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImageDir, instance.Port))); err != nil {
 		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)
 	} else if err := instance.serverJSFile.Sync(); err != nil {
 		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)
 	} else if err := instance.serverJSFile.Close(); err != nil {
 		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)
 	}
-	// Create the render image file so that slimerjs will be able to write into it
-	if fh, err := os.OpenFile(instance.RenderImagePath, os.O_CREATE|os.O_WRONLY, 0600); err != nil {
+	// Create the render image directory so that slimerjs will be able to write into it
+	if err := os.MkdirAll(instance.RenderImageDir, 0700); err != nil {
 		return err
-	} else {
-		fh.Close()
 	}
+	// Base name of the server javascript temporary file actually makes a pretty good container name
+	instance.containerName = path.Base(instance.serverJSFile.Name())
 	// Start SlimerJS container
-	dockerArgs := []string{"run", "-i",
+	dockerArgs := []string{"run",
+		// Keep standard input open
+		"-i",
+		// Attach to container process standard input/output/error
+		"-a", "stdin", "-a", "stdout", "-a", "stderr",
+		// Forward signals to container process
+		"--sig-proxy=true",
 		// expose SlimerJS web server port to docker host
 		"-p", fmt.Sprintf("%d:%d", instance.Port, instance.Port),
 		// let SlimerJS render page screen shot to this location
-		"-v", fmt.Sprintf("%s:%s:rw", instance.RenderImagePath, instance.RenderImagePath),
+		"-v", fmt.Sprintf("%s:%s:rw", instance.RenderImageDir, instance.RenderImageDir),
 		// here is the server javascript file to run
 		"-v", fmt.Sprintf("%s:%s:ro", instance.serverJSFile.Name(), instance.serverJSFile.Name()),
 		// automatically remove container after exiting
 		"--rm",
+		// name the container for killing it later
+		"--name", instance.containerName,
 		// run this docker image
 		SlimerJSImageTag,
 		// run SlimerJS executable with parameters,
@@ -525,10 +548,10 @@ func (instance *Instance) Start() error {
 	}
 	instance.logger.Info("Start", "", err, "going to run docker with args %v", dockerArgs)
 	instance.jsProcCmd = exec.Command("docker", dockerArgs...)
-	//instance.jsProcCmd.Stdout = instance.jsDebugOutput
-	//instance.jsProcCmd.Stderr = instance.jsDebugOutput
-	instance.jsProcCmd.Stdout = os.Stderr
-	instance.jsProcCmd.Stderr = os.Stderr
+	instance.jsProcCmd.Stdout = instance.jsDebugOutput
+	instance.jsProcCmd.Stderr = instance.jsDebugOutput
+	//instance.jsProcCmd.Stdout = os.Stderr
+	//instance.jsProcCmd.Stderr = os.Stderr
 	processErrChan := make(chan error, 1)
 	go func() {
 		if err := instance.jsProcCmd.Start(); err != nil {
@@ -545,23 +568,25 @@ func (instance *Instance) Start() error {
 	go func() {
 		select {
 		case err := <-processErrChan:
-			instance.logger.Info("Start", "", err, "SlimerJS process has quit")
+			instance.logger.Warning("Start", "", err, "SlimerJS process has quit")
 		case <-time.After(time.Duration(instance.AutoKillTimeoutSec) * time.Second):
 		}
 		instance.Kill()
 	}()
-	// Keep knocking on the server port until it is open
-	var portIsOpen bool
+	/*
+		The port is immediately open, so knocking on it will already succeed. Therefore, send a real HTTP request to
+		determine if javascript server is ready.
+	*/
+	var serverIsReady bool
 	for i := 0; i < 20; i++ {
-		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(instance.Port), 2*time.Second)
-		if err == nil {
-			portIsOpen = true
-			conn.Close()
+		resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, "http://localhost:%s/info", instance.Port)
+		if err == nil && resp.Non2xxToError() == nil {
+			serverIsReady = true
 			break
 		}
 		time.Sleep(1 * time.Second)
 	}
-	if !portIsOpen {
+	if !serverIsReady {
 		instance.Kill()
 		return errors.New("browsers.Instance.Start: port is not listening after multiple attempts")
 	}
@@ -584,27 +609,40 @@ func (instance *Instance) SendRequest(actionName string, params map[string]inter
 			body[key] = []string{fmt.Sprint(val)}
 		}
 	}
+
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(body.Encode()),
-	}, fmt.Sprintf("http://127.0.0.1:%d/%s", instance.Port, actionName))
+	}, fmt.Sprintf("http://localhost:%d/%s", instance.Port, actionName))
+
+	// Deserialise the response only if everything is all right
 	if err == nil {
-		if resp.StatusCode/200 != 1 {
-			err = fmt.Errorf("browsers.Instance.SendRequest: HTTP failure - %v", string(resp.Body))
-		}
-		if jsonReceiver != nil {
-			if jsonErr := json.Unmarshal(resp.Body, &jsonReceiver); jsonErr != nil {
-				err = fmt.Errorf("browsers.Instance.SendRequest: - %v", jsonErr)
+		if err = resp.Non2xxToError(); err == nil {
+			if jsonReceiver != nil {
+				if jsonErr := json.Unmarshal(resp.Body, &jsonReceiver); jsonErr != nil {
+					err = fmt.Errorf("browsers.Instance.SendRequest: - %v", jsonErr)
+				}
 			}
 		}
 	}
-	instance.logger.Info("SendRequest", "", err, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
+
+	// In case of error, avoid logging HTTP output twice in the log entry.
+	if err == nil {
+		instance.logger.Info("SendRequest", "", err, "%s(%s)", actionName, body.Encode())
+	} else {
+		instance.logger.Info("SendRequest", "", nil, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
+	}
 	return
+}
+
+// GetRenderPageFilePath returns the absolute path to web page screenshot.
+func (instance *Instance) GetRenderPageFilePath() string {
+	return instance.RenderImageDir + RenderFilePathSuffix
 }
 
 // Tell browser to render page and wait up to 3 seconds for render to finish.
 func (instance *Instance) RenderPage() error {
-	if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(instance.GetRenderPageFilePath()); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	if err := instance.SendRequest("redraw", nil, nil); err != nil {
@@ -614,7 +652,7 @@ func (instance *Instance) RenderPage() error {
 	var unchanging int
 	for i := 0; i < 60; i++ {
 		// See whether image file is already being written into
-		if info, err := os.Stat(instance.RenderImagePath); err == nil && info.Size() > 0 {
+		if info, err := os.Stat(instance.GetRenderPageFilePath()); err == nil && info.Size() > 0 {
 			if fileSize == info.Size() {
 				unchanging++
 				if unchanging >= 4 {
@@ -637,13 +675,21 @@ func (instance *Instance) Kill() {
 	instance.jsProcMutex.Lock()
 	defer instance.jsProcMutex.Unlock()
 	if instance.jsProcCmd != nil {
+		// Kill the docker client
 		instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
 		if !misc.KillProcess(instance.jsProcCmd.Process) {
 			instance.logger.Warning("Kill", "", nil, "failed to kill process")
 		}
 		instance.jsProcCmd = nil
-		if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {
-			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
+		// Kill SlimerJS container
+		instance.logger.Info("Kill", "", nil, "killing container %s", instance.containerName)
+		if out, err := misc.InvokeProgram(nil, 10, "docker", "kill", instance.containerName); err != nil {
+			instance.logger.Warning("Kill", "", nil, "failed to kill container - %v %s", err, out)
+		}
+		instance.containerName = ""
+		// Clean up after temprary files and directories
+		if err := os.RemoveAll(instance.RenderImageDir); err != nil && !os.IsNotExist(err) {
+			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImageDir)
 		}
 		if err := os.Remove(instance.serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
 			instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", instance.serverJSFile.Name())

@@ -21,6 +21,8 @@ import (
 )
 
 const (
+	// Be aware that JSCodeTemplate is _not_ identical to the version used in SlimerJS!
+
 	JSCodeTemplate = `try {
     var browser; // the browser page instance after very first URL is visited
 
@@ -213,6 +215,12 @@ const (
 
     // Install several functions that help line-oriented browsing into window object.
     var lo_install_func = function () {
+		window.laitos_pjs_tag = null;
+		window.laitos_pjs_id = null;
+		window.laitos_pjs_name = null;
+		window.laitos_pjs_inner = null;
+		window.laitos_pjs_stop_at_first = null;
+
         // Look for an element, and return brief details of the element along with its previous and next element. Give the exact match the focus.
         window.laitos_pjs_find_before_after = function (tag, id, name, inner) {
             var before = null, exact = null, after = null, stop_next = false;
