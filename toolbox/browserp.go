@@ -17,45 +17,6 @@ var (
 	ErrBadBrowserParam          = errors.New(`(f/b,p/n/nn/0,r/k,g/i,ptr,val,e/enter/backsp) [param..]`)
 )
 
-// Browser offers remote control to phantomJS page.
-type Browser struct {
-	Renderers *browserp.Instances `json:"Browsers"` // Instances configure and manage phantomJS processes.
-	renderer  *browserp.Instance  // renderer is the one and only browser instance tied to this feature
-	mutex     *sync.Mutex         // mutex protects renderer from concurrent access.
-}
-
-func (bro *Browser) IsConfigured() bool {
-	return bro.Renderers != nil && bro.Renderers.BasePortNumber != 0
-}
-
-func (bro *Browser) SelfTest() error {
-	if !bro.IsConfigured() {
-		return ErrIncompleteConfig
-	}
-	if err := bro.Renderers.TestPhantomJSExecutable(); err != nil {
-		return fmt.Errorf("Browser.SelfTest: there is an error with PhantomJS executable - %v", err)
-
-	}
-	return nil
-}
-
-func (bro *Browser) Initialise() error {
-	/*
-		While the interactive browser session can have many instances, this browser session may only
-		have one instance.
-	*/
-	bro.mutex = new(sync.Mutex)
-	bro.Renderers.MaxInstances = 1
-	if err := bro.Renderers.Initialise(); err != nil {
-		return fmt.Errorf("Browser.Initialise: failed to initialise phantomJS lifecycle manager - %v", err)
-	}
-	return nil
-}
-
-func (bro *Browser) Trigger() Trigger {
-	return ".b"
-}
-
 // FormatElementInfoArray prints element information into strings.
 func FormatElementInfoArray(elements []browserp.ElementInfo) string {
 	if elements == nil || len(elements) == 0 {
@@ -68,7 +29,46 @@ func FormatElementInfoArray(elements []browserp.ElementInfo) string {
 	return strings.Join(lines, "\n")
 }
 
-func (bro *Browser) Execute(cmd Command) (ret *Result) {
+// BrowserPhantomJS offers remote control to exactly one PhantomJS page.
+type BrowserPhantomJS struct {
+	Renderers *browserp.Instances `json:"Browsers"` // Instances configure and manage phantomJS processes.
+	renderer  *browserp.Instance  // renderer is the one and only browser instance tied to this feature
+	mutex     *sync.Mutex         // mutex protects renderer from concurrent access.
+}
+
+func (bro *BrowserPhantomJS) IsConfigured() bool {
+	return bro.Renderers != nil && bro.Renderers.BasePortNumber != 0
+}
+
+func (bro *BrowserPhantomJS) SelfTest() error {
+	if !bro.IsConfigured() {
+		return ErrIncompleteConfig
+	}
+	if err := bro.Renderers.TestPhantomJSExecutable(); err != nil {
+		return fmt.Errorf("BrowserPhantomJS.SelfTest: there is an error with PhantomJS executable - %v", err)
+
+	}
+	return nil
+}
+
+func (bro *BrowserPhantomJS) Initialise() error {
+	/*
+		While the interactive browser session can have many instances, this browser session may only
+		have one instance.
+	*/
+	bro.mutex = new(sync.Mutex)
+	bro.Renderers.MaxInstances = 1
+	if err := bro.Renderers.Initialise(); err != nil {
+		return fmt.Errorf("BrowserPhantomJS.Initialise: failed to initialise phantomJS lifecycle manager - %v", err)
+	}
+	return nil
+}
+
+func (bro *BrowserPhantomJS) Trigger() Trigger {
+	return ".bp"
+}
+
+func (bro *BrowserPhantomJS) Execute(cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}
@@ -114,7 +114,7 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 	case "nn":
 		// Go across next N elements
 		if len(params) < 3 {
-			return &Result{Error: errors.New("Usage nn: number")}
+			return &Result{Error: errors.New("usage nn: number")}
 		}
 		n, err := strconv.Atoi(params[2])
 		if err != nil {
@@ -137,7 +137,7 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 	case "g":
 		// Go to new URL
 		if len(params) < 3 {
-			return &Result{Error: errors.New("Usage g: url")}
+			return &Result{Error: errors.New("usage g: url")}
 		}
 		// Hard code dimension for now, it does not really matter.
 		err = bro.renderer.GoTo(browserp.GoodUserAgent, params[2], 2560, 1440)
@@ -149,11 +149,11 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 	case "ptr":
 		// Send pointer event to current element
 		if len(params) < 3 {
-			return &Result{Error: errors.New("Usage ptr: type button")}
+			return &Result{Error: errors.New("usage ptr: type button")}
 		}
 		typeAndButton := strings.Split(params[2], " ")
 		if len(typeAndButton) < 2 {
-			return &Result{Error: errors.New("Usage ptr: type button")}
+			return &Result{Error: errors.New("usage ptr: type button")}
 		}
 		actionType := typeAndButton[0]
 		button := typeAndButton[1]
@@ -161,13 +161,13 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 	case "val":
 		// Give current element a new value
 		if len(params) < 3 {
-			return &Result{Error: errors.New("Usage val: new value")}
+			return &Result{Error: errors.New("usage val: new value")}
 		}
 		err = bro.renderer.LOSetValue(params[2])
 	case "e":
 		// Enter text into currently focused element
 		if len(params) < 3 {
-			return &Result{Error: errors.New("Usage e: string")}
+			return &Result{Error: errors.New("usage e: string")}
 		}
 		err = bro.renderer.SendKey(params[2], 0)
 	case "enter":
@@ -189,7 +189,7 @@ func (bro *Browser) Execute(cmd Command) (ret *Result) {
 		info, err = bro.renderer.GetPageInfo()
 		output = fmt.Sprintf("%s-%s", info.Title, info.URL)
 		if err != nil {
-			err = fmt.Errorf("Command was successful, but failed to get page info - %v", err)
+			err = fmt.Errorf("command was successful, but failed to get page info - %v", err)
 		}
 	}
 	return &Result{Error: err, Output: output}

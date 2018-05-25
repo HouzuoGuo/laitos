@@ -15,7 +15,8 @@ and receive configuration from JSON.
 */
 type FeatureSet struct {
 	AESDecrypt         AESDecrypt          `json:"AESDecrypt"`
-	Browser            Browser             `json:"Browser"`
+	BrowserPhantomJS   BrowserPhantomJS    `json:"BrowserPhantomJS"`
+	BrowserSlimerJS    BrowserSlimerJS     `json:"BrowserSlimerJS"`
 	PublicContact      PublicContact       `json:"PublicContact"`
 	EnvControl         EnvControl          `json:"EnvControl"`
 	Facebook           Facebook            `json:"Facebook"`
@@ -38,7 +39,8 @@ func (fs *FeatureSet) Initialise() error {
 	fs.LookupByTrigger = map[Trigger]Feature{}
 	triggers := map[Trigger]Feature{
 		fs.AESDecrypt.Trigger():         &fs.AESDecrypt,         // a
-		fs.Browser.Trigger():            &fs.Browser,            // b
+		fs.BrowserPhantomJS.Trigger():   &fs.BrowserPhantomJS,   // bp
+		fs.BrowserSlimerJS.Trigger():    &fs.BrowserSlimerJS,    // bs
 		fs.PublicContact.Trigger():      &fs.PublicContact,      // c
 		fs.EnvControl.Trigger():         &fs.EnvControl,         // e
 		fs.Facebook.Trigger():           &fs.Facebook,           // f
@@ -97,7 +99,8 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 	// Here are the feature keys
 	features := map[string]Feature{
 		"AESDecrypt":         &fs.AESDecrypt,
-		"Browser":            &fs.Browser,
+		"BrowserPhantomJS":   &fs.BrowserPhantomJS,
+		"BrowserSlimerJS":    &fs.BrowserSlimerJS,
 		"EnvControl":         &fs.EnvControl,
 		"Facebook":           &fs.Facebook,
 		"IMAPAccounts":       &fs.IMAPAccounts,

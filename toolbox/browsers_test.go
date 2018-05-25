@@ -3,28 +3,29 @@ package toolbox
 import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/browserp"
+	"github.com/HouzuoGuo/laitos/browsers"
 	"github.com/HouzuoGuo/laitos/misc"
-	"runtime"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestBrowser_Execute(t *testing.T) {
-	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
-		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
+func TestBrowserSlimerJS_Execute(t *testing.T) {
+	if os.Getuid() != 0 {
+		t.Skip("this test involves docker daemon operation, it requires root privilege.")
 	}
-	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
-	misc.PrepareUtilities(misc.Logger{})
-	// CircleCI container does not have the dependencies for running PhantomJS
+	// CircleCI container cannot operate docker daemon
 	misc.SkipTestIfCI(t)
-	bro := Browser{}
+	// Prepare docker
+	browsers.PrepareDocker(misc.Logger{})
+	bro := BrowserSlimerJS{}
 	if bro.IsConfigured() {
 		t.Fatal("should not be configured")
 	}
 	bro.Renderers = &browserp.Instances{
 		MaxLifetimeSec: 300,
-		BasePortNumber: 13894,
+		BasePortNumber: 42693,
 	}
 	if !bro.IsConfigured() {
 		t.Fatal("should be configured")

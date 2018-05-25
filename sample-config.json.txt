@@ -86,13 +86,21 @@
     }
   },
   "HTTPHandlers": {
-    "BrowserEndpoint": "/sample/browser",
-    "BrowserEndpointConfig": {
+    "BrowserPhantomJSEndpoint": "/sample/browserp",
+    "BrowserPhantomJSEndpointConfig": {
       "Browsers": {
         "BasePortNumber": 14120,
         "MaxInstances": 5,
         "MaxLifetimeSec": 1800,
         "PhantomJSExecPath": "./extra/phantomjs-2.1.1-x86_64"
+      }
+    },
+    "BrowserSlimerJSEndpoint": "/sample/browsers",
+    "BrowserSlimerJSEndpointConfig": {
+      "Browsers": {
+        "BasePortNumber": 48887,
+        "MaxInstances": 5,
+        "MaxLifetimeSec": 1800,
       }
     },
     "CommandFormEndpoint": "/sample/cmd",

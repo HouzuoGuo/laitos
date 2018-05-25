@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	HandleBrowserPage = `<!doctype html>
+	HandleBrowserPhantomJSPage = `<!doctype html>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -77,23 +77,23 @@ const (
 )
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
-type HandleBrowser struct {
+type HandleBrowserPhantomJS struct {
 	ImageEndpoint string             `json:"-"`
 	Browsers      browserp.Instances `json:"Browsers"`
 }
 
-func (remoteBrowser *HandleBrowser) Initialise(misc.Logger, *common.CommandProcessor) error {
+func (remoteBrowser *HandleBrowserPhantomJS) Initialise(misc.Logger, *common.CommandProcessor) error {
 	return remoteBrowser.Browsers.Initialise()
 }
 
-func (remoteBrowser *HandleBrowser) RenderPage(title string,
+func (remoteBrowser *HandleBrowserPhantomJS) RenderPage(title string,
 	instanceIndex int, instanceTag string,
 	debugOut string,
 	viewWidth, viewHeight int,
 	userAgent, pageUrl string,
 	pointerX, pointerY int,
 	typeText string) []byte {
-	return []byte(fmt.Sprintf(HandleBrowserPage,
+	return []byte(fmt.Sprintf(HandleBrowserPhantomJSPage,
 		title,
 		instanceIndex, instanceTag,
 		debugOut,
@@ -104,7 +104,7 @@ func (remoteBrowser *HandleBrowser) RenderPage(title string,
 		remoteBrowser.ImageEndpoint, instanceIndex, instanceTag))
 }
 
-func (remoteBrowser *HandleBrowser) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
+func (remoteBrowser *HandleBrowserPhantomJS) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
 	instanceIndex, _ = strconv.Atoi(r.FormValue("instance_index"))
 	instanceTag = r.FormValue("instance_tag")
 	viewWidth, _ = strconv.Atoi(r.FormValue("view_width"))
@@ -117,7 +117,7 @@ func (remoteBrowser *HandleBrowser) parseSubmission(r *http.Request) (instanceIn
 	return
 }
 
-func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Request) {
+func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	NoCache(w)
 	if !WarnIfNoHTTPS(r, w) {
@@ -231,23 +231,23 @@ func (remoteBrowser *HandleBrowser) Handle(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-func (_ *HandleBrowser) GetRateLimitFactor() int {
+func (_ *HandleBrowserPhantomJS) GetRateLimitFactor() int {
 	return 2
 }
 
-func (_ *HandleBrowser) SelfTest() error {
+func (_ *HandleBrowserPhantomJS) SelfTest() error {
 	return nil
 }
 
-type HandleBrowserImage struct {
+type HandleBrowserPhantomJSImage struct {
 	Browsers *browserp.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
-func (_ *HandleBrowserImage) Initialise(misc.Logger, *common.CommandProcessor) error {
+func (_ *HandleBrowserPhantomJSImage) Initialise(misc.Logger, *common.CommandProcessor) error {
 	return nil
 }
 
-func (remoteBrowserImage *HandleBrowserImage) Handle(w http.ResponseWriter, r *http.Request) {
+func (remoteBrowserImage *HandleBrowserPhantomJSImage) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
 	/*
 		There is no need to call WarnIfNoHTTPS function in this API, because this API is not reachable unless
@@ -277,10 +277,10 @@ func (remoteBrowserImage *HandleBrowserImage) Handle(w http.ResponseWriter, r *h
 	w.Write(pngFile)
 }
 
-func (_ *HandleBrowserImage) GetRateLimitFactor() int {
+func (_ *HandleBrowserPhantomJSImage) GetRateLimitFactor() int {
 	return 2
 }
 
-func (_ *HandleBrowserImage) SelfTest() error {
+func (_ *HandleBrowserPhantomJSImage) SelfTest() error {
 	return nil
 }

@@ -57,7 +57,7 @@ func (instances *Instances) Initialise() error {
 			// Start this background routine in an infinite loop to keep docker running and image available
 			for {
 				// Enable and start docker daemon
-				prepareDocker(instances.logger)
+				PrepareDocker(instances.logger)
 				time.Sleep(DockerMaintenanceIntervalSec * time.Second)
 			}
 		}()
@@ -66,10 +66,10 @@ func (instances *Instances) Initialise() error {
 }
 
 /*
-prepareDocker starts docker daemon, ensures that docker keeps running, and pulls the docker image for SlimerJS. The
+PrepareDocker starts docker daemon, ensures that docker keeps running, and pulls the docker image for SlimerJS. The
 routine requires root privilege to run.
 */
-func prepareDocker(logger misc.Logger) {
+func PrepareDocker(logger misc.Logger) {
 	if !misc.EnableStartDaemon("docker") {
 		logger.Info("PrepareDocker", "", nil, "failed to enable/start docker daemon")
 		// Nevertheless, move on.

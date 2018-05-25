@@ -28,8 +28,8 @@ func TestInteractiveBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer instance.Kill()
-	// Prepare docker
-	prepareDocker(misc.Logger{})
+	// Prepare docker operation for SlimerJS
+	PrepareDocker(misc.Logger{})
 
 	// Browse distrowatch home page
 	if err := instance.GoTo(GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {

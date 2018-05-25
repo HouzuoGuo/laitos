@@ -31,8 +31,8 @@ func TestBrowserInstances(t *testing.T) {
 	}
 	defer instances.KillAll()
 
-	// Prepare docker
-	prepareDocker(misc.Logger{})
+	// Prepare docker operation for SlimerJS
+	PrepareDocker(misc.Logger{})
 
 	i0, b0, err := instances.Acquire()
 	if i0 != 0 || b0.Tag == "" || err != nil {
