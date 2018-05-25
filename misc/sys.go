@@ -359,7 +359,7 @@ func EnableStartDaemon(daemonNameNoSuffix string) (ok bool) {
 	if _, err := InvokeProgram(nil, 5, "chkconfig", " --level", "345", daemonNameNoSuffix, "on"); err == nil {
 		ok = true
 	}
-	if _, err := InvokeProgram(nil, 5, "/etc/init.d/"+daemonNameNoSuffix, "restart"); err == nil {
+	if _, err := InvokeProgram(nil, 5, "/etc/init.d/"+daemonNameNoSuffix, "start"); err == nil {
 		ok = true
 	}
 	InvokeProgram(nil, 5, "systemctl", "unmask", daemonNameNoSuffix+".service")
