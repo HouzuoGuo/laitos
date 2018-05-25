@@ -363,8 +363,6 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 			daemon.logPrintStageStep(out, "disable&stop %s: success? %v", name, misc.DisableStopDaemon(name))
 		}
 	}
-	// Enable & start docker for slimerjs container for the browser feature
-	daemon.logPrintStageStep(out, "enable&start %s: success? %v", "docker", misc.EnableStartDaemon("docker"))
 	if daemon.EnableStartServices != nil {
 		for _, name := range daemon.EnableStartServices {
 			daemon.logPrintStageStep(out, "enable&start %s: success? %v", name, misc.EnableStartDaemon(name))
