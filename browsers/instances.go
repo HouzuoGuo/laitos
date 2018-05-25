@@ -78,7 +78,9 @@ func PrepareDocker(logger misc.Logger) {
 	logger.Info("PrepareDocker", "", nil, "pulling %s", SlimerJSImageTag)
 	out, err := misc.InvokeProgram(nil, 1800, "docker", "pull", SlimerJSImageTag)
 	logger.Info("PrepareDocker", "", nil, "image pulling result: %v - %s", err, out)
-
+	// Turn on ip forwarding so that docker containers will have access to the Internet
+	out, err = misc.InvokeProgram(nil, 30, "sysctl", "-w", "net.ipv4.ip_forward=1")
+	logger.Info("PrepareDocker", "", nil, "enable ip forwarding result: %v - %s", err, out)
 }
 
 // Acquire a new instance instance. If necessary, kill an existing instance to free up the space for the new instance.
