@@ -4,16 +4,29 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/browserp"
+	"github.com/HouzuoGuo/laitos/browsers"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
+// FormatElementInfoArray prints element information into strings.
+func FormatElementInfoArraySlimerJS(elements []browsers.ElementInfo) string {
+	if elements == nil || len(elements) == 0 {
+		return "(nothing)"
+	}
+	lines := make([]string, 0, len(elements))
+	for _, elem := range elements {
+		lines = append(lines, fmt.Sprintf("%s[%s]-\"%s\"-\"%v\"-%s##", elem.TagName, elem.ID, elem.Name, elem.Value, elem.InnerHTML))
+	}
+	return strings.Join(lines, "\n")
+}
+
 // BrowserSlimerJS offers remote control to exactly one SlimerJS page.
 type BrowserSlimerJS struct {
-	Renderers *browserp.Instances `json:"Browsers"` // Instances configure and manage phantomJS processes.
-	renderer  *browserp.Instance  // renderer is the one and only browser instance tied to this feature
+	Renderers *browsers.Instances `json:"Browsers"` // Instances configure and manage phantomJS processes.
+	renderer  *browsers.Instance  // renderer is the one and only browser instance tied to this feature
 	mutex     *sync.Mutex         // mutex protects renderer from concurrent access.
 }
 
@@ -24,10 +37,6 @@ func (bro *BrowserSlimerJS) IsConfigured() bool {
 func (bro *BrowserSlimerJS) SelfTest() error {
 	if !bro.IsConfigured() {
 		return ErrIncompleteConfig
-	}
-	if err := bro.Renderers.TestPhantomJSExecutable(); err != nil {
-		return fmt.Errorf("Browser.SelfTest: there is an error with PhantomJS executable - %v", err)
-
 	}
 	return nil
 }
@@ -84,14 +93,14 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 		err = bro.renderer.GoBack()
 	case "p":
 		// Go to previous element
-		var elements []browserp.ElementInfo
+		var elements []browsers.ElementInfo
 		elements, err = bro.renderer.LOPreviousElement()
-		output = FormatElementInfoArray(elements)
+		output = FormatElementInfoArraySlimerJS(elements)
 	case "n":
 		// Go to next element
-		var elements []browserp.ElementInfo
+		var elements []browsers.ElementInfo
 		elements, err = bro.renderer.LONextElement()
-		output = FormatElementInfoArray(elements)
+		output = FormatElementInfoArraySlimerJS(elements)
 	case "nn":
 		// Go across next N elements
 		if len(params) < 3 {
@@ -101,9 +110,9 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 		if err != nil {
 			return &Result{Error: errors.New("nn: bad number")}
 		}
-		var elements []browserp.ElementInfo
+		var elements []browsers.ElementInfo
 		elements, err = bro.renderer.LONextNElements(n)
-		output = FormatElementInfoArray(elements)
+		output = FormatElementInfoArraySlimerJS(elements)
 	case "0":
 		// Reset navigation back to the first DOM element
 		err = bro.renderer.LOResetNavigation()
@@ -124,7 +133,7 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 		err = bro.renderer.GoTo(browserp.GoodUserAgent, params[2], 2560, 1440)
 	case "i":
 		// Get page info
-		var info browserp.RemotePageInfo
+		var info browsers.RemotePageInfo
 		info, err = bro.renderer.GetPageInfo()
 		output = fmt.Sprintf("%s-%s", info.Title, info.URL)
 	case "ptr":
@@ -153,10 +162,10 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 		err = bro.renderer.SendKey(params[2], 0)
 	case "enter":
 		// Press enter key on currently focused element
-		err = bro.renderer.SendKey("", browserp.KeyCodeEnter)
+		err = bro.renderer.SendKey("", browsers.KeyCodeEnter)
 	case "backsp":
 		// Press backspace key on currently focused element
-		err = bro.renderer.SendKey("", browserp.KeyCodeBackspace)
+		err = bro.renderer.SendKey("", browsers.KeyCodeBackspace)
 	case "render":
 		// For debugging purpose, render the page screenshot.
 		err = bro.renderer.RenderPage()
@@ -166,7 +175,7 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 	// If there is no other output and no error, result is page info (title - URL).
 	if err == nil && output == "" {
 		time.Sleep(1 * time.Second)
-		var info browserp.RemotePageInfo
+		var info browsers.RemotePageInfo
 		info, err = bro.renderer.GetPageInfo()
 		output = fmt.Sprintf("%s-%s", info.Title, info.URL)
 		if err != nil {

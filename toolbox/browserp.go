@@ -18,7 +18,7 @@ var (
 )
 
 // FormatElementInfoArray prints element information into strings.
-func FormatElementInfoArray(elements []browserp.ElementInfo) string {
+func FormatElementInfoArrayPhantomJS(elements []browserp.ElementInfo) string {
 	if elements == nil || len(elements) == 0 {
 		return "(nothing)"
 	}
@@ -105,12 +105,12 @@ func (bro *BrowserPhantomJS) Execute(cmd Command) (ret *Result) {
 		// Go to previous element
 		var elements []browserp.ElementInfo
 		elements, err = bro.renderer.LOPreviousElement()
-		output = FormatElementInfoArray(elements)
+		output = FormatElementInfoArrayPhantomJS(elements)
 	case "n":
 		// Go to next element
 		var elements []browserp.ElementInfo
 		elements, err = bro.renderer.LONextElement()
-		output = FormatElementInfoArray(elements)
+		output = FormatElementInfoArrayPhantomJS(elements)
 	case "nn":
 		// Go across next N elements
 		if len(params) < 3 {
@@ -122,7 +122,7 @@ func (bro *BrowserPhantomJS) Execute(cmd Command) (ret *Result) {
 		}
 		var elements []browserp.ElementInfo
 		elements, err = bro.renderer.LONextNElements(n)
-		output = FormatElementInfoArray(elements)
+		output = FormatElementInfoArrayPhantomJS(elements)
 	case "0":
 		// Reset navigation back to the first DOM element
 		err = bro.renderer.LOResetNavigation()

@@ -2,7 +2,6 @@ package toolbox
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browserp"
 	"github.com/HouzuoGuo/laitos/browsers"
 	"github.com/HouzuoGuo/laitos/misc"
 	"os"
@@ -17,13 +16,13 @@ func TestBrowserSlimerJS_Execute(t *testing.T) {
 	}
 	// CircleCI container cannot operate docker daemon
 	misc.SkipTestIfCI(t)
-	// Prepare docker
+	// Prepare docker operation for SlimerJS
 	browsers.PrepareDocker(misc.Logger{})
 	bro := BrowserSlimerJS{}
 	if bro.IsConfigured() {
 		t.Fatal("should not be configured")
 	}
-	bro.Renderers = &browserp.Instances{
+	bro.Renderers = &browsers.Instances{
 		MaxLifetimeSec: 300,
 		BasePortNumber: 42693,
 	}
@@ -46,7 +45,8 @@ func TestBrowserSlimerJS_Execute(t *testing.T) {
 	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "g https://distrowatch.com"}); ret.Error != nil {
 		t.Fatal(ret.Error, ret.Output)
 	}
-	delay()
+	// Expect page to be ready in a few seconds
+	time.Sleep(30 * time.Second)
 	// Go back and forward
 	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "b"}); ret.Error != nil || !strings.Contains(strings.ToLower(ret.Output), "distrowatch") {
 		t.Fatal(ret.Error, ret.Output)
@@ -99,7 +99,7 @@ func TestBrowserSlimerJS_Execute(t *testing.T) {
 	}
 	delay()
 	// Pointer, enter value, and keys
-	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "ptr move left"}); ret.Error != nil || !strings.Contains(strings.ToLower(ret.Output), "distrowatch") {
+	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "ptr mousemove left"}); ret.Error != nil || !strings.Contains(strings.ToLower(ret.Output), "distrowatch") {
 		t.Fatal(ret.Error, ret.Output)
 	} else {
 		fmt.Println(ret.Output)

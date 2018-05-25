@@ -168,8 +168,6 @@ const (
             ret = b_pointer(req.post);
         } else if (req.url === '/type') {
             // curl -X POST --data 'key_string=test123' 'localhost:12345/type'
-            // (16777221 is enter key)
-            // curl -X POST --data 'key_code=16777221' 'localhost:12345/type'
             ret = b_type(req.post);
         } else if (req.url === '/lo_reset') {
             // curl -X POST 'localhost:12345/lo_reset'
@@ -200,7 +198,6 @@ const (
 
     // ===================== ONLY FOR LINE-ORIENTED INTERFACE =================
 
-
     // The very previous element and its own previous/next element that were navigated into.
     var exact_info = null, before_info = null, after_info = null;
 
@@ -210,16 +207,13 @@ const (
     };
 
     // Return a string-encoded function body that store 4 element parameters into window object.
-    var elem_info_to_stmt = function (elem_info) {
-        return "function(){" +
-            "window.laitos_pjs_tag = " + quote_str(elem_info === null ? '' : elem_info['tag']) + ";" +
+	var elem_info_to_stmt = function (elem_info) {
+        return "window.laitos_pjs_tag = " + quote_str(elem_info === null ? '' : elem_info['tag']) + ";" +
             "window.laitos_pjs_id  = " + quote_str(elem_info === null ? '' : elem_info['id']) + ";" +
             "window.laitos_pjs_name = " + quote_str(elem_info === null ? '' : elem_info['name']) + ";" +
             "window.laitos_pjs_inner = " + quote_str(elem_info === null ? '' : elem_info['inner']) + ";" +
-            "window.laitos_pjs_stop_at_first = " + (elem_info === null ? 'true' : 'false') + ";" +
-            "}";
+            "window.laitos_pjs_stop_at_first = " + (elem_info === null ? 'true' : 'false') + ";";
     };
-
     // Install several functions that help line-oriented browsing into window object.
     var lo_install_func = function () {
 		window.laitos_pjs_tag = null;
@@ -397,7 +391,7 @@ const (
             b_lo_next();
         }
         browser.evaluateJavaScript(elem_info_to_stmt(exact_info));
-        browser.evaluateJavaScript("function(){window.laitos_pjs_next_n=" + param.n + ";}");
+        browser.evaluateJavaScript("window.laitos_pjs_next_n=" + param.n + ";");
 
         var ret = empty_str_to_null(browser.evaluate(function () {
             return laitos_pjs_find_after(laitos_pjs_tag, laitos_pjs_id, laitos_pjs_name, laitos_pjs_inner, laitos_pjs_next_n);
@@ -447,7 +441,7 @@ const (
             return false;
         }
         browser.evaluate(lo_install_func);
-        browser.evaluateJavaScript("function(){window.laitos_pjs_set_value_to=" + JSON.stringify(param.value) + ";}");
+        browser.evaluateJavaScript("window.laitos_pjs_set_value_to=" + JSON.stringify(param.value) + ";");
 
         // Give the currently focused element a new value.
         return browser.evaluate(function () {
@@ -467,9 +461,6 @@ const (
     }
     console.log(msg);
 }` // Template javascript code that runs on headless browser server
-
-	// GoodUserAgent is the recommended user agent string for rendering all pages
-	GoodUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36"
 )
 
 var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
@@ -731,13 +722,6 @@ func (instance *Instance) GoTo(userAgent, pageURL string, width, height int) err
 	return nil
 }
 
-const (
-	PointerTypeClick   = "click" // PointerTypeClick is the phantomJS mouse action for clicking.
-	PointerTypeMove    = "move"  // PointerTypeClick is the phantomJS mouse action for moving pointer.
-	PointerButtonLeft  = "left"  // PointerTypeClick is the phantomJS left mouse button.
-	PointerButtonRight = "right" // PointerTypeClick is the phantomJS right mouse button.
-)
-
 // Pointer sends pointer to move/click at a coordinate.
 func (instance *Instance) Pointer(actionType, button string, x, y int) error {
 	return instance.SendRequest("pointer", map[string]interface{}{
@@ -749,8 +733,10 @@ func (instance *Instance) Pointer(actionType, button string, x, y int) error {
 }
 
 const (
-	KeyCodeBackspace = 16777219 // KeyCodeBackspace is the phantomJS keyboard key code for backspace key.
-	KeyCodeEnter     = 16777221 // KeyCodeEnter is the phantomJS keyboard key code for Enter key (works better than Return key!)
+	// KeyCodeBackspace is the SlimerJS keyboard key code for the backspace key, identical to PhantomJS.
+	KeyCodeBackspace = 16777219
+	// KeyCodeEnter is the SlimerJS keyboard key code for Return key. Return key only works on SlimerJS, and Enter key only works on PhantomJS.
+	KeyCodeEnter = 16777220
 )
 
 // SendKey either sends a key string or a key code into the currently focused element on page.

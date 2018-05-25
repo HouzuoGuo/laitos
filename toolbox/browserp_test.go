@@ -45,7 +45,8 @@ func TestBrowserPhantomJS_Execute(t *testing.T) {
 	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "g https://distrowatch.com"}); ret.Error != nil {
 		t.Fatal(ret.Error, ret.Output)
 	}
-	delay()
+	// Expect page to be ready in a few seconds
+	time.Sleep(30 * time.Second)
 	// Go back and forward
 	if ret := bro.Execute(Command{TimeoutSec: 10, Content: "b"}); ret.Error != nil || !strings.Contains(strings.ToLower(ret.Output), "distrowatch") {
 		t.Fatal(ret.Error, ret.Output)

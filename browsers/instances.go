@@ -117,7 +117,17 @@ func (instances *Instances) Retrieve(index int, expectedTag string) *Instance {
 	return browser
 }
 
-// Forcibly stop all instance instances.
+/*
+Forcibly stop all browser instances.
+Be aware that, laitos does not use a persistent record of containers spawned, hence if laitos crashes, it will not be
+able to kill containers spawned by previous laitos run, which causes failure when user attempts to start a new browser
+instance. This is terribly unfortunate and there is not a good remedy other than manually running:
+
+docker ps -a -q -f 'name=laitos-browsers.*' | xargs docker kill -f
+
+Also be aware that the above statement must not be run automatically in KillAll function, because a computer host may
+run more than one laitos programs and there is no way to tell whether any of the containers belongs to a crashed laitos.
+*/
 func (instances *Instances) KillAll() {
 	instances.browserMutex.Lock()
 	defer instances.browserMutex.Unlock()

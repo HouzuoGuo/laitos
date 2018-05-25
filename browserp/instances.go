@@ -111,7 +111,7 @@ func (instances *Instances) Retrieve(index int, expectedTag string) *Instance {
 	return browser
 }
 
-// Forcibly stop all instance instances.
+// Forcibly stop all browser instances.
 func (instances *Instances) KillAll() {
 	instances.browserMutex.Lock()
 	defer instances.browserMutex.Unlock()

@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/browserp"
+	"github.com/HouzuoGuo/laitos/browsers"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
@@ -10,76 +12,10 @@ import (
 	"strconv"
 )
 
-const (
-	HandleBrowserSlimerJSJSPage = `<!doctype html>
-<html>
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>%s</title>
-    <script type="text/javascript">
-        function set_pointer_coord(ev) {
-            var pointer_x = ev.offsetX ? (ev.offsetX) : ev.pageX - document.getElementById('render').offsetLeft;
-            var pointer_y = ev.offsetY ? (ev.offsetY) : ev.pageY - document.getElementById('render').offsetTop;
-            document.getElementById('pointer_x').value = pointer_x;
-            document.getElementById('pointer_y').value = pointer_y;
-        };
-    </script>
-</head>
-<body>
-<form action="#" method="post">
-    <input type="hidden" name="instance_index" value="%d"/>
-    <input type="hidden" name="instance_tag" value="%s"/>
-    <table>
-        <tr>
-            <th>Debug</th>
-            <td colspan="5"><textarea rows="5" cols="80">%s</textarea></td>
-        </tr>
-        <tr>
-            <th>View</th>
-            <td><input type="submit" name="action" value="Redraw"/></td>
-            <td><input type="submit" name="action" value="Kill All"/></td>
-            <td>Width: <input type="text" name="view_width" value="%s" size="5"/></td>
-            <td>Height: <input type="text" name="view_height" value="%s" size="5"/></td>
-            <td>User Agent: <input type="text" name="user_agent" value="%s" size="50"/></td>
-        </tr>
-        <tr>
-            <th>Navigation</th>
-            <td><input type="submit" name="action" value="Back"/></td>
-            <td><input type="submit" name="action" value="Forward"/></td>
-            <td><input type="submit" name="action" value="Reload"/></td>
-            <td colspan="2">
-                <input type="submit" name="action" value="Go To"/>
-                <input type="text" name="page_url" value="%s" size="60"/>
-            </td>
-        </tr>
-        <tr>
-            <th>Pointer</th>
-            <td><input type="submit" name="action" value="Left Click"/></td>
-            <td><input type="submit" name="action" value="Right Click"/></td>
-            <td><input type="submit" name="action" value="Move To"/></td>
-            <td>X: <input type="text" id="pointer_x" name="pointer_x" value="%s" size="5"/></td>
-            <td>Y: <input type="text" id="pointer_y" name="pointer_y" value="%s" size="5"/></td>
-        </tr>
-        <tr>
-            <th>Keyboard</th>
-            <td><input type="submit" name="action" value="Backspace"/></td>
-            <td><input type="submit" name="action" value="Enter"/></td>
-            <td><input type="submit" name="action" value="Type"/></td>
-            <td colspan="2">
-                <input type="text" name="type_text" value="%s"/>
-            </td>
-        </tr>
-    </table>
-    <p><img id="render" src="%s?instance_index=%d&instance_tag=%s" alt="rendered page" onclick="set_pointer_coord(event);"/></p>
-</form>
-</body>
-</html>` // Browser page content
-)
-
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowserSlimerJS struct {
 	ImageEndpoint string             `json:"-"`
-	Browsers      browserp.Instances `json:"Browsers"`
+	Browsers      browsers.Instances `json:"Browsers"`
 }
 
 func (remoteBrowser *HandleBrowserSlimerJS) Initialise(misc.Logger, *common.CommandProcessor) error {
@@ -88,15 +24,21 @@ func (remoteBrowser *HandleBrowserSlimerJS) Initialise(misc.Logger, *common.Comm
 
 func (remoteBrowser *HandleBrowserSlimerJS) RenderPage(title string,
 	instanceIndex int, instanceTag string,
-	debugOut string,
+	lastErr error, debugOut string,
 	viewWidth, viewHeight int,
 	userAgent, pageUrl string,
 	pointerX, pointerY int,
 	typeText string) []byte {
-	return []byte(fmt.Sprintf(HandleBrowserSlimerJSJSPage,
+	var errStr string
+	if lastErr == nil {
+		errStr = ""
+	} else {
+		errStr = lastErr.Error()
+	}
+	return []byte(fmt.Sprintf(HandleBrowserPage,
 		title,
 		instanceIndex, instanceTag,
-		debugOut,
+		errStr, debugOut,
 		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight),
 		userAgent, pageUrl,
 		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
@@ -133,7 +75,7 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 		w.Write(remoteBrowser.RenderPage(
 			"Empty Browser",
 			index, instance.Tag,
-			instance.GetDebugOutput(),
+			nil, instance.GetDebugOutput(),
 			800, 800, browserp.GoodUserAgent,
 			"https://www.google.com",
 			0, 0,
@@ -151,79 +93,50 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 			w.Write(remoteBrowser.RenderPage(
 				"Empty Browser",
 				index, instance.Tag,
-				instance.GetDebugOutput(),
+				nil, instance.GetDebugOutput(),
 				800, 800, browserp.GoodUserAgent,
 				"https://www.google.com",
 				0, 0,
 				""))
 			return
 		}
-		// Process action on the retrieved browser instance
+		var actionErr error
 		switch r.FormValue("action") {
 		case "Redraw":
-			// There is no javascript action required here
+			// There is no browser interaction involved, every page refresh automatically renders the latest screen.
 		case "Kill All":
 			remoteBrowser.Browsers.KillAll()
+			actionErr = errors.New(fmt.Sprint("All browser sessions are gone. Please nagivate back to this browser page by re-entering the URL, do not refresh the page."))
 		case "Back":
-			if err := instance.GoBack(); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.GoBack()
 		case "Forward":
-			if err := instance.GoForward(); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.GoForward()
 		case "Reload":
-			if err := instance.Reload(); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.Reload()
 		case "Go To":
-			if err := instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight)
 		case "Left Click":
-			if err := instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonLeft, pointerX, pointerY); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonLeft, pointerX, pointerY)
 		case "Right Click":
-			if err := instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonRight, pointerX, pointerY); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonRight, pointerX, pointerY)
 		case "Move To":
-			if err := instance.Pointer(browserp.PointerTypeMove, browserp.PointerButtonLeft, pointerX, pointerY); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.Pointer(browserp.PointerTypeMove, browserp.PointerButtonLeft, pointerX, pointerY)
 		case "Backspace":
-			if err := instance.SendKey("", browserp.KeyCodeBackspace); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.SendKey("", browsers.KeyCodeBackspace)
 		case "Enter":
-			if err := instance.SendKey("", browserp.KeyCodeEnter); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.SendKey("", browsers.KeyCodeEnter)
 		case "Type":
-			if err := instance.SendKey(typeText, 0); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.SendKey(typeText, 0)
 		}
-		pageInfo, err := instance.GetPageInfo()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		// Display action error, or page info error if there is any.
+		pageInfo, pageInfoErr := instance.GetPageInfo()
+		if actionErr == nil {
+			actionErr = pageInfoErr
 		}
 		w.Write(remoteBrowser.RenderPage(
 			pageInfo.Title,
 			index, instance.Tag,
-			instance.GetDebugOutput(),
+			actionErr, instance.GetDebugOutput(),
 			viewWidth, viewHeight,
 			userAgent, pageInfo.URL,
 			pointerX, pointerY,
@@ -240,7 +153,7 @@ func (_ *HandleBrowserSlimerJS) SelfTest() error {
 }
 
 type HandleBrowserSlimerJSImage struct {
-	Browsers *browserp.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
+	Browsers *browsers.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
 func (_ *HandleBrowserSlimerJSImage) Initialise(misc.Logger, *common.CommandProcessor) error {
@@ -267,7 +180,7 @@ func (remoteBrowserImage *HandleBrowserSlimerJSImage) Handle(w http.ResponseWrit
 		http.Error(w, "Render error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	pngFile, err := ioutil.ReadFile(instance.RenderImagePath)
+	pngFile, err := ioutil.ReadFile(instance.GetRenderPageFilePath())
 	if err != nil {
 		http.Error(w, "File IO error: "+err.Error(), http.StatusInternalServerError)
 		return

@@ -103,7 +103,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 		t.Fatal(err, instance.GetDebugOutput())
 	}
 	// Expect page to be ready in a few seconds
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 	delay := func() {
 		time.Sleep(3 * time.Second)
 	}

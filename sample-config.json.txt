@@ -105,7 +105,7 @@
       "Browsers": {
         "BasePortNumber": 48887,
         "MaxInstances": 5,
-        "MaxLifetimeSec": 1800,
+        "MaxLifetimeSec": 1800
       }
     },
     "CommandFormEndpoint": "/sample/cmd",

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/browserp"
 	"github.com/HouzuoGuo/laitos/daemon/common"
@@ -11,7 +12,7 @@ import (
 )
 
 const (
-	HandleBrowserPhantomJSPage = `<!doctype html>
+	HandleBrowserPage = `<!doctype html>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -29,6 +30,7 @@ const (
 <form action="#" method="post">
     <input type="hidden" name="instance_index" value="%d"/>
     <input type="hidden" name="instance_tag" value="%s"/>
+    <p>%s</p>
     <table>
         <tr>
             <th>Debug</th>
@@ -88,15 +90,21 @@ func (remoteBrowser *HandleBrowserPhantomJS) Initialise(misc.Logger, *common.Com
 
 func (remoteBrowser *HandleBrowserPhantomJS) RenderPage(title string,
 	instanceIndex int, instanceTag string,
-	debugOut string,
+	lastErr error, debugOut string,
 	viewWidth, viewHeight int,
 	userAgent, pageUrl string,
 	pointerX, pointerY int,
 	typeText string) []byte {
-	return []byte(fmt.Sprintf(HandleBrowserPhantomJSPage,
+	var errStr string
+	if lastErr == nil {
+		errStr = ""
+	} else {
+		errStr = lastErr.Error()
+	}
+	return []byte(fmt.Sprintf(HandleBrowserPage,
 		title,
 		instanceIndex, instanceTag,
-		debugOut,
+		errStr, debugOut,
 		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight),
 		userAgent, pageUrl,
 		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
@@ -133,7 +141,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 		w.Write(remoteBrowser.RenderPage(
 			"Empty Browser",
 			index, instance.Tag,
-			instance.GetDebugOutput(),
+			nil, instance.GetDebugOutput(),
 			800, 800, browserp.GoodUserAgent,
 			"https://www.google.com",
 			0, 0,
@@ -151,79 +159,50 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 			w.Write(remoteBrowser.RenderPage(
 				"Empty Browser",
 				index, instance.Tag,
-				instance.GetDebugOutput(),
+				nil, instance.GetDebugOutput(),
 				800, 800, browserp.GoodUserAgent,
 				"https://www.google.com",
 				0, 0,
 				""))
 			return
 		}
-		// Process action on the retrieved browser instance
+		var actionErr error
 		switch r.FormValue("action") {
 		case "Redraw":
-			// There is no javascript action required here
+			// There is no browser interaction involved, every page refresh automatically renders the latest screen.
 		case "Kill All":
 			remoteBrowser.Browsers.KillAll()
+			actionErr = errors.New(fmt.Sprint("All browser sessions are gone. Please nagivate back to this browser page by re-entering the URL, do not refresh the page."))
 		case "Back":
-			if err := instance.GoBack(); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.GoBack()
 		case "Forward":
-			if err := instance.GoForward(); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.GoForward()
 		case "Reload":
-			if err := instance.Reload(); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.Reload()
 		case "Go To":
-			if err := instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight)
 		case "Left Click":
-			if err := instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonLeft, pointerX, pointerY); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonLeft, pointerX, pointerY)
 		case "Right Click":
-			if err := instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonRight, pointerX, pointerY); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonRight, pointerX, pointerY)
 		case "Move To":
-			if err := instance.Pointer(browserp.PointerTypeMove, browserp.PointerButtonLeft, pointerX, pointerY); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.Pointer(browserp.PointerTypeMove, browserp.PointerButtonLeft, pointerX, pointerY)
 		case "Backspace":
-			if err := instance.SendKey("", browserp.KeyCodeBackspace); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.SendKey("", browserp.KeyCodeBackspace)
 		case "Enter":
-			if err := instance.SendKey("", browserp.KeyCodeEnter); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.SendKey("", browserp.KeyCodeEnter)
 		case "Type":
-			if err := instance.SendKey(typeText, 0); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			actionErr = instance.SendKey(typeText, 0)
 		}
-		pageInfo, err := instance.GetPageInfo()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		// Display action error, or page info error if there is any.
+		pageInfo, pageInfoErr := instance.GetPageInfo()
+		if actionErr == nil {
+			actionErr = pageInfoErr
 		}
 		w.Write(remoteBrowser.RenderPage(
 			pageInfo.Title,
 			index, instance.Tag,
-			instance.GetDebugOutput(),
+			actionErr, instance.GetDebugOutput(),
 			viewWidth, viewHeight,
 			userAgent, pageInfo.URL,
 			pointerX, pointerY,

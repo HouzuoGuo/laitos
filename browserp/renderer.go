@@ -162,8 +162,6 @@ const (
             ret = b_pointer(req.post);
         } else if (req.url === '/type') {
             // curl -X POST --data 'key_string=test123' 'localhost:12345/type'
-            // (16777221 is enter key)
-            // curl -X POST --data 'key_code=16777221' 'localhost:12345/type'
             ret = b_type(req.post);
         } else if (req.url === '/lo_reset') {
             // curl -X POST 'localhost:12345/lo_reset'
@@ -462,7 +460,7 @@ const (
 }` // Template javascript code that runs on headless browser server
 
 	// GoodUserAgent is the recommended user agent string for rendering all pages
-	GoodUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36"
+	GoodUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:58.0) Gecko/20100101 Firefox/58.0"
 )
 
 var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
@@ -669,10 +667,10 @@ func (instance *Instance) GoTo(userAgent, pageURL string, width, height int) err
 }
 
 const (
-	PointerTypeClick   = "click" // PointerTypeClick is the phantomJS mouse action for clicking.
-	PointerTypeMove    = "move"  // PointerTypeClick is the phantomJS mouse action for moving pointer.
-	PointerButtonLeft  = "left"  // PointerTypeClick is the phantomJS left mouse button.
-	PointerButtonRight = "right" // PointerTypeClick is the phantomJS right mouse button.
+	PointerTypeClick   = "click"     // PointerTypeClick is the phantomJS mouse action for clicking.
+	PointerTypeMove    = "mousemove" // PointerTypeClick is the phantomJS mouse action for moving pointer.
+	PointerButtonLeft  = "left"      // PointerTypeClick is the phantomJS left mouse button.
+	PointerButtonRight = "right"     // PointerTypeClick is the phantomJS right mouse button.
 )
 
 // Pointer sends pointer to move/click at a coordinate.
@@ -686,8 +684,10 @@ func (instance *Instance) Pointer(actionType, button string, x, y int) error {
 }
 
 const (
-	KeyCodeBackspace = 16777219 // KeyCodeBackspace is the phantomJS keyboard key code for backspace key.
-	KeyCodeEnter     = 16777221 // KeyCodeEnter is the phantomJS keyboard key code for Enter key (works better than Return key!)
+	// KeyCodeBackspace is the PhantomJS keyboard key code for the backspace key, identical to SlimerJS.
+	KeyCodeBackspace = 16777219
+	// KeyCodeEnter is the PhantomJS keyboard key code for Enter key. Enter key only works on PhantomJS, and Return key only works on PhantomJS.
+	KeyCodeEnter = 16777221
 )
 
 // SendKey either sends a key string or a key code into the currently focused element on page.
