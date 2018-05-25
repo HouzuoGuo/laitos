@@ -204,15 +204,13 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	// Monitor for time out
 	var timedOut bool
 	timeOutTimer := time.AfterFunc(time.Duration(timeoutSec)*time.Second, func() {
-		// Instead of using Kill() function that only kills one process, use syscall to kill the entire process group.
+		timedOut = true
 		if !KillProcess(proc.Process) {
 			logger.Warning("InvokeProgram", program, nil, "failed to kill after time limit exceeded")
 		}
-		timedOut = true
 	})
 	err = proc.Run()
 	timeOutTimer.Stop()
-
 	if timedOut {
 		err = errors.New("time limit exceeded")
 	}
