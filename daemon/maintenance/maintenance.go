@@ -453,7 +453,10 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// For outgoing HTTPS connections
 		"ca-certificates",
 
-		// Soft and hard dependencies of PhantomJS / SlimerJS
+		// Docker for running SlimerJS
+		"docker", "docker-client", "docker.io",
+
+		// Soft and hard dependencies of PhantomJS
 		"bzip2", "bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dbus", "dejavu-fonts-common",
 		"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "firefox", "font-noto", "fontconfig", "fontconfig-config",
 		"fontpackages-filesystem", "fonts-arphic-ukai", "fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "freetype",
