@@ -591,7 +591,10 @@ func (instance *Instance) Start() error {
 	}
 	if !serverIsReady {
 		instance.Kill()
-		return errors.New("browsers.Instance.Start: port is not listening after multiple attempts")
+		prompt := `browsers.Instance.Start: javascript server is not ready.
+If you are using this browser feature for the first time, it may take a while to prepare and initialise in the background.
+Please try again soon.`
+		return errors.New(fmt.Sprint(prompt))
 	}
 	return nil
 }

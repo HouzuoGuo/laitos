@@ -543,7 +543,7 @@ func (instance *Instance) Start() error {
 	}
 	if !portIsOpen {
 		instance.Kill()
-		return errors.New("browserp.Instance.Start: port is not listening after multiple attempts")
+		return errors.New("browserp.Instance.Start: javascript server is not ready")
 	}
 	return nil
 }

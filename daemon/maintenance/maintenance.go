@@ -17,6 +17,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -348,6 +349,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 
 	daemon.BlockUnusedLogin(out)
 	daemon.MaintainServices(out)
+	daemon.PrepareDockerRepositoryForDebian(out)
 	daemon.UpgradeInstallSoftware(out)
 	daemon.SynchroniseSystemClock(out)
 
@@ -368,6 +370,44 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 			daemon.logPrintStageStep(out, "enable&start %s: success? %v", name, misc.EnableStartDaemon(name))
 		}
 	}
+}
+
+/*
+PrepareDockerRepositorForDebian prepares APT repository for installing debian, because debian does not distribute
+docker in their repository for whatever reason. If the system is not a debian the function will do nothing.
+*/
+func (daemon *Daemon) PrepareDockerRepositoryForDebian(out *bytes.Buffer) {
+	daemon.logPrintStage(out, "prepare docker repository for debian")
+	content, err := ioutil.ReadFile("/etc/os-release")
+	if err != nil {
+		daemon.logPrintStageStep(out, "failed to read os-release, this is not a critical error.")
+		return
+	} else if !strings.Contains(strings.ToLower(string(content)), "debian") {
+		daemon.logPrintStageStep(out, "system is not a debian, just FYI.")
+		return
+	}
+	// Install docker's GPG key
+	resp, err := inet.DoHTTP(inet.HTTPRequest{}, "https://download.docker.com/linux/debian/gpg")
+	if err != nil {
+		daemon.logPrintStageStep(out, "failed to download docker GPG key - %v", err)
+		return
+	}
+	gpgKeyFile := "/tmp/laitos-docker-gpg-key"
+	if err := ioutil.WriteFile(gpgKeyFile, resp.Body, 0600); err != nil {
+		daemon.logPrintStageStep(out, "failed to store docker GPG key - %v", err)
+		return
+	}
+	aptOut, err := misc.InvokeProgram(nil, 10, "apt-key", "add", gpgKeyFile)
+	daemon.logPrintStageStep(out, "install docker GPG key - %v %s", err, aptOut)
+	// Add docker community edition repository
+	lsbOut, err := misc.InvokeProgram(nil, 10, "lsb_release", "-cs")
+	daemon.logPrintStageStep(out, "determine release name - %v %s", err, lsbOut)
+	if err != nil {
+		daemon.logPrintStageStep(out, "failed to determine release name")
+		return
+	}
+	aptOut, err = misc.InvokeProgram(nil, 10, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(string(lsbOut))))
+	daemon.logPrintStageStep(out, "enable docker repository - %v %s", err, aptOut)
 }
 
 /*
@@ -451,8 +491,10 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// For outgoing HTTPS connections
 		"ca-certificates",
 
+		// Utilities for APT maintenance that also help with installer docker community edition on Debian
+		"apt-transport-https", "gnupg", "software-properties-common",
 		// Docker for running SlimerJS
-		"docker", "docker-client", "docker.io",
+		"docker", "docker-client", "docker.io", "docker-ce",
 
 		// Soft and hard dependencies of PhantomJS
 		"bzip2", "bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dbus", "dejavu-fonts-common",
