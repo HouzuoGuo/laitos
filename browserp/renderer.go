@@ -21,8 +21,7 @@ import (
 )
 
 const (
-	// Be aware that JSCodeTemplate is _not_ identical to the version used in SlimerJS!
-
+	// JSCodeTemplate is not identical to the version used in SlimerJS.
 	JSCodeTemplate = `try {
     var browser; // the browser page instance after very first URL is visited
 

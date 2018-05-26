@@ -20,7 +20,11 @@ import (
 )
 
 const (
-	// Be aware that JSCodeTemplate is _not_ identical to the version used in PhantomJS!
+	/*
+		SecureTempFileDirectory is a directory location for storing temporary laitos files. Because it needs to be
+		shared with containers, it must not be located in potentially private location such as /tmp.
+	*/
+	SecureTempFileDirectory = "/root/laitos-browsers-tmp"
 
 	/*
 		RenderFilePathSuffix is the suffix path pointing to a file called "render.jpg" underneath the directory in which
@@ -28,6 +32,7 @@ const (
 	*/
 	RenderFilePathSuffix = "/render.jpg"
 
+	// JSCodeTemplate is not identical to the version used in PhantomJS.
 	JSCodeTemplate = `try {
     var browser; // the browser page instance after very first URL is visited
 
@@ -492,13 +497,20 @@ func (instance *Instance) Start() error {
 		ComponentName: "browsers.Instance",
 		ComponentID:   []misc.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
 	}
-	// Store server javascript into a temporary file
+	/*
+		Prepare temporary server code and screenshot location for SlimerJS container.
+		Be aware that a location underneath /tmp might be private to laitos and will not be visible to container.
+	*/
 	var err error
-	instance.serverJSFile, err = os.OpenFile(path.Join(os.TempDir(), fmt.Sprintf("laitos-browsers-%d.js", time.Now().UnixNano())), os.O_CREATE|os.O_WRONLY, 0644)
+	if err := os.MkdirAll(SecureTempFileDirectory, 0700); err != nil {
+		return fmt.Errorf("browsers.Instance.Start: failed to create temporary directory - %v", err)
+	}
+	containerName := fmt.Sprintf("laitos-browsers-%d", time.Now().UnixNano())
+	tmpJSPath := fmt.Sprintf("%s/%s.js", SecureTempFileDirectory, containerName)
+	instance.serverJSFile, err = os.OpenFile(tmpJSPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return fmt.Errorf("browsers.Instance.Start: failed to create temporary file for SlimerJS code - %v", err)
-	}
-	if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImageDir, instance.Port))); err != nil {
+	} else if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImageDir, instance.Port))); err != nil {
 		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)
 	} else if err := instance.serverJSFile.Sync(); err != nil {
 		return fmt.Errorf("browsers.Instance.Start: failed to write SlimerJS server code - %v", err)

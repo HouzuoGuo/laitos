@@ -134,9 +134,12 @@ func TuneLinux() string {
 		"vm.zone_reclaim_mode": "1",
 		"vm.min_free_kbytes":   strconv.Itoa(memSizeKB / 32), // reserve 1MB for every 32MB of system memory
 
+		/*
+			In earlier versions of laitos (< 1.3) IP forwarding used to be disabled right here, however, docker
+			containers do not have Internet connectivity without IP forwarding, and remote browser control based on
+			SlimerJS depends on docker container. Hence, IP forwarding is no longer disabled.
+		*/
 		// Optimise network security
-		"net.ipv4.ip_forward":                   "0",
-		"net.ipv6.ip_forward":                   "0",
 		"net.ipv4.conf.all.mc_forwarding":       "0",
 		"net.ipv6.conf.all.mc_forwarding":       "0",
 		"net.ipv4.conf.all.accept_redirects":    "0",
