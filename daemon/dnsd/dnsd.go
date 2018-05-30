@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"net"
@@ -69,11 +68,8 @@ type Daemon struct {
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
 
-	tcpListener       net.Listener     // Once TCP daemon is started, this is its listener.
-	udpForwardConn    []net.Conn       // UDP connections made toward forwarder
-	udpForwarderQueue []chan *UDPQuery // Processing queues that handle UDP forward queries
-	udpBlackHoleQueue []chan *UDPQuery // Processing queues that handle UDP black-list answers
-	udpListener       *net.UDPConn     // Once UDP daemon is started, this is its listener.
+	tcpListener net.Listener // Once TCP daemon is started, this is its listener.
+	udpListener *net.UDPConn // Once UDP daemon is started, this is its listener.
 
 	/*
 		blackList is a map of domain names (in lower case) and their resolved IP addresses that should be blocked. In
@@ -136,44 +132,6 @@ func (daemon *Daemon) Initialise() error {
 		Logger:   daemon.logger,
 	}
 	daemon.rateLimit.Initialise()
-	/*
-		Create a small number of shallow queues to cover all UDP forwarders. Keep in mind that TCP queries are handled
-		on-demand, hence TCP queries do not involve queueing.
-	*/
-	if daemon.UDPPort > 0 {
-		// The number of UDP queues shall at least cover all UDP forwarders
-		numQueues := daemon.PerIPLimit / NumQueueRatio
-		if numQueues < len(daemon.Forwarders) {
-			numQueues = len(daemon.Forwarders)
-		}
-		daemon.udpForwardConn = make([]net.Conn, 0, numQueues)
-		daemon.udpForwarderQueue = make([]chan *UDPQuery, 0, numQueues)
-		daemon.udpBlackHoleQueue = make([]chan *UDPQuery, 0, numQueues)
-		for i := 0; i < numQueues; i++ {
-			/*
-				Connect queues to forwarders in a round-robin fashion. UDP queries are assigned to randomly chosen
-				queues upon their arrival.
-			*/
-			forwarder := daemon.Forwarders[i%len(daemon.Forwarders)]
-			forwarderAddr, err := net.ResolveUDPAddr("udp", forwarder)
-			if err != nil {
-				daemon.logger.Warning("Initialise", forwarder, err, "failed to resolve forwarder's address")
-				continue
-			}
-			forwarderConn, err := net.DialTimeout("udp", forwarderAddr.String(), ForwarderTimeoutSec*time.Second)
-			if err != nil {
-				daemon.logger.Warning("Initialise", forwarder, err, "failed to dial forwarder's address")
-				continue
-			}
-			daemon.udpForwardConn = append(daemon.udpForwardConn, forwarderConn)
-			// Each queue does not have to be deep, a deeper queue doesn't result in better throughput.
-			daemon.udpForwarderQueue = append(daemon.udpForwarderQueue, make(chan *UDPQuery, 16))
-			daemon.udpBlackHoleQueue = append(daemon.udpBlackHoleQueue, make(chan *UDPQuery, 4))
-		}
-		if len(daemon.udpForwardConn) == 0 {
-			return fmt.Errorf("DNSD.Initialise: does not have a working UDP forwarder")
-		}
-	}
 
 	// Always allow server itself to query the DNS servers via its public IP
 	daemon.allowMyPublicIP()

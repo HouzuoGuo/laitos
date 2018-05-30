@@ -2,7 +2,6 @@ package dnsd
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
@@ -15,54 +14,58 @@ import (
 
 var UDPDurationStats = misc.NewStats() // UDPDurationStats stores statistics of duration of all UDP DNS queries.
 
-// Send forward queries to forwarder and forward the response to my DNS client.
-func (daemon *Daemon) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net.Conn) {
-	forwarderResp := make([]byte, MaxPacketSize)
-	for {
-		query := <-myQueue
-		// Put query duration (including IO time) into statistics
-		beginTimeNano := time.Now().UnixNano()
-		// Set deadline for IO with forwarder
-		forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second))
-		if _, err := forwarderConn.Write(query.QueryPacket); err != nil {
-			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "failed to write to forwarder")
-			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-			continue
+func (daemon *Daemon) handleUDPQuery(queryPacket []byte, client *net.UDPAddr) {
+	// Put query duration (including IO time) into statistics
+	beginTimeNano := time.Now().UnixNano()
+	defer func() {
+		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+	}()
+	clientIP := client.IP.String()
+
+	domainName := ExtractDomainName(queryPacket)
+	if daemon.IsInBlacklist(domainName) {
+		// Formulate a black-hole response
+		daemon.logger.Info("HandleUDPQuery", clientIP, nil, "handle black-listed \"%s\"", domainName)
+		blackHoleAnswer := RespondWith0(queryPacket)
+		daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
+		if _, err := daemon.udpListener.WriteTo(blackHoleAnswer, client); err != nil {
+			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "IO failure")
+			return
 		}
+	} else {
+		// Forward the query for resolution and redirect the response back to client
+		randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
+		if domainName == "" {
+			daemon.logger.Info("HandleUDPQuery", clientIP, nil, "handle non-name query via %s", randForwarder)
+		} else {
+			daemon.logger.Info("HandleUDPQuery", clientIP, nil, "handle query \"%s\" via %s", domainName, randForwarder)
+		}
+		forwarderConn, err := net.DialTimeout("udp", randForwarder, ForwarderTimeoutSec*time.Second)
+		if err != nil {
+			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to dial forwarder's address")
+			return
+		}
+		forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second))
+		if _, err := forwarderConn.Write(queryPacket); err != nil {
+			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to write to forwarder")
+			return
+		}
+		forwarderResp := make([]byte, MaxPacketSize)
 		respLength, err := forwarderConn.Read(forwarderResp)
 		if err != nil {
-			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "failed to read from forwarder")
-			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-			continue
+			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to read from forwarder")
+			return
 		}
 		if respLength < 3 {
-			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "forwarder response is abnormally small")
-			continue
+			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "forwarder response is abnormally small")
+			return
 		}
 		// Set deadline for responding to my DNS client
-		query.MyServer.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
-		if _, err := query.MyServer.WriteTo(forwarderResp[:respLength], query.ClientAddr); err != nil {
-			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "failed to answer to client")
-			UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-			continue
+		daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
+		if _, err := daemon.udpListener.WriteTo(forwarderResp[:respLength], client); err != nil {
+			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to answer to client")
+			return
 		}
-		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}
-}
-
-// Send blackhole answer to my DNS client.
-func (daemon *Daemon) HandleBlackHoleAnswer(myQueue chan *UDPQuery) {
-	for {
-		query := <-myQueue
-		// Put query duration (including IO time) into statistics
-		beginTimeNano := time.Now().UnixNano()
-		// Set deadline for responding to my DNS client
-		blackHoleAnswer := RespondWith0(query.QueryPacket)
-		query.MyServer.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
-		if _, err := query.MyServer.WriteTo(blackHoleAnswer, query.ClientAddr); err != nil {
-			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "IO failure")
-		}
-		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}
 }
 
@@ -83,13 +86,6 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 	defer udpServer.Close()
 	daemon.udpListener = udpServer
 	daemon.logger.Info("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
-	// Start queues that will respond to DNS clients
-	for i, queue := range daemon.udpForwarderQueue {
-		go daemon.HandleUDPQueries(queue, daemon.udpForwardConn[i])
-	}
-	for _, queue := range daemon.udpBlackHoleQueue {
-		go daemon.HandleBlackHoleAnswer(queue)
-	}
 	// Dispatch queries to forwarder queues
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
@@ -116,40 +112,9 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 			daemon.logger.Warning("UDPLoop", clientIP, nil, "received packet is abnormally small")
 			continue
 		}
-		// Prepare parameters for forwarding the query
-		randForwarder := rand.Intn(len(daemon.udpForwarderQueue))
-		forwardPacket := make([]byte, packetLength)
-		copy(forwardPacket, packetBuf[:packetLength])
-		domainName := ExtractDomainName(forwardPacket)
-		if domainName == "" {
-			// If I cannot figure out what domain is from the query, simply forward it without much concern.
-			daemon.logger.Info(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
-				"handle non-name query (backlog %d)", len(daemon.udpForwarderQueue[randForwarder]))
-			daemon.udpForwarderQueue[randForwarder] <- &UDPQuery{
-				ClientAddr:  clientAddr,
-				MyServer:    udpServer,
-				QueryPacket: forwardPacket,
-			}
-		} else if daemon.IsInBlacklist(domainName) {
-			// Requested domain name is black-listed
-			randBlackListResponder := rand.Intn(len(daemon.udpBlackHoleQueue))
-			daemon.logger.Info(fmt.Sprintf("UDP-%d", randBlackListResponder), clientIP, nil,
-				"handle black-listed domain \"%s\" (backlog %d)", domainName, len(daemon.udpBlackHoleQueue[randBlackListResponder]))
-			daemon.udpBlackHoleQueue[randBlackListResponder] <- &UDPQuery{
-				ClientAddr:  clientAddr,
-				MyServer:    udpServer,
-				QueryPacket: forwardPacket,
-			}
-		} else {
-			// This is a normal domain name query and not black-listed
-			daemon.logger.Info(fmt.Sprintf("UDP-%d", randForwarder), clientIP, nil,
-				"handle domain \"%s\" in TX ID %s (backlog %d)", domainName, hex.EncodeToString(forwardPacket[:2]), len(daemon.udpForwarderQueue[randForwarder]))
-			daemon.udpForwarderQueue[randForwarder] <- &UDPQuery{
-				ClientAddr:  clientAddr,
-				MyServer:    udpServer,
-				QueryPacket: forwardPacket,
-			}
-		}
+		queryPacket := make([]byte, packetLength)
+		copy(queryPacket, packetBuf[:packetLength])
+		go daemon.handleUDPQuery(queryPacket, clientAddr)
 	}
 }
 
@@ -177,6 +142,7 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 	}
 	packetBuf := make([]byte, MaxPacketSize)
 	// Try to reach rate limit - assume rate limit is 10
+	dnsd.blackList = map[string]struct{}{}
 	var success int
 	for i := 0; i < 40; i++ {
 		go func() {
