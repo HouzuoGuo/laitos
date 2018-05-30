@@ -110,9 +110,6 @@ func (daemon *Daemon) HandleTCPQuery(clientConn net.Conn) {
 			return
 		}
 	}
-	// Match response TX ID with the one from original query
-	forwarderResp[0] = queryBuf[0]
-	forwarderResp[1] = queryBuf[1]
 	// Send response to my client
 	if _, err = clientConn.Write(forwardRespLenBuf); err != nil {
 		daemon.logger.Warning("HandleTCPQuery", clientIP, err, "failed to answer length to client")

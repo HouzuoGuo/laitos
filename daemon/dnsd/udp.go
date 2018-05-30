@@ -39,9 +39,6 @@ func (daemon *Daemon) HandleUDPQueries(myQueue chan *UDPQuery, forwarderConn net
 			daemon.logger.Warning("HandleUDPQueries", query.ClientAddr.String(), err, "forwarder response is abnormally small")
 			continue
 		}
-		// Match response TX ID with the one from original query
-		forwarderResp[0] = query.QueryPacket[0]
-		forwarderResp[1] = query.QueryPacket[1]
 		// Set deadline for responding to my DNS client
 		query.MyServer.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
 		if _, err := query.MyServer.WriteTo(forwarderResp[:respLength], query.ClientAddr); err != nil {
