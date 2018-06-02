@@ -142,6 +142,8 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 			t.Fatal(err)
 		}
 	}()
+	// Expect HTTP server to start in a second
+	time.Sleep(1 * time.Second)
 	// Start the daemon and let it do the unlocking work
 	/*
 		Usually, the daemon configuration is made by the caller of this function, however, in this case it is not
@@ -158,8 +160,8 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 		}
 		stopped = true
 	}()
-	// Expect the daemon loop to unlock the server in a second
-	time.Sleep(1 * time.Second)
+	// Expect the daemon loop to unlock the server in couple of seconds
+	time.Sleep(2 * time.Second)
 	if !unlocked {
 		t.Fatal("did not unlock")
 	}

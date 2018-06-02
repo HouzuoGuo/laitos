@@ -5,34 +5,18 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/inet"
-	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestHTTPD_StartAndBlock(t *testing.T) {
-	// Create a temporary file for index
-	indexFile := "/tmp/test-laitos-index.html"
-	if err := ioutil.WriteFile(indexFile, []byte("this is index #LAITOS_CLIENTADDR #LAITOS_3339TIME"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	// Create a temporary directory of file
-	htmlDir := "/tmp/test-laitos-dir"
-	if err := os.MkdirAll(htmlDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(htmlDir)
-	if err := ioutil.WriteFile(htmlDir+"/a.html", []byte("a html"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
+	PrepareForTestHTTPD(t)
 	daemon := Daemon{
 		Processor:        nil,
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir", "dir": "/tmp/test-laitos-dir"},
 		HandlerCollection: map[string]handler.Handler{
-			"/": &handler.HandleHTMLDocument{HTMLFilePath: indexFile},
+			"/": &handler.HandleHTMLDocument{HTMLFilePath: "/tmp/test-laitos-index.html"},
 		},
 	}
 	// Must not initialise if command processor is not sane
@@ -61,7 +45,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.HandlerCollection["/info"] = &handler.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
 	daemon.HandlerCollection["/cmd_form"] = &handler.HandleCommandForm{}
 	daemon.HandlerCollection["/gitlab"] = &handler.HandleGitlabBrowser{PrivateToken: "token-does-not-matter-in-this-test"}
-	daemon.HandlerCollection["/html"] = &handler.HandleHTMLDocument{HTMLFilePath: indexFile}
+	daemon.HandlerCollection["/html"] = &handler.HandleHTMLDocument{HTMLFilePath: "/tmp/test-laitos-index.html"}
 	daemon.HandlerCollection["/mail_me"] = &handler.HandleMailMe{
 		Recipients: []string{"howard@localhost"},
 		MailClient: inet.MailClient{

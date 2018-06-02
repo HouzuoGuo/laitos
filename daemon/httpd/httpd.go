@@ -537,8 +537,13 @@ over.]]></Say>`) {
 	}
 }
 
-// PrepareForTestHTTPD sets up a directory and HTML file to be hosted by HTTPD during tests. Returns a tear-down function that removes the created files.
-func PrepareForTestHTTPD(t testingstub.T) func() {
+// PrepareForTestHTTPD sets up a directory and HTML file to be hosted by HTTPD during tests.
+func PrepareForTestHTTPD(t testingstub.T) {
+	// Create a temporary file for index
+	indexFile := "/tmp/test-laitos-index.html"
+	if err := ioutil.WriteFile(indexFile, []byte("this is index #LAITOS_CLIENTADDR #LAITOS_3339TIME"), 0644); err != nil {
+		panic(err)
+	}
 	htmlDir := "/tmp/test-laitos-dir"
 	if err := os.MkdirAll(htmlDir, 0755); err != nil {
 		t.Fatal(err)
@@ -546,16 +551,14 @@ func PrepareForTestHTTPD(t testingstub.T) func() {
 	if err := ioutil.WriteFile(htmlDir+"/a.html", []byte("a html"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	return func() {
-		os.RemoveAll(htmlDir)
-	}
+	/*
+		Unfortunately due to the difficulty in making preparations for concurrent tests on multiple HTTP daemons, there
+		won't be automated clean up for these files.
+	*/
 }
 
 // Run unit test on HTTP daemon. See TestHTTPD_StartAndBlock for daemon setup.
 func TestHTTPD(httpd *Daemon, t testingstub.T) {
-	tearDown := PrepareForTestHTTPD(t)
-	defer tearDown()
-
 	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
 
 	// Directory handle

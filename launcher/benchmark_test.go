@@ -12,8 +12,7 @@ func TestBenchmark(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tearDown := httpd.PrepareForTestHTTPD(t)
-	defer tearDown()
+	httpd.PrepareForTestHTTPD(t)
 
 	// Start benchmark daemons on rather arbitrary ports
 	go func() {
@@ -60,7 +59,8 @@ func TestBenchmark(t *testing.T) {
 		DaemonNames: []string{DNSDName, InsecureHTTPDName, PlainSocketName, SMTPDName, SOCKDName},
 		HTTPPort:    53829,
 	}
+	// Conduct benchmark for 10 seconds
 	bench.RunBenchmarkAndProfiler()
-	time.Sleep(3 * time.Second)
+	time.Sleep(10 * time.Second)
 	bench.Stop = true
 }

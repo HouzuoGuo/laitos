@@ -141,8 +141,13 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 		t.Fatal(err)
 	}
 	packetBuf := make([]byte, MaxPacketSize)
+
+	oldBlacklist := dnsd.blackList
+	defer func() {
+		dnsd.blackList = oldBlacklist
+	}()
+
 	// Try to reach rate limit - assume rate limit is 10
-	dnsd.blackList = map[string]struct{}{}
 	var success int
 	for i := 0; i < 40; i++ {
 		go func() {

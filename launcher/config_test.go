@@ -272,12 +272,7 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dnsDaemon := config.GetDNSD()
-	dnsd.TestUDPQueries(dnsDaemon, t)
-	dnsd.TestTCPQueries(dnsDaemon, t)
-
-	maintenance.TestMaintenance(config.GetMaintenance(), t)
-
+	httpd.PrepareForTestHTTPD(t)
 	httpDaemon := config.GetHTTPD()
 	// HTTP daemon is expected to start in two seconds
 	go func() {
@@ -288,6 +283,12 @@ func TestConfig(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	httpd.TestHTTPD(httpDaemon, t)
 	httpd.TestAPIHandlers(httpDaemon, t)
+
+	dnsDaemon := config.GetDNSD()
+	dnsd.TestUDPQueries(dnsDaemon, t)
+	dnsd.TestTCPQueries(dnsDaemon, t)
+
+	maintenance.TestMaintenance(config.GetMaintenance(), t)
 
 	mailcmd.TestCommandRunner(config.GetMailCommandRunner(), t)
 

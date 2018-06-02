@@ -167,6 +167,11 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 	}()
 	time.Sleep(2 * time.Second)
 
+	oldBlacklist := dnsd.blackList
+	defer func() {
+		dnsd.blackList = oldBlacklist
+	}()
+
 	packetBuf := make([]byte, MaxPacketSize)
 	// Try to reach rate limit - assume rate limit is 10
 	success := 0
