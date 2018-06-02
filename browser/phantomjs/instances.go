@@ -1,4 +1,4 @@
-package browserp
+package phantomjs
 
 import (
 	"errors"
@@ -28,7 +28,7 @@ type Instances struct {
 // Check configuration and initialise internal states.
 func (instances *Instances) Initialise() error {
 	instances.logger = misc.Logger{
-		ComponentName: "browserp.Instances",
+		ComponentName: "phantomjs.Instances",
 		ComponentID:   []misc.LoggerIDField{{"MaxInst", instances.MaxInstances}, {"MaxLifetime", instances.MaxLifetimeSec}},
 	}
 	if instances.MaxInstances < 1 {
@@ -41,7 +41,7 @@ func (instances *Instances) Initialise() error {
 		instances.PhantomJSExecPath = "phantomjs" // find it among $PATH
 	}
 	if instances.BasePortNumber < 1024 {
-		return errors.New("browserp.Instances.Initialise: BasePortNumber must be greater than 1023")
+		return errors.New("phantomjs.Instances.Initialise: BasePortNumber must be greater than 1023")
 	}
 	if err := instances.TestPhantomJSExecutable(); err != nil {
 		return err
@@ -58,20 +58,20 @@ func (instances *Instances) TestPhantomJSExecutable() error {
 	if _, err := os.Stat(instances.PhantomJSExecPath); err == nil {
 		// If the executable path appears to be a file that is readable, then make sure it has the correct executable permission.
 		if err := os.Chmod(instances.PhantomJSExecPath, 0755); err != nil {
-			return fmt.Errorf("browserp.Instances.Initialise: failed to chmod PhantomJS - %v", err)
+			return fmt.Errorf("phantomjs.Instances.Initialise: failed to chmod PhantomJS - %v", err)
 		}
 	} else if strings.ContainsRune(instances.PhantomJSExecPath, '/') {
 		/*
 			If the executable path looks like a file path (i.e., "programs/phantomjs" instead of "phantomjs"), but it
 			cannot be read, then it is a severe configuration error.
 		*/
-		return fmt.Errorf("browserp.Instances.Initialise: cannot find PhantomJS executable \"%s\" - %v", instances.PhantomJSExecPath, err)
+		return fmt.Errorf("phantomjs.Instances.Initialise: cannot find PhantomJS executable \"%s\" - %v", instances.PhantomJSExecPath, err)
 	} else if _, err := exec.LookPath(instances.PhantomJSExecPath); err != nil {
 		/*
 			If the executable path does not look like a file path and looks like a command name instead, make sure it
 			can be found among $PATH.
 		*/
-		return fmt.Errorf("browserp.Instances.Initialise: cannot find PhantomJS executable among $PATH \"%s\" - %v", instances.PhantomJSExecPath, err)
+		return fmt.Errorf("phantomjs.Instances.Initialise: cannot find PhantomJS executable among $PATH \"%s\" - %v", instances.PhantomJSExecPath, err)
 	}
 	return nil
 }

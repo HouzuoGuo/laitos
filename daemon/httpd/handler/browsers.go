@@ -3,8 +3,8 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browserp"
-	"github.com/HouzuoGuo/laitos/browsers"
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
+	"github.com/HouzuoGuo/laitos/browser/slimerjs"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
@@ -15,7 +15,7 @@ import (
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowserSlimerJS struct {
 	ImageEndpoint string             `json:"-"`
-	Browsers      browsers.Instances `json:"Browsers"`
+	Browsers      slimerjs.Instances `json:"Browsers"`
 }
 
 func (remoteBrowser *HandleBrowserSlimerJS) Initialise(misc.Logger, *common.CommandProcessor) error {
@@ -76,7 +76,7 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 			"Empty Browser",
 			index, instance.Tag,
 			nil, instance.GetDebugOutput(),
-			800, 800, browserp.GoodUserAgent,
+			800, 800, phantomjs.GoodUserAgent,
 			"https://www.google.com",
 			0, 0,
 			""))
@@ -94,7 +94,7 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 				"Empty Browser",
 				index, instance.Tag,
 				nil, instance.GetDebugOutput(),
-				800, 800, browserp.GoodUserAgent,
+				800, 800, phantomjs.GoodUserAgent,
 				"https://www.google.com",
 				0, 0,
 				""))
@@ -116,15 +116,15 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 		case "Go To":
 			actionErr = instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight)
 		case "Left Click":
-			actionErr = instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonLeft, pointerX, pointerY)
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonLeft, pointerX, pointerY)
 		case "Right Click":
-			actionErr = instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonRight, pointerX, pointerY)
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonRight, pointerX, pointerY)
 		case "Move To":
-			actionErr = instance.Pointer(browserp.PointerTypeMove, browserp.PointerButtonLeft, pointerX, pointerY)
+			actionErr = instance.Pointer(phantomjs.PointerTypeMove, phantomjs.PointerButtonLeft, pointerX, pointerY)
 		case "Backspace":
-			actionErr = instance.SendKey("", browsers.KeyCodeBackspace)
+			actionErr = instance.SendKey("", slimerjs.KeyCodeBackspace)
 		case "Enter":
-			actionErr = instance.SendKey("", browsers.KeyCodeEnter)
+			actionErr = instance.SendKey("", slimerjs.KeyCodeEnter)
 		case "Type":
 			actionErr = instance.SendKey(typeText, 0)
 		}
@@ -153,7 +153,7 @@ func (_ *HandleBrowserSlimerJS) SelfTest() error {
 }
 
 type HandleBrowserSlimerJSImage struct {
-	Browsers *browsers.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
+	Browsers *slimerjs.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
 func (_ *HandleBrowserSlimerJSImage) Initialise(misc.Logger, *common.CommandProcessor) error {

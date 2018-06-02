@@ -1,4 +1,4 @@
-package browserp
+package slimerjs
 
 import (
 	"encoding/json"
@@ -7,12 +7,10 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
-	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,7 +19,19 @@ import (
 )
 
 const (
-	// JSCodeTemplate is not identical to the version used in SlimerJS.
+	/*
+		SecureTempFileDirectory is a directory location for storing temporary laitos files. Because it needs to be
+		shared with containers, it must not be located in potentially private location such as /tmp.
+	*/
+	SecureTempFileDirectory = "/root/laitos-slimerjs-tmp"
+
+	/*
+		RenderFilePathSuffix is the suffix path pointing to a file called "render.jpg" underneath the directory in which
+		SlimerJS is told to place page screenshot.
+	*/
+	RenderFilePathSuffix = "/render.jpg"
+
+	// JSCodeTemplate is not identical to the version used in PhantomJS.
 	JSCodeTemplate = `try {
     var browser; // the browser page instance after very first URL is visited
 
@@ -32,7 +42,7 @@ const (
         if (!browser) {
             return false;
         }
-        browser.render('%s', {format: 'jpeg', onlyViewPort: true});
+        browser.render('%s/render.jpg', {format: 'jpeg', onlyViewPort: true});
         return true;
     };
 
@@ -134,7 +144,8 @@ const (
     };
 
     // Run a web server that receives commands from HTTP clients.
-    var server = require('webserver').create().listen('127.0.0.1:%d', function (req, resp) {
+    // In contrast to PhantomJS's version, this web server listens on all network interfaces, so that it will be reachable via docker port mapping.
+    var server = require('webserver').create().listen('0.0.0.0:%d', function (req, resp) {
         resp.statusCode = 200;
         resp.headers = {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -200,16 +211,13 @@ const (
     };
 
     // Return a string-encoded function body that store 4 element parameters into window object.
-    var elem_info_to_stmt = function (elem_info) {
-        return "function(){" +
-            "window.laitos_pjs_tag = " + quote_str(elem_info === null ? '' : elem_info['tag']) + ";" +
+	var elem_info_to_stmt = function (elem_info) {
+        return "window.laitos_pjs_tag = " + quote_str(elem_info === null ? '' : elem_info['tag']) + ";" +
             "window.laitos_pjs_id  = " + quote_str(elem_info === null ? '' : elem_info['id']) + ";" +
             "window.laitos_pjs_name = " + quote_str(elem_info === null ? '' : elem_info['name']) + ";" +
             "window.laitos_pjs_inner = " + quote_str(elem_info === null ? '' : elem_info['inner']) + ";" +
-            "window.laitos_pjs_stop_at_first = " + (elem_info === null ? 'true' : 'false') + ";" +
-            "}";
+            "window.laitos_pjs_stop_at_first = " + (elem_info === null ? 'true' : 'false') + ";";
     };
-
     // Install several functions that help line-oriented browsing into window object.
     var lo_install_func = function () {
 		window.laitos_pjs_tag = null;
@@ -387,7 +395,7 @@ const (
             b_lo_next();
         }
         browser.evaluateJavaScript(elem_info_to_stmt(exact_info));
-        browser.evaluateJavaScript("function(){window.laitos_pjs_next_n=" + param.n + ";}");
+        browser.evaluateJavaScript("window.laitos_pjs_next_n=" + param.n + ";");
 
         var ret = empty_str_to_null(browser.evaluate(function () {
             return laitos_pjs_find_after(laitos_pjs_tag, laitos_pjs_id, laitos_pjs_name, laitos_pjs_inner, laitos_pjs_next_n);
@@ -437,7 +445,7 @@ const (
             return false;
         }
         browser.evaluate(lo_install_func);
-        browser.evaluateJavaScript("function(){window.laitos_pjs_set_value_to=" + JSON.stringify(param.value) + ";}");
+        browser.evaluateJavaScript("window.laitos_pjs_set_value_to=" + JSON.stringify(param.value) + ";");
 
         // Give the currently focused element a new value.
         return browser.evaluate(function () {
@@ -457,24 +465,21 @@ const (
     }
     console.log(msg);
 }` // Template javascript code that runs on headless browser server
-
-	// GoodUserAgent is the recommended user agent string for rendering all pages
-	GoodUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:58.0) Gecko/20100101 Firefox/58.0"
 )
 
 var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
 
-// Instance is a single headless browser server (PhantomJS) that acts on on commands received via HTTP.
+// Instance is a single headless browser server that acts on on commands received via HTTP.
 type Instance struct {
-	PhantomJSExecPath  string // Absolute or relative path to PhantomJS executable
-	RenderImagePath    string // Place to store rendered web page image
+	RenderImageDir     string // RenderImageTempDir is a temporary directory for storing rendered web page image ("render.jpg").
 	Port               int    // Port number for headless server to listen for commands on
 	AutoKillTimeoutSec int    // Process is unconditionally killed after the time elapses
 	Tag                string // Uniquely identifies this browser server after it is started
 	Index              int    // index is the instance number assigned by renderer lifecycle management.
 
+	containerName string              // containerName is the name of SlimerJS container, once it is started.
 	serverJSFile  *os.File            // serverJSFile stores javascript code for web driver
-	jsDebugOutput *misc.ByteLogWriter // Store standard output and error from PhantomJS executable
+	jsDebugOutput *misc.ByteLogWriter // Store standard output and error from SlimerJS executable
 	jsProcCmd     *exec.Cmd           // Headless server process
 	jsProcMutex   *sync.Mutex         // Protect against concurrent access to server process
 	logger        misc.Logger
@@ -488,23 +493,61 @@ func (instance *Instance) Start() error {
 	instance.jsDebugOutput = misc.NewByteLogWriter(ioutil.Discard, 1024)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
 	instance.logger = misc.Logger{
-		ComponentName: "browserp.Instance",
+		ComponentName: "slimerjs.Instance",
 		ComponentID:   []misc.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
 	}
-	// Store server javascript into a temporary file
+	/*
+		Prepare temporary server code and screenshot location for SlimerJS container.
+		Be aware that a location underneath /tmp might be private to laitos and will not be visible to container.
+	*/
 	var err error
-	instance.serverJSFile, err = os.OpenFile(path.Join(os.TempDir(), fmt.Sprintf("laitos-browserp-%d.js", time.Now().UnixNano())), os.O_CREATE|os.O_WRONLY, 0644)
+	if err := os.MkdirAll(SecureTempFileDirectory, 0700); err != nil {
+		return fmt.Errorf("slimerjs.Instance.Start: failed to create temporary directory - %v", err)
+	}
+	instance.containerName = fmt.Sprintf("laitos-slimerjs-%d", time.Now().UnixNano())
+	tmpJSPath := fmt.Sprintf("%s/%s.js", SecureTempFileDirectory, instance.containerName)
+	instance.serverJSFile, err = os.OpenFile(tmpJSPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
-		return fmt.Errorf("browserp.Instance.Start: failed to create temporary file for PhantomJS code - %v", err)
-	}
-	if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImagePath, instance.Port))); err != nil {
-		return fmt.Errorf("browserp.Instance.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("slimerjs.Instance.Start: failed to create temporary file for SlimerJS code - %v", err)
+	} else if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, instance.RenderImageDir, instance.Port))); err != nil {
+		return fmt.Errorf("slimerjs.Instance.Start: failed to write SlimerJS server code - %v", err)
 	} else if err := instance.serverJSFile.Sync(); err != nil {
-		return fmt.Errorf("browserp.Instance.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("slimerjs.Instance.Start: failed to write SlimerJS server code - %v", err)
 	} else if err := instance.serverJSFile.Close(); err != nil {
-		return fmt.Errorf("browserp.Instance.Start: failed to write PhantomJS server code - %v", err)
+		return fmt.Errorf("slimerjs.Instance.Start: failed to write SlimerJS server code - %v", err)
 	}
-	instance.jsProcCmd = exec.Command(instance.PhantomJSExecPath, "--ssl-protocol=any", "--ignore-ssl-errors=yes", instance.serverJSFile.Name())
+	// Create the render image directory so that slimerjs will be able to write into it
+	if err := os.MkdirAll(instance.RenderImageDir, 0700); err != nil {
+		return err
+	}
+	// Start SlimerJS container
+	dockerArgs := []string{"run",
+		// Keep standard input open
+		"-i",
+		// Attach to container process standard input/output/error
+		"-a", "stdin", "-a", "stdout", "-a", "stderr",
+		// Forward signals to container process
+		"--sig-proxy=true",
+		// expose SlimerJS web server port to docker host
+		"-p", fmt.Sprintf("%d:%d", instance.Port, instance.Port),
+		// let SlimerJS render page screen shot to this location
+		"-v", fmt.Sprintf("%s:%s:rw", instance.RenderImageDir, instance.RenderImageDir),
+		// here is the server javascript file to run
+		"-v", fmt.Sprintf("%s:%s:ro", instance.serverJSFile.Name(), instance.serverJSFile.Name()),
+		// automatically remove container after exiting
+		"--rm",
+		// name the container for killing it later
+		"--name", instance.containerName,
+		// run this docker image
+		SlimerJSImageTag,
+		// run SlimerJS executable with parameters
+		"slimerjs",
+		// allow SlimerJS to browse HTTPS websites
+		"--ssl-protocol=any",
+		instance.serverJSFile.Name(),
+	}
+	instance.logger.Info("Start", "", err, "going to run docker with args %v", dockerArgs)
+	instance.jsProcCmd = exec.Command("docker", dockerArgs...)
 	instance.jsProcCmd.Stdout = instance.jsDebugOutput
 	instance.jsProcCmd.Stderr = instance.jsDebugOutput
 	//instance.jsProcCmd.Stdout = os.Stderr
@@ -518,32 +561,37 @@ func (instance *Instance) Start() error {
 	// Expect server process to remain running for at least a second for a successful start
 	select {
 	case err := <-processErrChan:
-		return fmt.Errorf("browserp.Instance.Start: PhantomJS process failed - %v", err)
+		return fmt.Errorf("slimerjs.Instance.Start: SlimerJS process failed - %v", err)
 	case <-time.After(1 * time.Second):
 	}
 	// Unconditionally kill the server process after a period of time
 	go func() {
 		select {
 		case err := <-processErrChan:
-			instance.logger.Info("Start", "", err, "PhantomJS process has quit")
+			instance.logger.Warning("Start", "", err, "SlimerJS process has quit")
 		case <-time.After(time.Duration(instance.AutoKillTimeoutSec) * time.Second):
 		}
 		instance.Kill()
 	}()
-	// Keep knocking on the server port until it is open
-	var portIsOpen bool
+	/*
+		The port is immediately open, so knocking on it will already succeed. Therefore, send a real HTTP request to
+		determine if javascript server is ready.
+	*/
+	var serverIsReady bool
 	for i := 0; i < 20; i++ {
-		conn, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(instance.Port), 2*time.Second)
-		if err == nil {
-			portIsOpen = true
-			conn.Close()
+		resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, "http://localhost:%s/info", instance.Port)
+		if err == nil && resp.Non2xxToError() == nil {
+			serverIsReady = true
 			break
 		}
 		time.Sleep(1 * time.Second)
 	}
-	if !portIsOpen {
+	if !serverIsReady {
 		instance.Kill()
-		return errors.New("browserp.Instance.Start: javascript server is not ready")
+		prompt := `slimerjs.Instance.Start: javascript server is not ready.
+If you are using this browser feature for the first time, it may take a while to prepare and initialise in the background.
+Please try again soon.`
+		return errors.New(fmt.Sprint(prompt))
 	}
 	return nil
 }
@@ -564,27 +612,40 @@ func (instance *Instance) SendRequest(actionName string, params map[string]inter
 			body[key] = []string{fmt.Sprint(val)}
 		}
 	}
+
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(body.Encode()),
-	}, fmt.Sprintf("http://127.0.0.1:%d/%s", instance.Port, actionName))
+	}, fmt.Sprintf("http://localhost:%d/%s", instance.Port, actionName))
+
+	// Deserialise the response only if everything is all right
 	if err == nil {
-		if resp.StatusCode/200 != 1 {
-			err = fmt.Errorf("browserp.Instance.SendRequest: HTTP failure - %v", string(resp.Body))
-		}
-		if jsonReceiver != nil {
-			if jsonErr := json.Unmarshal(resp.Body, &jsonReceiver); jsonErr != nil {
-				err = fmt.Errorf("browserp.Instance.SendRequest: - %v", jsonErr)
+		if err = resp.Non2xxToError(); err == nil {
+			if jsonReceiver != nil {
+				if jsonErr := json.Unmarshal(resp.Body, &jsonReceiver); jsonErr != nil {
+					err = fmt.Errorf("slimerjs.Instance.SendRequest: - %v", jsonErr)
+				}
 			}
 		}
 	}
-	instance.logger.Info("SendRequest", "", err, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
+
+	// In case of error, avoid logging HTTP output twice in the log entry.
+	if err == nil {
+		instance.logger.Info("SendRequest", "", err, "%s(%s)", actionName, body.Encode())
+	} else {
+		instance.logger.Info("SendRequest", "", nil, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
+	}
 	return
+}
+
+// GetRenderPageFilePath returns the absolute path to web page screenshot.
+func (instance *Instance) GetRenderPageFilePath() string {
+	return instance.RenderImageDir + RenderFilePathSuffix
 }
 
 // Tell browser to render page and wait up to 3 seconds for render to finish.
 func (instance *Instance) RenderPage() error {
-	if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(instance.GetRenderPageFilePath()); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	if err := instance.SendRequest("redraw", nil, nil); err != nil {
@@ -594,7 +655,7 @@ func (instance *Instance) RenderPage() error {
 	var unchanging int
 	for i := 0; i < 60; i++ {
 		// See whether image file is already being written into
-		if info, err := os.Stat(instance.RenderImagePath); err == nil && info.Size() > 0 {
+		if info, err := os.Stat(instance.GetRenderPageFilePath()); err == nil && info.Size() > 0 {
 			if fileSize == info.Size() {
 				unchanging++
 				if unchanging >= 4 {
@@ -609,7 +670,7 @@ func (instance *Instance) RenderPage() error {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return errors.New("browserp.Instance.RenderPage: render is not completed")
+	return errors.New("slimerjs.Instance.RenderPage: render is not completed")
 }
 
 // Kill browser server process and delete rendered web page image.
@@ -617,13 +678,21 @@ func (instance *Instance) Kill() {
 	instance.jsProcMutex.Lock()
 	defer instance.jsProcMutex.Unlock()
 	if instance.jsProcCmd != nil {
+		// Kill the docker client
 		instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
 		if !misc.KillProcess(instance.jsProcCmd.Process) {
 			instance.logger.Warning("Kill", "", nil, "failed to kill process")
 		}
 		instance.jsProcCmd = nil
-		if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {
-			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
+		// Kill SlimerJS container
+		instance.logger.Info("Kill", "", nil, "killing container %s", instance.containerName)
+		if out, err := misc.InvokeProgram(nil, 10, "docker", "kill", instance.containerName); err != nil {
+			instance.logger.Warning("Kill", "", nil, "failed to kill container - %v %s", err, out)
+		}
+		instance.containerName = ""
+		// Clean up after temprary files and directories
+		if err := os.RemoveAll(instance.RenderImageDir); err != nil && !os.IsNotExist(err) {
+			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImageDir)
 		}
 		if err := os.Remove(instance.serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
 			instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", instance.serverJSFile.Name())
@@ -665,13 +734,6 @@ func (instance *Instance) GoTo(userAgent, pageURL string, width, height int) err
 	return nil
 }
 
-const (
-	PointerTypeClick   = "click"     // PointerTypeClick is the phantomJS mouse action for clicking.
-	PointerTypeMove    = "mousemove" // PointerTypeClick is the phantomJS mouse action for moving pointer.
-	PointerButtonLeft  = "left"      // PointerTypeClick is the phantomJS left mouse button.
-	PointerButtonRight = "right"     // PointerTypeClick is the phantomJS right mouse button.
-)
-
 // Pointer sends pointer to move/click at a coordinate.
 func (instance *Instance) Pointer(actionType, button string, x, y int) error {
 	return instance.SendRequest("pointer", map[string]interface{}{
@@ -683,10 +745,10 @@ func (instance *Instance) Pointer(actionType, button string, x, y int) error {
 }
 
 const (
-	// KeyCodeBackspace is the PhantomJS keyboard key code for the backspace key, identical to SlimerJS.
+	// KeyCodeBackspace is the SlimerJS keyboard key code for the backspace key, identical to PhantomJS.
 	KeyCodeBackspace = 16777219
-	// KeyCodeEnter is the PhantomJS keyboard key code for Enter key. Enter key only works on PhantomJS, and Return key only works on PhantomJS.
-	KeyCodeEnter = 16777221
+	// KeyCodeEnter is the SlimerJS keyboard key code for Return key. Return key only works on SlimerJS, and Enter key only works on PhantomJS.
+	KeyCodeEnter = 16777220
 )
 
 // SendKey either sends a key string or a key code into the currently focused element on page.

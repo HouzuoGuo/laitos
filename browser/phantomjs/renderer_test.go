@@ -1,4 +1,4 @@
-package browserp
+package phantomjs
 
 import (
 	"github.com/HouzuoGuo/laitos/misc"
@@ -18,7 +18,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	misc.PrepareUtilities(misc.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
-	renderOutput, err := ioutil.TempFile("", "laitos-TestInteractiveBrowser-browserp")
+	renderOutput, err := ioutil.TempFile("", "laitos-TestInteractiveBrowser-phantomjs")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 	misc.PrepareUtilities(misc.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
-	renderOutput, err := ioutil.TempFile("", "laitos-TestLineOrientedBrowser-browserp")
+	renderOutput, err := ioutil.TempFile("", "laitos-TestLineOrientedBrowser-phantomjs")
 	if err != nil {
 		t.Fatal(err)
 	}

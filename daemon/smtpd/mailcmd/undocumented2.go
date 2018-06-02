@@ -3,7 +3,7 @@ package mailcmd
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browserp"
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"net/http"
@@ -66,7 +66,7 @@ func (und *Undocumented2) SendMessage(message string) error {
 			"tlength": {strconv.Itoa(tlength)},
 		}.Encode()),
 		RequestFunc: func(req *http.Request) error {
-			req.Header.Set("User-Agent", browserp.GoodUserAgent)
+			req.Header.Set("User-Agent", phantomjs.GoodUserAgent)
 			return nil
 		},
 	}, und.URL)

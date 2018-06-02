@@ -1,23 +1,30 @@
-package browsers
+package phantomjs
 
 import (
 	"github.com/HouzuoGuo/laitos/misc"
-	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestBrowserInstances(t *testing.T) {
-	if os.Getuid() != 0 {
-		t.Skip("this test involves docker daemon operation, it requires root privilege.")
+	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
+		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
+	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
+	misc.PrepareUtilities(misc.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
 	instances := Instances{}
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "BasePortNumber") {
 		t.Fatal(err)
 	}
-	instances.BasePortNumber = 30167
+	instances.BasePortNumber = 65110
+	instances.PhantomJSExecPath = "this does not exist"
+	if err := instances.Initialise(); !strings.Contains(err.Error(), "cannot find PhantomJS") {
+		t.Fatal(err)
+	}
+	instances.PhantomJSExecPath = "" // automatically find phantomjs among $PATH
 	// Test default settings
 	if err := instances.Initialise(); err != nil || instances.MaxInstances != 5 || instances.MaxLifetimeSec != 1800 {
 		t.Fatalf("%+v %+v", err, instances)
@@ -30,9 +37,6 @@ func TestBrowserInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer instances.KillAll()
-
-	// Prepare docker operation for SlimerJS
-	PrepareDocker(misc.Logger{})
 
 	i0, b0, err := instances.Acquire()
 	if i0 != 0 || b0.Tag == "" || err != nil {

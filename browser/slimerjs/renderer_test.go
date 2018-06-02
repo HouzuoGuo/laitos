@@ -1,7 +1,7 @@
-package browsers
+package slimerjs
 
 import (
-	"github.com/HouzuoGuo/laitos/browserp"
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
@@ -33,7 +33,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	PrepareDocker(misc.Logger{})
 
 	// Browse distrowatch home page
-	if err := instance.GoTo(browserp.GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
+	if err := instance.GoTo(phantomjs.GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
 		t.Fatal(err, instance.GetDebugOutput())
 	}
 	// Expect page to be ready soon
@@ -60,7 +60,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	if err := instance.Reload(); err != nil {
 		t.Fatal(err)
 	}
-	if err := instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonRight, 100, 100); err != nil {
+	if err := instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonRight, 100, 100); err != nil {
 		t.Fatal(err)
 	}
 	// Different from PhantomJS, rapid keyboard control input causes SlimerJS error, hence the delay.
@@ -101,7 +101,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 	// Prepare docker operation for SlimerJS
 	PrepareDocker(misc.Logger{})
 	// Browse distrowatch home page
-	if err := instance.GoTo(browserp.GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
+	if err := instance.GoTo(phantomjs.GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
 		t.Fatal(err, instance.GetDebugOutput())
 	}
 	// Expect page to be ready in a few seconds
@@ -156,7 +156,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 	}
 	delay()
 	// Try pointer and value actions
-	if err := instance.LOPointer(browserp.PointerTypeMove, browserp.PointerButtonLeft); err != nil {
+	if err := instance.LOPointer(phantomjs.PointerTypeMove, phantomjs.PointerButtonLeft); err != nil {
 		t.Fatal(err)
 	}
 	delay()

@@ -1,4 +1,4 @@
-package browsers
+package slimerjs
 
 import (
 	"errors"
@@ -34,7 +34,7 @@ type Instances struct {
 // Check configuration and initialise internal states.
 func (instances *Instances) Initialise() error {
 	instances.logger = misc.Logger{
-		ComponentName: "browsers.Instances",
+		ComponentName: "slimerjs.Instances",
 		ComponentID:   []misc.LoggerIDField{{"MaxInst", instances.MaxInstances}, {"MaxLifetime", instances.MaxLifetimeSec}},
 	}
 	if instances.MaxInstances < 1 {
@@ -44,7 +44,7 @@ func (instances *Instances) Initialise() error {
 		instances.MaxLifetimeSec = 1800 // half hour is quite reasonable
 	}
 	if instances.BasePortNumber < 1024 {
-		return errors.New("browsers.Instances.Initialise: BasePortNumber must be greater than 1023")
+		return errors.New("slimerjs.Instances.Initialise: BasePortNumber must be greater than 1023")
 	}
 
 	instances.browserMutex = new(sync.Mutex)

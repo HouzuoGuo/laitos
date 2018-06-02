@@ -3,8 +3,8 @@ package toolbox
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browserp"
-	"github.com/HouzuoGuo/laitos/browsers"
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
+	"github.com/HouzuoGuo/laitos/browser/slimerjs"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,7 +12,7 @@ import (
 )
 
 // FormatElementInfoArray prints element information into strings.
-func FormatElementInfoArraySlimerJS(elements []browsers.ElementInfo) string {
+func FormatElementInfoArraySlimerJS(elements []slimerjs.ElementInfo) string {
 	if elements == nil || len(elements) == 0 {
 		return "(nothing)"
 	}
@@ -25,8 +25,8 @@ func FormatElementInfoArraySlimerJS(elements []browsers.ElementInfo) string {
 
 // BrowserSlimerJS offers remote control to exactly one SlimerJS page.
 type BrowserSlimerJS struct {
-	Renderers *browsers.Instances `json:"Browsers"` // Instances configure and manage phantomJS processes.
-	renderer  *browsers.Instance  // renderer is the one and only browser instance tied to this feature
+	Renderers *slimerjs.Instances `json:"Browsers"` // Instances configure and manage phantomJS processes.
+	renderer  *slimerjs.Instance  // renderer is the one and only browser instance tied to this feature
 	mutex     *sync.Mutex         // mutex protects renderer from concurrent access.
 }
 
@@ -93,12 +93,12 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 		err = bro.renderer.GoBack()
 	case "p":
 		// Go to previous element
-		var elements []browsers.ElementInfo
+		var elements []slimerjs.ElementInfo
 		elements, err = bro.renderer.LOPreviousElement()
 		output = FormatElementInfoArraySlimerJS(elements)
 	case "n":
 		// Go to next element
-		var elements []browsers.ElementInfo
+		var elements []slimerjs.ElementInfo
 		elements, err = bro.renderer.LONextElement()
 		output = FormatElementInfoArraySlimerJS(elements)
 	case "nn":
@@ -110,7 +110,7 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 		if err != nil {
 			return &Result{Error: errors.New("nn: bad number")}
 		}
-		var elements []browsers.ElementInfo
+		var elements []slimerjs.ElementInfo
 		elements, err = bro.renderer.LONextNElements(n)
 		output = FormatElementInfoArraySlimerJS(elements)
 	case "0":
@@ -130,10 +130,10 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 			return &Result{Error: errors.New("usage g: url")}
 		}
 		// Hard code dimension for now, it does not really matter.
-		err = bro.renderer.GoTo(browserp.GoodUserAgent, params[2], 2560, 1440)
+		err = bro.renderer.GoTo(phantomjs.GoodUserAgent, params[2], 2560, 1440)
 	case "i":
 		// Get page info
-		var info browsers.RemotePageInfo
+		var info slimerjs.RemotePageInfo
 		info, err = bro.renderer.GetPageInfo()
 		output = fmt.Sprintf("%s-%s", info.Title, info.URL)
 	case "ptr":
@@ -162,10 +162,10 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 		err = bro.renderer.SendKey(params[2], 0)
 	case "enter":
 		// Press enter key on currently focused element
-		err = bro.renderer.SendKey("", browsers.KeyCodeEnter)
+		err = bro.renderer.SendKey("", slimerjs.KeyCodeEnter)
 	case "backsp":
 		// Press backspace key on currently focused element
-		err = bro.renderer.SendKey("", browsers.KeyCodeBackspace)
+		err = bro.renderer.SendKey("", slimerjs.KeyCodeBackspace)
 	case "render":
 		// For debugging purpose, render the page screenshot.
 		err = bro.renderer.RenderPage()
@@ -175,7 +175,7 @@ func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
 	// If there is no other output and no error, result is page info (title - URL).
 	if err == nil && output == "" {
 		time.Sleep(1 * time.Second)
-		var info browsers.RemotePageInfo
+		var info slimerjs.RemotePageInfo
 		info, err = bro.renderer.GetPageInfo()
 		output = fmt.Sprintf("%s-%s", info.Title, info.URL)
 		if err != nil {

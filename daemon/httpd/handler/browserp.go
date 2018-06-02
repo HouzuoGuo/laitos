@@ -3,7 +3,7 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browserp"
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
@@ -80,8 +80,8 @@ const (
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowserPhantomJS struct {
-	ImageEndpoint string             `json:"-"`
-	Browsers      browserp.Instances `json:"Browsers"`
+	ImageEndpoint string              `json:"-"`
+	Browsers      phantomjs.Instances `json:"Browsers"`
 }
 
 func (remoteBrowser *HandleBrowserPhantomJS) Initialise(misc.Logger, *common.CommandProcessor) error {
@@ -142,7 +142,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 			"Empty Browser",
 			index, instance.Tag,
 			nil, instance.GetDebugOutput(),
-			800, 800, browserp.GoodUserAgent,
+			800, 800, phantomjs.GoodUserAgent,
 			"https://www.google.com",
 			0, 0,
 			""))
@@ -160,7 +160,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 				"Empty Browser",
 				index, instance.Tag,
 				nil, instance.GetDebugOutput(),
-				800, 800, browserp.GoodUserAgent,
+				800, 800, phantomjs.GoodUserAgent,
 				"https://www.google.com",
 				0, 0,
 				""))
@@ -182,15 +182,15 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 		case "Go To":
 			actionErr = instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight)
 		case "Left Click":
-			actionErr = instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonLeft, pointerX, pointerY)
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonLeft, pointerX, pointerY)
 		case "Right Click":
-			actionErr = instance.Pointer(browserp.PointerTypeClick, browserp.PointerButtonRight, pointerX, pointerY)
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonRight, pointerX, pointerY)
 		case "Move To":
-			actionErr = instance.Pointer(browserp.PointerTypeMove, browserp.PointerButtonLeft, pointerX, pointerY)
+			actionErr = instance.Pointer(phantomjs.PointerTypeMove, phantomjs.PointerButtonLeft, pointerX, pointerY)
 		case "Backspace":
-			actionErr = instance.SendKey("", browserp.KeyCodeBackspace)
+			actionErr = instance.SendKey("", phantomjs.KeyCodeBackspace)
 		case "Enter":
-			actionErr = instance.SendKey("", browserp.KeyCodeEnter)
+			actionErr = instance.SendKey("", phantomjs.KeyCodeEnter)
 		case "Type":
 			actionErr = instance.SendKey(typeText, 0)
 		}
@@ -219,7 +219,7 @@ func (_ *HandleBrowserPhantomJS) SelfTest() error {
 }
 
 type HandleBrowserPhantomJSImage struct {
-	Browsers *browserp.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
+	Browsers *phantomjs.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
 func (_ *HandleBrowserPhantomJSImage) Initialise(misc.Logger, *common.CommandProcessor) error {

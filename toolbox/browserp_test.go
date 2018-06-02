@@ -2,7 +2,7 @@ package toolbox
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browserp"
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"github.com/HouzuoGuo/laitos/misc"
 	"runtime"
 	"strings"
@@ -22,7 +22,7 @@ func TestBrowserPhantomJS_Execute(t *testing.T) {
 	if bro.IsConfigured() {
 		t.Fatal("should not be configured")
 	}
-	bro.Renderers = &browserp.Instances{
+	bro.Renderers = &phantomjs.Instances{
 		MaxLifetimeSec: 300,
 		BasePortNumber: 27584,
 	}

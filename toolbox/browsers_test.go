@@ -2,7 +2,7 @@ package toolbox
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browsers"
+	"github.com/HouzuoGuo/laitos/browser/slimerjs"
 	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"strings"
@@ -17,12 +17,12 @@ func TestBrowserSlimerJS_Execute(t *testing.T) {
 	// CircleCI container cannot operate docker daemon
 	misc.SkipTestIfCI(t)
 	// Prepare docker operation for SlimerJS
-	browsers.PrepareDocker(misc.Logger{})
+	slimerjs.PrepareDocker(misc.Logger{})
 	bro := BrowserSlimerJS{}
 	if bro.IsConfigured() {
 		t.Fatal("should not be configured")
 	}
-	bro.Renderers = &browsers.Instances{
+	bro.Renderers = &slimerjs.Instances{
 		MaxLifetimeSec: 300,
 		BasePortNumber: 42693,
 	}
