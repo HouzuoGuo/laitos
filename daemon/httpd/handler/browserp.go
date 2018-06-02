@@ -34,41 +34,48 @@ const (
     <table>
         <tr>
             <th>Debug</th>
-            <td colspan="5"><textarea rows="5" cols="80">%s</textarea></td>
+            <td colspan="5"><textarea rows="2" cols="60">%s</textarea></td>
         </tr>
         <tr>
-            <th>View</th>
-            <td><input type="submit" name="action" value="Redraw"/></td>
+            <th>Browser</th>
+            <td>Width<input type="text" name="width" value="%s" size="2"/></td>
+            <td>Height<input type="text" name="height" value="%s" size="2"/></td>
+            <td>User Agent: <input type="text" name="user_agent" value="%s" size="6"/></td>
+            <td><input type="submit" name="action" value="Reload"/></td>
             <td><input type="submit" name="action" value="Kill All"/></td>
-            <td>Width: <input type="text" name="view_width" value="%s" size="5"/></td>
-            <td>Height: <input type="text" name="view_height" value="%s" size="5"/></td>
-            <td>User Agent: <input type="text" name="user_agent" value="%s" size="50"/></td>
+		</tr>
+		<tr>
+            <th>Draw</th>
+            <td><input type="submit" name="action" value="Redraw"/></td>
+            <td>Top<input type="text" name="top" value="%s" size="3"/></td>
+            <td>Left<input type="text" name="left" value="%s" size="3"/></td>
+			<td>Width<input type="text" name="draw_width" value="%s" size="3"/></td>
+			<td>Height<input type="text" name="draw_height" value="%s" size="3"/></td>
         </tr>
         <tr>
             <th>Navigation</th>
             <td><input type="submit" name="action" value="Back"/></td>
             <td><input type="submit" name="action" value="Forward"/></td>
-            <td><input type="submit" name="action" value="Reload"/></td>
-            <td colspan="2">
+            <td colspan="3">
                 <input type="submit" name="action" value="Go To"/>
-                <input type="text" name="page_url" value="%s" size="60"/>
+                <input type="text" name="page_url" value="%s" size="30"/>
             </td>
         </tr>
         <tr>
-            <th>Pointer</th>
-            <td><input type="submit" name="action" value="Left Click"/></td>
-            <td><input type="submit" name="action" value="Right Click"/></td>
+            <th>Mouse</th>
+            <td><input type="submit" name="action" value="LClick"/></td>
+            <td><input type="submit" name="action" value="RClick"/></td>
             <td><input type="submit" name="action" value="Move To"/></td>
-            <td>X: <input type="text" id="pointer_x" name="pointer_x" value="%s" size="5"/></td>
-            <td>Y: <input type="text" id="pointer_y" name="pointer_y" value="%s" size="5"/></td>
-        </tr>
-        <tr>
+            <td>X<input type="text" id="pointer_x" name="pointer_x" value="%s" size="2"/></td>
+            <td>Y<input type="text" id="pointer_y" name="pointer_y" value="%s" size="2"/></td>
+		</tr>
+		<tr>
             <th>Keyboard</th>
             <td><input type="submit" name="action" value="Backspace"/></td>
             <td><input type="submit" name="action" value="Enter"/></td>
             <td><input type="submit" name="action" value="Type"/></td>
             <td colspan="2">
-                <input type="text" name="type_text" value="%s"/>
+                <input type="text" name="type_text" value="%s" size="20"/>
             </td>
         </tr>
     </table>
@@ -91,8 +98,9 @@ func (remoteBrowser *HandleBrowserPhantomJS) Initialise(misc.Logger, *common.Com
 func (remoteBrowser *HandleBrowserPhantomJS) RenderPage(title string,
 	instanceIndex int, instanceTag string,
 	lastErr error, debugOut string,
-	viewWidth, viewHeight int,
-	userAgent, pageUrl string,
+	viewWidth, viewHeight int, userAgent string,
+	drawTop, drawLeft, drawWidth, drawHeight int,
+	pageUrl string,
 	pointerX, pointerY int,
 	typeText string) []byte {
 	var errStr string
@@ -105,20 +113,34 @@ func (remoteBrowser *HandleBrowserPhantomJS) RenderPage(title string,
 		title,
 		instanceIndex, instanceTag,
 		errStr, debugOut,
-		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight),
-		userAgent, pageUrl,
+		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight), userAgent,
+		strconv.Itoa(drawTop), strconv.Itoa(drawLeft), strconv.Itoa(drawWidth), strconv.Itoa(drawHeight),
+		pageUrl,
 		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
 		typeText,
 		remoteBrowser.ImageEndpoint, instanceIndex, instanceTag))
 }
 
-func (remoteBrowser *HandleBrowserPhantomJS) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
+func (remoteBrowser *HandleBrowserPhantomJS) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string,
+	viewWidth, viewHeight int, userAgent string,
+	drawTop, drawLeft, drawWidth, drawHeight int,
+	pageUrl string, pointerX, pointerY int, typeText string,
+) {
+
 	instanceIndex, _ = strconv.Atoi(r.FormValue("instance_index"))
 	instanceTag = r.FormValue("instance_tag")
-	viewWidth, _ = strconv.Atoi(r.FormValue("view_width"))
-	viewHeight, _ = strconv.Atoi(r.FormValue("view_height"))
+
+	viewWidth, _ = strconv.Atoi(r.FormValue("width"))
+	viewHeight, _ = strconv.Atoi(r.FormValue("height"))
 	userAgent = r.FormValue("user_agent")
+
+	drawTop, _ = strconv.Atoi(r.FormValue("top"))
+	drawLeft, _ = strconv.Atoi(r.FormValue("left"))
+	drawWidth, _ = strconv.Atoi(r.FormValue("draw_width"))
+	drawHeight, _ = strconv.Atoi(r.FormValue("draw_height"))
+
 	pageUrl = r.FormValue("page_url")
+
 	pointerX, _ = strconv.Atoi(r.FormValue("pointer_x"))
 	pointerY, _ = strconv.Atoi(r.FormValue("pointer_y"))
 	typeText = r.FormValue("type_text")
@@ -143,11 +165,12 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 			index, instance.Tag,
 			nil, instance.GetDebugOutput(),
 			800, 800, phantomjs.GoodUserAgent,
+			0, 0, 800, 800,
 			"https://www.google.com",
 			0, 0,
 			""))
 	} else if r.Method == http.MethodPost {
-		index, tag, viewWidth, viewHeight, userAgent, pageUrl, pointerX, pointerY, typeText := remoteBrowser.parseSubmission(r)
+		index, tag, viewWidth, viewHeight, userAgent, drawTop, drawLeft, drawWidth, drawHeight, pageUrl, pointerX, pointerY, typeText := remoteBrowser.parseSubmission(r)
 		instance := remoteBrowser.Browsers.Retrieve(index, tag)
 		if instance == nil {
 			// Old instance is no longer there, so start a new browser instance
@@ -161,6 +184,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 				index, instance.Tag,
 				nil, instance.GetDebugOutput(),
 				800, 800, phantomjs.GoodUserAgent,
+				drawTop, drawLeft, drawWidth, drawHeight,
 				"https://www.google.com",
 				0, 0,
 				""))
@@ -169,7 +193,8 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 		var actionErr error
 		switch r.FormValue("action") {
 		case "Redraw":
-			// There is no browser interaction involved, every page refresh automatically renders the latest screen.
+			// Set draw region, and the image responded by its own dedicated endpoint will pick it up.
+			actionErr = instance.SetRenderArea(drawTop, drawLeft, drawWidth, drawHeight)
 		case "Kill All":
 			remoteBrowser.Browsers.KillAll()
 			actionErr = errors.New(fmt.Sprint("All browser sessions are gone. Please nagivate back to this browser page by re-entering the URL, do not refresh the page."))
@@ -181,12 +206,12 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 			actionErr = instance.Reload()
 		case "Go To":
 			actionErr = instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight)
-		case "Left Click":
-			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonLeft, pointerX, pointerY)
-		case "Right Click":
-			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonRight, pointerX, pointerY)
+		case "LClick":
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonLeft, pointerX+drawLeft, pointerY+drawTop)
+		case "RClick":
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonRight, pointerX+drawLeft, pointerY+drawTop)
 		case "Move To":
-			actionErr = instance.Pointer(phantomjs.PointerTypeMove, phantomjs.PointerButtonLeft, pointerX, pointerY)
+			actionErr = instance.Pointer(phantomjs.PointerTypeMove, phantomjs.PointerButtonLeft, pointerX+drawLeft, pointerY+drawTop)
 		case "Backspace":
 			actionErr = instance.SendKey("", phantomjs.KeyCodeBackspace)
 		case "Enter":
@@ -203,8 +228,9 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 			pageInfo.Title,
 			index, instance.Tag,
 			actionErr, instance.GetDebugOutput(),
-			viewWidth, viewHeight,
-			userAgent, pageInfo.URL,
+			viewWidth, viewHeight, userAgent,
+			drawTop, drawLeft, drawWidth, drawHeight,
+			pageInfo.URL,
 			pointerX, pointerY,
 			typeText))
 	}

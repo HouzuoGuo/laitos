@@ -32,7 +32,21 @@ const (
         if (!browser) {
             return false;
         }
-        browser.render('%s', {format: 'jpeg', onlyViewPort: true});
+        browser.render('%s', {format: 'jpeg'});
+        return true;
+    };
+
+    // Set screen shot render region.
+    var b_redraw_area = function (param) {
+        if (!browser) {
+            return false;
+        }
+        browser.clipRect = {
+		    top: parseInt(param.top),
+            left: parseInt(param.left),
+			width: parseInt(param.width),
+			height: parseInt(param.height)
+		};
         return true;
     };
 
@@ -144,6 +158,9 @@ const (
         if (req.url === '/redraw') {
             // curl -X POST 'localhost:12345/redraw'
             ret = b_redraw();
+        } else if (req.url === '/redraw_area') {
+            // curl -X POST --data 'top=0&left=0&width=400&height=400' 'localhost:12345/redraw_area'
+            ret = b_redraw_area(req.post);
         } else if (req.url === '/back') {
             ret = b_back();
         } else if (req.url === '/forward') {
@@ -560,26 +577,54 @@ func (instance *Instance) GetDebugOutput() string {
 func (instance *Instance) SendRequest(actionName string, params map[string]interface{}, jsonReceiver interface{}) (err error) {
 	body := url.Values{}
 	if params != nil {
-		for key, val := range params {
-			body[key] = []string{fmt.Sprint(val)}
+		for k, v := range params {
+			body[k] = []string{fmt.Sprint(v)}
 		}
 	}
+	// The web server PhantomJS comes with is implemented in Javascript and does not properly handle URL encoding
+	fixSpaceForBody := strings.Replace(body.Encode(), "+", "%20", -1)
+
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Body:   strings.NewReader(body.Encode()),
+		Body:   strings.NewReader(fixSpaceForBody),
 	}, fmt.Sprintf("http://127.0.0.1:%d/%s", instance.Port, actionName))
+
+	// Deserialise the response only if everything is all right
 	if err == nil {
-		if resp.StatusCode/200 != 1 {
-			err = fmt.Errorf("phantomjs.Instance..SendRequest: HTTP failure - %v", string(resp.Body))
-		}
-		if jsonReceiver != nil {
-			if jsonErr := json.Unmarshal(resp.Body, &jsonReceiver); jsonErr != nil {
-				err = fmt.Errorf("phantomjs.Instance..SendRequest: - %v", jsonErr)
+		if err = resp.Non2xxToError(); err == nil {
+			if jsonReceiver != nil {
+				if jsonErr := json.Unmarshal(resp.Body, &jsonReceiver); jsonErr != nil {
+					err = fmt.Errorf("slimerjs.Instance.SendRequest: - %v", jsonErr)
+				}
 			}
 		}
 	}
-	instance.logger.Info("SendRequest", "", err, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
+
+	// In case of error, avoid logging HTTP output twice in the log entry.
+	if err == nil {
+		instance.logger.Info("SendRequest", "", err, "%s(%s)", actionName, fixSpaceForBody)
+	} else {
+		instance.logger.Info("SendRequest", "", nil, "%s(%s) - %s", actionName, fixSpaceForBody, string(resp.Body))
+	}
 	return
+}
+
+// SetRenderArea sets the rectangular area (within or out of view port) for the next captured page screen shot.
+func (instance *Instance) SetRenderArea(top, left, width, height int) error {
+	// Ensure input parameters are in the valid range
+	if top < 0 {
+		top = 0
+	}
+	if left < 0 {
+		left = 0
+	}
+	if width < 0 {
+		width = 10
+	}
+	if height < 0 {
+		height = 10
+	}
+	return instance.SendRequest("redraw_area", map[string]interface{}{"top": top, "left": left, "width": width, "height": height}, nil)
 }
 
 // Tell browser to render page and wait up to 3 seconds for render to finish.
@@ -609,7 +654,7 @@ func (instance *Instance) RenderPage() error {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return errors.New("phantomjs.Instance..RenderPage: render is not completed")
+	return errors.New("slimerjs.Instance.RenderPage: render is not completed")
 }
 
 // Kill browser server process and delete rendered web page image.

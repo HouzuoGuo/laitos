@@ -38,11 +38,25 @@ const (
     // ============== ACTIONS COMMON TO INTERACTIVE AND LINE-ORIENTED INTERFACE ==========
 
     // Re-render page screenshot.
-    var b_redraw = function () {
+    var b_redraw = function (param) {
         if (!browser) {
             return false;
         }
-        browser.render('%s/render.jpg', {format: 'jpeg', onlyViewPort: true});
+        browser.render('%s/render.jpg', {format: 'jpeg'});
+        return true;
+    };
+
+    // Set screen shot render region.
+    var b_redraw_area = function (param) {
+        if (!browser) {
+            return false;
+        }
+        browser.clipRect = {
+		    top: parseInt(param.top),
+            left: parseInt(param.left),
+			width: parseInt(param.width),
+			height: parseInt(param.height)
+		};
         return true;
     };
 
@@ -155,6 +169,9 @@ const (
         if (req.url === '/redraw') {
             // curl -X POST 'localhost:12345/redraw'
             ret = b_redraw();
+        } else if (req.url === '/redraw_area') {
+            // curl -X POST --data 'top=0&left=0&width=400&height=400' 'localhost:12345/redraw_area'
+            ret = b_redraw_area(req.post);
         } else if (req.url === '/back') {
             ret = b_back();
         } else if (req.url === '/forward') {
@@ -608,14 +625,16 @@ func (instance *Instance) GetDebugOutput() string {
 func (instance *Instance) SendRequest(actionName string, params map[string]interface{}, jsonReceiver interface{}) (err error) {
 	body := url.Values{}
 	if params != nil {
-		for key, val := range params {
-			body[key] = []string{fmt.Sprint(val)}
+		for k, v := range params {
+			body[k] = []string{fmt.Sprint(v)}
 		}
 	}
+	// The web server PhantomJS comes with is implemented in Javascript and does not properly handle URL encoding
+	fixSpaceForBody := strings.Replace(body.Encode(), "+", "%20", -1)
 
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Body:   strings.NewReader(body.Encode()),
+		Body:   strings.NewReader(fixSpaceForBody),
 	}, fmt.Sprintf("http://localhost:%d/%s", instance.Port, actionName))
 
 	// Deserialise the response only if everything is all right
@@ -631,9 +650,9 @@ func (instance *Instance) SendRequest(actionName string, params map[string]inter
 
 	// In case of error, avoid logging HTTP output twice in the log entry.
 	if err == nil {
-		instance.logger.Info("SendRequest", "", err, "%s(%s)", actionName, body.Encode())
+		instance.logger.Info("SendRequest", "", err, "%s(%s)", actionName, fixSpaceForBody)
 	} else {
-		instance.logger.Info("SendRequest", "", nil, "%s(%s) - %s", actionName, body.Encode(), string(resp.Body))
+		instance.logger.Info("SendRequest", "", nil, "%s(%s) - %s", actionName, fixSpaceForBody, string(resp.Body))
 	}
 	return
 }
@@ -641,6 +660,24 @@ func (instance *Instance) SendRequest(actionName string, params map[string]inter
 // GetRenderPageFilePath returns the absolute path to web page screenshot.
 func (instance *Instance) GetRenderPageFilePath() string {
 	return instance.RenderImageDir + RenderFilePathSuffix
+}
+
+// SetRenderArea sets the rectangular area (within or out of view port) for the next captured page screen shot.
+func (instance *Instance) SetRenderArea(top, left, width, height int) error {
+	// Ensure input parameters are in the valid range
+	if top < 0 {
+		top = 0
+	}
+	if left < 0 {
+		left = 0
+	}
+	if width < 0 {
+		width = 10
+	}
+	if height < 0 {
+		height = 10
+	}
+	return instance.SendRequest("redraw_area", map[string]interface{}{"top": top, "left": left, "width": width, "height": height}, nil)
 }
 
 // Tell browser to render page and wait up to 3 seconds for render to finish.
@@ -690,7 +727,7 @@ func (instance *Instance) Kill() {
 			instance.logger.Warning("Kill", "", nil, "failed to kill container - %v %s", err, out)
 		}
 		instance.containerName = ""
-		// Clean up after temprary files and directories
+		// Clean up after temporary files and directories
 		if err := os.RemoveAll(instance.RenderImageDir); err != nil && !os.IsNotExist(err) {
 			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImageDir)
 		}

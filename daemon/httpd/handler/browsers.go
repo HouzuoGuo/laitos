@@ -25,8 +25,9 @@ func (remoteBrowser *HandleBrowserSlimerJS) Initialise(misc.Logger, *common.Comm
 func (remoteBrowser *HandleBrowserSlimerJS) RenderPage(title string,
 	instanceIndex int, instanceTag string,
 	lastErr error, debugOut string,
-	viewWidth, viewHeight int,
-	userAgent, pageUrl string,
+	viewWidth, viewHeight int, userAgent string,
+	drawTop, drawLeft, drawWidth, drawHeight int,
+	pageUrl string,
 	pointerX, pointerY int,
 	typeText string) []byte {
 	var errStr string
@@ -39,20 +40,34 @@ func (remoteBrowser *HandleBrowserSlimerJS) RenderPage(title string,
 		title,
 		instanceIndex, instanceTag,
 		errStr, debugOut,
-		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight),
-		userAgent, pageUrl,
+		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight), userAgent,
+		strconv.Itoa(drawTop), strconv.Itoa(drawLeft), strconv.Itoa(drawWidth), strconv.Itoa(drawHeight),
+		pageUrl,
 		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
 		typeText,
 		remoteBrowser.ImageEndpoint, instanceIndex, instanceTag))
 }
 
-func (remoteBrowser *HandleBrowserSlimerJS) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string, viewWidth, viewHeight int, userAgent, pageUrl string, pointerX, pointerY int, typeText string) {
+func (remoteBrowser *HandleBrowserSlimerJS) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string,
+	viewWidth, viewHeight int, userAgent string,
+	drawTop, drawLeft, drawWidth, drawHeight int,
+	pageUrl string, pointerX, pointerY int, typeText string,
+) {
+
 	instanceIndex, _ = strconv.Atoi(r.FormValue("instance_index"))
 	instanceTag = r.FormValue("instance_tag")
-	viewWidth, _ = strconv.Atoi(r.FormValue("view_width"))
-	viewHeight, _ = strconv.Atoi(r.FormValue("view_height"))
+
+	viewWidth, _ = strconv.Atoi(r.FormValue("width"))
+	viewHeight, _ = strconv.Atoi(r.FormValue("height"))
 	userAgent = r.FormValue("user_agent")
+
+	drawTop, _ = strconv.Atoi(r.FormValue("top"))
+	drawLeft, _ = strconv.Atoi(r.FormValue("left"))
+	drawWidth, _ = strconv.Atoi(r.FormValue("draw_width"))
+	drawHeight, _ = strconv.Atoi(r.FormValue("draw_height"))
+
 	pageUrl = r.FormValue("page_url")
+
 	pointerX, _ = strconv.Atoi(r.FormValue("pointer_x"))
 	pointerY, _ = strconv.Atoi(r.FormValue("pointer_y"))
 	typeText = r.FormValue("type_text")
@@ -77,11 +92,12 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 			index, instance.Tag,
 			nil, instance.GetDebugOutput(),
 			800, 800, phantomjs.GoodUserAgent,
+			0, 0, 800, 800,
 			"https://www.google.com",
 			0, 0,
 			""))
 	} else if r.Method == http.MethodPost {
-		index, tag, viewWidth, viewHeight, userAgent, pageUrl, pointerX, pointerY, typeText := remoteBrowser.parseSubmission(r)
+		index, tag, viewWidth, viewHeight, userAgent, drawTop, drawLeft, drawWidth, drawHeight, pageUrl, pointerX, pointerY, typeText := remoteBrowser.parseSubmission(r)
 		instance := remoteBrowser.Browsers.Retrieve(index, tag)
 		if instance == nil {
 			// Old instance is no longer there, so start a new browser instance
@@ -95,6 +111,7 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 				index, instance.Tag,
 				nil, instance.GetDebugOutput(),
 				800, 800, phantomjs.GoodUserAgent,
+				drawTop, drawLeft, drawWidth, drawHeight,
 				"https://www.google.com",
 				0, 0,
 				""))
@@ -103,7 +120,8 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 		var actionErr error
 		switch r.FormValue("action") {
 		case "Redraw":
-			// There is no browser interaction involved, every page refresh automatically renders the latest screen.
+			// Set draw region, and the image responded by its own dedicated endpoint will pick it up.
+			actionErr = instance.SetRenderArea(drawTop, drawLeft, drawWidth, drawHeight)
 		case "Kill All":
 			remoteBrowser.Browsers.KillAll()
 			actionErr = errors.New(fmt.Sprint("All browser sessions are gone. Please nagivate back to this browser page by re-entering the URL, do not refresh the page."))
@@ -115,12 +133,12 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 			actionErr = instance.Reload()
 		case "Go To":
 			actionErr = instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight)
-		case "Left Click":
-			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonLeft, pointerX, pointerY)
-		case "Right Click":
-			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonRight, pointerX, pointerY)
+		case "LClick":
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonLeft, pointerX+drawLeft, pointerY+drawTop)
+		case "RClick":
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonRight, pointerX+drawLeft, pointerY+drawTop)
 		case "Move To":
-			actionErr = instance.Pointer(phantomjs.PointerTypeMove, phantomjs.PointerButtonLeft, pointerX, pointerY)
+			actionErr = instance.Pointer(phantomjs.PointerTypeMove, phantomjs.PointerButtonLeft, pointerX+drawLeft, pointerY+drawTop)
 		case "Backspace":
 			actionErr = instance.SendKey("", slimerjs.KeyCodeBackspace)
 		case "Enter":
@@ -137,8 +155,9 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 			pageInfo.Title,
 			index, instance.Tag,
 			actionErr, instance.GetDebugOutput(),
-			viewWidth, viewHeight,
-			userAgent, pageInfo.URL,
+			viewWidth, viewHeight, userAgent,
+			drawTop, drawLeft, drawWidth, drawHeight,
+			pageInfo.URL,
 			pointerX, pointerY,
 			typeText))
 	}

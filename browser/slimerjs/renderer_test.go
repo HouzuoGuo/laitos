@@ -38,6 +38,9 @@ func TestInteractiveBrowser(t *testing.T) {
 	}
 	// Expect page to be ready soon
 	time.Sleep(30 * time.Second)
+	if err := instance.SetRenderArea(0, 0, 1024, 1024); err != nil {
+		t.Fatal(err)
+	}
 	if err := instance.RenderPage(); err != nil {
 		t.Fatal(err)
 	}
