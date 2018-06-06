@@ -382,7 +382,7 @@ func (daemon *Daemon) PrepareDockerRepositoryForDebian(out *bytes.Buffer) {
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to read os-release, this is not a critical error.")
 		return
-	} else if !strings.Contains(strings.ToLower(string(content)), "debian") {
+	} else if !strings.Contains(strings.ToLower(string(content)), "debian") || strings.Contains(strings.ToLower(string(content)), "ubuntu") {
 		daemon.logPrintStageStep(out, "system is not a debian, just FYI.")
 		return
 	}
