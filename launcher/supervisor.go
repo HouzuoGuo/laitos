@@ -168,8 +168,8 @@ Latest stderr: %s
 		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
 		misc.GetSystemLoad(),
 		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
-		string(sup.mainStdout.Retrieve()),
-		string(sup.mainStderr.Retrieve()))
+		string(sup.mainStdout.Retrieve(false)),
+		string(sup.mainStderr.Retrieve(false)))
 
 	if err := sup.MailClient.Send(subject, inet.LintMailBody(body), sup.NotificationRecipients...); err != nil {
 		sup.logger.Warning("notifyFailure", "", err, "failed to send failure notification email")

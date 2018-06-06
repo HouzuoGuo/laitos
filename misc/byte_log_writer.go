@@ -1,8 +1,10 @@
 package misc
 
 import (
+	"bytes"
 	"io"
 	"sync"
+	"unicode"
 )
 
 /*
@@ -54,15 +56,30 @@ func (writer *ByteLogWriter) absorb(p []byte) {
 }
 
 // Retrieve returns a copy of the latest bytes written.
-func (writer *ByteLogWriter) Retrieve() (ret []byte) {
+func (writer *ByteLogWriter) Retrieve(asciiOnly bool) (ret []byte) {
+	var bufCopy []byte
 	if writer.everFull {
-		ret = make([]byte, writer.KeepBytes)
-		copy(ret, writer.mem[writer.memPos:])
-		copy(ret[len(writer.mem)-writer.memPos:], writer.mem[:writer.memPos])
+		bufCopy = make([]byte, writer.KeepBytes)
+		copy(bufCopy, writer.mem[writer.memPos:])
+		copy(bufCopy[len(writer.mem)-writer.memPos:], writer.mem[:writer.memPos])
 	} else {
-		ret = make([]byte, writer.memPos)
-		copy(ret, writer.mem[:writer.memPos])
+		bufCopy = make([]byte, writer.memPos)
+		copy(bufCopy, writer.mem[:writer.memPos])
 	}
+
+	ret = bufCopy
+	if asciiOnly {
+		var out bytes.Buffer
+		for _, r := range bufCopy {
+			if r < 128 && (unicode.IsPrint(rune(r)) || unicode.IsSpace(rune(r))) {
+				out.WriteByte(r)
+			} else {
+				out.WriteRune('?')
+			}
+		}
+		ret = out.Bytes()
+	}
+
 	return
 }
 

@@ -10,16 +10,15 @@ import (
 	"net/http"
 )
 
-const HandleCommandFormPage = `<!doctype html>
-<html>
+const HandleCommandFormPage = `<html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Command Form</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 </head>
 <body>
-    <form action="#" method="post">
+    <form action="%s" method="post">
         <p><input type="password" name="cmd" /><input type="submit" value="Exec"/></p>
-        <textarea rows="12" cols="80">%s</textarea>
+        <pre>%s</pre>
     </form>
 </body>
 </html>
@@ -48,16 +47,16 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodGet {
-		w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, "")))
+		w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
 	} else if r.Method == http.MethodPost {
 		if cmd := r.FormValue("cmd"); cmd == "" {
-			w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, "")))
+			w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
 		} else {
 			result := form.cmdProc.Process(toolbox.Command{
 				Content:    cmd,
 				TimeoutSec: CommandFormTimeoutSec,
 			}, true)
-			w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, html.EscapeString(result.CombinedOutput))))
+			w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, html.EscapeString(result.CombinedOutput))))
 		}
 	}
 }

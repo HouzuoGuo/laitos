@@ -13,35 +13,40 @@ func TestByteLogWriter(t *testing.T) {
 	if _, err := writer.Write([]byte{0, 1}); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(writer.Retrieve(), []byte{0, 1}) {
-		t.Fatal(writer.Retrieve())
+	if !reflect.DeepEqual(writer.Retrieve(false), []byte{0, 1}) {
+		t.Fatal(writer.Retrieve(false))
 	}
 	// Exactly full
 	if _, err := writer.Write([]byte{2, 3, 4}); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(writer.Retrieve(), []byte{0, 1, 2, 3, 4}) {
-		t.Fatal(writer.Retrieve())
+	if !reflect.DeepEqual(writer.Retrieve(false), []byte{0, 1, 2, 3, 4}) {
+		t.Fatal(writer.Retrieve(false))
 	}
 	// Overwriting older bytes
 	if _, err := writer.Write([]byte{5, 6}); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(writer.Retrieve(), []byte{2, 3, 4, 5, 6}) {
-		t.Fatal(writer.Retrieve())
+	if !reflect.DeepEqual(writer.Retrieve(false), []byte{2, 3, 4, 5, 6}) {
+		t.Fatal(writer.Retrieve(false))
 	}
 	// Overwriting entire memory several times (789, 01234, 56789)
 	if _, err := writer.Write([]byte{7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9}); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(writer.Retrieve(), []byte{5, 6, 7, 8, 9}) {
-		t.Fatal(writer.Retrieve())
+	if !reflect.DeepEqual(writer.Retrieve(false), []byte{5, 6, 7, 8, 9}) {
+		t.Fatal(writer.Retrieve(false))
 	}
 	// Small write again
 	if _, err := writer.Write([]byte{0, 1, 2}); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(writer.Retrieve(), []byte{8, 9, 0, 1, 2}) {
-		t.Fatal(writer.Retrieve())
+	if !reflect.DeepEqual(writer.Retrieve(false), []byte{8, 9, 0, 1, 2}) {
+		t.Fatal(writer.Retrieve(false))
+	}
+
+	// Filter non-ascii bytes (63 is question mark, the place holder for non-ascii characters)
+	if !reflect.DeepEqual(writer.Retrieve(true), []byte{63, 9, 63, 63, 63}) {
+		t.Fatal(writer.Retrieve(true))
 	}
 }

@@ -43,15 +43,14 @@ const (
 	// CLIFlag is the command line flag that enables this password input web server to launch.
 	CLIFlag = `pwdserver`
 	// PageHTML is the content of HTML page that asks for a password input.
-	PageHTML = `<!doctype html>
-<html>
+	PageHTML = `<html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<title>Hello</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 </head>
 <body>
 	<pre>%s</pre>
-    <form action="#" method="post">
+    <form action="%s" method="post">
         <p>Enter password to launch main program: <input type="password" name="` + PasswordInputName + `"/></p>
         <p><input type="submit" value="Launch"/></p>
         <p>%s</p>
@@ -138,13 +137,13 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 			ws.extractedDataDir, err = encarchive.MakeRamdisk(ws.archiveFileSize/1048576*2 + 8)
 		}
 		if err != nil {
-			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), err.Error())))
+			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
 			return
 		}
 		// Create a temporary file to hold the decrypted program archive
 		tmpFile, err := ioutil.TempFile(ws.extractedDataDir, "launcher-extract-temp-file")
 		if err != nil {
-			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), err.Error())))
+			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
 			return
 		}
 		defer tmpFile.Close()
@@ -152,18 +151,18 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		// Extract program archive
 		if err := encarchive.Extract(ws.ArchiveFilePath, tmpFile.Name(), ws.extractedDataDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
 			encarchive.DestroyRamdisk(ws.extractedDataDir)
-			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), err.Error())))
+			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
 			return
 		}
 		// Success!
-		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), "success")))
+		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "success")))
 		ws.alreadyUnlocked = true
 		// A short moment later, the function will launch laitos supervisor along with daemons.
 		go ws.LaunchMainProgram()
 		return
 	default:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
-		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), "")))
+		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "")))
 		return
 	}
 }

@@ -12,22 +12,23 @@ import (
 )
 
 const (
-	HandleBrowserPage = `<!doctype html>
-<html>
+	HandleBrowserPage = `<html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>%s</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <script type="text/javascript">
+        <!--
         function set_pointer_coord(ev) {
             var pointer_x = ev.offsetX ? (ev.offsetX) : ev.pageX - document.getElementById('render').offsetLeft;
             var pointer_y = ev.offsetY ? (ev.offsetY) : ev.pageY - document.getElementById('render').offsetTop;
             document.getElementById('pointer_x').value = pointer_x;
             document.getElementById('pointer_y').value = pointer_y;
         };
+        -->
     </script>
 </head>
 <body>
-<form action="#" method="post">
+<form action="%s" method="post">
     <input type="hidden" name="instance_index" value="%d"/>
     <input type="hidden" name="instance_tag" value="%s"/>
     <p>%s</p>
@@ -95,14 +96,15 @@ func (remoteBrowser *HandleBrowserPhantomJS) Initialise(misc.Logger, *common.Com
 	return remoteBrowser.Browsers.Initialise()
 }
 
-func (remoteBrowser *HandleBrowserPhantomJS) RenderPage(title string,
+// RenderControlPage returns string text of the web page that offers remote browser controls.
+func RenderControlPage(title, requestURL string,
 	instanceIndex int, instanceTag string,
 	lastErr error, debugOut string,
 	viewWidth, viewHeight int, userAgent string,
 	drawTop, drawLeft, drawWidth, drawHeight int,
 	pageUrl string,
 	pointerX, pointerY int,
-	typeText string) []byte {
+	typeText, browserImageEndpoint string) []byte {
 	var errStr string
 	if lastErr == nil {
 		errStr = ""
@@ -110,7 +112,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) RenderPage(title string,
 		errStr = lastErr.Error()
 	}
 	return []byte(fmt.Sprintf(HandleBrowserPage,
-		title,
+		title, requestURL,
 		instanceIndex, instanceTag,
 		errStr, debugOut,
 		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight), userAgent,
@@ -118,7 +120,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) RenderPage(title string,
 		pageUrl,
 		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
 		typeText,
-		remoteBrowser.ImageEndpoint, instanceIndex, instanceTag))
+		browserImageEndpoint, instanceIndex, instanceTag))
 }
 
 func (remoteBrowser *HandleBrowserPhantomJS) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string,
@@ -160,15 +162,15 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 			http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 			return
 		}
-		w.Write(remoteBrowser.RenderPage(
-			"Empty Browser",
+		w.Write(RenderControlPage(
+			"Empty Browser", r.RequestURI,
 			index, instance.Tag,
 			nil, instance.GetDebugOutput(),
 			800, 800, phantomjs.GoodUserAgent,
 			0, 0, 800, 800,
 			"https://www.google.com",
 			0, 0,
-			""))
+			"", remoteBrowser.ImageEndpoint))
 	} else if r.Method == http.MethodPost {
 		index, tag, viewWidth, viewHeight, userAgent, drawTop, drawLeft, drawWidth, drawHeight, pageUrl, pointerX, pointerY, typeText := remoteBrowser.parseSubmission(r)
 		instance := remoteBrowser.Browsers.Retrieve(index, tag)
@@ -179,15 +181,15 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 				http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 				return
 			}
-			w.Write(remoteBrowser.RenderPage(
-				"Empty Browser",
+			w.Write(RenderControlPage(
+				"Empty Browser", r.RequestURI,
 				index, instance.Tag,
 				nil, instance.GetDebugOutput(),
 				800, 800, phantomjs.GoodUserAgent,
 				drawTop, drawLeft, drawWidth, drawHeight,
 				"https://www.google.com",
 				0, 0,
-				""))
+				"", remoteBrowser.ImageEndpoint))
 			return
 		}
 		var actionErr error
@@ -224,15 +226,15 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 		if actionErr == nil {
 			actionErr = pageInfoErr
 		}
-		w.Write(remoteBrowser.RenderPage(
-			pageInfo.Title,
+		w.Write(RenderControlPage(
+			pageInfo.Title, r.RequestURI,
 			index, instance.Tag,
 			actionErr, instance.GetDebugOutput(),
 			viewWidth, viewHeight, userAgent,
 			drawTop, drawLeft, drawWidth, drawHeight,
 			pageInfo.URL,
 			pointerX, pointerY,
-			typeText))
+			typeText, remoteBrowser.ImageEndpoint))
 	}
 }
 

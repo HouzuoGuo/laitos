@@ -9,8 +9,7 @@ import (
 	"net/http"
 )
 
-const HandleMailMePage = `<!doctype html>
-<html>
+const HandleMailMePage = `<html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>给厚佐写信</title>
@@ -30,7 +29,7 @@ const HandleMailMePage = `<!doctype html>
     </style>
 </head>
 <body>
-    <form action="#" method="post">
+    <form action="%s" method="post">
         <p><textarea name="msg" cols="30" rows="4"></textarea></p>
         <p><input type="submit" value="发出去"/></p>
         <p>%s</p>
@@ -63,11 +62,11 @@ func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == http.MethodGet {
 		// Render the page
-		w.Write([]byte(fmt.Sprintf(HandleMailMePage, "")))
+		w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, "")))
 	} else if r.Method == http.MethodPost {
 		// Retrieve message and deliver it
 		if msg := r.FormValue("msg"); msg == "" {
-			w.Write([]byte(fmt.Sprintf(HandleMailMePage, "")))
+			w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, "")))
 		} else {
 			prompt := "出问题了，发不出去。"
 			if err := mm.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
@@ -75,7 +74,7 @@ func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 			} else {
 				mm.logger.Warning("HandleMailMe", r.RemoteAddr, err, "failed to deliver mail")
 			}
-			w.Write([]byte(fmt.Sprintf(HandleMailMePage, prompt)))
+			w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, prompt)))
 		}
 	}
 }

@@ -22,32 +22,6 @@ func (remoteBrowser *HandleBrowserSlimerJS) Initialise(misc.Logger, *common.Comm
 	return remoteBrowser.Browsers.Initialise()
 }
 
-func (remoteBrowser *HandleBrowserSlimerJS) RenderPage(title string,
-	instanceIndex int, instanceTag string,
-	lastErr error, debugOut string,
-	viewWidth, viewHeight int, userAgent string,
-	drawTop, drawLeft, drawWidth, drawHeight int,
-	pageUrl string,
-	pointerX, pointerY int,
-	typeText string) []byte {
-	var errStr string
-	if lastErr == nil {
-		errStr = ""
-	} else {
-		errStr = lastErr.Error()
-	}
-	return []byte(fmt.Sprintf(HandleBrowserPage,
-		title,
-		instanceIndex, instanceTag,
-		errStr, debugOut,
-		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight), userAgent,
-		strconv.Itoa(drawTop), strconv.Itoa(drawLeft), strconv.Itoa(drawWidth), strconv.Itoa(drawHeight),
-		pageUrl,
-		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
-		typeText,
-		remoteBrowser.ImageEndpoint, instanceIndex, instanceTag))
-}
-
 func (remoteBrowser *HandleBrowserSlimerJS) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string,
 	viewWidth, viewHeight int, userAgent string,
 	drawTop, drawLeft, drawWidth, drawHeight int,
@@ -87,15 +61,15 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 			http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 			return
 		}
-		w.Write(remoteBrowser.RenderPage(
-			"Empty Browser",
+		w.Write(RenderControlPage(
+			"Empty Browser", r.RequestURI,
 			index, instance.Tag,
 			nil, instance.GetDebugOutput(),
 			800, 800, phantomjs.GoodUserAgent,
 			0, 0, 800, 800,
 			"https://www.google.com",
 			0, 0,
-			""))
+			"", remoteBrowser.ImageEndpoint))
 	} else if r.Method == http.MethodPost {
 		index, tag, viewWidth, viewHeight, userAgent, drawTop, drawLeft, drawWidth, drawHeight, pageUrl, pointerX, pointerY, typeText := remoteBrowser.parseSubmission(r)
 		instance := remoteBrowser.Browsers.Retrieve(index, tag)
@@ -106,15 +80,15 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 				http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 				return
 			}
-			w.Write(remoteBrowser.RenderPage(
-				"Empty Browser",
+			w.Write(RenderControlPage(
+				"Empty Browser", r.RequestURI,
 				index, instance.Tag,
 				nil, instance.GetDebugOutput(),
 				800, 800, phantomjs.GoodUserAgent,
 				drawTop, drawLeft, drawWidth, drawHeight,
 				"https://www.google.com",
 				0, 0,
-				""))
+				"", remoteBrowser.ImageEndpoint))
 			return
 		}
 		var actionErr error
@@ -151,15 +125,15 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 		if actionErr == nil {
 			actionErr = pageInfoErr
 		}
-		w.Write(remoteBrowser.RenderPage(
-			pageInfo.Title,
+		w.Write(RenderControlPage(
+			pageInfo.Title, r.RequestURI,
 			index, instance.Tag,
 			actionErr, instance.GetDebugOutput(),
 			viewWidth, viewHeight, userAgent,
 			drawTop, drawLeft, drawWidth, drawHeight,
 			pageInfo.URL,
 			pointerX, pointerY,
-			typeText))
+			typeText, remoteBrowser.ImageEndpoint))
 	}
 }
 

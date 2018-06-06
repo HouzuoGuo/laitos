@@ -8,14 +8,13 @@ import (
 	"net/http"
 )
 
-const HandleRecurringCommandsSetupPage = `<!doctype html>
-<html>
+const HandleRecurringCommandsSetupPage = `<html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Recurring commands setup</title>
 </head>
 <body>
-    <form action="#" method="get">
+    <form action="%s" method="get">
 		<p>
 			For pre-configured channel <input type="text" name="channel" value="%s" />:
 		</p>
@@ -113,7 +112,7 @@ func (notif *HandleRecurringCommands) Handle(w http.ResponseWriter, r *http.Requ
 			}
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(fmt.Sprintf(HandleRecurringCommandsSetupPage, channel, newCommand, textToStore, conclusion)))
+		w.Write([]byte(fmt.Sprintf(HandleRecurringCommandsSetupPage, r.RequestURI, channel, newCommand, textToStore, conclusion)))
 	} else {
 		// Retrieve results in JSON format
 		timer, exists := notif.RecurringCommands[retrieveFromChannel]

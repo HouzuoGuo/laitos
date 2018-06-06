@@ -506,8 +506,8 @@ type Instance struct {
 func (instance *Instance) Start() error {
 	// Instance is an internal API, hence its parameters are not validated before use.
 	instance.jsProcMutex = new(sync.Mutex)
-	// Keep latest 1KB of standard error and standard output from javascript server
-	instance.jsDebugOutput = misc.NewByteLogWriter(ioutil.Discard, 1024)
+	// Keep latest 512 bytes of standard error and standard output from javascript server
+	instance.jsDebugOutput = misc.NewByteLogWriter(ioutil.Discard, 512)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
 	instance.logger = misc.Logger{
 		ComponentName: "slimerjs.Instance",
@@ -618,7 +618,7 @@ func (instance *Instance) GetDebugOutput() string {
 	if instance.jsDebugOutput == nil {
 		return ""
 	}
-	return string(instance.jsDebugOutput.Retrieve())
+	return string(instance.jsDebugOutput.Retrieve(true))
 }
 
 // Send a control request via HTTP to the browser server, optionally deserialise the response into receiver.

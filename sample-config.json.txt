@@ -141,8 +141,8 @@
       "ClientAppID": "dummy id 3",
       "ClientAppSecret": "dummy id 3"
     },
-    "RecurringCommandEndpoint": "/sample/recurring_commands",
-    "RecurringCommandEndpointConfig": {
+    "RecurringCommandsEndpoint": "/sample/recurring_commands",
+    "RecurringCommandsEndpointConfig": {
       "RecurringCommands": {
         "channel1": {
           "IntervalSec": 10,
