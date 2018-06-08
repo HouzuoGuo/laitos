@@ -57,9 +57,6 @@ func (mm *HandleMailMe) Initialise(logger misc.Logger, _ *common.CommandProcesso
 func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	if r.Method == http.MethodGet {
 		// Render the page
 		w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, "")))

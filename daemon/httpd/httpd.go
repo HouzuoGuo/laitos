@@ -277,33 +277,30 @@ func (daemon *Daemon) StopTLS() {
 
 // Run unit tests on API handlers of an already started HTTP daemon all API handlers. Essentially, it tests "handler" package.
 func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
-	// When accesses via HTTP, API handlers warn user about safety concern via a authorization prompt.
-	basicAuth := map[string][]string{"Authorization": {"Basic Og=="}}
 	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
 	// System information
-	resp, err := inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/info")
+	resp, err := inet.DoHTTP(inet.HTTPRequest{}, addr+"/info")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Command Form
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/cmd_form")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost, Header: basicAuth}, addr+"/cmd_form")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"cmd": {"verysecret.secho cmd_form_test"}}.Encode()),
 	}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "cmd_form_test") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Gitlab handle
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/gitlab")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/gitlab")
 	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {
 		t.Fatal(err, string(resp.Body), resp)
 	}
@@ -314,17 +311,16 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, string(resp.Body), expected, resp)
 	}
 	// MailMe
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/mail_me")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost, Header: basicAuth}, addr+"/mail_me")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
 	}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK ||
@@ -332,7 +328,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Microsoft bot
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/microsoft_bot")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/microsoft_bot")
 	if err != nil || resp.StatusCode != http.StatusBadRequest {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -342,24 +338,23 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err)
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
-		Header: basicAuth,
-		Body:   bytes.NewReader(microsoftBotDummyChatRequest)}, addr+"/microsoft_bot")
+		Body: bytes.NewReader(microsoftBotDummyChatRequest)}, addr+"/microsoft_bot")
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Recurring commands - setup page
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/recurring_cmds")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/recurring_cmds")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Recurring commands - retrieve results
 	time.Sleep(time.Duration(httpd.HandlerCollection["/recurring_cmds"].(*handler.HandleRecurringCommands).RecurringCommands["channel2"].IntervalSec+1) * time.Second) // give timer commands a moment to trigger
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/recurring_cmds?retrieve=channel2")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/recurring_cmds?retrieve=channel2")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "this is channel2") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Proxy (visit https://github.com)
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/proxy?u=https%%3A%%2F%%2Fgithub.com")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/proxy?u=https%%3A%%2F%%2Fgithub.com")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "github") || !strings.Contains(string(resp.Body), "laitos_rewrite_url") {
 		t.Fatal(err, resp.StatusCode, string(resp.Body))
 	}
@@ -367,7 +362,6 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	// Twilio - exchange SMS with bad PIN
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"incorrect PIN"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Message><![CDATA[Failed to match PIN/shortcut]]></Message>`) {
@@ -376,7 +370,6 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<![CDATA[01234567890123456789012345678901234]]>`) {
@@ -385,7 +378,6 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	// Twilio - prevent SMS spam according to incoming phone number
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body: strings.NewReader(url.Values{
 			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
 			"From": {"sms number"},
@@ -396,7 +388,6 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body: strings.NewReader(url.Values{
 			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
 			"From": {"sms number"},
@@ -406,14 +397,13 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, resp)
 	}
 	// Twilio - check phone call greeting
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Header: basicAuth}, addr+"/call_greeting")
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/call_greeting")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - prevent call spam according to incoming phone number
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"From": {"call number"}}.Encode()),
 	}, addr+"/call_greeting")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
@@ -421,7 +411,6 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"From": {"call number"}}.Encode()),
 	}, addr+"/call_greeting")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Response><Reject/></Response>`) {
@@ -430,7 +419,6 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	// Twilio - check phone call response to DTMF
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {"0000000"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `Failed to match PIN/shortcut`) {
@@ -441,7 +429,6 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	dtmfVerySecretDotSTrue := "88833777999777733222777338014207777087778833"
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
 
@@ -458,7 +445,6 @@ over.]]></Say>`) {
 	// Twilio - check command execution result via phone call and ask output to be spelt phonetically
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {handler.TwilioPhoneticSpellingMagic + dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	phoneticOutput := `capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango.
 
@@ -477,7 +463,6 @@ over.`
 	// Twilio - prevent DTMF command spam according to incoming phone number
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
 
@@ -493,7 +478,6 @@ over.]]></Say>`) {
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>You are rate limited.</Say><Hangup/>`) {
 		t.Fatal(err, string(resp.Body))
@@ -502,7 +486,6 @@ over.]]></Say>`) {
 	time.Sleep((handler.TwilioPhoneNumberRateLimitIntervalSec + 1) * time.Second)
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body: strings.NewReader(url.Values{
 			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
 			"From": {"sms number"},
@@ -513,7 +496,6 @@ over.]]></Say>`) {
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"From": {"call number"}}.Encode()),
 	}, addr+"/call_greeting")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
@@ -521,7 +503,6 @@ over.]]></Say>`) {
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
-		Header: basicAuth,
 		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
 

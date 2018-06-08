@@ -14,7 +14,6 @@ import (
 
 const HandleGitlabPage = `<html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Gitlab browser</title>
 </head>
 <body>
@@ -127,18 +126,14 @@ func (lab *HandleGitlabBrowser) DownloadGitBlob(clientIP, projectID string, path
 }
 
 func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
+	NoCache(w)
 	shortcutName := strings.TrimSpace(r.FormValue("shortcut"))
 	browsePath := r.FormValue("path")
 	fileName := strings.TrimSpace(r.FormValue("file"))
 	submitAction := r.FormValue("submit")
-
-	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	switch submitAction {
 	case "Go":
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Type", "text/html")
 		projectID, found := lab.Projects[shortcutName]
 		if !found {
 			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
@@ -165,13 +160,13 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 	case "Download":
 		projectID, found := lab.Projects[shortcutName]
 		if !found {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Content-Type", "text/html")
 			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 			return
 		}
 		content, err := lab.DownloadGitBlob(GetRealClientIP(r), projectID, browsePath, fileName)
 		if err != nil {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Content-Type", "text/html")
 			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Error: "+err.Error())))
 			return
 		}
@@ -179,7 +174,7 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
 		w.Write(content)
 	default:
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Enter path to browse or blob ID to download")))
 	}
 }

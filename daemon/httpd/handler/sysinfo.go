@@ -23,11 +23,8 @@ func (info *HandleSystemInfo) Initialise(logger misc.Logger, _ *common.CommandPr
 
 func (info *HandleSystemInfo) Handle(w http.ResponseWriter, r *http.Request) {
 	// The routine is quite similar to maintenance daemon
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "text/plain")
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	var result bytes.Buffer
 	// Latest runtime info
 	result.WriteString(toolbox.GetRuntimeInfo())

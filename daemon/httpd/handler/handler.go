@@ -55,22 +55,6 @@ func NoCache(w http.ResponseWriter) {
 }
 
 /*
-If request came in HTTP instead of HTTPS, asks client to confirm the request via a dummy basic authentication request.
-Return true only if caller should continue processing the request.
-*/
-func WarnIfNoHTTPS(r *http.Request, w http.ResponseWriter) bool {
-	if r.TLS == nil {
-		if _, _, ok := r.BasicAuth(); !ok {
-			w.Header().Set("WWW-Authenticate", `Basic realm="You are not using HTTPS. Enter any user/password to continue."`)
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte{})
-			return false
-		}
-	}
-	return true
-}
-
-/*
 GetRealClientIP returns the IP of HTTP client who made the request.
 Usually, the return value is identical to IP portion of RemoteAddr, but if there is an nginx
 proxy in front of web server (typical for Elastic Beanstalk), the return value will be client IP

@@ -46,7 +46,6 @@ const (
 	PageHTML = `<html>
 <head>
 	<title>Hello</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 </head>
 <body>
 	<pre>%s</pre>
@@ -117,6 +116,7 @@ configuration and data from the unencrypted (and unpacked) archive.
 func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Content-Location", ContentLocationMagic)
+	w.Header().Set("Content-Type", "text/html")
 	ws.handlerMutex.Lock()
 	defer ws.handlerMutex.Unlock()
 	if ws.alreadyUnlocked {

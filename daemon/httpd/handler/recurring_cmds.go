@@ -10,7 +10,6 @@ import (
 
 const HandleRecurringCommandsSetupPage = `<html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Recurring commands setup</title>
 </head>
 <body>
@@ -67,9 +66,6 @@ func (_ *HandleRecurringCommands) SelfTest() error {
 
 func (notif *HandleRecurringCommands) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	if retrieveFromChannel := r.FormValue("retrieve"); retrieveFromChannel == "" {
 		// Serve HTML page for setting up notifications
 		channel := r.FormValue("channel")
@@ -111,7 +107,7 @@ func (notif *HandleRecurringCommands) Handle(w http.ResponseWriter, r *http.Requ
 				conclusion = "Cannot find channel ID: " + channel
 			}
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(fmt.Sprintf(HandleRecurringCommandsSetupPage, r.RequestURI, channel, newCommand, textToStore, conclusion)))
 	} else {
 		// Retrieve results in JSON format
@@ -119,6 +115,7 @@ func (notif *HandleRecurringCommands) Handle(w http.ResponseWriter, r *http.Requ
 		if exists {
 			resp, err := json.Marshal(timer.GetResults())
 			if err == nil {
+				w.Header().Set("Content-Type", "application/json")
 				w.Write(resp)
 			} else {
 				http.Error(w, "JSON serialisation failure: "+err.Error(), http.StatusInternalServerError)

@@ -13,7 +13,6 @@ import (
 const HandleCommandFormPage = `<html>
 <head>
     <title>Command Form</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 </head>
 <body>
     <form action="%s" method="post">
@@ -41,11 +40,8 @@ func (form *HandleCommandForm) Initialise(_ misc.Logger, cmdProc *common.Command
 }
 
 func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html")
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	if r.Method == http.MethodGet {
 		w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
 	} else if r.Method == http.MethodPost {

@@ -62,9 +62,6 @@ func (hand *HandleTwilioSMSHook) Initialise(logger misc.Logger, cmdProc *common.
 func (hand *HandleTwilioSMSHook) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	// Apply rate limit to the sender
 	phoneNumber := r.FormValue("From")
 	hand.logger.Info("HandleTwilioSMSHook", phoneNumber, nil, "has received an SMS")
@@ -125,9 +122,6 @@ func (hand *HandleTwilioCallHook) Initialise(logger misc.Logger, cmdProc *common
 func (hand *HandleTwilioCallHook) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	// Apply rate limit to the caller
 	phoneNumber := r.FormValue("From")
 	hand.logger.Info("HandleTwilioCallHook", phoneNumber, nil, "has received a call")
@@ -181,9 +175,6 @@ func (hand *HandleTwilioCallCallback) Initialise(logger misc.Logger, cmdProc *co
 func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	// Apply rate limit to the caller
 	phoneNumber := r.FormValue("From")
 	hand.logger.Info("HandleTwilioCallCallback", phoneNumber, nil, "has received DTMF command via call")

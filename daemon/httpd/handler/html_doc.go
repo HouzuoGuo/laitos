@@ -37,7 +37,7 @@ func (doc *HandleHTMLDocument) Initialise(misc.Logger, *common.CommandProcessor)
 
 func (doc *HandleHTMLDocument) Handle(w http.ResponseWriter, r *http.Request) {
 	// Inject browser client IP and current time into index document and return.
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html")
 	NoCache(w)
 	page := strings.Replace(doc.contentString, HTMLCurrentDateTime, time.Now().Format(time.RFC3339), -1)
 	page = strings.Replace(page, HTMLClientAddress, GetRealClientIP(r), -1)

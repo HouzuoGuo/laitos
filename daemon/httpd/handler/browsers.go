@@ -49,11 +49,8 @@ func (remoteBrowser *HandleBrowserSlimerJS) parseSubmission(r *http.Request) (in
 }
 
 func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html")
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	if r.Method == http.MethodGet {
 		// Start a new browser instance
 		index, instance, err := remoteBrowser.Browsers.Acquire()

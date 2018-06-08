@@ -228,9 +228,6 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 	w.Header().Set("Access-Control-Expose-Headers", "Content-Type, Authorization")
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	// Rewrite HTML response to insert javascript
 	w.WriteHeader(remoteResp.StatusCode)
 	if strings.HasPrefix(remoteResp.Header.Get("Content-Type"), "text/html") {

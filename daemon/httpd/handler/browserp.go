@@ -9,13 +9,13 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 const (
 	HandleBrowserPage = `<html>
 <head>
     <title>%s</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <script type="text/javascript">
         <!--
         function set_pointer_coord(ev) {
@@ -80,7 +80,7 @@ const (
             </td>
         </tr>
     </table>
-    <p><img id="render" src="%s?instance_index=%d&instance_tag=%s" alt="rendered page" onclick="set_pointer_coord(event);"/></p>
+    <p><img id="render" src="%s?instance_index=%d&instance_tag=%s&rand=%d" alt="rendered page" onclick="set_pointer_coord(event);"/></p>
 </form>
 </body>
 </html>` // Browser page content
@@ -120,7 +120,7 @@ func RenderControlPage(title, requestURL string,
 		pageUrl,
 		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
 		typeText,
-		browserImageEndpoint, instanceIndex, instanceTag))
+		browserImageEndpoint, instanceIndex, instanceTag, time.Now().UnixNano()))
 }
 
 func (remoteBrowser *HandleBrowserPhantomJS) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string,
@@ -150,11 +150,8 @@ func (remoteBrowser *HandleBrowserPhantomJS) parseSubmission(r *http.Request) (i
 }
 
 func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html")
 	NoCache(w)
-	if !WarnIfNoHTTPS(r, w) {
-		return
-	}
 	if r.Method == http.MethodGet {
 		// Start a new browser instance
 		index, instance, err := remoteBrowser.Browsers.Acquire()
