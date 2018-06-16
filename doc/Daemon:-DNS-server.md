@@ -64,9 +64,9 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
     <td>
         Maximum number of queries a client (identified by IP) may make in a second.
         <br/>
-        Each computer/phone usually uses less than 20.
+        Each computer/phone usually uses less than 50.
     </td>
-    <td>100 - good enough for 5 devices</td>
+    <td>48 - good enough for 3 devices</td>
 </tr>
 </table>
 

@@ -116,16 +116,19 @@ Tell laitos to run periodic system maintenance in the command line:
     sudo ./laitos -config <CONFIG FILE> -daemons ...,maintenance,...
 
 ## Usage
-2 minutes after laitos starts up, system maintenance for the first tine, and then at regular interval specified in
-configuration. Manual action is not required.
+The system maintenance daemon runs for the first time after a 2 minutes delay. Afterwards it runs at regular interval
+specified in configuration. Manual action is not required.
 
 ## Tips
 System maintenance does not have to run too often. Let it run daily is usually good enough.
 
 The additional softwares installed and updated during maintenance are:
-- Dependencies of PhantomJS, used by [browser-in-browser](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-browser-in-browser)
-  and [text-based interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser).
-  The two features may not function properly until system maintenance has run for the first time.
+- Dependencies of PhantomJS used by [remote browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-remote-browser-(PhantomJS))
+  and [text-based interactive web browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser-(PhantomJS)).
+  They may not function properly until system maintenance has run for the first time.
+- Docker container runtime and tools used by [remote browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-remote-browser-(SlimerJS))
+  and [text-based interactive web browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser-(SlimerJS)).
+  They may not function properly until system maintenance has run for the first time.
 - Clock synchronisation tools.
 - Zip file manipulation tools.
 - Network and system diagnosis tools.

@@ -1,4 +1,4 @@
-# Toolbox feature: interactive web browser
+# Toolbox feature: interactive web browser (SlimerJS)
 
 ## Introduction
 Via any of enabled laitos daemons, you may browse the Internet via text-based commands.
@@ -7,14 +7,20 @@ The website to browse is rendered with full CSS and Javascript support on laitos
 carried out entirely via plain text commands. The command response will offer clue (in plain text) as to how the web
 site looks while navigating around. Only one website can be browsed at a time.
 
+In contrast to PhantomJS based web browser, SlimerJS based web browser is more capable of rendering very modern
+websites, even Google Maps and YouTube. However, SlimerJS based web browsers rely on Docker container runtime, which may
+not be available if your hosting environment does not offer Docker daemon control (e.g. Windows Subsystem For Linux, AWS
+FarGate).
+
 ## Configuration
-Under JSON object `Features`, construct a JSON object called `Browser` and its inner object `Browsers` that has the
-following mandatory properties:
+Under JSON object `Features`, construct a JSON object called `BrowserPhantomJS` and its inner object `Browsers` that has
+the following properties:
 <table>
 <tr>
     <th>Property</th>
     <th>Type</th>
     <th>Meaning</th>
+    <th>Default value</th>
 </tr>
 <tr>
     <td>BasePortNumber</td>
@@ -22,13 +28,16 @@ following mandatory properties:
     <td>
         An arbitrary number above 20000 and below 65535.
         <br/>
-        It must not clash with port numbers from other components.
+        It must not clash with port numbers from other components, such as the SlimerJS based interactive web browser,
+        and the remote browser web services.
     </td>
+    <td>(This is a mandatory property without a default value)
 </tr>
 <tr>
     <td>MaxLifetimeSec</td>
     <td>integer</td>
-    <td>Stop the browser after this number of seconds elapse, regardless of whether the browser is in-use.</td>
+    <td>Stop a browser instance after this number of seconds elapse, regardless of whether the instance is in-use.</td>
+    <td>1800 - good enough for most case</td>
 </tr>
 </table>
 
@@ -43,8 +52,7 @@ Here is an example:
         "Browser": {
             "Browsers": {
                 "BasePortNumber": 51202,
-                "MaxLifetimeSec": 1800,
-                "PhantomJSExecPath": "./phantomjs-2.1.1-linux-x86_64"
+                "MaxLifetimeSec": 1800
             }
         },
         ...
@@ -94,13 +102,7 @@ For example, to conduct a Google search:
 ## Tips
 - The instance port number from configuration is only for internal localhost use. They do not have to be open on your
   network firewall.
-
-- The web service relies on PhantomJS software that has several software dependencies:
-  * bzip2, expat, zlib, fontconfig.
-  * Various fonts.
-  
-  You may install the software dependencies manually, or reply on [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
-to automatically install the dependencies.
-- laitos will find PhantomJS software by filename `phantomjs` or `phantomjs-2.1.1-x86_64` in the current working
-  directory, and copy it to `/tmp/laitos-util` for use. Therefore remember to download PhantomJS software for laitos
-  deployment, you may find a copy of PhantomJSin [laitos source tree](https://github.com/HouzuoGuo/laitos/blob/master/extra/phantomjs-2.1.1-x86_64).
+- The web service relies on Docker container runtime and tools to launch SlimerJS. You may install Docker manually, or
+  reply on [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance) to automatically
+  install the dependencies.
+- You may find out more about the SlimerJS container image over [here](https://hub.docker.com/r/hzgl/slimerjs).

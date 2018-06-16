@@ -69,7 +69,7 @@ Construct the following JSON object and place it under JSON key `MailDaemon` in 
     <td>PerIPLimit</td>
     <td>integer</td>
     <td>Maximum number of mails a client (identified by IP) may deliver to this server in a second.</td>
-    <td>2 - good enough to prevent flood of spam</td>
+    <td>4 - good enough to prevent flood of spam</td>
 </tr>
 <tr>
     <td>TLSCertPath</td>

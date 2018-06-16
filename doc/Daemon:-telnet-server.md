@@ -1,7 +1,7 @@
-# Daemon: plain text sockets
+# Daemon: telnet server
 
 ## Introduction
-The plain text sockets provide access to toolbox features via very basic client programs, such as `telnet`, `netcat`,
+The plain text telnet server provide access to toolbox features via very basic client programs, such as `telnet`, `netcat`,
 and `HyperTerminal`.
 
 The sockets are served via both TCP and UDP ports in plain text.

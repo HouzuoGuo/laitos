@@ -32,7 +32,7 @@ place into the configuration.
     <td>PerUserLimit</td>
     <td>integer</td>
     <td>Maximum number of toolbox commands a chat may send in a second.</td>
-    <td>2 - good enough for personal use </td>
+    <td>2 - good enough for personal use</td>
 </tr>
 </table>
 

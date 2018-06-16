@@ -3,8 +3,8 @@
 ## Introduction
 The following daemon components have an embedded command processor to let users use toolbox features:
 - [Mail server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server)
+- [Telnet server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server)
 - [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot)
-- [Plain-text sockets](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-plain-text-sockets)
 - Web service [invoke toolbox features in a form](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form)
 - Web service [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook)
 - Web service [Microsoft bot hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Microsoft-bot-hook)
@@ -171,10 +171,12 @@ The following prefixes are accepted, see individual feature manual for their usa
 - `.2` - [Two factor authentication code generator](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-two-factor-authentication-code-generator)
 - `.a` - [Find text in AES-encrypted files](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-find-text-in-AES-encrypted-files)
 - `.c` - [Contact information of public institutions](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-public-institution-contacts)
-- `.b` - [Interactive web browser](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser)
+- `.bp` - [Interactive web browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser-(PhantomJS))
+- `.bs` - [Interactive web browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser-(SlimerJS))
 - `.e` - [Inspect system and program environment](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-and-control-server-environment)
 - `.f` - [Facebook](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Facebook)
 - `.i` - [Read Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-Emails)
+- `.j` - [Wild joke](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-wild-joke)
 - `.m` - [Send Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-Emails)
 - `.p` - [Call friends and send texts](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-make-calls-and-send-SMS)
 - `.r` - [RSS reader](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-RSS-reader)

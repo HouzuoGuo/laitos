@@ -20,7 +20,7 @@ configuration in [JSON](https://en.wikipedia.org/wiki/JSON). Keep in mind - with
 inactive.
 
 As an example, here we use laitos DNS server for a safer and ad-free web experience, and automatically keep server
-computer updated with latest softwares:
+computer updated with latest software:
 
     {
       "DNSDaemon": {
@@ -51,7 +51,7 @@ Note that:
   * `insecurehttpd` - Web server without TLS encryption
   * `smtpd` - Mail server
   * `telegram` - Telegram messenger chat bot
-  * `plainsocket` - Access to toolbox features via TCP/UDP in plain text
+  * `plainsocket` - Access to toolbox features via plain text Telnet over TCP and UDP
   * `maintenance` - Automated system maintenance and health report
 - There is not any individual ON-OFF switch for toolbox features. They become accessible via daemons once configured.
 
@@ -62,8 +62,8 @@ for smoother deployment experience.
 ## Advanced behaviours
 ### Supervisor
 laitos uses a built-in supervisor mechanism to restart main program in the unlikely event of crash. If under extremely
-rare cirsumstanses laitos crashes more than once in quick succession (20 minutes), the supervisor will restart main
-program using reduced number of components.
+rare circumstances laitos crashes more than once in quick succession (20 minutes), the supervisor will restart main
+program while shedding off potentially faulty components.
 
 Optionally, the supervisor can send server owner a notification mail when a crash occurs. To enable the notification,
 follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) and then

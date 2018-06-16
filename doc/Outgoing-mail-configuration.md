@@ -34,7 +34,7 @@ Construct the following object under JSON key `MailClient`:
     <td>Host name of MTA on SMTP server, for example "smtp.sendgrid.net".</td>
 </tr>
 <tr>
-    <td>AuthPassword</td>
+    <td>MTAPort</td>
     <td>integer</td>
     <td>Port of MTA on SMTP server, for example 2525.</td>
 </tr>
@@ -74,4 +74,4 @@ For the case of Google Compute Engine, check out this detailed topic written by 
 [Sending Email from an Instance](https://cloud.google.com/compute/docs/tutorials/sending-mail/)
 
 As a security measure, a program-wide 200MB temporary buffer stores outstanding outgoing mail. Once the buffer fills up,
-new mails will not be queued or delivered.
+new mails will not be queued or delivered. The buffer does not fill up unless there is a prolonged MTA host outage.

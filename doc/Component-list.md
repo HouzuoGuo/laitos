@@ -25,24 +25,24 @@ laitos components go into two categories:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Telegram messenger chat-bot</td>
-        <td>Chat-bot provides access to all toolbox features via secure infrastructure provided by Telegram Messenger.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>Plain-text sockets</td>
-        <td>The socket servers provide unencrypted access to all toolbox features via TCP and UDP that are accessible via basic tools such HyperTerminal.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-plain-text-sockets" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>System maintenance</td>
-        <td>Periodic maintenance patches the system for security updates, and checks for environment and program health.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance" target="_blank">Link</a></td>
+        <td>Telnet server</td>
+        <td>The plain text telnet server provides unencrypted access to all toolbox features via basic tools such Telnet and HyperTerminal.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Web server</td>
         <td>Host a static personal website made of text and media files, along with rich web services (see below).</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Telegram messenger chat-bot</td>
+        <td>Chat-bot provides access to all toolbox features via secure infrastructure provided by Telegram Messenger.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>System maintenance</td>
+        <td>Periodic maintenance patches the system for security updates, and checks for environment and program health.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance" target="_blank">Link</a></td>
     </tr>
 </table>
 
@@ -77,9 +77,14 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-simple-proxy" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Browser-in-browser</td>
-        <td>Hand you control over a remote browser app that runs on laitos server.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-browser-in-browser" target="_blank">Link</a></td>
+        <td>Remote browser (PhantomJS)</td>
+        <td>Hand you control over a remote browser app that runs on laitos server. It uses the older PhantomJS technology.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-remote-browser-(PhantomJS)" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Remote browser (SlimerJS)</td>
+        <td>Hand you control over a remote browser app that runs on laitos server. It uses the newer SlimerJS technology.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-remote-browser-(SlimerJS)" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Twilio telephone/SMS hook</td>
@@ -122,15 +127,25 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-WolframAlpha" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Read RSS feeds</td>
+        <td>Wild joke</td>
+            <td>Grab a quick laugh from the Internet.</td>
+            <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-wild-joke" target="_blank">Link</a></td>
+        </tr>
+    <tr>
+        <td>RSS feeds</td>
             <td>Read news feeds and briefings via RSS.</td>
             <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-RSS-reader" target="_blank">Link</a></td>
         </tr>
     <tr>
-        <td>Web browser</td>
-        <td>Take control over a fully feature web browser via text commands.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser" target="_blank">Link</a></td>
+        <td>Web browser (PhantomJS)</td>
+        <td>Take control over a fully feature web browser (PhantomJS) via text commands.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser-(PhantomJS)" target="_blank">Link</a></td>
     </tr>
+    <tr>
+        <td>Web browser (SlimerJS)</td>
+            <td>Take control over a fully feature web browser (SlimerJS) via text commands.</td>
+            <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser-(SlimerJS)" target="_blank">Link</a></td>
+        </tr>
     <tr>
         <td>Read Emails</td>
         <td>List and read personal Emails from popular services such as Hotmail and Gmail.</td>

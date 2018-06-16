@@ -37,7 +37,7 @@ Construct the following JSON object and place it under JSON key `HTTPDaemon` in 
         <br/>
         The number acts as a multiplier in initialising rate limit of file, directory, and web service access.
     </td>
-    <td> 5 - resonable for a personal website</td>
+    <td> 12 - resonable for a personal website</td>
 </tr>
 <tr>
     <td>ServeDirectories</td>
