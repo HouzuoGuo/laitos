@@ -31,7 +31,7 @@ import (
 const (
 	TCPPortCheckTimeoutSec = 10   // TCPPortCheckTimeoutSec is the timeout used in knocking ports.
 	MinimumIntervalSec     = 3600 // MinimumIntervalSec is the lowest acceptable value of system maintenance interval.
-	InitialDelaySec        = 120  // InitialDelaySec is the number of seconds to wait for the first maintenance run.
+	InitialDelaySec        = 60   // InitialDelaySec is the number of seconds to wait for the first maintenance run.
 )
 
 /*
@@ -58,6 +58,10 @@ type Daemon struct {
 	EnableStartServices []string `json:"EnableStartServices"`
 	// InstallPackages is an array of software packages to be installed and upgraded.
 	InstallPackages []string `json:"InstallPackages"`
+	// BlockPortsExcept is an array of TCP and UDP ports to be blocked via iptables. Must be used in conjunction with ThrottleIncomingPackets.
+	BlockPortsExcept []int `json:"BlockPortsExcept"`
+	// ThrottleIncomingConnections throttles incoming connections and other network packets to this number/second via iptables.
+	ThrottleIncomingPackets int `json:"ThrottleIncomingPackets"`
 	// TuneLinux enables Linux kernel tuning routine as a maintenance step
 	TuneLinux bool `json:"TuneLinux"`
 	// SwapOff turns off swap as a maintenance step
@@ -347,10 +351,16 @@ func (daemon *Daemon) SystemMaintenance() string {
 	daemon.logPrintStage(out, "re-copy non-essential laitos utilities")
 	misc.PrepareUtilities(daemon.logger)
 
+	// General security tasks
 	daemon.BlockUnusedLogin(out)
 	daemon.MaintainServices(out)
+	daemon.MaintainsIptables(out) // run this after service maintenance, because disabling firewall service may alter iptables.
+
+	// Software installation tasks
 	daemon.PrepareDockerRepositoryForDebian(out)
 	daemon.UpgradeInstallSoftware(out)
+
+	// Clock synchronisation may depend on a software installed via the previous step
 	daemon.SynchroniseSystemClock(out)
 
 	daemon.logPrintStage(out, "concluded system maintenance")
@@ -362,12 +372,16 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 	daemon.logPrintStage(out, "maintain service state")
 	if daemon.DisableStopServices != nil {
 		for _, name := range daemon.DisableStopServices {
-			daemon.logPrintStageStep(out, "disable&stop %s: success? %v", name, misc.DisableStopDaemon(name))
+			if !misc.DisableStopDaemon(name) {
+				daemon.logPrintStageStep(out, "disable&stop %s: success? false", name)
+			}
 		}
 	}
 	if daemon.EnableStartServices != nil {
 		for _, name := range daemon.EnableStartServices {
-			daemon.logPrintStageStep(out, "enable&start %s: success? %v", name, misc.EnableStartDaemon(name))
+			if !misc.EnableStartDaemon(name) {
+				daemon.logPrintStageStep(out, "enable&start %s: success? false", name)
+			}
 		}
 	}
 }
@@ -532,14 +546,16 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		pkgInstallArgs[len(installArgs)] = name
 		// Ten minutes should be good enough for each package
 		result, err := misc.InvokeProgram(pkgManagerEnv, 10*60, pkgManagerPath, pkgInstallArgs...)
-		for _, marker := range suppressOutputMarkers {
-			// If nothing was done about the package, suppress the rather useless output.
-			if strings.Contains(result, marker) {
-				result = "(nothing to do or package not available)"
-				break
+		if err != nil {
+			for _, marker := range suppressOutputMarkers {
+				// If nothing was done about the package, suppress the rather useless output.
+				if strings.Contains(result, marker) {
+					result = "(nothing to do or package not available)"
+					break
+				}
 			}
+			daemon.logPrintStageStep(out, "install/upgrade %s: %v - %s", name, err, strings.TrimSpace(result))
 		}
-		daemon.logPrintStageStep(out, "install/upgrade %s: %v - %s", name, err, strings.TrimSpace(result))
 	}
 }
 
@@ -566,6 +582,82 @@ func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
 	fmt.Fprint(out, "\n")
 }
 
+// MaintainsIptables blocks ports that are not listed in allowed port and throttle incoming traffic.
+func (daemon *Daemon) MaintainsIptables(out *bytes.Buffer) {
+	if daemon.BlockPortsExcept == nil || len(daemon.BlockPortsExcept) == 0 {
+		return
+	}
+	daemon.logPrintStage(out, "maintain iptables")
+	if daemon.ThrottleIncomingPackets < 5 {
+		daemon.logPrintStageStep(out, "ThrottleIncomingPackets(%d) must be greater or equal to 5", daemon.ThrottleIncomingPackets)
+		return
+	}
+	if daemon.ThrottleIncomingPackets > 255 {
+		daemon.logPrintStageStep(out, "ThrottleIncomingPackets(%d) must be less than 256, resetting it to 255.", daemon.ThrottleIncomingPackets)
+		daemon.ThrottleIncomingPackets = 255
+	}
+	// Fail safe commands are executed if the usual commands encounter an error. The fail safe permits all traffic.
+	failSafe := [][]string{
+		{"-F", "OUTPUT"},
+		{"-P", "OUTPUT", "ACCEPT"},
+		{"-F", "INPUT"},
+		{"-P", "INPUT", "ACCEPT"},
+	}
+	// These are the usual setup commands. Begin by clearing iptables.
+	iptables := [][]string{
+		{"-F", "OUTPUT"},
+		{"-P", "OUTPUT", "ACCEPT"},
+		{"-P", "INPUT", "DROP"},
+		{"-F", "INPUT"},
+	}
+	// Work around a redhat kernel bug that prevented throttle counter from exceeding 20
+	for _, cmd := range iptables {
+		ipOut, ipErr := misc.InvokeProgram(nil, 10, "iptables", cmd...)
+		if ipErr != nil {
+			daemon.logPrintStageStep(out, "failed in a step that clears iptables - %v - %s", ipErr, ipOut)
+		}
+	}
+	mOut, mErr := misc.InvokeProgram(nil, 10, "modprobe", "-r", "xt_recent")
+	daemon.logPrintStageStep(out, "disable xt_recent - %v - %s", mErr, mOut)
+	mOut, mErr = misc.InvokeProgram(nil, 10, "modprobe", "xt_recent", "ip_pkt_list_tot=255")
+	daemon.logPrintStageStep(out, "re-enable xt_recent - %v - %s", mErr, mOut)
+
+	// After clearing iptables, allow ICMP and established connections to communicate.
+	iptables = append(iptables,
+		[]string{"-A", "INPUT", "-p", "icmp", "-j", "ACCEPT"},
+		[]string{"-A", "INPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP"},
+		[]string{"-A", "INPUT", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"},
+	)
+	// Throttle ports
+	for _, port := range daemon.BlockPortsExcept {
+		// Throttle new TCP connections
+		iptables = append(iptables, []string{"-A", "INPUT", "-p", "tcp", "--dport", strconv.Itoa(port), "-m", "conntrack", "--ctstate", "NEW", "-m", "recent", "--set"})
+		iptables = append(iptables, []string{"-A", "INPUT", "-p", "tcp", "--dport", strconv.Itoa(port), "-m", "conntrack", "--ctstate", "NEW", "-m", "recent", "--update", "--seconds", "1", "--hitcount", strconv.Itoa(daemon.ThrottleIncomingPackets), "-j", "DROP"})
+		iptables = append(iptables, []string{"-A", "INPUT", "-p", "tcp", "--dport", strconv.Itoa(port), "-m", "conntrack", "--ctstate", "NEW,ESTABLISHED", "-j", "ACCEPT"})
+
+		// Throttle UDP packets
+		iptables = append(iptables, []string{"-A", "INPUT", "-p", "udp", "--dport", strconv.Itoa(port), "-m", "recent", "--set"})
+		iptables = append(iptables, []string{"-A", "INPUT", "-p", "udp", "--dport", strconv.Itoa(port), "-m", "recent", "--update", "--seconds", "1", "--hitcount", strconv.Itoa(daemon.ThrottleIncomingPackets), "-j", "DROP"})
+		iptables = append(iptables, []string{"-A", "INPUT", "-p", "udp", "--dport", strconv.Itoa(port), "-j", "ACCEPT"})
+	}
+	// Safety rule
+	iptables = append(iptables, []string{"-A", "INPUT", "-j", "DROP"})
+	// Run setup commands
+	for _, args := range iptables {
+		ipOut, ipErr := misc.InvokeProgram(nil, 10, "iptables", args...)
+		if ipErr != nil {
+			daemon.logPrintStageStep(out, "command failed for \"%s\" - %v - %s", strings.Join(args, " "), ipErr, ipOut)
+			daemon.logPrintStageStep(out, "configure for fail safe that will allow ALL traffic")
+			for _, failSafeCmd := range failSafe {
+				failSafeOut, failSafeErr := misc.InvokeProgram(nil, 10, "iptables", failSafeCmd...)
+				daemon.logPrintStageStep(out, "fail safe \"%s\" - %v - %s", strings.Join(failSafeCmd, " "), failSafeErr, failSafeOut)
+			}
+			return
+		}
+	}
+	// Do not touch NAT and Forward as they might have been manipulated by docker daemon
+}
+
 // BlockUnusedLogin will block/disable system login from users not listed in the exception list.
 func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 	if daemon.BlockSystemLoginExcept == nil || len(daemon.BlockSystemLoginExcept) == 0 {
@@ -582,7 +674,6 @@ func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 		}
 		if ok, blockOut := misc.BlockUserLogin(userName); ok {
 			daemon.logPrintStageStep(out, "blocked user %s", userName)
-			fmt.Fprintf(out, "--- block unused system login - successfully blocked user %s\n", userName)
 		} else {
 			daemon.logPrintStageStep(out, "failed to block user %s - %v", userName, blockOut)
 		}
