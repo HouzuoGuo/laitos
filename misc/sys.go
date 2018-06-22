@@ -126,7 +126,7 @@ func PrepareUtilities(progress Logger) {
 		return
 	}
 	srcDestName := []string{
-		"busybox-1.26.2-x86_64", "busybox",
+		"busybox-1.28.1-x86_64", "busybox",
 		"busybox-x86_64", "busybox",
 		"busybox", "busybox",
 		"toybox-0.7.5-x86_64", "toybox",
