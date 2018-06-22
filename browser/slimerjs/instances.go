@@ -73,7 +73,7 @@ func PrepareDocker(logger misc.Logger) {
 	// Disable selinux as it interferes with docker directory mapping
 	out, err = misc.InvokeProgram(nil, 30, "setenforce", "0")
 	logger.Info("PrepareDocker", "", nil, "disable selinux result: %v - %s", err, out)
-	err = ioutil.WriteFile("/etc/selinux/config", []byte("SELINUX=permissive\nSELINUXTYPE=minimum\n"), 0600)
+	err = ioutil.WriteFile("/etc/selinux/config", []byte("SELINUX=disabled\nSELINUXTYPE=minimum\n"), 0600)
 	logger.Info("PrepareDocker", "", nil, "disable selinux via config result: %v", err)
 }
 
