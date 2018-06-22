@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
+	"io/ioutil"
 	"path"
 	"sync"
 	"time"
@@ -69,6 +70,11 @@ func PrepareDocker(logger misc.Logger) {
 	// Turn on ip forwarding so that docker containers will have access to the Internet
 	out, err = misc.InvokeProgram(nil, 30, "sysctl", "-w", "net.ipv4.ip_forward=1")
 	logger.Info("PrepareDocker", "", nil, "enable ip forwarding result: %v - %s", err, out)
+	// Disable selinux as it interferes with docker directory mapping
+	out, err = misc.InvokeProgram(nil, 30, "setenforce", "0")
+	logger.Info("PrepareDocker", "", nil, "disable selinux result: %v - %s", err, out)
+	err = ioutil.WriteFile("/etc/selinux/config", []byte("SELINUX=permissive\nSELINUXTYPE=minimum\n"), 0600)
+	logger.Info("PrepareDocker", "", nil, "disable selinux via config result: %v", err)
 }
 
 // Acquire a new instance instance. If necessary, kill an existing instance to free up the space for the new instance.
