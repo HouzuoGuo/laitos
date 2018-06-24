@@ -32,7 +32,7 @@ For reliable **Internet access via alternative infrastructures** such as telepho
 - **Efficient** - consume as little as 28MB of memory and 12MB of disk.
 - **Portable** - runs on all flavours of Linux and Unix.
 - **Independent** - reliable stand-alone operation with self healing and automated maintenance.
-- **Hyped by Buzzwords** - certified to run in any container, as well as PaaS, IaaS, *aaS.
+- **Hyped by Buzzwords** - certified to run in any container, as well as PaaS, IaaS, \*aaS.
 
 **Did you know?** one of laitos components gets you modern & rich web experience on the nostalgic Mosaic browser running
 on Windows 95! Explore more in the comprehensive [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
@@ -51,12 +51,8 @@ I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gm
 ## Copyright
 Copyright (C) 2016-2018 Houzuo (Howard) Guo <guohouzuo@gmail.com>
 
-This program is free software:
-you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the
-Free Software Foundation, This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
-without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
-License for more details. You should have received a copy of the GNU General Public License along with this program. If
-not, see <http://www.gnu.org/licenses/>.
+This program is free software subject to the terms of Mozilla Public License, v. 2.0. You may find the license text in
+[the LICENSE file](https://github.com/HouzuoGuo/laitos/blob/master/LICENSE)
 
 ## Project name and origin
 In late 2015/early 2016, a much smaller program called "websh" was born that only offered basic shell access via SMS and
