@@ -7,8 +7,16 @@ import (
 )
 
 func TestDownloadAllBlacklists(t *testing.T) {
-	if names := DownloadAllBlacklists(misc.Logger{}); len(names) < 5000 {
+	names := DownloadAllBlacklists(misc.Logger{})
+	if len(names) < 5000 {
 		t.Fatal("number of names is too little")
+	}
+	for _, name := range names {
+		for _, allowed := range Whitelist {
+			if name == allowed {
+				t.Fatal("did not remove white listed name ", name)
+			}
+		}
 	}
 }
 
@@ -29,12 +37,5 @@ func TestExtractNamesFromHostsContent(t *testing.T) {
 	names := ExtractNamesFromHostsContent(sample)
 	if !reflect.DeepEqual(names, []string{"t.co", "01234.com", "56789.com"}) {
 		t.Fatal(names)
-	}
-}
-
-func TestUniqueStrings(t *testing.T) {
-	ret := UniqueStrings([]string{"a", "b"}, []string{"b", "c"}, []string{"a", "d"})
-	if len(ret) != 4 {
-		t.Fatal(ret)
 	}
 }

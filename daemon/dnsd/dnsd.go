@@ -18,7 +18,6 @@ const (
 	ForwarderTimeoutSec         = 1 * 2  // ForwarderTimeoutSec is the IO timeout for a round trip interaction with forwarders
 	ClientTimeoutSec            = 30 * 2 // AnswerTimeoutSec is the IO timeout for a round trip interaction with DNS clients
 	MaxPacketSize               = 9038   // Maximum acceptable UDP packet size
-	NumQueueRatio               = 8      // Upon initialisation, create (PerIPLimit/NumQueueRatio) number of queues to handle queries.
 	BlacklistUpdateIntervalSec  = 7200   // Update ad-server blacklist at this interval
 	MinNameQuerySize            = 14     // If a query packet is shorter than this length, it cannot possibly be a name query.
 	PublicIPRefreshIntervalSec  = 900    // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.

@@ -15,7 +15,22 @@ var HostsFileURLs = []string{
 	"http://someonewhocares.org/hosts/hosts",
 }
 
-// DownloadAllBlacklists attempts to download all hosts files and return combined list of domain names to block.
+/*
+Whitelist is an array of domain names that often appear in black lists, but cause inconvenience when blocked. These
+names are removed from downloaded black lists.
+*/
+var Whitelist = []string{
+	/*
+		2018-06-24 - youtube app on iPhone fails to save watch history, some sources suggest that this domain name is
+		the culprit.
+	*/
+	"s.youtube.com",
+}
+
+/*
+DownloadAllBlacklists attempts to download all hosts files and return combined list of domain names to block.
+The special cases of white listed names are removed from return value.
+*/
 func DownloadAllBlacklists(logger misc.Logger) []string {
 	wg := new(sync.WaitGroup)
 	wg.Add(len(HostsFileURLs))
@@ -32,7 +47,22 @@ func DownloadAllBlacklists(logger misc.Logger) []string {
 		}(i, url)
 	}
 	wg.Wait()
-	ret := UniqueStrings(lists...)
+	// Calculate unique set of domain names
+	set := map[string]struct{}{}
+	for _, list := range lists {
+		for _, str := range list {
+			set[str] = struct{}{}
+		}
+	}
+	// Remove white listed names
+	for _, toRemove := range Whitelist {
+		delete(set, toRemove)
+	}
+
+	ret := make([]string, 0, len(set))
+	for str := range set {
+		ret = append(ret, str)
+	}
 	logger.Info("DownloadAllBlacklists", "", nil, "downloaded %d unique names in total", len(ret))
 	return ret
 }
@@ -72,24 +102,6 @@ func ExtractNamesFromHostsContent(content string) []string {
 			// Avoid taking in too many names
 			break
 		}
-	}
-	return ret
-}
-
-// UniqueStrings returns unique strings among input string arrays.
-func UniqueStrings(arrays ...[]string) []string {
-	m := map[string]struct{}{}
-	for _, array := range arrays {
-		if array == nil {
-			continue
-		}
-		for _, str := range array {
-			m[str] = struct{}{}
-		}
-	}
-	ret := make([]string, 0, len(m))
-	for str := range m {
-		ret = append(ret, str)
 	}
 	return ret
 }
