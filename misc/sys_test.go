@@ -102,7 +102,7 @@ func TestInvokeProgram(t *testing.T) {
 }
 
 func TestInvokeShell(t *testing.T) {
-	out, err := InvokeShell(1, "/bin/bash", "printenv PATH")
+	out, err := InvokeShell(1, "/bin/sh", "echo $PATH")
 	if err != nil || out != CommonPATH+"\n" {
 		t.Fatal(err, out)
 	}
