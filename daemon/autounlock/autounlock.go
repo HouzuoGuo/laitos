@@ -161,7 +161,7 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 		stopped = true
 	}()
 	// Expect the daemon loop to unlock the server in couple of seconds
-	time.Sleep(2 * time.Second)
+	time.Sleep(4 * time.Second)
 	if !unlocked {
 		t.Fatal("did not unlock")
 	}
