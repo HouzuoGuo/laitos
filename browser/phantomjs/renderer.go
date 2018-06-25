@@ -694,6 +694,9 @@ func (instance *Instance) Reload() error {
 
 // GoTo navigates to a new URL.
 func (instance *Instance) GoTo(userAgent, pageURL string, width, height int) error {
+	if !strings.HasPrefix(pageURL, "http://") && !strings.HasPrefix(pageURL, "https://") {
+		return errors.New("Instance.GoTo: input URL must begin with http or https scheme")
+	}
 	var result bool
 	err := instance.SendRequest("goto", map[string]interface{}{
 		"user_agent":  userAgent,
