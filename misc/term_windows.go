@@ -1,6 +1,8 @@
 package misc
 
+import "fmt"
+
 // Enable or disable terminal echo.
 func SetTermEcho(echo bool) {
-	return
+	fmt.Println("(Terminal echo control is not supported on Windows, your password input will show in plain!)")
 }
