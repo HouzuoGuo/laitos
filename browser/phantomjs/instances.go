@@ -12,7 +12,10 @@ import (
 	"time"
 )
 
-// Instances manage lifecycle of a fixed number of browser server instances (PhantomJS).
+/*
+Instances manage lifecycle of a fixed number of browser server instances (PhantomJS). As of 2018-06-26, there is no plan
+to support this remote browser on Windows.
+*/
 type Instances struct {
 	PhantomJSExecPath string `json:"PhantomJSExecPath"` // Absolute or relative path to PhantomJS executable
 	MaxInstances      int    `json:"MaxInstances"`      // Maximum number of instances

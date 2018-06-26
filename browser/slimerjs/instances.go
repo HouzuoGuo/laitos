@@ -56,7 +56,7 @@ func (instances *Instances) Initialise() error {
 
 /*
 PrepareDocker starts docker daemon, ensures that docker keeps running, and pulls the docker image for SlimerJS. The
-routine requires root privilege to run.
+routine requires root privilege to run and is tailored for a Linux container host.
 */
 func PrepareDocker(logger misc.Logger) {
 	if !misc.EnableStartDaemon("docker") {
@@ -85,16 +85,18 @@ func (instances *Instances) Acquire() (index int, browser *Instance, err error) 
 		that causes the PrepareDocker routine to run twice, This inconvenience should have been addressed in the
 		supervisor intiialisation process, but for now, sacrifice a bit of user convenience for workaroundability.
 	*/
-	prepareDockerOnce.Do(func() {
-		go func() {
-			// Start this background routine in an infinite loop to keep docker running and image available
-			for {
-				// Enable and start docker daemon
-				PrepareDocker(instances.logger)
-				time.Sleep(DockerMaintenanceIntervalSec * time.Second)
-			}
-		}()
-	})
+	if !misc.HostIsWindows() {
+		prepareDockerOnce.Do(func() {
+			go func() {
+				// Start this background routine in an infinite loop to keep docker running and image available
+				for {
+					// Enable and start docker daemon
+					PrepareDocker(instances.logger)
+					time.Sleep(DockerMaintenanceIntervalSec * time.Second)
+				}
+			}()
+		})
+	}
 
 	instances.browserMutex.Lock()
 	defer instances.browserMutex.Unlock()

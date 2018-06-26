@@ -1,27 +1,26 @@
 package slimerjs
 
 import (
+	"fmt"
 	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestInteractiveBrowser(t *testing.T) {
-	if os.Getuid() != 0 {
+	if !misc.HostIsWindows() && os.Getuid() != 0 {
 		t.Skip("this test involves docker daemon operation, it requires root privilege.")
 	}
 	// CircleCI container cannot operate docker daemon
 	misc.SkipTestIfCI(t)
-	renderOutput, err := ioutil.TempDir("", "laitos-TestInteractiveBrowser-browsers-render")
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	instance := &Instance{
-		RenderImageDir:     renderOutput,
+		RenderImageDir:     filepath.Join(SecureTempFileDirectory, fmt.Sprintf("laitos-browser-instance-render-slimerjs-%d-%d", time.Now().Unix(), 1)),
 		Port:               41599,
 		AutoKillTimeoutSec: 300,
 	}
@@ -83,7 +82,7 @@ func TestInteractiveBrowser(t *testing.T) {
 }
 
 func TestLineOrientedBrowser(t *testing.T) {
-	if os.Getuid() != 0 {
+	if !misc.HostIsWindows() && os.Getuid() != 0 {
 		t.Skip("this test involves docker daemon operation, it requires root privilege.")
 	}
 	// CircleCI container cannot operate docker daemon
