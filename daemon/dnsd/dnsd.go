@@ -201,8 +201,11 @@ func (daemon *Daemon) UpdateBlackList() {
 	// Get ready to construct the new blacklist
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
-	// Use a parallel approach to resolve these names
-	numRoutines := 32
+	/*
+		Resolve black-listed names in parallel. Avoid using too many routines at the same time, or Windows will not let
+		any network traffic through at all during the process.
+	*/
+	numRoutines := 8
 	parallelResolve := new(sync.WaitGroup)
 	parallelResolve.Add(numRoutines)
 	// Collect some nice counter data just for show
