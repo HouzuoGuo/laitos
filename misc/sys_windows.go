@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strconv"
 	"time"
 )
 
@@ -27,11 +28,13 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	combinedEnv := make([]string, 0, 1+len(myEnv))
 	// Inherit environment variables from program environment
 	combinedEnv = append(combinedEnv, myEnv...)
-	/*
-		Put common PATH values into the mix. Since go 1.9, when environment variables contain duplicated keys, only the
-		last value of duplicated key is effective. This behaviour enables caller to override PATH if deemede necessary.
-	*/
-	combinedEnv = append(combinedEnv, "PATH="+CommonPATH)
+	if !HostIsWindows() {
+		/*
+			Put common PATH values into the mix. Since go 1.9, when environment variables contain duplicated keys, only the
+			last value of duplicated key is effective. This behaviour enables caller to override PATH if deemede necessary.
+		*/
+		combinedEnv = append(combinedEnv, "PATH="+CommonPATH)
+	}
 	if envVars != nil {
 		combinedEnv = append(combinedEnv, envVars...)
 	}
@@ -60,10 +63,10 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 
 // KillProcess kills the process or the group of processes associated with it.
 func KillProcess(proc *os.Process) (success bool) {
-	if proc.Kill() == nil {
+	err := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(proc.Pid)).Run()
+	if err == nil {
 		success = true
 	}
-	proc.Wait()
 	return
 }
 

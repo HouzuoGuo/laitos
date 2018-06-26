@@ -89,12 +89,11 @@ func MakeEncryptedArchive(srcDir, archivePath string) {
 StartPasswordWebServer is a distinct routine of laitos main program, it starts a simple web server to accept a password
 input in order to decrypt laitos program data and launch the daemons.
 */
-func StartPasswordWebServer(port int, url, archivePath string, insecureExtraction bool) {
+func StartPasswordWebServer(port int, url, archivePath string) {
 	ws := passwdserver.WebServer{
-		Port:               port,
-		URL:                url,
-		ArchiveFilePath:    archivePath,
-		InsecureExtraction: insecureExtraction,
+		Port:            port,
+		URL:             url,
+		ArchiveFilePath: archivePath,
 	}
 	/*
 		On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching the new
@@ -142,12 +141,11 @@ func main() {
 	flag.BoolVar(&benchmark, "benchmark", false, fmt.Sprintf("(Optional) continuously run benchmark routines on active daemons while exposing net/http/pprof on port %d", ProfilerHTTPPort))
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
 	// Encrypted data archive launcher (password input server) flags
-	var pwdServer, pwdServerInsecureExtraction bool
+	var pwdServer bool
 	var pwdServerPort int
 	var pwdServerData string
 	var pwdServerURL string
 	flag.BoolVar(&pwdServer, passwdserver.CLIFlag, false, "(Optional) launch web server to accept password for decrypting encrypted program data")
-	flag.BoolVar(&pwdServerInsecureExtraction, passwdserver.CLIFlag+"insecureextraction", false, "(Optional) extract program data into less secure location so that root access is not needed")
 	flag.IntVar(&pwdServerPort, passwdserver.CLIFlag+"port", 80, "(Optional) port number of the password web server")
 	flag.StringVar(&pwdServerData, passwdserver.CLIFlag+"data", "", "(Optional) location of encrypted program data archive")
 	flag.StringVar(&pwdServerURL, passwdserver.CLIFlag+"url", "", "(Optional) password input URL")
@@ -188,7 +186,7 @@ func main() {
 	// Password input web server - start the web server to accept password input for decrypting program data.
 	// ========================================================================
 	if pwdServer {
-		StartPasswordWebServer(pwdServerPort, pwdServerURL, pwdServerData, pwdServerInsecureExtraction)
+		StartPasswordWebServer(pwdServerPort, pwdServerURL, pwdServerData)
 		return
 	}
 	/*

@@ -57,7 +57,11 @@ func TestGetSystemUptimeSec(t *testing.T) {
 }
 
 func TestGetRootDiskUsageKB(t *testing.T) {
-	SkipTestIfCI(t)
+	if HostIsWindows() || HostIsCircleCI() {
+		// Just make sure the function does not crash
+		GetRootDiskUsageKB()
+		return
+	}
 	used, free, total := GetRootDiskUsageKB()
 	if used == 0 || free == 0 || total == 0 || used+free != total {
 		t.Fatal(used/1024, free/1024, total/1024)
@@ -85,26 +89,50 @@ func TestGetSysctl(t *testing.T) {
 }
 
 func TestInvokeProgram(t *testing.T) {
-	out, err := InvokeProgram([]string{"A=laitos123"}, 10, "printenv", "A")
-	if err != nil || out != "laitos123\n" {
-		t.Fatal(err, out)
-	}
+	if HostIsWindows() {
+		out, err := InvokeProgram([]string{"A=laitos123"}, 3, "hostname")
+		if err != nil || len(out) < 1 {
+			t.Fatal(err, out)
+		}
 
-	begin := time.Now()
-	out, err = InvokeProgram(nil, 1, "sleep", "5")
-	if err == nil {
-		t.Fatal("did not timeout")
-	}
-	duration := time.Now().Unix() - begin.Unix()
-	if duration > 2 {
-		t.Fatal("did not kill before timeout")
+		begin := time.Now()
+		out, err = InvokeProgram(nil, 3, "cmd.exe", "/c", "waitfor dummydummy /t 60")
+		if err == nil {
+			t.Fatal("did not timeout")
+		}
+		duration := time.Now().Unix() - begin.Unix()
+		if duration > 4 {
+			t.Fatal("did not kill before timeout")
+		}
+	} else {
+		out, err := InvokeProgram([]string{"A=laitos123"}, 10, "printenv", "A")
+		if err != nil || out != "laitos123\n" {
+			t.Fatal(err, out)
+		}
+
+		begin := time.Now()
+		out, err = InvokeProgram(nil, 1, "sleep", "5")
+		if err == nil {
+			t.Fatal("did not timeout")
+		}
+		duration := time.Now().Unix() - begin.Unix()
+		if duration > 2 {
+			t.Fatal("did not kill before timeout")
+		}
 	}
 }
 
 func TestInvokeShell(t *testing.T) {
-	out, err := InvokeShell(1, "/bin/sh", "echo $PATH")
-	if err != nil || out != CommonPATH+"\n" {
-		t.Fatal(err, out)
+	if HostIsWindows() {
+		out, err := InvokeShell(3, "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "echo $env:windir")
+		if err != nil || !strings.Contains(strings.ToLower(out), "windows") {
+			t.Fatal(err, out)
+		}
+	} else {
+		out, err := InvokeShell(1, "/bin/sh", "echo $PATH")
+		if err != nil || out != CommonPATH+"\n" {
+			t.Fatal(err, out)
+		}
 	}
 }
 
@@ -118,6 +146,11 @@ func TestPrepareUtilities(t *testing.T) {
 }
 
 func TestGetLocalUserNames(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// just make sure it does not panic
+		GetLocalUserNames()
+		return
+	}
 	names := GetLocalUserNames()
 	if len(names) < 2 || !names["root"] {
 		t.Fatal(names)

@@ -89,16 +89,6 @@ type WebServer struct {
 	URL             string // URL is the secretive URL that serves the unlock page. The URL must include leading slash.
 	ArchiveFilePath string // ArchiveFilePath is the absolute or relative path to encrypted archive file.
 
-	/*
-		InsecureExtraction alters the behaviour of extracting program data archive.
-		The default and secure value is false, which means data archive is extracted into ramdisk and does not touch
-		disk storage. However, doing so requires elevated (root) access as well as "mount" command.
-		The other option (true) will let data archive extract into a directory on disk storage, this is less secure
-		because a file recovery operation will reveal the decrypted program data, however this operation does not
-		require elevated access or mount command.
-	*/
-	InsecureExtraction bool
-
 	server           *http.Server // server is the HTTP server after it is started.
 	archiveFileSize  int          // archiveFileSize is the size of the archive file, it is set when web server starts.
 	extractedDataDir string       // extractedDataDir is destination location into which encrypted program data is extracted.
@@ -129,12 +119,21 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
 
 		var err error
-		if ws.InsecureExtraction {
-			// Create a plain directory to hold decrypted program data, this is the less secure way for lack of elevated privilege.
+		/*
+			By default, archive is extracted into ramdisk and does not touch disk storage. Doing so requires a Linux
+			host and root privilege.
+			Ramdisk size in MB = archive size (unencrypted archive) + archive size (extracted files) + 8 (contingency)
+		*/
+		ws.extractedDataDir, err = encarchive.MakeRamdisk(ws.archiveFileSize/1048576*2 + 8)
+		if err != nil {
+			/*
+				Create a plain directory to hold decrypted program data, this is the less secure fallback method,
+				because file recovery operation will reveal the decrypted program data. This fallback helps to launch
+				encrypted archive in the absence of root privielge (e.g. AWS Fargate), or in case host is Windows or
+				MacOS.
+			*/
+			ws.logger.Warning("pageHandler", r.RemoteAddr, nil, "host does not support ramdisk, hence trying insecure method to extract data")
 			ws.extractedDataDir, err = encarchive.MakePlainDestDir()
-		} else {
-			// Ramdisk size in MB = archive size (unencrypted archive) + archive size (extracted files) + 8 (just in case)
-			ws.extractedDataDir, err = encarchive.MakeRamdisk(ws.archiveFileSize/1048576*2 + 8)
 		}
 		if err != nil {
 			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))

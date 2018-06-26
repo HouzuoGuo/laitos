@@ -31,6 +31,7 @@ func MakeRamdisk(sizeMB int) (string, error) {
 	}
 	out, err := misc.InvokeProgram(nil, RamdiskCommandTimeoutSec, "mount", "-t", "tmpfs", "-o", fmt.Sprintf("size=%dm", sizeMB), "tmpfs", mountPoint)
 	if err != nil {
+		TryDestroyRamdisk(mountPoint)
 		return "", fmt.Errorf("MakeRamdisk: mount command failed due to error %v - %s", err, out)
 	}
 	misc.DefaultLogger.Warning("MakeRamdisk", mountPoint, nil, "successfully created a %d MB ramdisk", sizeMB)

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -199,6 +200,11 @@ func IncreaseSysctlInt(key string, atLeast int) (old int, err error) {
 	return
 }
 
+// HostIsCircleCI returns true only if the host environment is on Circle CI.
+func HostIsCircleCI() bool {
+	return os.Getenv("CIRCLECI") != ""
+}
+
 // SkipTestIfCI asks a test to be skipped if it is being run on Circle CI.
 func SkipTestIfCI(t testingstub.T) {
 	if os.Getenv("CIRCLECI") != "" {
@@ -206,12 +212,29 @@ func SkipTestIfCI(t testingstub.T) {
 	}
 }
 
-// SkipIfWSL asks a test to be skipped if it is being run on Windows Subsystem For Linux.
-func SkipIfWSL(t testingstub.T) {
+// HostIsWSL returns true only if the runtime is Windows subsystem for Linux.
+func HostIsWSL() bool {
 	cmd := exec.Command("uname", "-a")
 	out, err := cmd.CombinedOutput()
-	if err == nil && strings.Contains(string(out), "Microsoft") {
+	return err == nil && strings.Contains(string(out), "Microsoft")
+}
+
+// SkipIfWSL asks a test to be skipped if it is being run on Windows Subsystem For Linux.
+func SkipIfWSL(t testingstub.T) {
+	if HostIsWSL() {
 		t.Skip("this test is skipped on Windows Subsystem For Linux")
+	}
+}
+
+// HostIsWindows returns true only if the runtime is Windows native, not subsystem for Linux.
+func HostIsWindows() bool {
+	return runtime.GOOS == "windows"
+}
+
+// SkipIfWindows asks a test to be skipped if it is being run on Windows natively (not "subsystem for Linux").
+func SkipIfWindows(t testingstub.T) {
+	if HostIsWindows() {
+		t.Skip("this test is skipped on Windows")
 	}
 }
 
