@@ -2,11 +2,16 @@ package launcher
 
 import (
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
+	"github.com/HouzuoGuo/laitos/misc"
 	"testing"
 	"time"
 )
 
 func TestBenchmark(t *testing.T) {
+	if misc.HostIsWindows() {
+		// FIXME: fix this test case for Windows
+		t.Skip("FIXME: enable this test case for Windows")
+	}
 	var config Config
 	if err := config.DeserialiseFromJSON([]byte(sampleConfigJSON)); err != nil {
 		t.Fatal(err)

@@ -112,6 +112,10 @@ func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAd
 
 // Run unit tests on the UDP server. See TestPlainTextProt_StartAndBlockUDP for daemon setup.
 func TestUDPServer(server *Daemon, t testingstub.T) {
+	if misc.HostIsWindows() {
+		// FIXME: fix this test case for Windows
+		t.Skip("FIXME: enable this test case for Windows")
+	}
 	// Prevent daemon from listening to TCP connections in this UDP test case
 	tcpListenPort := server.TCPPort
 	server.TCPPort = 0

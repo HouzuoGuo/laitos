@@ -150,6 +150,10 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 
 // Run unit tests on DNS TCP daemon. See TestDNSD_StartAndBlockTCP for daemon setup.
 func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
+	if misc.HostIsWindows() {
+		// FIXME: fix this test case for Windows
+		t.Skip("FIXME: enable this test case for Windows")
+	}
 	// Prevent daemon from listening to UDP queries in this TCP test case
 	dnsd.UDPPort = 0
 	udpListenPort := dnsd.UDPPort
