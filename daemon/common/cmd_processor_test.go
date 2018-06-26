@@ -5,10 +5,11 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"reflect"
+	"strings"
 	"testing"
 )
 
-func TestCommandProcessorProcess(t *testing.T) {
+func TestCommandProcessor_NonWindows(t *testing.T) {
 	// Prepare feature set - the shell execution feature should be available even without configuration
 	features := &toolbox.FeatureSet{}
 	if err := features.Initialise(); err != nil {
@@ -40,34 +41,34 @@ func TestCommandProcessorProcess(t *testing.T) {
 		t.Fatalf("%+v", result)
 	}
 
-	// Run a failing command
-	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin.secho alpha && false"}
+	// Run a failing command - be aware of the word substitution conducted by command filter
+	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin.secho alpha; does-not-exist"}
 	result = proc.Process(cmd, true)
-	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".secho beta && false"}) ||
-		result.Error == nil || result.Output != "beta\n" || result.CombinedOutput != result.Error.Error()[0:2] {
+	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".secho beta; does-not-exist"}) ||
+		result.Error == nil || !strings.Contains(result.Output, "beta") || result.CombinedOutput != result.Error.Error()[0:2] {
 		t.Fatalf("%+v", result)
 	}
 
 	// Run a command that does not trigger a configured feature
-	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin.tg"}
+	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin.tz"}
 	result = proc.Process(cmd, true)
-	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".tg"}) ||
+	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".tz"}) ||
 		result.Error != ErrBadPrefix || result.Output != "" || result.CombinedOutput != ErrBadPrefix.Error()[0:2] {
 		t.Fatalf("%+v", result)
 	}
 
-	// Run a successful command
+	// Run a successful command - be aware of the word substitution conducted by command filter
 	cmd = toolbox.Command{TimeoutSec: 5, Content: "mypin.secho alpha"}
 	result = proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".secho beta"}) ||
-		result.Error != nil || result.Output != "beta\n" || result.CombinedOutput != "be" {
+		result.Error != nil || !strings.Contains(result.Output, "beta") || result.CombinedOutput != "be" {
 		t.Fatalf("%+v", result)
 	}
 	// Test the tolerance to extra spaces in feature prefix matcher
 	cmd = toolbox.Command{TimeoutSec: 5, Content: " mypin .s echo alpha "}
 	result = proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 5, Content: ".s echo beta"}) ||
-		result.Error != nil || result.Output != "beta\n" || result.CombinedOutput != "be" {
+		result.Error != nil || !strings.Contains(result.Output, "beta") || result.CombinedOutput != "be" {
 		t.Fatalf("%+v", result)
 	}
 
@@ -79,16 +80,16 @@ func TestCommandProcessorProcess(t *testing.T) {
 		t.Fatalf("%v | %v | %v |%+v", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
 	// Override PLT using good PLT parameter values
-	cmd = toolbox.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 4  .s  sleep 2 && echo -n 0123456789 "}
+	cmd = toolbox.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 4  .s  sleep 2 ; echo 0123456789 "}
 	result = proc.Process(cmd, true)
-	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 4, Content: "  .s  sleep 2 && echo -n 0123456789"}) ||
-		result.Error != nil || result.Output != "0123456789" || result.CombinedOutput != "23456" {
+	if !reflect.DeepEqual(result.Command, toolbox.Command{TimeoutSec: 4, Content: "  .s  sleep 2 ; echo 0123456789"}) ||
+		result.Error != nil || !strings.Contains(result.Output, "0123456789") || result.CombinedOutput != "23456" {
 		t.Fatalf("%v | %v | %v | %+v", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
 
 	// Trigger emergency lock down and try
 	misc.TriggerEmergencyLockDown()
-	cmd = toolbox.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 3  .s  sleep 2 && echo -n 0123456789 "}
+	cmd = toolbox.Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 3  .s  sleep 2 ;  echo 0123456789 "}
 	if result := proc.Process(cmd, true); result.Error != misc.ErrEmergencyLockDown {
 		t.Fatal(result)
 	}

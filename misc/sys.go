@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -120,12 +120,12 @@ func PrepareUtilities(progress Logger) {
 		"phantomjs", "phantomjs",
 	}
 	// The GOPATH directory is useful for developing test cases, and CWD is useful for running deployed laitos.
-	findInPaths := []string{path.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/"), "./"}
+	findInPaths := []string{filepath.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/"), "./"}
 	for i := 0; i < len(srcDestName); i += 2 {
 		srcName := srcDestName[i]
 		destName := srcDestName[i+1]
 		for _, aPath := range findInPaths {
-			srcPath := path.Join(aPath, srcName)
+			srcPath := filepath.Join(aPath, srcName)
 			//progress.Info("PrepareUtilities", destName, nil, "looking for %s", srcPath)
 			if _, err := os.Stat(srcPath); err != nil {
 				//progress.Info("PrepareUtilities", destName, err, "failed to stat srcPath %s", srcPath)
@@ -137,7 +137,7 @@ func PrepareUtilities(progress Logger) {
 				continue
 			}
 			defer from.Close()
-			destPath := path.Join(UtilityDir, destName)
+			destPath := filepath.Join(UtilityDir, destName)
 			to, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
 			if err != nil {
 				//progress.Info("PrepareUtilities", destName, err, "failed to open destPath %s ", destPath)
@@ -156,7 +156,8 @@ func PrepareUtilities(progress Logger) {
 }
 
 /*
-InvokeShell launches an external shell process with time constraints to run a piece of code.
+InvokeShell launches an external shell process with time constraints to run a piece of shell code. The code is fed into
+shell command parameter "-c", which happens to be universally accepted by Unix shells and Windows Powershell.
 Returns shell stdout+stderr output combined and error if there is any.
 */
 func InvokeShell(timeoutSec int, interpreter string, content string) (out string, err error) {
@@ -165,7 +166,7 @@ func InvokeShell(timeoutSec int, interpreter string, content string) (out string
 
 // GetSysctlStr returns string value of a sysctl parameter corresponding to the input key.
 func GetSysctlStr(key string) (string, error) {
-	content, err := ioutil.ReadFile(path.Join("/proc/sys/", strings.Replace(key, ".", "/", -1)))
+	content, err := ioutil.ReadFile(filepath.Join("/proc/sys/", strings.Replace(key, ".", "/", -1)))
 	return strings.TrimSpace(string(content)), err
 }
 
@@ -180,7 +181,7 @@ func GetSysctlInt(key string) (int, error) {
 
 // SetSysctl writes a new value into sysctl parameter.
 func SetSysctl(key, value string) (old string, err error) {
-	filePath := path.Join("/proc/sys/", strings.Replace(key, ".", "/", -1))
+	filePath := filepath.Join("/proc/sys/", strings.Replace(key, ".", "/", -1))
 	if old, err = GetSysctlStr(key); err != nil {
 		return
 	}
@@ -361,7 +362,7 @@ func SwapOff() error {
 
 // SetTimeZone changes system time zone to the specified value (such as "UTC").
 func SetTimeZone(zone string) error {
-	zoneInfoPath := path.Join("/usr/share/zoneinfo/", zone)
+	zoneInfoPath := filepath.Join("/usr/share/zoneinfo/", zone)
 	if stat, err := os.Stat(zoneInfoPath); err != nil || stat.IsDir() {
 		return fmt.Errorf("failed to read zoneinfo file of %s - %v", zone, err)
 	}

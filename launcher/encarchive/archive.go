@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 )
 
@@ -160,8 +159,8 @@ func Extract(archivePath, tmpPath, outDirPath string, key []byte) error {
 			return err
 		}
 		defer zipFileContent.Close()
-		outPath := path.Join(outDirPath, zipFile.Name)
-		if err := os.MkdirAll(path.Dir(outPath), 0700); err != nil {
+		outPath := filepath.Join(outDirPath, zipFile.Name)
+		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
 			return err
 		}
 		unzipDest, err := os.Create(outPath)

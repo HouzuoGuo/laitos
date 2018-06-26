@@ -19,8 +19,8 @@ func TestRecurringCommands(t *testing.T) {
 	cmds.MaxResults = 4
 	cmds.CommandProcessor = GetTestCommandProcessor()
 	cmds.PreConfiguredCommands = []string{
-		TestCommandProcessorPIN + ".s echo -n first",
-		TestCommandProcessorPIN + ".s echo -n second",
+		TestCommandProcessorPIN + ".s echo first",
+		TestCommandProcessorPIN + ".s echo second",
 	}
 	cmds.Initialise()
 
@@ -44,12 +44,14 @@ func TestRecurringCommands(t *testing.T) {
 	}
 
 	// Add two proper transient commands
-	cmds.AddTransientCommand(TestCommandProcessorPIN + ".s echo -n third")
-	cmds.AddTransientCommand(TestCommandProcessorPIN + ".s echo -n fourth")
+	cmds.AddTransientCommand(TestCommandProcessorPIN + ".s echo third")
+	cmds.AddTransientCommand(TestCommandProcessorPIN + ".s echo fourth")
 
 	// Collect result from all four commands
 	cmds.runAllCommands()
-	if a := cmds.GetResults(); !reflect.DeepEqual(a, []string{"first", "second", "third", "fourth"}) {
+	if a := cmds.GetResults(); !reflect.DeepEqual(
+		[]string{strings.TrimSpace(a[0]), strings.TrimSpace(a[1]), strings.TrimSpace(a[2]), strings.TrimSpace(a[3])},
+		[]string{"first", "second", "third", "fourth"}) {
 		t.Fatal(a)
 	}
 	if a := cmds.GetResults(); !reflect.DeepEqual(a, []string{}) {
@@ -69,9 +71,9 @@ func TestRecurringCommands(t *testing.T) {
 		cmds.Start()
 		stopped = true
 	}()
-	time.Sleep(time.Duration(cmds.IntervalSec*2) * time.Second)
+	time.Sleep(time.Duration(cmds.IntervalSec*5) * time.Second)
 	if a := cmds.GetResults(); len(a) != len(cmds.transientCommands)+len(cmds.PreConfiguredCommands) {
-		t.Fatal(a)
+		t.Fatal(a, len(a), len(cmds.transientCommands)+len(cmds.PreConfiguredCommands))
 	}
 
 	// Expect it to stop within 2 seconds

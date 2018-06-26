@@ -122,6 +122,9 @@ TuneLinux tweaks Linux-specific system parameters to ensure optimal operation an
 resources. Returns human-readable description of how values have been tweaked (i.e. the differences).
 */
 func TuneLinux() string {
+	if runtime.GOOS != "linux" {
+		return "TuneLinux has nothing to do, system is not Linux."
+	}
 	_, memSizeKB := misc.GetSystemMemoryUsageKB()
 	// The following settings have little influence on system resources
 	assignment := map[string]string{

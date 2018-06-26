@@ -5,7 +5,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -61,7 +61,7 @@ func TryDestroyAllRamdisks() {
 	}
 	for _, info := range dirs {
 		if strings.HasPrefix(info.Name(), RamdiskTmpdirNamePrefix) {
-			TryDestroyRamdisk(path.Join(RamdiskParentDir, info.Name()))
+			TryDestroyRamdisk(filepath.Join(RamdiskParentDir, info.Name()))
 		}
 	}
 }

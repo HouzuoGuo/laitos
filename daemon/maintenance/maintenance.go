@@ -20,7 +20,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -437,7 +437,7 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 			Prefer apt over apt-get because some public cloud OS templates can upgrade kernel via apt but not with apt-get.
 		*/
 		for _, execName := range []string{"yum", "zypper", "apt", "apt-get"} {
-			pkgManagerPath = path.Join(binPrefix, execName)
+			pkgManagerPath = filepath.Join(binPrefix, execName)
 			if _, err := os.Stat(pkgManagerPath); err == nil {
 				pkgManagerName = execName
 				break

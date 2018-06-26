@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -8,7 +9,53 @@ import (
 	"time"
 )
 
-func TestShell_Execute(t *testing.T) {
+func TestShell_WindowsExecute(t *testing.T) {
+	if !misc.HostIsWindows() {
+		t.Skip("this test is only applicable on Windows")
+	}
+	sh := Shell{}
+	if !sh.IsConfigured() {
+		t.Skip()
+	}
+	if err := sh.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if err := sh.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Execute empty command
+	ret := sh.Execute(Command{TimeoutSec: 1, Content: "      "})
+	if ret.Error != ErrEmptyCommand ||
+		ret.ErrText() != ErrEmptyCommand.Error() ||
+		ret.Output != "" ||
+		ret.ResetCombinedText() != ErrEmptyCommand.Error() {
+		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
+	}
+
+	// Execute a successful command
+	ret = sh.Execute(Command{TimeoutSec: 3, Content: `echo '"abc"'`})
+	if ret.Error != nil ||
+		ret.ErrText() != "" ||
+		strings.TrimSpace(ret.Output) != `"abc"` ||
+		strings.TrimSpace(ret.ResetCombinedText()) != `"abc"` {
+		t.Fatalf("Err: %v\nErrText: %s\nOutput: %s\nCombinedOutput: %s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
+	}
+
+	// Execute a failing command
+	ret = sh.Execute(Command{TimeoutSec: 3, Content: `does-not-exist`})
+	if ret.Error == nil ||
+		ret.ErrText() != "exit status 1" ||
+		!strings.Contains(ret.Output, "CommandNotFoundException") ||
+		!strings.Contains(ret.ResetCombinedText(), "CommandNotFoundException") {
+		t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
+	}
+}
+
+func TestShell_NonWindowsExecute(t *testing.T) {
+	if misc.HostIsWindows() {
+		t.Skip("this test is skipped on Windows")
+	}
 	sh := Shell{}
 	if !sh.IsConfigured() {
 		t.Skip()

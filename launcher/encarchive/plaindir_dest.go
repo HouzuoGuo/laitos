@@ -4,7 +4,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -48,7 +48,7 @@ func TryDestroyAllPlainDestDirs() {
 	}
 	for _, info := range dirs {
 		if strings.HasPrefix(info.Name(), PlainDirDestPrefix) {
-			DestoryPlainDestDir(path.Join(PlainDirDestParentDir, info.Name()))
+			DestoryPlainDestDir(filepath.Join(PlainDirDestParentDir, info.Name()))
 		}
 	}
 }

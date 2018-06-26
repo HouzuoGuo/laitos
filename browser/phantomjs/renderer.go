@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -510,7 +510,7 @@ func (instance *Instance) Start() error {
 	}
 	// Store server javascript into a temporary file
 	var err error
-	instance.serverJSFile, err = os.OpenFile(path.Join(os.TempDir(), fmt.Sprintf("laitos-phantomjs-%d.js", time.Now().UnixNano())), os.O_CREATE|os.O_WRONLY, 0644)
+	instance.serverJSFile, err = os.OpenFile(filepath.Join(os.TempDir(), fmt.Sprintf("laitos-phantomjs-%d.js", time.Now().UnixNano())), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("phantomjs.Instance.Start: failed to create temporary file for PhantomJS code - %v", err)
 	}

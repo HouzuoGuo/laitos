@@ -2,7 +2,7 @@ package misc
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -139,7 +139,7 @@ func TestInvokeShell(t *testing.T) {
 func TestPrepareUtilities(t *testing.T) {
 	PrepareUtilities(Logger{})
 	for _, utilName := range []string{"busybox", "toybox", "phantomjs"} {
-		if _, err := os.Stat(path.Join(UtilityDir, utilName)); err != nil {
+		if _, err := os.Stat(filepath.Join(UtilityDir, utilName)); err != nil {
 			t.Fatal("cannot find program "+utilName, err)
 		}
 	}

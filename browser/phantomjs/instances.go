@@ -6,7 +6,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -87,7 +87,7 @@ func (instances *Instances) Acquire() (index int, browser *Instance, err error) 
 	}
 	browser = &Instance{
 		PhantomJSExecPath:  instances.PhantomJSExecPath,
-		RenderImagePath:    path.Join(os.TempDir(), fmt.Sprintf("laitos-browser-instance-render-phantomjs-%d-%d.jpg", time.Now().Unix(), index)),
+		RenderImagePath:    filepath.Join(os.TempDir(), fmt.Sprintf("laitos-browser-instance-render-phantomjs-%d-%d.jpg", time.Now().Unix(), index)),
 		Port:               instances.BasePortNumber + int(index),
 		AutoKillTimeoutSec: instances.MaxLifetimeSec,
 		Index:              index,

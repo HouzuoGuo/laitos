@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
-	"path"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -105,7 +105,7 @@ func (instances *Instances) Acquire() (index int, browser *Instance, err error) 
 	}
 
 	// Be aware that a location underneath /tmp might be private to laitos and will not be visible to container
-	renderImageDir := path.Join(SecureTempFileDirectory, fmt.Sprintf("laitos-browser-instance-render-slimerjs-%d-%d", time.Now().Unix(), index))
+	renderImageDir := filepath.Join(SecureTempFileDirectory, fmt.Sprintf("laitos-browser-instance-render-slimerjs-%d-%d", time.Now().Unix(), index))
 	browser = &Instance{
 		RenderImageDir:     renderImageDir,
 		Port:               instances.BasePortNumber + int(index),

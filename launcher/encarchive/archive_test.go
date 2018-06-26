@@ -1,9 +1,10 @@
 package encarchive
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 )
 
@@ -14,13 +15,13 @@ func TestMakeExtractArchive(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(srcDir)
-	if err := ioutil.WriteFile(path.Join(srcDir, "a"), []byte("123"), 0600); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(srcDir, "a"), []byte("123"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(path.Join(srcDir, "dir1", "dir2"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(srcDir, "dir1", "dir2"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(path.Join(srcDir, "dir1", "dir2", "b"), []byte("456"), 0600); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(srcDir, "dir1", "dir2", "b"), []byte("456"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -31,10 +32,11 @@ func TestMakeExtractArchive(t *testing.T) {
 		t.Fatal(err)
 	}
 	archiveFile.Close()
-	//defer os.Remove(archiveFile.Name())
+	defer os.Remove(archiveFile.Name())
 	if err := Archive(srcDir, archiveFile.Name(), key); err != nil {
 		t.Fatal(err)
 	}
+	fmt.Println("Archived at ", archiveFile.Name())
 
 	// Decrypt the archive
 	destDir, err := ioutil.TempDir("", "laitos-launcher-test-archive-dest")
@@ -56,11 +58,11 @@ func TestMakeExtractArchive(t *testing.T) {
 	}
 
 	// Verify content
-	content, err := ioutil.ReadFile(path.Join(destDir, "dir1", "dir2", "b"))
+	content, err := ioutil.ReadFile(filepath.Join(destDir, "dir1", "dir2", "b"))
 	if err != nil || string(content) != "456" {
 		t.Fatal(err, content)
 	}
-	content, err = ioutil.ReadFile(path.Join(destDir, "a"))
+	content, err = ioutil.ReadFile(filepath.Join(destDir, "a"))
 	if err != nil || string(content) != "123" {
 		t.Fatal(err, content)
 	}

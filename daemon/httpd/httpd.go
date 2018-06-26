@@ -350,7 +350,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	// Recurring commands - retrieve results
 	time.Sleep(time.Duration(httpd.HandlerCollection["/recurring_cmds"].(*handler.HandleRecurringCommands).RecurringCommands["channel2"].IntervalSec+1) * time.Second) // give timer commands a moment to trigger
 	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/recurring_cmds?retrieve=channel2")
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "this is channel2") {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "channel2") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Proxy (visit https://github.com)
@@ -424,13 +424,14 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `Failed to match PIN/shortcut`) {
 		t.Fatal(err, string(resp.Body))
 	}
-	// Twilio - check command execution result via phone call
 	//                         v  e r  y  s   e c  r  e t .   s    tr  u e
 	dtmfVerySecretDotSTrue := "88833777999777733222777338014207777087778833"
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
-		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
+	if !misc.HostIsWindows() {
+		// Twilio - check command execution result via phone call
+		resp, err = inet.DoHTTP(inet.HTTPRequest{
+			Method: http.MethodPost,
+			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
+		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
 
     repeat again.    
 
@@ -440,13 +441,13 @@ EMPTY OUTPUT.
 
 EMPTY OUTPUT.
 over.]]></Say>`) {
-		t.Fatal(err, string(resp.Body))
-	}
-	// Twilio - check command execution result via phone call and ask output to be spelt phonetically
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
-		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{"Digits": {handler.TwilioPhoneticSpellingMagic + dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	phoneticOutput := `capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango.
+			t.Fatal(err, string(resp.Body))
+		}
+		// Twilio - check command execution result via phone call and ask output to be spelt phonetically
+		resp, err = inet.DoHTTP(inet.HTTPRequest{
+			Method: http.MethodPost,
+			Body:   strings.NewReader(url.Values{"Digits": {handler.TwilioPhoneticSpellingMagic + dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
+		phoneticOutput := `capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango.
 
     repeat again.    
 
@@ -456,15 +457,15 @@ capital echo, capital mike, capital papa, capital tango, capital yankee, space, 
 
 capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango.
 over.`
-	sayResp := `<Say><![CDATA[` + phoneticOutput + `]]></Say>`
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), sayResp) {
-		t.Fatal(err, string(resp.Body))
-	}
-	// Twilio - prevent DTMF command spam according to incoming phone number
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
-		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
+		sayResp := `<Say><![CDATA[` + phoneticOutput + `]]></Say>`
+		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), sayResp) {
+			t.Fatal(err, string(resp.Body))
+		}
+		// Twilio - prevent DTMF command spam according to incoming phone number
+		resp, err = inet.DoHTTP(inet.HTTPRequest{
+			Method: http.MethodPost,
+			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
+		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
 
     repeat again.    
 
@@ -474,14 +475,16 @@ EMPTY OUTPUT.
 
 EMPTY OUTPUT.
 over.]]></Say>`) {
-		t.Fatal(err, string(resp.Body))
+			t.Fatal(err, string(resp.Body))
+		}
+		resp, err = inet.DoHTTP(inet.HTTPRequest{
+			Method: http.MethodPost,
+			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
+		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>You are rate limited.</Say><Hangup/>`) {
+			t.Fatal(err, string(resp.Body))
+		}
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
-		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>You are rate limited.</Say><Hangup/>`) {
-		t.Fatal(err, string(resp.Body))
-	}
+
 	// Wait for phone number rate limit to expire for SMS, call, and DTMF command, then redo the tests
 	time.Sleep((handler.TwilioPhoneNumberRateLimitIntervalSec + 1) * time.Second)
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
@@ -501,10 +504,11 @@ over.]]></Say>`) {
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
-		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
+	if !misc.HostIsWindows() {
+		resp, err = inet.DoHTTP(inet.HTTPRequest{
+			Method: http.MethodPost,
+			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
+		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
 
     repeat again.    
 
@@ -514,7 +518,8 @@ EMPTY OUTPUT.
 
 EMPTY OUTPUT.
 over.]]></Say>`) {
-		t.Fatal(err, string(resp.Body))
+			t.Fatal(err, string(resp.Body))
+		}
 	}
 }
 
