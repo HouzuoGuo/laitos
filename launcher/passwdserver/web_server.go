@@ -145,7 +145,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
 			return
 		}
-		defer tmpFile.Close()
+		tmpFile.Close()
 		defer os.Remove(tmpFile.Name())
 		// Extract program archive
 		if err := encarchive.Extract(ws.ArchiveFilePath, tmpFile.Name(), ws.extractedDataDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
@@ -267,10 +267,12 @@ func (ws *WebServer) LaunchMainProgram() {
 	}
 	ws.logger.Info("LaunchMainProgram", "", nil, "main program has exited cleanly")
 	// In both normal and abnormal paths, the ramdisk/temporary directory must be destroyed.
+	os.Chdir(os.TempDir())
 	encarchive.DestroyRamdisk(ws.extractedDataDir)
 	encarchive.DestoryPlainDestDir(ws.extractedDataDir)
 	return
 fatalExit:
+	os.Chdir(os.TempDir())
 	encarchive.DestroyRamdisk(ws.extractedDataDir)
 	encarchive.DestoryPlainDestDir(ws.extractedDataDir)
 	ws.logger.Abort("LaunchMainProgram", "", nil, fatalMsg)

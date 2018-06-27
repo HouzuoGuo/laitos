@@ -133,11 +133,11 @@ func Extract(archivePath, tmpPath, outDirPath string, key []byte) error {
 		return fmt.Errorf("failed to create temporary output at %s - %v", tmpPath, err)
 	}
 	defer func() {
+		tmpFile.Close()
 		if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
 			log.Panicf("failed to delete unencrypted archive at %s - %v", tmpPath, err)
 		}
 	}()
-	defer tmpFile.Close()
 	if _, err := io.Copy(tmpFile, cipherReader); err != nil {
 		return fmt.Errorf("failed to decrypt archive - %v", err)
 	}
@@ -171,6 +171,8 @@ func Extract(archivePath, tmpPath, outDirPath string, key []byte) error {
 		if _, err := io.Copy(unzipDest, zipFileContent); err != nil {
 			return err
 		}
+		zipFileContent.Close()
+		unzipDest.Close()
 	}
 	return nil
 }
