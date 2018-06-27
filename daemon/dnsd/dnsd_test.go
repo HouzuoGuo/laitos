@@ -46,6 +46,9 @@ func TestUpdateBlackList(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon.UpdateBlackList()
+	if len(daemon.blackList) < 1000 {
+		t.Fatal(len(daemon.blackList))
+	}
 }
 
 func TestDNSD(t *testing.T) {
