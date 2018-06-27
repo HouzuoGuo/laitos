@@ -622,11 +622,13 @@ func (daemon *Daemon) MaintainsIptables(out *bytes.Buffer) {
 	mOut, mErr = misc.InvokeProgram(nil, 10, "modprobe", "xt_recent", "ip_pkt_list_tot=255")
 	daemon.logPrintStageStep(out, "re-enable xt_recent - %v - %s", mErr, mOut)
 
-	// After clearing iptables, allow ICMP and established connections to communicate.
+	// After clearing iptables, allow ICMP, established connections, and localhost to communicate
 	iptables = append(iptables,
 		[]string{"-A", "INPUT", "-p", "icmp", "-j", "ACCEPT"},
 		[]string{"-A", "INPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP"},
 		[]string{"-A", "INPUT", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"},
+		[]string{"-A", "INPUT", "-i", "lo", "-j", "ACCEPT"},
+		[]string{"-A", "INPUT", "-s", "127.0.0.0/8", "-j", "ACCEPT"},
 	)
 	// Throttle ports
 	for _, port := range daemon.BlockPortsExcept {
