@@ -58,6 +58,13 @@ func (instances *Instances) Initialise() error {
 
 // TestPhantomJSExecutable returns an error only if there is a problem with using the PhantomJS executable.
 func (instances *Instances) TestPhantomJSExecutable() error {
+	if misc.HostIsWindows() {
+		/*
+			PhantomJS won't work on Windows, this hacky attempt silences its initialisation error so that configuration
+			made for Linux hosts will run unmodified on Windows.
+		*/
+		return nil
+	}
 	if _, err := os.Stat(instances.PhantomJSExecPath); err == nil {
 		// If the executable path appears to be a file that is readable, then make sure it has the correct executable permission.
 		if err := os.Chmod(instances.PhantomJSExecPath, 0755); err != nil {
