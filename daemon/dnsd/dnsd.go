@@ -201,7 +201,7 @@ func (daemon *Daemon) UpdateBlackList() {
 	// Get ready to construct the new blacklist
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
-	numRoutines := 32
+	numRoutines := 16
 	parallelResolve := new(sync.WaitGroup)
 	parallelResolve.Add(numRoutines)
 	// Collect some nice counter data just for show

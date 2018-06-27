@@ -98,7 +98,7 @@ func ExtractNamesFromHostsContent(content string) []string {
 			continue
 		}
 		ret = append(ret, aName)
-		if len(ret) > 100000 {
+		if len(ret) > 50000 {
 			// Avoid taking in too many names
 			break
 		}
