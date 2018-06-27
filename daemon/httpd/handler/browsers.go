@@ -105,11 +105,11 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 		case "Go To":
 			actionErr = instance.GoTo(userAgent, pageUrl, viewWidth, viewHeight)
 		case "LClick":
-			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonLeft, pointerX+drawLeft, pointerY+drawTop)
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonLeft, pointerX, pointerY)
 		case "RClick":
-			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonRight, pointerX+drawLeft, pointerY+drawTop)
+			actionErr = instance.Pointer(phantomjs.PointerTypeClick, phantomjs.PointerButtonRight, pointerX, pointerY)
 		case "Move To":
-			actionErr = instance.Pointer(phantomjs.PointerTypeMove, phantomjs.PointerButtonLeft, pointerX+drawLeft, pointerY+drawTop)
+			actionErr = instance.Pointer(phantomjs.PointerTypeMove, phantomjs.PointerButtonLeft, pointerX, pointerY)
 		case "Backspace":
 			actionErr = instance.SendKey("", slimerjs.KeyCodeBackspace)
 		case "Enter":

@@ -63,7 +63,7 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 
 // KillProcess kills the process or the group of processes associated with it.
 func KillProcess(proc *os.Process) (success bool) {
-	err := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(proc.Pid)).Run()
+	err := exec.Command(`C:\Windows\system32\taskkill.exe`, "/F", "/T", "/PID", strconv.Itoa(proc.Pid)).Run()
 	if err == nil {
 		success = true
 	}

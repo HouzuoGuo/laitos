@@ -70,10 +70,14 @@ const (
             return false;
         }
         browser.clipRect = {
-		    top: parseInt(param.top),
-            left: parseInt(param.left),
+			top: parseInt(param.top),
+			left: parseInt(param.left),
 			width: parseInt(param.width),
 			height: parseInt(param.height)
+		};
+		browser.scrollPosition = {
+			top: parseInt(param.top),
+			left: parseInt(param.left)
 		};
         return true;
     };
@@ -502,7 +506,9 @@ const (
 }` // Template javascript code that runs on headless browser server
 )
 
-var TagCounter = int64(0) // Increment only counter that assigns each started browser its tag. Value 0 is an invalid tag.
+var TagCounter = int64(0) // TagCounter increases for each started browser. Value 0 is the initial value, not a valid tag.
+
+var SlimerJSLauncherExePath string // SlimerJSLauncherExePath is the path to firefox.exe used to launch slimerjs.
 
 // Instance is a single headless browser server that acts on on commands received via HTTP.
 type Instance struct {
@@ -587,7 +593,8 @@ func (instance *Instance) Start() error {
 		}
 		instance.jsProcCmd = exec.Command(filepath.Join(supplementsDir, "SlimerJS", "slimerjs.bat"), slimerJSArgs...)
 		instance.jsProcCmd.Env = os.Environ() // otherwise Firefox will encounter weird NT errors
-		instance.jsProcCmd.Env = append(instance.jsProcCmd.Env, `SLIMERJSLAUNCHER=`+supplementsDir+`\FirefoxPortable\App\Firefox64\firefox.exe`)
+		SlimerJSLauncherExePath = supplementsDir + `\FirefoxPortable\App\Firefox64\firefox.exe`
+		instance.jsProcCmd.Env = append(instance.jsProcCmd.Env, `SLIMERJSLAUNCHER=`+SlimerJSLauncherExePath)
 		instance.logger.Info("Start", "", err, "going to run slimerjs.bat with args %v", slimerJSArgs)
 
 	} else {

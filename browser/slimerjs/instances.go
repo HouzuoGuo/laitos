@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"time"
@@ -151,5 +152,9 @@ func (instances *Instances) KillAll() {
 		if instance != nil {
 			instance.Kill()
 		}
+	}
+	if misc.HostIsWindows() {
+		err := exec.Command(`C:\Windows\system32\taskkill.exe`, "/F", "/T", "/IM", SlimerJSLauncherExePath).Run()
+		instances.logger.Info("KillAll", "", err, "attempted via taskkill")
 	}
 }

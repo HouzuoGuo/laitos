@@ -42,10 +42,14 @@ const (
             return false;
         }
         browser.clipRect = {
-		    top: parseInt(param.top),
-            left: parseInt(param.left),
+			top: parseInt(param.top),
+			left: parseInt(param.left),
 			width: parseInt(param.width),
 			height: parseInt(param.height)
+		};
+		browser.scrollPosition = {
+			top: parseInt(param.top),
+			left: parseInt(param.left)
 		};
         return true;
     };
