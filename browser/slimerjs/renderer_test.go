@@ -1,12 +1,10 @@
 package slimerjs
 
 import (
-	"fmt"
 	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -19,8 +17,12 @@ func TestInteractiveBrowser(t *testing.T) {
 	// CircleCI container cannot operate docker daemon
 	misc.SkipTestIfCI(t)
 
+	renderOutput, err := ioutil.TempDir("", "laitos-TestInteractiveBrowser-browsers-render")
+	if err != nil {
+		t.Fatal(err)
+	}
 	instance := &Instance{
-		RenderImageDir:     filepath.Join(SecureTempFileDirectory, fmt.Sprintf("laitos-browser-instance-render-slimerjs-%d-%d", time.Now().Unix(), 1)),
+		RenderImageDir:     renderOutput,
 		Port:               41599,
 		AutoKillTimeoutSec: 300,
 	}

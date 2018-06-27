@@ -177,7 +177,7 @@ const (
 
     // Run a web server that receives commands from HTTP clients.
     // In contrast to PhantomJS's version, this web server listens on all network interfaces, so that it will be reachable via docker port mapping.
-    var server = require('webserver').create().listen('127.0.0.1:%d', function (req, resp) {
+    var server = require('webserver').create().listen('%s:%d', function (req, resp) {
         resp.statusCode = 200;
         resp.headers = {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -544,13 +544,17 @@ func (instance *Instance) Start() error {
 	if err := os.MkdirAll(SecureTempFileDirectory, 0700); err != nil {
 		return fmt.Errorf("slimerjs.Instance.Start: failed to create temporary directory - %v", err)
 	}
+	listenAddr := "0.0.0.0" // for docker to expose later
+	if misc.HostIsWindows() {
+		listenAddr = "127.0.0.1" // for native process
+	}
 	instance.containerName = fmt.Sprintf("laitos-slimerjs-%d", time.Now().UnixNano())
 	tmpJSPath := filepath.Join(SecureTempFileDirectory, instance.containerName+".js")
 	instance.serverJSFile, err = os.OpenFile(tmpJSPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return fmt.Errorf("slimerjs.Instance.Start: failed to create temporary file for SlimerJS code - %v", err)
 		// Keep Windows in mind when offering code template the render output path
-	} else if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, strings.Replace(instance.GetRenderPageFilePath(), "\\", "\\\\", -1), instance.Port))); err != nil {
+	} else if _, err := instance.serverJSFile.Write([]byte(fmt.Sprintf(JSCodeTemplate, strings.Replace(instance.GetRenderPageFilePath(), "\\", "\\\\", -1), listenAddr, instance.Port))); err != nil {
 		return fmt.Errorf("slimerjs.Instance.Start: failed to write SlimerJS server code - %v", err)
 	} else if err := instance.serverJSFile.Sync(); err != nil {
 		return fmt.Errorf("slimerjs.Instance.Start: failed to write SlimerJS server code - %v", err)
@@ -562,7 +566,6 @@ func (instance *Instance) Start() error {
 		return err
 	}
 	if misc.HostIsWindows() {
-		fmt.Println("render path is", instance.GetRenderPageFilePath())
 		// Determine the drive that contains laitos windows supplements
 		var supplementsDir string
 		for _, drive := range []string{`C:\`, `D:\`, `E:\`, `F:\`} {
@@ -577,18 +580,14 @@ func (instance *Instance) Start() error {
 		}
 		// Start SlimerJS Windows executable
 		slimerJSArgs := []string{
+			"--reset-profile",
 			// allow SlimerJS to browse HTTPS websites
-			//"--ssl-protocol=any",
+			"--ssl-protocol=any",
 			instance.serverJSFile.Name(),
 		}
-		// FIXME: don't listen on 0.0.0.0 in javascript
 		instance.jsProcCmd = exec.Command(filepath.Join(supplementsDir, "SlimerJS", "slimerjs.bat"), slimerJSArgs...)
-		instance.jsProcCmd.Env = []string{
-			//`SLIMERJSLAUNCHER=`+supplementsDir+`\FirefoxPortable64\FirefoxPortable.exe`,
-			//`SLIMERJSLAUNCHER=C:\Users\guoho\Downloads\FirefoxPortable64-59.0.3\FirefoxPortable64\App\Firefox\firefox.exe`,
-			//`SLIMERJSLAUNCHER=`+supplementsDir+`\FirefoxPortable64\App\Firefox\firefox.exe`,
-			`SLIMERJSLAUNCHER=C:\Program Files\Mozilla Firefox\firefox.exe`,
-		}
+		instance.jsProcCmd.Env = os.Environ() // otherwise Firefox will encounter weird NT errors
+		instance.jsProcCmd.Env = append(instance.jsProcCmd.Env, `SLIMERJSLAUNCHER=`+supplementsDir+`\FirefoxPortable\App\Firefox64\firefox.exe`)
 		instance.logger.Info("Start", "", err, "going to run slimerjs.bat with args %v", slimerJSArgs)
 
 	} else {
@@ -623,8 +622,8 @@ func (instance *Instance) Start() error {
 	}
 	instance.jsProcCmd.Stdout = instance.jsDebugOutput
 	instance.jsProcCmd.Stderr = instance.jsDebugOutput
-	instance.jsProcCmd.Stdout = os.Stderr
-	instance.jsProcCmd.Stderr = os.Stderr
+	//instance.jsProcCmd.Stdout = os.Stderr
+	//instance.jsProcCmd.Stderr = os.Stderr
 	processErrChan := make(chan error, 1)
 	go func() {
 		if err := instance.jsProcCmd.Start(); err != nil {
@@ -652,7 +651,6 @@ func (instance *Instance) Start() error {
 	*/
 	var serverIsReady bool
 	for i := 0; i < 20; i++ {
-		fmt.Println("Waiting for server to come online")
 		resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, "http://localhost:%s/info", instance.Port)
 		if err == nil && resp.Non2xxToError() == nil {
 			serverIsReady = true
