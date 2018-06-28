@@ -76,3 +76,20 @@ func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 		}
 	}
 }
+
+// MaintainWindowsIntegrity uses DISM and FSC utilities to maintain Windows system integrity.
+func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
+	if !misc.HostIsWindows() {
+		return
+	}
+	daemon.logPrintStage(out, "maintain windows system integrity")
+	// These tools seriously spend a lot of time
+	progOut, err := misc.InvokeProgram(nil, 3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/ResetBase")
+	daemon.logPrintStageStep(out, "dism StartComponentCleanup: %v - %s", err, progOut)
+	progOut, err = misc.InvokeProgram(nil, 3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/SPSuperseded")
+	daemon.logPrintStageStep(out, "dism SPSuperseded: %v - %s", err, progOut)
+	progOut, err = misc.InvokeProgram(nil, 3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/Restorehealth")
+	daemon.logPrintStageStep(out, "dism Restorehealth: %v - %s", err, progOut)
+	progOut, err = misc.InvokeProgram(nil, 3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
+	daemon.logPrintStageStep(out, "sfc ScanNow: %v - %s", err, progOut)
+}

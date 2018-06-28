@@ -349,6 +349,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 	misc.PrepareUtilities(daemon.logger)
 
 	// General security tasks
+	daemon.MaintainWindowsIntegrity(out)
 	daemon.BlockUnusedLogin(out)
 	daemon.MaintainServices(out)
 	daemon.MaintainsIptables(out) // run this after service maintenance, because disabling firewall service may alter iptables.
