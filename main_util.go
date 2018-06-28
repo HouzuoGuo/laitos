@@ -71,10 +71,15 @@ func PrepareUtilitiesAndInBackground() {
 
 // DisableConflicts prevents system daemons from conflicting with laitos, this is usually done by disabling them.
 func DisableConflicts() {
-	if os.Getuid() != 0 {
+	if !misc.HostIsWindows() && os.Getuid() != 0 {
+		// Sorry, I do not know how to detect administrator privilege on Windows.
 		logger.Abort("DisableConflicts", "", nil, "you must run laitos as root user if you wish to automatically disable system conflicts")
 	}
-	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
+	/*
+		"http" is Windows service, others are generic Unix-like services.
+		Do not stop nginx for Linux, because Amazon ElasticBeanstalk uses it to receive and proxy web traffic.
+	*/
+	list := []string{"apache", "apache2", "bind", "bind9", "http", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
 	waitGroup := new(sync.WaitGroup)
 	waitGroup.Add(len(list))
 	for _, name := range list {

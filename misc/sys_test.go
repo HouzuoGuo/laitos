@@ -146,13 +146,8 @@ func TestPrepareUtilities(t *testing.T) {
 }
 
 func TestGetLocalUserNames(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		// just make sure it does not panic
-		GetLocalUserNames()
-		return
-	}
 	names := GetLocalUserNames()
-	if len(names) < 2 || !names["root"] {
+	if len(names) < 2 || (!names["root"] && !names["Administrator"]) {
 		t.Fatal(names)
 	}
 }
