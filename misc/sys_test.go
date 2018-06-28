@@ -138,6 +138,10 @@ func TestInvokeShell(t *testing.T) {
 
 func TestPrepareUtilities(t *testing.T) {
 	PrepareUtilities(Logger{})
+	if HostIsWindows() {
+		// Just make sure it does not panic
+		return
+	}
 	for _, utilName := range []string{"busybox", "toybox", "phantomjs"} {
 		if _, err := os.Stat(filepath.Join(UtilityDir, utilName)); err != nil {
 			t.Fatal("cannot find program "+utilName, err)
