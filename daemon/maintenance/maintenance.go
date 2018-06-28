@@ -26,9 +26,15 @@ import (
 )
 
 const (
-	TCPPortCheckTimeoutSec = 10   // TCPPortCheckTimeoutSec is the timeout used in knocking ports.
-	MinimumIntervalSec     = 3600 // MinimumIntervalSec is the lowest acceptable value of system maintenance interval.
-	InitialDelaySec        = 60   // InitialDelaySec is the number of seconds to wait for the first maintenance run.
+	TCPPortCheckTimeoutSec = 10 // TCPPortCheckTimeoutSec is the timeout used in knocking ports.
+
+	/*
+		MinimumIntervalSec is the lowest acceptable value of system maintenance interval. It must be greater than the
+		maximum possible duration of all maintenance tasks together. Be extra careful that Windows system integrity
+		maintenance can take couple of hours.
+	*/
+	MinimumIntervalSec = 6 * 3600
+	InitialDelaySec    = 60 // InitialDelaySec is the number of seconds to wait for the first maintenance run.
 )
 
 /*

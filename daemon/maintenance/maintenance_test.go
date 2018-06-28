@@ -31,7 +31,7 @@ func TestMaintenance_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Prepare settings for test
-	maint.IntervalSec = 3600
+	maint.IntervalSec = MinimumIntervalSec + 1
 	if err := maint.Initialise(); err != nil {
 		t.Fatal(err)
 	}

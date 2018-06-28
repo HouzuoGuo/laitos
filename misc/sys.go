@@ -175,14 +175,15 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		return "", errors.New("invalid time limit")
 	}
 	// Make an environment variable array of common PATH, inherited values, and newly specified values.
-	myEnv := os.Environ()
-	combinedEnv := make([]string, 0, 1+len(myEnv))
+	defaultOSEnv := os.Environ()
+	combinedEnv := make([]string, 0, 1+len(defaultOSEnv))
 	// Inherit environment variables from program environment
-	combinedEnv = append(combinedEnv, myEnv...)
+	combinedEnv = append(combinedEnv, defaultOSEnv...)
 	if !HostIsWindows() {
 		/*
-			Put common PATH values into the mix. Since go 1.9, when environment variables contain duplicated keys, only the
-			last value of duplicated key is effective. This behaviour enables caller to override PATH if deemede necessary.
+			Put common PATH values into the mix. Since go 1.9, when environment variables contain duplicated keys, only
+			the last value of duplicated key is effective. This behaviour enables caller to override PATH if deemed
+			necessary.
 		*/
 		combinedEnv = append(combinedEnv, "PATH="+CommonPATH)
 	}
@@ -450,8 +451,8 @@ nameserver 9.9.9.9
 nameserver 149.112.112.112
 nameserver 195.46.39.39
 nameserver 195.46.39.40
-nameserver 8.26.56.26
-nameserver 8.20.247.20
+nameserver 208.67.222.222
+nameserver 208.67.220.220
 `
 	if err := ioutil.WriteFile("/etc/resolv.conf", []byte(newContent), 0644); err == nil {
 		out += "resolv.conf is reset\n"

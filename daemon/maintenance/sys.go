@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/HouzuoGuo/laitos/misc"
 	"strings"
 	"time"
@@ -10,6 +9,11 @@ import (
 
 // SynchroniseSystemClock uses three different tools to immediately synchronise system clock via NTP servers.
 func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
+	if misc.HostIsWindows() {
+		daemon.logPrintStage(out, "skipped on windows: synchronise clock")
+		daemon.CorrectStartupTime(out)
+		return
+	}
 	daemon.logPrintStage(out, "synchronise clock")
 	// Use three tools to immediately synchronise system clock
 	result, err := misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
@@ -18,17 +22,21 @@ func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
 	daemon.logPrintStageStep(out, "chronyd: %v - %s", err, strings.TrimSpace(result))
 	result, err = misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "busybox", "ntpd", "-n", "-q", "-p", "ie.pool.ntp.org", "ca.pool.ntp.org", "au.pool.ntp.org")
 	daemon.logPrintStageStep(out, "busybox ntpd: %v - %s", err, strings.TrimSpace(result))
-	/*
-		The program startup time is used to detect outdated commands (such as in telegram bot), in rare case if system clock
-		was severely skewed, causing program startup time to be in the future, the detection mechanisms will misbehave.
-		Therefore, correct the situation here.
-	*/
+
+	daemon.CorrectStartupTime(out)
+}
+
+/*
+CorrectStartTime corrects program start time in case system clock is skewed.
+The program startup time is used to detect outdated commands (such as in telegram bot), in rare case if system clock
+was severely skewed, causing program startup time to be in the future, the detection mechanisms will misbehave.
+*/
+func (daemon *Daemon) CorrectStartupTime(out *bytes.Buffer) {
 	if misc.StartupTime.After(time.Now()) {
-		daemon.logPrintStageStep(out, "clock was severely skewed, reset program startup time.")
+		daemon.logPrintStage(out, "clock was severely skewed, reset program startup time.")
 		// The earliest possible opportunity for system maintenance to run is now minus initial delay
 		misc.StartupTime = time.Now().Add(-InitialDelaySec * time.Second)
 	}
-	fmt.Fprint(out, "\n")
 }
 
 // MaintainServices manipulate service state according to configuration.
