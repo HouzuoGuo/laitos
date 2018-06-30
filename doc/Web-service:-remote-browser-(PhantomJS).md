@@ -118,4 +118,4 @@ While using the browser, you must regularly click "Redraw" button to view the la
 
   You may install the software dependencies manually, or reply on [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
 to automatically install the dependencies.
-- There is a latest copy of PhantomJS software in [laitos source tree](https://github.com/HouzuoGuo/laitos/blob/master/extra/phantomjs-2.1.1-x86_64).
+- There is a latest copy of PhantomJS software in [laitos source tree](https://github.com/HouzuoGuo/laitos/blob/master/extra/linux/phantomjs-2.1.1-x86_64).

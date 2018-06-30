@@ -9,7 +9,7 @@
     "BrowserPhantomJS": {
       "Browsers": {
         "BasePortNumber": 12020,
-        "PhantomJSExecPath": "./extra/phantomjs-2.1.1-x86_64"
+        "PhantomJSExecPath": "./extra/linux/phantomjs-2.1.1-x86_64"
       }
     },
     "BrowserSlimerJS": {
@@ -97,7 +97,7 @@
         "BasePortNumber": 14120,
         "MaxInstances": 5,
         "MaxLifetimeSec": 1800,
-        "PhantomJSExecPath": "./extra/phantomjs-2.1.1-x86_64"
+        "PhantomJSExecPath": "./extra/linux/phantomjs-2.1.1-x86_64"
       }
     },
     "BrowserSlimerJSEndpoint": "/sample/browsers",

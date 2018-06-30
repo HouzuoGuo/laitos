@@ -127,7 +127,7 @@ func PrepareUtilities(progress Logger) {
 		"phantomjs", "phantomjs",
 	}
 	// The GOPATH directory is useful for developing test cases, and CWD is useful for running deployed laitos.
-	findInPaths := []string{filepath.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/"), "./"}
+	findInPaths := []string{filepath.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/linux"), "./"}
 	for i := 0; i < len(srcDestName); i += 2 {
 		srcName := srcDestName[i]
 		destName := srcDestName[i+1]
