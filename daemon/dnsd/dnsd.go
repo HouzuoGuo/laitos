@@ -202,6 +202,13 @@ func (daemon *Daemon) UpdateBlackList() {
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
 	numRoutines := 16
+	if misc.HostIsWindows() {
+		/*
+			Windows is very slow to do concurrent DNS lookup, these parallel routines will even trick windows into
+			thinking that there is no Internet anymore. Pretty weird.
+		*/
+		numRoutines = 4
+	}
 	parallelResolve := new(sync.WaitGroup)
 	parallelResolve.Add(numRoutines)
 	// Collect some nice counter data just for show
