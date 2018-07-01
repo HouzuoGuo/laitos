@@ -75,11 +75,9 @@ func DisableConflicts() {
 		// Sorry, I do not know how to detect administrator privilege on Windows.
 		logger.Abort("DisableConflicts", "", nil, "you must run laitos as root user if you wish to automatically disable system conflicts")
 	}
-	/*
-		"http" is Windows service, others are generic Unix-like services.
-		Do not stop nginx for Linux, because Amazon ElasticBeanstalk uses it to receive and proxy web traffic.
-	*/
-	list := []string{"apache", "apache2", "bind", "bind9", "http", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
+	// All of these names are Linux services
+	// Do not stop nginx for Linux, because Amazon ElasticBeanstalk uses it to receive and proxy web traffic.
+	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
 	waitGroup := new(sync.WaitGroup)
 	waitGroup.Add(len(list))
 	for _, name := range list {
