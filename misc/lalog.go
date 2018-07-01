@@ -66,7 +66,15 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 	}
 	msg.WriteString(fmt.Sprintf(template, values...))
 	if msg.Len() > MaxLogMessageLen {
-		msg.Truncate(MaxLogMessageLen)
+		// Grab the beginning and end of the message
+		truncatedLabel := "...(truncated)..."
+		firstHalfEnd := MaxLogMessageLen/2 - len(truncatedLabel)/2
+		secondHalfBegin := msg.Len() - (MaxLogMessageLen / 2) + len(truncatedLabel)/2 + 1
+		var truncatedMsg bytes.Buffer
+		truncatedMsg.Write(msg.Bytes()[:firstHalfEnd])
+		truncatedMsg.WriteString(truncatedLabel)
+		truncatedMsg.Write(msg.Bytes()[secondHalfBegin:])
+		msg = truncatedMsg
 	}
 	return msg.String()
 }
