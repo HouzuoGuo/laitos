@@ -48,16 +48,12 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 
 	if daemon.DisableStopServices != nil {
 		for _, name := range daemon.DisableStopServices {
-			if !misc.DisableStopDaemon(name) {
-				daemon.logPrintStageStep(out, "disable&stop %s: success? false", name)
-			}
+			daemon.logPrintStageStep(out, "disable&stop %s: success? %v", name, misc.DisableStopDaemon(name))
 		}
 	}
 	if daemon.EnableStartServices != nil {
 		for _, name := range daemon.EnableStartServices {
-			if !misc.EnableStartDaemon(name) {
-				daemon.logPrintStageStep(out, "enable&start %s: success? false", name)
-			}
+			daemon.logPrintStageStep(out, "enable&start %s: success? %v", name, misc.EnableStartDaemon(name))
 		}
 	}
 }
