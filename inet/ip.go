@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const HTTPPublicIPTimeoutSec = 3 // HTTPPublicIPTimeoutSec is the HTTP timeout for determining public IP address.
+const HTTPPublicIPTimeoutSec = 10 // HTTPPublicIPTimeoutSec is the HTTP timeout for determining public IP address.
 
 var (
 	// isGCE is true only if IsGCE function has determined that the program is running on Google compute engine.
@@ -48,7 +48,7 @@ func IsAzure() bool {
 
 /*
 GetPublicIP returns the latest public IP address of the computer. If the IP address cannot be determined, it will return
-an empty string. The function may take up to 3 seconds to return a value.
+an empty string. The function may take up to 10 seconds to return a value.
 */
 func GetPublicIP() string {
 	// Use four different ways to retrieve IP address

@@ -33,7 +33,7 @@ const (
 		maximum possible duration of all maintenance tasks together. Be extra careful that Windows system integrity
 		maintenance can take couple of hours.
 	*/
-	MinimumIntervalSec = 6 * 3600
+	MinimumIntervalSec = 10 * 3600
 	InitialDelaySec    = 60 // InitialDelaySec is the number of seconds to wait for the first maintenance run.
 )
 

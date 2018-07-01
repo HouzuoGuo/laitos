@@ -21,7 +21,7 @@ var RegexMemFree = regexp.MustCompile(`MemFree:\s*(\d+)\s*kB`)           // Pars
 var RegexTotalUptimeSec = regexp.MustCompile(`(\d+).*`)                  // Parse uptime seconds from /proc/meminfo
 
 // CommonOSCmdTimeoutSec is the number of seconds to wait for system management utilities to respond.
-const CommonOSCmdTimeoutSec = 10
+const CommonOSCmdTimeoutSec = 15
 
 // Use regex to parse input string, and return an integer parsed from specified capture group, or 0 if there is no match/no integer.
 func FindNumInRegexGroup(numRegex *regexp.Regexp, input string, groupNum int) int {
