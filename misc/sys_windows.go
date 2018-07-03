@@ -17,6 +17,8 @@ func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int) {
 /*
 InvokeProgram launches an external program with time constraints. The external program inherits laitos' environment
 mixed with additional input environment variables. The additional variables take precedence over inherited ones.
+Once the external program is launched, its scheduling priority is lowered to "below normal", as a safety measure,
+because Windows is pretty bad keeping up when system is busy.
 Returns stdout+stderr output combined, and error if there is any.
 */
 func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (out string, err error) {
@@ -45,7 +47,18 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 			logger.Warning("InvokeProgram", program, nil, "failed to kill after time limit exceeded")
 		}
 	})
-	err = proc.Run()
+	// Start external process
+	if err = proc.Start(); err != nil {
+		timeOutTimer.Stop()
+		return
+	}
+	// Lower process priority to "below normal"
+	setPrioOut, setPrioErr := exec.Command(`C:\WINDOWS\System32\Wbem\WMIC.exe`, "process", "where", "ProcessID="+strconv.Itoa(proc.Process.Pid), "call", "SetPriority", "16384").CombinedOutput()
+	if setPrioErr != nil {
+		logger.Info("InvokeProgram", program, setPrioErr, "failed to lower process priority - %s", string(setPrioOut))
+	}
+	// Wait for process to finish
+	err = proc.Wait()
 	timeOutTimer.Stop()
 	if timedOut {
 		err = errors.New("time limit exceeded")
@@ -59,7 +72,7 @@ func KillProcess(proc *os.Process) (success bool) {
 	if proc == nil {
 		return true
 	}
-	err := exec.Command(`C:\Windows\system32\taskkill.exe`, "/F", "/T", "/PID", strconv.Itoa(proc.Pid)).Run()
+	err := exec.Command(`C:\WINDOWS\System32\taskkill.exe`, "/F", "/T", "/PID", strconv.Itoa(proc.Pid)).Run()
 	if err == nil {
 		success = true
 	}
