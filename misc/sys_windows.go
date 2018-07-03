@@ -41,7 +41,7 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	var timedOut bool
 	timeOutTimer := time.AfterFunc(time.Duration(timeoutSec)*time.Second, func() {
 		timedOut = true
-		if !KillProcess(proc.Process) {
+		if proc.Process != nil && !KillProcess(proc.Process) {
 			logger.Warning("InvokeProgram", program, nil, "failed to kill after time limit exceeded")
 		}
 	})
@@ -56,6 +56,9 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 
 // KillProcess kills the process or the group of processes associated with it.
 func KillProcess(proc *os.Process) (success bool) {
+	if proc == nil {
+		return true
+	}
 	err := exec.Command(`C:\Windows\system32\taskkill.exe`, "/F", "/T", "/PID", strconv.Itoa(proc.Pid)).Run()
 	if err == nil {
 		success = true
