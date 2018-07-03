@@ -22,7 +22,7 @@ func TestMaintenance_Execute(t *testing.T) {
 	}
 
 	// Test default settings
-	if err := maint.Initialise(); err != nil || maint.IntervalSec != 24*3600 {
+	if err := maint.Initialise(); err != nil || maint.IntervalSec != MinimumIntervalSec {
 		t.Fatal(err)
 	}
 	// Test invalid settings
@@ -31,7 +31,7 @@ func TestMaintenance_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Prepare settings for test
-	maint.IntervalSec = MinimumIntervalSec + 1
+	maint.IntervalSec = MinimumIntervalSec
 	if err := maint.Initialise(); err != nil {
 		t.Fatal(err)
 	}

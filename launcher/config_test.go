@@ -180,7 +180,7 @@ var sampleConfigJSON = `
     "InstallPackages": [
       "htop"
     ],
-    "IntervalSec": 80000,
+    "IntervalSec": 86400,
     "Recipients": [
       "howard@localhost"
     ],

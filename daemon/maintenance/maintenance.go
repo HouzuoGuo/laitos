@@ -33,7 +33,7 @@ const (
 		maximum possible duration of all maintenance tasks together. Be extra careful that Windows system integrity
 		maintenance can take couple of hours.
 	*/
-	MinimumIntervalSec = 10 * 3600
+	MinimumIntervalSec = 24 * 3600
 	InitialDelaySec    = 60 // InitialDelaySec is the number of seconds to wait for the first maintenance run.
 )
 
@@ -257,7 +257,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 
 func (daemon *Daemon) Initialise() error {
 	if daemon.IntervalSec < 1 {
-		daemon.IntervalSec = 24 * 3600 // quite reasonable to run maintenance daily
+		daemon.IntervalSec = MinimumIntervalSec // quite reasonable to run maintenance daily
 	} else if daemon.IntervalSec < MinimumIntervalSec {
 		return fmt.Errorf("maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
