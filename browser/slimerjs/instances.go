@@ -69,10 +69,10 @@ func PrepareDocker(logger misc.Logger) {
 	out, err := misc.InvokeProgram(nil, 1800, "docker", "pull", SlimerJSImageTag)
 	logger.Info("PrepareDocker", "", nil, "image pulling result: %v - %s", err, out)
 	// Turn on ip forwarding so that docker containers will have access to the Internet
-	out, err = misc.InvokeProgram(nil, 30, "sysctl", "-w", "net.ipv4.ip_forward=1")
+	out, err = misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "sysctl", "-w", "net.ipv4.ip_forward=1")
 	logger.Info("PrepareDocker", "", nil, "enable ip forwarding result: %v - %s", err, out)
 	// Disable selinux as it interferes with docker directory mapping
-	out, err = misc.InvokeProgram(nil, 30, "setenforce", "0")
+	out, err = misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "setenforce", "0")
 	logger.Info("PrepareDocker", "", nil, "disable selinux result: %v - %s", err, out)
 	err = ioutil.WriteFile("/etc/selinux/config", []byte("SELINUX=disabled\nSELINUXTYPE=minimum\n"), 0600)
 	logger.Info("PrepareDocker", "", nil, "disable selinux via config result: %v", err)

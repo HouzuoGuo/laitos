@@ -785,7 +785,7 @@ func (instance *Instance) Kill() {
 		instance.jsProcCmd = nil
 		// Kill SlimerJS container
 		instance.logger.Info("Kill", "", nil, "killing container %s", instance.containerName)
-		if out, err := misc.InvokeProgram(nil, 10, "docker", "kill", instance.containerName); err != nil {
+		if out, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "docker", "kill", instance.containerName); err != nil {
 			instance.logger.Warning("Kill", "", nil, "failed to kill container - %v %s", err, out)
 		}
 		instance.containerName = ""

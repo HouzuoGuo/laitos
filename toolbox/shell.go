@@ -23,7 +23,7 @@ func (sh *Shell) SelfTest() error {
 		return errors.New("Shell.SelfTest: OS is not compatible")
 	}
 	// The timeout for testing shell is gracious enough to allow disk to spin up from sleep
-	if _, err := misc.InvokeShell(10, sh.InterpreterPath, "echo test"); err != nil {
+	if _, err := misc.InvokeShell(misc.CommonOSCmdTimeoutSec, sh.InterpreterPath, "echo test"); err != nil {
 		return fmt.Errorf("Shell.SelfTest: interpreter \"%s\" is not working - %v", sh.InterpreterPath, err)
 	}
 	return nil

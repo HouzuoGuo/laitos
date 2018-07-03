@@ -40,16 +40,16 @@ func (daemon *Daemon) PrepareDockerRepositoryForDebian(out *bytes.Buffer) {
 		daemon.logPrintStageStep(out, "failed to store docker GPG key - %v", err)
 		return
 	}
-	aptOut, err := misc.InvokeProgram(nil, 10, "apt-key", "add", gpgKeyFile)
+	aptOut, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "apt-key", "add", gpgKeyFile)
 	daemon.logPrintStageStep(out, "install docker GPG key - %v %s", err, aptOut)
 	// Add docker community edition repository
-	lsbOut, err := misc.InvokeProgram(nil, 10, "lsb_release", "-cs")
+	lsbOut, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "lsb_release", "-cs")
 	daemon.logPrintStageStep(out, "determine release name - %v %s", err, lsbOut)
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to determine release name")
 		return
 	}
-	aptOut, err = misc.InvokeProgram(nil, 10, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(string(lsbOut))))
+	aptOut, err = misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(string(lsbOut))))
 	daemon.logPrintStageStep(out, "enable docker repository - %v %s", err, aptOut)
 }
 

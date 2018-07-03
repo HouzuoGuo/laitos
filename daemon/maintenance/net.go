@@ -41,14 +41,14 @@ func (daemon *Daemon) MaintainsIptables(out *bytes.Buffer) {
 	}
 	// Work around a redhat kernel bug that prevented throttle counter from exceeding 20
 	for _, cmd := range iptables {
-		ipOut, ipErr := misc.InvokeProgram(nil, 10, "iptables", cmd...)
+		ipOut, ipErr := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "iptables", cmd...)
 		if ipErr != nil {
 			daemon.logPrintStageStep(out, "failed in a step that clears iptables - %v - %s", ipErr, ipOut)
 		}
 	}
-	mOut, mErr := misc.InvokeProgram(nil, 10, "modprobe", "-r", "xt_recent")
+	mOut, mErr := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "modprobe", "-r", "xt_recent")
 	daemon.logPrintStageStep(out, "disable xt_recent - %v - %s", mErr, mOut)
-	mOut, mErr = misc.InvokeProgram(nil, 10, "modprobe", "xt_recent", "ip_pkt_list_tot=255")
+	mOut, mErr = misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "modprobe", "xt_recent", "ip_pkt_list_tot=255")
 	daemon.logPrintStageStep(out, "re-enable xt_recent - %v - %s", mErr, mOut)
 
 	// After clearing iptables, allow ICMP, established connections, and localhost to communicate
@@ -75,12 +75,12 @@ func (daemon *Daemon) MaintainsIptables(out *bytes.Buffer) {
 	iptables = append(iptables, []string{"-A", "INPUT", "-j", "DROP"})
 	// Run setup commands
 	for _, args := range iptables {
-		ipOut, ipErr := misc.InvokeProgram(nil, 10, "iptables", args...)
+		ipOut, ipErr := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "iptables", args...)
 		if ipErr != nil {
 			daemon.logPrintStageStep(out, "command failed for \"%s\" - %v - %s", strings.Join(args, " "), ipErr, ipOut)
 			daemon.logPrintStageStep(out, "configure for fail safe that will allow ALL traffic")
 			for _, failSafeCmd := range failSafe {
-				failSafeOut, failSafeErr := misc.InvokeProgram(nil, 10, "iptables", failSafeCmd...)
+				failSafeOut, failSafeErr := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "iptables", failSafeCmd...)
 				daemon.logPrintStageStep(out, "fail safe \"%s\" - %v - %s", strings.Join(failSafeCmd, " "), failSafeErr, failSafeOut)
 			}
 			return

@@ -20,8 +20,8 @@ var RegexMemTotal = regexp.MustCompile(`MemTotal:\s*(\d+)\s*kB`)         // Pars
 var RegexMemFree = regexp.MustCompile(`MemFree:\s*(\d+)\s*kB`)           // Parse MemFree value from /proc/meminfo
 var RegexTotalUptimeSec = regexp.MustCompile(`(\d+).*`)                  // Parse uptime seconds from /proc/meminfo
 
-// CommonOSCmdTimeoutSec is the number of seconds to wait for system management utilities to respond.
-const CommonOSCmdTimeoutSec = 15
+// CommonOSCmdTimeoutSec is the number of seconds to tolerate for running a wide range of system management utilities.
+const CommonOSCmdTimeoutSec = 30
 
 // Use regex to parse input string, and return an integer parsed from specified capture group, or 0 if there is no match/no integer.
 func FindNumInRegexGroup(numRegex *regexp.Regexp, input string, groupNum int) int {
@@ -414,7 +414,7 @@ nameserver 208.67.220.220
 // SwapOff turns off all swap files and partitions for improved system security.
 func SwapOff() error {
 	// Wait quite a while to ensure that caller gets an accurate result return value.
-	out, err := InvokeProgram(nil, 60, "swapoff", "-a")
+	out, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "swapoff", "-a")
 	if err != nil {
 		return fmt.Errorf("SwapOff: %v - %s", err, out)
 	}
