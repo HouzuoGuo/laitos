@@ -14,14 +14,14 @@ import (
 )
 
 const (
-	RateLimitIntervalSec        = 1      // Rate limit is calculated at 1 second interval
-	ForwarderTimeoutSec         = 1 * 2  // ForwarderTimeoutSec is the IO timeout for a round trip interaction with forwarders
-	ClientTimeoutSec            = 30 * 2 // AnswerTimeoutSec is the IO timeout for a round trip interaction with DNS clients
-	MaxPacketSize               = 9038   // Maximum acceptable UDP packet size
-	BlacklistUpdateIntervalSec  = 7200   // Update ad-server blacklist at this interval
-	MinNameQuerySize            = 14     // If a query packet is shorter than this length, it cannot possibly be a name query.
-	PublicIPRefreshIntervalSec  = 900    // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
-	BlacklistDownloadTimeoutSec = 30     // BlacklistDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
+	RateLimitIntervalSec        = 1         // Rate limit is calculated at 1 second interval
+	ForwarderTimeoutSec         = 1 * 2     // ForwarderTimeoutSec is the IO timeout for a round trip interaction with forwarders
+	ClientTimeoutSec            = 30 * 2    // AnswerTimeoutSec is the IO timeout for a round trip interaction with DNS clients
+	MaxPacketSize               = 9038      // Maximum acceptable UDP packet size
+	BlacklistUpdateIntervalSec  = 12 * 3600 // Update ad-server blacklist at this interval
+	MinNameQuerySize            = 14        // If a query packet is shorter than this length, it cannot possibly be a name query.
+	PublicIPRefreshIntervalSec  = 900       // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
+	BlacklistDownloadTimeoutSec = 30        // BlacklistDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
 )
 
 /*
