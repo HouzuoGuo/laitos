@@ -96,8 +96,8 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// apt and apt-get are too old to be convenient
 		fallthrough
 	case "apt-get":
-		sysUpgradeArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade"}
-		installArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "install"}
+		sysUpgradeArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "upgrade"}
+		installArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "install"}
 	case "zypper":
 		// zypper cannot English and integrity
 		sysUpgradeArgs = []string{"--non-interactive", "update", "--recommends", "--auto-agree-with-licenses", "--skip-interactive", "--replacefiles", "--force-resolution"}
@@ -108,14 +108,14 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 	}
 	// apt-get is too old to be convenient
 	pkgManagerEnv := make([]string, 0, 8)
-	if pkgManagerName == "apt-get" {
+	if pkgManagerName == "apt-get" || pkgManagerName == "apt" {
 		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
 		// Five minutes should be enough to grab the latest manifest
 		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
 		// There is no need to suppress this output according to markers
 		daemon.logPrintStageStep(out, "update apt manifests: %v - %s", err, strings.TrimSpace(result))
 		// Fix interrupted package installation, otherwise no package will update/install in the next steps.
-		result, err = misc.InvokeProgram(pkgManagerEnv, 2*3600, "dpkg", "--configure", "-a")
+		result, err = misc.InvokeProgram(pkgManagerEnv, 2*3600, "dpkg", "--configure", "-a", "--force-confold", "--force-confdef")
 		daemon.logPrintStageStep(out, "fix interrupted package installation: %v - %s", err, strings.TrimSpace(result))
 	}
 	// If package manager output contains any of the strings, the output is reduced into "Nothing to do"
@@ -161,7 +161,7 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// Application zip bundle maintenance utilities
 		"unzip", "zip",
 		// Network diagnosis utilities
-		"bind-utils", "curl", "dnsutils", "nc", "net-tools", "netcat", "nmap", "procps", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
+		"bind-utils", "curl", "dnsutils", "hostname", "nc", "net-tools", "netcat", "nmap", "procps", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
 		// busybox and toybox are useful for general maintenance, and busybox can synchronise system clock as well.
 		"busybox", "toybox",
 		// System maintenance utilities
