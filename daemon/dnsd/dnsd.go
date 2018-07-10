@@ -19,6 +19,7 @@ const (
 	ClientTimeoutSec            = 30 * 2    // AnswerTimeoutSec is the IO timeout for a round trip interaction with DNS clients
 	MaxPacketSize               = 9038      // Maximum acceptable UDP packet size
 	BlacklistUpdateIntervalSec  = 12 * 3600 // Update ad-server blacklist at this interval
+	BlacklistInitialDelaySec    = 120       // BlacklistInitialDelaySec is the number of seconds to wait for downloading blacklists for the first time.
 	MinNameQuerySize            = 14        // If a query packet is shorter than this length, it cannot possibly be a name query.
 	PublicIPRefreshIntervalSec  = 900       // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
 	BlacklistDownloadTimeoutSec = 30        // BlacklistDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
@@ -255,19 +256,35 @@ Start DNS daemon on configured TCP and UDP ports. Block caller until both listen
 If either TCP or UDP port fails to listen, all listeners are closed and an error is returned.
 */
 func (daemon *Daemon) StartAndBlock() error {
-	// Keep updating ad-block black list in background
+	// Update ad-block black list in background
 	stopAdBlockUpdater := make(chan bool, 2)
 	go func() {
-		daemon.UpdateBlackList()
+		firstTime := true
+		nextRunAt := time.Now().Add(BlacklistInitialDelaySec * time.Second)
 		for {
-			select {
-			case <-stopAdBlockUpdater:
-				return
-			case <-time.After(BlacklistUpdateIntervalSec * time.Second):
-				daemon.UpdateBlackList()
+			if firstTime {
+				select {
+				case <-stopAdBlockUpdater:
+					return
+				case <-time.After(time.Until(nextRunAt)):
+					nextRunAt = nextRunAt.Add(BlacklistUpdateIntervalSec * time.Second)
+					daemon.UpdateBlackList()
+				}
+				firstTime = false
+			} else {
+				// Afterwards, try to maintain a steady rate of execution.
+				select {
+				case <-stopAdBlockUpdater:
+					return
+				case <-time.After(time.Until(nextRunAt)):
+					nextRunAt = nextRunAt.Add(time.Duration(BlacklistUpdateIntervalSec) * time.Second)
+					daemon.UpdateBlackList()
+				}
 			}
 		}
 	}()
+
+	// Start server listeners
 	numListeners := 0
 	errChan := make(chan error, 2)
 	if daemon.UDPPort != 0 {

@@ -34,7 +34,7 @@ const (
 		maintenance can take couple of hours.
 	*/
 	MinimumIntervalSec = 24 * 3600
-	InitialDelaySec    = 60 // InitialDelaySec is the number of seconds to wait for the first maintenance run.
+	InitialDelaySec    = 180 // InitialDelaySec is the number of seconds to wait for the first maintenance run.
 )
 
 /*

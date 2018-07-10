@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/maintenance"
 	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/launcher/encarchive"
 	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
@@ -321,9 +320,9 @@ func main() {
 	}
 
 	if benchmark {
-		// Wait a while for daemons to settle and maintenance to run its first round, then run benchmark in the background.
-		logger.Info("main", "", nil, "benchmark is about to commence in 30 seconds")
-		time.Sleep(maintenance.InitialDelaySec * 2)
+		// Wait a short while for daemons to settle, then run benchmark in the background.
+		logger.Info("main", "", nil, "benchmark is about to commence in 60 seconds")
+		time.Sleep(60 * time.Second)
 		bench := launcher.Benchmark{
 			Config:      &config,
 			DaemonNames: daemonNames,
