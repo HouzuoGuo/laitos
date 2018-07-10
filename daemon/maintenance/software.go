@@ -106,7 +106,7 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		daemon.logPrintStageStep(out, "failed to find a compatible package manager")
 		return
 	}
-	// apt-get is too old to be convenient, it has to update the manifest first.
+	// apt-get is too old to be convenient
 	pkgManagerEnv := make([]string, 0, 8)
 	if pkgManagerName == "apt-get" {
 		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
@@ -114,6 +114,9 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
 		// There is no need to suppress this output according to markers
 		daemon.logPrintStageStep(out, "update apt manifests: %v - %s", err, strings.TrimSpace(result))
+		// Fix interrupted package installation, otherwise no package will update/install in the next steps.
+		result, err = misc.InvokeProgram(pkgManagerEnv, 2*3600, "dpkg", "--configure", "-a")
+		daemon.logPrintStageStep(out, "fix interrupted package installation: %v - %s", err, strings.TrimSpace(result))
 	}
 	// If package manager output contains any of the strings, the output is reduced into "Nothing to do"
 	suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}

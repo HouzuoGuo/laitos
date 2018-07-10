@@ -71,6 +71,7 @@ func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 	}
 	for userName := range misc.GetLocalUserNames() {
 		if exceptionMap[strings.ToLower(userName)] {
+			daemon.logPrintStageStep(out, "not going to touch excluded user %s", userName)
 			continue
 		}
 		if ok, blockOut := misc.BlockUserLogin(userName); ok {
