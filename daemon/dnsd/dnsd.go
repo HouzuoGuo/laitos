@@ -216,7 +216,12 @@ func (daemon *Daemon) UpdateBlackList() {
 	var countResolvedNames, countNonResolvableNames, countResolvedIPs, countResolutionAttempts int64
 	for i := 0; i < numRoutines; i++ {
 		go func(i int) {
+			defer parallelResolve.Done()
 			for j := i * (len(allNames) / numRoutines); j < (i+1)*(len(allNames)/numRoutines); j++ {
+				if j > 1000 && misc.HostIsCircleCI() {
+					daemon.logger.Info("UpdateBlackList", "", nil, "stop resolving names beyond the 1000th to avoid time out on CircleCI")
+					return
+				}
 				// Count number of resolution attempts only for logging the progress
 				atomic.AddInt64(&countResolutionAttempts, 1)
 				if atomic.LoadInt64(&countResolutionAttempts)%500 == 1 {
@@ -238,7 +243,6 @@ func (daemon *Daemon) UpdateBlackList() {
 				}
 				newBlackListMutex.Unlock()
 			}
-			parallelResolve.Done()
 		}(i)
 	}
 	parallelResolve.Wait()
