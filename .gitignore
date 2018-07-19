@@ -5,6 +5,7 @@
 *.swp
 *.zip
 .DS_Store
+.copilot
 .idea
 .vscode
 contact
@@ -14,6 +15,6 @@ init_mail_test.go
 init_mailcmd_test.go
 init_toolbox_test.go
 laitos
+laitos.exe
 nohup.out
 pass
-laitos.exe
