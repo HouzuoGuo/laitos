@@ -161,11 +161,11 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// Application zip bundle maintenance utilities
 		"unzip", "zip",
 		// Network diagnosis utilities
-		"bind-utils", "curl", "dnsutils", "hostname", "nc", "net-tools", "netcat", "nmap", "procps", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
+		"bind-utils", "curl", "dnsutils", "hostname", "iputils-ping", "nc", "net-tools", "netcat", "nmap", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
 		// busybox and toybox are useful for general maintenance, and busybox can synchronise system clock as well.
 		"busybox", "toybox",
 		// System maintenance utilities
-		"lsof", "strace", "sudo", "vim",
+		"lsof", "procps", "psmisc", "strace", "sudo", "unar", "vim",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)
 	/*
