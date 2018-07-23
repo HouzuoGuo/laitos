@@ -120,7 +120,7 @@ func PrepareUtilities(progress Logger) {
 		"busybox-1.28.1-x86_64", "busybox",
 		"busybox-x86_64", "busybox",
 		"busybox", "busybox",
-		"toybox-0.7.5-x86_64", "toybox",
+		"toybox-0.7.7-x86_64", "toybox",
 		"toybox-x86_64", "toybox",
 		"toybox", "toybox",
 		"phantomjs-2.1.1-x86_64", "phantomjs",
