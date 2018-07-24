@@ -39,7 +39,7 @@ Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShe
 # Install chocolatey and useful 3rd party applications that are usedul for laitos maintenance and daily operation
 Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
-$packages = ('7zip', 'filezilla', 'googlechrome', 'libreoffice-fresh', 'mobaxterm', 'notepadplusplus', 'putty', 'sysinternals','vlc', 'wireshark')
+$packages = ('7zip', 'curl', 'filezilla', 'git', 'golang', 'googlechrome', 'jetbrainstoolbox', 'libreoffice-fresh', 'mobaxterm', 'notepadplusplus', 'putty', 'sysinternals','vlc', 'wget', 'wireshark', 'wget')
 
 choco install -y $packages
 choco upgrade -y $packages
