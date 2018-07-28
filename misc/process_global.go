@@ -159,7 +159,7 @@ func getDirsToKill() (ret []string) {
 	return
 }
 
-// overwriteWithZero fills an existing file with 0s, caller is responsible for opening and closing the file handle.
+// overwriteWithZero fills an existing file with 0s.
 func overwriteWithZero(fullPath string) error {
 	fh, err := os.OpenFile(fullPath, os.O_WRONLY, 0644)
 	if err != nil {
@@ -187,5 +187,8 @@ func overwriteWithZero(fullPath string) error {
 			return err
 		}
 	}
-	return fh.Sync()
+	if err := fh.Sync(); err != nil {
+		return err
+	}
+	return fh.Close()
 }

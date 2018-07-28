@@ -3,8 +3,13 @@ package maintenance
 import (
 	"bytes"
 	"github.com/HouzuoGuo/laitos/misc"
+	"os"
 	"strings"
 	"time"
+)
+
+const (
+	SwapFilePath = "/laitos-swap-file"
 )
 
 // SynchroniseSystemClock uses three different tools to immediately synchronise system clock via NTP servers.
@@ -97,4 +102,67 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	daemon.logPrintStageStep(out, "dism Restorehealth: %v - %s", err, progOut)
 	progOut, err = misc.InvokeProgram(nil, 3*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
 	daemon.logPrintStageStep(out, "sfc ScanNow: %v - %s", err, progOut)
+}
+
+// MaintainSwapFile creates and activates a swap file for Linux system, or turns swap off depending on configuration input.
+func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
+	if misc.HostIsWindows() {
+		daemon.logPrintStage(out, "skipped on windows: maintain swap file")
+		return
+	}
+	daemon.logPrintStage(out, "maintain swap file "+SwapFilePath)
+	if daemon.SwapFileSizeMB < 0 {
+		daemon.logPrintStageStep(out, "turn off swap")
+		if err := misc.SwapOff(); err != nil {
+			daemon.logPrintStageStep(out, "failed to turn off swap: %v", err)
+		}
+		return
+	} else if daemon.SwapFileSizeMB > 0 {
+		_, swapFileStatus := os.Stat(SwapFilePath)
+		// Create the swap file if it does not yet exist
+		if os.IsNotExist(swapFileStatus) {
+			buf := make([]byte, 1048576)
+			fh, err := os.Create(SwapFilePath)
+			if err != nil {
+				daemon.logPrintStageStep(out, "failed to create swap file - %v", err)
+				return
+			}
+			for i := 0; i < daemon.SwapFileSizeMB; i++ {
+				if _, err := fh.Write(buf); err != nil {
+					daemon.logPrintStageStep(out, "failed to create swap file - %v", err)
+					return
+				}
+			}
+			if err := fh.Sync(); err != nil {
+				daemon.logPrintStageStep(out, "failed to create swap file - %v", err)
+				return
+			}
+			if err := fh.Close(); err != nil {
+				daemon.logPrintStageStep(out, "failed to create swap file - %v", err)
+				return
+			}
+			// If the file already exists, it will not be grown or recreated.
+		} else if swapFileStatus != nil {
+			daemon.logPrintStageStep(out, "failed to determine swap file status - %v", swapFileStatus)
+			return
+		}
+		// Correct the swap file permission and ownership
+		if err := os.Chmod(SwapFilePath, 0600); err != nil {
+			daemon.logPrintStageStep(out, "failed to correct swap file permission - %v", err)
+			return
+		}
+		if err := os.Chown(SwapFilePath, 0, 0); err != nil {
+			daemon.logPrintStageStep(out, "failed to correct swap file owner - %v", err)
+			return
+		}
+		// Format the swap file
+		if progOut, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "mkswap", SwapFilePath); err != nil {
+			daemon.logPrintStageStep(out, "failed to format swap file - %v - %s", err, progOut)
+		}
+		// Turn on the swap file
+		progOut, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "swapon", SwapFilePath)
+		if err != nil {
+			daemon.logPrintStageStep(out, "failed to turn on swap file - %v - %s", err, progOut)
+		}
+	}
 }

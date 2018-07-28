@@ -67,8 +67,11 @@ type Daemon struct {
 	ThrottleIncomingPackets int `json:"ThrottleIncomingPackets"`
 	// TuneLinux enables Linux kernel tuning routine as a maintenance step
 	TuneLinux bool `json:"TuneLinux"`
-	// SwapOff turns off swap as a maintenance step
-	SwapOff bool `json:"SwapOff"`
+	/*
+		SwapFileSizeMB determines the size of swap file to be created for Linux platform. If the value is 0, no swap file
+		will be created; if value is -1, swap will be turned off for the entire OS.
+	*/
+	SwapFileSizeMB int `json:"SwapFileSizeMB"`
 	// SetTimeZone changes system time zone to the specified value (such as "UTC").
 	SetTimeZone string `json:"SetTimeZone"`
 
@@ -332,11 +335,8 @@ func (daemon *Daemon) SystemMaintenance() string {
 		daemon.logPrintStage(out, "tune linux kernel: %s", toolbox.TuneLinux())
 	}
 
-	if daemon.SwapOff {
-		daemon.logPrintStage(out, "turn off swap")
-		if err := misc.SwapOff(); err != nil {
-			daemon.logPrintStageStep(out, "failed to turn off swap: %v", err)
-		}
+	if daemon.SwapFileSizeMB != 0 {
+		daemon.MaintainSwapFile(out)
 	}
 
 	if daemon.SetTimeZone != "" {

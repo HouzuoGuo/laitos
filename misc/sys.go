@@ -411,7 +411,7 @@ nameserver 208.67.220.220
 	return
 }
 
-// SwapOff turns off all swap files and partitions for improved system security.
+// SwapOff turns off all swap files and partitions for improved system confidentiality.
 func SwapOff() error {
 	// Wait quite a while to ensure that caller gets an accurate result return value.
 	out, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "swapoff", "-a")
