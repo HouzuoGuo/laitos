@@ -8,19 +8,23 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
+// If package manager output contains any of the strings, the procedure output about the package will be reduced into "Nothing to do"
+var suppressOutputMarkers = []string{"no packages marked for update", "nothing to do", "not found", "0 upgraded, 0 newly installed", "unable to locate", "already installed", "is the latest version"}
+
 /*
-PrepareDockerRepositorForDebian prepares APT repository for installing debian, because debian does not distribute
-docker in their repository for whatever reason. If the system is not a debian the function will do nothing.
+PrepareDockerRepositorForDebian prepares APT repository for installing docker, because debian does not distribute docker
+in their repository for whatever reason. If the system is not a debian the function will do nothing.
 */
-func (daemon *Daemon) PrepareDockerRepositoryForDebian(out *bytes.Buffer) {
+func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 	if misc.HostIsWindows() {
-		daemon.logPrintStage(out, "skipped on windows: prepare docker repository for debian")
+		daemon.logPrintStageStep(out, "skipped on windows: prepare docker repository for debian")
 		return
 	}
-	daemon.logPrintStage(out, "prepare docker repository for debian")
+	daemon.logPrintStageStep(out, "prepare docker repository for debian")
 	content, err := ioutil.ReadFile("/etc/os-release")
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to read os-release, this is not a critical error.")
@@ -54,62 +58,67 @@ func (daemon *Daemon) PrepareDockerRepositoryForDebian(out *bytes.Buffer) {
 }
 
 /*
-UpgradeInstallSoftware uses Linux package manager to ensure that all system packages are up to date and installs
-optional laitos dependencies as well as diagnosis utilities.
+getSystemPackageManager returns executable path and name of package manager available on this system, as well as
+environment variables and command arguments used to invoke them.
 */
-func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
+func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManagerEnv, pkgInstallArgs, sysUpgradeArgs []string) {
 	if misc.HostIsWindows() {
-		daemon.logPrintStage(out, "skipped on windows: upgrade/install software")
-		return
-	}
-	// Find a system package manager
-	var pkgManagerPath, pkgManagerName string
-	for _, binPrefix := range []string{"/sbin", "/bin", "/usr/sbin", "/usr/bin", "/usr/sbin/local", "/usr/bin/local"} {
-		/*
-			Prefer zypper over apt-get bacause opensuse has a weird "apt-get wrapper" that is not remotely functional.
-			Prefer apt over apt-get because some public cloud OS templates can upgrade kernel via apt but not with apt-get.
-		*/
-		for _, execName := range []string{"yum", "zypper", "apt", "apt-get"} {
-			pkgManagerPath = filepath.Join(binPrefix, execName)
-			if _, err := os.Stat(pkgManagerPath); err == nil {
-				pkgManagerName = execName
+		// Chocolatey is the only package manager supported on Windows
+		pkgManagerPath = `C:\ProgramData\chocolatey\bin\choco.exe`
+		pkgManagerName = "choco"
+	} else {
+		for _, binPrefix := range []string{"/sbin", "/bin", "/usr/sbin", "/usr/bin", "/usr/sbin/local", "/usr/bin/local"} {
+			/*
+				Prefer zypper over apt-get because opensuse has a weird "apt-get wrapper" that is not remotely functional.
+				Prefer apt over apt-get because some public cloud OS templates can upgrade kernel via apt but not with apt-get.
+			*/
+			for _, execName := range []string{"yum", "zypper", "apt", "apt-get"} {
+				pkgManagerPath = filepath.Join(binPrefix, execName)
+				if _, err := os.Stat(pkgManagerPath); err == nil {
+					pkgManagerName = execName
+					break
+				}
+			}
+			if pkgManagerName != "" {
 				break
 			}
 		}
-		if pkgManagerName != "" {
-			break
-		}
 	}
-	if pkgManagerName == "" {
-		daemon.logPrintStage(out, "failed to find package manager")
-		return
-	}
-	daemon.logPrintStage(out, "package maintenance via %s", pkgManagerPath)
-	// Determine package manager invocation parameters
-	var sysUpgradeArgs, installArgs []string
 	switch pkgManagerName {
+	case "choco":
+		// choco is simple and easy
+		pkgInstallArgs = []string{"install", "-y"}
+		sysUpgradeArgs = []string{"upgrade", "-y", "all"}
 	case "yum":
 		// yum is simple and easy
+		pkgInstallArgs = []string{"-y", "-t", "--skip-broken", "install"}
 		sysUpgradeArgs = []string{"-y", "-t", "--skip-broken", "update"}
-		installArgs = []string{"-y", "-t", "--skip-broken", "install"}
 	case "apt":
 		// apt and apt-get are too old to be convenient
 		fallthrough
 	case "apt-get":
+		pkgManagerEnv = []string{"DEBIAN_FRONTEND=noninteractive"}
+		pkgInstallArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "install"}
 		sysUpgradeArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "upgrade"}
-		installArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "install"}
 	case "zypper":
-		// zypper cannot English and integrity
+		// zypper cannot English and consistency
+		pkgInstallArgs = []string{"--non-interactive", "install", "--recommends", "--auto-agree-with-licenses", "--replacefiles", "--force-resolution"}
 		sysUpgradeArgs = []string{"--non-interactive", "update", "--recommends", "--auto-agree-with-licenses", "--skip-interactive", "--replacefiles", "--force-resolution"}
-		installArgs = []string{"--non-interactive", "install", "--recommends", "--auto-agree-with-licenses", "--replacefiles", "--force-resolution"}
-	default:
+	}
+	return
+}
+
+// UpgradeSoftware uses system package manager to ensure that all system packages are up to date.
+func (daemon *Daemon) UpgradeSoftware(out *bytes.Buffer) {
+	daemon.logPrintStage(out, "upgrade system software")
+	pkgManagerPath, pkgManagerName, pkgManagerEnv, _, sysUpgradeArgs := getSystemPackageManager()
+	if pkgManagerName == "" {
 		daemon.logPrintStageStep(out, "failed to find a compatible package manager")
 		return
 	}
+
 	// apt-get is too old to be convenient
-	pkgManagerEnv := make([]string, 0, 8)
 	if pkgManagerName == "apt-get" || pkgManagerName == "apt" {
-		pkgManagerEnv = append(pkgManagerEnv, "DEBIAN_FRONTEND=noninteractive")
 		// Five minutes should be enough to grab the latest manifest
 		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
 		// There is no need to suppress this output according to markers
@@ -118,18 +127,53 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		result, err = misc.InvokeProgram(pkgManagerEnv, 2*3600, "dpkg", "--configure", "-a", "--force-confold", "--force-confdef")
 		daemon.logPrintStageStep(out, "fix interrupted package installation: %v - %s", err, strings.TrimSpace(result))
 	}
-	// If package manager output contains any of the strings, the output is reduced into "Nothing to do"
-	suppressOutputMarkers := []string{"No packages marked for update", "Nothing to do", "0 upgraded, 0 newly installed", "Unable to locate"}
+
 	// Upgrade system packages with a time constraint of two hours
 	result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
 	for _, marker := range suppressOutputMarkers {
 		// If nothing was done during system update, suppress the rather useless output.
-		if strings.Contains(result, marker) {
+		if strings.Contains(strings.ToLower(result), marker) {
 			result = "(nothing to do or upgrade not available)"
 			break
 		}
 	}
-	daemon.logPrintStageStep(out, "upgrade system: %v - %s", err, strings.TrimSpace(result))
+	daemon.logPrintStageStep(out, "upgrade system result: %v - %s", err, strings.TrimSpace(result))
+}
+
+/*
+InstallSoftware uses system package manager to install a bunch of utilities useful to laitos operation, as well as
+additional software packages according to input configuration. For SoftwareInstall to do its work, UpgradeSoftware must
+have already run.
+*/
+func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
+	// Null input suppresses this action, empty input leads to only laitos recommendations to be installed.
+	if daemon.InstallPackages == nil {
+		return
+	}
+
+	daemon.logPrintStage(out, "install software")
+	pkgManagerPath, pkgManagerName, pkgManagerEnv, pkgInstallArgs, _ := getSystemPackageManager()
+	if pkgManagerName == "" {
+		daemon.logPrintStageStep(out, "failed to find a compatible package manager")
+		return
+	}
+
+	// Prepare package manager
+	if misc.HostIsWindows() {
+		daemon.logPrintStageStep(out, "install windows features")
+		shellOut, err := misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShell-ISE, Windows-Defender, Windows-Defender-Gui, TFTP-Client, Telnet-Client, Server-Media-Foundation, GPMC, NET-Framework-45-Core, WebDAV-Redirector`)
+		if err != nil {
+			daemon.logPrintStageStep(out, "failed to install windows features: %v - %s", err, shellOut)
+		}
+		daemon.logPrintStageStep(out, "install/upgrade chocolatey")
+		shellOut, err = misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))`)
+		if err != nil {
+			daemon.logPrintStageStep(out, "failed to install/upgrade chocolatey: %v - %s", err, shellOut)
+		}
+	} else {
+		daemon.prepareDockerRepositoryForDebian(out)
+	}
+
 	/*
 		Install additional software packages.
 		laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
@@ -159,34 +203,37 @@ func (daemon *Daemon) UpgradeInstallSoftware(out *bytes.Buffer) {
 		// Time maintenance utilities
 		"chrony", "ntp", "ntpd", "ntpdate",
 		// Application zip bundle maintenance utilities
-		"unzip", "zip",
+		"7zip", "unar", "unzip", "zip",
 		// Network diagnosis utilities
 		"bind-utils", "curl", "dnsutils", "hostname", "iputils-ping", "nc", "net-tools", "netcat", "nmap", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
 		// busybox and toybox are useful for general maintenance, and busybox can synchronise system clock as well.
 		"busybox", "toybox",
 		// System maintenance utilities
-		"lsof", "procps", "psmisc", "strace", "sudo", "unar", "vim",
+		"lsof", "procps", "psmisc", "screen", "strace", "sudo", "tmux", "unar", "vim",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)
+	sort.Strings(pkgs)
 	/*
-		Although all three package managers can install more than one packages at a time, the packages are still
-		installed one after another, because:
-		- apt-get does not ignore non-existent package names, how inconvenient.
-		- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
-		yum is once again the superior solution among all three.
+			Although most package managers can install more than one packages at a time, the packages are still installed
+		    one after another, because:
+			- apt-get does not ignore non-existent package names, how inconvenient.
+			- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
+			yum is once again the superior solution among all three.
 	*/
 	for _, name := range pkgs {
 		// Put software name next to installation parameters
-		pkgInstallArgs := make([]string, len(installArgs)+1)
-		copy(pkgInstallArgs, installArgs)
-		pkgInstallArgs[len(installArgs)] = name
+		installCmd := make([]string, len(pkgInstallArgs)+1)
+		copy(installCmd, pkgInstallArgs)
+		installCmd[len(pkgInstallArgs)] = name
 		// Ten minutes should be good enough for each package
-		result, err := misc.InvokeProgram(pkgManagerEnv, 10*60, pkgManagerPath, pkgInstallArgs...)
-		if err != nil {
+		result, err := misc.InvokeProgram(pkgManagerEnv, 10*60, pkgManagerPath, installCmd...)
+		if err == nil {
+			daemon.logPrintStageStep(out, "install/upgrade %s: OK", name)
+		} else {
 			for _, marker := range suppressOutputMarkers {
 				// If nothing was done about the package, suppress the rather useless output.
-				if strings.Contains(result, marker) {
-					result = "(nothing to do or package not available)"
+				if strings.Contains(strings.ToLower(result), marker) {
+					result = "(nothing to do or not available)"
 					break
 				}
 			}

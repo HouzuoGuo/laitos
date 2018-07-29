@@ -78,7 +78,7 @@ func (daemon *Daemon) MaintainsIptables(out *bytes.Buffer) {
 		ipOut, ipErr := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "iptables", args...)
 		if ipErr != nil {
 			daemon.logPrintStageStep(out, "command failed for \"%s\" - %v - %s", strings.Join(args, " "), ipErr, ipOut)
-			daemon.logPrintStageStep(out, "configure for fail safe that will allow ALL traffic")
+			daemon.logPrintStageStep(out, "WARNING: configure for fail safe that will allow ALL traffic")
 			for _, failSafeCmd := range failSafe {
 				failSafeOut, failSafeErr := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "iptables", failSafeCmd...)
 				daemon.logPrintStageStep(out, "fail safe \"%s\" - %v - %s", strings.Join(failSafeCmd, " "), failSafeErr, failSafeOut)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/HouzuoGuo/laitos/misc"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -52,11 +53,13 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 	daemon.logPrintStage(out, "maintain service state")
 
 	if daemon.DisableStopServices != nil {
+		sort.Strings(daemon.DisableStopServices)
 		for _, name := range daemon.DisableStopServices {
 			daemon.logPrintStageStep(out, "disable&stop %s: success? %v", name, misc.DisableStopDaemon(name))
 		}
 	}
 	if daemon.EnableStartServices != nil {
+		sort.Strings(daemon.EnableStartServices)
 		for _, name := range daemon.EnableStartServices {
 			daemon.logPrintStageStep(out, "enable&start %s: success? %v", name, misc.EnableStartDaemon(name))
 		}
@@ -110,7 +113,10 @@ func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
 		daemon.logPrintStage(out, "skipped on windows: maintain swap file")
 		return
 	}
-	daemon.logPrintStage(out, "maintain swap file "+SwapFilePath)
+	if daemon.SwapFileSizeMB == 0 {
+		return
+	}
+	daemon.logPrintStage(out, "create/turn on swap file "+SwapFilePath)
 	if daemon.SwapFileSizeMB < 0 {
 		daemon.logPrintStageStep(out, "turn off swap")
 		if err := misc.SwapOff(); err != nil {
@@ -145,6 +151,8 @@ func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
 		} else if swapFileStatus != nil {
 			daemon.logPrintStageStep(out, "failed to determine swap file status - %v", swapFileStatus)
 			return
+		} else {
+			daemon.logPrintStage(out, "the swap file appears to already exist")
 		}
 		// Correct the swap file permission and ownership
 		if err := os.Chmod(SwapFilePath, 0600); err != nil {

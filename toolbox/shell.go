@@ -34,7 +34,7 @@ func (sh *Shell) Initialise() error {
 		goto afterShell
 	}
 	if misc.HostIsWindows() {
-		sh.InterpreterPath = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+		sh.InterpreterPath = misc.PowerShellInterpreterPath
 	} else {
 		// Find a Unix-style shell interpreter with a preference to use bash
 		for _, shellName := range []string{"bash", "dash", "zsh", "ksh", "ash", "tcsh", "csh", "sh"} {

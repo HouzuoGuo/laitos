@@ -27,21 +27,4 @@ $laitosPassword = Read-Host -AsSecureString -Prompt 'What is the administrator p
 $laitosCred = New-Object System.Management.Automation.PSCredential -ArgumentList $laitosUser, $laitosPassword
 $laitosTask | Register-ScheduledTask -Force -TaskName laitos -User $laitosUser -Password $laitosCred.GetNetworkCredential().Password
 
-$installExtra = Read-Host -Prompt 'laitos is now ready to start automatically. Would you like to install additional useful applications? yes/no'
-$installExtra = $installExtra.ToLower();
-If ($installExtra -ne 'yes' -and $installExtra -ne 'y') {
-    Exit
-}
-
-# Install useful system features
-Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShell-ISE, Windows-Defender, Windows-Defender-Gui, TFTP-Client, Telnet-Client, Server-Media-Foundation, GPMC, NET-Framework-45-Core, WebDAV-Redirector
-
-# Install chocolatey and useful 3rd party applications that are usedul for laitos maintenance and daily operation
-Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-
-$packages = ('7zip', 'curl', 'filezilla', 'git', 'golang', 'googlechrome', 'jetbrainstoolbox', 'libreoffice-fresh', 'mobaxterm', 'notepadplusplus', 'putty', 'sysinternals','vlc', 'wget', 'wireshark', 'wget')
-
-choco install -y $packages
-choco upgrade -y $packages
-
-Read-Host -Prompt 'All finished, enter anything to terminate the setup script'
+Read-Host -Prompt 'laitos is now ready to start automatically, enter anything to terminate the setup script.'

@@ -185,7 +185,7 @@ var sampleConfigJSON = `
       "howard@localhost"
     ],
     "SetTimeZone": "UTC",
-    "SwapOff": true,
+    "SwapFileSizeMB": 100,
     "TCPPorts": [
       9114
     ],

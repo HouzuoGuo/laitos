@@ -335,10 +335,6 @@ func (daemon *Daemon) SystemMaintenance() string {
 		daemon.logPrintStage(out, "tune linux kernel: %s", toolbox.TuneLinux())
 	}
 
-	if daemon.SwapFileSizeMB != 0 {
-		daemon.MaintainSwapFile(out)
-	}
-
 	if daemon.SetTimeZone != "" {
 		daemon.logPrintStage(out, "set system time zone")
 		if err := misc.SetTimeZone(daemon.SetTimeZone); err != nil {
@@ -359,10 +355,11 @@ func (daemon *Daemon) SystemMaintenance() string {
 	daemon.BlockUnusedLogin(out)
 	daemon.MaintainServices(out)
 	daemon.MaintainsIptables(out) // run this after service maintenance, because disabling firewall service may alter iptables.
+	daemon.MaintainSwapFile(out)
 
-	// Software installation tasks
-	daemon.PrepareDockerRepositoryForDebian(out)
-	daemon.UpgradeInstallSoftware(out)
+	// Software maintenance tasks
+	daemon.UpgradeSoftware(out)
+	daemon.InstallSoftware(out)
 
 	// Clock synchronisation may depend on a software installed via the previous step
 	daemon.SynchroniseSystemClock(out)

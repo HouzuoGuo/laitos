@@ -162,6 +162,9 @@ func PrepareUtilities(progress Logger) {
 	}
 }
 
+// PowerShellInterpreterPath is the absolute path to PowerShell interpreter executable.
+const PowerShellInterpreterPath = `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`
+
 /*
 InvokeShell launches an external shell process with time constraints to run a piece of shell code. The code is fed into
 shell command parameter "-c", which happens to be universally accepted by Unix shells and Windows Powershell.
