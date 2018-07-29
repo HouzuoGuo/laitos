@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/HouzuoGuo/laitos/misc"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -172,5 +173,43 @@ func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
 		if err != nil {
 			daemon.logPrintStageStep(out, "failed to turn on swap file - %v - %s", err, progOut)
 		}
+	}
+}
+
+// MaintainFileSystem gets rid of unused temporary files.
+func (daemon *Daemon) MaintainFileSystem(out *bytes.Buffer) {
+	daemon.logPrintStage(out, "maintain file system")
+	if misc.HostIsWindows() {
+		// Use Windows "Disk Cleanup" utility
+		daemon.logPrintStageStep(out, "invoke windows disk clean-up utility")
+		for _, drive := range []string{"c", "d", "e", "f", "g", "h"} { // i am feeling lazy to write all the way to z
+			if _, err := os.Stat(drive + ":\\"); err == nil {
+				shellOut, err := misc.InvokeShell(900, misc.PowerShellInterpreterPath, `C:\Windows\System32\cleanmgr.exe /VERYLOWDISK /d`+drive)
+				if err == nil {
+					daemon.logPrintStageStep(out, "windows disk clean-up successfully cleaned up drive %s", drive)
+				} else {
+					daemon.logPrintStageStep(out, "windows disk clean-up failed to clean up drive %s: %v - %s", drive, err, shellOut)
+				}
+			}
+		}
+	}
+	// Remove files from temporary locations that have not been modified for over a week
+	daemon.logPrintStageStep(out, "clean up unused temporary files")
+	sevenDaysAgo := time.Now().Add(-(7 * 24 * time.Hour))
+	// Keep in mind that /var/tmp is supposed to hold "persistent temporary files" in Linux
+	for _, location := range []string{`/tmp`, `C:\Temp`, `C:\Windows\Temp`} {
+		filepath.Walk(location, func(path string, info os.FileInfo, err error) error {
+			if err == nil {
+				if info.ModTime().Before(sevenDaysAgo) {
+					toDelete := filepath.Join(path, info.Name())
+					if deleteErr := os.RemoveAll(toDelete); deleteErr == nil {
+						daemon.logPrintStageStep(out, "deleted %s", toDelete)
+					} else {
+						daemon.logPrintStageStep(out, "failed to deleted %s - %v", toDelete, deleteErr)
+					}
+				}
+			}
+			return nil
+		})
 	}
 }

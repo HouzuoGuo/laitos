@@ -331,17 +331,18 @@ func (daemon *Daemon) SystemMaintenance() string {
 	out := new(bytes.Buffer)
 	daemon.logPrintStage(out, "begin system maintenance")
 
-	if daemon.TuneLinux {
+	// In general, an earlier task should exert a positive impact on subsequent tasks.
+
+	// System maintenance
+	if daemon.TuneLinux && !misc.HostIsWindows() {
 		daemon.logPrintStage(out, "tune linux kernel: %s", toolbox.TuneLinux())
 	}
-
 	if daemon.SetTimeZone != "" {
 		daemon.logPrintStage(out, "set system time zone")
 		if err := misc.SetTimeZone(daemon.SetTimeZone); err != nil {
 			daemon.logPrintStageStep(out, "failed to set time zone: %v", err)
 		}
 	}
-
 	/*
 		It is usually only necessary to copy the utilities once, but on AWS ElasticBeanstalk the OS template
 		aggressively clears /tmp at regular interval, losing all of the copied utilities in the progress, therefore
@@ -349,20 +350,19 @@ func (daemon *Daemon) SystemMaintenance() string {
 	*/
 	daemon.logPrintStage(out, "re-copy non-essential laitos utilities")
 	misc.PrepareUtilities(daemon.logger)
+	daemon.MaintainFileSystem(out)
+	daemon.MaintainSwapFile(out)
 
-	// General security tasks
+	// Software maintenance
+	daemon.UpgradeSoftware(out)
+	daemon.InstallSoftware(out)
 	daemon.MaintainWindowsIntegrity(out)
+
+	// Security maintenance
+	daemon.SynchroniseSystemClock(out) // clock synchronisation may depend on a software installed during software maintenance tasks
 	daemon.BlockUnusedLogin(out)
 	daemon.MaintainServices(out)
 	daemon.MaintainsIptables(out) // run this after service maintenance, because disabling firewall service may alter iptables.
-	daemon.MaintainSwapFile(out)
-
-	// Software maintenance tasks
-	daemon.UpgradeSoftware(out)
-	daemon.InstallSoftware(out)
-
-	// Clock synchronisation may depend on a software installed via the previous step
-	daemon.SynchroniseSystemClock(out)
 
 	daemon.logPrintStage(out, "concluded system maintenance")
 	return out.String()
