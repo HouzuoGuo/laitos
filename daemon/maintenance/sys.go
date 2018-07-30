@@ -184,14 +184,13 @@ func (daemon *Daemon) MaintainFileSystem(out *bytes.Buffer) {
 	sevenDaysAgo := time.Now().Add(-(7 * 24 * time.Hour))
 	// Keep in mind that /var/tmp is supposed to hold "persistent temporary files" in Linux
 	for _, location := range []string{`/tmp`, `C:\Temp`, `C:\Windows\Temp`} {
-		filepath.Walk(location, func(path string, info os.FileInfo, err error) error {
+		filepath.Walk(location, func(thisPath string, info os.FileInfo, err error) error {
 			if err == nil {
 				if info.ModTime().Before(sevenDaysAgo) {
-					toDelete := filepath.Join(path, info.Name())
-					if deleteErr := os.RemoveAll(toDelete); deleteErr == nil {
-						daemon.logPrintStageStep(out, "deleted %s", toDelete)
+					if deleteErr := os.RemoveAll(thisPath); deleteErr == nil {
+						daemon.logPrintStageStep(out, "deleted %s", thisPath)
 					} else {
-						daemon.logPrintStageStep(out, "failed to deleted %s - %v", toDelete, deleteErr)
+						daemon.logPrintStageStep(out, "failed to deleted %s - %v", thisPath, deleteErr)
 					}
 				}
 			}
