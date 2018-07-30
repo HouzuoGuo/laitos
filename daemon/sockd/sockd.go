@@ -20,7 +20,7 @@ import (
 
 const (
 	MD5SumLength         = 16
-	IOTimeoutSec         = time.Duration(300 * time.Second)
+	IOTimeoutSec         = time.Duration(900 * time.Second)
 	RateLimitIntervalSec = 1
 	MaxPacketSize        = 9038
 )
