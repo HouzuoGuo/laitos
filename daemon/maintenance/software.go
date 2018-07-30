@@ -204,12 +204,15 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"chrony", "ntp", "ntpd", "ntpdate",
 		// Application zip bundle maintenance utilities
 		"7zip", "unar", "unzip", "zip",
-		// Network diagnosis utilities
-		"bind-utils", "curl", "dnsutils", "hostname", "iputils-ping", "nc", "net-tools", "netcat", "nmap", "rsync", "telnet", "tcpdump", "traceroute", "wget", "whois",
+
 		// busybox and toybox are useful for general maintenance, and busybox can synchronise system clock as well.
 		"busybox", "toybox",
-		// System maintenance utilities
-		"lsof", "procps", "psmisc", "screen", "strace", "sudo", "tmux", "unar", "vim",
+
+		// Network diagnosis, system maintenance, and other useful utilities.
+		"bind-utils", "curl", "dateutils", "diffutils", "dnsutils", "finger", "hostname", "htop", "iftop", "iotop", "iputils-ping",
+		"lftp", "lsof", "mailutils", "mailx", "moreutils", "nc", "net-tools", "netcat", "nmap", "nmon", "patchutils", "perf",
+		"procps", "psmisc", "rsync", "screen", "sensors", "strace", "sudo", "tcpdump", "telnet", "tmux", "traceroute", "tree",
+		"unar", "usbutils", "vim", "wget", "whois", "wiggle",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)
 	sort.Strings(pkgs)
