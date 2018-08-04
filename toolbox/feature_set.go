@@ -19,7 +19,6 @@ type FeatureSet struct {
 	BrowserSlimerJS    BrowserSlimerJS     `json:"BrowserSlimerJS"`
 	PublicContact      PublicContact       `json:"PublicContact"`
 	EnvControl         EnvControl          `json:"EnvControl"`
-	Facebook           Facebook            `json:"Facebook"`
 	IMAPAccounts       IMAPAccounts        `json:"IMAPAccounts"`
 	Joke               Joke                `json:"Joke"`
 	RSS                RSS                 `json:"RSS"`
@@ -44,7 +43,6 @@ func (fs *FeatureSet) Initialise() error {
 		fs.BrowserSlimerJS.Trigger():    &fs.BrowserSlimerJS,    // bs
 		fs.PublicContact.Trigger():      &fs.PublicContact,      // c
 		fs.EnvControl.Trigger():         &fs.EnvControl,         // e
-		fs.Facebook.Trigger():           &fs.Facebook,           // f
 		fs.TextSearch.Trigger():         &fs.TextSearch,         // g
 		fs.IMAPAccounts.Trigger():       &fs.IMAPAccounts,       // i
 		fs.Joke.Trigger():               &fs.Joke,               // j
@@ -113,7 +111,6 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 		"BrowserPhantomJS":   &fs.BrowserPhantomJS,
 		"BrowserSlimerJS":    &fs.BrowserSlimerJS,
 		"EnvControl":         &fs.EnvControl,
-		"Facebook":           &fs.Facebook,
 		"IMAPAccounts":       &fs.IMAPAccounts,
 		"Joke":               &fs.Joke,
 		"RSS":                &fs.RSS,

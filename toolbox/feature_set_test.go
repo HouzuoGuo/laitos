@@ -80,7 +80,6 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 		directly manipulating the internal feature state, especially in the case of Twitter AccessToken.
 	*/
 	features.AESDecrypt.EncryptedFiles[TestAESDecryptFileBetaName].FilePath = "does not exist"
-	features.Facebook.UserAccessToken = "very bad"
 	features.IMAPAccounts.Accounts = map[string]*IMAPS{
 		"a": {
 			Host:         "does-not-exist",
@@ -116,7 +115,6 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 
 	findAllErr := StringContainsAllOf(errString, []Trigger{
 		features.AESDecrypt.Trigger(),
-		features.Facebook.Trigger(),
 		features.IMAPAccounts.Trigger(),
 		features.RSS.Trigger(),
 		features.SendMail.Trigger(),
