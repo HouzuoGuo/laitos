@@ -19,7 +19,7 @@ var (
 		centre Emails.
 	*/
 	SOSEmailRecipientMagic = "sos@sos"
-	ErrBadSendMailParam    = errors.New(`Example: addr@dom.tld "subj" body. Send SOS to sos@sos.`)
+	ErrBadSendMailParam    = errors.New(`example: addr@dom.tld "subj" body (send SOS to sos@sos)`)
 )
 
 // Send outgoing emails.

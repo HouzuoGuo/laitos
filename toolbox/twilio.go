@@ -17,7 +17,7 @@ const (
 
 var (
 	RegexPhoneNumberAndMessage = regexp.MustCompile(`(\+\d+)[^\w]+(.*)`) // Capture one phone number and one text message
-	ErrBadTwilioParam          = fmt.Errorf("Example: %s|%s +##number message", TwilioMakeCall, TwilioSendSMS)
+	ErrBadTwilioParam          = fmt.Errorf("example: %s|%s +##number message", TwilioMakeCall, TwilioSendSMS)
 )
 
 type Twilio struct {

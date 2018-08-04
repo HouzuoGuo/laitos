@@ -32,7 +32,7 @@ type FeatureSet struct {
 	LookupByTrigger    map[Trigger]Feature `json:"-"`
 }
 
-var TestFeatureSet = FeatureSet{} // Features are assigned by init_test.go
+//var TestFeatureSet = FeatureSet{} // Features are assigned by init_test.go
 
 // Run initialisation routine on all features, and then populate lookup table for all configured features.
 func (fs *FeatureSet) Initialise() error {

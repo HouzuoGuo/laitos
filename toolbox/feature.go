@@ -13,8 +13,8 @@ const (
 )
 
 var (
-	ErrEmptyCommand     = errors.New("Empty command")
-	ErrIncompleteConfig = errors.New("Incomplete configuration")
+	ErrEmptyCommand     = errors.New("empty command")
+	ErrIncompleteConfig = errors.New("incomplete configuration")
 )
 
 // Execution details for invoking a feature.

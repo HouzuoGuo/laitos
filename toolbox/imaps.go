@@ -298,10 +298,11 @@ func (imap *IMAPAccounts) SelfTest() error {
 		if err != nil {
 			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" has connection error - %v", name, err)
 		}
-		defer imapConn.LogoutDisconnect()
 		if _, err := imapConn.GetNumberMessages(account.MailboxName); err != nil {
+			imapConn.LogoutDisconnect()
 			return fmt.Errorf("IMAPAccounts.SelfTest: account \"%s\" test error - %v", name, err)
 		}
+		imapConn.LogoutDisconnect()
 	}
 	return nil
 }

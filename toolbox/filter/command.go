@@ -26,11 +26,11 @@ type PINAndShortcuts struct {
 	Shortcuts map[string]string `json:"Shortcuts"`
 }
 
-var ErrPINAndShortcutNotFound = errors.New("Failed to match PIN/shortcut")
+var ErrPINAndShortcutNotFound = errors.New("failed to match PIN/shortcut")
 
 func (pin *PINAndShortcuts) Transform(cmd toolbox.Command) (toolbox.Command, error) {
 	if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
-		return toolbox.Command{}, errors.New("Both PIN and shortcuts are undefined")
+		return toolbox.Command{}, errors.New("both PIN and shortcuts are undefined")
 	}
 	for _, line := range cmd.Lines() {
 		line = strings.TrimSpace(line)

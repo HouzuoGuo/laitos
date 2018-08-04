@@ -18,7 +18,7 @@ const (
 
 var (
 	RegexTwoNumbers    = regexp.MustCompile(`(\d+)[^\d]+(\d+)`) // Capture two groups of numbers
-	ErrBadTwitterParam = fmt.Errorf("Example: %s skip# count# | %s content-to-post", TwitterGetFeeds, TwitterPostTweet)
+	ErrBadTwitterParam = fmt.Errorf("example: %s skip# count# | %s content-to-post", TwitterGetFeeds, TwitterPostTweet)
 )
 
 // Use Twitter API to interact with user's time-line.

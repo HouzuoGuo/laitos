@@ -11,6 +11,7 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -364,7 +365,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Body": {"incorrect PIN"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Message><![CDATA[Failed to match PIN/shortcut]]></Message>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Message><![CDATA[`+filter.ErrPINAndShortcutNotFound.Error()+`]]></Message>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
@@ -421,7 +422,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Digits": {"0000000"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `Failed to match PIN/shortcut`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), filter.ErrPINAndShortcutNotFound.Error()) {
 		t.Fatal(err, string(resp.Body))
 	}
 	//                         v  e r  y  s   e c  r  e t .   s    tr  u e

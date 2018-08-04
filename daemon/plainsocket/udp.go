@@ -7,6 +7,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"io"
 	"net"
 	"net/textproto"
@@ -176,7 +177,7 @@ func TestUDPServer(server *Daemon, t testingstub.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(badPINResp) != "Failed to match PIN/shortcut" {
+	if string(badPINResp) != filter.ErrPINAndShortcutNotFound.Error() {
 		t.Fatal(string(badPINResp))
 	}
 	// With good PIN

@@ -19,7 +19,7 @@ import (
 var (
 	// RegexKeyAndAccountName finds a suffix encryption key and account name.
 	RegexKeyAndAccountName = regexp.MustCompile(`(\w+)[^\w]+(.*)`)
-	ErrBadTwoFAParam       = errors.New(`Example: key account_name`)
+	ErrBadTwoFAParam       = errors.New(`example: key account_name`)
 )
 
 /*

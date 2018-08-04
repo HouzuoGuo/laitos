@@ -111,6 +111,8 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	features.TwoFACodeGenerator.SecretFile.FilePath = "does not exist"
 	features.WolframAlpha.AppID = "very bad"
 
+	fmt.Println("initialisation error: ", features.Initialise())
+
 	errString := features.SelfTest().Error()
 
 	findAllErr := StringContainsAllOf(errString, []Trigger{

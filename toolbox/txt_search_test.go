@@ -3,6 +3,7 @@ package toolbox
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -45,20 +46,20 @@ Where is the USB type C port`)
 		t.Fatal(err)
 	}
 	// Search for text using bad parameters
-	if result := txt.Execute(Command{Content: ""}); result.Error == nil {
+	if ret := txt.Execute(Command{Content: ""}); ret.Error == nil {
 		t.Fatal("did not error")
 	}
-	if result := txt.Execute(Command{Content: "intro"}); result.Error == nil {
-		t.Fatal("did not error")
+	if ret := txt.Execute(Command{Content: "intro"}); ret.Error != ErrBadTextSearchParam {
+		t.Fatal(ret.Error)
 	}
-	if result := txt.Execute(Command{Content: "shortcut-does-not-exist search this"}); result.Error == nil {
-		t.Fatal("did not error")
+	if ret := txt.Execute(Command{Content: "shortcut-does-not-exist search this"}); !strings.HasPrefix(ret.Error.Error(), "cannot find") {
+		t.Fatal(ret.Error)
 	}
 	// Search for text using good parameters
-	if result := txt.Execute(Command{Content: "intro then how the "}); result.Error != nil || result.Output != "1 and Then How the Hinge works\n" {
-		t.Fatal(result)
+	if ret := txt.Execute(Command{Content: "intro then how the "}); ret.Error != nil || ret.Output != "1 and Then How the Hinge works\n" {
+		t.Fatal(ret)
 	}
-	if result := txt.Execute(Command{Content: "intro where"}); result.Error != nil || result.Output != "2 where The volume button is\nWhere is the USB type C port" {
-		t.Fatal(result)
+	if ret := txt.Execute(Command{Content: "intro where"}); ret.Error != nil || ret.Output != "2 where The volume button is\nWhere is the USB type C port" {
+		t.Fatal(ret)
 	}
 }

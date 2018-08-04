@@ -14,7 +14,7 @@ import (
 var (
 	// RegexTextSearch finds a shortcut name and a search string.
 	RegexTextSearch       = regexp.MustCompile(`(\w+)[^\w]+(.*)`)
-	ErrBadTextSearchParam = errors.New(`Example: shortcut text_to_search`)
+	ErrBadTextSearchParam = errors.New(`example: shortcut text_to_search`)
 )
 
 const TextSearchTrigger = ".g" // TextSearchTrigger the trigger prefix string of TextSearch feature.

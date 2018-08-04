@@ -17,7 +17,7 @@ import (
 var (
 	// RegexAESShortcutKeySearch finds a shortcut name, encryption key, and search string.
 	RegexAESShortcutKeySearch = regexp.MustCompile(`(\w+)[^\w]+(\w+)[^\w]+(.*)`)
-	ErrBadAESDecryptParam     = errors.New(`Example: shortcut key to_search`)
+	ErrBadAESDecryptParam     = errors.New(`example: shortcut key to_search`)
 )
 
 const OpensslSaltedContentOffset = 16 // openssl writes down irrelevant salt in position 8:16
@@ -122,12 +122,12 @@ func (crypt *AESDecrypt) Execute(cmd Command) (ret *Result) {
 	// Use combination of configured key and input suffix key to decrypt the entire file
 	keySuffix, err := hex.DecodeString(hexKeySuffix)
 	if err != nil {
-		return &Result{Error: errors.New("Cannot decode hex key")}
+		return &Result{Error: errors.New("failed to decode hex key")}
 	}
 	searchString := strings.ToLower(params[3])
 	file, found := crypt.EncryptedFiles[shortcutName]
 	if !found {
-		return &Result{Error: errors.New("Cannot find " + shortcutName)}
+		return &Result{Error: errors.New("cannot find " + shortcutName)}
 	}
 	plainContent, err := file.Decrypt(keySuffix)
 	if err != nil {

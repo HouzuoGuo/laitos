@@ -50,7 +50,7 @@ func TestAESDecrypt_Execute(t *testing.T) {
 		t.Fatal("did not error")
 	}
 	// Decrypt unregistered file
-	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: "charlie 0000 0000"}); !strings.HasPrefix(ret.Error.Error(), "Cannot find") {
+	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: "charlie 0000 0000"}); !strings.HasPrefix(ret.Error.Error(), "cannot find") {
 		t.Fatal(ret)
 	}
 	// Decrypt file using bad key
