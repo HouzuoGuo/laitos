@@ -666,9 +666,11 @@ func (instance *Instance) Kill() {
 	instance.jsProcMutex.Lock()
 	defer instance.jsProcMutex.Unlock()
 	if instance.jsProcCmd != nil {
-		instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
-		if !misc.KillProcess(instance.jsProcCmd.Process) {
-			instance.logger.Warning("Kill", "", nil, "failed to kill process")
+		if instance.jsProcCmd.Process != nil {
+			instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
+			if !misc.KillProcess(instance.jsProcCmd.Process) {
+				instance.logger.Warning("Kill", "", nil, "failed to kill process")
+			}
 		}
 		instance.jsProcCmd = nil
 		if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {

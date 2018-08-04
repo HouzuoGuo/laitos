@@ -778,9 +778,11 @@ func (instance *Instance) Kill() {
 	defer instance.jsProcMutex.Unlock()
 	if instance.jsProcCmd != nil {
 		// Kill the docker client
-		instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
-		if !misc.KillProcess(instance.jsProcCmd.Process) {
-			instance.logger.Warning("Kill", "", nil, "failed to kill process")
+		if instance.jsProcCmd.Process != nil {
+			instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
+			if !misc.KillProcess(instance.jsProcCmd.Process) {
+				instance.logger.Warning("Kill", "", nil, "failed to kill process")
+			}
 		}
 		instance.jsProcCmd = nil
 		// Kill SlimerJS container
