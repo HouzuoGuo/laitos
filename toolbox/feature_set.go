@@ -25,6 +25,7 @@ type FeatureSet struct {
 	RSS                RSS                 `json:"RSS"`
 	SendMail           SendMail            `json:"SendMail"`
 	Shell              Shell               `json:"Shell"`
+	TextSearch         TextSearch          `json:"TextSearch"`
 	Twilio             Twilio              `json:"Twilio"`
 	Twitter            Twitter             `json:"Twitter"`
 	TwoFACodeGenerator TwoFACodeGenerator  `json:"TwoFACodeGenerator"`
@@ -44,6 +45,7 @@ func (fs *FeatureSet) Initialise() error {
 		fs.PublicContact.Trigger():      &fs.PublicContact,      // c
 		fs.EnvControl.Trigger():         &fs.EnvControl,         // e
 		fs.Facebook.Trigger():           &fs.Facebook,           // f
+		fs.TextSearch.Trigger():         &fs.TextSearch,         // g
 		fs.IMAPAccounts.Trigger():       &fs.IMAPAccounts,       // i
 		fs.Joke.Trigger():               &fs.Joke,               // j
 		fs.RSS.Trigger():                &fs.RSS,                // r
@@ -54,13 +56,21 @@ func (fs *FeatureSet) Initialise() error {
 		fs.TwoFACodeGenerator.Trigger(): &fs.TwoFACodeGenerator, // 2
 		fs.WolframAlpha.Trigger():       &fs.WolframAlpha,       // w
 	}
+	errs := make([]string, 0, 0)
 	for trigger, featureRef := range triggers {
+		/*
+			Collect initialisation errors (if any) from all failed features so that all mistakes can be presented to
+			caller at once.
+		*/
 		if featureRef.IsConfigured() {
 			if err := featureRef.Initialise(); err != nil {
-				return err
+				errs = append(errs, err.Error())
 			}
 			fs.LookupByTrigger[trigger] = featureRef
 		}
+	}
+	if len(errs) != 0 {
+		return errors.New(strings.Join(errs, " | "))
 	}
 	return nil
 }
@@ -71,7 +81,8 @@ func (fs *FeatureSet) SelfTest() error {
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
 	wait.Add(len(fs.LookupByTrigger))
-	for _, featureRef := range fs.LookupByTrigger {
+	for a, featureRef := range fs.LookupByTrigger {
+		fmt.Println("Self test is testing", a)
 		go func(ref Feature) {
 			err := ref.SelfTest()
 			if err != nil {

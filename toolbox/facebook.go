@@ -25,7 +25,7 @@ func (fb *Facebook) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Validate access token via a simple API call
-	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: SelfTestTimeoutSec}, "https://graph.facebook.com/v2.10/me/feed?access_token=%s", fb.UserAccessToken)
+	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: SelfTestTimeoutSec}, "https://graph.facebook.com/v2.10/me?fields=id,name", fb.UserAccessToken)
 	if err != nil {
 		return fmt.Errorf("Facebook.SelfTest: API IO error - %v", err)
 	}
