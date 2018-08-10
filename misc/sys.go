@@ -20,8 +20,17 @@ var RegexMemTotal = regexp.MustCompile(`MemTotal:\s*(\d+)\s*kB`)         // Pars
 var RegexMemFree = regexp.MustCompile(`MemFree:\s*(\d+)\s*kB`)           // Parse MemFree value from /proc/meminfo
 var RegexTotalUptimeSec = regexp.MustCompile(`(\d+).*`)                  // Parse uptime seconds from /proc/meminfo
 
-// CommonOSCmdTimeoutSec is the number of seconds to tolerate for running a wide range of system management utilities.
-const CommonOSCmdTimeoutSec = 30
+const (
+	// CommonOSCmdTimeoutSec is the number of seconds to tolerate for running a wide range of system management utilities.
+	CommonOSCmdTimeoutSec = 30
+
+	/*
+		MaxExternalProgramOutputBytes is the maximum number of bytes (combined stdout and stderr) to keep for an
+		external program for caller to retrieve. Due to implementation specifics, this number also correspond to the
+		initial size of an internal buffer used for keeping the program output.
+	*/
+	MaxExternalProgramOutputBytes = 1024 * 1024
+)
 
 // Use regex to parse input string, and return an integer parsed from specified capture group, or 0 if there is no match/no integer.
 func FindNumInRegexGroup(numRegex *regexp.Regexp, input string, groupNum int) int {
@@ -435,4 +444,18 @@ func SetTimeZone(zone string) error {
 		return fmt.Errorf("failed to make localtime symlink: %v", err)
 	}
 	return nil
+}
+
+/*
+NewLimitedCapacityBuffer builds an in-memory, Writer-compatible interface (which is in fact ByteLogWriter) that absorbs
+only up to a certain number of bytes. When the capacity is reached, earliest bytes will be evicted should more bytes
+arrive.
+
+Upon initialisation and during write operations, the writer uses amount of memory equal to the designated capacity, even
+if it is not full.
+
+At the moment of data retrieval, the writer uses exactly twice the designated capacity in memory.
+*/
+func NewLimitedCapacityBuffer(capBytes int) *ByteLogWriter {
+	return NewByteLogWriter(ioutil.Discard, capBytes)
 }

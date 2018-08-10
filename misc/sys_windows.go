@@ -1,7 +1,6 @@
 package misc
 
 import (
-	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -19,7 +18,8 @@ InvokeProgram launches an external program with time constraints. The external p
 mixed with additional input environment variables. The additional variables take precedence over inherited ones.
 Once the external program is launched, its scheduling priority is lowered to "below normal", as a safety measure,
 because Windows is pretty bad keeping up when system is busy.
-Returns stdout+stderr output combined, and error if there is any.
+Returns stdout+stderr output combined, and error if there is any. The maximum amount of output returned is capped to
+MaxExternalProgramOutputBytes.
 */
 func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (out string, err error) {
 	if timeoutSec < 1 {
@@ -34,11 +34,11 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		combinedEnv = append(combinedEnv, envVars...)
 	}
 	// Collect stdout and stderr all together in a single buffer
-	var outBuf bytes.Buffer
+	outBuf := NewLimitedCapacityBuffer(MaxExternalProgramOutputBytes)
 	proc := exec.Command(program, args...)
 	proc.Env = combinedEnv
-	proc.Stdout = &outBuf
-	proc.Stderr = &outBuf
+	proc.Stdout = outBuf
+	proc.Stderr = outBuf
 	// Monitor for time out
 	var timedOut bool
 	timeOutTimer := time.AfterFunc(time.Duration(timeoutSec)*time.Second, func() {
@@ -56,14 +56,17 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		Lower the external process priority to "below normal" (magic priority number 16384). If an error occurs, it
 		usually means the external process is very short lived. There is no need to log WMIC's error.
 	*/
-	exec.Command(`C:\WINDOWS\System32\Wbem\WMIC.exe`, "process", "where", "ProcessID="+strconv.Itoa(proc.Process.Pid), "call", "SetPriority", "16384").CombinedOutput()
+	wmicCmd := exec.Command(`C:\WINDOWS\System32\Wbem\WMIC.exe`, "process", "where", "ProcessID="+strconv.Itoa(proc.Process.Pid), "call", "SetPriority", "16384")
+	if err := wmicCmd.Start(); err == nil {
+		wmicCmd.Wait()
+	}
 	// Wait for process to finish
 	err = proc.Wait()
 	timeOutTimer.Stop()
 	if timedOut {
 		err = errors.New("time limit exceeded")
 	}
-	out = outBuf.String()
+	out = string(outBuf.Retrieve(false))
 	return
 }
 

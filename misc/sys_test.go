@@ -104,6 +104,15 @@ func TestInvokeProgram(t *testing.T) {
 		if duration > 4 {
 			t.Fatal("did not kill before timeout")
 		}
+
+		// Verify cap on program output size
+		out, err = InvokeProgram(nil, 10, "cmd.exe", "/c", `type c:\windows\system32\ntoskrnl.exe`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(out) != MaxExternalProgramOutputBytes {
+			t.Fatal(len(out))
+		}
 	} else {
 		out, err := InvokeProgram([]string{"A=laitos123"}, 10, "printenv", "A")
 		if err != nil || out != "laitos123\n" {
@@ -118,6 +127,15 @@ func TestInvokeProgram(t *testing.T) {
 		duration := time.Now().Unix() - begin.Unix()
 		if duration > 2 {
 			t.Fatal("did not kill before timeout")
+		}
+
+		// Verify cap on program output size
+		out, err = InvokeProgram(nil, 10, "yes", "0123456789")
+		if err == nil {
+			t.Fatal("did not timeout")
+		}
+		if len(out) != MaxExternalProgramOutputBytes || !strings.Contains(out, "0123456789") {
+			t.Fatal(len(out), !strings.Contains(out, "0123456789"))
 		}
 	}
 }

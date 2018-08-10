@@ -3,7 +3,6 @@
 package misc
 
 import (
-	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -27,7 +26,8 @@ func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int) {
 /*
 InvokeProgram launches an external program with time constraints. The external program inherits laitos' environment
 mixed with additional input environment variables. The additional variables take precedence over inherited ones.
-Returns stdout+stderr output combined, and error if there is any.
+Returns stdout+stderr output combined, and error if there is any. The maximum amount of output returned is capped to
+MaxExternalProgramOutputBytes.
 */
 func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (out string, err error) {
 	if timeoutSec < 1 {
@@ -48,11 +48,11 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		combinedEnv = append(combinedEnv, envVars...)
 	}
 	// Collect stdout and stderr all together in a single buffer
-	var outBuf bytes.Buffer
+	outBuf := NewLimitedCapacityBuffer(MaxExternalProgramOutputBytes)
 	proc := exec.Command(program, args...)
 	proc.Env = combinedEnv
-	proc.Stdout = &outBuf
-	proc.Stderr = &outBuf
+	proc.Stdout = outBuf
+	proc.Stderr = outBuf
 	// Use process group so that child processes are also killed upon time out, Windows does not require this.
 	proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	// Monitor for time out
@@ -68,7 +68,8 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	if timedOut {
 		err = errors.New("time limit exceeded")
 	}
-	out = outBuf.String()
+	// This is a little inefficient, it may use up to 3 * MaxExternalProgramOutputBytes memory.
+	out = string(outBuf.Retrieve(false))
 	return
 }
 
