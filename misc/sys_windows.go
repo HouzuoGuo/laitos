@@ -52,11 +52,11 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		timeOutTimer.Stop()
 		return
 	}
-	// Lower process priority to "below normal"
-	setPrioOut, setPrioErr := exec.Command(`C:\WINDOWS\System32\Wbem\WMIC.exe`, "process", "where", "ProcessID="+strconv.Itoa(proc.Process.Pid), "call", "SetPriority", "16384").CombinedOutput()
-	if setPrioErr != nil {
-		logger.Info("InvokeProgram", program, setPrioErr, "failed to lower process priority - %s", string(setPrioOut))
-	}
+	/*
+		Lower the external process priority to "below normal" (magic priority number 16384). If an error occurs, it
+		usually means the external process is very short lived. There is no need to log WMIC's error.
+	*/
+	exec.Command(`C:\WINDOWS\System32\Wbem\WMIC.exe`, "process", "where", "ProcessID="+strconv.Itoa(proc.Process.Pid), "call", "SetPriority", "16384").CombinedOutput()
 	// Wait for process to finish
 	err = proc.Wait()
 	timeOutTimer.Stop()
