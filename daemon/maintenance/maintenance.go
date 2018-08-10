@@ -343,15 +343,18 @@ func (daemon *Daemon) SystemMaintenance() string {
 			daemon.logPrintStageStep(out, "failed to set time zone: %v", err)
 		}
 	}
+	daemon.MaintainFileSystem(out)
+	daemon.MaintainSwapFile(out)
+
 	/*
-		It is usually only necessary to copy the utilities once, but on AWS ElasticBeanstalk the OS template
-		aggressively clears /tmp at regular interval, losing all of the copied utilities in the progress, therefore
-		re-copy the utility programs during maintenance.
+		It is usually only necessary to copy the utilities once, but two exceptions make it handy to re-copy the
+		utilities during maintenance:
+		- AWS ElasticBeanstalk the OS template removes unmodified files from /tmp at regular interval.
+		- During file system maintenance (step above), unmodified files from 7 days ago are deleted.
+		Hence, right here the utility programs are copied once again.
 	*/
 	daemon.logPrintStage(out, "re-copy non-essential laitos utilities")
 	misc.PrepareUtilities(daemon.logger)
-	daemon.MaintainFileSystem(out)
-	daemon.MaintainSwapFile(out)
 
 	// Software maintenance
 	daemon.UpgradeSoftware(out)
