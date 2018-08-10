@@ -9,7 +9,3 @@ jobs:
       - checkout
       - run: go test -v -cover ./...
       - run: go build
-      # Prepare java for BlackDuck scanner
-      - run: sudo apt-get install openjdk-8-jdk openjdk-8-jdk-headless openjdk-8-jre
-      - deploy:
-          command: bash <(curl -s https://copilot.blackducksoftware.com/ci/circle2/scripts/upload)
