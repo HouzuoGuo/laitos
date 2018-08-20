@@ -12,45 +12,81 @@ ByteLogWriter forwards verbatim bytes to destination writer, and keeps designate
 internal buffers for later retrieval. It implements io.Writer interface.
 */
 type ByteLogWriter struct {
+	MaxBytes    int        // MaxBytes is the number of latest data bytes to keep.
 	destination io.Writer  // destination is the writer to forward verbatim output to.
-	mem         []byte     // mem has the size of KeepBytes and memorises latest output bytes.
-	memPos      int        // memPos is the location in buffer to write the next output at.
-	everFull    bool       // everFull is true only if the internal memory has ever been filled up.
 	mutex       sync.Mutex // mutex prevents simultaneous Write operations from taking place.
-	KeepBytes   int        // KeepBytes is the number of bytes to keep
+	latestBytes []byte     // latestBytes is an internal buffer memorising the latest input bytes.
+	latestPos   int        // latestPos is the location of internal buffer to write next at.
+	everFull    bool       // everFull is true only if the internal buffer has ever been filled completely.
+	currentSize int        // currentSize is the amount of meaningful data currently residing in the internal buffer.
 }
 
 // NewByteLogWriter initialises a new ByteLogBuffer and returns it.
-func NewByteLogWriter(destination io.Writer, keepBytes int) *ByteLogWriter {
+func NewByteLogWriter(destination io.Writer, maxBytes int) *ByteLogWriter {
 	return &ByteLogWriter{
 		destination: destination,
-		mem:         make([]byte, keepBytes),
-		memPos:      0,
-		KeepBytes:   keepBytes,
+		latestBytes: make([]byte, 0),
+		latestPos:   0,
+		currentSize: 0,
+		MaxBytes:    maxBytes,
+	}
+}
+
+// ensureSize enlarges internal buffer to at least the specified size.
+func (writer *ByteLogWriter) ensureSize(expectedSize int) {
+	if writer.currentSize < expectedSize {
+		writer.currentSize = expectedSize
+	}
+	if writer.currentSize > writer.MaxBytes {
+		writer.currentSize = writer.MaxBytes
+	}
+	// Double the buffer size until it is larger than the expected size
+	for {
+		if len(writer.latestBytes) < expectedSize {
+			newSize := len(writer.latestBytes) * 2
+			if newSize == 0 {
+				newSize = 2
+			}
+			if newSize > writer.MaxBytes {
+				newSize = writer.MaxBytes
+			}
+			if newSize == len(writer.latestBytes) {
+				return
+			}
+			newBuf := make([]byte, newSize)
+			copy(newBuf, writer.latestBytes)
+			writer.latestBytes = newBuf
+			if newSize >= expectedSize {
+				return
+			}
+			// Keep enlarging the buffer until it is large enough
+			continue
+		}
+		return
 	}
 }
 
 // absorb memorises the bytes written by the latest operation (protected by mutex) in internal buffers.
-func (writer *ByteLogWriter) absorb(p []byte) {
-	for {
-		room := len(writer.mem) - writer.memPos
-		if room >= len(p) {
-			// There is enough room for the latest write buffer
-			copy(writer.mem[writer.memPos:], p)
-			writer.memPos += len(p)
-			if room == len(p) {
-				// Reset position so that next write operation will restart from beginning of the memory
-				writer.memPos = 0
+func (writer *ByteLogWriter) absorb(in []byte) {
+	writer.ensureSize(len(in) + writer.latestPos)
+	if len(in) >= writer.MaxBytes {
+		// If input is larger then copy the last several bytes into internal buffer
+		copy(writer.latestBytes, in[len(in)-writer.MaxBytes:])
+		writer.everFull = true
+		writer.latestPos = 0
+	} else {
+		room := writer.currentSize - writer.latestPos
+		if room >= len(in) {
+			copy(writer.latestBytes[writer.latestPos:], in)
+			writer.latestPos += len(in)
+			if writer.latestPos == writer.MaxBytes {
 				writer.everFull = true
+				writer.latestPos = 0
 			}
-			return
 		} else {
-			// There is not enough room for the latest write buffer
-			copy(writer.mem[writer.memPos:], p[:room])
-			p = p[room:]
-			writer.memPos = 0
+			copy(writer.latestBytes[writer.latestPos:], in)
+			copy(writer.latestBytes[:room], in[room:])
 			writer.everFull = true
-			continue
 		}
 	}
 }
@@ -59,12 +95,12 @@ func (writer *ByteLogWriter) absorb(p []byte) {
 func (writer *ByteLogWriter) Retrieve(asciiOnly bool) (ret []byte) {
 	var bufCopy []byte
 	if writer.everFull {
-		bufCopy = make([]byte, writer.KeepBytes)
-		copy(bufCopy, writer.mem[writer.memPos:])
-		copy(bufCopy[len(writer.mem)-writer.memPos:], writer.mem[:writer.memPos])
+		bufCopy = make([]byte, writer.currentSize)
+		copy(bufCopy, writer.latestBytes[writer.latestPos:writer.currentSize])
+		copy(bufCopy[len(writer.latestBytes)-writer.latestPos:writer.currentSize], writer.latestBytes[:writer.latestPos])
 	} else {
-		bufCopy = make([]byte, writer.memPos)
-		copy(bufCopy, writer.mem[:writer.memPos])
+		bufCopy = make([]byte, writer.latestPos)
+		copy(bufCopy, writer.latestBytes[:writer.latestPos])
 	}
 
 	ret = bufCopy

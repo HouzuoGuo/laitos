@@ -26,8 +26,7 @@ const (
 
 	/*
 		MaxExternalProgramOutputBytes is the maximum number of bytes (combined stdout and stderr) to keep for an
-		external program for caller to retrieve. Due to implementation specifics, this number also correspond to the
-		initial size of an internal buffer used for keeping the program output.
+		external program for caller to retrieve.
 	*/
 	MaxExternalProgramOutputBytes = 1024 * 1024
 )
@@ -177,7 +176,8 @@ const PowerShellInterpreterPath = `C:\Windows\System32\WindowsPowerShell\v1.0\po
 /*
 InvokeShell launches an external shell process with time constraints to run a piece of shell code. The code is fed into
 shell command parameter "-c", which happens to be universally accepted by Unix shells and Windows Powershell.
-Returns shell stdout+stderr output combined and error if there is any.
+Returns shell stdout+stderr output combined and error if there is any. The maximum acount of output is capped to
+MaxExternalProgramOutputBytes.
 */
 func InvokeShell(timeoutSec int, interpreter string, content string) (out string, err error) {
 	return InvokeProgram(nil, timeoutSec, interpreter, "-c", content)
@@ -444,18 +444,4 @@ func SetTimeZone(zone string) error {
 		return fmt.Errorf("failed to make localtime symlink: %v", err)
 	}
 	return nil
-}
-
-/*
-NewLimitedCapacityBuffer builds an in-memory, Writer-compatible interface (which is in fact ByteLogWriter) that absorbs
-only up to a certain number of bytes. When the capacity is reached, earliest bytes will be evicted should more bytes
-arrive.
-
-Upon initialisation and during write operations, the writer uses amount of memory equal to the designated capacity, even
-if it is not full.
-
-At the moment of data retrieval, the writer uses exactly twice the designated capacity in memory.
-*/
-func NewLimitedCapacityBuffer(capBytes int) *ByteLogWriter {
-	return NewByteLogWriter(ioutil.Discard, capBytes)
 }

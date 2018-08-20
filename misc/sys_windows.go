@@ -34,7 +34,7 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		combinedEnv = append(combinedEnv, envVars...)
 	}
 	// Collect stdout and stderr all together in a single buffer
-	outBuf := NewLimitedCapacityBuffer(MaxExternalProgramOutputBytes)
+	outBuf := NewByteLogWriter(ioutil.Discard, MaxExternalProgramOutputBytes)
 	proc := exec.Command(program, args...)
 	proc.Env = combinedEnv
 	proc.Stdout = outBuf

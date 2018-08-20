@@ -4,6 +4,7 @@ package misc
 
 import (
 	"errors"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"syscall"
@@ -48,7 +49,7 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		combinedEnv = append(combinedEnv, envVars...)
 	}
 	// Collect stdout and stderr all together in a single buffer
-	outBuf := NewLimitedCapacityBuffer(MaxExternalProgramOutputBytes)
+	outBuf := NewByteLogWriter(ioutil.Discard, MaxExternalProgramOutputBytes)
 	proc := exec.Command(program, args...)
 	proc.Env = combinedEnv
 	proc.Stdout = outBuf
@@ -68,7 +69,6 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	if timedOut {
 		err = errors.New("time limit exceeded")
 	}
-	// This is a little inefficient, it may use up to 3 * MaxExternalProgramOutputBytes memory.
 	out = string(outBuf.Retrieve(false))
 	return
 }
