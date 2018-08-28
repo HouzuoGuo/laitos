@@ -166,7 +166,7 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(browseURL) > 1024 {
-		xy.logger.Warning("HandleWebProxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes")
+		xy.logger.Warning("HandleWebProxy", browseURL[0:64], nil, "proxy URL is unusually long at %d bytes", len(browseURL))
 		http.Error(w, "URL is unusually long", http.StatusInternalServerError)
 		return
 	}
