@@ -1,5 +1,4 @@
-# The setup script installs laitos supplements for windows, a scheduled task that starts laitos automatically, and
-# additional system/3rd party applications that are very useful for laitos maintenance and daily operation.
+# The setup script installs laitos supplements for windows, and a scheduled task that starts laitos automatically.
 
 $ErrorActionPreference = 'Stop'
 
@@ -27,4 +26,4 @@ $laitosPassword = Read-Host -AsSecureString -Prompt 'What is the administrator p
 $laitosCred = New-Object System.Management.Automation.PSCredential -ArgumentList $laitosUser, $laitosPassword
 $laitosTask | Register-ScheduledTask -Force -TaskName laitos -User $laitosUser -Password $laitosCred.GetNetworkCredential().Password
 
-Read-Host -Prompt 'laitos is now ready to start automatically, enter anything to terminate the setup script.'
+Read-Host -Prompt 'laitos is now ready to start automatically upon system boot, enter anything to terminate the setup script.'
