@@ -8,9 +8,9 @@ carried out entirely via plain text commands. The command response will offer cl
 site looks while navigating around. Only one website can be browsed at a time.
 
 In contrast to PhantomJS based web browser, SlimerJS based web browser is more capable of rendering very modern
-websites, even Google Maps and YouTube. However, SlimerJS based web browsers rely on Docker container runtime, which may
-not be available if your hosting environment does not offer Docker daemon control (e.g. Windows Subsystem For Linux, AWS
-FarGate).
+websites, even Google Maps and YouTube. However, SlimerJS based web browsers rely on Docker container runtime or
+supplement applications for Windows, which may not be available in your server hosting environment (e.g. Windows
+Subsystem For Linux, AWS FarGate).
 
 ## Configuration
 Under JSON object `Features`, construct a JSON object called `BrowserPhantomJS` and its inner object `Browsers` that has
@@ -28,7 +28,7 @@ the following properties:
     <td>
         An arbitrary number above 20000 and below 65535.
         <br/>
-        It must not clash with port numbers from other components, such as the SlimerJS based interactive web browser,
+        It must not clash with port numbers from other components, such as the PhantomJS based interactive web browser,
         and the remote browser web services.
     </td>
     <td>(This is a mandatory property without a default value)
@@ -102,7 +102,11 @@ For example, to conduct a Google search:
 ## Tips
 - The instance port number from configuration is only for internal localhost use. They do not have to be open on your
   network firewall.
-- The web service relies on Docker container runtime and tools to launch SlimerJS. You may install Docker manually, or
-  reply on [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance) to automatically
-  install the dependencies.
+- If laitos host is running Linux, then it will need Docker container runtime and tools to launch SlimerJS. You may
+  install Docker daemon and client manually, or reply on [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
+  to automatically make preparations for Docker.
+- If laitos host is Windows, then it will need [supplement programs](https://github.com/HouzuoGuo/laitos-windows-supplements)
+  instead of Docker daemon. Download and place the supplements into `laitos-windows-supplements` directory underneath
+  C, D, E, or F drive.
+- SELinux will be disabled on the host operating system for SlimerJS to function properly.
 - You may find out more about the SlimerJS container image over [here](https://hub.docker.com/r/hzgl/slimerjs).

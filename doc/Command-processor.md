@@ -174,7 +174,7 @@ The following prefixes are accepted, see individual feature manual for their usa
 - `.bp` - [Interactive web browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser-(PhantomJS))
 - `.bs` - [Interactive web browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser-(SlimerJS))
 - `.e` - [Inspect system and program environment](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-and-control-server-environment)
-- `.f` - [Facebook](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Facebook)
+- `.g` - [Text search](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-text-search)
 - `.i` - [Read Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-reading-Emails)
 - `.j` - [Wild joke](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-wild-joke)
 - `.m` - [Send Emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-Emails)

@@ -4,7 +4,7 @@ The rich set of components not only covers the basic needs of hosting a personal
 but also provide advanced capabilities to satisfy the geeky nature inside of you!
 
 laitos components go into two categories:
-- Toolbox - access to email, post to Twitter/Facebook, etc.
+- Toolbox - access to email, post to Twitter, etc.
 - Daemons - web server, mail server, and chat bots. Daemons grant access to all toolbox features.
 
 ## Daemons
@@ -112,11 +112,6 @@ The following services are hosted by web server and enabled on your demand:
         <th>Usage</th>
     </tr>
     <tr>
-        <td>Use Facebook</td>
-        <td>Post updates to Facebook time-line.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Facebook" target="_blank">Link</a></td>
-    </tr>
-    <tr>
         <td>Use Twitter</td>
         <td>Read and post tweets.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Twitter" target="_blank">Link</a></td>
@@ -175,6 +170,11 @@ The following services are hosted by web server and enabled on your demand:
         <td>Password book</td>
         <td>Decrypt AES-encrypted files (e.g. password book) and search for keywords among the content.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-find-text-in-AES-encrypted-files" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Text search</td>
+        <td>Search for keywords among text files such as telephone book.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-text-search" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Run system commands</td>

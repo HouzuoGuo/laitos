@@ -7,7 +7,7 @@ on laitos server and let you interact with it via mouse and keyboard input. It m
 - Enable outdated computers (e.g. Windows 95 + Mosaic browser) to enjoy rich experience of modern web.
 
 Be ware that PhantomJS is an old software that may not render some modern web sites. Consider using the remote browser
-based on [SlimerJS](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-interactive-web-browser-(SlimerJS)), which
+based on [SlimerJS](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-remote-browser-(SlimerJS)), which
 is better in many ways.
 
 ## Configuration

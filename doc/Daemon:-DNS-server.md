@@ -4,14 +4,14 @@
 The DNS server daemon is a recursive DNS resolver that provides a safer web experience by blocking most of advertisement
 and malicious domains.
 
-Every two hours, the blacklists are automatically updated from well-known sources:
-- [yoyo.org](http://pgl.yoyo.org)
-- [mvps.org](http://winhelp2002.mvps.org)
+Upon start up and twice a day, the blacklists are automatically acquired from well-known sources:
 - [malwaredomainlist.com](http://www.malwaredomainlist.com)
 - [someonewhocares.org](http://someonewhocares.org/hosts/hosts)
+- [mvps.org](http://winhelp2002.mvps.org)
+- [yoyo.org](http://pgl.yoyo.org)
 
 Beyond blacklist filter, the daemon uses redundant set of secure and trusted public DNS services provided by:
-- [Comodo SecureDNS](https://www.comodo.com/secure-dns)
+- [OpenDNS](https://www.opendns.com)
 - [Quad9](https://www.quad9.net)
 - [SafeDNS](https://www.safedns.com)
 
@@ -42,9 +42,9 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
 </tr>
 <tr>
     <td>Forwarders</td>
-    <td>array of strings</td>
+    <td>array of "IP:port"</td>
     <td>Public DNS resolvers (IP:Port) to use. They must be able to handle both UDP and TCP for queries.</td>
-    <td>Comodo SecureDNS, Quad9, SafeDNS</td>
+    <td>OpenDNS, Quad9, SafeDNS</td>
 </tr>
 <tr>
     <td>UDPPort</td>

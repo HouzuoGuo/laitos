@@ -4,8 +4,8 @@
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server), the web service is triggered
 by incoming calls and SMS from Twilio platform, and offers caller/sender access to all toolbox features.
 
-That means: using telephone, SMS, and satellite terminals, you will be able to access personal Emails, Facebook,
-Twitter, and much more!
+That means: using telephone, SMS, and satellite terminals, you will be able to access personal Emails, Twitter, and much
+more!
 
 ## Preparation
 1. Sign up for an account at [twilio.com](https://www.twilio.com) - an API platform that connects computer programs with

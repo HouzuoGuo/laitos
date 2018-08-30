@@ -23,7 +23,6 @@ Web Service Components
 * [Recurring commands](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-recurring-commands)
 
 Toolbox Components
-* [Use Facebook](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Facebook)
 * [Use Twitter](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-Twitter)
 * [Use WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-WolframAlpha)
 * [Wild joke](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-wild-joke)
@@ -36,5 +35,6 @@ Toolbox Components
 * [Public contacts](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-public-institution-contacts)
 * [2FA code generator](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-two-factor-authentication-code-generator)
 * [Password book](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-find-text-in-AES-encrypted-files)
+* [Text search](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-text-search)
 * [Run system commands](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-run-system-commands)
 * [Program control](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-and-control-server-environment)

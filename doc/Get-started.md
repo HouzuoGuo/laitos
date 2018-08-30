@@ -12,7 +12,7 @@ laitos source code does not depend on third party library.
 
 ## Prepare configuration
 laitos components go into two categories:
-- Toolbox features - read and send mails, post to Twitter/Facebook, etc.
+- Toolbox features - read and send mails, post to Twitter, etc.
 - Daemons - web server, mail server, chat bots, etc. Secured by a PIN entry, they grant access to all toolbox features.
 
 Follow the links in [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list) to craft your very own
@@ -58,6 +58,10 @@ Note that:
 ## Deploy on cloud
 laitos runs well on all popular cloud vendors. Check out these [tips](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips)
 for smoother deployment experience.
+
+## Deploy on Windows
+laitos is well tuned for running on Windows server and desktop. Check out this [PowerShell script](https://raw.githubusercontent.com/HouzuoGuo/laitos/master/extra/windows/setup.ps1)
+that helps to start laitos automatically as a background service.
 
 ## Advanced behaviours
 ### Supervisor

@@ -16,9 +16,8 @@ As a professional geek, you would never want to be left without Internet access!
 For reliable **Internet access via alternative infrastructures** such as telephone, SMS, and satellite terminals,
 **laitos** has a comprehensive all-in-one toolkit for:
 
-- Keep in touch on Facebook and Twitter
+- Keep in touch via Twitter and Emails
 - Read news via RSS
-- Read and send Emails
 - Make calls and send SMS
 - Ask about latest weather and factoids
 - Run Linux/Unix shell commands
@@ -30,7 +29,7 @@ For reliable **Internet access via alternative infrastructures** such as telepho
 ## Highlights
 
 - **Efficient** - consume as little as 28MB of memory and 12MB of disk.
-- **Portable** - runs on all flavours of Linux and Unix.
+- **Portable** - runs on all flavours of Linux and Windows.
 - **Independent** - reliable stand-alone operation with self healing and automated maintenance.
 - **Hyped by Buzzwords** - certified to run in any container, as well as PaaS, IaaS, \*aaS.
 

@@ -1,5 +1,7 @@
 <img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/doc/cosmetic/poster.png" alt="poster image" align="right" />
 
+[![CircleCI](https://circleci.com/gh/HouzuoGuo/laitos.svg?style=svg)](https://circleci.com/gh/HouzuoGuo/laitos)
+
 # laitos - Empower your personal web server
 
 _For all users:_
@@ -14,9 +16,8 @@ As a professional geek, you would never want to be left without Internet access!
 For reliable **Internet access via alternative infrastructures** such as telephone, SMS, and satellite terminals,
 **laitos** has a comprehensive all-in-one toolkit for:
 
-- Keep in touch on Facebook and Twitter
+- Keep in touch via Twitter and Emails
 - Read news via RSS
-- Read and send Emails
 - Make calls and send SMS
 - Ask about latest weather and factoids
 - Run Linux/Unix shell commands
@@ -28,7 +29,7 @@ For reliable **Internet access via alternative infrastructures** such as telepho
 ## Highlights
 
 - **Efficient** - consume as little as 28MB of memory and 12MB of disk.
-- **Portable** - runs on all flavours of Linux and Unix.
+- **Portable** - runs on all flavours of Linux and Windows.
 - **Independent** - reliable stand-alone operation with self healing and automated maintenance.
 - **Hyped by Buzzwords** - certified to run in any container, as well as PaaS, IaaS, \*aaS.
 
@@ -67,6 +68,3 @@ The Golang mascot "gopher" is designed by [Renee French](http://reneefrench.blog
 
 The gopher side portrait is designed by [Takuya Ueda](https://twitter.com/tenntenn), licensed under the "Creative
 CommonsAttribution 3.0" license.
-
-[![CircleCI](https://circleci.com/gh/HouzuoGuo/laitos.svg?style=svg)](https://circleci.com/gh/HouzuoGuo/laitos)
-
