@@ -45,8 +45,6 @@ Should you encounter any challenge during configuration and deployment of the so
 
 I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gmail.com) and get in touch on [Twitter](https://twitter.com/hzguo).
 
-[Enterprise support](mailto:guohouzuo@gmail.com) is available upon request.
-
 ## Copyright
 Copyright (C) 2016-2018 Houzuo (Howard) Guo <guohouzuo@gmail.com>
 
