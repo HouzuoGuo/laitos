@@ -1,7 +1,6 @@
 package inet
 
 import (
-	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -36,11 +35,17 @@ func IsGCE() bool {
 // IsAzure returns true only if the program is running on Microsoft Azure virtual machine.
 func IsAzure() bool {
 	isAzureOnce.Do(func() {
-		content, err := ioutil.ReadFile("/var/lib/dhcp/dhclient.eth0.leases")
-		if err == nil {
-			if strings.Contains(string(content), "unknown-245") {
-				isAzure = true
-			}
+		/*
+			According to https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service
+			As of 2018-08-31, the metadata API version "2017-08-01" is the only version supported across all regions,
+			including Government, China, and Germany.
+		*/
+		resp, err := DoHTTP(HTTPRequest{
+			TimeoutSec: HTTPPublicIPTimeoutSec,
+			Header:     map[string][]string{"Metadata": {"true"}},
+		}, "http://169.254.169.254/metadata/instance?api-version=2017-08-01")
+		if err == nil && resp.StatusCode/200 == 1 && strings.Contains(string(resp.Body), "subscriptionId") {
+			isAzure = true
 		}
 	})
 	return isAzure
@@ -48,10 +53,15 @@ func IsAzure() bool {
 
 /*
 GetPublicIP returns the latest public IP address of the computer. If the IP address cannot be determined, it will return
-an empty string. The function may take up to 10 seconds to return a value.
+an empty string. The function may take up to 10 seconds to return to caller.
 */
 func GetPublicIP() string {
-	// Use four different ways to retrieve IP address
+	/*
+		Kick off multiple routines to determine public IP at the same time. Each routine uses a different approach, the
+		fastest valid response will be returned to caller. Usually the public cloud metadata endpoints are the fastest
+		and slightly more trustworthy.
+	*/
+
 	// GCE internal
 	gceInternal := make(chan string, 1)
 	go func() {
@@ -60,7 +70,9 @@ func GetPublicIP() string {
 			Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
 		}, "http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
 		if err == nil && resp.StatusCode/200 == 1 {
-			gceInternal <- strings.TrimSpace(string(resp.Body))
+			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+				gceInternal <- respBody
+			}
 		}
 	}()
 	// AWS internal
@@ -68,9 +80,24 @@ func GetPublicIP() string {
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
-		}, "http://169.254.169.254/2016-09-02/meta-data/public-ipv4")
+		}, "http://169.254.169.254/2018-03-28/meta-data/public-ipv4")
 		if err == nil && resp.StatusCode/200 == 1 {
-			awsInternal <- strings.TrimSpace(string(resp.Body))
+			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+				awsInternal <- respBody
+			}
+		}
+	}()
+	// Azure internal
+	azureInternal := make(chan string, 1)
+	go func() {
+		resp, err := DoHTTP(HTTPRequest{
+			TimeoutSec: HTTPPublicIPTimeoutSec,
+			Header:     map[string][]string{"Metadata": {"true"}},
+		}, "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-12-01&format=text")
+		if err == nil && resp.StatusCode/200 == 1 {
+			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+				azureInternal <- respBody
+			}
 		}
 	}()
 	// AWS public
@@ -80,7 +107,9 @@ func GetPublicIP() string {
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 		}, "http://checkip.amazonaws.com")
 		if err == nil && resp.StatusCode/200 == 1 {
-			awsPublic <- strings.TrimSpace(string(resp.Body))
+			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+				awsPublic <- respBody
+			}
 		}
 	}()
 	// ipfy.org
@@ -90,13 +119,17 @@ func GetPublicIP() string {
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 		}, "https://api.ipify.org")
 		if err == nil && resp.StatusCode/200 == 1 {
-			ipfyPublic <- strings.TrimSpace(string(resp.Body))
+			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+				ipfyPublic <- respBody
+			}
 		}
 	}()
 	select {
 	case ip := <-gceInternal:
 		return ip
 	case ip := <-awsInternal:
+		return ip
+	case ip := <-azureInternal:
 		return ip
 	case ip := <-awsPublic:
 		return ip
