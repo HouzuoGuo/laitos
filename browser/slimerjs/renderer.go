@@ -503,7 +503,7 @@ const (
         msg += "\n" + p.toUpperCase() + ": " + ex[p];
     }
     console.log(msg);
-}`  // Template javascript code that runs on headless browser server
+}` // Template javascript code that runs on headless browser server
 )
 
 var TagCounter = int64(0) // TagCounter increases for each started browser. Value 0 is the initial value, not a valid tag.

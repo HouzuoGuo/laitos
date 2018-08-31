@@ -18,6 +18,11 @@ var suppressOutputMarkers = []string{"no packages marked for update", "nothing t
 /*
 PrepareDockerRepositorForDebian prepares APT repository for installing docker, because debian does not distribute docker
 in their repository for whatever reason. If the system is not a debian the function will do nothing.
+
+The software maintenance routine runs this function prior to installing the set of useful system software packages,
+among which there is "add-apt-repository" command. Hence, on a freshly provisioned Debian system the command may not be
+available, which causes docker to be missing even after system maintenance routine has run for the first time. The fault
+will correct itself when system maintenance routine runs a second time.
 */
 func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 	if misc.HostIsWindows() {
