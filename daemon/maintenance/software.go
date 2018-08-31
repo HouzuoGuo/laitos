@@ -113,10 +113,34 @@ func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManage
 	return
 }
 
-// UpgradeSoftware uses system package manager to ensure that all system packages are up to date.
-func (daemon *Daemon) UpgradeSoftware(out *bytes.Buffer) {
+/*
+InstallSoftware uses system package manager to upgrade system software, and then install a laitos soft dependencies
+along with additional software packages according to user configuration.
+*/
+func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
+	// Null input suppresses this action, empty input leads to only laitos recommendations to be installed.
+	if daemon.InstallPackages == nil {
+		return
+	}
+
+	// Prepare package manager
+	if misc.HostIsWindows() {
+		daemon.logPrintStageStep(out, "install windows features")
+		shellOut, err := misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShell-ISE, Windows-Defender, Windows-Defender-Gui, TFTP-Client, Telnet-Client, Server-Media-Foundation, GPMC, NET-Framework-45-Core, WebDAV-Redirector`)
+		if err != nil {
+			daemon.logPrintStageStep(out, "failed to install windows features: %v - %s", err, shellOut)
+		}
+		daemon.logPrintStageStep(out, "install/upgrade chocolatey")
+		shellOut, err = misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))`)
+		if err != nil {
+			daemon.logPrintStageStep(out, "failed to install/upgrade chocolatey: %v - %s", err, shellOut)
+		}
+	} else {
+		daemon.prepareDockerRepositoryForDebian(out)
+	}
+
 	daemon.logPrintStage(out, "upgrade system software")
-	pkgManagerPath, pkgManagerName, pkgManagerEnv, _, sysUpgradeArgs := getSystemPackageManager()
+	pkgManagerPath, pkgManagerName, pkgManagerEnv, pkgInstallArgs, sysUpgradeArgs := getSystemPackageManager()
 	if pkgManagerName == "" {
 		daemon.logPrintStageStep(out, "failed to find a compatible package manager")
 		return
@@ -143,41 +167,6 @@ func (daemon *Daemon) UpgradeSoftware(out *bytes.Buffer) {
 		}
 	}
 	daemon.logPrintStageStep(out, "upgrade system result: %v - %s", err, strings.TrimSpace(result))
-}
-
-/*
-InstallSoftware uses system package manager to install a bunch of utilities useful to laitos operation, as well as
-additional software packages according to input configuration. For SoftwareInstall to do its work, UpgradeSoftware must
-have already run.
-*/
-func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
-	// Null input suppresses this action, empty input leads to only laitos recommendations to be installed.
-	if daemon.InstallPackages == nil {
-		return
-	}
-
-	daemon.logPrintStage(out, "install software")
-	pkgManagerPath, pkgManagerName, pkgManagerEnv, pkgInstallArgs, _ := getSystemPackageManager()
-	if pkgManagerName == "" {
-		daemon.logPrintStageStep(out, "failed to find a compatible package manager")
-		return
-	}
-
-	// Prepare package manager
-	if misc.HostIsWindows() {
-		daemon.logPrintStageStep(out, "install windows features")
-		shellOut, err := misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShell-ISE, Windows-Defender, Windows-Defender-Gui, TFTP-Client, Telnet-Client, Server-Media-Foundation, GPMC, NET-Framework-45-Core, WebDAV-Redirector`)
-		if err != nil {
-			daemon.logPrintStageStep(out, "failed to install windows features: %v - %s", err, shellOut)
-		}
-		daemon.logPrintStageStep(out, "install/upgrade chocolatey")
-		shellOut, err = misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))`)
-		if err != nil {
-			daemon.logPrintStageStep(out, "failed to install/upgrade chocolatey: %v - %s", err, shellOut)
-		}
-	} else {
-		daemon.prepareDockerRepositoryForDebian(out)
-	}
 
 	/*
 		Install additional software packages.
@@ -186,6 +175,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		Several of the packages are repeated under different names to accommodate the differences in naming convention
 		among distributions.
 	*/
+	daemon.logPrintStage(out, "install software")
 	pkgs := []string{
 		// For outgoing HTTPS connections
 		"ca-certificates",
@@ -222,11 +212,11 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 	pkgs = append(pkgs, daemon.InstallPackages...)
 	sort.Strings(pkgs)
 	/*
-			Although most package managers can install more than one packages at a time, the packages are still installed
-		    one after another, because:
-			- apt-get does not ignore non-existent package names, how inconvenient.
-			- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
-			yum is once again the superior solution among all three.
+		Although most package managers can install more than one packages at a time, the packages are still installed
+		one after another, because:
+		- apt-get does not ignore non-existent package names, how inconvenient.
+		- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
+		yum is once again the superior solution among all three.
 	*/
 	for _, name := range pkgs {
 		// Put software name next to installation parameters

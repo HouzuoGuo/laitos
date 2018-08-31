@@ -357,7 +357,6 @@ func (daemon *Daemon) SystemMaintenance() string {
 	misc.PrepareUtilities(daemon.logger)
 
 	// Software maintenance
-	daemon.UpgradeSoftware(out)
 	daemon.InstallSoftware(out)
 	daemon.MaintainWindowsIntegrity(out)
 

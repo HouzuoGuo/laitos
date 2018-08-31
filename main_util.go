@@ -77,7 +77,7 @@ func DisableConflicts() {
 	}
 	// All of these names are Linux services
 	// Do not stop nginx for Linux, because Amazon ElasticBeanstalk uses it to receive and proxy web traffic.
-	list := []string{"apache", "apache2", "bind", "bind9", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
+	list := []string{"apache", "apache2", "bind", "bind9", "exim4", "httpd", "lighttpd", "named", "named-chroot", "postfix", "sendmail"}
 	waitGroup := new(sync.WaitGroup)
 	waitGroup.Add(len(list))
 	for _, name := range list {
