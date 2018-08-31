@@ -79,8 +79,7 @@ func (fs *FeatureSet) SelfTest() error {
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
 	wait.Add(len(fs.LookupByTrigger))
-	for a, featureRef := range fs.LookupByTrigger {
-		fmt.Println("Self test is testing", a)
+	for _, featureRef := range fs.LookupByTrigger {
 		go func(ref Feature) {
 			err := ref.SelfTest()
 			if err != nil {
