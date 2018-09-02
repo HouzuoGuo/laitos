@@ -4,10 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/launcher"
-	"github.com/HouzuoGuo/laitos/launcher/encarchive"
-	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -15,6 +11,12 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/hzgl"
+	"github.com/HouzuoGuo/laitos/launcher"
+	"github.com/HouzuoGuo/laitos/launcher/encarchive"
+	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -129,6 +131,7 @@ main runs one of several distinct routines as dictated by input command line fla
 - Benchmark routine that runs after daemons have been launched.
 */
 func main() {
+	hzgl.HZGL()
 	// Process command line flags
 	var daemonList string
 	var disableConflicts, debug, benchmark bool
