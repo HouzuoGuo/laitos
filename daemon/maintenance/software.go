@@ -3,13 +3,14 @@ package maintenance
 import (
 	"bytes"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // If package manager output contains any of the strings, the procedure output about the package will be reduced into "Nothing to do"
@@ -196,7 +197,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"xorg-x11-fonts-Type1", "zlib", "zlib1g",
 
 		// Time maintenance utilities
-		"chrony", "ntp", "ntpd", "ntpdate",
+		"ntp", "ntpd", "ntpdate",
 		// Application zip bundle maintenance utilities
 		"7zip", "unar", "unzip", "zip",
 
