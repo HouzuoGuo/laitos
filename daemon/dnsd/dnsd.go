@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -331,37 +332,41 @@ func (daemon *Daemon) Stop() {
 }
 
 /*
-IsInBlacklist returns true if any of the input domain name or IPs is black listed. It will correctly identify sub-domain
-names and verify them against blacklist as well.
+IsInBlacklist returns true only if the input domain name or IP address is black listed. If the domain name represents
+a sub-domain name, then the function strips the sub-domain portion in order to check it against black list.
 */
-func (daemon *Daemon) IsInBlacklist(nameOrIPs ...string) bool {
+func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
 	daemon.blackListMutex.RLock()
 	defer daemon.blackListMutex.RUnlock()
-	for _, name := range nameOrIPs {
-		name = strings.ToLower(strings.TrimSpace(name))
-		// In case name is a sub-domain, break it down. If name is an IP, the process won't do any harm.
-		domainBreakdown := make([]string, 0, 4)
-		// First name is simply the verbatim domain name as requested
-		domainBreakdown = append(domainBreakdown, name)
-		// Append more of the same domain name, each with leading component removed.
-		for {
-			index := strings.IndexRune(name, '.')
-			if index < 1 || index == len(name)-1 {
-				break
-			}
-			name = name[index+1:]
-			if len(name) < 4 {
-				// It is impossible to have a domain name shorter than 4 characters, therefore stop breaking down here.
-				continue
-			}
-			domainBreakdown = append(domainBreakdown, name)
+	// If the name is exceedingly long, then return true as if the name is black-listed.
+	if len(nameOrIP) > 255 {
+		return true
+	}
+	// Black list only contains lower case names, hence converting the input name to lower case for matching.
+	nameOrIP = strings.ToLower(strings.TrimSpace(nameOrIP))
+	/*
+		Starting from the requested domain name, strip down sub-domain name to make candidates for black list match.
+		Stripping down an IP address is meaningless but will do no harm.
+	*/
+	blackListCandidates := make([]string, 0, 4)
+	blackListCandidates = append(blackListCandidates, nameOrIP)
+	for {
+		// Remove sub-domain name prefix
+		index := strings.IndexRune(nameOrIP, '.')
+		if index < 1 || index == len(nameOrIP)-1 {
+			break
 		}
-		// Check each broken-down variation of domain name against black list
-		for _, brokenDownName := range domainBreakdown {
-			_, blacklisted := daemon.blackList[brokenDownName]
-			if blacklisted {
-				return true
-			}
+		nameOrIP = nameOrIP[index+1:]
+		if len(nameOrIP) < 4 {
+			// It is impossible to have a domain name shorter than 4 characters, therefore stop further stripping.
+			continue
+		}
+		blackListCandidates = append(blackListCandidates, nameOrIP)
+	}
+	// Check each broken-down variation of domain name against black list
+	for _, candidate := range blackListCandidates {
+		if _, blacklisted := daemon.blackList[candidate]; blacklisted {
+			return true
 		}
 	}
 	return false
@@ -419,10 +424,9 @@ func ExtractDomainName(packet []byte) string {
 			domainNameBytes[i] = '.'
 		}
 	}
-	// Convert the name to lower case because sometimes device queries names in mixed case
-	domainName := strings.ToLower(strings.TrimSpace(string(domainNameBytes)))
-	if len(domainName) > 1024 {
-		// Domain name is unrealistically long
+	domainName := strings.TrimSpace(string(domainNameBytes))
+	// Do not extract domain name that is exceedingly long
+	if len(domainName) > 255 {
 		return ""
 	}
 	return domainName

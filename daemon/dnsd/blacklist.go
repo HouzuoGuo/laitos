@@ -1,10 +1,11 @@
 package dnsd
 
 import (
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"strings"
 	"sync"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // HostsFileURLs is a collection of URLs where up-to-date ad/malware/spyware blacklist hosts files are published.
@@ -91,7 +92,7 @@ func ExtractNamesFromHostsContent(content string) []string {
 		if nameEnd == -1 {
 			nameEnd = len(line)
 		}
-		// Extract the name itself
+		// Extract the name itself. Matching of black list name always takes place in lower case.
 		aName := strings.ToLower(strings.TrimSpace(line[:nameEnd]))
 		if aName == "" || strings.HasSuffix(aName, "localhost") || strings.HasSuffix(aName, "localdomain") || len(aName) < 4 {
 			// Skip empty names, local names, and overly short names
