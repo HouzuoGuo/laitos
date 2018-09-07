@@ -15,7 +15,7 @@ func TestExtractDomainName(t *testing.T) {
 	if name := ExtractDomainName([]byte{}); name != "" {
 		t.Fatal(name)
 	}
-	if name := ExtractDomainName(GithubComUDPQuery); name != "github.com" {
+	if name := ExtractDomainName(GithubComUDPQuery); name != "github.coM" {
 		t.Fatal(name)
 	}
 }
