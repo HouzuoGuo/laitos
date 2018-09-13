@@ -17,7 +17,8 @@ Rename-Item "${dataDrive}laitos-windows-supplements-master" $supplementsDest
 # Run laitos automatically as system boots up via task scheduler
 $laitosCmd = Read-Host -Prompt 'What is the absolute path to laitos.exe? E.g. %USERPROFILE%\laitos.exe'
 $laitosArg = Read-Host -Prompt 'What parameters to use for launching laitos automatically? E.g. -disableconflicts -gomaxprocs 8 -config config.json -daemons autounlock,dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,sockd,telegram'
-$laitosAction = New-ScheduledTaskAction -Execute $laitosCmd -Argument $laitosArg
+$laitosWD = Read-Host -Prompt 'Which directory does laitos program data (JSON config, web pages, etc) reside?'
+$laitosAction = New-ScheduledTaskAction -Execute $laitosCmd -Argument $laitosArg -WorkingDirectory $laitosWD
 $laitosTrigger = New-ScheduledTaskTrigger -AtStartup
 $laitosSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -RunOnlyIfNetworkAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -DontStopOnIdleEnd -RestartInterval (New-TimeSpan -Minutes 1) -RestartCount 100 -ExecutionTimeLimit (New-TimeSpan -Days 3650)
 $laitosTask = New-ScheduledTask -Action $laitosAction -Trigger $laitosTrigger -Settings $laitosSettings
