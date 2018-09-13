@@ -14,7 +14,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/hzgl"
 	"github.com/HouzuoGuo/laitos/launcher"
-	"github.com/HouzuoGuo/laitos/launcher/encarchive"
 	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
 	"github.com/HouzuoGuo/laitos/misc"
 )
@@ -26,63 +25,50 @@ const (
 var logger = misc.Logger{ComponentName: "main", ComponentID: []misc.LoggerIDField{{"PID", os.Getpid()}}}
 
 /*
-ExtractEncryptedArchive is a distinct routine of laitos main program, it reads password from standard input, decrypts
-the encrypted archive file and extract it into the destination directory.
+DecryptFile is a distinct routine of laitos main program, it reads password from standard input and uses it to decrypt the
+input file in-place.
 */
-func ExtractEncryptedArchive(destDir, archivePath string) {
+func DecryptFile(filePath string) {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Please enter password to decrypt archive (no echo):")
+	fmt.Println("Please enter password to decrypt file (no echo):")
 	misc.SetTermEcho(false)
 	password, _, err := reader.ReadLine()
 	misc.SetTermEcho(true)
 	if err != nil {
-		misc.DefaultLogger.Abort("ExtractEncryptedArchive", "main", err, "failed to read password")
+		misc.DefaultLogger.Abort("DecryptFile", "main", err, "failed to read password")
 		return
 	}
-	/*
-		This time, the temp file does not have to live in a ramdisk, because the extracted content does not have to be
-		in the memory anyways.
-	*/
-	tmpFile, err := ioutil.TempFile("", "laitos-launcher-utility-extract")
+	content, err := misc.Decrypt(filePath, []byte(password))
 	if err != nil {
-		misc.DefaultLogger.Abort("ExtractEncryptedArchive", "main", err, "failed to create temporary file")
+		misc.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
 		return
 	}
-	tmpFile.Close()
-	defer func() {
-		if err := os.Remove(tmpFile.Name()); err != nil && !os.IsNotExist(err) {
-			misc.DefaultLogger.Info("ExtractEncryptedArchive", "main", err, "failed to delete temporary file")
-		}
-	}()
-	password = []byte(strings.TrimSpace(string(password)))
-	err = encarchive.Extract(archivePath, tmpFile.Name(), destDir, password)
-	if err == nil {
-		fmt.Println("Success")
-	} else {
-		fmt.Println("Error: ", err.Error())
+	if err := ioutil.WriteFile(filePath, content, 0600); err != nil {
+		misc.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
+		return
 	}
+	misc.DefaultLogger.Info("DecryptFile", "main", nil, "successfully decrypte the file")
+	return
 }
 
 /*
-MakeEncryptedArchive is a distinct routine of laitos main program, it reads password from standard input and uses it to
-encrypt the directory and archive into a single file.
+EncryptFile is a distinct routine of laitos main program, it reads password from standard input and uses it to encrypt
+the input file in-place.
 */
-func MakeEncryptedArchive(srcDir, archivePath string) {
+func EncryptFile(filePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter a password to encrypt the archive (no echo):")
 	misc.SetTermEcho(false)
 	password, _, err := reader.ReadLine()
 	misc.SetTermEcho(true)
 	if err != nil {
-		misc.DefaultLogger.Abort("ExtractEncryptedArchive", "main", err, "failed to read password")
+		misc.DefaultLogger.Abort("EncryptFile", "main", err, "failed to read password")
 		return
 	}
 	password = []byte(strings.TrimSpace(string(password)))
-	err = encarchive.Archive(srcDir, archivePath, password)
-	if err == nil {
-		fmt.Println("Success")
-	} else {
-		fmt.Println("Error: ", err.Error())
+	if err := misc.Encrypt(filePath, []byte(password)); err != nil {
+		misc.DefaultLogger.Abort("EncryptFile", "main", err, "failed to encrypt file")
+		return
 	}
 }
 
@@ -90,11 +76,10 @@ func MakeEncryptedArchive(srcDir, archivePath string) {
 StartPasswordWebServer is a distinct routine of laitos main program, it starts a simple web server to accept a password
 input in order to decrypt laitos program data and launch the daemons.
 */
-func StartPasswordWebServer(port int, url, archivePath string) {
+func StartPasswordWebServer(port int, url string) {
 	ws := passwdserver.WebServer{
-		Port:            port,
-		URL:             url,
-		ArchiveFilePath: archivePath,
+		Port: port,
+		URL:  url,
 	}
 	/*
 		On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching the new
@@ -120,8 +105,8 @@ main runs one of several distinct routines as dictated by input command line fla
 
 - Utilities for maintaining encrypted program data archive (-datautil=extract|archive).
 
-- Password input web server that accepts a password input to launch laitos daemons in supervisor mode by decrypting its
-  program data (-pwdserver & -pwdserverport= & -pwdserverdata= & -pwdserverurl=).
+- Data unlocker (password input server) that accepts a password input to launch laitos daemons in supervisor mode by decrypting its
+  program data (-pwdserver & -pwdserverport= & -pwdserverurl=).
 
 - Supervisor runs laitos daemons in a seperate process and re-launches them in case of crash. Supervisor is turned on by
   default (-supervisor=true).
@@ -142,20 +127,17 @@ func main() {
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.BoolVar(&benchmark, "benchmark", false, fmt.Sprintf("(Optional) continuously run benchmark routines on active daemons while exposing net/http/pprof on port %d", ProfilerHTTPPort))
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
-	// Encrypted data archive launcher (password input server) flags
+	// Data unlocker (password input server) flags
 	var pwdServer bool
 	var pwdServerPort int
-	var pwdServerData string
 	var pwdServerURL string
 	flag.BoolVar(&pwdServer, passwdserver.CLIFlag, false, "(Optional) launch web server to accept password for decrypting encrypted program data")
 	flag.IntVar(&pwdServerPort, passwdserver.CLIFlag+"port", 80, "(Optional) port number of the password web server")
-	flag.StringVar(&pwdServerData, passwdserver.CLIFlag+"data", "", "(Optional) location of encrypted program data archive")
 	flag.StringVar(&pwdServerURL, passwdserver.CLIFlag+"url", "", "(Optional) password input URL")
-	// Encrypted data archive utility flags
-	var dataUtil, dataUtilDir, dataUtilFile string
-	flag.StringVar(&dataUtil, "datautil", "", "(Optional) program data encryption utility: extract|archive")
-	flag.StringVar(&dataUtilDir, "datautildir", "", "(Optional) program data encryption utility: extract destination or archive source directory")
-	flag.StringVar(&dataUtilFile, "datautilfile", "", "(Optional) program data encryption utility: extract from or archive file location")
+	// Data encryption utility flags
+	var dataUtil, dataUtilFile string
+	flag.StringVar(&dataUtil, "datautil", "", "(Optional) program data encryption utility: encrypt|decrypt")
+	flag.StringVar(&dataUtilFile, "datautilfile", "", "(Optional) program data encryption utility: encrypt/decrypt file location")
 	// Internal supervisor flag
 	var isSupervisor = true
 	flag.BoolVar(&isSupervisor, launcher.SupervisorFlagName, true, "(Internal use only) enter supervisor mode")
@@ -173,13 +155,17 @@ func main() {
 	// Utility routines - maintain encrypted laitos program data, no need to run any daemon.
 	// ========================================================================
 	if dataUtil != "" {
+		if dataUtilFile == "" {
+			logger.Abort("main", "", nil, "please provide data utility target file in parameter \"-datautilfile\"")
+			return
+		}
 		switch dataUtil {
-		case "extract":
-			ExtractEncryptedArchive(dataUtilDir, dataUtilFile)
-		case "archive":
-			MakeEncryptedArchive(dataUtilDir, dataUtilFile)
+		case "encrypt":
+			EncryptFile(dataUtilFile)
+		case "decrypt":
+			DecryptFile(dataUtilFile)
 		default:
-			logger.Abort("main", "", nil, "please provide mode of operation (extract|archive) for parameter \"-datautil\"")
+			logger.Abort("main", "", nil, "please provide mode of operation (encrypt|decrypt) for parameter \"-datautil\"")
 		}
 		return
 	}
@@ -188,7 +174,7 @@ func main() {
 	// Password input web server - start the web server to accept password input for decrypting program data.
 	// ========================================================================
 	if pwdServer {
-		StartPasswordWebServer(pwdServerPort, pwdServerURL, pwdServerData)
+		StartPasswordWebServer(pwdServerPort, pwdServerURL)
 		return
 	}
 	/*
@@ -207,13 +193,30 @@ func main() {
 	misc.ConfigFilePath, err = filepath.Abs(misc.ConfigFilePath)
 	if err != nil {
 		logger.Abort("main", "", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
-	}
-	var config launcher.Config
-	configBytes, err := ioutil.ReadFile(misc.ConfigFilePath)
-	if err != nil {
-		logger.Abort("main", "", err, "failed to read config file \"%s\"", misc.ConfigFilePath)
 		return
 	}
+	// If config file is encrypted, read its password from standard input.
+	configBytes, isEncrypted, err := misc.IsEncrypted(misc.ConfigFilePath)
+	if err != nil {
+		logger.Abort("main", "", err, "failed to read configuration file \"%s\"", misc.ConfigFilePath)
+		return
+	}
+	if isEncrypted {
+		logger.Info("main", "", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
+		pwdReader := bufio.NewReader(os.Stdin)
+		pwd, err := pwdReader.ReadString('\n')
+		misc.UniversalDecryptionKey = []byte(strings.TrimSpace(pwd))
+		if err != nil {
+			logger.Abort("main", "", err, "failed to read password from stdin")
+			return
+		}
+		if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.UniversalDecryptionKey); err != nil {
+			logger.Abort("main", "", err, "failed to decrypt config file")
+			return
+		}
+	}
+
+	var config launcher.Config
 	/*
 		Certain features (such as browser-in-browser and line oriented browser) rely on utilities in order to
 		initialise, therefore prepare the non-essential utilities (which will prepare phantomJS among others) before

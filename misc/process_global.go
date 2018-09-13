@@ -18,6 +18,12 @@ var (
 	// ErrEmergencyLockDown is returned by some daemons to inform user that lock-down is in effect.
 	ErrEmergencyLockDown = errors.New("LOCKED DOWN")
 
+	/*
+		  UniversalDecryptionKey is granted by password unlock server via standard input. Various configuration and data files are to be
+			decrypted using this key when daemons initialise themselves.
+	*/
+	UniversalDecryptionKey []byte
+
 	// logger is used by global actions
 	logger = Logger{ComponentName: "ProcessGlobal", ComponentID: []LoggerIDField{{"PID", os.Getpid()}}}
 )

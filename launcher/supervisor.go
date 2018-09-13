@@ -2,14 +2,15 @@ package launcher
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -176,6 +177,23 @@ Latest stderr: %s
 	}
 }
 
+// FeedDecryptionPasswordToStdinAndStart starts the main program and writes the universal decryption password into its stdin.
+func FeedDecryptionPasswordToStdinAndStart(decryptionPassword []byte, cmd *exec.Cmd) error {
+	// Start laitos main program
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	// Feed password into its standard input followed by line break
+	if _, err := stdin.Write([]byte(string(decryptionPassword) + "\n")); err != nil {
+		return err
+	}
+	return stdin.Close()
+}
+
 /*
 Start will fork and launch laitos main program. If the main program crashes repeatedly within 20 minutes, the supervisor
 will restart the main program with a reduced set of features and send a notification email.
@@ -196,10 +214,9 @@ func (sup *Supervisor) Start() {
 		sup.logger.Info("Start", strconv.Itoa(paramChoice), nil, "attempting to start main program with CLI flags - %v", cliFlags)
 
 		mainProgram := exec.Command(executablePath, cliFlags...)
-		mainProgram.Stdin = os.Stdin
 		mainProgram.Stdout = sup.mainStdout
 		mainProgram.Stderr = sup.mainStderr
-		if err := mainProgram.Start(); err != nil {
+		if err := FeedDecryptionPasswordToStdinAndStart(misc.UniversalDecryptionKey, mainProgram); err != nil {
 			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "failed to start main program")
 			sup.notifyFailure(cliFlags, err)
 			if time.Now().Unix()-lastAttemptTime < FailureThresholdSec {
@@ -217,7 +234,7 @@ func (sup *Supervisor) Start() {
 			time.Sleep(StartAttemptIntervalSec * time.Second)
 			continue
 		}
-		// laitos main program is not supposed to exit, therefore, restart it even if it exits normally.
+		// laitos main program is not supposed to exit, therefore, restart it in the next iteration even if it exits normally.
 	}
 }
 

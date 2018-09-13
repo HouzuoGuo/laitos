@@ -4,16 +4,17 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
-	"github.com/HouzuoGuo/laitos/daemon/smtpd/smtp"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
 	"net"
 	netSMTP "net/smtp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/smtp"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
 const (
@@ -71,9 +72,13 @@ func (daemon *Daemon) Initialise() error {
 			return errors.New("smtpd.Initialise: TLS certificate or key path is missing")
 		}
 		var err error
-		daemon.tlsCert, err = tls.LoadX509KeyPair(daemon.TLSCertPath, daemon.TLSKeyPath)
+		contents, _, err := misc.DecryptIfNecessary(misc.UniversalDecryptionKey, daemon.TLSCertPath, daemon.TLSKeyPath)
 		if err != nil {
-			return fmt.Errorf("smtpd.Initialise: failed to read TLS certificate - %v", err)
+			return err
+		}
+		daemon.tlsCert, err = tls.X509KeyPair(contents[0], contents[1])
+		if err != nil {
+			return fmt.Errorf("smtpd.Initialise: failed to load certificate or key - %v", err)
 		}
 	}
 	daemon.smtpConfig = smtp.Config{

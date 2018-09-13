@@ -128,3 +128,48 @@ func TestReadAllUpTo(t *testing.T) {
 		t.Fatal(b, err)
 	}
 }
+
+func TestEncryptDecrypt(t *testing.T) {
+	tmp, err := ioutil.TempFile("", "laitos-TestEncryptDecrypt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmp.Name())
+	sampleContent := `01234567890abcdefghijklmnopqrstuvwxyz`
+	if err := ioutil.WriteFile(tmp.Name(), []byte(sampleContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if content, encrypted, err := IsEncrypted(tmp.Name()); err != nil || encrypted || string(content) != sampleContent {
+		t.Fatal(err, encrypted, string(content))
+	}
+
+	if contents, isEncrypted, err := DecryptIfNecessary([]byte("this is a key"), tmp.Name()); err != nil || len(isEncrypted) != 1 || isEncrypted[0] ||
+		len(contents) != 1 || string(contents[0]) != sampleContent {
+		t.Fatal(err, isEncrypted, contents)
+	}
+
+	if err := Encrypt(tmp.Name(), []byte("this is a key")); err != nil {
+		t.Fatal(err)
+	}
+	if content, encrypted, err := IsEncrypted(tmp.Name()); err != nil || !encrypted || len(content) < len(sampleContent) {
+		t.Fatal(err, encrypted)
+	}
+	if encryptedContent, err := ioutil.ReadFile(tmp.Name()); err != nil || strings.Contains(string(encryptedContent), "123") {
+		t.Fatal(err, string(encryptedContent))
+	}
+
+	if content, err := Decrypt(tmp.Name(), []byte("this is a key")); err != nil || string(content) != sampleContent {
+		t.Fatal(err, string(content))
+	}
+
+	// Decrypt with wrong key should not yield any useful content
+	if content, err := Decrypt(tmp.Name(), []byte("wrong key")); err != nil || strings.Contains(string(content), "123") {
+		t.Fatal(err, string(content))
+	}
+
+	if contents, isEncrypted, err := DecryptIfNecessary([]byte("this is a key"), tmp.Name()); err != nil || len(isEncrypted) != 1 || !isEncrypted[0] ||
+		len(contents) != 1 || string(contents[0]) != sampleContent {
+		t.Fatal(err, isEncrypted, contents)
+	}
+}

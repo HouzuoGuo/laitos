@@ -1,12 +1,13 @@
 package passwdserver
 
 import (
-	"github.com/HouzuoGuo/laitos/inet"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 func TestGetSysInfoText(t *testing.T) {
@@ -23,9 +24,8 @@ func TestWebServer(t *testing.T) {
 	}
 	defer os.Remove(emptyTmpFile.Name())
 	ws := WebServer{
-		Port:            54396,
-		URL:             "/test-url",
-		ArchiveFilePath: "/",
+		Port: 54396,
+		URL:  "/test-url",
 	}
 	var shutdown bool
 	go func() {

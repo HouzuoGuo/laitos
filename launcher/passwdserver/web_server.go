@@ -3,10 +3,6 @@ package passwdserver
 import (
 	"context"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/launcher"
-	"github.com/HouzuoGuo/laitos/launcher/encarchive"
-	"github.com/HouzuoGuo/laitos/misc"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +12,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/launcher"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -85,15 +84,12 @@ visitor to enter a correct password to decrypt program data and configuration, a
 with daemons using decrypted data.
 */
 type WebServer struct {
-	Port            int    // Port is the TCP port to listen on.
-	URL             string // URL is the secretive URL that serves the unlock page. The URL must include leading slash.
-	ArchiveFilePath string // ArchiveFilePath is the absolute or relative path to encrypted archive file.
+	Port int    // Port is the TCP port to listen on.
+	URL  string // URL is the secretive URL that serves the unlock page. The URL must include leading slash.
 
-	server           *http.Server // server is the HTTP server after it is started.
-	archiveFileSize  int          // archiveFileSize is the size of the archive file, it is set when web server starts.
-	extractedDataDir string       // extractedDataDir is destination location into which encrypted program data is extracted.
-	handlerMutex     *sync.Mutex  // handlerMutex prevents concurrent unlocking attempts from being made at once.
-	alreadyUnlocked  bool         // alreadyUnlocked is set to true after a successful unlocking attempt has been made
+	server          *http.Server // server is the HTTP server after it is started.
+	handlerMutex    *sync.Mutex  // handlerMutex prevents concurrent unlocking attempts from being made at once.
+	alreadyUnlocked bool         // alreadyUnlocked is set to true after a successful unlocking attempt has been made
 
 	logger misc.Logger
 }
@@ -119,45 +115,22 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
 
 		var err error
-		/*
-			By default, archive is extracted into ramdisk and does not touch disk storage. Doing so requires a Linux
-			host and root privilege.
-			Ramdisk size in MB = archive size (unencrypted archive) + archive size (extracted files) + 8 (contingency)
-		*/
-		ws.extractedDataDir, err = encarchive.MakeRamdisk(ws.archiveFileSize/1048576*2 + 8)
-		if err != nil {
-			/*
-				Create a plain directory to hold decrypted program data, this is the less secure fallback method,
-				because file recovery operation will reveal the decrypted program data. This fallback helps to launch
-				encrypted archive in the absence of root privielge (e.g. AWS Fargate), or in case host is Windows or
-				MacOS.
-			*/
-			ws.logger.Warning("pageHandler", r.RemoteAddr, nil, "host does not support ramdisk, hence trying insecure method to extract data")
-			ws.extractedDataDir, err = encarchive.MakePlainDestDir()
-		}
+		// Try decrypting program configuration JSON file using the input password
+		key := []byte(strings.TrimSpace(r.FormValue(PasswordInputName)))
+		decryptedConfig, err := misc.Decrypt(misc.ConfigFilePath, key)
 		if err != nil {
 			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
 			return
 		}
-		// Create a temporary file to hold the decrypted program archive
-		tmpFile, err := ioutil.TempFile(ws.extractedDataDir, "launcher-extract-temp-file")
-		if err != nil {
-			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
-			return
-		}
-		tmpFile.Close()
-		defer os.Remove(tmpFile.Name())
-		// Extract program archive
-		if err := encarchive.Extract(ws.ArchiveFilePath, tmpFile.Name(), ws.extractedDataDir, []byte(strings.TrimSpace(r.FormValue("password")))); err != nil {
-			encarchive.DestroyRamdisk(ws.extractedDataDir)
-			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
+		if decryptedConfig[0] != '{' {
+			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "wrong key or malformed config file")))
 			return
 		}
 		// Success!
 		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "success")))
 		ws.alreadyUnlocked = true
 		// A short moment later, the function will launch laitos supervisor along with daemons.
-		go ws.LaunchMainProgram()
+		go ws.LaunchMainProgram([]byte(strings.TrimSpace(r.FormValue("password"))))
 		return
 	default:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
@@ -173,27 +146,12 @@ func (ws *WebServer) Start() error {
 		ComponentID:   []misc.LoggerIDField{{"Port", ws.Port}},
 	}
 	ws.handlerMutex = new(sync.Mutex)
-	// Page handler needs to know the size in order to prepare ramdisk
-	stat, err := os.Stat(ws.ArchiveFilePath)
-	if err != nil {
-		ws.logger.Warning("Start", "", err, "failed to read archive file at %s", ws.ArchiveFilePath)
-		return err
-	}
-	ws.archiveFileSize = int(stat.Size())
-
 	mux := http.NewServeMux()
 	// Visitor must visit the pre-configured URL for a meaningful response
 	mux.HandleFunc(ws.URL, ws.pageHandler)
 	// All other URLs simply render an empty page
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 	})
-
-	/*
-		If a previously launched laitos was killed by user, systemd, or supervisord, it would not have a chance to
-		clean up after its own ramdisk. Therefore, free them up for this new launch.
-	*/
-	encarchive.TryDestroyAllRamdisks()
-	encarchive.TryDestroyAllPlainDestDirs()
 
 	// Start web server
 	ws.server = &http.Server{
@@ -224,56 +182,36 @@ decrypted data from ramdisk.
 If an error occurs, this program will exit abnormally and the function will not return.
 If the forked main program exits normally, the function will return.
 */
-func (ws *WebServer) LaunchMainProgram() {
-	var fatalMsg string
-	var err error
-	var executablePath string
+func (ws *WebServer) LaunchMainProgram(decryptionPassword []byte) {
 	// Replicate the CLI flagsNoExec that were used to launch this password web server.
 	flagsNoExec := make([]string, len(os.Args))
 	copy(flagsNoExec, os.Args[1:])
 	var cmd *exec.Cmd
 	// Web server will take several seconds to finish with pending IO before shutting down
 	if err := ws.Shutdown(); err != nil {
-		fatalMsg = fmt.Sprintf("failed to shut down web server - %v", err)
-		goto fatalExit
+		ws.logger.Abort("LaunchMainProgram", "", nil, "failed to shut down web server - %v", err)
+		return
 	}
 	// Determine path to my program
-	executablePath, err = os.Executable()
+	executablePath, err := os.Executable()
 	if err != nil {
-		fatalMsg = fmt.Sprintf("failed to determine path to this program executable - %v", err)
-		goto fatalExit
-	}
-	// Switch to the ramdisk directory full of decrypted data for launching supervisor and daemons
-	if err := os.Chdir(ws.extractedDataDir); err != nil {
-		fatalMsg = fmt.Sprintf("failed to cd to %s - %v", ws.extractedDataDir, err)
-		goto fatalExit
+		ws.logger.Abort("LaunchMainProgram", "", nil, "failed to determine path to this program executable - %v", err)
+		return
 	}
 	// Remove CLI flags that were used to launch the web server from the flags used to launch laitos main program
 	flagsNoExec = launcher.RemoveFromFlags(func(s string) bool {
 		return strings.HasPrefix(s, "-"+CLIFlag)
 	}, flagsNoExec)
-	ws.logger.Info("LaunchMainProgram", "", nil, "about to launch with CLI flagsNoExec %v", flagsNoExec)
+	ws.logger.Info("LaunchMainProgram", "", nil, "about to launch with CLI flags %v", flagsNoExec)
 	cmd = exec.Command(executablePath, flagsNoExec...)
-	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		fatalMsg = fmt.Sprintf("failed to launch main program - %v", err)
-		goto fatalExit
-	}
+	launcher.FeedDecryptionPasswordToStdinAndStart(decryptionPassword, cmd)
+	// Wait forever for the main program
 	if err := cmd.Wait(); err != nil {
-		fatalMsg = fmt.Sprintf("main program has abnormally exited due to - %v", err)
-		goto fatalExit
+		ws.logger.Abort("LaunchMainProgram", "", nil, "main program has abnormally exited due to - %v", err)
+		return
 	}
 	ws.logger.Info("LaunchMainProgram", "", nil, "main program has exited cleanly")
-	// In both normal and abnormal paths, the ramdisk/temporary directory must be destroyed.
-	os.Chdir(os.TempDir())
-	encarchive.DestroyRamdisk(ws.extractedDataDir)
-	encarchive.DestoryPlainDestDir(ws.extractedDataDir)
 	return
-fatalExit:
-	os.Chdir(os.TempDir())
-	encarchive.DestroyRamdisk(ws.extractedDataDir)
-	encarchive.DestoryPlainDestDir(ws.extractedDataDir)
-	ws.logger.Abort("LaunchMainProgram", "", nil, fatalMsg)
 }

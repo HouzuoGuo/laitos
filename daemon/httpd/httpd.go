@@ -3,15 +3,10 @@ package httpd
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -22,6 +17,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 )
 
 const (
@@ -234,18 +236,28 @@ func (daemon *Daemon) StartAndBlockNoTLS(fallbackPort int) error {
 }
 
 /*
-StartAndBlockWithTLS starts HTTP daemon and serve encrypted connections. Blocks caller until StopNoTLS function is called.
+StartAndBlockWithTLS starts HTTP daemon and serve encrypted connections. Blocks caller until StopTLS function is called.
 You may call this function only after having called Initialise()!
 */
 func (daemon *Daemon) StartAndBlockWithTLS() error {
+	contents, _, err := misc.DecryptIfNecessary(misc.UniversalDecryptionKey, daemon.TLSCertPath, daemon.TLSKeyPath)
+	if err != nil {
+		return err
+	}
+	tlsCert, err := tls.X509KeyPair(contents[0], contents[1])
+	if err != nil {
+		return fmt.Errorf("httpd.StartAndBlockWithTLS: failed to load certificate or key - %v", err)
+	}
 	daemon.serverWithTLS = &http.Server{
 		Addr:         net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port)),
 		Handler:      daemon.mux,
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,
+		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{tlsCert}},
 	}
 	daemon.logger.Info("StartAndBlockWithTLS", "", nil, "going to listen for HTTPS connections")
-	if err := daemon.serverWithTLS.ListenAndServeTLS(daemon.TLSCertPath, daemon.TLSKeyPath); err != nil {
+
+	if err := daemon.serverWithTLS.ListenAndServeTLS("", ""); err != nil {
 		if strings.Contains(err.Error(), "closed") {
 			return nil
 		}
