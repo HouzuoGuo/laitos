@@ -102,7 +102,7 @@ func (daemon *UDPDaemon) StartAndBlock() error {
 	}
 	defer udpServer.Close()
 	daemon.udpListener = udpServer
-	daemon.logger.Info("StartAndBlockUDP", listenAddr, nil, "going to listen for data")
+	daemon.logger.Info("StartAndBlockUDP", "", nil, "going to listen for data")
 
 	daemon.udpBackLog = &UDPBackLog{backlog: map[string][]byte{}, mutex: new(sync.Mutex)}
 	daemon.udpTable = &UDPTable{connections: map[string]net.PacketConn{}, mutex: new(sync.Mutex)}
