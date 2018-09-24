@@ -1,10 +1,11 @@
 package launcher
 
 import (
-	"github.com/HouzuoGuo/laitos/daemon/httpd"
-	"github.com/HouzuoGuo/laitos/misc"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/httpd"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestBenchmark(t *testing.T) {
@@ -48,8 +49,8 @@ func TestBenchmark(t *testing.T) {
 		}
 	}()
 	go func() {
-		config.GetSockDaemon().TCPPort = 54872
-		config.GetSockDaemon().UDPPort = 12989
+		config.GetSockDaemon().TCPPorts = []int{54872}
+		config.GetSockDaemon().UDPPorts = []int{12989}
 		if err := config.GetSockDaemon().StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}

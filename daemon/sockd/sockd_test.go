@@ -1,10 +1,11 @@
 package sockd
 
 import (
-	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"net"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 )
 
 func TestSockd_StartAndBlock(t *testing.T) {
@@ -16,7 +17,7 @@ func TestSockd_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
 		t.Fatal(err)
 	}
-	daemon.TCPPort = 27101
+	daemon.TCPPorts = []int{27101}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "password") == -1 {
 		t.Fatal(err)
 	}
@@ -26,10 +27,13 @@ func TestSockd_StartAndBlock(t *testing.T) {
 	}
 
 	daemon.Address = "127.0.0.1"
-	daemon.TCPPort = 27101
-	daemon.UDPPort = 13781
+	daemon.TCPPorts = []int{27101}
+	daemon.UDPPorts = []int{13781}
 	daemon.Password = "abcdefg"
 	daemon.PerIPLimit = 10
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 
 	TestSockd(&daemon, t)
 }

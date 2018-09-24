@@ -1,6 +1,9 @@
 package launcher
 
 import (
+	"testing"
+	"time"
+
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
@@ -10,8 +13,6 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
-	"testing"
-	"time"
 )
 
 var sampleConfigJSON = `
@@ -227,8 +228,8 @@ var sampleConfigJSON = `
     "Address": "127.0.0.1",
     "Password": "1234567",
     "PerIPLimit": 10,
-    "TCPPort": 6891,
-    "UDPPort": 9122
+    "TCPPorts": [6891],
+    "UDPPorts": [9122]
   },
   "SupervisorNotificationRecipients": [
     "howard@localhost"

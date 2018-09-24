@@ -2,8 +2,6 @@ package launcher
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"math/rand"
 	"net"
 	"net/http"
@@ -12,6 +10,9 @@ import (
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 type Benchmark struct {
@@ -277,12 +278,12 @@ func (bench *Benchmark) BenchmarkSMTPDaemon() {
 func (bench *Benchmark) BenchmarkSockDaemon() {
 	var doUDP bool
 
-	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(bench.Config.GetSockDaemon().UDPPort))
+	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(bench.Config.GetSockDaemon().UDPPorts[0]))
 	if err != nil {
 		bench.Logger.Panic("BenchmarkSockDaemon", "", err, "failed to init UDP address")
 		return
 	}
-	tcpPort := bench.Config.GetSockDaemon().TCPPort
+	tcpPort := bench.Config.GetSockDaemon().TCPPorts[0]
 
 	rand.Seed(time.Now().UnixNano())
 

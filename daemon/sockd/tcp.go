@@ -1,10 +1,9 @@
 package sockd
 
 import (
-	cryptRand "crypto/rand"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io"
 	pseudoRand "math/rand"
 	"net"
@@ -12,27 +11,88 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-const (
-	AddressTypeMask  byte = 0xf
-	AddressTypeIndex      = 0
-	AddressTypeIPv4       = 1
-	AddressTypeDM         = 3
-	AddressTypeIPv6       = 4
-
-	IPPacketIndex    = 1
-	IPv4PacketLength = net.IPv4len + 2
-	IPv6PacketLength = net.IPv6len + 2
-
-	DMAddrIndex        = 2
-	DMAddrLengthIndex  = 1
-	DMAddrHeaderLength = 2
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 var TCPDurationStats = misc.NewStats()
 
-func (daemon *Daemon) StartAndBlockTCP() error {
+func WriteRand(conn net.Conn) {
+	randBytesWritten := 0
+	for i := 0; i < RandNum(1, 2, 3); i++ {
+		randBuf := make([]byte, RandNum(40, 60, 900))
+		if _, err := pseudoRand.Read(randBuf); err != nil {
+			misc.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
+			break
+		}
+		conn.SetDeadline(time.Now().Add(time.Duration(RandNum(140, 220, 350)) * time.Millisecond))
+		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
+			misc.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
+			break
+		} else {
+			randBytesWritten += n
+		}
+	}
+	if pseudoRand.Intn(100) < 2 {
+		misc.DefaultLogger.Info("sockd.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
+	}
+}
+func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
+	defer toConn.Close()
+	buf := make([]byte, MaxPacketSize)
+	for {
+		fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
+		length, err := fromConn.Read(buf)
+		if length > 0 {
+			toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+			if _, err := toConn.Write(buf[:length]); err != nil {
+				return
+			}
+		}
+		if err != nil {
+			if doWriteRand {
+				WriteRand(fromConn)
+			}
+			return
+		}
+	}
+}
+
+type TCPDaemon struct {
+	Address    string `json:"Address"`
+	Password   string `json:"Password"`
+	PerIPLimit int    `json:"PerIPLimit"`
+	TCPPort    int    `json:"TCPPort"`
+
+	DNSDaemon *dnsd.Daemon `json:"-"` // it is assumed to be already initialised
+
+	tcpListener  net.Listener
+	rateLimitTCP *misc.RateLimit
+
+	cipher *Cipher
+	logger misc.Logger
+}
+
+func (daemon *TCPDaemon) Initialise() error {
+	daemon.logger = misc.Logger{
+		ComponentName: "sockd",
+		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}},
+	}
+	daemon.rateLimitTCP = &misc.RateLimit{
+		Logger:   daemon.logger,
+		MaxCount: daemon.PerIPLimit,
+		UnitSecs: RateLimitIntervalSec,
+	}
+	daemon.rateLimitTCP.Initialise()
+
+	daemon.cipher = &Cipher{}
+	daemon.cipher.Initialise(daemon.Password)
+
+	return nil
+}
+
+func (daemon *TCPDaemon) StartAndBlock() error {
 	var err error
 	listener, err := net.Listen("tcp", net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort)))
 	if err != nil {
@@ -63,16 +123,24 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 	}
 }
 
+func (daemon *TCPDaemon) Stop() {
+	if listener := daemon.tcpListener; listener != nil {
+		if err := listener.Close(); err != nil {
+			daemon.logger.Warning("Stop", "", err, "failed to close TCP listener")
+		}
+	}
+}
+
 type TCPCipherConnection struct {
 	net.Conn
 	*Cipher
-	daemon            *Daemon
+	daemon            *TCPDaemon
 	mutex             sync.Mutex
 	readBuf, writeBuf []byte
 	logger            misc.Logger
 }
 
-func NewTCPCipherConnection(daemon *Daemon, netConn net.Conn, cip *Cipher, logger misc.Logger) *TCPCipherConnection {
+func NewTCPCipherConnection(daemon *TCPDaemon, netConn net.Conn, cip *Cipher, logger misc.Logger) *TCPCipherConnection {
 	return &TCPCipherConnection{
 		Conn:     netConn,
 		daemon:   daemon,
@@ -201,7 +269,7 @@ func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, dest
 func (conn *TCPCipherConnection) WriteRandAndClose() {
 	defer conn.Close()
 	randBuf := make([]byte, RandNum(1, 20, 300))
-	_, err := cryptRand.Read(randBuf)
+	_, err := rand.Read(randBuf)
 	if err != nil {
 		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to get random bytes")
 		return
@@ -248,46 +316,4 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	go PipeTCPConnection(conn, dest, true)
 	PipeTCPConnection(dest, conn, false)
 	return
-}
-
-func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
-	defer toConn.Close()
-	buf := make([]byte, MaxPacketSize)
-	for {
-		fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
-		length, err := fromConn.Read(buf)
-		if length > 0 {
-			toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
-			if _, err := toConn.Write(buf[:length]); err != nil {
-				return
-			}
-		}
-		if err != nil {
-			if doWriteRand {
-				WriteRand(fromConn)
-			}
-			return
-		}
-	}
-}
-
-func WriteRand(conn net.Conn) {
-	randBytesWritten := 0
-	for i := 0; i < RandNum(1, 2, 3); i++ {
-		randBuf := make([]byte, RandNum(40, 60, 900))
-		if _, err := pseudoRand.Read(randBuf); err != nil {
-			misc.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
-			break
-		}
-		conn.SetDeadline(time.Now().Add(time.Duration(RandNum(140, 220, 350)) * time.Millisecond))
-		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
-			misc.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
-			break
-		} else {
-			randBytesWritten += n
-		}
-	}
-	if pseudoRand.Intn(100) < 2 {
-		misc.DefaultLogger.Info("sockd.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
-	}
 }
