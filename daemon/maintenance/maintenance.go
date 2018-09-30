@@ -3,6 +3,13 @@ package maintenance
 import (
 	"bytes"
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
@@ -17,12 +24,6 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
-	"net"
-	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const (
@@ -137,8 +138,8 @@ func (daemon *Daemon) runPortsCheck() error {
 			continue
 		}
 		for _, port := range ports {
-			if port == 25 && (inet.IsGCE() || inet.IsAzure()) {
-				daemon.logger.Info("runPortsCheck", "", nil, "because Google and Azure cloud forbid connection to port 25, port check will skip %s:25", host)
+			if port == 25 && (inet.IsGCE() || inet.IsAzure() || inet.IsAlibaba()) {
+				daemon.logger.Info("runPortsCheck", "", nil, "because Google, Azure, and Alibaba forbid connection to port 25, port check will skip %s:25", host)
 				continue
 			}
 			wait.Add(1)

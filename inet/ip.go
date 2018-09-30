@@ -16,6 +16,10 @@ var (
 	// isAzure is true only if IsAzure function has determined that the program is running on Microsoft Azure.
 	isAzure     bool
 	isAzureOnce = new(sync.Once)
+
+	// isAlibaba is true only if IsAlibaba has determined that the program is running on Alibaba Cloud.
+	isAlibaba     bool
+	isAlibabaOnce = new(sync.Once)
 )
 
 // IsGCE returns true only if the program is running on Google compute engine (or Google cloud platform, same thing).
@@ -49,6 +53,19 @@ func IsAzure() bool {
 		}
 	})
 	return isAzure
+}
+
+// IsAlibaba returns true only if the program is running on Alibaba cloud.
+func IsAlibaba() bool {
+	isAlibabaOnce.Do(func() {
+		resp, err := DoHTTP(HTTPRequest{
+			TimeoutSec: HTTPPublicIPTimeoutSec,
+		}, "http://100.100.100.200/latest/meta-data/zone-id")
+		if err == nil && resp.StatusCode/200 == 1 {
+			isAlibaba = true
+		}
+	})
+	return isAlibaba
 }
 
 /*
