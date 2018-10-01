@@ -4,11 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -16,6 +11,12 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const (

@@ -97,7 +97,11 @@ func StartPasswordWebServer(port int, url string) {
 	}
 	logger.Abort("StartPasswordWebServer", "main", nil, "failed to start the web server after many attempts")
 	return
+}
 
+// terminatedDaemonToError wraps the daemon name and daemon's return value into an error.
+func terminatedDaemonToError(daemonName string, daemonReturnValue error) error {
+	return fmt.Errorf("Daemon \"%s\" has quit with error \"%+v\"", daemonName, daemonReturnValue)
 }
 
 /*
@@ -282,46 +286,46 @@ func main() {
 		// Daemons are started asynchronously because the order of startup does not matter.
 		switch daemonName {
 		case launcher.DNSDName:
-			go func() {
-				daemonErrs <- config.GetDNSD().StartAndBlock()
-			}()
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetDNSD().StartAndBlock())
+			}(daemonName)
 		case launcher.HTTPDName:
-			go func() {
-				daemonErrs <- config.GetHTTPD().StartAndBlockWithTLS()
-			}()
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetHTTPD().StartAndBlockWithTLS())
+			}(daemonName)
 		case launcher.InsecureHTTPDName:
-			go func() {
+			go func(daemonName string) {
 				/*
 					There is not an independent port settings for launching both TLS-enabled and TLS-free HTTP servers
 					at the same time. If user really wishes to launch both at the same time, the TLS-free HTTP server
 					will fallback to use port number 80.
 				*/
-				daemonErrs <- config.GetHTTPD().StartAndBlockNoTLS(80)
-			}()
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetHTTPD().StartAndBlockNoTLS(80))
+			}(daemonName)
 		case launcher.MaintenanceName:
-			go func() {
-				daemonErrs <- config.GetMaintenance().StartAndBlock()
-			}()
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetMaintenance().StartAndBlock())
+			}(daemonName)
 		case launcher.PlainSocketName:
-			go func() {
-				daemonErrs <- config.GetPlainSocketDaemon().StartAndBlock()
-			}()
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetPlainSocketDaemon().StartAndBlock())
+			}(daemonName)
 		case launcher.SMTPDName:
-			go func() {
-				daemonErrs <- config.GetMailDaemon().StartAndBlock()
-			}()
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetMailDaemon().StartAndBlock())
+			}(daemonName)
 		case launcher.SOCKDName:
-			go func() {
-				daemonErrs <- config.GetSockDaemon().StartAndBlock()
-			}()
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetSockDaemon().StartAndBlock())
+			}(daemonName)
 		case launcher.TelegramName:
-			go func() {
-				daemonErrs <- config.GetTelegramBot().StartAndBlock()
-			}()
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetTelegramBot().StartAndBlock())
+			}(daemonName)
 		case launcher.AutoUnlockName:
-			go func() {
-				daemonErrs <- config.GetAutoUnlock().StartAndBlock()
-			}()
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetAutoUnlock().StartAndBlock())
+			}(daemonName)
 		}
 	}
 
@@ -341,7 +345,7 @@ func main() {
 	// Wait for daemons to quit (they really should not).
 	for i := 0; i < len(daemonNames); i++ {
 		err := <-daemonErrs
-		logger.Warning("main", "", err, "a daemon has encountered an error and failed to start")
+		logger.Warning("main", "", err, "a daemon has aborted")
 	}
 	logger.Abort("main", "", nil, "all daemons have failed to start, laitos will now exit.")
 }

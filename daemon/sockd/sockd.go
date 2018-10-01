@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
@@ -107,7 +108,9 @@ type Daemon struct {
 	tcpDaemons []*TCPDaemon
 	udpDaemons []*UDPDaemon
 
-	logger misc.Logger
+	stop    chan bool
+	started int32
+	logger  misc.Logger
 }
 
 func (daemon *Daemon) Initialise() error {
@@ -132,6 +135,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.tcpDaemons = make([]*TCPDaemon, 0, 0)
 	daemon.udpDaemons = make([]*UDPDaemon, 0, 0)
+	daemon.stop = make(chan bool)
 	return nil
 }
 
@@ -178,6 +182,8 @@ func (daemon *Daemon) StartAndBlock() error {
 			}()
 		}
 	}
+	atomic.StoreInt32(&daemon.started, 1)
+	<-daemon.stop
 	return nil
 }
 
@@ -190,4 +196,7 @@ func (daemon *Daemon) Stop() {
 	}
 	daemon.tcpDaemons = make([]*TCPDaemon, 0, 0)
 	daemon.udpDaemons = make([]*UDPDaemon, 0, 0)
+	if atomic.CompareAndSwapInt32(&daemon.started, 1, 0) {
+		daemon.stop <- true
+	}
 }
