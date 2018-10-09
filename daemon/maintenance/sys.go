@@ -233,7 +233,7 @@ func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
 
 	myUser, err := user.Current()
 	if err != nil {
-		daemon.logPrintStage(out, "failed to get current user - %v", err)
+		daemon.logPrintStageStep(out, "failed to get current user - %v", err)
 		return
 	}
 	// Will run chown on the following paths later
@@ -318,4 +318,19 @@ func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
 	for aPath := range path700 {
 		daemon.logPrintStageStep(out, "set permission to 700 to path %s - %v", aPath, os.Chmod(aPath, 0700))
 	}
+}
+
+// RunPreMaintenanceScript runs the pre-maintenance script using system default script interpreter. The script is given 10 minutes to run.
+func (daemon *Daemon) RunPreMaintenanceScript(out *bytes.Buffer) {
+	var scriptOut string
+	var err error
+	if daemon.PreScriptUnix != "" {
+		daemon.logPrintStage(out, "run pre-maintenance script (unix-like)")
+		scriptOut, err = misc.InvokeShell(10*600, misc.GetDefaultShellInterpreter(), daemon.PreScriptUnix)
+	}
+	if daemon.PreScriptWindows != "" && misc.HostIsWindows() {
+		daemon.logPrintStage(out, "run pre-maintenance script (windows)")
+		scriptOut, err = misc.InvokeShell(10*600, misc.GetDefaultShellInterpreter(), daemon.PreScriptWindows)
+	}
+	daemon.logPrintStage(out, "script result: %s - %v", scriptOut, err)
 }

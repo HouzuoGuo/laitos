@@ -191,7 +191,8 @@ var sampleConfigJSON = `
       9114
     ],
     "TuneLinux": true,
-    "DoEnhanceFileSecurity": true
+    "DoEnhanceFileSecurity": true,
+    "PreScriptUnix": "touch /laitos-maintenance-pre-script-test"
   },
   "PlainSocketDaemon": {
     "Address": "127.0.0.1",

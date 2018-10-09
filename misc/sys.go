@@ -2,7 +2,6 @@ package misc
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/testingstub"
 	"io"
 	"io/ioutil"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
 var RegexVmRss = regexp.MustCompile(`VmRSS:\s*(\d+)\s*kB`)               // Parse VmRss value from /proc/*/status line
@@ -172,6 +173,24 @@ func PrepareUtilities(progress Logger) {
 
 // PowerShellInterpreterPath is the absolute path to PowerShell interpreter executable.
 const PowerShellInterpreterPath = `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`
+
+// GetDefaultShellInterpreter returns absolute path to the default system shell interpreter. Returns "" if one cannot be found.
+func GetDefaultShellInterpreter() string {
+	if HostIsWindows() {
+		return PowerShellInterpreterPath
+	} else {
+		// Find a Unix-style shell interpreter with a preference to use bash
+		for _, shellName := range []string{"bash", "dash", "zsh", "ksh", "ash", "tcsh", "csh", "sh"} {
+			for _, pathPrefix := range []string{"/bin", "/usr/bin", "/usr/local/bin", "/opt/bin"} {
+				shellPath := filepath.Join(pathPrefix, shellName)
+				if _, err := os.Stat(shellPath); err == nil {
+					return shellPath
+				}
+			}
+		}
+	}
+	return ""
+}
 
 /*
 InvokeShell launches an external shell process with time constraints to run a piece of shell code. The code is fed into

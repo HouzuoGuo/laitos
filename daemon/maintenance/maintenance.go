@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -70,6 +71,10 @@ type Daemon struct {
 	TuneLinux bool `json:"TuneLinux"`
 	// EnhanceFileSecurity enables hardening of home directory security (ownership and permission).
 	DoEnhanceFileSecurity bool `json:"DoEnhanceFileSecurity"`
+	// PreScriptWindows is run by PowerShell prior to all other maintenance actions. It is given 10 minutes to run,
+	PreScriptWindows string `json:"PreScriptWindows"`
+	// PreScriptWindows is run by Unix default script interpreter prior to all other maintenance actions. It is given 10 minutes to run,
+	PreScriptUnix string `json:"PreScriptUnix"`
 	/*
 		SwapFileSizeMB determines the size of swap file to be created for Linux platform. If the value is 0, no swap file
 		will be created; if value is -1, swap will be turned off for the entire OS.
@@ -335,6 +340,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 	daemon.logPrintStage(out, "begin system maintenance")
 
 	// In general, an earlier task should exert a positive impact on subsequent tasks.
+	daemon.RunPreMaintenanceScript(out)
 
 	// System maintenance
 	if daemon.TuneLinux && !misc.HostIsWindows() {
@@ -400,6 +406,10 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 		!strings.Contains(result, "Mail processor errors") &&
 		!strings.Contains(result, "HTTP handler errors") {
 		t.Fatal(result)
+	}
+	// Should have run pre script as well
+	if _, err := os.Stat("/tmp/laitos-maintenance-pre-script-test"); err != nil {
+		t.Fatal("did not run pre script")
 	}
 	// Break a feature
 	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{}

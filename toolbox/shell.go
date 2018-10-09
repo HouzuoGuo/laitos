@@ -3,9 +3,8 @@ package toolbox
 import (
 	"errors"
 	"fmt"
+
 	"github.com/HouzuoGuo/laitos/misc"
-	"os"
-	"path/filepath"
 )
 
 // Execute shell commands with a timeout limit.
@@ -30,27 +29,9 @@ func (sh *Shell) SelfTest() error {
 }
 
 func (sh *Shell) Initialise() error {
-	if sh.InterpreterPath != "" {
-		goto afterShell
+	if sh.InterpreterPath == "" {
+		sh.InterpreterPath = misc.GetDefaultShellInterpreter()
 	}
-	if misc.HostIsWindows() {
-		sh.InterpreterPath = misc.PowerShellInterpreterPath
-	} else {
-		// Find a Unix-style shell interpreter with a preference to use bash
-		for _, shellName := range []string{"bash", "dash", "zsh", "ksh", "ash", "tcsh", "csh", "sh"} {
-			for _, pathPrefix := range []string{"/bin", "/usr/bin", "/usr/local/bin", "/opt/bin"} {
-				shellPath := filepath.Join(pathPrefix, shellName)
-				if _, err := os.Stat(shellPath); err == nil {
-					sh.InterpreterPath = shellPath
-					if err := sh.SelfTest(); err == nil {
-						goto afterShell
-					}
-					sh.InterpreterPath = ""
-				}
-			}
-		}
-	}
-afterShell:
 	if sh.InterpreterPath == "" {
 		return errors.New("Shell.Initialise: failed to find a working shell interpreter")
 	}
