@@ -2,12 +2,16 @@ package maintenance
 
 import (
 	"bytes"
-	"github.com/HouzuoGuo/laitos/misc"
+	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -106,6 +110,10 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	daemon.logPrintStageStep(out, "dism Restorehealth: %v - %s", err, progOut)
 	progOut, err = misc.InvokeProgram(nil, 3*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
 	daemon.logPrintStageStep(out, "sfc ScanNow: %v - %s", err, progOut)
+	// Installation of windows update is kicked off in background by the usoclient command, this way it will not run in parallel to DISM actions above.
+	daemon.logPrintStage(out, "install windows updates in background")
+	progOut, err = misc.InvokeProgram(nil, 10*60, `C:\Windows\system32\usoclient.exe`, "StartInstallWait")
+	daemon.logPrintStageStep(out, "usoclient: %v - %s", err, progOut)
 }
 
 // MaintainSwapFile creates and activates a swap file for Linux system, or turns swap off depending on configuration input.
@@ -176,7 +184,7 @@ func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
 	}
 }
 
-// MaintainFileSystem gets rid of unused temporary files.
+// MaintainFileSystem gets rid of unused temporary files on both Unix-like and Windows OSes.
 func (daemon *Daemon) MaintainFileSystem(out *bytes.Buffer) {
 	daemon.logPrintStage(out, "maintain file system")
 	// Remove files from temporary locations that have not been modified for over a week
@@ -196,5 +204,118 @@ func (daemon *Daemon) MaintainFileSystem(out *bytes.Buffer) {
 			}
 			return nil
 		})
+	}
+}
+
+// recursivelyChown changes owner and group of all files underneath the path, including the path itself.
+func recursivelyChown(rootPath string, newUID, newGID int) (succeeded, failed int) {
+	filepath.Walk(rootPath, func(thisPath string, info os.FileInfo, err error) error {
+		if err := os.Lchown(thisPath, newUID, newGID); err == nil {
+			succeeded++
+		} else {
+			failed++
+		}
+		return nil
+	})
+	return
+}
+
+// EnhanceFileSecurity hardens ownership and permission of common locations in file system.
+func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
+	if !daemon.DoEnhanceFileSecurity {
+		return
+	}
+	if misc.HostIsWindows() {
+		daemon.logPrintStage(out, "skipped on windows: enhance file security")
+		return
+	}
+	daemon.logPrintStage(out, "enhance file security")
+
+	myUser, err := user.Current()
+	if err != nil {
+		daemon.logPrintStage(out, "failed to get current user - %v", err)
+		return
+	}
+	// Will run chown on the following paths later
+	pathUID := make(map[string]int)
+	pathGID := make(map[string]int)
+	// Will run chmod on the following paths later
+	path600 := make(map[string]struct{})
+	path700 := make(map[string]struct{})
+
+	// Discover all ordinary user home directories
+	allHomeDirAbs := make(map[string]struct{})
+	if myUser.HomeDir != "" {
+		allHomeDirAbs[myUser.HomeDir] = struct{}{}
+	}
+	for _, homeDirParent := range []string{"/home", "/Users"} {
+		subDirs, err := ioutil.ReadDir(homeDirParent)
+		if err != nil {
+			continue
+		}
+		for _, subDir := range subDirs {
+			allHomeDirAbs[filepath.Join(homeDirParent, subDir.Name())] = struct{}{}
+		}
+	}
+
+	// Reset owner and group of an ordinary user's home directory
+	for homeDirAbs := range allHomeDirAbs {
+		userName := filepath.Base(homeDirAbs)
+		if userName != "" && userName != "." {
+			u, err := user.Lookup(userName)
+			if err == nil {
+				// Chown the home directory
+				if i, err := strconv.Atoi(u.Gid); err == nil {
+					pathGID[homeDirAbs] = i
+				}
+				if i, err := strconv.Atoi(u.Uid); err == nil {
+					pathUID[homeDirAbs] = i
+				}
+			}
+		}
+	}
+
+	// Reset owner and group of root home directory
+	for _, rootHomeAbs := range []string{"/root", "/private/var/root"} {
+		if stat, err := os.Stat(rootHomeAbs); err == nil && stat.IsDir() {
+			pathUID[rootHomeAbs] = 0
+			pathGID[rootHomeAbs] = 0
+			// Reset permission on the home directory and ~/.ssh later
+			allHomeDirAbs[rootHomeAbs] = struct{}{}
+		}
+	}
+
+	// Reset permission on home directory and ~/.ssh
+	for homeDirAbs := range allHomeDirAbs {
+		// chmod 700 ~
+		path700[homeDirAbs] = struct{}{}
+		// Chmod 700 ~/.ssh
+		sshDirAbs := filepath.Join(homeDirAbs, ".ssh")
+		if stat, err := os.Stat(sshDirAbs); err == nil && stat.IsDir() {
+			path700[sshDirAbs] = struct{}{}
+			// Chmod 600 ~/.ssh/*
+			if sshContent, err := ioutil.ReadDir(sshDirAbs); err == nil {
+				for _, entry := range sshContent {
+					path600[filepath.Join(sshDirAbs, entry.Name())] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Do it!
+	for aPath, newUID := range pathUID {
+		succeeded, failed := recursivelyChown(aPath, newUID, -1)
+		daemon.logPrintStageStep(out, "recursively set owner to %d in path %s - %d succeeded, %d failed", newUID, aPath, succeeded, failed)
+	}
+	for aPath, newGID := range pathGID {
+		succeeded, failed := recursivelyChown(aPath, -1, newGID)
+		daemon.logPrintStageStep(out, "recursively set group to %d in path %s - %d succeeded, %d failed", newGID, aPath, succeeded, failed)
+	}
+	for aPath := range path600 {
+		daemon.logPrintStageStep(out, "set permission to 600 to path %s - %v", aPath, os.Chmod(aPath, 0600))
+
+	}
+	for aPath := range path700 {
+		daemon.logPrintStageStep(out, "set permission to 700 to path %s - %v", aPath, os.Chmod(aPath, 0700))
 	}
 }

@@ -68,6 +68,8 @@ type Daemon struct {
 	ThrottleIncomingPackets int `json:"ThrottleIncomingPackets"`
 	// TuneLinux enables Linux kernel tuning routine as a maintenance step
 	TuneLinux bool `json:"TuneLinux"`
+	// EnhanceFileSecurity enables hardening of home directory security (ownership and permission).
+	DoEnhanceFileSecurity bool `json:"DoEnhanceFileSecurity"`
 	/*
 		SwapFileSizeMB determines the size of swap file to be created for Linux platform. If the value is 0, no swap file
 		will be created; if value is -1, swap will be turned off for the entire OS.
@@ -366,6 +368,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 	daemon.BlockUnusedLogin(out)
 	daemon.MaintainServices(out)
 	daemon.MaintainsIptables(out) // run this after service maintenance, because disabling firewall service may alter iptables.
+	daemon.EnhanceFileSecurity(out)
 
 	daemon.logPrintStage(out, "concluded system maintenance")
 	return out.String()

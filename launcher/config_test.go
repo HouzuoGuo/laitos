@@ -190,7 +190,8 @@ var sampleConfigJSON = `
     "TCPPorts": [
       9114
     ],
-    "TuneLinux": true
+    "TuneLinux": true,
+    "DoEnhanceFileSecurity": true
   },
   "PlainSocketDaemon": {
     "Address": "127.0.0.1",

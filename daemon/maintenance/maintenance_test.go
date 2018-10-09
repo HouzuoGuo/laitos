@@ -1,9 +1,10 @@
 package maintenance
 
 import (
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
 )
 
 func TestMaintenance_Execute(t *testing.T) {
@@ -15,6 +16,7 @@ func TestMaintenance_Execute(t *testing.T) {
 		InstallPackages:        []string{"htop"},
 		SetTimeZone:            "UTC",
 		TuneLinux:              true,
+		DoEnhanceFileSecurity:  true,
 		SwapFileSizeMB:         100,
 		FeaturesToTest:         features,
 		MailCmdRunnerToTest:    nil, // deliberately nil because it is not involved in this test
