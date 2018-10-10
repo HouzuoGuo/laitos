@@ -477,7 +477,7 @@ const (
         msg += "\n" + p.toUpperCase() + ": " + ex[p];
     }
     console.log(msg);
-}`  // Template javascript code that runs on headless browser server
+}` // Template javascript code that runs on headless browser server
 
 	// GoodUserAgent is the recommended user agent string for rendering all pages
 	GoodUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:58.0) Gecko/20100101 Firefox/58.0"

@@ -265,7 +265,7 @@ func SkipIfWSL(t testingstub.T) {
 	}
 }
 
-// HostIsWindows returns true only if the runtime is Windows native, not subsystem for Linux.
+// HostIsWindows returns true only if the runtime is Windows native. It returns false in other cases, including Windows Subsystem For Linux.
 func HostIsWindows() bool {
 	return runtime.GOOS == "windows"
 }

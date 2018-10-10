@@ -324,7 +324,7 @@ func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
 func (daemon *Daemon) RunPreMaintenanceScript(out *bytes.Buffer) {
 	var scriptOut string
 	var err error
-	if daemon.PreScriptUnix != "" {
+	if daemon.PreScriptUnix != "" && !misc.HostIsWindows() {
 		daemon.logPrintStage(out, "run pre-maintenance script (unix-like)")
 		scriptOut, err = misc.InvokeShell(10*600, misc.GetDefaultShellInterpreter(), daemon.PreScriptUnix)
 	}
