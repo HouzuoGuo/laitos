@@ -98,7 +98,12 @@ func KillProcess(proc *os.Process) (success bool) {
 func LockMemory() {
 	// Lock all program memory into main memory to prevent sensitive data from leaking into swap.
 	if os.Geteuid() == 0 {
-		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE); err != nil {
+		/*
+			0x4 is MCL_ONFAULT, a new Linux kernel feature since 4.4. It prevents the significant virtual
+			memory used by go runtime from occupying too much main memory.
+			See https://github.com/golang/go/issues/28114 for more background information.
+		*/
+		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE | 0x4); err != nil {
 			logger.Warning("LockMemory", "", err, "failed to lock memory")
 			return
 		}
