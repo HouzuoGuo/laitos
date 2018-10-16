@@ -105,7 +105,7 @@ type Supervisor struct {
 // initialise prepares internal states. This function is called at beginning of Start function.
 func (sup *Supervisor) initialise() {
 	sup.logger = lalog.Logger{
-		ComponentName: "Supervisor",
+		ComponentName: "supervisor",
 		ComponentID:   []lalog.LoggerIDField{{"PID", os.Getpid()}, {"Daemons", sup.DaemonNames}},
 	}
 	sup.mainStderr = lalog.NewByteLogWriter(os.Stderr, MemoriseOutputCapacity)

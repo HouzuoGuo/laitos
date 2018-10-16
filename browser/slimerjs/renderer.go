@@ -542,7 +542,7 @@ func (instance *Instance) Start() error {
 	instance.jsDebugOutput = lalog.NewByteLogWriter(ioutil.Discard, 512)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
 	instance.logger = lalog.Logger{
-		ComponentName: "slimerjs.Instance",
+		ComponentName: "slimerjs",
 		ComponentID:   []lalog.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
 	}
 	/*

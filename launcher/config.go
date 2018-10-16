@@ -179,7 +179,7 @@ DeserialiseFromJSON deserialised configuration of all daemons and toolbox featur
 itself for daemon operations.
 */
 func (config *Config) DeserialiseFromJSON(in []byte) error {
-	config.logger = lalog.Logger{ComponentName: "Config"}
+	config.logger = lalog.Logger{ComponentName: "config"}
 	if err := json.Unmarshal(in, config); err != nil {
 		return err
 	}

@@ -92,7 +92,7 @@ func sendMail(smtpClient *smtp.Client, serverTLSName string, auth smtp.Auth, fro
 
 // CommonMailLogger is shared by all mail clients to log mail delivery progress.
 var CommonMailLogger = lalog.Logger{
-	ComponentName: "MailClient",
+	ComponentName: "mailclient",
 	ComponentID:   []lalog.LoggerIDField{{"Common", "Shared"}},
 }
 

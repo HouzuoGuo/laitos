@@ -144,7 +144,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 // Start runs the web server and blocks until the server shuts down from a successful unlocking attempt.
 func (ws *WebServer) Start() error {
 	ws.logger = lalog.Logger{
-		ComponentName: "passwdserver.WebServer",
+		ComponentName: "passwdserver",
 		ComponentID:   []lalog.LoggerIDField{{"Port", ws.Port}},
 	}
 	ws.handlerMutex = new(sync.Mutex)

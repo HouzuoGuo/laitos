@@ -51,7 +51,7 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.IntervalSec < 10*60 {
 		daemon.IntervalSec = 10 * 60 // 10 minutes is reasonable for almost all cases
 	}
-	daemon.logger = lalog.Logger{ComponentName: "AutoUnlock", ComponentID: []lalog.LoggerIDField{{"Intv", daemon.IntervalSec}}}
+	daemon.logger = lalog.Logger{ComponentName: "autounlock", ComponentID: []lalog.LoggerIDField{{"Intv", daemon.IntervalSec}}}
 	// Make sure that all URLs and passwords are present, and URLs can be parsed.
 	for aURL, passwd := range daemon.URLAndPassword {
 		if aURL == "" || passwd == "" {
