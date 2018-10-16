@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -68,13 +69,13 @@ type UDPDaemon struct {
 	stopUDP          chan bool
 
 	cipher *Cipher
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 func (daemon *UDPDaemon) Initialise() error {
-	daemon.logger = misc.Logger{
+	daemon.logger = lalog.Logger{
 		ComponentName: "sockd",
-		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"UDP", daemon.UDPPort}},
+		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"UDP", daemon.UDPPort}},
 	}
 	daemon.rateLimitUDP = &misc.RateLimit{
 		Logger:   daemon.logger,
@@ -232,7 +233,7 @@ func (table *UDPTable) Len() (ret int) {
 type UDPCipherConnection struct {
 	net.PacketConn
 	*Cipher
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 func (conn *UDPCipherConnection) Close() error {

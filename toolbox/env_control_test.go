@@ -2,9 +2,11 @@ package toolbox
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestEnvControl_Execute(t *testing.T) {
@@ -25,7 +27,7 @@ func TestEnvControl_Execute(t *testing.T) {
 		t.Fatal(ret)
 	}
 	// Test log retrieval
-	logger := misc.Logger{}
+	logger := lalog.Logger{}
 	logger.Info("envinfo printf test", "", nil, "")
 	logger.Warning("envinfo warningf test", "", nil, "")
 	if ret := info.Execute(Command{Content: "log"}); ret.Error != nil || strings.Index(ret.Output, "envinfo printf test") == -1 {

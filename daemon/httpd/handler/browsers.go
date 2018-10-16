@@ -3,13 +3,14 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browser/phantomjs"
-	"github.com/HouzuoGuo/laitos/browser/slimerjs"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"net/http"
 	"strconv"
+
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
+	"github.com/HouzuoGuo/laitos/browser/slimerjs"
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
@@ -18,7 +19,7 @@ type HandleBrowserSlimerJS struct {
 	Browsers      slimerjs.Instances `json:"Browsers"`
 }
 
-func (remoteBrowser *HandleBrowserSlimerJS) Initialise(misc.Logger, *common.CommandProcessor) error {
+func (remoteBrowser *HandleBrowserSlimerJS) Initialise(lalog.Logger, *common.CommandProcessor) error {
 	return remoteBrowser.Browsers.Initialise()
 }
 
@@ -146,7 +147,7 @@ type HandleBrowserSlimerJSImage struct {
 	Browsers *slimerjs.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
-func (_ *HandleBrowserSlimerJSImage) Initialise(misc.Logger, *common.CommandProcessor) error {
+func (_ *HandleBrowserSlimerJSImage) Initialise(lalog.Logger, *common.CommandProcessor) error {
 	return nil
 }
 

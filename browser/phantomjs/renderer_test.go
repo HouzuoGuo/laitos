@@ -1,13 +1,15 @@
 package phantomjs
 
 import (
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestInteractiveBrowser(t *testing.T) {
@@ -15,7 +17,7 @@ func TestInteractiveBrowser(t *testing.T) {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
 	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
-	misc.PrepareUtilities(misc.Logger{})
+	misc.PrepareUtilities(lalog.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
 	renderOutput, err := ioutil.TempFile("", "laitos-TestInteractiveBrowser-phantomjs")
@@ -81,7 +83,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
 	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
-	misc.PrepareUtilities(misc.Logger{})
+	misc.PrepareUtilities(lalog.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
 	renderOutput, err := ioutil.TempFile("", "laitos-TestLineOrientedBrowser-phantomjs")

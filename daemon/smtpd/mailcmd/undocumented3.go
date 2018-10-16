@@ -2,18 +2,19 @@ package mailcmd
 
 import (
 	"errors"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 // (IM) Intentionally undocumented he he he.
 type Undocumented3 struct {
 	MailAddrSuffix string          `json:"MailAddrSuffix"`
 	MailClient     inet.MailClient `json:"-"`
-	Logger         misc.Logger     `json:"-"`
+	Logger         lalog.Logger    `json:"-"`
 }
 
 var TestUndocumented3 = Undocumented3{}  // Details are set by init_mail_test.go

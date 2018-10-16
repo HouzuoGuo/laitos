@@ -2,10 +2,12 @@ package slimerjs
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestBrowserInstances(t *testing.T) {
@@ -33,7 +35,7 @@ func TestBrowserInstances(t *testing.T) {
 	defer instances.KillAll()
 
 	// Prepare docker operation for SlimerJS
-	PrepareDocker(misc.Logger{})
+	PrepareDocker(lalog.Logger{})
 
 	i0, b0, err := instances.Acquire()
 	if i0 != 0 || b0.Tag == "" || err != nil {

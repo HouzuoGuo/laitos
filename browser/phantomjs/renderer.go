@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -18,6 +16,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 const (
@@ -477,7 +479,7 @@ const (
         msg += "\n" + p.toUpperCase() + ": " + ex[p];
     }
     console.log(msg);
-}` // Template javascript code that runs on headless browser server
+}`  // Template javascript code that runs on headless browser server
 
 	// GoodUserAgent is the recommended user agent string for rendering all pages
 	GoodUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:58.0) Gecko/20100101 Firefox/58.0"
@@ -494,11 +496,11 @@ type Instance struct {
 	Tag                string // Uniquely identifies this browser server after it is started
 	Index              int    // index is the instance number assigned by renderer lifecycle management.
 
-	serverJSFile  *os.File            // serverJSFile stores javascript code for web driver
-	jsDebugOutput *misc.ByteLogWriter // Store standard output and error from PhantomJS executable
-	jsProcCmd     *exec.Cmd           // Headless server process
-	jsProcMutex   *sync.Mutex         // Protect against concurrent access to server process
-	logger        misc.Logger
+	serverJSFile  *os.File             // serverJSFile stores javascript code for web driver
+	jsDebugOutput *lalog.ByteLogWriter // Store standard output and error from PhantomJS executable
+	jsProcCmd     *exec.Cmd            // Headless server process
+	jsProcMutex   *sync.Mutex          // Protect against concurrent access to server process
+	logger        lalog.Logger
 }
 
 // Produce javascript code for browser server and then launch its process in background.
@@ -506,11 +508,11 @@ func (instance *Instance) Start() error {
 	// Instance is an internal API, hence its parameters are not validated before use.
 	instance.jsProcMutex = new(sync.Mutex)
 	// Keep latest 512 bytes of standard error and standard output from javascript server
-	instance.jsDebugOutput = misc.NewByteLogWriter(ioutil.Discard, 512)
+	instance.jsDebugOutput = lalog.NewByteLogWriter(ioutil.Discard, 512)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
-	instance.logger = misc.Logger{
+	instance.logger = lalog.Logger{
 		ComponentName: "phantomjs",
-		ComponentID:   []misc.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
+		ComponentID:   []lalog.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
 	}
 	// Store server javascript into a temporary file
 	var err error
@@ -668,7 +670,7 @@ func (instance *Instance) Kill() {
 	if instance.jsProcCmd != nil {
 		if instance.jsProcCmd.Process != nil {
 			instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
-			if !misc.KillProcess(instance.jsProcCmd.Process) {
+			if !platform.KillProcess(instance.jsProcCmd.Process) {
 				instance.logger.Warning("Kill", "", nil, "failed to kill process")
 			}
 		}

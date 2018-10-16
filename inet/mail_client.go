@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
 	"math/rand"
 	"net"
 	"net/smtp"
@@ -12,6 +11,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 const (
@@ -90,9 +91,9 @@ func sendMail(smtpClient *smtp.Client, serverTLSName string, auth smtp.Auth, fro
 }
 
 // CommonMailLogger is shared by all mail clients to log mail delivery progress.
-var CommonMailLogger = misc.Logger{
+var CommonMailLogger = lalog.Logger{
 	ComponentName: "MailClient",
-	ComponentID:   []misc.LoggerIDField{{"Common", "Shared"}},
+	ComponentID:   []lalog.LoggerIDField{{"Common", "Shared"}},
 }
 
 // OutstandingMailBytes is the total size of all outstanding mails waiting to be delivered.

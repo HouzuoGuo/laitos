@@ -3,13 +3,14 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browser/phantomjs"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 const (
@@ -92,7 +93,7 @@ type HandleBrowserPhantomJS struct {
 	Browsers      phantomjs.Instances `json:"Browsers"`
 }
 
-func (remoteBrowser *HandleBrowserPhantomJS) Initialise(misc.Logger, *common.CommandProcessor) error {
+func (remoteBrowser *HandleBrowserPhantomJS) Initialise(lalog.Logger, *common.CommandProcessor) error {
 	return remoteBrowser.Browsers.Initialise()
 }
 
@@ -247,7 +248,7 @@ type HandleBrowserPhantomJSImage struct {
 	Browsers *phantomjs.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
-func (_ *HandleBrowserPhantomJSImage) Initialise(misc.Logger, *common.CommandProcessor) error {
+func (_ *HandleBrowserPhantomJSImage) Initialise(lalog.Logger, *common.CommandProcessor) error {
 	return nil
 }
 

@@ -3,12 +3,14 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/misc"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -136,13 +138,13 @@ type HandleWebProxy struct {
 	*/
 	OwnEndpoint string `json:"-"`
 
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 var ProxyRemoveRequestHeaders = []string{"Host", "Content-Length", "Accept-Encoding", "Content-Security-Policy", "Set-Cookie"}
 var ProxyRemoveResponseHeaders = []string{"Host", "Content-Length", "Transfer-Encoding", "Content-Security-Policy", "Set-Cookie"}
 
-func (xy *HandleWebProxy) Initialise(logger misc.Logger, _ *common.CommandProcessor) error {
+func (xy *HandleWebProxy) Initialise(logger lalog.Logger, _ *common.CommandProcessor) error {
 	xy.logger = logger
 	if xy.OwnEndpoint == "" {
 		return errors.New("HandleWebProxy.Initialise: MyEndpoint must not be empty")

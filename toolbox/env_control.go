@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 var ErrBadEnvInfoChoice = errors.New(`lock | stop | kill | log | warn | runtime | stack | tune`)
@@ -68,7 +71,7 @@ func (info *EnvControl) Execute(cmd Command) *Result {
 // Return runtime information (uptime, CPUs, goroutines, memory usage) in a multi-line text.
 func GetRuntimeInfo() string {
 	usedMem, totalMem := misc.GetSystemMemoryUsageKB()
-	usedRoot, freeRoot, totalRoot := misc.GetRootDiskUsageKB()
+	usedRoot, freeRoot, totalRoot := platform.GetRootDiskUsageKB()
 	return fmt.Sprintf(`IP: %s
 Clock: %s
 Sys/prog uptime: %s / %s
@@ -91,7 +94,7 @@ Program flags: %v
 // Return latest log entry of all kinds in a multi-line text, one log entry per line. Latest log entry comes first.
 func GetLatestLog() string {
 	buf := new(bytes.Buffer)
-	misc.LatestLogs.IterateReverse(func(entry string) bool {
+	lalog.LatestLogs.IterateReverse(func(entry string) bool {
 		buf.WriteString(entry)
 		buf.WriteRune('\n')
 		return true
@@ -102,7 +105,7 @@ func GetLatestLog() string {
 // Return latest warning entries in a multi-line text, one log entry per line. Latest entry comes first.
 func GetLatestWarnings() string {
 	buf := new(bytes.Buffer)
-	misc.LatestWarnings.IterateReverse(func(entry string) bool {
+	lalog.LatestWarnings.IterateReverse(func(entry string) bool {
 		buf.WriteString(entry)
 		buf.WriteRune('\n')
 		return true

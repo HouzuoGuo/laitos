@@ -21,6 +21,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
@@ -76,7 +77,7 @@ type Daemon struct {
 	mux           *http.ServeMux
 	serverWithTLS *http.Server // serverWithTLS is an instance of HTTP server that will be started with TLS listener.
 	serverNoTLS   *http.Server // serverWithTLS is an instance of HTTP server that will be started with an ordinary listener.
-	logger        misc.Logger
+	logger        lalog.Logger
 }
 
 // Return path to Handler among special handlers that matches the specified type. Primarily used by test case code.
@@ -138,9 +139,9 @@ func (daemon *Daemon) Initialise() error {
 		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = common.GetEmptyCommandProcessor()
 	}
-	daemon.logger = misc.Logger{
+	daemon.logger = lalog.Logger{
 		ComponentName: "httpd",
-		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"Port", daemon.Port}},
+		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"Port", daemon.Port}},
 	}
 	daemon.Processor.SetLogger(daemon.logger)
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {

@@ -1,4 +1,4 @@
-package misc
+package lalog
 
 import (
 	"reflect"

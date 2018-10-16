@@ -1,6 +1,6 @@
 // +build darwin linux
 
-package misc
+package platform
 
 import (
 	"errors"
@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"syscall"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 // GetRootDiskUsageKB returns used and total space of the file system mounted on /. Returns 0 if they cannot be determined.
@@ -49,7 +51,7 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		combinedEnv = append(combinedEnv, envVars...)
 	}
 	// Collect stdout and stderr all together in a single buffer
-	outBuf := NewByteLogWriter(ioutil.Discard, MaxExternalProgramOutputBytes)
+	outBuf := lalog.NewByteLogWriter(ioutil.Discard, MaxExternalProgramOutputBytes)
 	proc := exec.Command(program, args...)
 	proc.Env = combinedEnv
 	proc.Stdout = outBuf

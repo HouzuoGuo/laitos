@@ -4,11 +4,13 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"net/http"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const (
@@ -42,11 +44,11 @@ const (
 type HandleTwilioSMSHook struct {
 	senderRateLimit *misc.RateLimit // senderRateLimit prevents excessive SMS replies from being replied to spam numbers
 
-	logger  misc.Logger
+	logger  lalog.Logger
 	cmdProc *common.CommandProcessor
 }
 
-func (hand *HandleTwilioSMSHook) Initialise(logger misc.Logger, cmdProc *common.CommandProcessor) error {
+func (hand *HandleTwilioSMSHook) Initialise(logger lalog.Logger, cmdProc *common.CommandProcessor) error {
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	// Allow maximum of 1 SMS to be received every 5 seconds, per phone number.
@@ -99,11 +101,11 @@ type HandleTwilioCallHook struct {
 	CallbackEndpoint string `json:"-"`            // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
 
 	senderRateLimit *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
-	logger          misc.Logger
+	logger          lalog.Logger
 	cmdProc         *common.CommandProcessor
 }
 
-func (hand *HandleTwilioCallHook) Initialise(logger misc.Logger, cmdProc *common.CommandProcessor) error {
+func (hand *HandleTwilioCallHook) Initialise(logger lalog.Logger, cmdProc *common.CommandProcessor) error {
 	if hand.CallGreeting == "" || hand.CallbackEndpoint == "" {
 		return errors.New("HandleTwilioCallHook.Initialise: greeting and callback endpoint must not be empty")
 	}
@@ -152,11 +154,11 @@ type HandleTwilioCallCallback struct {
 	MyEndpoint string `json:"-"` // URL endpoint to the callback itself, including prefix /.
 
 	senderRateLimit *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
-	logger          misc.Logger
+	logger          lalog.Logger
 	cmdProc         *common.CommandProcessor
 }
 
-func (hand *HandleTwilioCallCallback) Initialise(logger misc.Logger, cmdProc *common.CommandProcessor) error {
+func (hand *HandleTwilioCallCallback) Initialise(logger lalog.Logger, cmdProc *common.CommandProcessor) error {
 	if hand.MyEndpoint == "" {
 		return errors.New("HandleTwilioCallCallback.Initialise: MyEndpoint must not be empty")
 	}

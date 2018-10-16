@@ -2,12 +2,13 @@ package filter
 
 import (
 	"bytes"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"regexp"
 	"strings"
 	"unicode"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 var RegexConsecutiveSpaces = regexp.MustCompile("[[:space:]]+") // match consecutive space characters
@@ -15,7 +16,7 @@ var RegexConsecutiveSpaces = regexp.MustCompile("[[:space:]]+") // match consecu
 // ResultFilter applies transformations to command execution result, the result is modified in-place.
 type ResultFilter interface {
 	Transform(*toolbox.Result) error // Operate on the command result. Return an error if no further transformation shall be done.
-	SetLogger(misc.Logger)           // Assign a logger to use
+	SetLogger(lalog.Logger)          // Assign a logger to use
 }
 
 /*
@@ -85,7 +86,7 @@ func (lint *LintText) Transform(result *toolbox.Result) error {
 	return nil
 }
 
-func (_ *LintText) SetLogger(_ misc.Logger) {
+func (_ *LintText) SetLogger(_ lalog.Logger) {
 }
 
 // Send email notification for command result.
@@ -93,7 +94,7 @@ type NotifyViaEmail struct {
 	Recipients []string        `json:"Recipients"` // Email recipient addresses
 	MailClient inet.MailClient `json:"-"`          // MTA that delivers outgoing notification email
 
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 // Return true only if all mail parameters are present.
@@ -113,7 +114,7 @@ func (notify *NotifyViaEmail) Transform(result *toolbox.Result) error {
 	return nil
 }
 
-func (notify *NotifyViaEmail) SetLogger(logger misc.Logger) {
+func (notify *NotifyViaEmail) SetLogger(logger lalog.Logger) {
 	notify.logger = logger
 }
 
@@ -131,5 +132,5 @@ func (empty *SayEmptyOutput) Transform(result *toolbox.Result) error {
 	return nil
 }
 
-func (_ *SayEmptyOutput) SetLogger(_ misc.Logger) {
+func (_ *SayEmptyOutput) SetLogger(_ lalog.Logger) {
 }

@@ -1,11 +1,12 @@
 package filter
 
 import (
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestLintText_Transform(t *testing.T) {

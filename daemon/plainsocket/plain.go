@@ -3,9 +3,11 @@ package plainsocket
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/misc"
 	"net"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -25,7 +27,7 @@ type Daemon struct {
 	tcpListener net.Listener    // Once TCP daemon is started, this is its listener.
 	udpListener *net.UDPConn    // Once UDP daemon is started, this is its listener.
 	rateLimit   *misc.RateLimit // Rate limit counter per IP address
-	logger      misc.Logger     // logger
+	logger      lalog.Logger    // logger
 }
 
 // Check configuration and initialise internal states.
@@ -36,9 +38,9 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 2 // reasonable for personal use
 	}
-	daemon.logger = misc.Logger{
+	daemon.logger = lalog.Logger{
 		ComponentName: "plainsocket",
-		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
+		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		return fmt.Errorf("plainsocket.Initialise: command processor and its filters must be configured")

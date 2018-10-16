@@ -11,6 +11,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 // If package manager output contains any of the strings, the procedure output about the package will be reduced into "Nothing to do"
@@ -50,16 +51,16 @@ func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 		daemon.logPrintStageStep(out, "failed to store docker GPG key - %v", err)
 		return
 	}
-	aptOut, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "apt-key", "add", gpgKeyFile)
+	aptOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "apt-key", "add", gpgKeyFile)
 	daemon.logPrintStageStep(out, "install docker GPG key - %v %s", err, aptOut)
 	// Add docker community edition repository
-	lsbOut, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "lsb_release", "-cs")
+	lsbOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "lsb_release", "-cs")
 	daemon.logPrintStageStep(out, "determine release name - %v %s", err, lsbOut)
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to determine release name")
 		return
 	}
-	aptOut, err = misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(string(lsbOut))))
+	aptOut, err = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(string(lsbOut))))
 	daemon.logPrintStageStep(out, "enable docker repository - %v %s", err, aptOut)
 }
 
@@ -150,16 +151,16 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 	// apt-get is too old to be convenient
 	if pkgManagerName == "apt-get" || pkgManagerName == "apt" {
 		// Five minutes should be enough to grab the latest manifest
-		result, err := misc.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
+		result, err := platform.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
 		// There is no need to suppress this output according to markers
 		daemon.logPrintStageStep(out, "update apt manifests: %v - %s", err, strings.TrimSpace(result))
 		// Fix interrupted package installation, otherwise no package will update/install in the next steps.
-		result, err = misc.InvokeProgram(pkgManagerEnv, 2*3600, "dpkg", "--configure", "-a", "--force-confold", "--force-confdef")
+		result, err = platform.InvokeProgram(pkgManagerEnv, 2*3600, "dpkg", "--configure", "-a", "--force-confold", "--force-confdef")
 		daemon.logPrintStageStep(out, "fix interrupted package installation: %v - %s", err, strings.TrimSpace(result))
 	}
 
 	// Upgrade system packages with a time constraint of two hours
-	result, err := misc.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
+	result, err := platform.InvokeProgram(pkgManagerEnv, 2*3600, pkgManagerPath, sysUpgradeArgs...)
 	for _, marker := range suppressOutputMarkers {
 		// If nothing was done during system update, suppress the rather useless output.
 		if strings.Contains(strings.ToLower(result), marker) {
@@ -225,7 +226,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		copy(installCmd, pkgInstallArgs)
 		installCmd[len(pkgInstallArgs)] = name
 		// Ten minutes should be good enough for each package
-		result, err := misc.InvokeProgram(pkgManagerEnv, 10*60, pkgManagerPath, installCmd...)
+		result, err := platform.InvokeProgram(pkgManagerEnv, 10*60, pkgManagerPath, installCmd...)
 		if err == nil {
 			daemon.logPrintStageStep(out, "install/upgrade %s: OK", name)
 		} else {

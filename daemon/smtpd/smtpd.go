@@ -13,6 +13,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/smtp"
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 )
@@ -43,7 +44,7 @@ type Daemon struct {
 	listener      net.Listener        // Once daemon is started, this is its TCP listener.
 	tlsCert       tls.Certificate     // TLS certificate read from the certificate and key files
 	rateLimit     *misc.RateLimit     // Rate limit counter per IP address
-	logger        misc.Logger
+	logger        lalog.Logger
 }
 
 // Check configuration and initialise internal states.
@@ -57,9 +58,9 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 4 // reasonable for receiving emails and running toolbox feature commands
 	}
-	daemon.logger = misc.Logger{
+	daemon.logger = lalog.Logger{
 		ComponentName: "smtpd",
-		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"Port", daemon.Port}},
+		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"Port", daemon.Port}},
 	}
 	if daemon.ForwardTo == nil || len(daemon.ForwardTo) == 0 || !daemon.ForwardMailClient.IsConfigured() {
 		return errors.New("smtpd.Initialise: forward address and forward mail client must be configured")
@@ -178,7 +179,7 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	// The status string is only used for logging
 	var completionStatus string
 	// memorise latest conversations for logging purpose
-	latestConv := misc.NewRingBuffer(4)
+	latestConv := lalog.NewRingBuffer(4)
 	// fromAddr, mailBody, and toAddrs will be filled as SMTP conversation goes on
 	var fromAddr, mailBody string
 	toAddrs := make([]string, 0, 4)

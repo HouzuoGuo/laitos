@@ -2,12 +2,13 @@ package httpd
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
-	"github.com/HouzuoGuo/laitos/inet"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 func TestHTTPD_StartAndBlock(t *testing.T) {

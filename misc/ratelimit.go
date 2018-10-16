@@ -3,6 +3,8 @@ package misc
 import (
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 /*
@@ -13,7 +15,7 @@ Remember to call Initialise() before use!
 type RateLimit struct {
 	UnitSecs      int64
 	MaxCount      int
-	Logger        Logger
+	Logger        lalog.Logger
 	lastTimestamp int64
 	counter       map[string]int
 	logged        map[string]struct{}

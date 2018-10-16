@@ -3,13 +3,14 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"net/http"
 	"path"
 	"sort"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 const HandleGitlabPage = `<html>
@@ -45,10 +46,10 @@ type HandleGitlabBrowser struct {
 	Recipients   []string          `json:"Recipients"`   // Recipients of notification emails
 	MailClient   inet.MailClient   `json:"-"`            // MTA that delivers file download notification email
 
-	logger misc.Logger
+	logger lalog.Logger
 }
 
-func (lab *HandleGitlabBrowser) Initialise(logger misc.Logger, _ *common.CommandProcessor) error {
+func (lab *HandleGitlabBrowser) Initialise(logger lalog.Logger, _ *common.CommandProcessor) error {
 	lab.logger = logger
 	return nil
 }

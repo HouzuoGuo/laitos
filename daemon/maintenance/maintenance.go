@@ -22,6 +22,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -96,7 +97,7 @@ type Daemon struct {
 
 	loopIsRunning int32     // Value is 1 only when maintenance loop is running
 	stop          chan bool // Signal maintenance loop to stop
-	logger        misc.Logger
+	logger        lalog.Logger
 }
 
 /*
@@ -273,7 +274,7 @@ func (daemon *Daemon) Initialise() error {
 		return fmt.Errorf("maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
 	daemon.stop = make(chan bool)
-	daemon.logger = misc.Logger{ComponentName: "maintenance", ComponentID: []misc.LoggerIDField{{"Intv", daemon.IntervalSec}}}
+	daemon.logger = lalog.Logger{ComponentName: "maintenance", ComponentID: []lalog.LoggerIDField{{"Intv", daemon.IntervalSec}}}
 	return nil
 }
 

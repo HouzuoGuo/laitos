@@ -3,15 +3,17 @@ package autounlock
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
 const (
@@ -42,14 +44,14 @@ type Daemon struct {
 
 	loopIsRunning int32     // loopIsRunning has value 1 only when the daemon loop is running.
 	stop          chan bool // stop signals daemon loop to stop
-	logger        misc.Logger
+	logger        lalog.Logger
 }
 
 func (daemon *Daemon) Initialise() error {
 	if daemon.IntervalSec < 10*60 {
 		daemon.IntervalSec = 10 * 60 // 10 minutes is reasonable for almost all cases
 	}
-	daemon.logger = misc.Logger{ComponentName: "AutoUnlock", ComponentID: []misc.LoggerIDField{{"Intv", daemon.IntervalSec}}}
+	daemon.logger = lalog.Logger{ComponentName: "AutoUnlock", ComponentID: []lalog.LoggerIDField{{"Intv", daemon.IntervalSec}}}
 	// Make sure that all URLs and passwords are present, and URLs can be parsed.
 	for aURL, passwd := range daemon.URLAndPassword {
 		if aURL == "" || passwd == "" {

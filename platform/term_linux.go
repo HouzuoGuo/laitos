@@ -1,4 +1,4 @@
-package misc
+package platform
 
 import (
 	"os"

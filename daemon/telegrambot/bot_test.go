@@ -1,9 +1,10 @@
 package telegrambot
 
 import (
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
 )
 
 func TestTelegramBot_StartAndBock(t *testing.T) {

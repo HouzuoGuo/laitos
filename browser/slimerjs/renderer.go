@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -17,6 +15,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 /*
@@ -503,7 +506,7 @@ const (
         msg += "\n" + p.toUpperCase() + ": " + ex[p];
     }
     console.log(msg);
-}` // Template javascript code that runs on headless browser server
+}`  // Template javascript code that runs on headless browser server
 )
 
 var TagCounter = int64(0) // TagCounter increases for each started browser. Value 0 is the initial value, not a valid tag.
@@ -523,12 +526,12 @@ type Instance struct {
 	Tag                string // Uniquely identifies this browser server after it is started
 	Index              int    // index is the instance number assigned by renderer lifecycle management.
 
-	containerName string              // containerName is the name of SlimerJS container, once it is started.
-	serverJSFile  *os.File            // serverJSFile stores javascript code for web driver
-	jsDebugOutput *misc.ByteLogWriter // Store standard output and error from SlimerJS executable
-	jsProcCmd     *exec.Cmd           // Headless server process
-	jsProcMutex   *sync.Mutex         // Protect against concurrent access to server process
-	logger        misc.Logger
+	containerName string               // containerName is the name of SlimerJS container, once it is started.
+	serverJSFile  *os.File             // serverJSFile stores javascript code for web driver
+	jsDebugOutput *lalog.ByteLogWriter // Store standard output and error from SlimerJS executable
+	jsProcCmd     *exec.Cmd            // Headless server process
+	jsProcMutex   *sync.Mutex          // Protect against concurrent access to server process
+	logger        lalog.Logger
 }
 
 // Produce javascript code for browser server and then launch its process in background.
@@ -536,11 +539,11 @@ func (instance *Instance) Start() error {
 	// Instance is an internal API, hence its parameters are not validated before use.
 	instance.jsProcMutex = new(sync.Mutex)
 	// Keep latest 512 bytes of standard error and standard output from javascript server
-	instance.jsDebugOutput = misc.NewByteLogWriter(ioutil.Discard, 512)
+	instance.jsDebugOutput = lalog.NewByteLogWriter(ioutil.Discard, 512)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
-	instance.logger = misc.Logger{
+	instance.logger = lalog.Logger{
 		ComponentName: "slimerjs.Instance",
-		ComponentID:   []misc.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
+		ComponentID:   []lalog.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
 	}
 	/*
 		Prepare temporary server code and screenshot location for SlimerJS container.
@@ -780,14 +783,14 @@ func (instance *Instance) Kill() {
 		// Kill the docker client
 		if instance.jsProcCmd.Process != nil {
 			instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
-			if !misc.KillProcess(instance.jsProcCmd.Process) {
+			if !platform.KillProcess(instance.jsProcCmd.Process) {
 				instance.logger.Warning("Kill", "", nil, "failed to kill process")
 			}
 		}
 		instance.jsProcCmd = nil
 		// Kill SlimerJS container
 		instance.logger.Info("Kill", "", nil, "killing container %s", instance.containerName)
-		if out, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "docker", "kill", instance.containerName); err != nil {
+		if out, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "docker", "kill", instance.containerName); err != nil {
 			instance.logger.Warning("Kill", "", nil, "failed to kill container - %v %s", err, out)
 		}
 		instance.containerName = ""

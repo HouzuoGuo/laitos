@@ -3,16 +3,18 @@ package mailcmd
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
-	"github.com/HouzuoGuo/laitos/toolbox"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
+	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 )
 
 const CommandTimeoutSec = 120 // CommandTimeoutSec is the default command timeout in seconds
@@ -31,7 +33,7 @@ type CommandRunner struct {
 	Processor       *common.CommandProcessor `json:"-"`             // Feature configuration
 	ReplyMailClient inet.MailClient          `json:"-"`             // To deliver Email replies
 
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 // Initialise initialises internal states of command runner. This function must be called before using the command runner.
@@ -39,9 +41,9 @@ func (runner *CommandRunner) Initialise() error {
 	if runner.Processor == nil || runner.Processor.IsEmpty() {
 		return fmt.Errorf("mailcmd.Initialise: command processor and its filters must be configured")
 	}
-	runner.logger = misc.Logger{
+	runner.logger = lalog.Logger{
 		ComponentName: "mailcmd",
-		ComponentID:   []misc.LoggerIDField{{"ReplyFrom", runner.ReplyMailClient.MailFrom}},
+		ComponentID:   []lalog.LoggerIDField{{"ReplyFrom", runner.ReplyMailClient.MailFrom}},
 	}
 	runner.Processor.SetLogger(runner.logger)
 	runner.Undocumented3.Logger = runner.logger

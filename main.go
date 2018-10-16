@@ -13,16 +13,18 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/hzgl"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 const (
 	ProfilerHTTPPort = 19151 // ProfilerHTTPPort is to be listened by net/http/pprof HTTP server when benchmark is turned on
 )
 
-var logger = misc.Logger{ComponentName: "main", ComponentID: []misc.LoggerIDField{{"PID", os.Getpid()}}}
+var logger = lalog.Logger{ComponentName: "main", ComponentID: []lalog.LoggerIDField{{"PID", os.Getpid()}}}
 
 /*
 DecryptFile is a distinct routine of laitos main program, it reads password from standard input and uses it to decrypt the
@@ -31,23 +33,23 @@ input file in-place.
 func DecryptFile(filePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter password to decrypt file (no echo):")
-	misc.SetTermEcho(false)
+	platform.SetTermEcho(false)
 	password, _, err := reader.ReadLine()
-	misc.SetTermEcho(true)
+	platform.SetTermEcho(true)
 	if err != nil {
-		misc.DefaultLogger.Abort("DecryptFile", "main", err, "failed to read password")
+		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to read password")
 		return
 	}
 	content, err := misc.Decrypt(filePath, []byte(password))
 	if err != nil {
-		misc.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
+		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
 		return
 	}
 	if err := ioutil.WriteFile(filePath, content, 0600); err != nil {
-		misc.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
+		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
 		return
 	}
-	misc.DefaultLogger.Info("DecryptFile", "main", nil, "successfully decrypte the file")
+	lalog.DefaultLogger.Info("DecryptFile", "main", nil, "successfully decrypte the file")
 	return
 }
 
@@ -58,16 +60,16 @@ the input file in-place.
 func EncryptFile(filePath string) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Please enter a password to encrypt the archive (no echo):")
-	misc.SetTermEcho(false)
+	platform.SetTermEcho(false)
 	password, _, err := reader.ReadLine()
-	misc.SetTermEcho(true)
+	platform.SetTermEcho(true)
 	if err != nil {
-		misc.DefaultLogger.Abort("EncryptFile", "main", err, "failed to read password")
+		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to read password")
 		return
 	}
 	password = []byte(strings.TrimSpace(string(password)))
 	if err := misc.Encrypt(filePath, []byte(password)); err != nil {
-		misc.DefaultLogger.Abort("EncryptFile", "main", err, "failed to encrypt file")
+		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to encrypt file")
 		return
 	}
 }
@@ -149,7 +151,7 @@ func main() {
 	flag.Parse()
 
 	// Common diagnosis and security practices
-	misc.LockMemory()
+	platform.LockMemory()
 	ReseedPseudoRandAndInBackground()
 	if debug {
 		DumpGoroutinesOnInterrupt()

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 const (
@@ -27,11 +28,11 @@ func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
 	}
 	daemon.logPrintStage(out, "synchronise clock")
 	// Use three tools to immediately synchronise system clock
-	result, err := misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
+	result, err := platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
 	daemon.logPrintStageStep(out, "ntpdate: %v - %s", err, strings.TrimSpace(result))
-	result, err = misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
+	result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
 	daemon.logPrintStageStep(out, "chronyd: %v - %s", err, strings.TrimSpace(result))
-	result, err = misc.InvokeProgram([]string{"PATH=" + misc.CommonPATH}, 60, "busybox", "ntpd", "-n", "-q", "-p", "ie.pool.ntp.org", "ca.pool.ntp.org", "au.pool.ntp.org")
+	result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "busybox", "ntpd", "-n", "-q", "-p", "ie.pool.ntp.org", "ca.pool.ntp.org", "au.pool.ntp.org")
 	daemon.logPrintStageStep(out, "busybox ntpd: %v - %s", err, strings.TrimSpace(result))
 
 	daemon.CorrectStartupTime(out)
@@ -102,17 +103,17 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	}
 	daemon.logPrintStage(out, "maintain windows system integrity")
 	// These tools seriously spend a lot of time
-	progOut, err := misc.InvokeProgram(nil, 3*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/ResetBase")
+	progOut, err := platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/ResetBase")
 	daemon.logPrintStageStep(out, "dism StartComponentCleanup: %v - %s", err, progOut)
-	progOut, err = misc.InvokeProgram(nil, 3*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/SPSuperseded")
+	progOut, err = platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/SPSuperseded")
 	daemon.logPrintStageStep(out, "dism SPSuperseded: %v - %s", err, progOut)
-	progOut, err = misc.InvokeProgram(nil, 3*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/Restorehealth")
+	progOut, err = platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/Restorehealth")
 	daemon.logPrintStageStep(out, "dism Restorehealth: %v - %s", err, progOut)
-	progOut, err = misc.InvokeProgram(nil, 3*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
+	progOut, err = platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
 	daemon.logPrintStageStep(out, "sfc ScanNow: %v - %s", err, progOut)
 	// Installation of windows update is kicked off in background by the usoclient command, this way it will not run in parallel to DISM actions above.
 	daemon.logPrintStage(out, "install windows updates in background")
-	progOut, err = misc.InvokeProgram(nil, 10*60, `C:\Windows\system32\usoclient.exe`, "StartInstallWait")
+	progOut, err = platform.InvokeProgram(nil, 10*60, `C:\Windows\system32\usoclient.exe`, "StartInstallWait")
 	daemon.logPrintStageStep(out, "usoclient: %v - %s", err, progOut)
 }
 
@@ -173,11 +174,11 @@ func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
 			return
 		}
 		// Format the swap file
-		if progOut, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "mkswap", SwapFilePath); err != nil {
+		if progOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "mkswap", SwapFilePath); err != nil {
 			daemon.logPrintStageStep(out, "failed to format swap file - %v - %s", err, progOut)
 		}
 		// Turn on the swap file
-		progOut, err := misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "swapon", SwapFilePath)
+		progOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "swapon", SwapFilePath)
 		if err != nil {
 			daemon.logPrintStageStep(out, "failed to turn on swap file - %v - %s", err, progOut)
 		}

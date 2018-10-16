@@ -13,8 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 const (
@@ -61,7 +63,7 @@ const (
 // GetSysInfoText returns system information in human-readable text that is to be displayed on the password web page.
 func GetSysInfoText() string {
 	usedMem, totalMem := misc.GetSystemMemoryUsageKB()
-	usedRoot, freeRoot, totalRoot := misc.GetRootDiskUsageKB()
+	usedRoot, freeRoot, totalRoot := platform.GetRootDiskUsageKB()
 	return fmt.Sprintf(`
 Clock: %s
 Sys/prog uptime: %s / %s
@@ -91,7 +93,7 @@ type WebServer struct {
 	handlerMutex    *sync.Mutex  // handlerMutex prevents concurrent unlocking attempts from being made at once.
 	alreadyUnlocked bool         // alreadyUnlocked is set to true after a successful unlocking attempt has been made
 
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 /*
@@ -141,9 +143,9 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 
 // Start runs the web server and blocks until the server shuts down from a successful unlocking attempt.
 func (ws *WebServer) Start() error {
-	ws.logger = misc.Logger{
+	ws.logger = lalog.Logger{
 		ComponentName: "passwdserver.WebServer",
-		ComponentID:   []misc.LoggerIDField{{"Port", ws.Port}},
+		ComponentID:   []lalog.LoggerIDField{{"Port", ws.Port}},
 	}
 	ws.handlerMutex = new(sync.Mutex)
 	mux := http.NewServeMux()

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
@@ -110,7 +110,7 @@ type Daemon struct {
 
 	stop    chan bool
 	started int32
-	logger  misc.Logger
+	logger  lalog.Logger
 }
 
 func (daemon *Daemon) Initialise() error {
@@ -120,9 +120,9 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 96
 	}
-	daemon.logger = misc.Logger{
+	daemon.logger = lalog.Logger{
 		ComponentName: "sockd",
-		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}},
+		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}},
 	}
 	if daemon.DNSDaemon == nil {
 		return errors.New("sockd.Initialise: dns daemon must be assigned")

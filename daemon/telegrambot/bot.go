@@ -14,6 +14,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -83,14 +84,14 @@ type Daemon struct {
 	userRateLimit *misc.RateLimit // Prevent user from flooding bot with new messages
 	loopIsRunning int32           // Value is 1 only when message loop is running
 	stop          chan bool       // Signal message loop to stop
-	logger        misc.Logger
+	logger        lalog.Logger
 }
 
 func (bot *Daemon) Initialise() error {
 	if bot.PerUserLimit < 1 {
 		bot.PerUserLimit = 2 // reasonable for personal use
 	}
-	bot.logger = misc.Logger{ComponentName: "telegrambot", ComponentID: []misc.LoggerIDField{{"PerUserLimit", bot.PerUserLimit}}}
+	bot.logger = lalog.Logger{ComponentName: "telegrambot", ComponentID: []lalog.LoggerIDField{{"PerUserLimit", bot.PerUserLimit}}}
 	if bot.Processor == nil || bot.Processor.IsEmpty() {
 		return fmt.Errorf("telegrambot.Initialise: command processor and its filters must be configured")
 	}

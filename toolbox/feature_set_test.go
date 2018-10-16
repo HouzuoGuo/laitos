@@ -2,11 +2,13 @@ package toolbox
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // StringContainsAllOf returns an error with detailed message if the input string does not contain all of the substring markers.
@@ -21,7 +23,7 @@ func StringContainsAllOf(s string, markers []Trigger) error {
 
 func TestFeatureSet_SelfTest(t *testing.T) {
 	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
-	misc.PrepareUtilities(misc.Logger{})
+	misc.PrepareUtilities(lalog.Logger{})
 	// Initially, an empty FeatureSet should have four features pre-enabled - shell, environment control, public contacts, RSS.
 	features := FeatureSet{}
 	if err := features.Initialise(); err != nil {

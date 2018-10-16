@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 var (
@@ -24,8 +26,8 @@ var (
 	*/
 	UniversalDecryptionKey []byte
 
-	// logger is used by global actions
-	logger = Logger{ComponentName: "ProcessGlobal", ComponentID: []LoggerIDField{{"PID", os.Getpid()}}}
+	// logger is used by some of the miscellaneous actions affecting laitos process globally.
+	logger = lalog.Logger{ComponentName: "misc", ComponentID: []lalog.LoggerIDField{{"PID", os.Getpid()}}}
 )
 
 /*

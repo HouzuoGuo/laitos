@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"sync"
+
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
@@ -16,10 +18,9 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
-	"sync"
 )
 
 /*
@@ -110,7 +111,7 @@ type Config struct {
 
 	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
 
-	logger                misc.Logger // logger handles log output from configuration serialisation and initialisation routines.
+	logger                lalog.Logger // logger handles log output from configuration serialisation and initialisation routines.
 	maintenanceInit       sync.Once
 	dnsDaemonInit         sync.Once
 	httpDaemonInit        sync.Once
@@ -178,7 +179,7 @@ DeserialiseFromJSON deserialised configuration of all daemons and toolbox featur
 itself for daemon operations.
 */
 func (config *Config) DeserialiseFromJSON(in []byte) error {
-	config.logger = misc.Logger{ComponentName: "Config"}
+	config.logger = lalog.Logger{ComponentName: "Config"}
 	if err := json.Unmarshal(in, config); err != nil {
 		return err
 	}

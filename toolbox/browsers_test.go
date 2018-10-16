@@ -2,12 +2,14 @@ package toolbox
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browser/slimerjs"
-	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/browser/slimerjs"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestBrowserSlimerJS_Execute(t *testing.T) {
@@ -17,7 +19,7 @@ func TestBrowserSlimerJS_Execute(t *testing.T) {
 	// CircleCI container cannot operate docker daemon
 	misc.SkipTestIfCI(t)
 	// Prepare docker operation for SlimerJS
-	slimerjs.PrepareDocker(misc.Logger{})
+	slimerjs.PrepareDocker(lalog.Logger{})
 	bro := BrowserSlimerJS{}
 	if bro.IsConfigured() {
 		t.Fatal("should not be configured")

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -23,19 +24,19 @@ func WriteRand(conn net.Conn) {
 	for i := 0; i < RandNum(1, 2, 3); i++ {
 		randBuf := make([]byte, RandNum(40, 60, 900))
 		if _, err := pseudoRand.Read(randBuf); err != nil {
-			misc.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
+			lalog.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
 			break
 		}
 		conn.SetDeadline(time.Now().Add(time.Duration(RandNum(140, 220, 350)) * time.Millisecond))
 		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
-			misc.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
+			lalog.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
 			break
 		} else {
 			randBytesWritten += n
 		}
 	}
 	if pseudoRand.Intn(100) < 2 {
-		misc.DefaultLogger.Info("sockd.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
+		lalog.DefaultLogger.Info("sockd.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
 	}
 }
 func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
@@ -71,13 +72,13 @@ type TCPDaemon struct {
 	rateLimitTCP *misc.RateLimit
 
 	cipher *Cipher
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 func (daemon *TCPDaemon) Initialise() error {
-	daemon.logger = misc.Logger{
+	daemon.logger = lalog.Logger{
 		ComponentName: "sockd",
-		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}},
+		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}},
 	}
 	daemon.rateLimitTCP = &misc.RateLimit{
 		Logger:   daemon.logger,
@@ -137,10 +138,10 @@ type TCPCipherConnection struct {
 	daemon            *TCPDaemon
 	mutex             sync.Mutex
 	readBuf, writeBuf []byte
-	logger            misc.Logger
+	logger            lalog.Logger
 }
 
-func NewTCPCipherConnection(daemon *TCPDaemon, netConn net.Conn, cip *Cipher, logger misc.Logger) *TCPCipherConnection {
+func NewTCPCipherConnection(daemon *TCPDaemon, netConn net.Conn, cip *Cipher, logger lalog.Logger) *TCPCipherConnection {
 	return &TCPCipherConnection{
 		Conn:     netConn,
 		daemon:   daemon,

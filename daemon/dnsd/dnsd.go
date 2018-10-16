@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -85,7 +86,7 @@ type Daemon struct {
 	allowQueryMutex      *sync.Mutex     // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
 	allowQueryLastUpdate int64           // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
 	rateLimit            *misc.RateLimit // Rate limit counter
-	logger               misc.Logger
+	logger               lalog.Logger
 }
 
 // Check configuration and initialise internal states.
@@ -108,9 +109,9 @@ func (daemon *Daemon) Initialise() error {
 		daemon.Forwarders = make([]string, len(DefaultForwarders))
 		copy(daemon.Forwarders, DefaultForwarders)
 	}
-	daemon.logger = misc.Logger{
+	daemon.logger = lalog.Logger{
 		ComponentName: "dnsd",
-		ComponentID:   []misc.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
+		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
 	}
 	if daemon.AllowQueryIPPrefixes == nil || len(daemon.AllowQueryIPPrefixes) == 0 {
 		return errors.New("DNSD.Initialise: allowable IP prefixes list must not be empty")

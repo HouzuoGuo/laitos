@@ -3,12 +3,13 @@ package toolbox
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 var (
@@ -27,7 +28,7 @@ type SendMail struct {
 	MailClient      inet.MailClient `json:"MailClient"`
 	SOSPersonalInfo string          `json:"SOSPersonalInfo"`
 
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 var TestSendMail = SendMail{} // Details are set by init_feature_test.go
@@ -47,7 +48,7 @@ func (email *SendMail) SelfTest() error {
 }
 
 func (email *SendMail) Initialise() error {
-	email.logger = misc.Logger{ComponentName: "SendMail", ComponentID: []misc.LoggerIDField{{"MailFrom", email.MailClient.MailFrom}}}
+	email.logger = lalog.Logger{ComponentName: "SendMail", ComponentID: []lalog.LoggerIDField{{"MailFrom", email.MailClient.MailFrom}}}
 	return nil
 }
 

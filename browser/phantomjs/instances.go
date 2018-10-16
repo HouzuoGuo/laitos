@@ -3,13 +3,15 @@ package phantomjs
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 /*
@@ -25,14 +27,14 @@ type Instances struct {
 	browserMutex   *sync.Mutex // Protect against concurrent modification to browsers
 	browsers       []*Instance // All browsers
 	browserCounter int         // Increment only counter
-	logger         misc.Logger
+	logger         lalog.Logger
 }
 
 // Check configuration and initialise internal states.
 func (instances *Instances) Initialise() error {
-	instances.logger = misc.Logger{
+	instances.logger = lalog.Logger{
 		ComponentName: "phantomjs.Instances",
-		ComponentID:   []misc.LoggerIDField{{"MaxInst", instances.MaxInstances}, {"MaxLifetime", instances.MaxLifetimeSec}},
+		ComponentID:   []lalog.LoggerIDField{{"MaxInst", instances.MaxInstances}, {"MaxLifetime", instances.MaxLifetimeSec}},
 	}
 	if instances.MaxInstances < 1 {
 		instances.MaxInstances = 5 // reasonable for a few consumers

@@ -1,13 +1,14 @@
 package dnsd
 
 import (
-	"github.com/HouzuoGuo/laitos/misc"
 	"reflect"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 func TestDownloadAllBlacklists(t *testing.T) {
-	names := DownloadAllBlacklists(misc.Logger{})
+	names := DownloadAllBlacklists(lalog.Logger{})
 	if len(names) < 5000 {
 		t.Fatal("number of names is too little")
 	}

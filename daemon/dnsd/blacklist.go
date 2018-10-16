@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 // HostsFileURLs is a collection of URLs where up-to-date ad/malware/spyware blacklist hosts files are published.
@@ -32,7 +32,7 @@ var Whitelist = []string{
 DownloadAllBlacklists attempts to download all hosts files and return combined list of domain names to block.
 The special cases of white listed names are removed from return value.
 */
-func DownloadAllBlacklists(logger misc.Logger) []string {
+func DownloadAllBlacklists(logger lalog.Logger) []string {
 	wg := new(sync.WaitGroup)
 	wg.Add(len(HostsFileURLs))
 

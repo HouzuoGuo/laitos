@@ -2,21 +2,22 @@ package handler
 
 import (
 	"bytes"
+	"net/http"
+
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
-	"net/http"
 )
 
 // HandleSystemInfo inspects system and application environment and returns them in text report.
 type HandleSystemInfo struct {
 	FeaturesToCheck    *toolbox.FeatureSet    `json:"-"` // Health check subject - features and their API keys
 	CheckMailCmdRunner *mailcmd.CommandRunner `json:"-"` // Health check subject - mail processor and its mailer
-	logger             misc.Logger
+	logger             lalog.Logger
 }
 
-func (info *HandleSystemInfo) Initialise(logger misc.Logger, _ *common.CommandProcessor) error {
+func (info *HandleSystemInfo) Initialise(logger lalog.Logger, _ *common.CommandProcessor) error {
 	info.logger = logger
 	return nil
 }

@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const (
@@ -52,11 +54,11 @@ type HandleMicrosoftBot struct {
 	latestJWT             MicrosoftBotJwt // latestJWT is the last retrieved JWT
 	conversationRateLimit *misc.RateLimit // conversationRateLimit prevents excessively chatty conversations from taking place
 
-	logger  misc.Logger
+	logger  lalog.Logger
 	cmdProc *common.CommandProcessor
 }
 
-func (hand *HandleMicrosoftBot) Initialise(logger misc.Logger, cmdProc *common.CommandProcessor) error {
+func (hand *HandleMicrosoftBot) Initialise(logger lalog.Logger, cmdProc *common.CommandProcessor) error {
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	hand.latestJwtMutex = new(sync.Mutex)

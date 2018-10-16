@@ -3,11 +3,12 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"html"
 	"net/http"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const HandleCommandFormPage = `<html>
@@ -31,7 +32,7 @@ type HandleCommandForm struct {
 	cmdProc *common.CommandProcessor
 }
 
-func (form *HandleCommandForm) Initialise(_ misc.Logger, cmdProc *common.CommandProcessor) error {
+func (form *HandleCommandForm) Initialise(_ lalog.Logger, cmdProc *common.CommandProcessor) error {
 	if cmdProc == nil {
 		return errors.New("HandleCommandForm.Initialise: command processor must not be nil")
 	}

@@ -1,13 +1,15 @@
 package slimerjs
 
 import (
-	"github.com/HouzuoGuo/laitos/browser/phantomjs"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestInteractiveBrowser(t *testing.T) {
@@ -31,7 +33,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	}
 	defer instance.Kill()
 	// Prepare docker operation for SlimerJS
-	PrepareDocker(misc.Logger{})
+	PrepareDocker(lalog.Logger{})
 
 	// Browse distrowatch home page
 	if err := instance.GoTo(phantomjs.GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
@@ -103,7 +105,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 	}
 	defer instance.Kill()
 	// Prepare docker operation for SlimerJS
-	PrepareDocker(misc.Logger{})
+	PrepareDocker(lalog.Logger{})
 	// Browse distrowatch home page
 	if err := instance.GoTo(phantomjs.GoodUserAgent, "https://distrowatch.com/", 1024, 1024); err != nil {
 		t.Fatal(err, instance.GetDebugOutput())

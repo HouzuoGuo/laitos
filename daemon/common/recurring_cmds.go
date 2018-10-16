@@ -2,10 +2,11 @@ package common
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const (
@@ -33,10 +34,10 @@ type RecurringCommands struct {
 		During trigger, these commands are executed after the pre-configured commands.
 	*/
 	transientCommands []string
-	results           *misc.RingBuffer // results are the most recent command results and test messages to retrieve.
-	mutex             sync.Mutex       // mutex prevents concurrent access to internal structures.
-	running           bool             // running becomes true when command processing loop is running
-	stop              chan struct{}    // stop channel signals Run function to return soon.
+	results           *lalog.RingBuffer // results are the most recent command results and test messages to retrieve.
+	mutex             sync.Mutex        // mutex prevents concurrent access to internal structures.
+	running           bool              // running becomes true when command processing loop is running
+	stop              chan struct{}     // stop channel signals Run function to return soon.
 }
 
 // Initialise prepares internal states of a new RecurringCommands.
@@ -50,7 +51,7 @@ func (cmds *RecurringCommands) Initialise() error {
 	if cmds.PreConfiguredCommands == nil {
 		cmds.PreConfiguredCommands = []string{}
 	}
-	cmds.results = misc.NewRingBuffer(int64(cmds.MaxResults))
+	cmds.results = lalog.NewRingBuffer(int64(cmds.MaxResults))
 	cmds.transientCommands = make([]string, 0, 10)
 	cmds.stop = make(chan struct{})
 	return nil
@@ -118,12 +119,12 @@ If Start function is already running, calling it a second time will do nothing a
 func (cmds *RecurringCommands) Start() {
 	cmds.mutex.Lock()
 	if cmds.running {
-		misc.DefaultLogger.Warning("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "starting an already started RecurringCommands becomes a nop")
+		lalog.DefaultLogger.Warning("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "starting an already started RecurringCommands becomes a nop")
 		cmds.mutex.Unlock()
 		return
 	}
 	cmds.mutex.Unlock()
-	misc.DefaultLogger.Info("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "command execution now starts")
+	lalog.DefaultLogger.Info("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "command execution now starts")
 	for {
 		cmds.running = true
 		select {
@@ -146,7 +147,7 @@ func (cmds *RecurringCommands) Stop() {
 		cmds.running = false
 	}
 	cmds.mutex.Unlock()
-	misc.DefaultLogger.Info("RecurringCommands.Stop", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "stopped on request")
+	lalog.DefaultLogger.Info("RecurringCommands.Stop", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "stopped on request")
 }
 
 // AddArbitraryTextToResult simply places an arbitrary text string into result.

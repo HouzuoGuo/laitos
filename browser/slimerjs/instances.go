@@ -3,12 +3,15 @@ package slimerjs
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 const (
@@ -30,14 +33,14 @@ type Instances struct {
 	browserMutex   *sync.Mutex // Protect against concurrent modification to browsers
 	browsers       []*Instance // All browsers
 	browserCounter int         // Increment only counter
-	logger         misc.Logger
+	logger         lalog.Logger
 }
 
 // Check configuration and initialise internal states.
 func (instances *Instances) Initialise() error {
-	instances.logger = misc.Logger{
+	instances.logger = lalog.Logger{
 		ComponentName: "slimerjs.Instances",
-		ComponentID:   []misc.LoggerIDField{{"MaxInst", instances.MaxInstances}, {"MaxLifetime", instances.MaxLifetimeSec}},
+		ComponentID:   []lalog.LoggerIDField{{"MaxInst", instances.MaxInstances}, {"MaxLifetime", instances.MaxLifetimeSec}},
 	}
 	if instances.MaxInstances < 1 {
 		instances.MaxInstances = 5 // reasonable for a few consumers
@@ -59,20 +62,20 @@ func (instances *Instances) Initialise() error {
 PrepareDocker starts docker daemon, ensures that docker keeps running, and pulls the docker image for SlimerJS. The
 routine requires root privilege to run and is tailored for a Linux container host.
 */
-func PrepareDocker(logger misc.Logger) {
+func PrepareDocker(logger lalog.Logger) {
 	if !misc.EnableStartDaemon("docker") {
 		logger.Info("PrepareDocker", "", nil, "failed to enable/start docker daemon")
 		// Nevertheless, move on, hoping that docker is actually functional.
 	}
 	// Download the SlimerJS docker image
 	logger.Info("PrepareDocker", "", nil, "pulling %s", SlimerJSImageTag)
-	out, err := misc.InvokeProgram(nil, 1800, "docker", "pull", SlimerJSImageTag)
+	out, err := platform.InvokeProgram(nil, 1800, "docker", "pull", SlimerJSImageTag)
 	logger.Info("PrepareDocker", "", nil, "image pulling result: %v - %s", err, out)
 	// Turn on ip forwarding so that docker containers will have access to the Internet
-	out, err = misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "sysctl", "-w", "net.ipv4.ip_forward=1")
+	out, err = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "sysctl", "-w", "net.ipv4.ip_forward=1")
 	logger.Info("PrepareDocker", "", nil, "enable ip forwarding result: %v - %s", err, out)
 	// Disable selinux as it interferes with docker directory mapping
-	out, err = misc.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "setenforce", "0")
+	out, err = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "setenforce", "0")
 	logger.Info("PrepareDocker", "", nil, "disable selinux result: %v - %s", err, out)
 	err = ioutil.WriteFile("/etc/selinux/config", []byte("SELINUX=disabled\nSELINUXTYPE=minimum\n"), 0600)
 	logger.Info("PrepareDocker", "", nil, "disable selinux via config result: %v", err)

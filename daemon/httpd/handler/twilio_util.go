@@ -3,9 +3,10 @@ package handler
 import (
 	"bytes"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
 	"strings"
 	"unicode"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 var DTMFDecodeTable = map[string]string{
@@ -92,7 +93,7 @@ func DTMFDecode(digits string) string {
 		} else {
 			decoded, found := DTMFDecodeTable[seq]
 			if !found {
-				misc.DefaultLogger.Warning("DTMFDecode", "", nil, "failed to decode sequence - %s", seq)
+				lalog.DefaultLogger.Warning("DTMFDecode", "", nil, "failed to decode sequence - %s", seq)
 				continue
 			}
 			if shift {

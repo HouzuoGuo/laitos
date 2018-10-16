@@ -4,12 +4,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 )
 
 const (
@@ -43,11 +45,11 @@ type CommandProcessor struct {
 	CommandFilters []filter.CommandFilter // CommandFilters are applied one by one to alter input command content and/or timeout.
 	ResultFilters  []filter.ResultFilter  // ResultFilters are applied one by one to alter command execution result.
 
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 // SetLogger assigns a logger to command processor and all of its filters.
-func (proc *CommandProcessor) SetLogger(logger misc.Logger) {
+func (proc *CommandProcessor) SetLogger(logger lalog.Logger) {
 	proc.logger = logger
 	for _, b := range proc.ResultFilters {
 		b.SetLogger(logger)

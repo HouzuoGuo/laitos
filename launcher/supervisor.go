@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -94,21 +95,21 @@ type Supervisor struct {
 	// shedSequence is the sequence at which daemon shedding takes place. Each latter array has one daemon less than the previous.
 	shedSequence [][]string
 	// mainStdout forwards verbatim main program output to stdout and keeps latest several KB for notification.
-	mainStdout *misc.ByteLogWriter
+	mainStdout *lalog.ByteLogWriter
 	// mainStderr forwards verbatim main program output to stdout and keeps latest several KB for notification.
-	mainStderr *misc.ByteLogWriter
+	mainStderr *lalog.ByteLogWriter
 
-	logger misc.Logger
+	logger lalog.Logger
 }
 
 // initialise prepares internal states. This function is called at beginning of Start function.
 func (sup *Supervisor) initialise() {
-	sup.logger = misc.Logger{
+	sup.logger = lalog.Logger{
 		ComponentName: "Supervisor",
-		ComponentID:   []misc.LoggerIDField{{"PID", os.Getpid()}, {"Daemons", sup.DaemonNames}},
+		ComponentID:   []lalog.LoggerIDField{{"PID", os.Getpid()}, {"Daemons", sup.DaemonNames}},
 	}
-	sup.mainStderr = misc.NewByteLogWriter(os.Stderr, MemoriseOutputCapacity)
-	sup.mainStdout = misc.NewByteLogWriter(os.Stdout, MemoriseOutputCapacity)
+	sup.mainStderr = lalog.NewByteLogWriter(os.Stderr, MemoriseOutputCapacity)
+	sup.mainStdout = lalog.NewByteLogWriter(os.Stdout, MemoriseOutputCapacity)
 	// Remove daemon names from CLI flags, because they will be appended by GetLaunchParameters.
 	sup.CLIFlags = RemoveFromFlags(func(s string) bool {
 		return strings.HasPrefix(s, "-"+DaemonsFlagName)
