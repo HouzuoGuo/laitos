@@ -113,7 +113,7 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	daemon.logPrintStageStep(out, "sfc ScanNow: %v - %s", err, progOut)
 	daemon.logPrintStage(out, "install windows updates")
 	// Have to borrow script host's capability to search and installwindows updates
-	script, err := ioutil.TempFile("", "laitos-windows-update-script")
+	script, err := ioutil.TempFile("", "laitos-windows-update-script*.vbs")
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to create update script: %v", err)
 		return
