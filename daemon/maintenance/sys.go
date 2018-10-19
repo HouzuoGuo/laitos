@@ -111,10 +111,70 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	daemon.logPrintStageStep(out, "dism Restorehealth: %v - %s", err, progOut)
 	progOut, err = platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
 	daemon.logPrintStageStep(out, "sfc ScanNow: %v - %s", err, progOut)
-	// Installation of windows update is kicked off in background by the usoclient command, this way it will not run in parallel to DISM actions above.
-	daemon.logPrintStage(out, "install windows updates in background")
-	progOut, err = platform.InvokeProgram(nil, 10*60, `C:\Windows\system32\usoclient.exe`, "StartInstallWait")
-	daemon.logPrintStageStep(out, "usoclient: %v - %s", err, progOut)
+	daemon.logPrintStage(out, "install windows updates")
+	// Have to borrow script host's capability to search and installwindows updates
+	script, err := ioutil.TempFile("", "laitos-windows-update-script")
+	if err != nil {
+		daemon.logPrintStageStep(out, "failed to create update script: %v", err)
+		return
+	}
+	defer os.Remove(script.Name())
+	script.Close()
+	err = ioutil.WriteFile(script.Name(), []byte(`
+Set updateSession = CreateObject("Microsoft.Update.Session")
+updateSession.ClientApplicationID = "laitos"
+Set searchResult = updateSession.CreateUpdateSearcher().Search("IsInstalled=0 and Type='Software' and IsHidden=0")
+If searchResult.Updates.Count = 0 Then
+    WScript.Echo "Already up to date"
+    WScript.Quit
+End If
+Set updatesToDownload = CreateObject("Microsoft.Update.UpdateColl")
+For I = 0 to searchResult.Updates.Count-1
+    Set update = searchResult.Updates.Item(I)
+    addThisUpdate = false
+    If update.InstallationBehavior.CanRequestUserInput = true Then
+        WScript.Echo I + 1 & "> skipping: " & update.Title
+    Else
+        If update.EulaAccepted = false Then
+            update.AcceptEula()
+        End If
+        updatesToDownload.Add(update)
+    End If
+Next
+If updatesToDownload.Count = 0 Then
+    WScript.Echo "Nothing to install - all updates require user interaction"
+    WScript.Quit
+End If
+Set downloader = updateSession.CreateUpdateDownloader()
+downloader.Updates = updatesToDownload
+downloader.Download()
+Set updatesToInstall = CreateObject("Microsoft.Update.UpdateColl")
+For I = 0 To searchResult.Updates.Count-1
+    set update = searchResult.Updates.Item(I)
+    If update.IsDownloaded = true Then
+        updatesToInstall.Add(update)
+    End If
+Next
+If updatesToInstall.Count = 0 Then
+    WScript.Echo "Failed to download updates"
+    WScript.Quit
+End If
+Set installer = updateSession.CreateUpdateInstaller()
+installer.Updates = updatesToInstall
+Set installationResult = installer.Install()
+WScript.Echo "Installation result: " & installationResult.ResultCode
+WScript.Echo "Reboot required: " & installationResult.RebootRequired & vbCRLF
+WScript.Echo "Individual installation result:"
+For I = 0 to updatesToInstall.Count - 1
+		WScript.Echo I + 1 & "> " & updatesToInstall.Item(i).Title & ": " & installationResult.GetUpdateResult(i).ResultCode
+Next
+`), 0600)
+	if err != nil {
+		daemon.logPrintStageStep(out, "failed to write update script: %v", err)
+		return
+	}
+	progOut, err = platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\cscript.exe`, script.Name())
+	daemon.logPrintStageStep(out, "windows update result: %v - %s", err, progOut)
 }
 
 // MaintainSwapFile creates and activates a swap file for Linux system, or turns swap off depending on configuration input.
