@@ -194,8 +194,8 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"gnutls", "icu", "intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libXfont", "libbz2-1",
 		"libbz2-1.0", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
 		"liberation2-fonts", "libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libicu", "libicu57", "libicu60_2",
-		"libpng", "libpng16-16", "nss", "openssl", "ttf-dejavu", "ttf-freefont", "ttf-liberation", "wqy-zenhei", "xorg-x11-font-utils",
-		"xorg-x11-fonts-Type1", "zlib", "zlib1g",
+		"libpng", "libpng16-16", "nss", "openssl", "ttf-dejavu", "ttf-freefont", "ttf-liberation", "wqy-zenhei", "xfonts-utils",
+		"xorg-x11-font-utils", "xorg-x11-fonts-Type1", "zlib", "zlib1g",
 
 		// Time maintenance utilities
 		"ntp", "ntpd", "ntpdate",
