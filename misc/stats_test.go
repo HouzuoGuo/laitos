@@ -32,4 +32,7 @@ func TestStats(t *testing.T) {
 	if str := s.Format(10, 2); str != "0.10/0.40/0.90,1.20(3)" {
 		t.Fatalf(str)
 	}
+	if s.Count() != 3 {
+		t.Fatal(s.Count())
+	}
 }

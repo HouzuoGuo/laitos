@@ -37,6 +37,11 @@ func (s *Stats) Trigger(qty float64) {
 	s.mutex.Unlock()
 }
 
+// Count returns the verbatim counter value, that is the number of times some action has triggered.
+func (s *Stats) Count() int {
+	return int(s.count)
+}
+
 // Format returns all stats formatted into a single line of string after the numbers (excluding counter) are divided by the factor.
 func (s *Stats) Format(divisionFactor float64, numDecimals int) string {
 	format := fmt.Sprintf("%%.%df/%%.%df/%%.%df,%%.%df(%%d)", numDecimals, numDecimals, numDecimals, numDecimals)
