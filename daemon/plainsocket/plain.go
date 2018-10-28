@@ -40,7 +40,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.logger = lalog.Logger{
 		ComponentName: "plainsocket",
-		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
+		ComponentID:   []lalog.LoggerIDField{{"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		return fmt.Errorf("plainsocket.Initialise: command processor and its filters must be configured")

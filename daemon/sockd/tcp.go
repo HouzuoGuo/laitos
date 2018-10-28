@@ -78,7 +78,7 @@ type TCPDaemon struct {
 func (daemon *TCPDaemon) Initialise() error {
 	daemon.logger = lalog.Logger{
 		ComponentName: "sockd",
-		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}},
+		ComponentID:   []lalog.LoggerIDField{{"TCP", daemon.TCPPort}},
 	}
 	daemon.rateLimitTCP = &misc.RateLimit{
 		Logger:   daemon.logger,

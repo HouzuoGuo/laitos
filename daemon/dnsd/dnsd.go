@@ -111,7 +111,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.logger = lalog.Logger{
 		ComponentName: "dnsd",
-		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
+		ComponentID:   []lalog.LoggerIDField{{"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
 	}
 	if daemon.AllowQueryIPPrefixes == nil || len(daemon.AllowQueryIPPrefixes) == 0 {
 		return errors.New("DNSD.Initialise: allowable IP prefixes list must not be empty")

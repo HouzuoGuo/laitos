@@ -48,7 +48,7 @@ func (email *SendMail) SelfTest() error {
 }
 
 func (email *SendMail) Initialise() error {
-	email.logger = lalog.Logger{ComponentName: "sendmail", ComponentID: []lalog.LoggerIDField{{"MailFrom", email.MailClient.MailFrom}}}
+	email.logger = lalog.Logger{ComponentName: "sendmail", ComponentID: []lalog.LoggerIDField{{"From", email.MailClient.MailFrom}}}
 	return nil
 }
 

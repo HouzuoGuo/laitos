@@ -75,7 +75,7 @@ type UDPDaemon struct {
 func (daemon *UDPDaemon) Initialise() error {
 	daemon.logger = lalog.Logger{
 		ComponentName: "sockd",
-		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}, {"UDP", daemon.UDPPort}},
+		ComponentID:   []lalog.LoggerIDField{{"UDP", daemon.UDPPort}},
 	}
 	daemon.rateLimitUDP = &misc.RateLimit{
 		Logger:   daemon.logger,

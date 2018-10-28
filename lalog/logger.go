@@ -9,8 +9,13 @@ import (
 )
 
 const (
-	NumLatestLogEntries = 256  // Keep this number of latest log entries in memory
-	MaxLogMessageLen    = 2048 // Truncate long log messages to this length
+	/*
+		NumLatestLogEntries is the number of latest log entries to memorise. They are presented in information HTTP
+		endpoint as well as system maintenance report for a glance.
+	*/
+	NumLatestLogEntries = 128
+	// MaxLogMessageLen is the maximum length memorised for each of the latest log entries.
+	MaxLogMessageLen = 1024
 )
 
 var LatestLogs = NewRingBuffer(NumLatestLogEntries)     // Keep latest log entry of all kinds in the buffer
