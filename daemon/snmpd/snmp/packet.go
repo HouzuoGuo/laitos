@@ -233,11 +233,6 @@ func (packet *Packet) Encode() (ret []byte, err error) {
 		if err != nil {
 			return
 		}
-	case GetNextResponse:
-		subsequentContent, err = st.Encode()
-		if err != nil {
-			return
-		}
 	default:
 		err = errors.New("programming mistake - it will not encode a request")
 		return
@@ -281,34 +276,6 @@ func ReadGetRequest(in []byte) (req GetRequest, err error) {
 	}
 	// Requested OID is right there, there are no prefix bytes leading to it.
 	_, err = asn1.Unmarshal(in[4:], &req.RequestedOID)
-	return
-}
-
-// GetNextRequest describes an answer toward GetNextRequest.
-type GetNextResponse struct {
-	// ResponseOIDs are the sensible subsequent OIDs.
-	ResponseOIDs []asn1.ObjectIdentifier
-}
-
-// Encode encodes the response into a byte array as answer toward a GetNextRequest.
-func (resp GetNextResponse) Encode() (ret []byte, err error) {
-	ret = make([]byte, 4)
-	lenItems := 0
-	for _, oid := range resp.ResponseOIDs {
-		respOIDBytes, err := asn1.Marshal(oid)
-		if err != nil {
-			return []byte{}, nil
-		}
-		lenItems += len(respOIDBytes)
-		ret = append(ret, respOIDBytes...)
-	}
-
-	// ASN.1, size of items + 2
-	ret[0] = 0x30
-	ret[1] = byte(2 + lenItems)
-	// ASN.1, size of items
-	ret[2] = 0x30
-	ret[3] = byte(lenItems)
 	return
 }
 

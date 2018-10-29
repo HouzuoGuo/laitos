@@ -66,11 +66,6 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
 func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAddr, packet []byte) {
-	listener := daemon.udpListener
-	if listener == nil {
-		daemon.logger.Warning("HandleUDPConnection", clientIP, nil, "listener is closed before request can be processed")
-		return
-	}
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {

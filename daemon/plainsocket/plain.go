@@ -16,7 +16,7 @@ const (
 	RateLimitIntervalSec = 1                // Rate limit is calculated at 1 second interval
 )
 
-// Daemon provides to features via plain unencrypted TCP and UDP connections.
+// Daemon provides to all features via plain unencrypted TCP and UDP.
 type Daemon struct {
 	Address    string                   `json:"Address"`    // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
 	TCPPort    int                      `json:"TCPPort"`    // TCP port to listen on
@@ -30,7 +30,7 @@ type Daemon struct {
 	logger      lalog.Logger    // logger
 }
 
-// Check configuration and initialise internal states.
+// Initialise validates configuration and initialises internal states.
 func (daemon *Daemon) Initialise() error {
 	if daemon.Address == "" {
 		daemon.Address = "0.0.0.0"
@@ -62,10 +62,7 @@ func (daemon *Daemon) Initialise() error {
 	return nil
 }
 
-/*
-You may call this function only after having called Initialise()!
-Start plain text service on configured TCP and UDP ports. Block caller.
-*/
+// StartAndBLock starts both TCP and UDP listeners. You may call this function only after having called Initialise().
 func (daemon *Daemon) StartAndBlock() error {
 	numListeners := 0
 	errChan := make(chan error, 2)

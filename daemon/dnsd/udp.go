@@ -118,7 +118,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 	}
 }
 
-// Run unit tests on DNS UDP daemon. See TestDNSD_StartAndBlockUDP for daemon setup.
+// Run unit tests on DNS UDP daemon. See TestDNSD for daemon setup.
 func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 	if misc.HostIsWindows() {
 		// FIXME: fix this test case for Windows

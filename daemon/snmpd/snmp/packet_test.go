@@ -46,11 +46,9 @@ func TestGetNext(t *testing.T) {
 		0x0a,
 	}
 	p.PDU = PDUGetResponse
-	p.Structure = GetNextResponse{
-		ResponseOIDs: []asn1.ObjectIdentifier{
-			{1, 3, 6, 1, 2, 1, 1, 2, 0},
-			{1, 3, 6, 1, 4, 1, 8072, 3, 2, 10},
-		},
+	p.Structure = GetResponse{
+		RequestedOID: asn1.ObjectIdentifier{1, 3, 6, 1, 2, 1, 1, 2, 0},
+		Value:        asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 8072, 3, 2, 10},
 	}
 	encodedResp, err := p.Encode()
 	if err != nil || !reflect.DeepEqual(encodedResp, respBytes) {
@@ -174,4 +172,8 @@ func TestGet(t *testing.T) {
 		fmt.Printf("\n%+v\n%+v\n%+v\n", err, encodedResp, respBytes)
 		t.Fatal()
 	}
+}
+
+func TestASN(t *testing.T) {
+	t.Log(asn1.Marshal([]byte("abc")))
 }
