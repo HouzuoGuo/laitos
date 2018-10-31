@@ -37,8 +37,6 @@ var ErrBadPLT = errors.New(PrefixCommandPLT + " P L T command")
 // RegexCommandWithPLT parses PLT magic parameters position, length, and timeout, all of which are integers.
 var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`)
 
-var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all commands executed.
-
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
 	Features       *toolbox.FeatureSet    // Features is the aggregation of initialised toolbox feature routines.
@@ -141,7 +139,7 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command, runResultFilters bool
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		CommandStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	// Do not execute a command if global lock down is effective
 	if misc.EmergencyLockDown {

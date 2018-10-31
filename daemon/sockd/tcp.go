@@ -12,12 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
-
-var TCPDurationStats = misc.NewStats()
 
 func WriteRand(conn net.Conn) {
 	randBytesWritten := 0
@@ -284,7 +283,7 @@ func (conn *TCPCipherConnection) WriteRandAndClose() {
 func (conn *TCPCipherConnection) HandleTCPConnection() {
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		TCPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.SOCKDStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	remoteAddr := conn.RemoteAddr().String()
 	destIP, destNoPort, destWithPort, err := conn.ParseRequest()

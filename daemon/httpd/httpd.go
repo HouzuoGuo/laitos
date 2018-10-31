@@ -105,7 +105,7 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 				Hence the status code here is OK.
 			*/
 			w.Write([]byte(misc.ErrEmergencyLockDown.Error()))
-			handler.DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+			common.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			return
 		}
 		// Check client IP against rate limit
@@ -116,7 +116,7 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
 		}
-		handler.DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}
 }
 

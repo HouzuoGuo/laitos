@@ -3,22 +3,22 @@ package dnsd
 import (
 	"bytes"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
 	"math/rand"
 	"net"
 	"strconv"
 	"strings"
 	"time"
-)
 
-var UDPDurationStats = misc.NewStats() // UDPDurationStats stores statistics of duration of all UDP DNS queries.
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
+)
 
 func (daemon *Daemon) handleUDPQuery(queryPacket []byte, client *net.UDPAddr) {
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.DNSDStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	clientIP := client.IP.String()
 

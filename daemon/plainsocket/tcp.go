@@ -10,13 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
 )
-
-var TCPDurationStats = misc.NewStats() // TCPDurationStats stores statistics of duration of all TCP conversations.
 
 /*
 You may call this function only after having called Initialise()!
@@ -51,7 +50,7 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		TCPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.PlainSocketStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()

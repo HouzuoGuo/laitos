@@ -15,6 +15,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
+	"github.com/HouzuoGuo/laitos/daemon/snmpd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"github.com/HouzuoGuo/laitos/inet"
@@ -104,6 +105,8 @@ type Config struct {
 
 	SockDaemon *sockd.Daemon `json:"SockDaemon"` // Intentionally undocumented
 
+	SNMPDaemon *snmpd.Daemon `json:"SNMPDaemon"` // SNMPDaemon configuration and instance
+
 	TelegramBot     *telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
 	TelegramFilters StandardFilters     `json:"TelegramFilters"` // Telegram bot filter configuration
 
@@ -114,6 +117,7 @@ type Config struct {
 	logger                lalog.Logger // logger handles log output from configuration serialisation and initialisation routines.
 	maintenanceInit       sync.Once
 	dnsDaemonInit         sync.Once
+	snmpDaemonInit        sync.Once
 	httpDaemonInit        sync.Once
 	mailCommandRunnerInit sync.Once
 	mailDaemonInit        sync.Once
@@ -198,6 +202,17 @@ func (config *Config) GetDNSD() *dnsd.Daemon {
 		}
 	})
 	return config.DNSDaemon
+}
+
+// GetSNMPD initialises SNMP daemon instance and returns it.
+func (config *Config) GetSNMPD() *snmpd.Daemon {
+	config.snmpDaemonInit.Do(func() {
+		if err := config.SNMPDaemon.Initialise(); err != nil {
+			config.logger.Abort("GetSNMP", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.SNMPDaemon
 }
 
 // GetMaintenance constructs a system maintenance / health check daemon from configuration and return.

@@ -11,6 +11,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
+	"github.com/HouzuoGuo/laitos/daemon/snmpd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 )
@@ -226,6 +227,10 @@ var sampleConfigJSON = `
       ]
     }
   },
+	"SNMPDaemon": {
+		"CommunityName": "public",
+		"Port": 10011
+	},
   "SockDaemon": {
     "Address": "127.0.0.1",
     "Password": "1234567",
@@ -301,6 +306,8 @@ func TestConfig(t *testing.T) {
 	plainsocket.TestUDPServer(config.GetPlainSocketDaemon(), t)
 
 	sockd.TestSockd(config.GetSockDaemon(), t)
+
+	snmpd.TestSNMPD(config.GetSNMPD(), t)
 
 	telegrambot.TestTelegramBot(config.GetTelegramBot(), t)
 

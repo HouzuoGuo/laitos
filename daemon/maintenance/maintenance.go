@@ -11,16 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
-	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
-	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
-	"github.com/HouzuoGuo/laitos/daemon/sockd"
-	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -98,37 +91,6 @@ type Daemon struct {
 	loopIsRunning int32     // Value is 1 only when maintenance loop is running
 	stop          chan bool // Signal maintenance loop to stop
 	logger        lalog.Logger
-}
-
-/*
-GetLatestStats returns statistic information from all front-end daemons, each on their own line.
-Due to inevitable cyclic import, this function is defined twice, once in handler.go of handler package, the other in
-maintenance.go of maintenance package.
-*/
-func GetLatestStats() string {
-	numDecimals := 2
-	factor := 1000000000.0
-	return fmt.Sprintf(`Web and bot commands: %s
-DNS server  TCP|UDP:  %s | %s
-Web servers:          %s
-Mail commands:        %s
-Text server TCP|UDP:  %s | %s
-Mail server:          %s
-Sock server TCP|UDP:  %s | %s
-Telegram commands:    %s
-Auto-unlock events:   %s
-Outstanding mails:    %d KB
-`,
-		common.DurationStats.Format(factor, numDecimals),
-		dnsd.TCPDurationStats.Format(factor, numDecimals), dnsd.UDPDurationStats.Format(factor, numDecimals),
-		handler.DurationStats.Format(factor, numDecimals),
-		mailcmd.DurationStats.Format(factor, numDecimals),
-		plainsocket.TCPDurationStats.Format(factor, numDecimals), plainsocket.UDPDurationStats.Format(factor, numDecimals),
-		smtpd.DurationStats.Format(factor, numDecimals),
-		sockd.TCPDurationStats.Format(factor, numDecimals), sockd.UDPDurationStats.Format(factor, numDecimals),
-		telegrambot.DurationStats.Format(factor, numDecimals),
-		autounlock.UnlockStats.Format(factor, numDecimals),
-		inet.OutstandingMailBytes/1024)
 }
 
 // runPortsCheck knocks on TCP ports that are to be checked in parallel, it returns an error if any of the ports fails to connect.
@@ -221,7 +183,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	}
 	result.WriteString(toolbox.GetRuntimeInfo())
 	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
-	result.WriteString(GetLatestStats())
+	result.WriteString(common.GetLatestStats())
 	if portsErr == nil {
 		result.WriteString("\nPorts: OK\n")
 	} else {

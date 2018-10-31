@@ -34,8 +34,6 @@ const (
 	PollIntervalSecMax = 5
 )
 
-var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all chat conversations served.
-
 // Telegram API entity - user
 type APIUser struct {
 	ID        int64  `json:"id"`
@@ -169,7 +167,7 @@ func (bot *Daemon) ProcessMessages(updates APIUpdates) {
 			if err := bot.ReplyTo(ding.Message.Chat.ID, result.CombinedOutput); err != nil {
 				bot.logger.Warning("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
 			}
-			DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+			common.TelegramBotStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 		}(ding, beginTimeNano)
 	}
 }

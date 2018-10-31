@@ -19,8 +19,6 @@ import (
 
 const CommandTimeoutSec = 120 // CommandTimeoutSec is the default command timeout in seconds
 
-var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all processed mails.
-
 /*
 CommandRunner looks for exactly one feature command from an incoming mail, runs it and reply the sender with command
 results. Usually used in combination of laitos' own SMTP daemon, but it can also work independently with another MTA
@@ -119,7 +117,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.MailCommandStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	if misc.EmergencyLockDown {
 		return misc.ErrEmergencyLockDown

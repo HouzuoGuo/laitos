@@ -31,7 +31,7 @@ func (info *HandleSystemInfo) Handle(w http.ResponseWriter, r *http.Request) {
 	result.WriteString(toolbox.GetRuntimeInfo())
 	// Latest stats
 	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
-	result.WriteString(GetLatestStats())
+	result.WriteString(common.GetLatestStats())
 	// Warnings, logs, and stack traces, in that order.
 	result.WriteString("\nWarnings:\n")
 	result.WriteString(toolbox.GetLatestWarnings())

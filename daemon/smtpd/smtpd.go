@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/smtp"
 	"github.com/HouzuoGuo/laitos/inet"
@@ -23,8 +24,6 @@ const (
 	IOTimeoutSec          = 60  // IO timeout for both read and write operations
 	MaxConversationLength = 256 // Only converse up to this number of exchanges in an SMTP connection
 )
-
-var DurationStats = misc.NewStats() // DurationStats stores statistics of duration of all SMTP conversations.
 
 // An SMTP daemon that receives mails addressed to its domain name, and optionally forward the received mails to other addresses.
 type Daemon struct {
@@ -171,7 +170,7 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	// Put conversation duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.SMTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()

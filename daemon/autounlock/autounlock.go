@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -31,8 +32,6 @@ const (
 	// PasswordInputName is the HTML element name that accepts password input.
 	PasswordInputName = "password"
 )
-
-var UnlockStats = misc.NewStats() // UnlockStats stores statistics of duration of data unlocking events.
 
 /*
 Daemon periodically probes URLs where laitos password input servers ("passwdserver") are located in order to unlock
@@ -97,7 +96,7 @@ func (daemon *Daemon) StartAndBlock() error {
 					} else {
 						daemon.logger.Warning("StartAndBlock", "", nil, "successfully unlocked domain %s, response is: %s", parsedURL.Host, submitResp.GetBodyUpTo(1024))
 					}
-					UnlockStats.Trigger(float64(time.Now().UnixNano() - begin))
+					common.AutoUnlockStats.Trigger(float64(time.Now().UnixNano() - begin))
 				}
 			}
 		}

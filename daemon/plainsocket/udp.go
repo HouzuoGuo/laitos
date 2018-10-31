@@ -4,23 +4,23 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
-	"github.com/HouzuoGuo/laitos/toolbox"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"io"
 	"net"
 	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
+	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 )
 
 const (
 	MaxPacketSize = 9038 // Maximum acceptable UDP packet size
 )
-
-var UDPDurationStats = misc.NewStats() // UDPDurationStats stores statistics of duration of all UDP conversations.
 
 /*
 You may call this function only after having called Initialise()!
@@ -69,7 +69,7 @@ func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAd
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.PlainSocketStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
 	daemon.logger.Info("HandleUDPConnection", clientIP, nil, "working on the connection")

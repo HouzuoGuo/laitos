@@ -26,6 +26,7 @@ const (
 	MaintenanceName   = "maintenance"
 	PlainSocketName   = "plainsocket"
 	SMTPDName         = "smtpd"
+	SNMPDName         = "snmpd"
 	SOCKDName         = "sockd"
 	TelegramName      = "telegram"
 	AutoUnlockName    = "autounlock"
@@ -42,10 +43,10 @@ const (
 )
 
 // AllDaemons is an unsorted list of string daemon names.
-var AllDaemons = []string{DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, PlainSocketName, SMTPDName, SOCKDName, TelegramName, AutoUnlockName}
+var AllDaemons = []string{DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, SNMPDName, PlainSocketName, SMTPDName, SOCKDName, TelegramName, AutoUnlockName}
 
 // ShedOrder is the sequence of daemon names to be taken offline one after another in case of program crash.
-var ShedOrder = []string{MaintenanceName, DNSDName, SOCKDName, SMTPDName, HTTPDName, InsecureHTTPDName, PlainSocketName, TelegramName, AutoUnlockName}
+var ShedOrder = []string{MaintenanceName, DNSDName, SOCKDName, SNMPDName, SMTPDName, HTTPDName, InsecureHTTPDName, PlainSocketName, TelegramName, AutoUnlockName}
 
 /*
 RemoveFromFlags removes CLI flag from input flags base on a condition function (true to remove). The input flags must

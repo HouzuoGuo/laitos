@@ -2,15 +2,13 @@ package snmp
 
 import (
 	"encoding/asn1"
-	"github.com/HouzuoGuo/laitos/daemon/autounlock"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
-	"github.com/HouzuoGuo/laitos/daemon/smtpd"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"runtime"
 	"sort"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 /*
@@ -56,19 +54,19 @@ var (
 		},
 		/// 1.3.6.1.4.1.52535.121.110 Integer - number of command execution attempts
 		110: func() interface{} {
-			return int64(common.DurationStats.Count())
+			return int64(common.CommandStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.111 Integer - number of web server requests processed
 		111: func() interface{} {
-			return int64(handler.DurationStats.Count())
+			return int64(common.HTTPDStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.112 Integer - number of SMTP conversations
 		112: func() interface{} {
-			return int64(smtpd.DurationStats.Count())
+			return int64(common.SMTPDStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.114 Integer - number of SMTP conversations
 		114: func() interface{} {
-			return int64(autounlock.UnlockStats.Count())
+			return int64(common.AutoUnlockStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.115 Integer - size of outstanding mails to deliver in bytes
 		115: func() interface{} {

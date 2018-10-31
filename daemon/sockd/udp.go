@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -27,7 +28,6 @@ const (
 var (
 	ErrMalformedUDPPacket = errors.New("received packet is abnormally small")
 	BacklogClearInterval  = 2 * IOTimeoutSec
-	UDPDurationStats      = misc.NewStats()
 )
 
 func MakeUDPRequestHeader(addr net.Addr) ([]byte, int) {
@@ -288,7 +288,7 @@ func (conn *UDPCipherConnection) WriteRand(dest net.Addr) {
 func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int, clientAddr *net.UDPAddr, packet []byte) {
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		UDPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.SOCKDStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	var destIP net.IP
 	var packetLen int

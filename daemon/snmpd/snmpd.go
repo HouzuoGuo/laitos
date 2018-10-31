@@ -5,16 +5,17 @@ import (
 	"bytes"
 	"crypto/subtle"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/snmpd/snmp"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
 	"net"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/snmpd/snmp"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
 const (
@@ -207,8 +208,8 @@ func (daemon *Daemon) Stop() {
 	}
 }
 
-// TestServer conducts unit tests on SNMP daemon, see TestSNMPD for daemon setup.
-func TestServer(daemon *Daemon, t testingstub.T) {
+// TestSNMPD conducts unit tests on SNMP daemon, see TestSNMPD for daemon setup.
+func TestSNMPD(daemon *Daemon, t testingstub.T) {
 	// Server should start within two seconds
 	var stoppedNormally bool
 	go func() {

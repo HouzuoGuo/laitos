@@ -3,23 +3,23 @@ package dnsd
 import (
 	"bytes"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
 	"io/ioutil"
 	"math/rand"
 	"net"
 	"strconv"
 	"strings"
 	"time"
-)
 
-var TCPDurationStats = misc.NewStats() // TCPDurationStats stores statistics of duration of all TCP DNS queries.
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
+)
 
 func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		TCPDurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.DNSDStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
