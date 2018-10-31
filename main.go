@@ -316,6 +316,10 @@ func main() {
 			go func(daemonName string) {
 				daemonErrs <- terminatedDaemonToError(daemonName, config.GetMailDaemon().StartAndBlock())
 			}(daemonName)
+		case launcher.SNMPDName:
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetSNMPD().StartAndBlock())
+			}(daemonName)
 		case launcher.SOCKDName:
 			go func(daemonName string) {
 				daemonErrs <- terminatedDaemonToError(daemonName, config.GetSockDaemon().StartAndBlock())

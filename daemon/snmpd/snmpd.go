@@ -348,7 +348,7 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 
 	// Test for rate limit - flood the server
 	var success int64
-	for i := 0; i < daemon.PerIPLimit*2; i++ {
+	for i := 0; i < daemon.PerIPLimit*3; i++ {
 		go func() {
 			floodReplyBuf := lastValidOIDTest()
 			if bytes.Contains(floodReplyBuf, []byte(daemon.CommunityName)) &&
@@ -359,8 +359,8 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 		}()
 	}
 	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
-	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
-	if success < 2 || success > int64(daemon.PerIPLimit*2) {
+	time.Sleep((RateLimitIntervalSec + 5) * time.Second)
+	if success < 1 || success > int64(daemon.PerIPLimit*2) {
 		t.Fatal(success)
 	}
 
