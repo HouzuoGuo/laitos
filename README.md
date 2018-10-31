@@ -64,3 +64,5 @@ The Golang mascot "gopher" is designed by [Renee French](http://reneefrench.blog
 
 The gopher side portrait is designed by [Takuya Ueda](https://twitter.com/tenntenn), licensed under the "Creative
 CommonsAttribution 3.0" license.
+
+[![CircleCI](https://circleci.com/gh/HouzuoGuo/laitos.svg?style=svg)](https://circleci.com/gh/HouzuoGuo/laitos)
