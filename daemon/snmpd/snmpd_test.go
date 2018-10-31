@@ -1,10 +1,9 @@
 package snmpd
 
 import (
+	"github.com/HouzuoGuo/laitos/daemon/snmpd/snmp"
 	"strings"
 	"testing"
-
-	"github.com/HouzuoGuo/laitos/daemon/snmpd/snmp"
 )
 
 func TestDaemon(t *testing.T) {

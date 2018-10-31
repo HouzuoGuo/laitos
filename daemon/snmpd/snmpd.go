@@ -332,7 +332,11 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 		replyBuf := make([]byte, MaxPacketSize)
 		clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		// Should IO error occur, the return value shall be an empty byte slice.
-		clientConn.Read(replyBuf)
+		if _, err := clientConn.Read(replyBuf); err == nil {
+			t.Log("lastValidOIDTest Read success")
+		} else {
+			t.Logf("lastValidOIDTest Read error: %v", err)
+		}
 		return replyBuf
 	}
 	packetBuf = lastValidOIDTest()
@@ -344,7 +348,7 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 
 	// Test for rate limit - flood the server
 	var success int64
-	for i := 0; i < daemon.PerIPLimit*5; i++ {
+	for i := 0; i < daemon.PerIPLimit*2; i++ {
 		go func() {
 			floodReplyBuf := lastValidOIDTest()
 			if bytes.Contains(floodReplyBuf, []byte(daemon.CommunityName)) &&
