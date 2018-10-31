@@ -51,8 +51,11 @@ func (daemon *Daemon) Initialise() error {
 		daemon.Port = 161
 	}
 	if daemon.PerIPLimit < 1 {
-		// By default, allow retrieval of all SNMP nodes within the interval.
-		daemon.PerIPLimit = len(snmp.OIDSuffixList)
+		/*
+			By default, allow retrieval of all SNMP nodes within the interval. Due to protocol design, SNMP client often
+			needs to make more than one request per OID.
+		*/
+		daemon.PerIPLimit = 3 * len(snmp.OIDSuffixList)
 	}
 	if len(daemon.CommunityName) < 6 {
 		return fmt.Errorf("snmpd.Initialise: CommunityName must be at least 6 characters long")
@@ -332,11 +335,7 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 		replyBuf := make([]byte, MaxPacketSize)
 		clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		// Should IO error occur, the return value shall be an empty byte slice.
-		if _, err := clientConn.Read(replyBuf); err == nil {
-			t.Log("lastValidOIDTest Read success")
-		} else {
-			t.Logf("lastValidOIDTest Read error: %v", err)
-		}
+		clientConn.Read(replyBuf)
 		return replyBuf
 	}
 	packetBuf = lastValidOIDTest()
@@ -348,7 +347,7 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 
 	// Test for rate limit - flood the server
 	var success int64
-	for i := 0; i < daemon.PerIPLimit*3; i++ {
+	for i := 0; i < daemon.PerIPLimit*4; i++ {
 		go func() {
 			floodReplyBuf := lastValidOIDTest()
 			if bytes.Contains(floodReplyBuf, []byte(daemon.CommunityName)) &&
@@ -359,8 +358,8 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 		}()
 	}
 	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
-	time.Sleep((RateLimitIntervalSec + 5) * time.Second)
-	if success < 1 || success > int64(daemon.PerIPLimit*2) {
+	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
+	if success < int64(daemon.PerIPLimit/3) || success > int64(daemon.PerIPLimit*2) {
 		t.Fatal(success)
 	}
 

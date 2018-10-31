@@ -14,7 +14,7 @@ func TestDaemon(t *testing.T) {
 	}
 	// Initialise with default values
 	daemon.CommunityName = "public"
-	if err := daemon.Initialise(); err != nil || daemon.Address != "0.0.0.0" || daemon.Port != 161 || daemon.PerIPLimit != len(snmp.OIDSuffixList) {
+	if err := daemon.Initialise(); err != nil || daemon.Address != "0.0.0.0" || daemon.Port != 161 || daemon.PerIPLimit != 3*len(snmp.OIDSuffixList) {
 		t.Fatalf("%+v %+v\n", err, daemon)
 	}
 	// Avoid binding to default privileged port for this test case
