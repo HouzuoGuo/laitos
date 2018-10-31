@@ -229,7 +229,7 @@ var sampleConfigJSON = `
   },
 	"SNMPDaemon": {
 		"CommunityName": "public",
-		"Port": 10011
+		"Port": 19910
 	},
   "SockDaemon": {
     "Address": "127.0.0.1",

@@ -344,7 +344,7 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 
 	// Test for rate limit - flood the server
 	var success int64
-	for i := 0; i < 100; i++ {
+	for i := 0; i < daemon.PerIPLimit*5; i++ {
 		go func() {
 			floodReplyBuf := lastValidOIDTest()
 			if bytes.Contains(floodReplyBuf, []byte(daemon.CommunityName)) &&

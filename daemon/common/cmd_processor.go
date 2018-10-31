@@ -138,31 +138,32 @@ settings, and it may optionally discard a number of characters from the beginnin
 func (proc *CommandProcessor) Process(cmd toolbox.Command, runResultFilters bool) (ret *toolbox.Result) {
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
-	defer func() {
-		CommandStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}()
 	// Do not execute a command if global lock down is effective
 	if misc.EmergencyLockDown {
 		return &toolbox.Result{Error: misc.ErrEmergencyLockDown}
 	}
-	var bridgeErr error
+	var filterDisapproval error
 	var matchedFeature toolbox.Feature
 	var overrideLintText filter.LintText
 	var hasOverrideLintText bool
 	var logCommandContent string
-	// Walk the command through all bridges
+	// Walk the command through all filters
 	for _, cmdBridge := range proc.CommandFilters {
-		cmd, bridgeErr = cmdBridge.Transform(cmd)
-		if bridgeErr != nil {
-			ret = &toolbox.Result{Error: bridgeErr}
+		cmd, filterDisapproval = cmdBridge.Transform(cmd)
+		if filterDisapproval != nil {
+			ret = &toolbox.Result{Error: filterDisapproval}
 			goto result
 		}
 	}
+	// If filters approve, then the command execution is to be tracked in stats.
+	defer func() {
+		CommandStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+	}()
 	// Trim spaces and expect non-empty command
 	if ret = cmd.Trim(); ret != nil {
 		goto result
 	}
-	// Look for PLT (position, length, timeout) override, it is going to affect LintText bridge.
+	// Look for PLT (position, length, timeout) override, it is going to affect LintText filter.
 	if cmd.FindAndRemovePrefix(PrefixCommandPLT) {
 		// Find the configured LintText bridge
 		for _, resultBridge := range proc.ResultFilters {
@@ -235,20 +236,20 @@ result:
 	/*
 		Features may have modified command in-place to remove certain content and it's OK to do that.
 		But to make log messages more meaningful, it is better to restore command content to the modified one
-		after triggering bridges, and before triggering features.
+		after triggering filters, and before triggering features.
 	*/
 	ret.Command.Content = logCommandContent
 	// Set combined text for easier retrieval of result+error in one text string
 	ret.ResetCombinedText()
-	// Walk through result bridges
+	// Walk through result filters
 	if runResultFilters {
-		for _, resultBridge := range proc.ResultFilters {
+		for _, resultFilter := range proc.ResultFilters {
 			// LintText bridge may have been manipulated by override
-			if _, isLintText := resultBridge.(*filter.LintText); isLintText && hasOverrideLintText {
-				resultBridge = &overrideLintText
+			if _, isLintText := resultFilter.(*filter.LintText); isLintText && hasOverrideLintText {
+				resultFilter = &overrideLintText
 			}
-			if err := resultBridge.Transform(ret); err != nil {
-				return &toolbox.Result{Command: ret.Command, Error: bridgeErr}
+			if err := resultFilter.Transform(ret); err != nil {
+				return &toolbox.Result{Command: ret.Command, Error: filterDisapproval}
 			}
 		}
 	}

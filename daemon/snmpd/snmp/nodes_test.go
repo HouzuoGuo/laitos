@@ -45,7 +45,9 @@ func TestAllOIDNodes(t *testing.T) {
 		t.Fatal(OIDSuffixList)
 	}
 	for suffix, nodeFun := range OIDNodes {
-		if v := nodeFun(); v == nil {
+		v := nodeFun()
+		t.Log(suffix, v)
+		if v == nil {
 			t.Fatal(suffix, "is not supposed to respond with nil data")
 		}
 	}
