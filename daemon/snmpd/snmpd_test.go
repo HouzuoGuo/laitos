@@ -1,9 +1,10 @@
 package snmpd
 
 import (
-	"github.com/HouzuoGuo/laitos/daemon/snmpd/snmp"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/daemon/snmpd/snmp"
 )
 
 func TestDaemon(t *testing.T) {
@@ -18,6 +19,6 @@ func TestDaemon(t *testing.T) {
 		t.Fatalf("%+v %+v\n", err, daemon)
 	}
 	// Avoid binding to default privileged port for this test case
-	daemon.Port = 43890
+	daemon.Port = 16138
 	TestSNMPD(&daemon, t)
 }

@@ -56,13 +56,20 @@ func TestBenchmark(t *testing.T) {
 		}
 	}()
 
+	go func() {
+		config.GetSNMPD().Port = 24822
+		if err := config.GetSNMPD().StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
 	// Wait 5 seconds for daemons to settle
 	time.Sleep(5 * time.Second)
 
 	// Run benchmark for short 3 seconds, otherwise there are too many log entries.
 	bench := Benchmark{
 		Config:      &config,
-		DaemonNames: []string{DNSDName, InsecureHTTPDName, PlainSocketName, SMTPDName, SOCKDName},
+		DaemonNames: []string{DNSDName, InsecureHTTPDName, PlainSocketName, SMTPDName, SNMPDName, SOCKDName},
 		HTTPPort:    53829,
 	}
 	// Conduct benchmark for 10 seconds

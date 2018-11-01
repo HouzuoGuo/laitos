@@ -57,6 +57,8 @@ func (bench *Benchmark) RunBenchmarkAndProfiler() {
 			go bench.BenchmarkSMTPDaemon()
 		case SOCKDName:
 			go bench.BenchmarkSockDaemon()
+		case SNMPDName:
+			go bench.BenchmarkSNMPkDaemon()
 		case TelegramName:
 			// There is no benchmark for telegram daemon
 		}
@@ -333,4 +335,44 @@ func (bench *Benchmark) BenchmarkSockDaemon() {
 			}
 		}
 	}, "BenchmarkSockDaemon", bench.Logger)
+}
+
+// BenchmarkSNMPDaemon sends random data to SNMP port, aims to catch hidden mistakes in SNMP packet decoder.
+func (bench *Benchmark) BenchmarkSNMPkDaemon() {
+	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(bench.Config.GetSNMPD().Port))
+	if err != nil {
+		bench.Logger.Panic("BenchmarkSNMPDaemon", "", err, "failed to init UDP address")
+		return
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	bench.reportRatePerSecond(func(trigger func()) {
+		for {
+			if bench.Stop {
+				return
+			}
+			trigger()
+
+			buf := make([]byte, 32*1024)
+			if _, err := rand.Read(buf); err != nil {
+				bench.Logger.Panic("BenchmarkSNMPDaemon", "", err, "failed to acquire random bytes")
+				return
+			}
+
+			clientConn, err := net.DialUDP("udp", nil, udpAddr)
+			if err != nil {
+				continue
+			}
+			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
+				clientConn.Close()
+				continue
+			}
+			if _, err := clientConn.Write(buf); err != nil {
+				clientConn.Close()
+				continue
+			}
+			clientConn.Close()
+		}
+	}, "BenchmarkSNMPkDaemon", bench.Logger)
 }

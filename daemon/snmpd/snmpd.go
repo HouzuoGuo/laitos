@@ -333,9 +333,10 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 		}
 		// Expect an EndOfMibView response
 		replyBuf := make([]byte, MaxPacketSize)
-		clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
+		clientConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 		// Should IO error occur, the return value shall be an empty byte slice.
-		clientConn.Read(replyBuf)
+		n, _ := clientConn.Read(replyBuf)
+		replyBuf = replyBuf[:n]
 		return replyBuf
 	}
 	packetBuf = lastValidOIDTest()
@@ -347,19 +348,21 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 
 	// Test for rate limit - flood the server
 	var success int64
-	for i := 0; i < daemon.PerIPLimit*4; i++ {
+	for i := 0; i < daemon.PerIPLimit*3; i++ {
 		go func() {
 			floodReplyBuf := lastValidOIDTest()
 			if bytes.Contains(floodReplyBuf, []byte(daemon.CommunityName)) &&
 				bytes.Contains(floodReplyBuf, []byte{0x1b, 0x6e, 0x63, 0x8a}) &&
 				bytes.Contains(floodReplyBuf, []byte{snmp.TagEndOfMIBView, 0x00}) {
 				atomic.AddInt64(&success, 1)
+			} else if len(floodReplyBuf) > 0 {
+				t.Fatal("Faulty reply", floodReplyBuf)
 			}
 		}()
 	}
 	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
 	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
-	if success < int64(daemon.PerIPLimit/3) || success > int64(daemon.PerIPLimit*2) {
+	if success > int64(daemon.PerIPLimit*2) {
 		t.Fatal(success)
 	}
 

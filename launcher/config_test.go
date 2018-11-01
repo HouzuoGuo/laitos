@@ -193,7 +193,7 @@ var sampleConfigJSON = `
     ],
     "TuneLinux": true,
     "DoEnhanceFileSecurity": true,
-    "PreScriptUnix": "touch /laitos-maintenance-pre-script-test"
+    "PreScriptUnix": "touch /tmp/laitos-maintenance-pre-script-test"
   },
   "PlainSocketDaemon": {
     "Address": "127.0.0.1",
@@ -229,7 +229,7 @@ var sampleConfigJSON = `
   },
 	"SNMPDaemon": {
 		"CommunityName": "public",
-		"Port": 19910
+		"Port": 33210
 	},
   "SockDaemon": {
     "Address": "127.0.0.1",
