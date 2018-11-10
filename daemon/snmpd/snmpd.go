@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/snmpd/snmp"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -23,8 +24,6 @@ const (
 	RateLimitIntervalSec = 1    // RateLimitIntervalSec is the interval for rate limit calculation.
 	MaxPacketSize        = 1500 // MaxPacketSize is the maximum acceptable UDP packet size. SNMP requests are small.
 )
-
-var DurationStats = misc.NewStats() // DurationStats stores statistics of duration for all SNMP conversations.
 
 type Daemon struct {
 	Address    string `json:"Address"`    // Address to listen on, e.g. 0.0.0.0 to listen on all network interfaces.
@@ -116,7 +115,7 @@ func (daemon *Daemon) HandleRequest(clientIP string, clientAddr *net.UDPAddr, re
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		DurationStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.SNMPStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
 	daemon.logger.Info("HandleRequest", clientIP, nil, "working on the request")

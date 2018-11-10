@@ -1,5 +1,4 @@
 /*
-Welcome to hz.gl, howard.gg, houzuo.net, ard.how
 My name is Howard (Houzuo) Guo.
 
 Let us get in touch:
@@ -27,9 +26,12 @@ Twitch      https://www.twitch.tv/howardgg1
 Twitter     https://twitter.com/hzguo
 
 GPG key fingerprint: 4096R/50FAB38C 60BD 93B6 F0C4 FCC7 1735  08D4 4132 7BD9 50FA B38C
+IANA private enterprise number: 1.3.6.1.4.1.52535
+
 Thank you for your visit, have a nice day!
 
-HZGL
+"HZGL"
+
 https://howard.gg
 https://hz.gl
 https://houzuo.net
