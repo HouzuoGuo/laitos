@@ -27,6 +27,7 @@ func IsGCE() bool {
 	isGCEOnce.Do(func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
 			Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
 		}, "http://169.254.169.254/computeMetadata/v1/project/project-id")
 		if err == nil && resp.StatusCode/200 == 1 {
@@ -46,6 +47,7 @@ func IsAzure() bool {
 		*/
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
 			Header:     map[string][]string{"Metadata": {"true"}},
 		}, "http://169.254.169.254/metadata/instance?api-version=2017-08-01")
 		if err == nil && resp.StatusCode/200 == 1 && strings.Contains(string(resp.Body), "subscriptionId") {
@@ -60,6 +62,7 @@ func IsAlibaba() bool {
 	isAlibabaOnce.Do(func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
 		}, "http://100.100.100.200/latest/meta-data/zone-id")
 		if err == nil && resp.StatusCode/200 == 1 {
 			isAlibaba = true
@@ -84,6 +87,7 @@ func GetPublicIP() string {
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
 			Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
 		}, "http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
 		if err == nil && resp.StatusCode/200 == 1 {
@@ -97,6 +101,7 @@ func GetPublicIP() string {
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
 		}, "http://169.254.169.254/2018-03-28/meta-data/public-ipv4")
 		if err == nil && resp.StatusCode/200 == 1 {
 			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
@@ -109,6 +114,7 @@ func GetPublicIP() string {
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
 			Header:     map[string][]string{"Metadata": {"true"}},
 		}, "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-12-01&format=text")
 		if err == nil && resp.StatusCode/200 == 1 {
@@ -122,6 +128,7 @@ func GetPublicIP() string {
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
 		}, "http://checkip.amazonaws.com")
 		if err == nil && resp.StatusCode/200 == 1 {
 			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
@@ -134,6 +141,7 @@ func GetPublicIP() string {
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
 		}, "https://api.ipify.org")
 		if err == nil && resp.StatusCode/200 == 1 {
 			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {

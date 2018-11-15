@@ -24,7 +24,8 @@ const (
 	BlacklistInitialDelaySec    = 120       // BlacklistInitialDelaySec is the number of seconds to wait for downloading blacklists for the first time.
 	MinNameQuerySize            = 14        // If a query packet is shorter than this length, it cannot possibly be a name query.
 	PublicIPRefreshIntervalSec  = 900       // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
-	BlacklistDownloadTimeoutSec = 30        // BlacklistDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
+	BlackListDownloadTimeoutSec = 30        // BlackListDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
+	BlacklistMaxEntries         = 100000    // BlackListMaxEntries is the maximum number of entries to be accepted into black list after retireving them from public sources.
 )
 
 /*
@@ -82,6 +83,7 @@ type Daemon struct {
 	blackList         map[string]struct{}
 	blackListUpdating int32 // blackListUpdating is set to 1 when black list is being updated, and 0 otherwise.
 
+	myPublicIP           string          // myPublicIP is the latest public IP address of the laitos server.
 	blackListMutex       *sync.RWMutex   // Protect against concurrent access to black list
 	allowQueryMutex      *sync.Mutex     // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
 	allowQueryLastUpdate int64           // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
@@ -113,16 +115,14 @@ func (daemon *Daemon) Initialise() error {
 		ComponentName: "dnsd",
 		ComponentID:   []lalog.LoggerIDField{{"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
 	}
-	if daemon.AllowQueryIPPrefixes == nil || len(daemon.AllowQueryIPPrefixes) == 0 {
-		return errors.New("DNSD.Initialise: allowable IP prefixes list must not be empty")
+	if daemon.AllowQueryIPPrefixes == nil {
+		daemon.AllowQueryIPPrefixes = []string{}
 	}
 	for _, prefix := range daemon.AllowQueryIPPrefixes {
 		if prefix == "" {
-			return errors.New("DNSD.Initialise: any allowable IP prefixes must not be empty string")
+			return errors.New("DNSD.Initialise: IP address prefixes that are allowed to query may not contain empty string")
 		}
 	}
-	// Always allow localhost to query via both IPv4 and IPv6
-	daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, "127.", "::1")
 
 	daemon.allowQueryMutex = new(sync.Mutex)
 	daemon.blackListMutex = new(sync.RWMutex)
@@ -140,7 +140,7 @@ func (daemon *Daemon) Initialise() error {
 	return nil
 }
 
-// allowMyPublicIP places the computer's public IP address into the array of IPs allowed to query the server.
+// allowMyPublicIP refreshes the public IP address of the DNS server, so that Internet clients that use laitos server as VPN server may use it for DNS as well.
 func (daemon *Daemon) allowMyPublicIP() {
 	if daemon.allowQueryLastUpdate+PublicIPRefreshIntervalSec >= time.Now().Unix() {
 		return
@@ -157,22 +157,19 @@ func (daemon *Daemon) allowMyPublicIP() {
 		daemon.logger.Warning("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
 		return
 	}
-	foundMyIP := false
-	for _, allowedIP := range daemon.AllowQueryIPPrefixes {
-		if allowedIP == latestIP {
-			foundMyIP = true
-			break
-		}
-	}
-	if !foundMyIP {
-		// Place latest IP into the array, but do not erase the old IP entries.
-		daemon.AllowQueryIPPrefixes = append(daemon.AllowQueryIPPrefixes, latestIP)
-		daemon.logger.Info("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", latestIP)
-	}
+	daemon.myPublicIP = latestIP
+	daemon.logger.Info("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", daemon.myPublicIP)
 }
 
 // checkAllowClientIP returns true only if the input IP address is among the allowed addresses.
 func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
+	if clientIP == "" || len(clientIP) > 64 {
+		return false
+	}
+	// Fast track - always allow localhost to query
+	if strings.HasPrefix(clientIP, "127.") || clientIP == "::1" || clientIP == daemon.myPublicIP {
+		return true
+	}
 	// At regular time interval, make sure that the latest public IP is allowed to query.
 	daemon.allowMyPublicIP()
 
@@ -190,7 +187,7 @@ func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
 UpdateBlackList downloads the latest blacklist files from PGL and MVPS, resolves the IP addresses of each domain,
 and stores the latest blacklist names and IP addresses into blacklist map.
 */
-func (daemon *Daemon) UpdateBlackList() {
+func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	if !atomic.CompareAndSwapInt32(&daemon.blackListUpdating, 0, 1) {
 		daemon.logger.Info("UpdateBlackList", "", nil, "will skip this run because update routine is already ongoing")
 		return
@@ -201,6 +198,9 @@ func (daemon *Daemon) UpdateBlackList() {
 
 	// Download black list data from all sources
 	allNames := DownloadAllBlacklists(daemon.logger)
+	if len(allNames) > maxEntries {
+		allNames = allNames[:maxEntries]
+	}
 	// Get ready to construct the new blacklist
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
@@ -274,7 +274,7 @@ func (daemon *Daemon) StartAndBlock() error {
 					return
 				case <-time.After(time.Until(nextRunAt)):
 					nextRunAt = nextRunAt.Add(BlacklistUpdateIntervalSec * time.Second)
-					daemon.UpdateBlackList()
+					daemon.UpdateBlackList(BlacklistMaxEntries)
 				}
 				firstTime = false
 			} else {
@@ -284,7 +284,7 @@ func (daemon *Daemon) StartAndBlock() error {
 					return
 				case <-time.After(time.Until(nextRunAt)):
 					nextRunAt = nextRunAt.Add(time.Duration(BlacklistUpdateIntervalSec) * time.Second)
-					daemon.UpdateBlackList()
+					daemon.UpdateBlackList(BlacklistMaxEntries)
 				}
 			}
 		}

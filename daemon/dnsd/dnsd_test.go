@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 func TestExtractDomainName(t *testing.T) {
@@ -45,29 +47,41 @@ func TestUpdateBlackList(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	daemon.UpdateBlackList()
-	if len(daemon.blackList) < 1000 {
+	daemon.UpdateBlackList(2000)
+	// Assuming that half of them successfully resolve into IP address
+	if len(daemon.blackList) < 3000 {
 		t.Fatal(len(daemon.blackList))
 	}
 }
 
-func TestDNSD(t *testing.T) {
-	daemon := Daemon{}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "allowable IP") == -1 {
-		t.Fatal(err)
-	}
-	// Test missing mandatory settings
-	daemon.AllowQueryIPPrefixes = []string{"192.", ""}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "any allowable IP") == -1 {
-		t.Fatal(err)
-	}
-	daemon.AllowQueryIPPrefixes = []string{"192."}
+func TestCheckAllowClientIP(t *testing.T) {
+	daemon := Daemon{AllowQueryIPPrefixes: []string{"192.", "100."}}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(daemon.AllowQueryIPPrefixes) != 4 {
-		// There should be three prefixes: 127., ::1, 192., and my IP
-		t.Fatal("did not put my own IP into prefixes", daemon.AllowQueryIPPrefixes)
+	for _, client := range []string{"127.0.0.1", "::1", "127.0.100.1", "192.168.0.1", "100.0.0.0", inet.GetPublicIP()} {
+		if !daemon.checkAllowClientIP(client) {
+			t.Fatal("should have allowed", client)
+		}
+	}
+	for _, client := range []string{"172.16.0.1", "193.0.0.1", "101.0.0.1", "128.0.0.1", "1.1.1.2"} {
+		if daemon.checkAllowClientIP(client) {
+			t.Fatal("should have blocked", client)
+		}
+	}
+}
+
+func TestDNSD(t *testing.T) {
+	daemon := Daemon{AllowQueryIPPrefixes: []string{"192.", ""}}
+	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "may not contain empty string") == -1 {
+		t.Fatal(err)
+	}
+	daemon.AllowQueryIPPrefixes = nil
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if len(daemon.AllowQueryIPPrefixes) != 0 {
+		t.Fatal(daemon.AllowQueryIPPrefixes)
 	}
 	// Test default settings
 	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 48 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {

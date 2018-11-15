@@ -40,7 +40,7 @@ func DownloadAllBlacklists(logger lalog.Logger) []string {
 	lists := make([][]string, len(HostsFileURLs))
 	for i, url := range HostsFileURLs {
 		go func(i int, url string) {
-			resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: BlacklistDownloadTimeoutSec}, url)
+			resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: BlackListDownloadTimeoutSec}, url)
 			names := ExtractNamesFromHostsContent(string(resp.Body))
 			logger.Info("DownloadAllBlacklists", url, err, "downloaded %d names, please obey the license in which the list author publishes the data.", len(names))
 			lists[i] = ExtractNamesFromHostsContent(string(resp.Body))
