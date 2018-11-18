@@ -3,11 +3,12 @@ package inet
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // Define properties for an HTTP request for DoHTTP function.
@@ -20,6 +21,7 @@ type HTTPRequest struct {
 	RequestFunc func(*http.Request) error // Manipulate the HTTP request at will (default to nil)
 	InsecureTLS bool                      // InsecureTLS may be turned on to ignore all TLS verification errors from an HTTPS client connection
 	MaxBytes    int                       // MaxBytes is the maximum number of bytes of response body to read (default to 4MB)
+	MaxRetry    int                       // MaxRetry is the maximum number of attempts to make the same request in case of an IO error, 4xx, or 5xx response (default to 3).
 }
 
 // Set blank attributes to their default value.
@@ -36,6 +38,9 @@ func (req *HTTPRequest) FillBlanks() {
 	if req.MaxBytes <= 0 {
 		req.MaxBytes = 4 * 1048576
 	}
+	if req.MaxRetry < 1 {
+		req.MaxRetry = 3
+	}
 }
 
 // HTTP response as read by DoHTTP function.
@@ -50,7 +55,7 @@ func (resp *HTTPResponse) Non2xxToError() error {
 	// Avoid showing the entire HTTP (quite likely HTML) response to end-user
 	compactBody := resp.Body
 	if compactBody == nil {
-		compactBody = []byte("<no response>")
+		compactBody = []byte("<IO error prior to response>")
 	} else if len(compactBody) > 256 {
 		compactBody = compactBody[:256]
 	} else if len(compactBody) == 0 {
@@ -106,14 +111,22 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 	}
-	// Send request away!
-	response, err := client.Do(req)
-	if err != nil {
-		return
+	// Send the request away, and retry in case of error.
+	for attempt := 0; attempt < reqParam.MaxRetry; attempt++ {
+		var httpResp *http.Response
+		httpResp, err = client.Do(req)
+		if err == nil {
+			resp.Body, err = misc.ReadAllUpTo(httpResp.Body, reqParam.MaxBytes)
+			resp.Header = httpResp.Header
+			resp.StatusCode = httpResp.StatusCode
+			httpResp.Body.Close()
+			if err == nil && httpResp.StatusCode/400 != 1 && httpResp.StatusCode/500 != 1 {
+				// Return the response upon success
+				return
+			}
+		}
+		// Retry in case of IO error, 4xx, and 5xx responses.
+		time.Sleep(time.Duration(attempt+1) * time.Second)
 	}
-	defer response.Body.Close()
-	resp.Body, err = misc.ReadAllUpTo(response.Body, reqParam.MaxBytes)
-	resp.Header = response.Header
-	resp.StatusCode = response.StatusCode
 	return
 }

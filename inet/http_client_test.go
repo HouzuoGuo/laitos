@@ -1,12 +1,94 @@
 package inet
 
-import "testing"
+import (
+	"net"
+	"net/http"
+	"testing"
+	"time"
+)
 
-func TestDoHTTP(t *testing.T) {
-	// I hope nobody's buying that domain name simply to mess with this test case ^_______^
+func TestDoHTTPFaultyServer(t *testing.T) {
+	// Create a test server that serves 5 bad responses and HTTP 201 in subsequent responses
+	faultyServerRequestsServed := 0
+	listener, err := net.Listen("tcp", ":19017")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := http.NewServeMux()
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		faultyServerRequestsServed++
+		switch faultyServerRequestsServed {
+		case 1:
+			http.Error(w, "haha", 401)
+		case 2:
+			http.Error(w, "hehe", 501)
+		case 3:
+			http.Error(w, "hihi", 402)
+		case 4:
+			http.Error(w, "hoho", 502)
+		case 5:
+			http.Error(w, "hfhf", 403)
+		default:
+			// Further responses are HTTP 201
+			w.WriteHeader(201)
+			w.Write([]byte("response from faulty server"))
+		}
+	})
+	go http.Serve(listener, router)
+	// Expect server to be ready in a second
+	time.Sleep(1 * time.Second)
+
+	// Expect first request to fail in all three attempts
+	resp, err := DoHTTP(HTTPRequest{}, "http://localhost:19017/endpoint")
+	if err != nil || string(resp.Body) != "hihi\n" || resp.StatusCode != 402 {
+		t.Fatal(err, string(resp.Body), resp.StatusCode)
+	}
+	if faultyServerRequestsServed != 3 {
+		t.Fatal(faultyServerRequestsServed)
+	}
+
+	// Expect the next request to succeed in three attempts
+	resp, err = DoHTTP(HTTPRequest{}, "http://localhost:19017/endpoint")
+	if err != nil || string(resp.Body) != "response from faulty server" || resp.StatusCode != 201 {
+		t.Fatal(err, string(resp.Body), resp.StatusCode)
+	}
+	if faultyServerRequestsServed != 6 {
+		t.Fatal(faultyServerRequestsServed)
+	}
+
+}
+
+func TestDoHTTPGoodServer(t *testing.T) {
+	// Create a testserver that always gives successful HTTP 202 response
+	okServerRequestsServed := 0
+	listener, err := net.Listen("tcp", ":19018")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := http.NewServeMux()
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		okServerRequestsServed++
+		w.WriteHeader(202)
+		w.Write([]byte("response from ok server"))
+	})
+	go http.Serve(listener, router)
+	// Expect server to be ready in a second
+	time.Sleep(1 * time.Second)
+
+	// Expect to make exactly one request against the good HTTP server
+	resp, err := DoHTTP(HTTPRequest{}, "http://localhost:19018/")
+	if err != nil || string(resp.Body) != "response from ok server" || resp.StatusCode != 202 {
+		t.Fatal(err, string(resp.Body), resp.StatusCode)
+	}
+	if okServerRequestsServed != 1 {
+		t.Fatal(okServerRequestsServed)
+	}
+}
+
+func TestDoHTTPPublicServer(t *testing.T) {
 	resp, err := DoHTTP(HTTPRequest{
 		TimeoutSec: 30,
-	}, "https://a-very-bad-domain-name-nonnnnnnbreeiunsdvc.rich")
+	}, "https://this-name-does-not-exist-aewifnvjnjfdfdozoio.rich")
 	if err == nil {
 		t.Fatal("did not error")
 	}
