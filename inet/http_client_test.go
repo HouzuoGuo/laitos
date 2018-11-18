@@ -1,6 +1,7 @@
 package inet
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"testing"
@@ -10,7 +11,7 @@ import (
 func TestDoHTTPFaultyServer(t *testing.T) {
 	// Create a test server that serves 5 bad responses and HTTP 201 in subsequent responses
 	faultyServerRequestsServed := 0
-	listener, err := net.Listen("tcp", ":19017")
+	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +40,8 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Expect first request to fail in all three attempts
-	resp, err := DoHTTP(HTTPRequest{}, "http://localhost:19017/endpoint")
+	serverURL := fmt.Sprintf("http://localhost:%d/endpoint", listener.Addr().(*net.TCPAddr).Port)
+	resp, err := DoHTTP(HTTPRequest{}, serverURL)
 	if err != nil || string(resp.Body) != "hihi\n" || resp.StatusCode != 402 {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}
@@ -48,7 +50,7 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 	}
 
 	// Expect the next request to succeed in three attempts
-	resp, err = DoHTTP(HTTPRequest{}, "http://localhost:19017/endpoint")
+	resp, err = DoHTTP(HTTPRequest{}, serverURL)
 	if err != nil || string(resp.Body) != "response from faulty server" || resp.StatusCode != 201 {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}
@@ -61,7 +63,7 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 func TestDoHTTPGoodServer(t *testing.T) {
 	// Create a testserver that always gives successful HTTP 202 response
 	okServerRequestsServed := 0
-	listener, err := net.Listen("tcp", ":19018")
+	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +78,8 @@ func TestDoHTTPGoodServer(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Expect to make exactly one request against the good HTTP server
-	resp, err := DoHTTP(HTTPRequest{}, "http://localhost:19018/")
+	serverURL := fmt.Sprintf("http://localhost:%d/endpoint", listener.Addr().(*net.TCPAddr).Port)
+	resp, err := DoHTTP(HTTPRequest{}, serverURL)
 	if err != nil || string(resp.Body) != "response from ok server" || resp.StatusCode != 202 {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}

@@ -84,7 +84,8 @@ func (daemon *Daemon) StartAndBlock() error {
 					daemon.logger.Warning("StartAndBlock", "", nil, "trying to unlock data on domain %s", parsedURL.Host)
 					// Use form submission to input password
 					submitResp, submitErr := inet.DoHTTP(inet.HTTPRequest{
-						TimeoutSec:  30, // the password unlocking process has to do heavy IO work, therefore use a long timeout.
+						// While unlocking is going on, the system is often freshly booted and quite busy, hence giving it plenty of time to respond.
+						TimeoutSec:  30,
 						Method:      http.MethodPost,
 						ContentType: "application/x-www-form-urlencoded",
 						Body:        strings.NewReader(url.Values{PasswordInputName: []string{passwd}}.Encode()),
@@ -162,7 +163,7 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 		stopped = true
 	}()
 	// Expect the daemon loop to unlock the server in couple of seconds
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
 	if !unlocked {
 		t.Fatal("did not unlock")
 	}
