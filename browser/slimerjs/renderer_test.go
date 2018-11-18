@@ -142,10 +142,18 @@ func TestLineOrientedBrowser(t *testing.T) {
 		t.Fatal(err, elements)
 	}
 	delay()
-	// After having reached the bottom, calling next should continue to stay at the bottom.
+	// After having reached the bottom, calling next should stay at bottom.
+	var bottomElements []ElementInfo
+	for i := 0; i < 3; i++ {
+		bottomElements, err = instance.LONextElement()
+		if err != nil {
+			t.Fatal(err)
+		}
+		delay()
+	}
 	lastElements, err := instance.LONextElement()
-	if err != nil || lastElements[1].TagName != elements[len(elements)-1].TagName {
-		t.Fatal(err, lastElements)
+	if err != nil || lastElements[1].TagName != bottomElements[1].TagName {
+		t.Fatalf("%+v\n%+v\n%+v\n", err, lastElements, bottomElements)
 	}
 	delay()
 	// Go back to the start
