@@ -8,6 +8,14 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 )
 
+const (
+	/*
+		MaxNameEntriesToExtract is the maximum number of entries to be extracted from one instance of hosts file.
+		The limit prevents an exceedingly long third party host file from taking too much memory.
+	*/
+	MaxNameEntriesToExtract = 50000
+)
+
 // HostsFileURLs is a collection of URLs where up-to-date ad/malware/spyware blacklist hosts files are published.
 var HostsFileURLs = []string{
 	"http://winhelp2002.mvps.org/hosts.txt",
@@ -75,6 +83,10 @@ empty lines.
 func ExtractNamesFromHostsContent(content string) []string {
 	ret := make([]string, 0, 16384)
 	for _, line := range strings.Split(content, "\n") {
+		if strings.ContainsRune(line, 0x00) {
+			// Among all the potentially illegal domain name characters, only 0x00 causes go to panic in its name resolver routine for Windows.
+			continue
+		}
 		line = strings.TrimSpace(line)
 		if len(line) == 0 || line[0] == '#' {
 			// Skip blank and comments
@@ -99,7 +111,7 @@ func ExtractNamesFromHostsContent(content string) []string {
 			continue
 		}
 		ret = append(ret, aName)
-		if len(ret) > 50000 {
+		if len(ret) > MaxNameEntriesToExtract {
 			// Avoid taking in too many names
 			break
 		}
