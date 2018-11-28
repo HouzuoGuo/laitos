@@ -199,17 +199,15 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 
 		// Time maintenance utilities
 		"ntp", "ntpd", "ntpdate",
-		// Application zip bundle maintenance utilities
-		"7zip", "unar", "unzip", "zip",
 
 		// busybox and toybox are useful for general maintenance, and busybox can synchronise system clock as well.
 		"busybox", "toybox",
 
 		// Network diagnosis, system maintenance, and other useful utilities.
-		"bind-utils", "curl", "dateutils", "diffutils", "dnsutils", "finger", "hostname", "htop", "iftop", "iotop", "iputils-ping",
-		"locales", "locales-all", "lftp", "lsof", "mailutils", "mailx", "moreutils", "nc", "net-tools", "netcat", "nmap", "nmon",
+		"7zip", "bind-utils", "curl", "dateutils", "diffutils", "dnsutils", "finger", "hostname", "htop", "iftop", "iotop", "iputils-ping",
+		"language-pack-en", "locales", "locales-all", "lftp", "lsof", "mailutils", "mailx", "moreutils", "nc", "net-tools", "netcat", "nmap", "nmon",
 		"patchutils", "perf", "procps", "psmisc", "rsync", "screen", "sensors", "strace", "sudo", "tcpdump", "telnet", "tmux",
-		"traceroute", "tree", "unar", "usbutils", "util-linux-locales", "vim", "wget", "whois", "wiggle",
+		"traceroute", "tree", "unar", "unzip", "usbutils", "util-linux-locales", "vim", "wget", "whois", "wiggle", "zip",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)
 	sort.Strings(pkgs)
