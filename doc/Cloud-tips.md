@@ -15,7 +15,7 @@ computer starts up. Create a service file `/etc/systemd/system/laitos.service` a
     After=network.target
 
     [Service]
-    ExecStart=/root/laitos/laitos -config /root/laitos/config.json -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,sockd,telegram
+    ExecStart=/root/laitos/laitos -config /root/laitos/config.json -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,snmpd,sockd,telegram
     User=root
     Group=root
     WorkingDirectory=/root/laitos
@@ -64,7 +64,7 @@ For a fancier setup, Amazon Web Service offers Platform-as-a-Service called "Ela
 
 - `Procfile` tells the command line for starting laitos, the content may look like:
 
-      laitos: ./laitos -config config.json -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,sockd,telegram
+      laitos: ./laitos -config config.json -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,snmpd,sockd,telegram
 
   Be aware that, paths among the command line must be relative to the top level of application bundle zip file.
 

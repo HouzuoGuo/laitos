@@ -35,6 +35,11 @@ laitos components go into two categories:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server" target="_blank">Link</a></td>
     </tr>
     <tr>
+        <td>SNMP server</td>
+        <td>Offer server statistics over industrial-standard network monitoring protocol.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-SNMP-server" target="_blank">Link</a></td>
+    </tr>
+    <tr>
         <td>Telegram messenger chat-bot</td>
         <td>Chat-bot provides access to all toolbox features via secure infrastructure provided by Telegram Messenger.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot" target="_blank">Link</a></td>

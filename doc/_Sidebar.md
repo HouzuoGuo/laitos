@@ -8,6 +8,7 @@ Daemon Components
 * [Mail server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server)
 * [Telnet server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server)
 * [Web server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server)
+* [SNMP server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-SNMP-server)
 * [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot)
 * [System maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
 

@@ -50,6 +50,7 @@ Note that:
   * `httpd` - Web server secured by TLS certificate
   * `insecurehttpd` - Web server without TLS encryption
   * `smtpd` - Mail server
+  * `snmpd` - Network management (program statistics) server
   * `telegram` - Telegram messenger chat bot
   * `plainsocket` - Access to toolbox features via plain text Telnet over TCP and UDP
   * `maintenance` - Automated system maintenance and health report

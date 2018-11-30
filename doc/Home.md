@@ -1,7 +1,5 @@
 <img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/doc/cosmetic/poster.png" alt="poster image" align="right" />
 
-[![CircleCI](https://circleci.com/gh/HouzuoGuo/laitos.svg?style=svg)](https://circleci.com/gh/HouzuoGuo/laitos)
-
 # laitos - Empower your personal web server
 
 _For all users:_
@@ -66,3 +64,5 @@ The Golang mascot "gopher" is designed by [Renee French](http://reneefrench.blog
 
 The gopher side portrait is designed by [Takuya Ueda](https://twitter.com/tenntenn), licensed under the "Creative
 CommonsAttribution 3.0" license.
+
+[![CircleCI](https://circleci.com/gh/HouzuoGuo/laitos.svg?style=svg)](https://circleci.com/gh/HouzuoGuo/laitos)
