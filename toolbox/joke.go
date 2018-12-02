@@ -3,10 +3,10 @@ package toolbox
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 // Joke as a toolbox feature takes no input and responds with one joke text downloaded from a list of known sources.
@@ -51,7 +51,7 @@ func (joke *Joke) Execute(cmd Command) *Result {
 }
 
 // jokeSources contains functions for retrieving different kinds of jokes
-var jokeSources = []func(int) (string, error){getChuckNorrisJoke, getDadJoke, getGenericJoke}
+var jokeSources = []func(int) (string, error){getChuckNorrisJoke, getDadJoke}
 
 // getChuckNorrisJoke grabs a chuck norris joke from chucknorris.io and returns the joke text.
 func getChuckNorrisJoke(timeoutSec int) (string, error) {
@@ -86,26 +86,6 @@ func getDadJoke(timeoutSec int) (string, error) {
 	text := strings.TrimSpace(string(resp.GetBodyUpTo(4096)))
 	if text == "" {
 		return "", errors.New("icanhazdadjoke.com did not respond with a joke text")
-	}
-	return text, nil
-}
-
-// getGenericJoke grabs a generic joke of any kind from github.com/15Dkatz/official_joke_api, and returns the joke text.
-func getGenericJoke(timeoutSec int) (string, error) {
-	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: timeoutSec}, "https://08ad1pao69.execute-api.us-east-1.amazonaws.com/dev/random_joke")
-	if err != nil {
-		return "", err
-	}
-	var respJSON struct {
-		Setup     string `json:"setup"`
-		Punchline string `json:"punchline"`
-	}
-	if err = json.Unmarshal(resp.GetBodyUpTo(8192), &respJSON); err != nil {
-		return "", err
-	}
-	text := fmt.Sprintf("%s\n%s", strings.TrimSpace(respJSON.Setup), strings.TrimSpace(respJSON.Punchline))
-	if text == "" {
-		return "", errors.New("15Dkatz's joke API did not respond with a joke text")
 	}
 	return text, nil
 }

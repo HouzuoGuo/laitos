@@ -11,10 +11,6 @@ func TestJokeSources(t *testing.T) {
 	if err != nil || text == "" {
 		t.Fatal(err)
 	}
-	text, err = getGenericJoke(10)
-	if err != nil || text == "" {
-		t.Fatal(err)
-	}
 }
 
 func TestJoke(t *testing.T) {
