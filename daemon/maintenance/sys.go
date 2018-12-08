@@ -21,19 +21,21 @@ const (
 
 // SynchroniseSystemClock uses three different tools to immediately synchronise system clock via NTP servers.
 func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
-	if misc.HostIsWindows() {
-		daemon.logPrintStage(out, "skipped on windows: synchronise clock")
-		daemon.CorrectStartupTime(out)
-		return
-	}
 	daemon.logPrintStage(out, "synchronise clock")
-	// Use three tools to immediately synchronise system clock
-	result, err := platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "ntpdate", "-4", "0.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "nz.pool.ntp.org")
-	daemon.logPrintStageStep(out, "ntpdate: %v - %s", err, strings.TrimSpace(result))
-	result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
-	daemon.logPrintStageStep(out, "chronyd: %v - %s", err, strings.TrimSpace(result))
-	result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "busybox", "ntpd", "-n", "-q", "-p", "ie.pool.ntp.org", "ca.pool.ntp.org", "au.pool.ntp.org")
-	daemon.logPrintStageStep(out, "busybox ntpd: %v - %s", err, strings.TrimSpace(result))
+	if misc.HostIsWindows() {
+		result, err := platform.InvokeProgram(nil, 60, `C:\Windows\system32\w32tm.exe`, "/config", `/manualpeerlist:"0.pool.ntp.org sg.pool.ntp.org us.pool.ntp.org fi.pool.ntp.org"`, "/syncfromflags:manual", "/reliable:yes", "/update")
+		daemon.logPrintStageStep(out, "w32tm config: %v - %s", err, strings.TrimSpace(result))
+		result, err = platform.InvokeProgram(nil, 60, `C:\Windows\system32\w32tm.exe`, "/resync", "/force")
+		daemon.logPrintStageStep(out, "w32tm resync: %v - %s", err, strings.TrimSpace(result))
+	} else {
+		// Use three tools to immediately synchronise system clock
+		result, err := platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "ntpdate", "-4", "1.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "au.pool.ntp.org")
+		daemon.logPrintStageStep(out, "ntpdate: %v - %s", err, strings.TrimSpace(result))
+		result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
+		daemon.logPrintStageStep(out, "chronyd: %v - %s", err, strings.TrimSpace(result))
+		result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "busybox", "ntpd", "-n", "-q", "-p", "2.pool.ntp.org", "-p", "uk.pool.ntp.org", "-p", "ca.pool.ntp.org", "-p", "jp.pool.ntp.org")
+		daemon.logPrintStageStep(out, "busybox ntpd: %v - %s", err, strings.TrimSpace(result))
+	}
 
 	daemon.CorrectStartupTime(out)
 }

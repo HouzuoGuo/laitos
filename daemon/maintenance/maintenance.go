@@ -310,9 +310,13 @@ func (daemon *Daemon) SystemMaintenance() string {
 		daemon.logPrintStage(out, "tune linux kernel: %s", toolbox.TuneLinux())
 	}
 	if daemon.SetTimeZone != "" {
-		daemon.logPrintStage(out, "set system time zone")
-		if err := misc.SetTimeZone(daemon.SetTimeZone); err != nil {
-			daemon.logPrintStageStep(out, "failed to set time zone: %v", err)
+		daemon.logPrintStage(out, "set system time zone to %s", daemon.SetTimeZone)
+		if misc.HostIsWindows() {
+			daemon.logPrintStage(out, "skipped on windows: set system time zone")
+		} else {
+			if err := misc.SetTimeZone(daemon.SetTimeZone); err != nil {
+				daemon.logPrintStageStep(out, "failed to set time zone: %v", err)
+			}
 		}
 	}
 	daemon.MaintainFileSystem(out)
