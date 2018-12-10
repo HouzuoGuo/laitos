@@ -205,9 +205,9 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 
 		// Network diagnosis, system maintenance, and other useful utilities.
 		"7zip", "bind-utils", "curl", "dateutils", "diffutils", "dnsutils", "finger", "hostname", "htop", "iftop", "iotop", "iputils-ping",
-		"language-pack-en", "locales", "locales-all", "lftp", "lsof", "mailutils", "mailx", "moreutils", "nc", "net-tools", "netcat", "nmap", "nmon",
-		"patchutils", "perf", "procps", "psmisc", "rsync", "screen", "sensors", "strace", "sudo", "tcpdump", "telnet", "tmux",
-		"traceroute", "tree", "unar", "unzip", "usbutils", "util-linux-locales", "vim", "wget", "whois", "wiggle", "zip",
+		"language-pack-en", "locales", "locales-all", "lftp", "lsof", "mailutils", "mailx", "moreutils", "nc", "net-snmp", "net-snmp-utils",
+		"net-tools", "netcat", "nmap", "nmon", "patchutils", "perf", "procps", "psmisc", "rsync", "screen", "sensors", "snmp", "strace", "sudo",
+		"tcpdump", "telnet", "tmux", "traceroute", "tree", "unar", "unzip", "usbutils", "util-linux-locales", "vim", "wget", "whois", "wiggle", "zip",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)
 	sort.Strings(pkgs)
