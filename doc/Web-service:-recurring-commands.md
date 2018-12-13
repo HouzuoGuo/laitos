@@ -3,7 +3,7 @@
 ## Introduction
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server), the service hosts channels
 of pre-configured toolbox commands that are run at regular interval, and let user retrieve the command results in JSON
-array per channel.
+array from each channel.
 
 While the service is online, user may add more toolbox commands and put text messages directly into command results via
 an HTML form served by this service on the same HTTP endpoint. These transient commands are not memorised and will be

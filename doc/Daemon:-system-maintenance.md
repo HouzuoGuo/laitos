@@ -28,72 +28,84 @@ laitos can operate with the following software managers for security updates and
     <th>Type</th>
     <th>Meaning</th>
     <th>Default value</th>
+    <th>Supported Platforms</th>
 </tr>
 <tr>
     <td>IntervalSec</td>
     <td>integer</td>
     <td>Interval at which system maintenance routine runs.</td>
     <td>86400 - daily maintenance is good enough</td>
+    <td>All</td>
 </tr>
 <tr>
     <td>Recipients</td>
     <td>array of strings</td>
     <td>These Email addresses will receive the maintenance summary report.</td>
     <td>(Not used and print report as output)</td>
+    <td>All</td>
 </tr>
 <tr>
     <td>CheckTCPPorts</td>
     <td>array of "host:ip" strings</td>
     <td>Check that these TCP ports are open on their corresponding host during maintenance routine.</td>
     <td>(Not used)</td>
+    <td>All</td>
 </tr>
 <tr>
     <td>BlockSystemLoginExcept</td>
     <td>array of user name strings</td>
     <td>Disable Linux/Windows system users from logging in, except the names listed here.</td>
     <td>(Not used)</td>
+    <td>All</td>
 </tr>
 <tr>
     <td>DisableStopServices</td>
     <td>array of system service name strings</td>
     <td>Disable Linux/Windows system services by stopping them and preventing them from starting.</td>
     <td>(Not used)</td>
+    <td>All</td>
 </tr>
 <tr>
     <td>EnableStartServices</td>
     <td>array of system service name strings</td>
     <td>Enable Linux/Windows system services by starting them and letting them start at boot time.</td>
     <td>(Not used)</td>
+    <td>All</td>
 </tr>
 <tr>
     <td>InstallPackages</td>
     <td>array of software name strings</td>
     <td>Install and upgrade these Linux/Windows software applications.</td>
     <td>(Not used)</td>
+    <td>All</td>
 </tr>
 <tr>
     <td>BlockPortsExcept</td>
     <td>array of port numbers</td>
     <td>Set up Linux firewall to block incoming traffic to all TCP and UDP ports except those listed here.</td>
     <td>(Not used)</td>
+    <td>Linux</td>
 </tr>
 <tr>
     <td>ThrottleIncomingPackets</td>
     <td>integer</td>
     <td>Set up Linux firewall to block flood of incoming TCP connections and UDP packets to this threshold (5 < threshold < 256).</td>
     <td>(Not used)</td>
+    <td>Linux</td>
 </tr>
 <tr>
     <td>SetTimeZone</td>
     <td>time zone name string</td>
     <td>Set Linux system global time zone to this zone name (e.g. "Europe/Helsinki").</td>
     <td>(Not used)</td>
+    <td>Linux</td>
 </tr>
 <tr>
     <td>TuneLinux</td>
     <td>true/false</td>
     <td>Automatically tune Linux kernel parameters for optimal performance.</td>
     <td>(Not used) false</td>
+    <td>Linux</td>
 </tr>
 <tr>
     <td>SwapFileSizeMB</td>
@@ -104,6 +116,21 @@ laitos can operate with the following software managers for security updates and
         If it is minus, then system swap will be entirely disabled, enhancing data security.
     </td>
     <td>(Not used)</td>
+    <td>Linux</td>
+</tr>
+<tr>
+    <td>PreScriptWindows</td>
+    <td>string</td>
+    <td>Run this PowerShell script text prior to all other maintenance actions.</td>
+    <td>(Not used)</td>
+    <td>Windows</td>
+</tr>
+<tr>
+    <td>PreScriptUnix</td>
+    <td>string</td>
+    <td>Run this bourne-shell script text prior to all other maintenance actions.</td>
+    <td>(Not used)</td>
+    <td>Linux</td>
 </tr>
 </table>
 2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).

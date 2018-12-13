@@ -27,7 +27,7 @@ For reliable **Internet access via alternative infrastructures** such as telepho
 ## Highlights
 
 - **Efficient** - consume as little as 28MB of memory and 12MB of disk.
-- **Portable** - runs on all flavours of Linux and Windows.
+- **Portable** - run on all flavours of Linux and Windows, both X86 and ARM.
 - **Independent** - reliable stand-alone operation with self healing and automated maintenance.
 - **Hyped by Buzzwords** - certified to run in any container, as well as PaaS, IaaS, \*aaS.
 
