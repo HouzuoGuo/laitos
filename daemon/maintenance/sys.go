@@ -105,13 +105,13 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	}
 	daemon.logPrintStage(out, "maintain windows system integrity")
 	// These tools seriously spend a lot of time
-	progOut, err := platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/ResetBase")
+	progOut, err := platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/ResetBase")
 	daemon.logPrintStageStep(out, "dism StartComponentCleanup: %v - %s", err, progOut)
-	progOut, err = platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/SPSuperseded")
+	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/SPSuperseded")
 	daemon.logPrintStageStep(out, "dism SPSuperseded: %v - %s", err, progOut)
-	progOut, err = platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/Restorehealth")
+	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/Restorehealth")
 	daemon.logPrintStageStep(out, "dism Restorehealth: %v - %s", err, progOut)
-	progOut, err = platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
+	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
 	daemon.logPrintStageStep(out, "sfc ScanNow: %v - %s", err, progOut)
 	daemon.logPrintStage(out, "install windows updates")
 	// Have to borrow script host's capability to search and installwindows updates
@@ -175,7 +175,7 @@ Next
 		daemon.logPrintStageStep(out, "failed to write update script: %v", err)
 		return
 	}
-	progOut, err = platform.InvokeProgram(nil, 3*3600, `C:\Windows\system32\cscript.exe`, script.Name())
+	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\cscript.exe`, script.Name())
 	daemon.logPrintStageStep(out, "windows update result: %v - %s", err, progOut)
 }
 
