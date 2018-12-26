@@ -279,7 +279,7 @@ func (conn *UDPCipherConnection) WriteRand(dest net.Addr) {
 		conn.logger.Warning("WriteRand", dest.String(), err, "failed to get random bytes")
 		return
 	}
-	conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+	conn.SetDeadline(time.Now().Add(IOTimeoutSec))
 	if _, err := conn.WriteTo(randBuf, dest); err != nil && !strings.Contains(err.Error(), "closed") {
 		conn.logger.Warning("WriteRand", dest.String(), err, "failed to write random bytes")
 	}
@@ -374,7 +374,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int,
 			daemon.udpTable.Delete(clientAddr.String())
 		}()
 	}
-	udpClient.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+	udpClient.SetDeadline(time.Now().Add(IOTimeoutSec))
 	_, err = udpClient.WriteTo(packet[packetLen:n], destAddr)
 	if err != nil {
 		daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), err, "failed to respond to client")
@@ -389,7 +389,7 @@ func (daemon *UDPDaemon) PipeUDPConnection(server net.PacketConn, clientAddr *ne
 	packet := make([]byte, MaxPacketSize)
 	defer client.Close()
 	for {
-		client.SetReadDeadline(time.Now().Add(IOTimeoutSec))
+		client.SetDeadline(time.Now().Add(IOTimeoutSec))
 		length, addr, err := client.ReadFrom(packet)
 		if err != nil {
 			return
