@@ -1,3 +1,8 @@
+/*
+plainsocket implements a Telnet-comaptible network service to provide unencrypted, plain-text access to all toolbox features.
+Due to the unencrypted nature of this communication, users are strongly advised to utilise this service only as a last resort.
+The implementation supports UDP as carrier of conversation in addition to TCP.
+*/
 package plainsocket
 
 import (
@@ -16,7 +21,7 @@ const (
 	RateLimitIntervalSec = 1                // Rate limit is calculated at 1 second interval
 )
 
-// Daemon provides to all features via plain unencrypted TCP and UDP.
+// Daemon implements a Telnet-compatible service to provide unencrypted, plain-text access to all toolbox features, via both TCP and UDP.
 type Daemon struct {
 	Address    string                   `json:"Address"`    // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
 	TCPPort    int                      `json:"TCPPort"`    // TCP port to listen on
