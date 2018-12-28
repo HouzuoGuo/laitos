@@ -26,7 +26,7 @@ func WriteRand(conn net.Conn) {
 			lalog.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
 			break
 		}
-		conn.SetDeadline(time.Now().Add(time.Duration(RandNum(330, 540, 880)) * time.Millisecond))
+		conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(330, 540, 880)) * time.Millisecond))
 		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
 			lalog.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
 			break
@@ -49,10 +49,10 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 	defer toConn.Close()
 	buf := make([]byte, MaxPacketSize)
 	for {
-		fromConn.SetDeadline(time.Now().Add(IOTimeoutSec))
+		fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
 		length, err := fromConn.Read(buf)
 		if length > 0 {
-			toConn.SetDeadline(time.Now().Add(IOTimeoutSec))
+			toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
 			if _, err := toConn.Write(buf[:length]); err != nil {
 				return
 			}
@@ -221,7 +221,7 @@ func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
 }
 
 func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, destWithPort string, err error) {
-	conn.SetDeadline(time.Now().Add(IOTimeoutSec))
+	conn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
 
 	buf := make([]byte, 269)
 	if _, err = io.ReadFull(conn, buf[:AddressTypeIndex+1]); err != nil {
@@ -281,7 +281,7 @@ func (conn *TCPCipherConnection) WriteRandAndClose() {
 		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to get random bytes")
 		return
 	}
-	conn.SetDeadline(time.Now().Add(IOTimeoutSec))
+	conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
 	if _, err := conn.Write(randBuf); err != nil {
 		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to write random bytes")
 	}

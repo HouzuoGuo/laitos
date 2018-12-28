@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
 	"io"
 	"math/rand"
 	"net"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 const (
