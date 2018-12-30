@@ -1,4 +1,4 @@
-package simpleip
+package simpleipsvcd
 
 import "testing"
 
@@ -13,5 +13,5 @@ func TestSimpleIPDaemon(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	TestDaemon(daemon, t)
+	TestSimpleIPSvcD(daemon, t)
 }

@@ -1,5 +1,5 @@
 /*
-My name is Howard (Houzuo) Guo.
+Hello from Howard (Houzuo) Guo!
 
 Let us get in touch:
 

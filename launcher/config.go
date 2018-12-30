@@ -13,6 +13,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
+	"github.com/HouzuoGuo/laitos/daemon/simpleipsvcd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/snmpd"
@@ -107,6 +108,8 @@ type Config struct {
 
 	SNMPDaemon *snmpd.Daemon `json:"SNMPDaemon"` // SNMPDaemon configuration and instance
 
+	SimpleIPSvcDaemon *simpleipsvcd.Daemon `json:"SimpleIPSvcDaemon"` // SimpleIPSvcDaemon is the simple TCP/UDP service daemon configuration and instance
+
 	TelegramBot     *telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
 	TelegramFilters StandardFilters     `json:"TelegramFilters"` // Telegram bot filter configuration
 
@@ -118,6 +121,7 @@ type Config struct {
 	maintenanceInit       sync.Once
 	dnsDaemonInit         sync.Once
 	snmpDaemonInit        sync.Once
+	simpleIPSvcDaemonInit sync.Once
 	httpDaemonInit        sync.Once
 	mailCommandRunnerInit sync.Once
 	mailDaemonInit        sync.Once
@@ -157,6 +161,12 @@ func (config *Config) Initialise() error {
 	}
 	if config.SockDaemon == nil {
 		config.SockDaemon = &sockd.Daemon{}
+	}
+	if config.SNMPDaemon == nil {
+		config.SNMPDaemon = &snmpd.Daemon{}
+	}
+	if config.SimpleIPSvcDaemon == nil {
+		config.SimpleIPSvcDaemon = &simpleipsvcd.Daemon{}
 	}
 	if config.TelegramBot == nil {
 		config.TelegramBot = &telegrambot.Daemon{}
@@ -213,6 +223,17 @@ func (config *Config) GetSNMPD() *snmpd.Daemon {
 		}
 	})
 	return config.SNMPDaemon
+}
+
+// GetSimpleIPSvcD initialises simple IP services daemon and returns it.
+func (config *Config) GetSimpleIPSvcD() *simpleipsvcd.Daemon {
+	config.simpleIPSvcDaemonInit.Do(func() {
+		if err := config.SimpleIPSvcDaemon.Initialise(); err != nil {
+			config.logger.Abort("GetSimpleIPSvcD", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.SimpleIPSvcDaemon
 }
 
 // GetMaintenance constructs a system maintenance / health check daemon from configuration and return.

@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -56,6 +57,14 @@ func TestBenchmark(t *testing.T) {
 		}
 	}()
 
+	if os.Getuid() == 0 {
+		// TODO: allow customised port specification in this daemon
+		go func() {
+			if err := config.GetSimpleIPSvcD(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
 	go func() {
 		config.GetSNMPD().Port = 24822
 		if err := config.GetSNMPD().StartAndBlock(); err != nil {
@@ -69,7 +78,7 @@ func TestBenchmark(t *testing.T) {
 	// Run benchmark for short 3 seconds, otherwise there are too many log entries.
 	bench := Benchmark{
 		Config:      &config,
-		DaemonNames: []string{DNSDName, InsecureHTTPDName, PlainSocketName, SMTPDName, SNMPDName, SOCKDName},
+		DaemonNames: []string{DNSDName, InsecureHTTPDName, PlainSocketName, SimpleIPSvcName, SMTPDName, SNMPDName, SOCKDName},
 		HTTPPort:    53829,
 	}
 	// Conduct benchmark for 10 seconds

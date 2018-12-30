@@ -9,6 +9,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
+	"github.com/HouzuoGuo/laitos/daemon/simpleipsvcd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/snmpd"
@@ -227,6 +228,10 @@ var sampleConfigJSON = `
       ]
     }
   },
+	"SimpleIPSvcDaemon": {
+		"ActiveUserNames": "howard (houzuo) guo",
+		"QOTD": "hello from howard"
+	},
 	"SNMPDaemon": {
 		"CommunityName": "public",
 		"Port": 33210
@@ -273,7 +278,6 @@ var sampleConfigJSON = `
   }
 }`
 
-// Most of the daemon test cases are copied from their own unit tests.
 func TestConfig(t *testing.T) {
 	var config Config
 	if err := config.DeserialiseFromJSON([]byte(sampleConfigJSON)); err != nil {
@@ -306,6 +310,8 @@ func TestConfig(t *testing.T) {
 	plainsocket.TestUDPServer(config.GetPlainSocketDaemon(), t)
 
 	sockd.TestSockd(config.GetSockDaemon(), t)
+
+	simpleipsvcd.TestSimpleIPSvcD(config.GetSimpleIPSvcD(), t)
 
 	snmpd.TestSNMPD(config.GetSNMPD(), t)
 

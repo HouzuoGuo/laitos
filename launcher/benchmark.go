@@ -57,8 +57,10 @@ func (bench *Benchmark) RunBenchmarkAndProfiler() {
 			go bench.BenchmarkSMTPDaemon()
 		case SOCKDName:
 			go bench.BenchmarkSockDaemon()
+		case SimpleIPSvcName:
+			go bench.BenchmarkSimpleIPSvcDaemon()
 		case SNMPDName:
-			go bench.BenchmarkSNMPkDaemon()
+			go bench.BenchmarkSNMPDaemon()
 		case TelegramName:
 			// There is no benchmark for telegram daemon
 		}
@@ -254,6 +256,70 @@ func (bench *Benchmark) BenchmarkPlainSocketDaemon() {
 	}, "BenchmarkPlainSocketDaemon", bench.Logger)
 }
 
+// BenchmarkSimpleIPSvcDaemon continuously sends requests to all simple IP services via both TCP and UDP.
+func (bench *Benchmark) BenchmarkSimpleIPSvcDaemon() {
+	// 11 - active users; 12+1: daytime, 17: QOTD
+	allPorts := []int{11, 12 + 1, 17}
+	counter := int64(0)
+
+	bench.reportRatePerSecond(func(trigger func()) {
+		for port := allPorts[0]; ; port = allPorts[len(allPorts)%int(atomic.AddInt64(&counter, 1))] {
+			udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(port))
+			if err != nil {
+				bench.Logger.Panic("BenchmarkPlainSocketDaemon", "", err, "failed to init UDP address")
+				return
+			}
+
+			if bench.Stop {
+				return
+			}
+			trigger()
+
+			buf := make([]byte, 1024)
+			if _, err := rand.Read(buf); err != nil {
+				bench.Logger.Panic("BenchmarkPlainSocketDaemon", "", err, "failed to acquire random bytes")
+				return
+			}
+
+			if rand.Intn(2) == 0 {
+				// UDP request
+				clientConn, err := net.DialUDP("udp", nil, udpAddr)
+				if err != nil {
+					continue
+				}
+				if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
+					clientConn.Close()
+					continue
+				}
+				if _, err := clientConn.Write(buf); err != nil {
+					clientConn.Close()
+					continue
+				}
+				if _, err := clientConn.Write(buf); err != nil {
+					clientConn.Close()
+					continue
+				}
+				clientConn.Close()
+			} else {
+				// TCP request
+				clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(port))
+				if err != nil {
+					continue
+				}
+				if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
+					clientConn.Close()
+					continue
+				}
+				if _, err := clientConn.Write(buf); err != nil {
+					clientConn.Close()
+					continue
+				}
+				clientConn.Close()
+			}
+		}
+	}, "BenchmarkSimpleIPSvcDaemon", bench.Logger)
+}
+
 // BenchmarkSMTPDaemon continually sends emails in a sequential manner.
 func (bench *Benchmark) BenchmarkSMTPDaemon() {
 	port := bench.Config.GetMailDaemon().Port
@@ -338,7 +404,7 @@ func (bench *Benchmark) BenchmarkSockDaemon() {
 }
 
 // BenchmarkSNMPDaemon sends random data to SNMP port, aims to catch hidden mistakes in SNMP packet decoder.
-func (bench *Benchmark) BenchmarkSNMPkDaemon() {
+func (bench *Benchmark) BenchmarkSNMPDaemon() {
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(bench.Config.GetSNMPD().Port))
 	if err != nil {
 		bench.Logger.Panic("BenchmarkSNMPDaemon", "", err, "failed to init UDP address")

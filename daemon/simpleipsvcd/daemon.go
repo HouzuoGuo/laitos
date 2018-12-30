@@ -5,7 +5,7 @@ According to those protocol standard, the services are available via TCP and UDP
 - daytime (current system time in readable text on port 12+1, RFC 867)
 - QOTD (short text message as quote of the day on port 17, RFC 865)
 */
-package simpleip
+package simpleipsvcd
 
 import (
 	"bufio"
@@ -233,7 +233,7 @@ func (daemon *Daemon) udpResponderLoop(port int) {
 	}
 }
 
-func TestDaemon(daemon *Daemon, t testingstub.T) {
+func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 	if os.Getuid() != 0 {
 		t.Log("skipped simple IP service tests due to lack of root privilege")
 		return
