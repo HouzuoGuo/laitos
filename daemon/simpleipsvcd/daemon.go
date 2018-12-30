@@ -58,7 +58,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.QOTD = strings.TrimSpace(daemon.QOTD)
 
 	daemon.logger = lalog.Logger{
-		ComponentName: "simpleip",
+		ComponentName: "simpleipsvcd",
 		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}},
 	}
 	daemon.rateLimit = &misc.RateLimit{
