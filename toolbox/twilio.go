@@ -2,12 +2,13 @@ package toolbox
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 const (
@@ -88,7 +89,16 @@ func (twi *Twilio) MakeCall(cmd Command) *Result {
 	formParams := url.Values{
 		"From": {twi.PhoneNumber},
 		"To":   {toNumber},
-		"Url":  {"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf("%s, repeat again, %s, repeat again, %s, over.", message, message, message))},
+		"Url": {"http://twimlets.com/message?Message=" + url.QueryEscape(fmt.Sprintf(`%s.
+
+repeat again.
+
+%s.
+
+repeat again.
+
+%s.
+over.`, message, message, message))},
 	}
 	resp, err := inet.DoHTTP(inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
