@@ -28,7 +28,7 @@ func TestAtLeast(t *testing.T) {
 
 func TestWolframAlpha_Execute(t *testing.T) {
 	if !TestWolframAlpha.IsConfigured() {
-		t.Skip()
+		t.Skip("wolframalpha is not configured")
 	}
 	if err := TestWolframAlpha.Initialise(); err != nil {
 		t.Fatal(err)

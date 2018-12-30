@@ -1,8 +1,9 @@
 package mailcmd
 
 import (
-	"github.com/HouzuoGuo/laitos/inet"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 func TestUndocumented3_MayReplyTo(t *testing.T) {
@@ -32,7 +33,7 @@ func TestUndocumented3_SelfTest(t *testing.T) {
 
 func TestUndocumented3_Execute(t *testing.T) {
 	if !TestUndocumented3.IsConfigured() {
-		t.Skip()
+		t.Skip("skip because TestUndocumented3 is not configured")
 	}
 	if err := TestUndocumented3.SelfTest(); err != nil {
 		t.Fatal(err)

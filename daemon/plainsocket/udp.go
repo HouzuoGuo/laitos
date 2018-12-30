@@ -110,7 +110,8 @@ func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAd
 func TestUDPServer(server *Daemon, t testingstub.T) {
 	if misc.HostIsWindows() {
 		// FIXME: fix this test case for Windows
-		t.Skip("FIXME: enable this test case for Windows")
+		t.Log("FIXME: enable this test case for Windows")
+		return
 	}
 	// Prevent daemon from listening to TCP connections in this UDP test case
 	tcpListenPort := server.TCPPort

@@ -6,7 +6,7 @@ import (
 
 func TestSendMail_Execute(t *testing.T) {
 	if !TestSendMail.IsConfigured() {
-		t.Skip()
+		t.Skip("not configured")
 	}
 	if err := TestSendMail.Initialise(); err != nil {
 		t.Fatal(err)

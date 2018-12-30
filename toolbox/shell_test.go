@@ -1,12 +1,13 @@
 package toolbox
 
 import (
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestShell_WindowsExecute(t *testing.T) {
@@ -15,7 +16,7 @@ func TestShell_WindowsExecute(t *testing.T) {
 	}
 	sh := Shell{}
 	if !sh.IsConfigured() {
-		t.Skip()
+		t.Fatal("should be configured")
 	}
 	if err := sh.Initialise(); err != nil {
 		t.Fatal(err)
@@ -58,7 +59,7 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 	}
 	sh := Shell{}
 	if !sh.IsConfigured() {
-		t.Skip()
+		t.Fatal("should be configured")
 	}
 	if err := sh.Initialise(); err != nil {
 		t.Fatal(err)

@@ -1,14 +1,15 @@
 package toolbox
 
 import (
-	"github.com/HouzuoGuo/laitos/inet"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 func TestIMAPS(t *testing.T) {
 	if !TestIMAPAccounts.IsConfigured() {
-		t.Skip()
+		t.Skip("imap accounts are not configured")
 	}
 	if err := TestIMAPAccounts.Initialise(); err != nil {
 		t.Fatal(err)
@@ -85,7 +86,7 @@ func TestIMAPAccountsPublicServer(t *testing.T) {
 
 func TestIMAPAccounts_Execute(t *testing.T) {
 	if !TestIMAPAccounts.IsConfigured() {
-		t.Skip()
+		t.Skip("imap accounts are not configured")
 	}
 	if err := TestIMAPAccounts.Initialise(); err != nil {
 		t.Fatal(err)

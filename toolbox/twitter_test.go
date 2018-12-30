@@ -7,7 +7,7 @@ import (
 
 func TestTwitter_Execute(t *testing.T) {
 	if !TestTwitter.IsConfigured() {
-		t.Skip()
+		t.Skip("twitter is not configured")
 	}
 	if err := TestTwitter.Initialise(); err != nil {
 		t.Fatal(err)

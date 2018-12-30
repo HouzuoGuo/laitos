@@ -7,7 +7,7 @@ import (
 
 func TestTwilio_Execute(t *testing.T) {
 	if !TestTwilio.IsConfigured() {
-		t.Skip()
+		t.Skip("twilio is not configured")
 	}
 	if err := TestTwilio.Initialise(); err != nil {
 		t.Fatal(err)

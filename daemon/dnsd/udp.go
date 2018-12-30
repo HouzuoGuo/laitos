@@ -122,7 +122,8 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 	if misc.HostIsWindows() {
 		// FIXME: fix this test case for Windows
-		t.Skip("FIXME: enable this test case for Windows")
+		t.Log("FIXME: enable TestUDPQueries for Windows")
+		return
 	}
 	// Prevent daemon from listening to TCP queries in this UDP test case
 	tcpListenPort := dnsd.TCPPort
