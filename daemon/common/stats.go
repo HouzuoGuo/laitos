@@ -19,6 +19,8 @@ var (
 	HTTPDStats          = misc.NewStats()
 	PlainSocketStatsTCP = misc.NewStats()
 	PlainSocketStatsUDP = misc.NewStats()
+	SimpleIPStatsTCP    = misc.NewStats()
+	SimpleIPStatsUDP    = misc.NewStats()
 	TelegramBotStats    = misc.NewStats()
 	AutoUnlockStats     = misc.NewStats()
 )
@@ -28,16 +30,17 @@ func GetLatestStats() string {
 	numDecimals := 2
 	factor := 1000000000.0
 	return fmt.Sprintf(`Web and bot commands: %s
-DNS server  TCP|UDP:  %s | %s
-Sock server TCP|UDP:  %s | %s
-SNMP server:          %s
-Mail commands:        %s
-Mail server:          %s
-Web servers:          %s
-Text server TCP|UDP:  %s | %s
-Telegram commands:    %s
-Auto-unlock events:   %s
-Outstanding mails:    %d KB
+DNS server  TCP|UDP:    %s | %s
+Sock server TCP|UDP:    %s | %s
+SNMP server:            %s
+Mail commands:          %s
+Mail server:            %s
+Web servers:            %s
+Simple services TCP|UDP %s | %s
+Text server TCP|UDP:    %s | %s
+Telegram commands:      %s
+Auto-unlock events:     %s
+Outstanding mails:      %d KB
 `,
 		CommandStats.Format(factor, numDecimals),
 		DNSDStatsTCP.Format(factor, numDecimals), DNSDStatsUDP.Format(factor, numDecimals),
@@ -46,6 +49,7 @@ Outstanding mails:    %d KB
 		MailCommandStats.Format(factor, numDecimals),
 		SMTPDStats.Format(factor, numDecimals),
 		HTTPDStats.Format(factor, numDecimals),
+		SimpleIPStatsTCP.Format(factor, numDecimals), SimpleIPStatsUDP.Format(factor, numDecimals),
 		PlainSocketStatsTCP.Format(factor, numDecimals), PlainSocketStatsUDP.Format(factor, numDecimals),
 		TelegramBotStats.Format(factor, numDecimals),
 		AutoUnlockStats.Format(factor, numDecimals),
