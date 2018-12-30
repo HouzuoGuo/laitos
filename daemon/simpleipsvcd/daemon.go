@@ -31,10 +31,10 @@ const (
 
 // Daemon implements simple & standard Internet services that were used in the nostalgic era of computing.
 type Daemon struct {
-	Address         string `json:"Address"`        // Address to listen on, e.g. 0.0.0.0 to listen on all network interfaces.
-	PerIPLimit      int    `json:"PerIPLimit"`     // PerIPLimit is approximately how many requests are allowed from an IP within a designated interval.
-	ActiveUserNames string `json:"ActiveUserName"` // ActiveUserNames are CRLF-separated list of user names to appear in the response of "sysstat" network service.
-	QOTD            string `json:"QOTD"`           // QOTD is the message to appear in the response of "QOTD" network service.
+	Address         string `json:"Address"`         // Address to listen on, e.g. 0.0.0.0 to listen on all network interfaces.
+	PerIPLimit      int    `json:"PerIPLimit"`      // PerIPLimit is approximately how many requests are allowed from an IP within a designated interval.
+	ActiveUserNames string `json:"ActiveUserNames"` // ActiveUserNames are CRLF-separated list of user names to appear in the response of "sysstat" network service.
+	QOTD            string `json:"QOTD"`            // QOTD is the message to appear in the response of "QOTD" network service.
 
 	rateLimit *misc.RateLimit
 	logger    lalog.Logger
