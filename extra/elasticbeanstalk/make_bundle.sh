@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 
-[ "$(basename $(pwd))" != elasticbeanstalk ] && echo 'Please run the script from "elasticbeanstalk" directory.' && exit 1
+[ "$(basename "$(pwd)")" != elasticbeanstalk ] && echo 'Please run the script from "elasticbeanstalk" directory.' && exit 1
 
 archive=$1
 procfile=$2
-[ -z "$archive" -o -z "$procfile" ] && echo "Usage: $0 archive-path procfile-path" && exit 1
-[ ! -f "$archive" -o ! -f "$procfile" ] && echo "Failed to read archive or procfile" && exit 1
+if [ -z "$archive" ] || [ -z "$procfile" ]; then
+ echo "Usage: $0 archive-path procfile-path" && exit 1
+fi
+if [ ! -f "$archive" ] || [ ! -f "$procfile" ]; then
+  echo "Failed to read archive or procfile" && exit 1
+fi
 
 set -e
 
 pushd ../../
-env CGO_ENABLED=0 GOOS=linux go build
+env GOCACHE=off CGO_ENABLED=0 GOOS=linux go build
 popd
 
 rm -rf bundle/
