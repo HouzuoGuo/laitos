@@ -263,7 +263,7 @@ func (bench *Benchmark) BenchmarkSimpleIPSvcDaemon() {
 	counter := int64(0)
 
 	bench.reportRatePerSecond(func(trigger func()) {
-		for port := allPorts[0]; ; port = allPorts[len(allPorts)%int(atomic.AddInt64(&counter, 1))] {
+		for port := allPorts[0]; ; port = allPorts[int(atomic.AddInt64(&counter, 1))%len(allPorts)] {
 			udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(port))
 			if err != nil {
 				bench.Logger.Panic("BenchmarkPlainSocketDaemon", "", err, "failed to init UDP address")

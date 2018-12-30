@@ -78,9 +78,10 @@ func (daemon *Daemon) Initialise() error {
 func (daemon *Daemon) StartAndBlock() error {
 	// There are 3 TCP servers and 3 UDP servers
 	wg := new(sync.WaitGroup)
-	wg.Add(6)
 	// 11 - active users; 12+1 - daytime; 17 - QOTD
 	for _, port := range []int{11, 12 + 1, 17} {
+		wg.Add(2)
+		daemon.logger.Info("StartAndBlock", "", nil, "going to listen on TCP and UDP port %d", port)
 		// Start TCP listener on the port
 		tcpServer, err := net.Listen("tcp", fmt.Sprintf("%s:%d", daemon.Address, port))
 		if err != nil {
@@ -110,7 +111,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			wg.Done()
 		}(port)
 	}
-	// Wait for servers to be stop
+	// Wait for servers to be stopped
 	wg.Wait()
 	return nil
 }
