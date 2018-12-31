@@ -290,7 +290,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 			success++
 		}
 	}
-	if success < 1 || success > daemon.PerIPLimit*2 {
+	if success < 1 || success > daemon.PerIPLimit*3 {
 		t.Fatal("number of succeeded TCP requests is wrong", success)
 	}
 	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
@@ -315,7 +315,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 			success++
 		}
 	}
-	if success < 1 || success > daemon.PerIPLimit*2 {
+	if success < 1 || success > daemon.PerIPLimit*3 {
 		t.Fatal("number of succeeded UDP requests is wrong", success)
 	}
 	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
