@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"net"
@@ -169,7 +170,12 @@ func (bench *Benchmark) BenchmarkHTTPDaemon() {
 				return
 			}
 			trigger()
-			inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
+			buf := make([]byte, 32*1024)
+			if _, err := rand.Read(buf); err != nil {
+				bench.Logger.Panic("BenchmarkHTTPDaemon", "", err, "failed to acquire random bytes")
+				return
+			}
+			inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3, Body: bytes.NewReader(buf)}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
 		}
 	}, "BenchmarkHTTPDaemon", bench.Logger)
 }
@@ -258,8 +264,7 @@ func (bench *Benchmark) BenchmarkPlainSocketDaemon() {
 
 // BenchmarkSimpleIPSvcDaemon continuously sends requests to all simple IP services via both TCP and UDP.
 func (bench *Benchmark) BenchmarkSimpleIPSvcDaemon() {
-	// 11 - active users; 12+1: daytime, 17: QOTD
-	allPorts := []int{11, 12 + 1, 17}
+	allPorts := []int{bench.Config.GetSimpleIPSvcD().ActiveUsersPort, bench.Config.GetSimpleIPSvcD().DayTimePort, bench.Config.GetSimpleIPSvcD().QOTDPort}
 	counter := int64(0)
 
 	bench.reportRatePerSecond(func(trigger func()) {
@@ -288,10 +293,6 @@ func (bench *Benchmark) BenchmarkSimpleIPSvcDaemon() {
 					continue
 				}
 				if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
-					clientConn.Close()
-					continue
-				}
-				if _, err := clientConn.Write(buf); err != nil {
 					clientConn.Close()
 					continue
 				}

@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +31,9 @@ const (
 // Daemon implements simple & standard Internet services that were used in the nostalgic era of computing.
 type Daemon struct {
 	Address         string `json:"Address"`         // Address to listen on, e.g. 0.0.0.0 to listen on all network interfaces.
+	ActiveUsersPort int    `json:"ActiveUsersPort"` // ActiveUsersPort is the port number (TCP and UDP) to listen on for the sysstat (active user names) service.
+	DayTimePort     int    `json:"DayTimePort"`     // DayTimePort is the port number (TCP and UDP) to listen on for the daytime service.
+	QOTDPort        int    `json:"QOTDPort"`        // QOTDPort is the port number (TCP and UDP) to listen on for the QOTD service.
 	PerIPLimit      int    `json:"PerIPLimit"`      // PerIPLimit is approximately how many requests are allowed from an IP within a designated interval.
 	ActiveUserNames string `json:"ActiveUserNames"` // ActiveUserNames are CRLF-separated list of user names to appear in the response of "sysstat" network service.
 	QOTD            string `json:"QOTD"`            // QOTD is the message to appear in the response of "QOTD" network service.
@@ -54,6 +56,15 @@ func (daemon *Daemon) Initialise() error {
 		// The default is sufficient for 1 request per second on all three services via both TCP and UDP
 		daemon.PerIPLimit = 6
 	}
+	if daemon.ActiveUsersPort < 1 {
+		daemon.ActiveUsersPort = 11
+	}
+	if daemon.DayTimePort < 1 {
+		daemon.DayTimePort = 12 + 1
+	}
+	if daemon.QOTDPort < 1 {
+		daemon.QOTDPort = 17
+	}
 	daemon.ActiveUserNames = strings.TrimSpace(daemon.ActiveUserNames)
 	daemon.QOTD = strings.TrimSpace(daemon.QOTD)
 
@@ -70,7 +81,11 @@ func (daemon *Daemon) Initialise() error {
 
 	daemon.tcpServers = make(map[int]net.Listener)
 	daemon.udpServers = make(map[int]*net.UDPConn)
-	daemon.serverResponseFun = map[int]func() string{11: daemon.responseActiveUsers, 12 + 1: daemon.responseDayTime, 17: daemon.responseQOTD}
+	daemon.serverResponseFun = map[int]func() string{
+		daemon.ActiveUsersPort: daemon.responseActiveUsers,
+		daemon.DayTimePort:     daemon.responseDayTime,
+		daemon.QOTDPort:        daemon.responseQOTD,
+	}
 	return nil
 }
 
@@ -78,8 +93,7 @@ func (daemon *Daemon) Initialise() error {
 func (daemon *Daemon) StartAndBlock() error {
 	// There are 3 TCP servers and 3 UDP servers
 	wg := new(sync.WaitGroup)
-	// 11 - active users; 12+1 - daytime; 17 - QOTD
-	for _, port := range []int{11, 12 + 1, 17} {
+	for _, port := range []int{daemon.ActiveUsersPort, daemon.DayTimePort, daemon.QOTDPort} {
 		wg.Add(2)
 		daemon.logger.Info("StartAndBlock", "", nil, "going to listen on TCP and UDP port %d", port)
 		// Start TCP listener on the port
@@ -235,11 +249,6 @@ func (daemon *Daemon) udpResponderLoop(port int) {
 }
 
 func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
-	if os.Getuid() != 0 {
-		t.Log("skipped simple IP service tests due to lack of root privilege")
-		return
-	}
-
 	// Server should start within two seconds
 	var stoppedNormally bool
 	go func() {
@@ -253,12 +262,12 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 	// The function returns true only if the response matches expectation from the service
 	testResponseMatch := func(port int, response string) bool {
 		switch port {
-		case 11:
+		case daemon.ActiveUsersPort:
 			return strings.TrimSpace(response) == daemon.ActiveUserNames
-		case 12 + 1:
+		case daemon.DayTimePort:
 			// No need to match minute and second
 			return strings.Contains(response, time.Now().Format("2006-01-02T15"))
-		case 17:
+		case daemon.QOTDPort:
 			return strings.TrimSpace(response) == daemon.QOTD
 		}
 		return false
@@ -267,7 +276,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 	// Pick port 11 as the test subject for rate limits, TCP and UDP.
 	success := 0
 	for i := 0; i < 40; i++ {
-		tcpClient, err := net.Dial("tcp", "127.0.0.1:11")
+		tcpClient, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(daemon.ActiveUsersPort))
 		if err != nil {
 			continue
 		}
@@ -277,7 +286,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 			continue
 		}
 		tcpClient.Close()
-		if testResponseMatch(11, string(response)) {
+		if testResponseMatch(daemon.ActiveUsersPort, string(response)) {
 			success++
 		}
 	}
@@ -288,7 +297,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
 	success = 0
 	for i := 0; i < 40; i++ {
-		udpClient, err := net.Dial("udp", "127.0.0.1:11")
+		udpClient, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(daemon.ActiveUsersPort))
 		if err != nil {
 			continue
 		}
@@ -302,7 +311,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 			continue
 		}
 		udpClient.Close()
-		if testResponseMatch(11, udpResponse) {
+		if testResponseMatch(daemon.ActiveUsersPort, udpResponse) {
 			success++
 		}
 	}
@@ -313,7 +322,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
 
 	// Test each of the three services
-	for _, port := range []int{11, 12 + 1, 17} {
+	for _, port := range []int{daemon.ActiveUsersPort, daemon.DayTimePort, daemon.QOTDPort} {
 		// Test TCP implementation of the service
 		tcpClient, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(port))
 		if err != nil {

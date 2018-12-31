@@ -118,20 +118,20 @@ type Config struct {
 	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
 
 	logger                lalog.Logger // logger handles log output from configuration serialisation and initialisation routines.
-	maintenanceInit       sync.Once
-	dnsDaemonInit         sync.Once
-	snmpDaemonInit        sync.Once
-	simpleIPSvcDaemonInit sync.Once
-	httpDaemonInit        sync.Once
-	mailCommandRunnerInit sync.Once
-	mailDaemonInit        sync.Once
-	plainSocketDaemonInit sync.Once
-	sockDaemonInit        sync.Once
-	telegramBotInit       sync.Once
-	autoUnlockInit        sync.Once
+	maintenanceInit       *sync.Once
+	dnsDaemonInit         *sync.Once
+	snmpDaemonInit        *sync.Once
+	simpleIPSvcDaemonInit *sync.Once
+	httpDaemonInit        *sync.Once
+	mailCommandRunnerInit *sync.Once
+	mailDaemonInit        *sync.Once
+	plainSocketDaemonInit *sync.Once
+	sockDaemonInit        *sync.Once
+	telegramBotInit       *sync.Once
+	autoUnlockInit        *sync.Once
 }
 
-// Initialise decorates feature configuration and bridges in preparation for daemon operations.
+// Initialise decorates feature configuration and command bridge configuration in preparation for daemon operations.
 func (config *Config) Initialise() error {
 	/*
 		Fill in some blanks so that Get**** functions will be able to call Initialise() function, which in turn
@@ -144,33 +144,47 @@ func (config *Config) Initialise() error {
 	if config.Features == nil {
 		config.Features = &toolbox.FeatureSet{}
 	}
-	if config.DNSDaemon == nil {
-		config.DNSDaemon = &dnsd.Daemon{}
-	}
-	if config.HTTPDaemon == nil {
-		config.HTTPDaemon = &httpd.Daemon{}
-	}
+	config.mailCommandRunnerInit = new(sync.Once)
 	if config.MailCommandRunner == nil {
 		config.MailCommandRunner = &mailcmd.CommandRunner{}
 	}
+	config.maintenanceInit = new(sync.Once)
+	if config.Maintenance == nil {
+		config.Maintenance = &maintenance.Daemon{}
+	}
+	config.dnsDaemonInit = new(sync.Once)
+	if config.DNSDaemon == nil {
+		config.DNSDaemon = &dnsd.Daemon{}
+	}
+	config.httpDaemonInit = new(sync.Once)
+	if config.HTTPDaemon == nil {
+		config.HTTPDaemon = &httpd.Daemon{}
+	}
+	config.mailDaemonInit = new(sync.Once)
 	if config.MailDaemon == nil {
 		config.MailDaemon = &smtpd.Daemon{}
 	}
+	config.plainSocketDaemonInit = new(sync.Once)
 	if config.PlainSocketDaemon == nil {
 		config.PlainSocketDaemon = &plainsocket.Daemon{}
 	}
-	if config.SockDaemon == nil {
-		config.SockDaemon = &sockd.Daemon{}
-	}
-	if config.SNMPDaemon == nil {
-		config.SNMPDaemon = &snmpd.Daemon{}
-	}
+	config.simpleIPSvcDaemonInit = new(sync.Once)
 	if config.SimpleIPSvcDaemon == nil {
 		config.SimpleIPSvcDaemon = &simpleipsvcd.Daemon{}
 	}
+	config.snmpDaemonInit = new(sync.Once)
+	if config.SNMPDaemon == nil {
+		config.SNMPDaemon = &snmpd.Daemon{}
+	}
+	config.sockDaemonInit = new(sync.Once)
+	if config.SockDaemon == nil {
+		config.SockDaemon = &sockd.Daemon{}
+	}
+	config.telegramBotInit = new(sync.Once)
 	if config.TelegramBot == nil {
 		config.TelegramBot = &telegrambot.Daemon{}
 	}
+	config.autoUnlockInit = new(sync.Once)
 	if config.AutoUnlock == nil {
 		config.AutoUnlock = &autounlock.Daemon{}
 	}

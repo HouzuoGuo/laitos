@@ -1,7 +1,6 @@
 package launcher
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -21,52 +20,55 @@ func TestBenchmark(t *testing.T) {
 
 	httpd.PrepareForTestHTTPD(t)
 
-	// Start benchmark daemons on rather arbitrary ports
+	// Alter daemon configuration to use rather arbitrary ports
+	config.DNSDaemon.TCPPort = 63122
+	config.DNSDaemon.UDPPort = 34211
+	config.HTTPDaemon.Port = 13871
+	config.PlainSocketDaemon.TCPPort = 47811
+	config.PlainSocketDaemon.UDPPort = 58511
+	config.MailDaemon.Port = 31891
+	config.SockDaemon.TCPPorts = []int{54872}
+	config.SockDaemon.UDPPorts = []int{12989}
+	config.SimpleIPSvcDaemon.ActiveUsersPort = 8545
+	config.SimpleIPSvcDaemon.DayTimePort = 34434
+	config.SimpleIPSvcDaemon.QOTDPort = 24390
+	config.SNMPDaemon.Port = 24822
+
+	// Re-initialise and then Start all daemons
+	if err := config.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	go func() {
-		config.GetDNSD().TCPPort = 63122
-		config.GetDNSD().UDPPort = 34211
 		if err := config.GetDNSD().StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
 	}()
-
 	go func() {
-		config.GetHTTPD().Port = 13871
 		if err := config.GetHTTPD().StartAndBlockNoTLS(19381); err != nil {
 			t.Fatal(err)
 		}
 	}()
 	go func() {
-		config.GetPlainSocketDaemon().TCPPort = 47811
-		config.GetPlainSocketDaemon().UDPPort = 58511
 		if err := config.GetPlainSocketDaemon().StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
 	}()
 	go func() {
-		config.GetMailDaemon().Port = 31891
 		if err := config.GetMailDaemon().StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
 	}()
 	go func() {
-		config.GetSockDaemon().TCPPorts = []int{54872}
-		config.GetSockDaemon().UDPPorts = []int{12989}
 		if err := config.GetSockDaemon().StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
 	}()
-
-	if os.Getuid() == 0 {
-		// TODO: allow customised port specification in this daemon
-		go func() {
-			if err := config.GetSimpleIPSvcD(); err != nil {
-				t.Fatal(err)
-			}
-		}()
-	}
 	go func() {
-		config.GetSNMPD().Port = 24822
+		if err := config.GetSimpleIPSvcD().StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	go func() {
 		if err := config.GetSNMPD().StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}

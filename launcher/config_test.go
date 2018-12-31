@@ -171,6 +171,7 @@ var sampleConfigJSON = `
   },
   "Maintenance": {
     "BlockSystemLoginExcept": [
+			"Administrator",
       "root",
       "howard"
     ],
@@ -230,7 +231,10 @@ var sampleConfigJSON = `
   },
 	"SimpleIPSvcDaemon": {
 		"ActiveUserNames": "howard (houzuo) guo",
-		"QOTD": "hello from howard"
+		"ActiveUsersPort": 16222,
+		"DayTimePort": 62989,
+		"QOTD": "hello from howard",
+		"QOTDPort": 59594
 	},
 	"SNMPDaemon": {
 		"CommunityName": "public",
