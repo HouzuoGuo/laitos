@@ -100,7 +100,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		tcpServer, err := net.Listen("tcp", fmt.Sprintf("%s:%d", daemon.Address, port))
 		if err != nil {
 			daemon.Stop()
-			return fmt.Errorf("simpleip.StartAndBlock: failed to start TCP server on port %d - %v", port, err)
+			return fmt.Errorf("simpleipsvcd.StartAndBlock: failed to start TCP server on port %d - %v", port, err)
 		}
 		daemon.tcpServers[port] = tcpServer
 		go func(port int) {
@@ -112,12 +112,12 @@ func (daemon *Daemon) StartAndBlock() error {
 		udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", daemon.Address, port))
 		if err != nil {
 			daemon.Stop()
-			return fmt.Errorf("simpleip.StartAndBlock: failed to resolve UDP listen address on port %d - %v", port, err)
+			return fmt.Errorf("simpleipsvcd.StartAndBlock: failed to resolve UDP listen address on port %d - %v", port, err)
 		}
 		udpServer, err := net.ListenUDP("udp", udpAddr)
 		if err != nil {
 			daemon.Stop()
-			return fmt.Errorf("simpleip.StartAndBlock: failed to start UDP server on port %d - %v", port, err)
+			return fmt.Errorf("simpleipsvcd.StartAndBlock: failed to start UDP server on port %d - %v", port, err)
 		}
 		daemon.udpServers[port] = udpServer
 		go func(port int) {
