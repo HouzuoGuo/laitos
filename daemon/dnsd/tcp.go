@@ -156,7 +156,6 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 		return
 	}
 	// Prevent daemon from listening to UDP queries in this TCP test case
-	dnsd.UDPPort = 0
 	udpListenPort := dnsd.UDPPort
 	dnsd.UDPPort = 0
 	defer func() {
