@@ -27,8 +27,8 @@ func TestSockd_StartAndBlock(t *testing.T) {
 	}
 
 	daemon.Address = "127.0.0.1"
-	daemon.TCPPorts = []int{27101}
-	daemon.UDPPorts = []int{13781}
+	daemon.TCPPorts = []int{27101, 23990}
+	daemon.UDPPorts = []int{13781, 38191}
 	daemon.Password = "abcdefg"
 	daemon.PerIPLimit = 10
 	if err := daemon.Initialise(); err != nil {

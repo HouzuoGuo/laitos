@@ -1,8 +1,10 @@
 package sockd
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"strconv"
@@ -79,10 +81,28 @@ func TestSockd(sockd *Daemon, t testingstub.T) {
 		stopped = true
 	}()
 	time.Sleep(2 * time.Second)
-	if conn, err := net.Dial("tcp", sockd.Address+":"+strconv.Itoa(sockd.TCPPorts[0])); err != nil {
-		t.Fatal(err)
-	} else if n, err := conn.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}); err != nil && n != 10 {
-		t.Fatal(err, n)
+	// Knock on each of the TCP and UDP ports and anticipate random response due to incorrect shared key magic
+	for _, port := range sockd.TCPPorts {
+		fmt.Println("knocking on port", port)
+		if conn, err := net.Dial("tcp", sockd.Address+":"+strconv.Itoa(port)); err != nil {
+			t.Fatal(err)
+		} else if n, err := conn.Write(bytes.Repeat([]byte{0}, 1000)); err != nil && n != 10 {
+			t.Fatal(err, n)
+		} else if resp, err := ioutil.ReadAll(conn); err == nil || resp == nil || len(resp) < 10 {
+			// Server should have closed the connection after having sent the random data
+			t.Fatal(err, resp)
+		}
+	}
+	for _, port := range sockd.UDPPorts {
+		fmt.Println("knocking on port", port)
+		resp := make([]byte, 100)
+		if conn, err := net.Dial("udp", sockd.Address+":"+strconv.Itoa(port)); err != nil {
+			t.Fatal(err)
+		} else if n, err := conn.Write(bytes.Repeat([]byte{0}, 1000)); err != nil && n != 10 {
+			t.Fatal(err, n)
+		} else if n, err := conn.Read(resp); err != nil || n < 10 {
+			t.Fatal(err, n)
+		}
 	}
 	// Daemon should stop within a second
 	sockd.Stop()

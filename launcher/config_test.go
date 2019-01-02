@@ -244,8 +244,8 @@ var sampleConfigJSON = `
     "Address": "127.0.0.1",
     "Password": "1234567",
     "PerIPLimit": 10,
-    "TCPPorts": [6891],
-    "UDPPorts": [9122]
+    "TCPPorts": [6891, 8837],
+    "UDPPorts": [9122, 24899]
   },
   "SupervisorNotificationRecipients": [
     "howard@localhost"
