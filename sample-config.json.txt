@@ -1,5 +1,5 @@
 {
-  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config sample-config.json.txt -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,snmpd,sockd,telegram",
+  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config sample-config.json.txt -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram",
   "DNSDaemon": {
     "AllowQueryIPPrefixes": [
       "192."
@@ -174,7 +174,6 @@
     "MyDomains": [
       "laitos-demo.net"
     ],
-    "Port": 2525,
     "TLSCertPath": "sample-config.crt.txt",
     "TLSKeyPath": "sample-config.crt.key.txt"
   },
@@ -207,8 +206,8 @@
     ]
   },
   "PlainSocketDaemon": {
-    "TCPPort": 2,
-    "UDPPort": 2
+    "TCPPort": 23,
+    "UDPPort": 23
   },
   "PlainSocketFilters": {
     "LintText": {
@@ -235,13 +234,17 @@
   "SNMPDaemon": {
     "CommunityName": "samplesample"
   },
+  "SimpleIPSvcDaemon": {
+    "ActiveUserNames": "howard (houzuo) guo",
+    "QOTD": "hello from howard"
+  },
   "SockDaemon": {
     "Password": "samplesample",
     "TCPPorts": [
-      3
+      1
     ],
     "UDPPorts": [
-      3
+      1
     ]
   },
   "SupervisorNotificationRecipients": [
