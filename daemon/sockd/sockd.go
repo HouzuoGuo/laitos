@@ -122,7 +122,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.logger = lalog.Logger{
 		ComponentName: "sockd",
-		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: daemon.Address}},
 	}
 	if daemon.DNSDaemon == nil {
 		return errors.New("sockd.Initialise: dns daemon must be assigned")
@@ -154,11 +154,11 @@ func (daemon *Daemon) StartAndBlock() error {
 				return err
 			}
 			daemon.tcpDaemons = append(daemon.tcpDaemons, tcpDaemon)
-			go func() {
+			go func(tcpDaemon *TCPDaemon) {
 				if tcpErr := tcpDaemon.StartAndBlock(); tcpErr != nil {
-					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("TCP-%d", tcpPort), tcpErr, "failed to start TCP daemon")
+					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("TCP-%d", tcpDaemon.TCPPort), tcpErr, "failed to start TCP daemon")
 				}
-			}()
+			}(tcpDaemon)
 		}
 	}
 	if daemon.UDPPorts != nil {
@@ -175,11 +175,11 @@ func (daemon *Daemon) StartAndBlock() error {
 				return err
 			}
 			daemon.udpDaemons = append(daemon.udpDaemons, udpDaemon)
-			go func() {
+			go func(udpDaemon *UDPDaemon) {
 				if udpErr := udpDaemon.StartAndBlock(); udpErr != nil {
-					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("UDP-%d", udpPort), udpErr, "failed to start UDP daemon")
+					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("UDP-%d", udpDaemon.UDPPort), udpErr, "failed to start UDP daemon")
 				}
-			}()
+			}(udpDaemon)
 		}
 	}
 	atomic.StoreInt32(&daemon.started, 1)

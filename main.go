@@ -24,7 +24,7 @@ const (
 	ProfilerHTTPPort = 19151 // ProfilerHTTPPort is to be listened by net/http/pprof HTTP server when benchmark is turned on
 )
 
-var logger = lalog.Logger{ComponentName: "main", ComponentID: []lalog.LoggerIDField{{"PID", os.Getpid()}}}
+var logger = lalog.Logger{ComponentName: "main", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 
 /*
 DecryptFile is a distinct routine of laitos main program, it reads password from standard input and uses it to decrypt the

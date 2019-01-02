@@ -141,7 +141,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.logger = lalog.Logger{
 		ComponentName: "httpd",
-		ComponentID:   []lalog.LoggerIDField{{"Port", daemon.Port}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: daemon.Port}},
 	}
 	daemon.Processor.SetLogger(daemon.logger)
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {

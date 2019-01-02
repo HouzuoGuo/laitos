@@ -145,7 +145,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 func (ws *WebServer) Start() error {
 	ws.logger = lalog.Logger{
 		ComponentName: "passwdserver",
-		ComponentID:   []lalog.LoggerIDField{{"Port", ws.Port}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: ws.Port}},
 	}
 	ws.handlerMutex = new(sync.Mutex)
 	mux := http.NewServeMux()

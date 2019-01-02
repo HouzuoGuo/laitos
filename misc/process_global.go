@@ -27,7 +27,7 @@ var (
 	UniversalDecryptionKey []byte
 
 	// logger is used by some of the miscellaneous actions affecting laitos process globally.
-	logger = lalog.Logger{ComponentName: "misc", ComponentID: []lalog.LoggerIDField{{"PID", os.Getpid()}}}
+	logger = lalog.Logger{ComponentName: "misc", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 )
 
 /*

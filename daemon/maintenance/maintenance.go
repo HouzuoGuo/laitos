@@ -236,7 +236,7 @@ func (daemon *Daemon) Initialise() error {
 		return fmt.Errorf("maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
 	daemon.stop = make(chan bool)
-	daemon.logger = lalog.Logger{ComponentName: "maintenance", ComponentID: []lalog.LoggerIDField{{"Intv", daemon.IntervalSec}}}
+	daemon.logger = lalog.Logger{ComponentName: "maintenance", ComponentID: []lalog.LoggerIDField{{Key: "Intv", Value: daemon.IntervalSec}}}
 	return nil
 }
 

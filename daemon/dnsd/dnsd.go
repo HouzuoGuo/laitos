@@ -113,7 +113,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.logger = lalog.Logger{
 		ComponentName: "dnsd",
-		ComponentID:   []lalog.LoggerIDField{{"TCP", daemon.TCPPort}, {"UDP", daemon.UDPPort}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "TCP", Value: daemon.TCPPort}, {Key: "UDP", Value: daemon.UDPPort}},
 	}
 	if daemon.AllowQueryIPPrefixes == nil {
 		daemon.AllowQueryIPPrefixes = []string{}

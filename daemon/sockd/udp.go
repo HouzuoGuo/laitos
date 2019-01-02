@@ -75,7 +75,7 @@ type UDPDaemon struct {
 func (daemon *UDPDaemon) Initialise() error {
 	daemon.logger = lalog.Logger{
 		ComponentName: "sockd",
-		ComponentID:   []lalog.LoggerIDField{{"UDP", daemon.UDPPort}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "UDP", Value: daemon.UDPPort}},
 	}
 	daemon.rateLimitUDP = &misc.RateLimit{
 		Logger:   daemon.logger,
@@ -147,7 +147,6 @@ func (daemon *UDPDaemon) StartAndBlock() error {
 			go daemon.HandleUDPConnection(udpEncryptedServer, packetLength, udpClientAddr, packetBuf)
 		}
 	}
-	return nil
 }
 
 func (daemon *UDPDaemon) Stop() {

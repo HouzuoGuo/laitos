@@ -41,7 +41,7 @@ func (runner *CommandRunner) Initialise() error {
 	}
 	runner.logger = lalog.Logger{
 		ComponentName: "mailcmd",
-		ComponentID:   []lalog.LoggerIDField{{"From", runner.ReplyMailClient.MailFrom}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "From", Value: runner.ReplyMailClient.MailFrom}},
 	}
 	runner.Processor.SetLogger(runner.logger)
 	runner.Undocumented3.Logger = runner.logger

@@ -93,7 +93,7 @@ func sendMail(smtpClient *smtp.Client, serverTLSName string, auth smtp.Auth, fro
 // CommonMailLogger is shared by all mail clients to log mail delivery progress.
 var CommonMailLogger = lalog.Logger{
 	ComponentName: "mailclient",
-	ComponentID:   []lalog.LoggerIDField{{"Common", "Shared"}},
+	ComponentID:   []lalog.LoggerIDField{{Key: "Common", Value: "Shared"}},
 }
 
 // OutstandingMailBytes is the total size of all outstanding mails waiting to be delivered.

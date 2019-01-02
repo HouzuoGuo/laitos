@@ -108,7 +108,7 @@ type Supervisor struct {
 func (sup *Supervisor) initialise() {
 	sup.logger = lalog.Logger{
 		ComponentName: "supervisor",
-		ComponentID:   []lalog.LoggerIDField{{"PID", os.Getpid()}, {"Daemons", sup.DaemonNames}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}, {Key: "Daemons", Value: sup.DaemonNames}},
 	}
 	sup.mainStderr = lalog.NewByteLogWriter(os.Stderr, MemoriseOutputCapacity)
 	sup.mainStdout = lalog.NewByteLogWriter(os.Stdout, MemoriseOutputCapacity)

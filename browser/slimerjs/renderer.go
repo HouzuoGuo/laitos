@@ -543,7 +543,7 @@ func (instance *Instance) Start() error {
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
 	instance.logger = lalog.Logger{
 		ComponentName: "slimerjs",
-		ComponentID:   []lalog.LoggerIDField{{"Created", time.Now().Format(time.Kitchen)}, {"Tag", instance.Tag}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "Created", Value: time.Now().Format(time.Kitchen)}, {Key: "Tag", Value: instance.Tag}},
 	}
 	/*
 		Prepare temporary server code and screenshot location for SlimerJS container.

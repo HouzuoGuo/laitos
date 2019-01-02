@@ -70,7 +70,7 @@ func (daemon *Daemon) Initialise() error {
 
 	daemon.logger = lalog.Logger{
 		ComponentName: "simpleipsvcd",
-		ComponentID:   []lalog.LoggerIDField{{"Addr", daemon.Address}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: daemon.Address}},
 	}
 	daemon.rateLimit = &misc.RateLimit{
 		MaxCount: daemon.PerIPLimit,

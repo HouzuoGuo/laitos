@@ -34,7 +34,7 @@ type Instances struct {
 func (instances *Instances) Initialise() error {
 	instances.logger = lalog.Logger{
 		ComponentName: "phantomjs.Instances",
-		ComponentID:   []lalog.LoggerIDField{{"MaxInst", instances.MaxInstances}, {"MaxLifetime", instances.MaxLifetimeSec}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "MaxInst", Value: instances.MaxInstances}, {Key: "MaxLifetime", Value: instances.MaxLifetimeSec}},
 	}
 	if instances.MaxInstances < 1 {
 		instances.MaxInstances = 5 // reasonable for a few consumers

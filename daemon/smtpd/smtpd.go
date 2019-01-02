@@ -59,7 +59,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.logger = lalog.Logger{
 		ComponentName: "smtpd",
-		ComponentID:   []lalog.LoggerIDField{{"Port", daemon.Port}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: daemon.Port}},
 	}
 	if daemon.ForwardTo == nil || len(daemon.ForwardTo) == 0 || !daemon.ForwardMailClient.IsConfigured() {
 		return errors.New("smtpd.Initialise: forward address and forward mail client must be configured")

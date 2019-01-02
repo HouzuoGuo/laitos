@@ -61,7 +61,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.logger = lalog.Logger{
 		ComponentName: "snmpd",
-		ComponentID:   []lalog.LoggerIDField{{"Port", daemon.Port}},
+		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: daemon.Port}},
 	}
 	daemon.rateLimit = &misc.RateLimit{
 		MaxCount: daemon.PerIPLimit,
