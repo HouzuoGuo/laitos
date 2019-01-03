@@ -13,22 +13,24 @@ import (
 )
 
 var (
-	// Captured into three groups, mail command looks like: address@domain.tld "this is email subject" this is email body
+	// RegexMailCommand captures mail command (address@domain.tld "this is email subject" this is email body) into three string groups.
 	RegexMailCommand = regexp.MustCompile(`([a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+@[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+.[a-zA-Z0-9!#$%&'*+-/=?_{|}~.^]+)\s*"(.*)"\s*(.*)`)
 	/*
 		SOSEmailRecipientMagic is the magic email recipient that corresponds to a built-in list of rescue coordinate
 		centre Emails.
 	*/
 	SOSEmailRecipientMagic = "sos@sos"
-	ErrBadSendMailParam    = errors.New(`example: addr@dom.tld "subj" body (send SOS to sos@sos)`)
+	// ErrBadSendMailParam is the command execution result from an incomplete or malformed input command.
+	ErrBadSendMailParam = errors.New(`example: addr@dom.tld "subj" body (send SOS to sos@sos)`)
 )
 
-// Send outgoing emails.
+// SendMail is a toolbox feature for sending ordinary and SOS emails.
 type SendMail struct {
-	MailClient      inet.MailClient `json:"MailClient"`
-	SOSPersonalInfo string          `json:"SOSPersonalInfo"`
+	MailClient      inet.MailClient `json:"MailClient"`      // MailClient offers mail transport configuration for this toolbox feature.
+	SOSPersonalInfo string          `json:"SOSPersonalInfo"` // SOSPersonalInfo is a free-style human-readable text to be sent along with rest of SOS email body.
 
-	logger lalog.Logger
+	logger             lalog.Logger
+	sosTestCaseSendFun func(string, string, ...string) error // sosTestCaseSendFun is a substitue of email sending routine for SOS, to be used by test case.
 }
 
 var TestSendMail = SendMail{} // Details are set by init_feature_test.go
@@ -95,19 +97,27 @@ func (email *SendMail) Execute(cmd Command) *Result {
 // SendSOS delivers an SOS email to public search-and-rescue institutions.
 func (email *SendMail) SendSOS(subject, body string) {
 	// Prefix body text with some environment information
-	body = fmt.Sprintf(`SOS!
-The computer time is %s.
-This is the operator of IP address %s: %s
-Please send help: %s`,
-		time.Now().UTC().Format(time.RFC3339),
-		inet.GetPublicIP(), email.SOSPersonalInfo,
-		body)
+	body = fmt.Sprintf(`SOS - send help immediately!
+Composed at %s by the operator of computer %s
+Message: %s
+Additional info: %s`,
+		time.Now().UTC().Format(time.RFC3339), inet.GetPublicIP(),
+		body,
+		email.SOSPersonalInfo)
 
 	email.logger.Warning("SendSOS", subject, nil, "sending SOS email, body is: %s", body)
 
 	for _, recipient := range GetAllSAREmails() {
+		if recipient == "" {
+			continue
+		}
 		go func(recipient string) {
-			err := email.MailClient.Send("SOS HELP "+subject, body, recipient)
+			var err error
+			if email.sosTestCaseSendFun == nil {
+				err = email.MailClient.Send("SOS HELP "+subject, body, recipient)
+			} else {
+				err = email.sosTestCaseSendFun("SOS HELP "+subject, body, recipient)
+			}
 			email.logger.Warning("SendSOS", "", err, "attempted to deliver to %s", recipient)
 		}(recipient)
 	}
