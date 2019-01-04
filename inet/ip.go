@@ -9,6 +9,10 @@ import (
 const HTTPPublicIPTimeoutSec = 10 // HTTPPublicIPTimeoutSec is the HTTP timeout for determining public IP address.
 
 var (
+	// isAWS is true only if IsAWS function has determined that the program is running on Amazon Web Service.
+	isAWS     bool
+	isAWSOnce = new(sync.Once)
+
 	// isGCE is true only if IsGCE function has determined that the program is running on Google compute engine.
 	isGCE     bool
 	isGCEOnce = new(sync.Once)
@@ -21,6 +25,20 @@ var (
 	isAlibaba     bool
 	isAlibabaOnce = new(sync.Once)
 )
+
+// IsAWS returns true only if the program is running on Amazon Web Service.
+func IsAWS() bool {
+	isAWSOnce.Do(func() {
+		resp, err := DoHTTP(HTTPRequest{
+			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
+		}, ":ttp://169.254.169.254/2018-09-24/meta-data/ami-id")
+		if err == nil && resp.StatusCode/200 == 1 {
+			isAWS = true
+		}
+	})
+	return isAWS
+}
 
 // IsGCE returns true only if the program is running on Google compute engine (or Google cloud platform, same thing).
 func IsGCE() bool {

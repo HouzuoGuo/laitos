@@ -8,6 +8,50 @@ import (
 	"time"
 )
 
+func TestHTTPRequest_FillBlanks(t *testing.T) {
+	req := HTTPRequest{}
+	req.FillBlanks()
+	if req.TimeoutSec != 30 {
+		t.Fatal(req.TimeoutSec)
+	}
+	if req.Method != "GET" {
+		t.Fatal(req.Method)
+	}
+	if req.ContentType != "application/x-www-form-urlencoded" {
+		t.Fatal(req.ContentType)
+	}
+	if req.MaxBytes != 4*1048576 {
+		t.Fatal(req.MaxBytes)
+	}
+	if req.MaxRetry != 3 {
+		t.Fatal(req.MaxRetry)
+	}
+
+	req = HTTPRequest{
+		TimeoutSec:  123,
+		Method:      "POST",
+		ContentType: "application/json",
+		MaxBytes:    456,
+		MaxRetry:    789,
+	}
+	req.FillBlanks()
+	if req.TimeoutSec != 123 {
+		t.Fatal(req.TimeoutSec)
+	}
+	if req.Method != "POST" {
+		t.Fatal(req.Method)
+	}
+	if req.ContentType != "application/json" {
+		t.Fatal(req.ContentType)
+	}
+	if req.MaxBytes != 456 {
+		t.Fatal(req.MaxBytes)
+	}
+	if req.MaxRetry != 789 {
+		t.Fatal(req.MaxRetry)
+	}
+}
+
 func TestDoHTTPFaultyServer(t *testing.T) {
 	// Create a test server that serves 5 bad responses and HTTP 201 in subsequent responses
 	faultyServerRequestsServed := 0
@@ -57,7 +101,6 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 	if faultyServerRequestsServed != 6 {
 		t.Fatal(faultyServerRequestsServed)
 	}
-
 }
 
 func TestDoHTTPGoodServer(t *testing.T) {

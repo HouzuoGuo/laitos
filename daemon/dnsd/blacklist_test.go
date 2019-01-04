@@ -1,6 +1,7 @@
 package dnsd
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -22,7 +23,7 @@ func TestDownloadAllBlacklists(t *testing.T) {
 }
 
 func TestExtractNamesFromHostsContent(t *testing.T) {
-	sample := `# ha
+	sample := fmt.Sprintf(`# ha
 # other formats:  https://
 # policy:         https://###
 #
@@ -33,8 +34,9 @@ func TestExtractNamesFromHostsContent(t *testing.T) {
 # some comments
 127.0.0.1 01234.com
 0.0.0.0 56789.CoM # comment haha
+1.2.3.4 1234.CoM%c # conains invalid NULL character
 # some comments
-`
+`, 0)
 	names := ExtractNamesFromHostsContent(sample)
 	if !reflect.DeepEqual(names, []string{"t.co", "01234.com", "56789.com"}) {
 		t.Fatal(names)

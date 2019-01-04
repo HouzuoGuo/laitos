@@ -51,7 +51,7 @@ func DownloadAllBlacklists(logger lalog.Logger) []string {
 			resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: BlackListDownloadTimeoutSec}, url)
 			names := ExtractNamesFromHostsContent(string(resp.Body))
 			logger.Info("DownloadAllBlacklists", url, err, "downloaded %d names, please obey the license in which the list author publishes the data.", len(names))
-			lists[i] = ExtractNamesFromHostsContent(string(resp.Body))
+			lists[i] = names
 			defer wg.Done()
 		}(i, url)
 	}
@@ -77,14 +77,14 @@ func DownloadAllBlacklists(logger lalog.Logger) []string {
 }
 
 /*
-ExtractNamesFromHostsContent extracts domain names from hosts file content. It will understand and skip comments and
-empty lines.
+ExtractNamesFromHostsContent extracts domain names from hosts file content. It will not return empty lines, comments, and potentially
+illegal domain names.
 */
 func ExtractNamesFromHostsContent(content string) []string {
 	ret := make([]string, 0, 16384)
 	for _, line := range strings.Split(content, "\n") {
-		if strings.ContainsRune(line, 0x00) {
-			// Among all the potentially illegal domain name characters, only 0x00 causes go to panic in its name resolver routine for Windows.
+		if strings.ContainsRune(line, 0) {
+			// Among all the potentially illegal domain name characters, only NULL causes go to panic in its name resolver routine for Windows.
 			continue
 		}
 		line = strings.TrimSpace(line)
@@ -106,8 +106,10 @@ func ExtractNamesFromHostsContent(content string) []string {
 		}
 		// Extract the name itself. Matching of black list name always takes place in lower case.
 		aName := strings.ToLower(strings.TrimSpace(line[:nameEnd]))
-		if aName == "" || strings.HasSuffix(aName, "localhost") || strings.HasSuffix(aName, "localdomain") || len(aName) < 4 {
+		if aName == "" || strings.HasSuffix(aName, "localhost") || strings.HasSuffix(aName, "localdomain") ||
+			len(aName) < 4 || len(aName) > 253 {
 			// Skip empty names, local names, and overly short names
+			// Also, domain name length may not exceed 253 characters according to various technical documents in the public domain.
 			continue
 		}
 		ret = append(ret, aName)

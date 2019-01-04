@@ -28,16 +28,16 @@ will correct itself when system maintenance routine runs a second time.
 */
 func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 	if misc.HostIsWindows() {
-		daemon.logPrintStageStep(out, "skipped on windows: prepare docker repository for debian")
+		daemon.logPrintStageStep(out, "skipped on windows: prepare docker repository for debian system")
 		return
 	}
-	daemon.logPrintStageStep(out, "prepare docker repository for debian")
+	daemon.logPrintStageStep(out, "prepare docker repository for debian system")
 	content, err := ioutil.ReadFile("/etc/os-release")
 	if err != nil {
-		daemon.logPrintStageStep(out, "failed to read os-release, this is not a critical error.")
+		daemon.logPrintStageStep(out, "failed to read os-release, skip rest of the stage.")
 		return
 	} else if !strings.Contains(strings.ToLower(string(content)), "debian") || strings.Contains(strings.ToLower(string(content)), "ubuntu") {
-		daemon.logPrintStageStep(out, "system is not a debian, just FYI.")
+		daemon.logPrintStageStep(out, "system is not a debian, skip rest of the stage.")
 		return
 	}
 	// Install docker's GPG key
@@ -62,6 +62,28 @@ func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 	}
 	aptOut, err = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(string(lsbOut))))
 	daemon.logPrintStageStep(out, "enable docker repository - %v %s", err, aptOut)
+}
+
+func (daemon *Daemon) prepareDockerRepositoryForAWSLinux(out *bytes.Buffer) {
+	if misc.HostIsWindows() {
+		daemon.logPrintStageStep(out, "skipped on windows: prepare docker repository for AWS Linux system")
+		return
+	}
+	daemon.logPrintStageStep(out, "prepare docker repository for AWS Linux system")
+	content, err := ioutil.ReadFile("/etc/os-release")
+	if err != nil {
+		daemon.logPrintStageStep(out, "failed to read os-release, skip rest of the stage.")
+		return
+	} else if !strings.Contains(strings.ToLower(string(content)), "amazon") {
+		daemon.logPrintStageStep(out, "system is not an Amazon Linux, skip rest of the stage.")
+		return
+	}
+	installOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "/usr/bin/amazon-linux-extras", "install", "-y", "docker")
+	if strings.Contains(installOut, "already installed") && err == nil {
+		daemon.logPrintStageStep(out, "install docker via extras - ok")
+	} else {
+		daemon.logPrintStageStep(out, "install docker via extras - %v %s", err, installOut)
+	}
 }
 
 /*
@@ -139,6 +161,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		}
 	} else {
 		daemon.prepareDockerRepositoryForDebian(out)
+		daemon.prepareDockerRepositoryForAWSLinux(out)
 	}
 
 	daemon.logPrintStage(out, "upgrade system software")

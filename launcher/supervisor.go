@@ -228,6 +228,7 @@ func (sup *Supervisor) Start() {
 			time.Sleep(StartAttemptIntervalSec * time.Second)
 			continue
 		}
+		lastAttemptTime = time.Now().Unix()
 		if err := mainProgram.Wait(); err != nil {
 			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "main program has crashed")
 			sup.notifyFailure(cliFlags, err)
