@@ -12,6 +12,7 @@ func TestGetPublicIP(t *testing.T) {
 
 func TestCloudDetection(t *testing.T) {
 	// Just make sure they do not crash
+	IsAWS()
 	IsAzure()
 	IsAlibaba()
 	IsGCE()
