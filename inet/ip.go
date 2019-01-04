@@ -32,7 +32,7 @@ func IsAWS() bool {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			MaxBytes:   64,
-		}, ":ttp://169.254.169.254/2018-09-24/meta-data/ami-id")
+		}, "http://169.254.169.254/2018-09-24/meta-data/ami-id")
 		if err == nil && resp.StatusCode/200 == 1 {
 			isAWS = true
 		}
