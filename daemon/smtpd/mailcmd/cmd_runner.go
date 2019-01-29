@@ -30,8 +30,10 @@ type CommandRunner struct {
 	Undocumented3   Undocumented3            `json:"Undocumented3"` // Intentionally undocumented he he he he
 	Processor       *common.CommandProcessor `json:"-"`             // Feature configuration
 	ReplyMailClient inet.MailClient          `json:"-"`             // To deliver Email replies
+	logger          lalog.Logger
 
-	logger lalog.Logger
+	// processTestCaseFunc works along side of command processing routine, it offers execution result to test case for inspection.
+	processTestCaseFunc func(*toolbox.Result)
 }
 
 // Initialise initialises internal states of command runner. This function must be called before using the command runner.
@@ -134,6 +136,10 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 			Content:    string(body),
 			TimeoutSec: CommandTimeoutSec,
 		}, true)
+		// Offer execution result to test case for inspection
+		if runner.processTestCaseFunc != nil {
+			runner.processTestCaseFunc(result)
+		}
 		// If this part does not have a PIN/shortcut match, simply move on to the next part.
 		if result.Error == filter.ErrPINAndShortcutNotFound {
 			// Move on, do not return error.
@@ -208,6 +214,10 @@ func TestCommandRunner(runner *CommandRunner, t testingstub.T) {
 	if err := runner.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
+	var lastResult *toolbox.Result
+	runner.processTestCaseFunc = func(result *toolbox.Result) {
+		lastResult = result
+	}
 	// PIN mismatch
 	pinMismatch := `From howard@localhost Sun Feb 26 18:17:34 2017
 Return-Path: <howard@localhost>
@@ -227,8 +237,11 @@ From: howard@localhost (Howard Guo)
 Status: R
 
 PIN mismatch`
+	lastResult = nil
 	if err := runner.Process([]byte(pinMismatch)); err != filter.ErrPINAndShortcutNotFound {
 		t.Fatal(err)
+	} else if lastResult != nil {
+		t.Fatal("should not have executed any command", lastResult)
 	}
 	// PIN matches
 	pinMatch := `From howard@localhost Sun Feb 26 18:17:34 2017
@@ -251,12 +264,17 @@ Status: R
 PIN mismatch
 verysecret.s echo hi
 `
+	lastResult = nil
 	if err := runner.Process([]byte(pinMatch)); err != nil {
 		t.Fatal(err)
+	} else if lastResult == nil || lastResult.Error != nil || strings.TrimSpace(lastResult.CombinedOutput) != "hi" {
+		t.Fatalf("%+v", lastResult)
 	}
 	// PIN matches and override reply addr
+	lastResult = nil
 	if err := runner.Process([]byte(pinMatch), "root@localhost"); err != nil {
 		t.Fatal(err)
+	} else if lastResult == nil || lastResult.Error != nil || strings.TrimSpace(lastResult.CombinedOutput) != "hi" {
+		t.Fatalf("%+v", lastResult)
 	}
-	t.Log("Check mail box of both root@localhost and howard@localhost")
 }

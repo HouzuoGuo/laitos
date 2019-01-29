@@ -44,6 +44,9 @@ type Daemon struct {
 	tlsCert       tls.Certificate     // TLS certificate read from the certificate and key files
 	rateLimit     *misc.RateLimit     // Rate limit counter per IP address
 	logger        lalog.Logger
+
+	// processMailTestCaseFunc works along side of normal delivery routine, it offers mail message to test case for inspection.
+	processMailTestCaseFunc func(string, string)
 }
 
 // Check configuration and initialise internal states.
@@ -156,6 +159,10 @@ func (daemon *Daemon) ProcessMail(fromAddr, mailBody string) {
 		daemon.logger.Info("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
 	} else {
 		daemon.logger.Warning("ProcessMail", fromAddr, err, "failed to forward email")
+	}
+	// Offer the processed mail to test case
+	if daemon.processMailTestCaseFunc != nil {
+		daemon.processMailTestCaseFunc(fromAddr, mailBody)
 	}
 	// Run feature command from mail body
 	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
@@ -296,7 +303,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 		stoppedNormally = true
 	}()
 	addr := smtpd.Address + ":" + strconv.Itoa(smtpd.Port)
-	// This really should be misc.HTTPPublicIPTimeoutSec * time.Second, but that would be too long.
+	// This really should be inet.HTTPPublicIPTimeoutSec * time.Second, but that would be too long.
 	time.Sleep(3 * time.Second)
 	// Try to exceed rate limit
 	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
@@ -312,21 +319,39 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	// Wait till rate limit expires (leave 3 seconds buffer for pending transfer)
 	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
 	// Send an ordinary mail to the daemon
-	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	var lastEmailFrom, lastEmailBody string
+	smtpd.processMailTestCaseFunc = func(from string, body string) {
+		lastEmailFrom = from
+		lastEmailBody = body
+	}
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
+	lastEmailFrom = ""
+	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
+	} else if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
+		// Keep in mind that server reads input mail message through the textproto.DotReader
+		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, []byte(testMessage), []byte(lastEmailBody))
 	}
-	// Send a mail that does not belong to this server's domain
-	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
+	// Send a mail that does not belong to this server's domain, which will be simply discarded.
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
+	lastEmailFrom = ""
+	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@not-my-domain"}, []byte(testMessage)); strings.Index(err.Error(), "Bad address") == -1 {
 		t.Fatal(err)
+	} else if lastEmailFrom != "" || lastEmailBody != "" {
+		t.Fatal(lastEmailFrom, lastEmailBody)
 	}
 	// Try run a command via email
-	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\nverysecret.s echo hi"
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\nverysecret.s echo hi\r\n"
+	lastEmailFrom = ""
+	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
+	} else if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
+		// Keep in mind that server reads input mail message through the textproto.DotReader
+		t.Fatal(lastEmailFrom, lastEmailBody)
 	}
-	t.Log("Check howard@localhost and root@localhost mailbox")
 	// Daemon must stop in a second
 	smtpd.Stop()
 	time.Sleep(1 * time.Second)

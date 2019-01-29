@@ -25,18 +25,16 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "forward address") {
 		t.Fatal(err)
 	}
-	daemon.ForwardTo = []string{"root@example.netnetnet", "howard@example.comcomcom"}
-
+	daemon.ForwardTo = []string{"root@forward-to.example.com", "howard@forward-to.example.com"}
 	daemon.ForwardMailClient.MTAHost = ""
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "forward mail client") {
 		t.Fatal(err)
 	}
 	daemon.ForwardMailClient = inet.MailClient{
 		MailFrom: "howard@abc",
-		MTAHost:  "a.b.c.d",
+		MTAHost:  "forward-to.smtp.example.com",
 		MTAPort:  61358,
 	}
-
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "my domain names") {
 		t.Fatal(err)
 	}
@@ -54,7 +52,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	// One of the forward addresses loops back to server domain
 	daemon.ForwardMailClient = inet.MailClient{
 		MailFrom: "howard@localhost",
-		MTAHost:  "127.0.0.1",
+		MTAHost:  "smtp.example.com",
 		MTAPort:  25252, // avoid triggering the init error of looping mails back to daemon itself
 	}
 	daemon.ForwardTo = []string{"howard@example.com", "howard@other.com"}
@@ -76,8 +74,8 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	// Prepare settings for tests
 	daemon.ForwardMailClient = inet.MailClient{
 		MailFrom: "howard@localhost",
-		MTAHost:  "127.0.0.1",
-		MTAPort:  25, // allow developer to inspect result by running a postfix
+		MTAHost:  "smtp.example.com",
+		MTAPort:  25,
 	}
 	daemon.Address = "127.0.0.1"
 	daemon.Port = 61358   // do not loop back to myself
@@ -96,7 +94,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// SMTPD should not receive init error from command processor
+	// Must not initialise if command processor has insane configuration
 	daemon.CommandRunner.Processor = common.GetInsaneCommandProcessor()
 	if err := daemon.Initialise(); !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
 		t.Fatal(err)
@@ -120,7 +118,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	}
 	daemon.CommandRunner.ReplyMailClient = inet.MailClient{
 		MailFrom: "howard@localhost",
-		MTAHost:  "127.0.0.1",
+		MTAHost:  "reply-to.smtp.example.com",
 		MTAPort:  25,
 	}
 

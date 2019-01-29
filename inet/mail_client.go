@@ -3,6 +3,7 @@ package inet
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -54,8 +55,24 @@ func dialMTA(host string, serverTLSName string, port int) (smtpClient *smtp.Clie
 	return
 }
 
+// checkNoLFCR returns error only if a line contains carriage-return or line-feed, which are not permitted according to RFC 5321.
+func checkNoCRLF(line string) error {
+	if strings.ContainsAny(line, "\r\n") {
+		return errors.New("smtp: A line must not contain CR or LF")
+	}
+	return nil
+}
+
 // sendMail connects to MTA, optionally presents client credentials for authentication, and then send a mail.
 func sendMail(smtpClient *smtp.Client, serverTLSName string, auth smtp.Auth, from string, recipients []string, message []byte) error {
+	if err := checkNoCRLF(from); err != nil {
+		return err
+	}
+	for _, recipient := range recipients {
+		if err := checkNoCRLF(recipient); err != nil {
+			return err
+		}
+	}
 	defer smtpClient.Close()
 	if canStartTLS, _ := smtpClient.Extension("STARTTLS"); canStartTLS {
 		if err := smtpClient.StartTLS(&tls.Config{ServerName: serverTLSName}); err != nil {
