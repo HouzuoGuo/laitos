@@ -14,64 +14,9 @@ import (
 	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
-func (daemon *Daemon) handleUDPQuery(queryPacket []byte, client *net.UDPAddr) {
-	// Put query duration (including IO time) into statistics
-	beginTimeNano := time.Now().UnixNano()
-	defer func() {
-		common.DNSDStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}()
-	clientIP := client.IP.String()
-
-	domainName := ExtractDomainName(queryPacket)
-	if daemon.IsInBlacklist(domainName) {
-		// Formulate a black-hole response
-		daemon.logger.Info("HandleUDPQuery", clientIP, nil, "handle black-listed \"%s\"", domainName)
-		blackHoleAnswer := RespondWith0(queryPacket)
-		daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
-		if _, err := daemon.udpListener.WriteTo(blackHoleAnswer, client); err != nil {
-			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "IO failure")
-			return
-		}
-	} else {
-		// Forward the query for resolution and redirect the response back to client
-		randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
-		if domainName == "" {
-			daemon.logger.Info("HandleUDPQuery", clientIP, nil, "handle non-name query via %s", randForwarder)
-		} else {
-			daemon.logger.Info("HandleUDPQuery", clientIP, nil, "handle query \"%s\" via %s", domainName, randForwarder)
-		}
-		forwarderConn, err := net.DialTimeout("udp", randForwarder, ForwarderTimeoutSec*time.Second)
-		if err != nil {
-			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to dial forwarder's address")
-			return
-		}
-		forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second))
-		if _, err := forwarderConn.Write(queryPacket); err != nil {
-			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to write to forwarder")
-			return
-		}
-		forwarderResp := make([]byte, MaxPacketSize)
-		respLength, err := forwarderConn.Read(forwarderResp)
-		if err != nil {
-			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to read from forwarder")
-			return
-		}
-		if respLength < 3 {
-			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "forwarder response is abnormally small")
-			return
-		}
-		// Set deadline for responding to my DNS client
-		daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
-		if _, err := daemon.udpListener.WriteTo(forwarderResp[:respLength], client); err != nil {
-			daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to answer to client")
-			return
-		}
-	}
-}
-
 /*
-You may call this function only after having called Initialise()!
-Start DNS daemon to listen on UDP port only, until daemon is told to stop.
+StartAndBlockUDP starts DNS daemon to listen on UDP port only, until daemon is told to stop.
+Daemon must have already been initialised prior to this call.
 */
 func (daemon *Daemon) StartAndBlockUDP() error {
 	listenAddr := net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.UDPPort))
@@ -116,6 +61,84 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		copy(queryPacket, packetBuf[:packetLength])
 		go daemon.handleUDPQuery(queryPacket, clientAddr)
 	}
+}
+
+func (daemon *Daemon) handleUDPQuery(queryBody []byte, client *net.UDPAddr) {
+	// Put query duration (including IO time) into statistics
+	beginTimeNano := time.Now().UnixNano()
+	defer func() {
+		common.DNSDStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+	}()
+	clientIP := client.IP.String()
+
+	var respLenInt int
+	var respBody []byte
+	if isTextQuery(queryBody) {
+		// Handle toolbox command that arrives as a text query
+		respBody, respLenInt = daemon.handleUDPTextQuery(clientIP, queryBody)
+	} else {
+		// Handle other query types such as name query
+		respBody, respLenInt = daemon.handleUDPNameOrOtherQuery(clientIP, queryBody)
+	}
+	// Send response to the client
+	// Set deadline for responding to my DNS client because the query reader and response writer do not share the same timeout
+	daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
+	if _, err := daemon.udpListener.WriteTo(respBody[:respLenInt], client); err != nil {
+		daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to answer to client")
+		return
+	}
+}
+
+func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (resp []byte, respLenInt int) {
+	resp = make([]byte, 0)
+	return daemon.handleUDPNameOrOtherQuery(clientIP, queryBody)
+	// TODO: implement this
+}
+
+func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte) (resp []byte, respLenInt int) {
+	resp = make([]byte, 0)
+	// Handle other query types such as name query
+	domainName := ExtractDomainName(queryBody)
+	if domainName == "" {
+		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle non-name query")
+	} else {
+		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle query \"%s\"", domainName)
+	}
+	if daemon.IsInBlacklist(domainName) {
+		// Formulate a black-hole response to black-listed domain name
+		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle black-listed \"%s\"", domainName)
+		resp = GetBlackHoleResponse(queryBody)
+		respLenInt = len(resp)
+		return
+	}
+	return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+}
+
+func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte) (resp []byte, respLenInt int) {
+	resp = make([]byte, 0)
+	// Forward the query to a randomly chosen recursive resolver and return its response
+	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
+	forwarderConn, err := net.DialTimeout("udp", randForwarder, ForwarderTimeoutSec*time.Second)
+	if err != nil {
+		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to dial forwarder's address")
+		return
+	}
+	forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second))
+	if _, err := forwarderConn.Write(queryBody); err != nil {
+		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to write to forwarder")
+		return
+	}
+	resp = make([]byte, MaxPacketSize)
+	respLenInt, err = forwarderConn.Read(resp)
+	if err != nil {
+		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to read from forwarder")
+		return
+	}
+	if respLenInt < 3 {
+		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "forwarder response is abnormally small")
+		return
+	}
+	return
 }
 
 // Run unit tests on DNS UDP daemon. See TestDNSD for daemon setup.
