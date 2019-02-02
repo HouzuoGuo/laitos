@@ -11,6 +11,9 @@ func TestLogger_Format(t *testing.T) {
 	if msg := logger.Format("", "", nil, "a"); msg != "a" {
 		t.Fatal(msg)
 	}
+	if msg := logger.Format("", "", errors.New("test"), ""); msg != "Error \"test\"" {
+		t.Fatal(msg)
+	}
 	if msg := logger.Format("", "", errors.New("test"), "a"); msg != "Error \"test\" - a" {
 		t.Fatal(msg)
 	}
@@ -30,6 +33,9 @@ func TestLogger_Format(t *testing.T) {
 	}
 	if msg := logger.Format("fun", "act", errors.New("test"), strings.Repeat("a", MaxLogMessageLen)); len(msg) != MaxLogMessageLen || !strings.Contains(msg, strings.Repeat("a", 500)) {
 		t.Fatal(len(msg), msg)
+	}
+	if msg := logger.Format("", "", errors.New("test"), ""); msg != `comp[a=1;b=c]: Error "test"` {
+		t.Fatal(msg)
 	}
 }
 
@@ -116,4 +122,10 @@ func TestLogger_Warningf(t *testing.T) {
 	if countLog < 4 || countWarn < 4 {
 		t.Fatal(countLog, countWarn)
 	}
+}
+
+func TestLogger_MaybeError(t *testing.T) {
+	logger := Logger{}
+	logger.MaybeError(nil)
+	logger.MaybeError(errors.New("testError"))
 }

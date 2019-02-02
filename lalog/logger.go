@@ -54,10 +54,10 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 		}
 		msg.WriteRune(']')
 	}
-	if msg.Len() > 0 {
-		msg.WriteRune('.')
-	}
 	if functionName != "" {
+		if msg.Len() > 0 {
+			msg.WriteRune('.')
+		}
 		msg.WriteString(fmt.Sprintf("%s", functionName))
 	}
 	if actorName != "" {
@@ -67,7 +67,10 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 		msg.WriteString(": ")
 	}
 	if err != nil {
-		msg.WriteString(fmt.Sprintf("Error \"%v\" - ", err))
+		msg.WriteString(fmt.Sprintf("Error \"%v\"", err))
+		if template != "" {
+			msg.WriteString(" - ")
+		}
 	}
 	msg.WriteString(fmt.Sprintf(template, values...))
 	if msg.Len() > MaxLogMessageLen {
@@ -111,6 +114,13 @@ func (logger *Logger) Abort(functionName, actorName string, err error, template 
 
 func (logger *Logger) Panic(functionName, actorName string, err error, template string, values ...interface{}) {
 	log.Panic(logger.Format(functionName, actorName, err, template, values...))
+}
+
+// MaybeError logs a simple error, if it is present.
+func (logger *Logger) MaybeError(err error) {
+	if err != nil {
+		logger.Warning("", "", err, "")
+	}
 }
 
 // DefaultLogger must be used when it is not possible to acquire a reference to a more dedicated logger.

@@ -3,6 +3,7 @@ package dnsd
 import (
 	"context"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"math/rand"
 	"net"
 	"strconv"
@@ -28,7 +29,9 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 	if err != nil {
 		return err
 	}
-	defer udpServer.Close()
+	defer func() {
+		daemon.logger.MaybeError(udpServer.Close())
+	}()
 	daemon.udpListener = udpServer
 	daemon.logger.Info("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
 	// Dispatch queries to forwarder queues
@@ -82,7 +85,7 @@ func (daemon *Daemon) handleUDPQuery(queryBody []byte, client *net.UDPAddr) {
 	}
 	// Send response to the client
 	// Set deadline for responding to my DNS client because the query reader and response writer do not share the same timeout
-	daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
+	daemon.logger.MaybeError(daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
 	if _, err := daemon.udpListener.WriteTo(respBody[:respLenInt], client); err != nil {
 		daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to answer to client")
 		return
@@ -126,7 +129,7 @@ func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte)
 		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to dial forwarder's address")
 		return
 	}
-	forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second))
+	daemon.logger.MaybeError(forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
 	if _, err := forwarderConn.Write(queryBody); err != nil {
 		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to write to forwarder")
 		return
@@ -189,15 +192,15 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 				t.Fatal(err)
 			}
 			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
-				clientConn.Close()
+				lalog.DefaultLogger.MaybeError(clientConn.Close())
 				t.Fatal(err)
 			}
-			if _, err := clientConn.Write(GithubComUDPQuery); err != nil {
-				clientConn.Close()
+			if _, err := clientConn.Write(githubComUDPQuery); err != nil {
+				lalog.DefaultLogger.MaybeError(clientConn.Close())
 				t.Fatal(err)
 			}
 			length, err := clientConn.Read(packetBuf)
-			clientConn.Close()
+			lalog.DefaultLogger.MaybeError(clientConn.Close())
 			if err == nil && length > 50 {
 				success++
 			}

@@ -6,16 +6,17 @@ import (
 	"strings"
 )
 
-var GithubComTCPQuery, GithubComUDPQuery []byte // Sample queries for composing test cases
+var githubComTCPQuery []byte
+var githubComUDPQuery []byte // Sample queries for composing test cases
 
 func init() {
 	var err error
 	// Prepare two A queries on "github.coM" (note the capital M, hex 4d) for test cases
-	GithubComTCPQuery, err = hex.DecodeString("00274cc7012000010000000000010667697468756203636f4d00000100010000291000000000000000")
+	githubComTCPQuery, err = hex.DecodeString("00274cc7012000010000000000010667697468756203636f4d00000100010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}
-	GithubComUDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f4d00000100010000291000000000000000")
+	githubComUDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f4d00000100010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}

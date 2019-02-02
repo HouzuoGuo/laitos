@@ -3,6 +3,7 @@ package dnsd
 import (
 	"context"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -25,7 +26,9 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
+	defer func() {
+		daemon.logger.MaybeError(listener.Close())
+	}()
 	daemon.tcpListener = listener
 	// Process incoming TCP DNS queries
 	daemon.logger.Info("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
@@ -43,12 +46,12 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 		// Check address against rate limit and allowed IP prefixes
 		clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 		if !daemon.rateLimit.Add(clientIP, true) {
-			clientConn.Close()
+			daemon.logger.MaybeError(clientConn.Close())
 			continue
 		}
 		if !daemon.checkAllowClientIP(clientIP) {
 			daemon.logger.Warning("StartAndBlockTCP", clientIP, nil, "client IP is not allowed to query")
-			clientConn.Close()
+			daemon.logger.MaybeError(clientConn.Close())
 			continue
 		}
 		go daemon.handleTCPQuery(clientConn)
@@ -60,12 +63,12 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
+		daemon.logger.MaybeError(clientConn.Close())
 		common.DNSDStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
-	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	// Read query length
-	clientConn.SetDeadline(time.Now().Add(ClientTimeoutSec * time.Second))
+	daemon.logger.MaybeError(clientConn.SetDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
 	queryLen := make([]byte, 2)
 	_, err := clientConn.Read(queryLen)
 	if err != nil {
@@ -147,9 +150,11 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to connect to forwarder")
 		return
 	}
-	defer myForwarder.Close()
+	defer func() {
+		daemon.logger.MaybeError(myForwarder.Close())
+	}()
 	// Send original query to the resolver without modification
-	myForwarder.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second))
+	daemon.logger.MaybeError(myForwarder.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
 	if _, err = myForwarder.Write(queryLen); err != nil {
 		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to write length to forwarder")
 		return
@@ -217,15 +222,15 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 				t.Fatal(err)
 			}
 			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
-				clientConn.Close()
+				lalog.DefaultLogger.MaybeError(clientConn.Close())
 				t.Fatal(err)
 			}
-			if _, err := clientConn.Write(GithubComTCPQuery); err != nil {
-				clientConn.Close()
+			if _, err := clientConn.Write(githubComTCPQuery); err != nil {
+				lalog.DefaultLogger.MaybeError(clientConn.Close())
 				t.Fatal(err)
 			}
 			resp, err := ioutil.ReadAll(clientConn)
-			clientConn.Close()
+			lalog.DefaultLogger.MaybeError(clientConn.Close())
 			if err == nil && len(resp) > 50 {
 				success++
 			}
