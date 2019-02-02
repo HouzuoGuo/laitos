@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"math/rand"
 	"net"
 	"strconv"
@@ -33,7 +35,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		daemon.logger.MaybeError(udpServer.Close())
 	}()
 	daemon.udpListener = udpServer
-	daemon.logger.Info("StartAndBlockUDP", listenAddr, nil, "going to listen for queries")
+	daemon.logger.Info("StartAndBlockUDP", listenAddr, nil, "going to monitor for queries")
 	// Dispatch queries to forwarder queues
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
@@ -45,18 +47,14 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
 			}
-			return fmt.Errorf("DNSD.StartAndBlockUDP: failed to accept new connection - %v", err)
+			return fmt.Errorf("DNSD.StartAndBlockUDP: failed to accept request - %v", err)
 		}
 		// Check address against rate limit and allowed IP prefixes
 		clientIP := clientAddr.IP.String()
 		if !daemon.rateLimit.Add(clientIP, true) {
 			continue
 		}
-		if !daemon.checkAllowClientIP(clientIP) {
-			daemon.logger.Warning("UDPLoop", clientIP, nil, "client IP is not allowed to query")
-			continue
-		}
-		if packetLength < 3 {
+		if packetLength < MinNameQuerySize {
 			daemon.logger.Warning("UDPLoop", clientIP, nil, "received packet is abnormally small")
 			continue
 		}
@@ -78,10 +76,14 @@ func (daemon *Daemon) handleUDPQuery(queryBody []byte, client *net.UDPAddr) {
 	var respBody []byte
 	if isTextQuery(queryBody) {
 		// Handle toolbox command that arrives as a text query
-		respBody, respLenInt = daemon.handleUDPTextQuery(clientIP, queryBody)
+		respLenInt, respBody = daemon.handleUDPTextQuery(clientIP, queryBody)
 	} else {
 		// Handle other query types such as name query
-		respBody, respLenInt = daemon.handleUDPNameOrOtherQuery(clientIP, queryBody)
+		respLenInt, respBody = daemon.handleUDPNameOrOtherQuery(clientIP, queryBody)
+	}
+	// Ignore the request if there is no appropriate response
+	if respBody == nil || len(respBody) == 0 {
+		return
 	}
 	// Send response to the client
 	// Set deadline for responding to my DNS client because the query reader and response writer do not share the same timeout
@@ -92,14 +94,45 @@ func (daemon *Daemon) handleUDPQuery(queryBody []byte, client *net.UDPAddr) {
 	}
 }
 
-func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (resp []byte, respLenInt int) {
-	resp = make([]byte, 0)
-	return daemon.handleUDPNameOrOtherQuery(clientIP, queryBody)
-	// TODO: implement this
+func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
+	respBody = make([]byte, 0)
+	queryInput := ExtractTextQueryInput(queryBody)
+	if strings.HasPrefix(queryInput, ToolboxCommandPrefix) {
+		if daemon.processQueryTestCaseFunc != nil {
+			daemon.processQueryTestCaseFunc(queryInput)
+		}
+		result := daemon.Processor.Process(toolbox.Command{
+			TimeoutSec: ClientTimeoutSec,
+			Content:    queryInput,
+		}, true)
+		if result.Error == filter.ErrPINAndShortcutNotFound {
+			/*
+				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is
+				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.
+			*/
+			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "input has command prefix but failed PIN check, forward to recursive resolver.")
+			goto forwardToRecursiveResolver
+		} else {
+			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "processed a toolbox command")
+			respBody = MakeTextResponse(queryBody, result.CombinedOutput)
+			return len(respBody), respBody
+		}
+	}
+forwardToRecursiveResolver:
+	if !daemon.checkAllowClientIP(clientIP) {
+		daemon.logger.Warning("handleUDPTextQuery", clientIP, nil, "client IP is not allowed to query")
+		return
+	}
+	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.
+	return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 }
 
-func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte) (resp []byte, respLenInt int) {
-	resp = make([]byte, 0)
+func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
+	respBody = make([]byte, 0)
+	if !daemon.checkAllowClientIP(clientIP) {
+		daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, nil, "client IP is not allowed to query")
+		return
+	}
 	// Handle other query types such as name query
 	domainName := ExtractDomainName(queryBody)
 	if domainName == "" {
@@ -113,15 +146,20 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 	if daemon.IsInBlacklist(domainName) {
 		// Formulate a black-hole response to black-listed domain name
 		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle black-listed \"%s\"", domainName)
-		resp = GetBlackHoleResponse(queryBody)
-		respLenInt = len(resp)
+		respBody = GetBlackHoleResponse(queryBody)
+		respLenInt = len(respBody)
 		return
 	}
 	return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 }
 
-func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte) (resp []byte, respLenInt int) {
-	resp = make([]byte, 0)
+/*
+handleUDPRecursiveQuery forward the input query to a randomly chosen recursive resolver and retrieves the response.
+Be aware that toolbox command processor may invoke this function with an incorrect PIN entry similar to the real PIN,
+therefore this function must not log the input packet content in any way.
+*/
+func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
+	respBody = make([]byte, 0)
 	// Forward the query to a randomly chosen recursive resolver and return its response
 	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
 	forwarderConn, err := net.DialTimeout("udp", randForwarder, ForwarderTimeoutSec*time.Second)
@@ -134,8 +172,8 @@ func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte)
 		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to write to forwarder")
 		return
 	}
-	resp = make([]byte, MaxPacketSize)
-	respLenInt, err = forwarderConn.Read(resp)
+	respBody = make([]byte, MaxPacketSize)
+	respLenInt, err = forwarderConn.Read(respBody)
 	if err != nil {
 		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to read from forwarder")
 		return
@@ -169,6 +207,7 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 		stoppedNormally = true
 	}()
 	time.Sleep(2 * time.Second)
+
 	// Use go DNS client to verify that the server returns satisfactory response
 	resolver := &net.Resolver{
 		PreferGo:     true,

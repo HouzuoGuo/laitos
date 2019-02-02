@@ -1,40 +1,12 @@
 package dnsd
 
 import (
-	"encoding/hex"
+	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"reflect"
 	"strings"
 	"testing"
 )
-
-func TestExtractDomainName(t *testing.T) {
-	if name := ExtractDomainName(nil); name != "" {
-		t.Fatal(name)
-	}
-	if name := ExtractDomainName([]byte{}); name != "" {
-		t.Fatal(name)
-	}
-	if name := ExtractDomainName(githubComUDPQuery); name != "github.coM" {
-		t.Fatal(name)
-	}
-}
-
-func TestGetBlackHoleResponse(t *testing.T) {
-	if packet := GetBlackHoleResponse(nil); len(packet) != 0 {
-		t.Fatal(packet)
-	}
-	if packet := GetBlackHoleResponse([]byte{}); len(packet) != 0 {
-		t.Fatal(packet)
-	}
-	match, err := hex.DecodeString("e575818000010001000000010667697468756203636f4d00000100010000291000000000000000c00c00010001000005ba000400000000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if packet := GetBlackHoleResponse(githubComUDPQuery); !reflect.DeepEqual(packet, match) {
-		t.Fatal(hex.EncodeToString(packet))
-	}
-}
 
 func TestUpdateBlackList(t *testing.T) {
 	daemon := Daemon{}
@@ -80,6 +52,15 @@ func TestDNSD(t *testing.T) {
 	}
 	if len(daemon.AllowQueryIPPrefixes) != 0 {
 		t.Fatal(daemon.AllowQueryIPPrefixes)
+	}
+	// Must not initialise if command processor is not sane
+	daemon.Processor = common.GetInsaneCommandProcessor()
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
+		t.Fatal("did not error due to insane CommandProcessor")
+	}
+	daemon.Processor = common.GetTestCommandProcessor()
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
 	}
 	// Test default settings
 	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 48 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {

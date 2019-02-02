@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -49,14 +51,8 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 			daemon.logger.MaybeError(clientConn.Close())
 			continue
 		}
-		if !daemon.checkAllowClientIP(clientIP) {
-			daemon.logger.Warning("StartAndBlockTCP", clientIP, nil, "client IP is not allowed to query")
-			daemon.logger.MaybeError(clientConn.Close())
-			continue
-		}
 		go daemon.handleTCPQuery(clientConn)
 	}
-
 }
 
 func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
@@ -77,7 +73,7 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 	}
 	queryLenInteger := int(queryLen[0])*256 + int(queryLen[1])
 	// Read query packet
-	if queryLenInteger > MaxPacketSize || queryLenInteger < 3 {
+	if queryLenInteger > MaxPacketSize || queryLenInteger < MinNameQuerySize {
 		daemon.logger.Warning("handleTCPQuery", clientIP, nil, "invalid query length from client")
 		return
 	}
@@ -88,14 +84,17 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 		return
 	}
 	// Formulate a response
-	var respLen []byte
-	var respBody []byte
+	var respBody, respLen []byte
 	if isTextQuery(queryBody) {
 		// Handle toolbox command that arrives as a text query
-		_, respLen, respBody = daemon.handleTCPTextQuery(clientIP, queryLen, queryBody)
+		respLen, respBody = daemon.handleTCPTextQuery(clientIP, queryLen, queryBody)
 	} else {
 		// Handle other query types such as name query
-		_, respLen, respBody = daemon.handleTCPNameOrOtherQuery(clientIP, queryLen, queryBody)
+		respLen, respBody = daemon.handleTCPNameOrOtherQuery(clientIP, queryLen, queryBody)
+	}
+	// Close client connection in case there is no appropriate response
+	if respBody == nil || len(respBody) == 0 {
+		return
 	}
 	// Send response to the client, the deadline is shared with the read deadline above.
 	if _, err := clientConn.Write(respLen); err != nil {
@@ -107,16 +106,50 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 	}
 }
 
-func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte) (respLenInt int, respLen, respBody []byte) {
-	// TODO: implement this
-	respLen = make([]byte, 0)
+func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
 	respBody = make([]byte, 0)
+	queryInput := ExtractTextQueryInput(queryBody)
+	if strings.HasPrefix(queryInput, ToolboxCommandPrefix) {
+		if daemon.processQueryTestCaseFunc != nil {
+			daemon.processQueryTestCaseFunc(queryInput)
+		}
+		result := daemon.Processor.Process(toolbox.Command{
+			TimeoutSec: ClientTimeoutSec,
+			Content:    queryInput,
+		}, true)
+		if result.Error == filter.ErrPINAndShortcutNotFound {
+			/*
+				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is
+				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.
+			*/
+			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "input has command prefix but failed PIN check, forward to recursive resolver.")
+			goto forwardToRecursiveResolver
+		} else {
+			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "processed a toolbox command")
+			respBody = MakeTextResponse(queryBody, result.CombinedOutput)
+			respLenInt := len(respBody)
+			respLen[0] = byte(respLenInt / 256)
+			respLen[1] = byte(respLenInt % 256)
+			return
+		}
+	}
+forwardToRecursiveResolver:
+	if !daemon.checkAllowClientIP(clientIP) {
+		daemon.logger.Warning("handleTCPTextQuery", clientIP, nil, "client IP is not allowed to query")
+		return
+	}
+	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.
 	return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
+
 }
 
-func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte) (respLenInt int, respLen, respBody []byte) {
+func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
 	respLen = make([]byte, 0)
 	respBody = make([]byte, 0)
+	if !daemon.checkAllowClientIP(clientIP) {
+		daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, nil, "client IP is not allowed to query")
+		return
+	}
 	domainName := ExtractDomainName(queryBody)
 	if domainName == "" {
 		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle non-name query")
@@ -130,17 +163,22 @@ func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, query
 		// Black hole response returns a
 		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle black-listed \"%s\"", domainName)
 		respBody = GetBlackHoleResponse(queryBody)
-		respLenInt = len(respBody)
+		respLenInt := len(respBody)
 		respLen = make([]byte, 2)
 		respLen[0] = byte(respLenInt / 256)
 		respLen[1] = byte(respLenInt % 256)
 	} else {
-		respLenInt, respLen, respBody = daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
+		respLen, respBody = daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	return
 }
 
-func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBody []byte) (respLenInt int, respLen, respBody []byte) {
+/*
+handleTCPRecursiveQuery forward the input query to a randomly chosen recursive resolver and retrieves the response.
+Be aware that toolbox command processor may invoke this function with an incorrect PIN entry similar to the real PIN,
+therefore this function must not log the input packet content in any way.
+*/
+func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
 	respLen = make([]byte, 0)
 	respBody = make([]byte, 0)
 	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
@@ -168,7 +206,7 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to read length from forwarder")
 		return
 	}
-	respLenInt = int(respLen[0])*256 + int(respLen[1])
+	respLenInt := int(respLen[0])*256 + int(respLen[1])
 	if respLenInt > MaxPacketSize || respLenInt < 1 {
 		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, nil, "bad response length from forwarder")
 		return

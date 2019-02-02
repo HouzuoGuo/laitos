@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"net"
 	"strings"
@@ -27,6 +29,12 @@ const (
 	PublicIPRefreshIntervalSec  = 900       // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
 	BlackListDownloadTimeoutSec = 30        // BlackListDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
 	BlacklistMaxEntries         = 100000    // BlackListMaxEntries is the maximum number of entries to be accepted into black list after retireving them from public sources.
+
+	/*
+		ToolboxCommandPrefix is a short string that indicates a TXT query is most likely toolbox command. Keep it short,
+		as DNS query input has to be pretty short.
+	*/
+	ToolboxCommandPrefix = "_"
 )
 
 /*
@@ -64,10 +72,11 @@ type TCPForwarderQuery struct {
 
 // A DNS forwarder daemon that selectively refuse to answer certain A record requests made against advertisement servers.
 type Daemon struct {
-	Address              string   `json:"Address"`              // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
-	AllowQueryIPPrefixes []string `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
-	PerIPLimit           int      `json:"PerIPLimit"`           // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
-	Forwarders           []string `json:"Forwarders"`           // DefaultForwarders are recursive DNS resolvers that will resolve name queries. They must support both TCP and UDP.
+	Address              string                   `json:"Address"`              // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
+	AllowQueryIPPrefixes []string                 `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
+	PerIPLimit           int                      `json:"PerIPLimit"`           // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
+	Forwarders           []string                 `json:"Forwarders"`           // DefaultForwarders are recursive DNS resolvers that will resolve name queries. They must support both TCP and UDP.
+	Processor            *common.CommandProcessor `json:"-"`                    // Processor enables TXT queries to execute toolbox command
 
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
@@ -118,6 +127,14 @@ func (daemon *Daemon) Initialise() error {
 	daemon.logger = lalog.Logger{
 		ComponentName: "dnsd",
 		ComponentID:   []lalog.LoggerIDField{{Key: "TCP", Value: daemon.TCPPort}, {Key: "UDP", Value: daemon.UDPPort}},
+	}
+	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
+		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
+		daemon.Processor = common.GetEmptyCommandProcessor()
+	}
+	daemon.Processor.SetLogger(daemon.logger)
+	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
+		return fmt.Errorf("dnsd.Initialise: %+v", errs)
 	}
 	if daemon.AllowQueryIPPrefixes == nil {
 		daemon.AllowQueryIPPrefixes = []string{}
@@ -395,16 +412,23 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	daemon.processQueryTestCaseFunc = func(queryInput string) {
 		lastResolvedName = queryInput
 	}
+	// Resolve A and TXT records from popular domains
 	for _, domain := range []string{"microsoft.com", "apple.com", "linkedin.com"} {
 		lastResolvedName = ""
-		if result, err := resolver.LookupHost(context.Background(), domain); err != nil || len(result) == 0 {
-			t.Fatal("failed to resolve popular domain name", domain, err, result)
+		if result, err := resolver.LookupHost(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
+			t.Fatal("failed to resolve popular domain name A record", domain, err, result)
+		}
+		if lastResolvedName != domain {
+			t.Fatal("attempted to resolve", domain, "but daemon saw:", lastResolvedName)
+		}
+		lastResolvedName = ""
+		if result, err := resolver.LookupTXT(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
+			t.Fatal("failed to resolve popular domain name TXT record", domain, err, result)
 		}
 		if lastResolvedName != domain {
 			t.Fatal("attempted to resolve", domain, "but daemon saw:", lastResolvedName)
 		}
 	}
-
 	// Blacklist github and see if query gets a black hole response
 	oldBlacklist := daemon.blackList
 	defer func() {
