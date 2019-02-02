@@ -2,7 +2,9 @@ package dnsd
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"net"
 	"strings"
 	"sync"
@@ -88,6 +90,9 @@ type Daemon struct {
 	allowQueryLastUpdate int64           // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
 	rateLimit            *misc.RateLimit // Rate limit counter
 	logger               lalog.Logger
+
+	// processQueryTestCaseFunc works along side DNS query processing routine, it offers queried name to test case for inspection.
+	processQueryTestCaseFunc func(string)
 }
 
 // Check configuration and initialise internal states.
@@ -378,4 +383,38 @@ var textQueryMagic = []byte{0, 16, 0, 1}
 func isTextQuery(queryBody []byte) bool {
 	typeTXTClassIN := bytes.Index(queryBody[13:], textQueryMagic)
 	return typeTXTClassIN > 0
+}
+
+/*
+testResolveNameAndBlackList is a common test case that tests name resolution of popular domain names as well as black
+list domain names.
+*/
+func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
+	// Track and verify the last resolved name
+	var lastResolvedName string
+	daemon.processQueryTestCaseFunc = func(queryInput string) {
+		lastResolvedName = queryInput
+	}
+	for _, domain := range []string{"microsoft.com", "apple.com", "linkedin.com"} {
+		lastResolvedName = ""
+		if result, err := resolver.LookupHost(context.Background(), domain); err != nil || len(result) == 0 {
+			t.Fatal("failed to resolve popular domain name", domain, err, result)
+		}
+		if lastResolvedName != domain {
+			t.Fatal("attempted to resolve", domain, "but daemon saw:", lastResolvedName)
+		}
+	}
+
+	// Blacklist github and see if query gets a black hole response
+	oldBlacklist := daemon.blackList
+	defer func() {
+		daemon.blackList = oldBlacklist
+	}()
+	daemon.blackList["github.com"] = struct{}{}
+	if result, err := resolver.LookupHost(context.Background(), "GiThUb.CoM"); err != nil || len(result) != 1 || result[0] != "0.0.0.0" {
+		t.Fatal("failed to get a black-listed response", err, result)
+	}
+	if lastResolvedName != "GiThUb.CoM" {
+		t.Fatal("attempted to resolve black-listed github.com, but daemon saw:", lastResolvedName)
+	}
 }

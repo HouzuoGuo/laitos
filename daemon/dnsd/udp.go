@@ -1,7 +1,7 @@
 package dnsd
 
 import (
-	"bytes"
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -102,6 +102,9 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 	if domainName == "" {
 		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle non-name query")
 	} else {
+		if daemon.processQueryTestCaseFunc != nil {
+			daemon.processQueryTestCaseFunc(domainName)
+		}
 		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle query \"%s\"", domainName)
 	}
 	if daemon.IsInBlacklist(domainName) {
@@ -163,19 +166,21 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 		stoppedNormally = true
 	}()
 	time.Sleep(2 * time.Second)
-
+	// Use go DNS client to verify that the server returns satisfactory response
+	resolver := &net.Resolver{
+		PreferGo:     true,
+		StrictErrors: true,
+		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
+			return net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", dnsd.UDPPort))
+		},
+	}
+	testResolveNameAndBlackList(t, dnsd, resolver)
+	// Try to flood the server and reach rate limit
 	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(dnsd.UDPPort))
 	if err != nil {
 		t.Fatal(err)
 	}
 	packetBuf := make([]byte, MaxPacketSize)
-
-	oldBlacklist := dnsd.blackList
-	defer func() {
-		dnsd.blackList = oldBlacklist
-	}()
-
-	// Try to reach rate limit - assume rate limit is 10
 	var success int
 	for i := 0; i < 40; i++ {
 		go func() {
@@ -183,56 +188,24 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer clientConn.Close()
 			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
+				clientConn.Close()
 				t.Fatal(err)
 			}
 			if _, err := clientConn.Write(GithubComUDPQuery); err != nil {
+				clientConn.Close()
 				t.Fatal(err)
 			}
 			length, err := clientConn.Read(packetBuf)
+			clientConn.Close()
 			if err == nil && length > 50 {
 				success++
 			}
 		}()
 	}
-	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
-	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
-	if success < 1 || success > dnsd.PerIPLimit*2 {
-		t.Fatal(success)
-	}
-	// Blacklist github and see if query gets a black hole response
-	dnsd.blackList["github.com"] = struct{}{}
-	// This test is flaky and I do not understand why, is it throttled by google dns?
-	var blackListSuccess bool
-	for i := 0; i < 30; i++ {
-		time.Sleep(1 * time.Second)
-		clientConn, err := net.DialUDP("udp", nil, serverAddr)
-		if err != nil {
-			continue
-		}
-		if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
-			clientConn.Close()
-			continue
-		}
-		if _, err := clientConn.Write(GithubComUDPQuery); err != nil {
-			clientConn.Close()
-			continue
-		}
-		respLen, err := clientConn.Read(packetBuf)
-		if err != nil {
-			clientConn.Close()
-			continue
-		}
-		clientConn.Close()
-		if bytes.Index(packetBuf[:respLen], BlackHoleAnswer) != -1 {
-			blackListSuccess = true
-			break
-		}
-	}
-	if !blackListSuccess {
-		t.Fatal("did not answer to blacklist domain")
-	}
+	// Wait for rate limit to reset and verify that regular name resolution resumes
+	time.Sleep(RateLimitIntervalSec * time.Second)
+	testResolveNameAndBlackList(t, dnsd, resolver)
 	// Daemon must stop in a second
 	dnsd.Stop()
 	time.Sleep(1 * time.Second)

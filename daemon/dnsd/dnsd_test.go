@@ -2,12 +2,10 @@ package dnsd
 
 import (
 	"encoding/hex"
+	"github.com/HouzuoGuo/laitos/inet"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/HouzuoGuo/laitos/inet"
 )
 
 func TestExtractDomainName(t *testing.T) {
@@ -91,14 +89,18 @@ func TestDNSD(t *testing.T) {
 	daemon.Address = "127.0.0.1"
 	daemon.UDPPort = 62151
 	daemon.TCPPort = 18519
-	daemon.PerIPLimit = 5
+	daemon.PerIPLimit = 10
 	// Non-functioning forwarders should not abort initialisation or fail the daemon operation
 	daemon.Forwarders = append(daemon.Forwarders, "does-not-exist:53", "also-does-not-exist:12")
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	// Configure daemon to use default set of recursive resolvers
+	daemon.Forwarders = nil
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 
 	TestUDPQueries(&daemon, t)
-	time.Sleep(RateLimitIntervalSec * time.Second)
 	TestTCPQueries(&daemon, t)
 }

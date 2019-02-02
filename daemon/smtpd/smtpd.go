@@ -45,7 +45,7 @@ type Daemon struct {
 	rateLimit     *misc.RateLimit     // Rate limit counter per IP address
 	logger        lalog.Logger
 
-	// processMailTestCaseFunc works along side of normal delivery routine, it offers mail message to test case for inspection.
+	// processMailTestCaseFunc works along side normal delivery routine, it offers mail message to test case for inspection.
 	processMailTestCaseFunc func(string, string)
 }
 
