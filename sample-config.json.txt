@@ -5,6 +5,28 @@
       "192."
     ]
   },
+  "DNSFilters": {
+    "LintText": {
+      "CompressSpaces": false,
+      "CompressToSingleLine": false,
+      "KeepVisible7BitCharOnly": false,
+      "MaxLength": 1024,
+      "TrimSpaces": true
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "root@localhost"
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "samplepin",
+      "Shortcuts": {
+        "info": ".einfo",
+        "lock": ".elock",
+        "stop": ".estop"
+      }
+    }
+  },
   "Features": {
     "BrowserPhantomJS": {
       "Browsers": {

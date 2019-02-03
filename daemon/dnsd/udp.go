@@ -115,11 +115,6 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (res
 				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.
 			*/
 			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "input has command prefix but failed PIN check")
-			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "@@@@@@@@@@@@@@@ %s", commandWithoutPrefix)
-			for i, c := range commandWithoutPrefix {
-				fmt.Printf("%d %d %c \n", i, c, c)
-			}
-
 			goto forwardToRecursiveResolver
 		} else {
 			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "processed a toolbox command")
