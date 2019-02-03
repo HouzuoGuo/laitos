@@ -34,6 +34,32 @@ var sampleConfigJSON = `
     "TCPPort": 45115,
     "UDPPort": 23518
   },
+  "DNSFilters": {
+    "LintText": {
+      "CompressToSingleLine": true,
+      "MaxLength": 120,
+      "TrimSpaces": true
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "howard@localhost"
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "verysecret",
+      "Shortcuts": {
+        "dnsshortcut": ".secho dnsshortcut"
+      }
+    },
+    "TranslateSequences": {
+      "Sequences": [
+        [
+          "123",
+          "456"
+        ]
+      ]
+    }
+  },
   "HTTPDaemon": {
     "Address": "127.0.0.1",
     "PerIPLimit": 10,
@@ -171,13 +197,14 @@ var sampleConfigJSON = `
   },
   "Maintenance": {
     "BlockSystemLoginExcept": [
-			"Administrator",
+      "Administrator",
       "root",
       "howard"
     ],
     "DisableStopServices": [
       "does-not-exist"
     ],
+    "DoEnhanceFileSecurity": true,
     "EnableStartServices": [
       "does-not-exist"
     ],
@@ -185,6 +212,7 @@ var sampleConfigJSON = `
       "htop"
     ],
     "IntervalSec": 86400,
+    "PreScriptUnix": "touch /tmp/laitos-maintenance-pre-script-test",
     "Recipients": [
       "howard@localhost"
     ],
@@ -193,9 +221,7 @@ var sampleConfigJSON = `
     "TCPPorts": [
       9114
     ],
-    "TuneLinux": true,
-    "DoEnhanceFileSecurity": true,
-    "PreScriptUnix": "touch /tmp/laitos-maintenance-pre-script-test"
+    "TuneLinux": true
   },
   "PlainSocketDaemon": {
     "Address": "127.0.0.1",
@@ -229,23 +255,29 @@ var sampleConfigJSON = `
       ]
     }
   },
-	"SimpleIPSvcDaemon": {
-		"ActiveUserNames": "howard (houzuo) guo",
-		"ActiveUsersPort": 16222,
-		"DayTimePort": 62989,
-		"QOTD": "hello from howard",
-		"QOTDPort": 59594
-	},
-	"SNMPDaemon": {
-		"CommunityName": "public",
-		"Port": 33210
-	},
+  "SNMPDaemon": {
+    "CommunityName": "public",
+    "Port": 33210
+  },
+  "SimpleIPSvcDaemon": {
+    "ActiveUserNames": "howard (houzuo) guo",
+    "ActiveUsersPort": 16222,
+    "DayTimePort": 62989,
+    "QOTD": "hello from howard",
+    "QOTDPort": 59594
+  },
   "SockDaemon": {
     "Address": "127.0.0.1",
     "Password": "1234567",
     "PerIPLimit": 10,
-    "TCPPorts": [6891, 8837],
-    "UDPPorts": [9122, 24899]
+    "TCPPorts": [
+      6891,
+      8837
+    ],
+    "UDPPorts": [
+      9122,
+      24899
+    ]
   },
   "SupervisorNotificationRecipients": [
     "howard@localhost"
@@ -297,6 +329,7 @@ func TestConfig(t *testing.T) {
 		}
 	}()
 	time.Sleep(2 * time.Second)
+
 	httpd.TestHTTPD(httpDaemon, t)
 	httpd.TestAPIHandlers(httpDaemon, t)
 

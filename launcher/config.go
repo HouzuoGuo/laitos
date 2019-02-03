@@ -90,7 +90,8 @@ type Config struct {
 
 	Maintenance *maintenance.Daemon `json:"Maintenance"` // Daemon configures behaviour of periodic health-check/system maintenance
 
-	DNSDaemon *dnsd.Daemon `json:"DNSDaemon"` // DNS daemon configuration
+	DNSDaemon  *dnsd.Daemon    `json:"DNSDaemon"`  // DNSDaemon: configure DNS daemon's network behaviour
+	DNSFilters StandardFilters `json:"DNSFilters"` // DNSFilters: configure DNS daemon's toolbox command processor
 
 	HTTPDaemon   *httpd.Daemon   `json:"HTTPDaemon"`   // HTTP daemon configuration
 	HTTPFilters  StandardFilters `json:"HTTPFilters"`  // HTTP daemon filter configuration
@@ -220,6 +221,19 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 // Construct a DNS daemon from configuration and return.
 func (config *Config) GetDNSD() *dnsd.Daemon {
 	config.dnsDaemonInit.Do(func() {
+		// Assemble DNS command prcessor from features and filters
+		config.DNSDaemon.Processor = &common.CommandProcessor{
+			Features: config.Features,
+			CommandFilters: []filter.CommandFilter{
+				&config.DNSFilters.PINAndShortcuts,
+				&config.DNSFilters.TranslateSequences,
+			},
+			ResultFilters: []filter.ResultFilter{
+				&config.DNSFilters.LintText,
+				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&config.DNSFilters.NotifyViaEmail,
+			},
+		}
 		if err := config.DNSDaemon.Initialise(); err != nil {
 			config.logger.Abort("GetDNSD", "", err, "failed to initialise")
 			return

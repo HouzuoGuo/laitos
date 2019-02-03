@@ -10,7 +10,7 @@ import (
 var githubComTCPQuery []byte
 var githubComUDPQuery []byte
 var cmdTextSampleInput = "_verysecret 00s echo '00000101~!@#$%^&*()_+-={}[]:\"|;01<>?,/~`'"
-var cmdTextSampleInterpreted = "_verysecret .s echo '0001~!@#$%^&*()_+-={}[]:\"|;\\<>?,/~`'"
+var cmdTextSampleInterpreted = "verysecret .s echo '0001~!@#$%^&*()_+-={}[]:\"|;\\<>?,/~`'"
 var cmdTextTCPQuery []byte
 var cmdTextUDPQuery []byte
 
@@ -120,6 +120,29 @@ func recoverFullStopSymbols(in []byte) {
 }
 
 /*
+stripCommandPrefixAndInvalidBytes returns a copy of input bytes after stripping the toolbox command processor prefix
+and other invalid bytes that may come before the command input.
+*/
+func stripCommandPrefixAndInvalidBytes(in []byte) (ret []byte, seenPrefix bool) {
+	ret = make([]byte, 0, len(in))
+	var prefixGone bool
+	for _, b := range in {
+		if !prefixGone {
+			if !seenPrefix && b == ToolboxCommandPrefix {
+				seenPrefix = true
+				continue
+			}
+			if b <= 44 || b >= 58 && b <= 64 || b >= 91 && b <= 96 {
+				continue
+			}
+		}
+		prefixGone = true
+		ret = append(ret, b)
+	}
+	return
+}
+
+/*
 ExtractDomainName extracts domain name requested by input query packet. If the function fails to identify a domain name,
 it will return an empty string.
 */
@@ -145,16 +168,16 @@ func ExtractDomainName(packet []byte) string {
 }
 
 /*
-ExtractDomainName extracts domain name or toolbox command input requested by input query packet. If the function fails
-to identify them, it will return an empty string.
+ExtractTextQueryCommandInput extracts a possible toolbox command from TXT query packet. It removes the leading toolbox
+command prefix as well as translating special sequences that work around limitation of using DNS name as command input.
 */
-func ExtractTextQueryInput(packet []byte) string {
+func ExtractTextQueryCommandInput(packet []byte) (commandWithoutPrefix string, likelyCommand bool) {
 	if packet == nil || len(packet) < MinNameQuerySize {
-		return ""
+		return "", false
 	}
 	indexTypeTXTClassIN := bytes.Index(packet[13:], textQueryMagic)
 	if indexTypeTXTClassIN < 1 {
-		return ""
+		return "", false
 	}
 	indexTypeTXTClassIN += 13
 	// The byte right before Type-A Class-IN is an empty byte to be discarded
@@ -178,10 +201,11 @@ func ExtractTextQueryInput(packet []byte) string {
 	queriedNameBytes = bytes.Replace(queriedNameBytes, []byte{48, 49, 48, 49}, []byte{1}, -1)
 	queriedNameBytes = bytes.Replace(queriedNameBytes, []byte{48, 49}, []byte{92}, -1)
 	queriedNameBytes = bytes.Replace(queriedNameBytes, []byte{1}, []byte{48, 49}, -1)
-	queriedName := strings.TrimSpace(string(queriedNameBytes))
 	// Do not extract domain name that is exceedingly long
-	if len(queriedName) > 255 {
-		return ""
+	if len(queriedNameBytes) > 255 {
+		return "", false
 	}
-	return queriedName
+
+	ret, likelyCommand := stripCommandPrefixAndInvalidBytes(queriedNameBytes)
+	return string(ret), likelyCommand
 }

@@ -8,11 +8,11 @@ import (
 
 func TestExtractTextQueryName(t *testing.T) {
 	// TCP query length field is two bytes long
-	if extracted := ExtractTextQueryInput(cmdTextTCPQuery[2:]); extracted != cmdTextSampleInterpreted {
-		t.Fatalf("\n%+v\n%+v\n", extracted, cmdTextSampleInterpreted)
+	if cmd, likelyCmd := ExtractTextQueryCommandInput(cmdTextTCPQuery[2:]); !likelyCmd || cmd != cmdTextSampleInterpreted {
+		t.Fatalf("\n%+v\n%+v\n", cmd, cmdTextSampleInterpreted)
 	}
-	if extracted := ExtractTextQueryInput(cmdTextUDPQuery); extracted != cmdTextSampleInterpreted {
-		t.Fatalf("\n%+v\n%+v\n", extracted, cmdTextSampleInterpreted)
+	if cmd, likelyCmd := ExtractTextQueryCommandInput(cmdTextUDPQuery); !likelyCmd || cmd != cmdTextSampleInterpreted {
+		t.Fatalf("\n%+v\n%+v\n", cmd, cmdTextSampleInterpreted)
 	}
 }
 

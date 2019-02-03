@@ -98,17 +98,16 @@ func (daemon *Daemon) handleUDPQuery(queryBody []byte, client *net.UDPAddr) {
 
 func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
 	respBody = make([]byte, 0)
-	queryInput := ExtractTextQueryInput(queryBody)
-	queriedNameForLogging := []byte(queryInput)
-	recoverFullStopSymbols(queriedNameForLogging)
+	commandWithoutPrefix, likelyCommand := ExtractTextQueryCommandInput(queryBody)
 	if daemon.processQueryTestCaseFunc != nil {
-		daemon.processQueryTestCaseFunc(string(queriedNameForLogging))
+		linted := []byte(commandWithoutPrefix)
+		recoverFullStopSymbols(linted)
+		daemon.processQueryTestCaseFunc(string(linted))
 	}
-	if strings.HasPrefix(queryInput, ToolboxCommandPrefix) {
-		inputWithoutPrefix := strings.TrimPrefix(queryInput, ToolboxCommandPrefix)
+	if likelyCommand {
 		result := daemon.Processor.Process(toolbox.Command{
 			TimeoutSec: ClientTimeoutSec,
-			Content:    inputWithoutPrefix,
+			Content:    commandWithoutPrefix,
 		}, true)
 		if result.Error == filter.ErrPINAndShortcutNotFound {
 			/*
@@ -116,6 +115,11 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (res
 				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.
 			*/
 			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "input has command prefix but failed PIN check")
+			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "@@@@@@@@@@@@@@@ %s", commandWithoutPrefix)
+			for i, c := range commandWithoutPrefix {
+				fmt.Printf("%d %d %c \n", i, c, c)
+			}
+
 			goto forwardToRecursiveResolver
 		} else {
 			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "processed a toolbox command")
@@ -123,7 +127,7 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (res
 			return len(respBody), respBody
 		}
 	} else {
-		daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "handle query \"%s\"", string(queriedNameForLogging))
+		daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "handle query \"%s\"", string(commandWithoutPrefix))
 	}
 forwardToRecursiveResolver:
 	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.

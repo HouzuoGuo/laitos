@@ -34,7 +34,7 @@ const (
 		ToolboxCommandPrefix is a short string that indicates a TXT query is most likely toolbox command. Keep it short,
 		as DNS query input has to be pretty short.
 	*/
-	ToolboxCommandPrefix = "_"
+	ToolboxCommandPrefix = '_'
 )
 
 /*

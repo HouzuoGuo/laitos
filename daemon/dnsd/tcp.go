@@ -110,32 +110,33 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 
 func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
 	respBody = make([]byte, 0)
-	queryInput := ExtractTextQueryInput(queryBody)
-	queriedNameForLogging := []byte(queryInput)
-	recoverFullStopSymbols(queriedNameForLogging)
+	commandWithoutPrefix, likelyCommand := ExtractTextQueryCommandInput(queryBody)
 	if daemon.processQueryTestCaseFunc != nil {
-		daemon.processQueryTestCaseFunc(string(queriedNameForLogging))
+		linted := []byte(commandWithoutPrefix)
+		recoverFullStopSymbols(linted)
+		daemon.processQueryTestCaseFunc(string(linted))
 	}
-	if strings.HasPrefix(queryInput, ToolboxCommandPrefix) {
-		inputWithoutPrefix := strings.TrimPrefix(queryInput, ToolboxCommandPrefix)
+	if likelyCommand {
 		result := daemon.Processor.Process(toolbox.Command{
 			TimeoutSec: ClientTimeoutSec,
-			Content:    inputWithoutPrefix,
+			Content:    commandWithoutPrefix,
 		}, true)
 		if result.Error == filter.ErrPINAndShortcutNotFound {
 			/*
 				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is
 				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.
 			*/
-			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "input has command prefix but failed PIN check, forward to recursive resolver.")
+			daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "input has command prefix but failed PIN check, forward to recursive resolver.")
 			goto forwardToRecursiveResolver
 		} else {
-			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "processed a toolbox command")
+			daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "processed a toolbox command")
 			respBody = MakeTextResponse(queryBody, result.CombinedOutput)
 			respLenInt := len(respBody)
 			respLen = []byte{byte(respLenInt / 256), byte(respLenInt % 256)}
 			return
 		}
+	} else {
+		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "handle query \"%s\"", string(commandWithoutPrefix))
 	}
 forwardToRecursiveResolver:
 	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.
