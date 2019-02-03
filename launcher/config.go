@@ -190,6 +190,7 @@ func (config *Config) Initialise() error {
 		config.AutoUnlock = &autounlock.Daemon{}
 	}
 	// All notification filters share the common mail client
+	config.DNSFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.HTTPFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.MailFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.PlainSocketFilters.NotifyViaEmail.MailClient = config.MailClient
