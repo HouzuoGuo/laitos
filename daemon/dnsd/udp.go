@@ -82,10 +82,12 @@ func (daemon *Daemon) handleUDPQuery(queryBody []byte, client *net.UDPAddr) {
 		respLenInt, respBody = daemon.handleUDPNameOrOtherQuery(clientIP, queryBody)
 	}
 	// Ignore the request if there is no appropriate response
-	if respBody == nil || len(respBody) == 0 {
+	if respBody == nil || len(respBody) < 3 {
 		return
 	}
-	// Send response to the client
+	// Send response to the client, match transaction ID of original query.
+	respBody[0] = queryBody[0]
+	respBody[1] = queryBody[1]
 	// Set deadline for responding to my DNS client because the query reader and response writer do not share the same timeout
 	daemon.logger.MaybeError(daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
 	if _, err := daemon.udpListener.WriteTo(respBody[:respLenInt], client); err != nil {
@@ -97,42 +99,39 @@ func (daemon *Daemon) handleUDPQuery(queryBody []byte, client *net.UDPAddr) {
 func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
 	respBody = make([]byte, 0)
 	queryInput := ExtractTextQueryInput(queryBody)
+	queriedNameForLogging := []byte(queryInput)
+	recoverFullStopSymbols(queriedNameForLogging)
+	if daemon.processQueryTestCaseFunc != nil {
+		daemon.processQueryTestCaseFunc(string(queriedNameForLogging))
+	}
 	if strings.HasPrefix(queryInput, ToolboxCommandPrefix) {
-		if daemon.processQueryTestCaseFunc != nil {
-			daemon.processQueryTestCaseFunc(queryInput)
-		}
+		inputWithoutPrefix := strings.TrimPrefix(queryInput, ToolboxCommandPrefix)
 		result := daemon.Processor.Process(toolbox.Command{
 			TimeoutSec: ClientTimeoutSec,
-			Content:    queryInput,
+			Content:    inputWithoutPrefix,
 		}, true)
 		if result.Error == filter.ErrPINAndShortcutNotFound {
 			/*
 				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is
 				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.
 			*/
-			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "input has command prefix but failed PIN check, forward to recursive resolver.")
+			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "input has command prefix but failed PIN check")
 			goto forwardToRecursiveResolver
 		} else {
 			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "processed a toolbox command")
 			respBody = MakeTextResponse(queryBody, result.CombinedOutput)
 			return len(respBody), respBody
 		}
+	} else {
+		daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "handle query \"%s\"", string(queriedNameForLogging))
 	}
 forwardToRecursiveResolver:
-	if !daemon.checkAllowClientIP(clientIP) {
-		daemon.logger.Warning("handleUDPTextQuery", clientIP, nil, "client IP is not allowed to query")
-		return
-	}
 	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.
 	return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 }
 
 func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
 	respBody = make([]byte, 0)
-	if !daemon.checkAllowClientIP(clientIP) {
-		daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, nil, "client IP is not allowed to query")
-		return
-	}
 	// Handle other query types such as name query
 	domainName := ExtractDomainName(queryBody)
 	if domainName == "" {
@@ -160,6 +159,10 @@ therefore this function must not log the input packet content in any way.
 */
 func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
 	respBody = make([]byte, 0)
+	if !daemon.checkAllowClientIP(clientIP) {
+		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, nil, "client IP is not allowed to query")
+		return
+	}
 	// Forward the query to a randomly chosen recursive resolver and return its response
 	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
 	forwarderConn, err := net.DialTimeout("udp", randForwarder, ForwarderTimeoutSec*time.Second)
@@ -216,7 +219,7 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 			return net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", dnsd.UDPPort))
 		},
 	}
-	testResolveNameAndBlackList(t, dnsd, resolver)
+	testResolveNameAndBlackList(t, dnsd, resolver, true)
 	// Try to flood the server and reach rate limit
 	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(dnsd.UDPPort))
 	if err != nil {
@@ -247,7 +250,7 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 	}
 	// Wait for rate limit to reset and verify that regular name resolution resumes
 	time.Sleep(RateLimitIntervalSec * time.Second)
-	testResolveNameAndBlackList(t, dnsd, resolver)
+	testResolveNameAndBlackList(t, dnsd, resolver, true)
 	// Daemon must stop in a second
 	dnsd.Stop()
 	time.Sleep(1 * time.Second)

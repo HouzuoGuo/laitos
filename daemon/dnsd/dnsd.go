@@ -406,29 +406,31 @@ func isTextQuery(queryBody []byte) bool {
 testResolveNameAndBlackList is a common test case that tests name resolution of popular domain names as well as black
 list domain names.
 */
-func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
+func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver, isUDP bool) {
 	// Track and verify the last resolved name
 	var lastResolvedName string
 	daemon.processQueryTestCaseFunc = func(queryInput string) {
 		lastResolvedName = queryInput
 	}
+
 	// Resolve A and TXT records from popular domains
-	for _, domain := range []string{"microsoft.com", "apple.com", "linkedin.com"} {
+	for _, domain := range []string{"apple.com", "bing.com", "github.com"} {
 		lastResolvedName = ""
-		if result, err := resolver.LookupHost(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
-			t.Fatal("failed to resolve popular domain name A record", domain, err, result)
+		if result, err := resolver.LookupTXT(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
+			t.Fatal("failed to resolve domain name TXT record", domain, err, result)
 		}
 		if lastResolvedName != domain {
 			t.Fatal("attempted to resolve", domain, "but daemon saw:", lastResolvedName)
 		}
 		lastResolvedName = ""
-		if result, err := resolver.LookupTXT(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
-			t.Fatal("failed to resolve popular domain name TXT record", domain, err, result)
+		if result, err := resolver.LookupHost(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
+			t.Fatal("failed to resolve domain name A record", domain, err, result)
 		}
 		if lastResolvedName != domain {
 			t.Fatal("attempted to resolve", domain, "but daemon saw:", lastResolvedName)
 		}
 	}
+
 	// Blacklist github and see if query gets a black hole response
 	oldBlacklist := daemon.blackList
 	defer func() {
@@ -441,4 +443,50 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	if lastResolvedName != "GiThUb.CoM" {
 		t.Fatal("attempted to resolve black-listed github.com, but daemon saw:", lastResolvedName)
 	}
+
+	// Make a TXT query that carries toolbox command prefix but is in fact not
+	if result, err := resolver.LookupTXT(context.Background(), "_.apple.com"); err != nil || len(result) == 0 || len(result[0]) == 0 {
+		// _.apple.com.            3599    IN      TXT     "v=spf1 redirect=_spf.apple.com"
+		t.Fatal(result, err)
+	}
+
+	// Make a TXT query that carries toolbox command prefix and an invalid PIN
+	if result, err := resolver.LookupTXT(context.Background(), "_badpin .s echo hi"); err == nil || result != nil {
+		t.Fatal(result, err)
+	}
+
+	/*
+		Make a TXT query that carries a good PIN and valid toolbox command, then validate response. Normally this
+		should be carried out using go DNS client, however the client does not like how a toolbox command looks.
+		The resolver is already set up to use test daemon exclusively.
+	*/
+	conn, err := resolver.Dial(nil, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if isUDP {
+		if _, err = conn.Write(cmdTextUDPQuery); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		if _, err = conn.Write(cmdTextTCPQuery); err != nil {
+			t.Fatal(err)
+		}
+	}
+	resp := make([]byte, MaxPacketSize)
+	length, err := conn.Read(resp)
+	// Validate that response is present and has reasonable length
+	if err != nil || length == 0 || length > len(cmdTextSampleInput)*3 {
+		t.Fatal(length, err)
+	}
+	// Both the input toolbox command and command response must appear in the DNS response packet
+	inputIndex := bytes.Index(resp, []byte(cmdTextSampleInput))
+	if inputIndex == -1 {
+		t.Fatal("Input is missing from packet: %s", string(resp))
+	}
+	commandResultIndex := bytes.Index(resp[inputIndex+len(cmdTextSampleInput):], []byte("0001~!@#$%^&*()_+-={}[]:\"|;\\<>?,/~`"))
+	if commandResultIndex == -1 {
+		t.Fatal("Command result is missing from packet: %s", string(resp))
+	}
+
 }

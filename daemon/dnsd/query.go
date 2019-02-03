@@ -9,7 +9,8 @@ import (
 // Sample queries for composing test cases
 var githubComTCPQuery []byte
 var githubComUDPQuery []byte
-var cmdTextRestored = "verysecret .s echo '0001~!@#$%^&*()_+-={}[]:\"|;\\<>?,/~`'"
+var cmdTextSampleInput = "_verysecret 00s echo '00000101~!@#$%^&*()_+-={}[]:\"|;01<>?,/~`'"
+var cmdTextSampleInterpreted = "_verysecret .s echo '0001~!@#$%^&*()_+-={}[]:\"|;\\<>?,/~`'"
 var cmdTextTCPQuery []byte
 var cmdTextUDPQuery []byte
 
@@ -26,7 +27,7 @@ func init() {
 	}
 	/*
 		Prepare a TXT query toolbox command for test cases:
-		a=$'verysecret 00s echo \'00000101~!@#$%^&*()_+-={}[]:"|;01<>?,/~`\''
+		a=$'_verysecret 00s echo \'00000101~!@#$%^&*()_+-={}[]:"|;01<>?,/~`\''
 		dig -t TXT "$a" +tcp
 		dig -t TXT "$a"
 		dig -t TXT hz.gl +tcp
@@ -35,11 +36,11 @@ func init() {
 		Due to various quirks of DNS protocol, the length of the query above is equal or very close to the maximum
 		accepted by popular DNS clients.
 	*/
-	cmdTextTCPQuery, err = hex.DecodeString("005bf31c012000010000000000013e7665727973656372657420303073206563686f202730303030303130317e21402324255e262a28295f2b2d3d7b7d5b5d3a227c3b30313c3e3f2c2f7e602700001000010000291000000000000000")
+	cmdTextTCPQuery, err = hex.DecodeString("005c314e012000010000000000013f5f7665727973656372657420303073206563686f202730303030303130317e21402324255e262a28295f2b2d3d7b7d5b5d3a227c3b30313c3e3f2c2f7e602700001000010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}
-	cmdTextUDPQuery, err = hex.DecodeString("6361012000010000000000013e7665727973656372657420303073206563686f202730303030303130317e21402324255e262a28295f2b2d3d7b7d5b5d3a227c3b30313c3e3f2c2f7e602700001000010000291000000000000000")
+	cmdTextUDPQuery, err = hex.DecodeString("c783012000010000000000013f5f7665727973656372657420303073206563686f202730303030303130317e21402324255e262a28295f2b2d3d7b7d5b5d3a227c3b30313c3e3f2c2f7e602700001000010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}
@@ -106,6 +107,19 @@ func MakeTextResponse(queryNoLength []byte, text string) []byte {
 }
 
 /*
+lintQueriedDomainName modifies input domain name in-place to recover full-stop symbols that somehow came as bytes not
+in the range of readable characters.
+*/
+func recoverFullStopSymbols(in []byte) {
+	// This is perhaps a quirk of some DNS-related RFC
+	for i, b := range in {
+		if b <= 44 || b >= 58 && b <= 64 || b >= 91 && b <= 96 {
+			in[i] = '.'
+		}
+	}
+}
+
+/*
 ExtractDomainName extracts domain name requested by input query packet. If the function fails to identify a domain name,
 it will return an empty string.
 */
@@ -121,15 +135,7 @@ func ExtractDomainName(packet []byte) string {
 	// The byte right before Type-A Class-IN is an empty byte to be discarded
 	domainNameBytes := make([]byte, indexTypeAClassIN-13-1)
 	copy(domainNameBytes, packet[13:indexTypeAClassIN-1])
-	/*
-		Restore full-stops of the domain name portion so that it can be checked against black list.
-		Not sure why those byte ranges show up in place of full-stops, probably due to some RFCs.
-	*/
-	for i, b := range domainNameBytes {
-		if b <= 44 || b >= 58 && b <= 64 || b >= 91 && b <= 96 {
-			domainNameBytes[i] = '.'
-		}
-	}
+	recoverFullStopSymbols(domainNameBytes)
 	domainName := strings.TrimSpace(string(domainNameBytes))
 	// Do not extract domain name that is exceedingly long
 	if len(domainName) > 255 {

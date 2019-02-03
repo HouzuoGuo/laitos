@@ -93,10 +93,12 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 		respLen, respBody = daemon.handleTCPNameOrOtherQuery(clientIP, queryLen, queryBody)
 	}
 	// Close client connection in case there is no appropriate response
-	if respBody == nil || len(respBody) == 0 {
+	if respBody == nil || len(respBody) < 2 {
 		return
 	}
-	// Send response to the client, the deadline is shared with the read deadline above.
+	// Send response to the client, match transaction ID of original query, the deadline is shared with the read deadline above.
+	respBody[0] = queryBody[0]
+	respBody[1] = queryBody[1]
 	if _, err := clientConn.Write(respLen); err != nil {
 		daemon.logger.Warning("handleTCPQuery", clientIP, err, "failed to answer length to client")
 		return
@@ -109,13 +111,16 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
 	respBody = make([]byte, 0)
 	queryInput := ExtractTextQueryInput(queryBody)
+	queriedNameForLogging := []byte(queryInput)
+	recoverFullStopSymbols(queriedNameForLogging)
+	if daemon.processQueryTestCaseFunc != nil {
+		daemon.processQueryTestCaseFunc(string(queriedNameForLogging))
+	}
 	if strings.HasPrefix(queryInput, ToolboxCommandPrefix) {
-		if daemon.processQueryTestCaseFunc != nil {
-			daemon.processQueryTestCaseFunc(queryInput)
-		}
+		inputWithoutPrefix := strings.TrimPrefix(queryInput, ToolboxCommandPrefix)
 		result := daemon.Processor.Process(toolbox.Command{
 			TimeoutSec: ClientTimeoutSec,
-			Content:    queryInput,
+			Content:    inputWithoutPrefix,
 		}, true)
 		if result.Error == filter.ErrPINAndShortcutNotFound {
 			/*
@@ -128,19 +133,13 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "processed a toolbox command")
 			respBody = MakeTextResponse(queryBody, result.CombinedOutput)
 			respLenInt := len(respBody)
-			respLen[0] = byte(respLenInt / 256)
-			respLen[1] = byte(respLenInt % 256)
+			respLen = []byte{byte(respLenInt / 256), byte(respLenInt % 256)}
 			return
 		}
 	}
 forwardToRecursiveResolver:
-	if !daemon.checkAllowClientIP(clientIP) {
-		daemon.logger.Warning("handleTCPTextQuery", clientIP, nil, "client IP is not allowed to query")
-		return
-	}
 	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.
 	return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
-
 }
 
 func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
@@ -164,9 +163,7 @@ func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, query
 		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle black-listed \"%s\"", domainName)
 		respBody = GetBlackHoleResponse(queryBody)
 		respLenInt := len(respBody)
-		respLen = make([]byte, 2)
-		respLen[0] = byte(respLenInt / 256)
-		respLen[1] = byte(respLenInt % 256)
+		respLen = []byte{byte(respLenInt / 256), byte(respLenInt % 256)}
 	} else {
 		respLen, respBody = daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
@@ -181,6 +178,10 @@ therefore this function must not log the input packet content in any way.
 func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
 	respLen = make([]byte, 0)
 	respBody = make([]byte, 0)
+	if !daemon.checkAllowClientIP(clientIP) {
+		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, nil, "client IP is not allowed to query")
+		return
+	}
 	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
 	// Forward the query to a randomly chosen recursive resolver
 	myForwarder, err := net.DialTimeout("tcp", randForwarder, ForwarderTimeoutSec*time.Second)
@@ -249,7 +250,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 			return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dnsd.TCPPort))
 		},
 	}
-	testResolveNameAndBlackList(t, dnsd, resolver)
+	testResolveNameAndBlackList(t, dnsd, resolver, false)
 	// Try to flood the server and reach rate limit
 	success := 0
 	dnsd.blackList = map[string]struct{}{}
@@ -276,7 +277,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 	}
 	// Wait for rate limit to reset and verify that regular name resolution resumes
 	time.Sleep(RateLimitIntervalSec * time.Second)
-	testResolveNameAndBlackList(t, dnsd, resolver)
+	testResolveNameAndBlackList(t, dnsd, resolver, false)
 	// Daemon must stop in a second
 	dnsd.Stop()
 	time.Sleep(1 * time.Second)
