@@ -2,17 +2,20 @@ package dnsd
 
 import (
 	"encoding/hex"
+	"fmt"
 	"reflect"
 	"testing"
 )
 
 func TestExtractTextQueryName(t *testing.T) {
 	// TCP query length field is two bytes long
-	if cmd, likelyCmd := ExtractTextQueryCommandInput(cmdTextTCPQuery[2:]); !likelyCmd || cmd != cmdTextSampleInterpreted {
-		t.Fatalf("\n%+v\n%+v\n", cmd, cmdTextSampleInterpreted)
+	if queriedName, cmdDTMF := ExtractTextQueryCommandInput(cmdTextTCPQuery[2:]); cmdDTMF != sampleCommandDTMF ||
+		queriedName != fmt.Sprintf("_%s.hz.gl", sampleCommandDTMF) {
+		t.Fatalf("\n%+v\n%+v\n%+v\n", cmdDTMF, sampleCommandDTMF, queriedName)
 	}
-	if cmd, likelyCmd := ExtractTextQueryCommandInput(cmdTextUDPQuery); !likelyCmd || cmd != cmdTextSampleInterpreted {
-		t.Fatalf("\n%+v\n%+v\n", cmd, cmdTextSampleInterpreted)
+	if queriedName, cmdDTMF := ExtractTextQueryCommandInput(cmdTextUDPQuery); cmdDTMF != sampleCommandDTMF ||
+		queriedName != fmt.Sprintf("_%s.hz.gl", sampleCommandDTMF) {
+		t.Fatalf("\n%+v\n%+v\n%+v\n", cmdDTMF, sampleCommandDTMF, queriedName)
 	}
 }
 

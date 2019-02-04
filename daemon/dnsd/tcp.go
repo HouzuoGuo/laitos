@@ -3,6 +3,7 @@ package dnsd
 import (
 	"context"
 	"fmt"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
@@ -110,16 +111,14 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 
 func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
 	respBody = make([]byte, 0)
-	commandWithoutPrefix, likelyCommand := ExtractTextQueryCommandInput(queryBody)
+	queriedName, commandDTMF := ExtractTextQueryCommandInput(queryBody)
 	if daemon.processQueryTestCaseFunc != nil {
-		linted := []byte(commandWithoutPrefix)
-		recoverFullStopSymbols(linted)
-		daemon.processQueryTestCaseFunc(string(linted))
+		daemon.processQueryTestCaseFunc(queriedName)
 	}
-	if likelyCommand {
+	if dtmfDecoded := handler.DTMFDecode(commandDTMF); len(dtmfDecoded) > 1 {
 		result := daemon.Processor.Process(toolbox.Command{
 			TimeoutSec: ClientTimeoutSec,
-			Content:    commandWithoutPrefix,
+			Content:    dtmfDecoded,
 		}, true)
 		if result.Error == filter.ErrPINAndShortcutNotFound {
 			/*
@@ -136,7 +135,7 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 			return
 		}
 	} else {
-		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "handle query \"%s\"", string(commandWithoutPrefix))
+		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "handle query \"%s\"", string(queriedName))
 	}
 forwardToRecursiveResolver:
 	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.

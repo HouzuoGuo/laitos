@@ -3,16 +3,29 @@ package dnsd
 import (
 	"bytes"
 	"encoding/hex"
+	"regexp"
 	"strings"
 )
+
+/*
+regexCommandConsecutiveNumbers matches a command prefix (underscore) and subsequent consecutive numbers that will be
+interpreted using DTMF rule for command input.
+The minimum number of input digits is the minimum length of command processor PIN followed by two characters of function
+name.
+*/
+var regexCommandConsecutiveNumbers = regexp.MustCompile(`_[0-9]{9,}`)
 
 // Sample queries for composing test cases
 var githubComTCPQuery []byte
 var githubComUDPQuery []byte
-var cmdTextSampleInput = "_verysecret 00s echo '00000101~!@#$%^&*()_+-={}[]:\"|;01<>?,/~`'"
-var cmdTextSampleInterpreted = "verysecret .s echo '0001~!@#$%^&*()_+-={}[]:\"|;\\<>?,/~`'"
 var cmdTextTCPQuery []byte
 var cmdTextUDPQuery []byte
+
+/*
+sampleCommandDTMF is the DTMF input of:
+                           v e  r  y   s e  c  r et   .    s  e  c h  o  a"
+*/
+var sampleCommandDTMF = "88833777999777733222777338014207777003322244666002"
 
 func init() {
 	var err error
@@ -25,22 +38,12 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	/*
-		Prepare a TXT query toolbox command for test cases:
-		a=$'_verysecret 00s echo \'00000101~!@#$%^&*()_+-={}[]:"|;01<>?,/~`\''
-		dig -t TXT "$a" +tcp
-		dig -t TXT "$a"
-		dig -t TXT hz.gl +tcp
-		dig -t TXT hz.gl
-		Where 00 translates into a full-stop and "verysecret" is the value of TestCommandProcessorPIN.
-		Due to various quirks of DNS protocol, the length of the query above is equal or very close to the maximum
-		accepted by popular DNS clients.
-	*/
-	cmdTextTCPQuery, err = hex.DecodeString("005c314e012000010000000000013f5f7665727973656372657420303073206563686f202730303030303130317e21402324255e262a28295f2b2d3d7b7d5b5d3a227c3b30313c3e3f2c2f7e602700001000010000291000000000000000")
+	// Prepare two TXT queries on (verysecret.e a) "_88833777999777733222777338014203322244666002.hz.gl"
+	cmdTextTCPQuery, err = hex.DecodeString("0056d21e01200001000000000001335f383838333337373739393937373737333332323237373733333830313432303737373730303333323232343436363630303202687a02676c00001000010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}
-	cmdTextUDPQuery, err = hex.DecodeString("c783012000010000000000013f5f7665727973656372657420303073206563686f202730303030303130317e21402324255e262a28295f2b2d3d7b7d5b5d3a227c3b30313c3e3f2c2f7e602700001000010000291000000000000000")
+	cmdTextUDPQuery, err = hex.DecodeString("a91701200001000000000001335f383838333337373739393937373737333332323237373733333830313432303737373730303333323232343436363630303202687a02676c00001000010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}
@@ -113,33 +116,10 @@ in the range of readable characters.
 func recoverFullStopSymbols(in []byte) {
 	// This is perhaps a quirk of some DNS-related RFC
 	for i, b := range in {
-		if b <= 44 || b >= 58 && b <= 64 || b >= 91 && b <= 96 {
+		if b <= 44 || b >= 58 && b <= 64 || b >= 91 && b <= 96 && b != 95 {
 			in[i] = '.'
 		}
 	}
-}
-
-/*
-stripCommandPrefixAndInvalidBytes returns a copy of input bytes after stripping the toolbox command processor prefix
-and other invalid bytes that may come before the command input.
-*/
-func stripCommandPrefixAndInvalidBytes(in []byte) (ret []byte, seenPrefix bool) {
-	ret = make([]byte, 0, len(in))
-	var prefixGone bool
-	for _, b := range in {
-		if !prefixGone {
-			if !seenPrefix && b == ToolboxCommandPrefix {
-				seenPrefix = true
-				continue
-			}
-			if b <= 44 || b >= 58 && b <= 64 || b >= 91 && b <= 96 {
-				continue
-			}
-		}
-		prefixGone = true
-		ret = append(ret, b)
-	}
-	return
 }
 
 /*
@@ -169,43 +149,30 @@ func ExtractDomainName(packet []byte) string {
 
 /*
 ExtractTextQueryCommandInput extracts a possible toolbox command from TXT query packet. It removes the leading toolbox
-command prefix as well as translating special sequences that work around limitation of using DNS name as command input.
+command prefix and returns DTMF digits that should represent a toolbox command.
 */
-func ExtractTextQueryCommandInput(packet []byte) (commandWithoutPrefix string, likelyCommand bool) {
+func ExtractTextQueryCommandInput(packet []byte) (queriedName, commandDTMF string) {
 	if packet == nil || len(packet) < MinNameQuerySize {
-		return "", false
+		return "", ""
 	}
 	indexTypeTXTClassIN := bytes.Index(packet[13:], textQueryMagic)
 	if indexTypeTXTClassIN < 1 {
-		return "", false
+		return "", ""
 	}
 	indexTypeTXTClassIN += 13
 	// The byte right before Type-A Class-IN is an empty byte to be discarded
 	queriedNameBytes := make([]byte, indexTypeTXTClassIN-13-1)
 	copy(queriedNameBytes, packet[13:indexTypeTXTClassIN-1])
-	/*
-		The routine used in ExtractDomainName that translates certain byte ranges into full-stop is not used here, and
-		DNS imposes couple of other restrictions on the set of characters valid for a query. To work around those
-		restrictions:
-		-- Text 0000 translates into 00
-		-- Text 00 translates into full-stop (.)
-		-- Text 0101 translates into 01
-		-- Text 01 translates into back-slash (\)
-		Letters, numbers, space, and other symbols come through just fine.
-	*/
-	// "0000" -> 0x0  "00" -> "."  0x0 -> "00"
-	queriedNameBytes = bytes.Replace(queriedNameBytes, []byte{48, 48, 48, 48}, []byte{0}, -1)
-	queriedNameBytes = bytes.Replace(queriedNameBytes, []byte{48, 48}, []byte{46}, -1)
-	queriedNameBytes = bytes.Replace(queriedNameBytes, []byte{0}, []byte{48, 48}, -1)
-	// "0101" -> 0x1  "01" -> "\"  0x1 -> "01"
-	queriedNameBytes = bytes.Replace(queriedNameBytes, []byte{48, 49, 48, 49}, []byte{1}, -1)
-	queriedNameBytes = bytes.Replace(queriedNameBytes, []byte{48, 49}, []byte{92}, -1)
-	queriedNameBytes = bytes.Replace(queriedNameBytes, []byte{1}, []byte{48, 49}, -1)
 	// Do not extract domain name that is exceedingly long
 	if len(queriedNameBytes) > 255 {
-		return "", false
+		return "", ""
 	}
-
-	ret, likelyCommand := stripCommandPrefixAndInvalidBytes(queriedNameBytes)
-	return string(ret), likelyCommand
+	recoverFullStopSymbols(queriedNameBytes)
+	// Match command prefix and subsequent DTMF input
+	commandDTMF = regexCommandConsecutiveNumbers.FindString(string(queriedNameBytes))
+	// Remove the leading underscore that prefixes a DTMF command
+	if len(commandDTMF) > 1 {
+		commandDTMF = commandDTMF[1:]
+	}
+	return string(queriedNameBytes), commandDTMF
 }
