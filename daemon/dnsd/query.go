@@ -83,14 +83,17 @@ func MakeTextResponse(queryNoLength []byte, text string) []byte {
 	if len(text) > 254 {
 		text = text[:254]
 	}
-	answerPacket := make([]byte, len(queryNoLength))
+	answerPacket := make([]byte, 0, len(queryNoLength))
 	// Match transaction ID of original query
-	answerPacket[0] = queryNoLength[0]
-	answerPacket[1] = queryNoLength[1]
+	answerPacket = append(answerPacket, queryNoLength[0], queryNoLength[1])
 	// 0x8180 - response is a standard query response, without indication of error.
-	copy(answerPacket[2:4], StandardResponseNoError)
-	// Copy of original query structure
-	copy(answerPacket[4:], queryNoLength[4:])
+	answerPacket = append(answerPacket, StandardResponseNoError...)
+	// Copy everything from the beginning of query body until the beginning of Additional Record structure
+	queryMagicIndex := bytes.Index(queryNoLength, textQueryMagic)
+	if queryMagicIndex < 4 {
+		return []byte{}
+	}
+	answerPacket = append(answerPacket, queryNoLength[4:queryMagicIndex+len(textQueryMagic)]...)
 	// There is exactly one answer RR
 	answerPacket[6] = 0
 	answerPacket[7] = 1
@@ -104,8 +107,11 @@ func MakeTextResponse(queryNoLength []byte, text string) []byte {
 	answerPacket = append(answerPacket, 0x0, byte(len(text)+1))
 	// TXT length = length of input text
 	answerPacket = append(answerPacket, byte(len(text)))
-	// At last there is the text entry content
+	// Text entry content
 	answerPacket = append(answerPacket, []byte(text)...)
+	// Additional Record from the original packet
+	queryAdditionalRecord := queryNoLength[queryMagicIndex:]
+	answerPacket = append(answerPacket, queryAdditionalRecord...)
 	return answerPacket
 }
 
