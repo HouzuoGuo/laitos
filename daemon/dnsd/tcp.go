@@ -129,6 +129,7 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 			goto forwardToRecursiveResolver
 		} else {
 			daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "processed a toolbox command")
+
 			respBody = MakeTextResponse(queryBody, result.CombinedOutput)
 			respLenInt := len(respBody)
 			respLen = []byte{byte(respLenInt / 256), byte(respLenInt % 256)}
