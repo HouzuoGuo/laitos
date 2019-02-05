@@ -105,7 +105,7 @@ func MakeTextResponse(queryNoLength []byte, text string) []byte {
 	// Text type, Class IN
 	answerPacket = append(answerPacket, textQueryMagic...)
 	// TTL - 30 seconds (the minimum acceptable TTL by consensus, not by standard)
-	answerPacket = append(answerPacket, 0x0, 0x0, 0x0, 0x1e)
+	answerPacket = append(answerPacket, 0x0, 0x0, 0x0, TextCommandReplyTTL)
 	// Data length (2 bytes) = TXT length + 1
 	answerPacket = append(answerPacket, 0x0, byte(len(text)+1))
 	// TXT length = length of input text

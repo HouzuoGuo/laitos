@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/testingstub"
+	"github.com/HouzuoGuo/laitos/toolbox"
 	"net"
+	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,7 +32,7 @@ const (
 	PublicIPRefreshIntervalSec  = 900       // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
 	BlackListDownloadTimeoutSec = 30        // BlackListDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
 	BlacklistMaxEntries         = 100000    // BlackListMaxEntries is the maximum number of entries to be accepted into black list after retireving them from public sources.
-
+	TextCommandReplyTTL         = 30        // TextCommandReplyTTL is the TTL of text command reply, in number of seconds. Leave it low.
 	/*
 		ToolboxCommandPrefix is a short string that indicates a TXT query is most likely toolbox command. Keep it short,
 		as DNS query input has to be pretty short.
@@ -99,6 +102,13 @@ type Daemon struct {
 	allowQueryLastUpdate int64           // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
 	rateLimit            *misc.RateLimit // Rate limit counter
 	logger               lalog.Logger
+
+	// latestCommandTimestamp is the unix timestamp recorded when the latest command was about to be executed.
+	latestCommandTimestamp int64
+	// latestCommandTimestamp is the content of the latest toolbox command input.
+	latestCommandInput string
+	// latestCommandTimestamp is the content of the latest toolbox command output.
+	latestCommandOutput *toolbox.Result
 
 	// processQueryTestCaseFunc works along side DNS query processing routine, it offers queried name to test case for inspection.
 	processQueryTestCaseFunc func(string)
@@ -202,6 +212,18 @@ func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
 		}
 	}
 	return false
+}
+
+/*
+repeatLastCommandOutput uses system clock and the input command to determine whether the request should be served with
+the output from latest command. If the input command matches the latest command input and the TTL of command reply
+has not expired, then the latest command output will be returned; otherwise, nil will be returned.
+*/
+func (daemon *Daemon) repeatLastCommandOutput(thisCommandInput string) (previousOutput *toolbox.Result) {
+	if time.Now().Before(time.Unix(daemon.latestCommandTimestamp+TextCommandReplyTTL, 0)) && thisCommandInput == daemon.latestCommandInput {
+		return daemon.latestCommandOutput
+	}
+	return nil
 }
 
 /*
@@ -455,8 +477,23 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		t.Fatal(result, err)
 	}
 
-	// Make a TXT query that carries toolbox command prefix and a valid command "verysecret,s echo a"
-	if result, err := resolver.LookupTXT(context.Background(), "_"+sampleCommandDTMF+".example.com"); err != nil || len(result[0]) == 0 || result[0] != "a" {
+	/*
+	   v e  r  y   s e  c  r et   .    s  dat e
+	*/
+	var goodCommandDTMF = "888337779997777332227773380142077770032833"
+	thisYear := strconv.Itoa(time.Now().Year())
+	// Make a TXT query that carries toolbox command prefix and a valid command
+	result, err := resolver.LookupTXT(context.Background(), "_"+goodCommandDTMF+".example.com")
+	if err != nil || len(result) == 0 || !strings.Contains(result[0], thisYear) {
 		t.Fatal(result, err)
+	}
+	// Rapidly making the same request should receive the same command response
+	if repeatResult, err := resolver.LookupTXT(context.Background(), "_"+goodCommandDTMF+".example.com"); err != nil || !reflect.DeepEqual(repeatResult, result) {
+		t.Fatal(repeatResult, result, err)
+	}
+	// Wait for TTL to expire and repeat the same request, it should receive a new response.
+	time.Sleep((TextCommandReplyTTL + 1) * time.Second)
+	if repeatResult, err := resolver.LookupTXT(context.Background(), "_"+goodCommandDTMF+".example.com"); err != nil || reflect.DeepEqual(repeatResult, result) || !strings.Contains(result[0], thisYear) {
+		t.Fatal(repeatResult, result, err)
 	}
 }

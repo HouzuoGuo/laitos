@@ -104,11 +104,20 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (res
 		daemon.processQueryTestCaseFunc(queriedName)
 	}
 	if dtmfDecoded := handler.DTMFDecode(commandDTMF); len(dtmfDecoded) > 1 {
-		result := daemon.Processor.Process(toolbox.Command{
-			TimeoutSec: ClientTimeoutSec,
-			Content:    dtmfDecoded,
-		}, true)
-		if result.Error == filter.ErrPINAndShortcutNotFound {
+		// If client is repeating the request rapidly, then respond with the previous output.
+		var cmdResult *toolbox.Result
+		if prevResult := daemon.repeatLastCommandOutput(dtmfDecoded); prevResult != nil {
+			cmdResult = prevResult
+		} else {
+			cmdResult = daemon.Processor.Process(toolbox.Command{
+				TimeoutSec: ClientTimeoutSec,
+				Content:    dtmfDecoded,
+			}, true)
+		}
+		daemon.latestCommandTimestamp = time.Now().Unix()
+		daemon.latestCommandInput = dtmfDecoded
+		daemon.latestCommandOutput = cmdResult
+		if cmdResult.Error == filter.ErrPINAndShortcutNotFound {
 			/*
 				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is
 				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.
@@ -117,7 +126,7 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (res
 			goto forwardToRecursiveResolver
 		} else {
 			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "processed a toolbox command")
-			respBody = MakeTextResponse(queryBody, result.CombinedOutput)
+			respBody = MakeTextResponse(queryBody, cmdResult.CombinedOutput)
 			return len(respBody), respBody
 		}
 	} else {
