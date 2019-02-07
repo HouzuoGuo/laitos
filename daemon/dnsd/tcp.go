@@ -3,7 +3,6 @@ package dnsd
 import (
 	"context"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
@@ -111,11 +110,11 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 
 func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
 	respBody = make([]byte, 0)
-	queriedName, commandDTMF := ExtractTextQueryCommandInput(queryBody)
+	queriedName := ExtractTextQueryInput(queryBody)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(queriedName)
 	}
-	if dtmfDecoded := handler.DTMFDecode(commandDTMF); len(dtmfDecoded) > 1 {
+	if dtmfDecoded := DecodeDTMFCommandInput(queriedName); len(dtmfDecoded) > 1 {
 		// If client is repeating the request rapidly, then respond with the previous output.
 		var cmdResult *toolbox.Result
 		if prevResult := daemon.repeatLastCommandOutput(dtmfDecoded); prevResult != nil {
@@ -260,7 +259,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 			return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dnsd.TCPPort))
 		},
 	}
-	testResolveNameAndBlackList(t, dnsd, resolver, false)
+	testResolveNameAndBlackList(t, dnsd, resolver)
 	// Try to flood the server and reach rate limit
 	success := 0
 	dnsd.blackList = map[string]struct{}{}
@@ -287,7 +286,7 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 	}
 	// Wait for rate limit to reset and verify that regular name resolution resumes
 	time.Sleep(RateLimitIntervalSec * time.Second)
-	testResolveNameAndBlackList(t, dnsd, resolver, false)
+	testResolveNameAndBlackList(t, dnsd, resolver)
 	// Daemon must stop in a second
 	dnsd.Stop()
 	time.Sleep(1 * time.Second)

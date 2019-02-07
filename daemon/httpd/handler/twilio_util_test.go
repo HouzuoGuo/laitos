@@ -8,6 +8,9 @@ func TestDTMFDecode(t *testing.T) {
 	if s := DTMFDecode(""); s != "" {
 		t.Fatal(s)
 	}
+	if s := DTMFDecode("0"); s != " " {
+		t.Fatal(s)
+	}
 	if s := DTMFDecode(" awzxv<>?  \n\t<w;'{}   -=  "); s != "" {
 		t.Fatal(s)
 	}

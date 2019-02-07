@@ -3,29 +3,14 @@ package dnsd
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"regexp"
 	"strings"
 )
 
-/*
-regexCommandConsecutiveNumbers matches a command prefix (underscore) and subsequent consecutive numbers that will be
-interpreted using DTMF rule for command input.
-The minimum number of input digits is the minimum length of command processor PIN followed by two characters of function
-name.
-*/
-var regexCommandConsecutiveNumbers = regexp.MustCompile(`_[0-9]{9,}`)
-
 // Sample queries for composing test cases
 var githubComTCPQuery []byte
 var githubComUDPQuery []byte
-var cmdTextTCPQuery []byte
-var cmdTextUDPQuery []byte
-
-/*
-sampleCommandDTMF is the DTMF input of:
-                           v e  r  y   s e  c  r et   .    s  e  c h  o  a"
-*/
-var sampleCommandDTMF = "88833777999777733222777338014207777003322244666002"
 
 func init() {
 	var err error
@@ -35,15 +20,6 @@ func init() {
 		panic(err)
 	}
 	githubComUDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f4d00000100010000291000000000000000")
-	if err != nil {
-		panic(err)
-	}
-	// Prepare two TXT queries on (verysecret.e a) "_88833777999777733222777338014203322244666002.hz.gl"
-	cmdTextTCPQuery, err = hex.DecodeString("0056d21e01200001000000000001335f383838333337373739393937373737333332323237373733333830313432303737373730303333323232343436363630303202687a02676c00001000010000291000000000000000")
-	if err != nil {
-		panic(err)
-	}
-	cmdTextUDPQuery, err = hex.DecodeString("a91701200001000000000001335f383838333337373739393937373737333332323237373733333830313432303737373730303333323232343436363630303202687a02676c00001000010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}
@@ -157,17 +133,14 @@ func ExtractDomainName(packet []byte) string {
 	return domainName
 }
 
-/*
-ExtractTextQueryCommandInput extracts a possible toolbox command from TXT query packet. It removes the leading toolbox
-command prefix and returns DTMF digits that should represent a toolbox command.
-*/
-func ExtractTextQueryCommandInput(packet []byte) (queriedName, commandDTMF string) {
+// ExtractTextQueryInput extracts queried name from a TXT query packet.
+func ExtractTextQueryInput(packet []byte) string {
 	if packet == nil || len(packet) < MinNameQuerySize {
-		return "", ""
+		return ""
 	}
 	indexTypeTXTClassIN := bytes.Index(packet[13:], textQueryMagic)
 	if indexTypeTXTClassIN < 1 {
-		return "", ""
+		return ""
 	}
 	indexTypeTXTClassIN += 13
 	// The byte right before Type-A Class-IN is an empty byte to be discarded
@@ -175,14 +148,48 @@ func ExtractTextQueryCommandInput(packet []byte) (queriedName, commandDTMF strin
 	copy(queriedNameBytes, packet[13:indexTypeTXTClassIN-1])
 	// Do not extract domain name that is exceedingly long
 	if len(queriedNameBytes) > 255 {
-		return "", ""
+		return ""
 	}
 	recoverFullStopSymbols(queriedNameBytes)
-	// Match command prefix and subsequent DTMF input
-	commandDTMF = regexCommandConsecutiveNumbers.FindString(string(queriedNameBytes))
-	// Remove the leading underscore that prefixes a DTMF command
-	if len(commandDTMF) > 1 {
-		commandDTMF = commandDTMF[1:]
+	return string(queriedNameBytes)
+}
+
+/*
+DecodeDTMFCommandInput decodes input query name consisting of latin letter input and DTMF sequences, and returns the
+complete, recovered toolbox command input.
+*/
+func DecodeDTMFCommandInput(queriedName string) (decodedCommand string) {
+	if len(queriedName) < 2 {
+		return ""
 	}
-	return string(queriedNameBytes), commandDTMF
+	if queriedName[0] != ToolboxCommandPrefix {
+		return ""
+	}
+	// Extract command input from the sub-domain name only
+	indexDot := strings.IndexRune(queriedName, '.')
+	if indexDot == -1 {
+		// In case the query does not look like a domain name at all, try interpreting the entire sequence as a command.
+		indexDot = len(queriedName)
+	}
+	// Skip the prefix and parts beyond sub-domain name
+	queriedName = queriedName[1:indexDot]
+
+	// Look for DTMF number sequences
+	consecutiveNumbersRegex := regexp.MustCompile(`[0-9]+`)
+	consecutiveNumbers := consecutiveNumbersRegex.FindAllStringSubmatchIndex(queriedName, -1)
+	strIdx := 0
+	for _, match := range consecutiveNumbers {
+		// Collect letters
+		if strIdx < match[0] {
+			decodedCommand += queriedName[strIdx:match[0]]
+		}
+		// Decode from DTMF
+		decodedCommand += handler.DTMFDecode(queriedName[match[0]:match[1]])
+		strIdx = match[1]
+	}
+	// Collect remaining letters
+	if strIdx < len(queriedName) {
+		decodedCommand += queriedName[strIdx:]
+	}
+	return
 }

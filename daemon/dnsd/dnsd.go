@@ -428,7 +428,7 @@ func isTextQuery(queryBody []byte) bool {
 testResolveNameAndBlackList is a common test case that tests name resolution of popular domain names as well as black
 list domain names.
 */
-func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver, isUDP bool) {
+func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
 	// Track and verify the last resolved name
 	var lastResolvedName string
 	daemon.processQueryTestCaseFunc = func(queryInput string) {
@@ -477,23 +477,21 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		t.Fatal(result, err)
 	}
 
-	/*
-	   v e  r  y   s e  c  r et   .    s  dat e
-	*/
-	var goodCommandDTMF = "888337779997777332227773380142077770032833"
+	// Prefix _ indicates it is a toolbox command, DTMF sequence 142 becomes a full-stop, 0 becomes a space.
+	var cmdInput = "_verysecret142s0date"
 	thisYear := strconv.Itoa(time.Now().Year())
 	// Make a TXT query that carries toolbox command prefix and a valid command
-	result, err := resolver.LookupTXT(context.Background(), "_"+goodCommandDTMF+".example.com")
+	result, err := resolver.LookupTXT(context.Background(), cmdInput+".example.com")
 	if err != nil || len(result) == 0 || !strings.Contains(result[0], thisYear) {
 		t.Fatal(result, err)
 	}
 	// Rapidly making the same request should receive the same command response
-	if repeatResult, err := resolver.LookupTXT(context.Background(), "_"+goodCommandDTMF+".example.com"); err != nil || !reflect.DeepEqual(repeatResult, result) {
+	if repeatResult, err := resolver.LookupTXT(context.Background(), cmdInput+".example.com"); err != nil || !reflect.DeepEqual(repeatResult, result) {
 		t.Fatal(repeatResult, result, err)
 	}
 	// Wait for TTL to expire and repeat the same request, it should receive a new response.
 	time.Sleep((TextCommandReplyTTL + 1) * time.Second)
-	if repeatResult, err := resolver.LookupTXT(context.Background(), "_"+goodCommandDTMF+".example.com"); err != nil || reflect.DeepEqual(repeatResult, result) || !strings.Contains(result[0], thisYear) {
+	if repeatResult, err := resolver.LookupTXT(context.Background(), cmdInput+".example.com"); err != nil || reflect.DeepEqual(repeatResult, result) || !strings.Contains(result[0], thisYear) {
 		t.Fatal(repeatResult, result, err)
 	}
 }
