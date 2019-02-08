@@ -70,7 +70,7 @@ func TestDNSD(t *testing.T) {
 	daemon.Address = "127.0.0.1"
 	daemon.UDPPort = 62151
 	daemon.TCPPort = 18519
-	daemon.PerIPLimit = 20 // must be sufficient for test case
+	daemon.PerIPLimit = 40 // must be sufficient for test case
 	// Non-functioning forwarders should not abort initialisation or fail the daemon operation
 	daemon.Forwarders = append(daemon.Forwarders, "does-not-exist:53", "also-does-not-exist:12")
 	if err := daemon.Initialise(); err != nil {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/testingstub"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"net"
 	"reflect"
 	"strconv"
@@ -103,12 +102,8 @@ type Daemon struct {
 	rateLimit            *misc.RateLimit // Rate limit counter
 	logger               lalog.Logger
 
-	// latestCommandTimestamp is the unix timestamp recorded when the latest command was about to be executed.
-	latestCommandTimestamp int64
-	// latestCommandTimestamp is the content of the latest toolbox command input.
-	latestCommandInput string
-	// latestCommandTimestamp is the content of the latest toolbox command output.
-	latestCommandOutput *toolbox.Result
+	// latestCommands remembers the result of most recently executed toolbox commands.
+	latestCommands *LatestCommands
 
 	// processQueryTestCaseFunc works along side DNS query processing routine, it offers queried name to test case for inspection.
 	processQueryTestCaseFunc func(string)
@@ -168,6 +163,7 @@ func (daemon *Daemon) Initialise() error {
 
 	// Always allow server itself to query the DNS servers via its public IP
 	daemon.allowMyPublicIP()
+	daemon.latestCommands = NewLatestCommands()
 	return nil
 }
 
@@ -212,18 +208,6 @@ func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
 		}
 	}
 	return false
-}
-
-/*
-repeatLastCommandOutput uses system clock and the input command to determine whether the request should be served with
-the output from latest command. If the input command matches the latest command input and the TTL of command reply
-has not expired, then the latest command output will be returned; otherwise, nil will be returned.
-*/
-func (daemon *Daemon) repeatLastCommandOutput(thisCommandInput string) (previousOutput *toolbox.Result) {
-	if time.Now().Before(time.Unix(daemon.latestCommandTimestamp+TextCommandReplyTTL, 0)) && thisCommandInput == daemon.latestCommandInput {
-		return daemon.latestCommandOutput
-	}
-	return nil
 }
 
 /*
@@ -485,9 +469,11 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	if err != nil || len(result) == 0 || !strings.Contains(result[0], thisYear) {
 		t.Fatal(result, err)
 	}
-	// Rapidly making the same request should receive the same command response
-	if repeatResult, err := resolver.LookupTXT(context.Background(), cmdInput+".example.com"); err != nil || !reflect.DeepEqual(repeatResult, result) {
-		t.Fatal(repeatResult, result, err)
+	// Rapidly making the same request before TTL period elapses should be met the same command response
+	for i := 0; i < 10; i++ {
+		if repeatResult, err := resolver.LookupTXT(context.Background(), cmdInput+".example.com"); err != nil || !reflect.DeepEqual(repeatResult, result) {
+			t.Fatal(repeatResult, result, err)
+		}
 	}
 	// Wait for TTL to expire and repeat the same request, it should receive a new response.
 	time.Sleep((TextCommandReplyTTL + 1) * time.Second)

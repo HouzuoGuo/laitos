@@ -115,19 +115,15 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 		daemon.processQueryTestCaseFunc(queriedName)
 	}
 	if dtmfDecoded := DecodeDTMFCommandInput(queriedName); len(dtmfDecoded) > 1 {
-		// If client is repeating the request rapidly, then respond with the previous output.
-		var cmdResult *toolbox.Result
-		if prevResult := daemon.repeatLastCommandOutput(dtmfDecoded); prevResult != nil {
-			cmdResult = prevResult
-		} else {
+		// If client is repeating the request rapidly, then respond with the previous result.
+		cmdResult := daemon.latestCommands.Get(dtmfDecoded)
+		if cmdResult == nil {
 			cmdResult = daemon.Processor.Process(toolbox.Command{
 				TimeoutSec: ClientTimeoutSec,
 				Content:    dtmfDecoded,
 			}, true)
 		}
-		daemon.latestCommandTimestamp = time.Now().Unix()
-		daemon.latestCommandInput = dtmfDecoded
-		daemon.latestCommandOutput = cmdResult
+		daemon.latestCommands.StoreResult(dtmfDecoded, cmdResult)
 		if cmdResult.Error == filter.ErrPINAndShortcutNotFound {
 			/*
 				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is

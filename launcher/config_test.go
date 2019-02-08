@@ -30,7 +30,7 @@ var sampleConfigJSON = `
     "AllowQueryIPPrefixes": [
       "192"
     ],
-    "PerIPLimit": 20,
+    "PerIPLimit": 40,
     "TCPPort": 45115,
     "UDPPort": 23518
   },
