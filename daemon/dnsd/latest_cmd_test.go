@@ -16,11 +16,11 @@ func TestLatestCommands(t *testing.T) {
 		t.Fatal(r)
 	}
 	time.Sleep((TextCommandReplyTTL + 1) * time.Second)
-	if len(rec.latestResult) != 0 {
-		t.Fatal(rec.latestResult)
-	}
 	if r := rec.Get("input"); r != nil {
 		t.Fatal(r)
+	}
+	if len(rec.latestResult) != 0 {
+		t.Fatal(rec.latestResult)
 	}
 	rec.StoreResult("input", &toolbox.Result{CombinedOutput: "another-output"})
 	if r := rec.Get("input"); r == nil || r.CombinedOutput != "another-output" {
