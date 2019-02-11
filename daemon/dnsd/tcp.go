@@ -3,15 +3,15 @@ package dnsd
 import (
 	"context"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/toolbox"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"io/ioutil"
 	"math/rand"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -115,15 +115,7 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 		daemon.processQueryTestCaseFunc(queriedName)
 	}
 	if dtmfDecoded := DecodeDTMFCommandInput(queriedName); len(dtmfDecoded) > 1 {
-		// If client is repeating the request rapidly, then respond with the previous result.
-		cmdResult := daemon.latestCommands.Get(dtmfDecoded)
-		if cmdResult == nil {
-			cmdResult = daemon.Processor.Process(toolbox.Command{
-				TimeoutSec: ClientTimeoutSec,
-				Content:    dtmfDecoded,
-			}, true)
-		}
-		daemon.latestCommands.StoreResult(dtmfDecoded, cmdResult)
+		cmdResult := daemon.latestCommands.Execute(daemon.Processor, dtmfDecoded)
 		if cmdResult.Error == filter.ErrPINAndShortcutNotFound {
 			/*
 				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is

@@ -1,29 +1,66 @@
 package dnsd
 
 import (
-	"github.com/HouzuoGuo/laitos/toolbox"
+	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestLatestCommands(t *testing.T) {
 	rec := NewLatestCommands()
-	if r := rec.Get("does-not-exist"); r != nil {
-		t.Fatal(r)
+	testProcessor := common.GetTestCommandProcessor()
+
+	wg := new(sync.WaitGroup)
+	// 3 nested loops and 1 independent command not in a loop
+	wg.Add(3*3 + 1)
+	// Kick off three concurrent multiple executions of the same command in short succession
+	begin := time.Now().Unix()
+	var oldResult *toolbox.Result
+	for i := 0; i < 3; i++ {
+		go func() {
+			// Execute the same command in short succession should result in the same output
+			result := rec.Execute(testProcessor, common.TestCommandProcessorPIN+".s sleep 1; date")
+			oldResult = result // data race is OK
+			if result == nil || result.CombinedOutput == "" {
+				t.Fatal(result)
+			}
+			for i := 0; i < 3; i++ {
+				moreResult := rec.Execute(testProcessor, common.TestCommandProcessorPIN+".s sleep 1; date")
+				if moreResult == nil || moreResult.CombinedOutput != result.CombinedOutput {
+					t.Fatal(moreResult)
+				}
+				wg.Done()
+				time.Sleep(1 * time.Second)
+			}
+		}()
 	}
-	rec.StoreResult("input", &toolbox.Result{CombinedOutput: "output"})
-	if r := rec.Get("input"); r == nil || r.CombinedOutput != "output" {
-		t.Fatal(r)
-	}
-	time.Sleep((TextCommandReplyTTL + 1) * time.Second)
-	if r := rec.Get("input"); r != nil {
-		t.Fatal(r)
-	}
-	if len(rec.latestResult) != 0 {
+	go func() {
+		result := rec.Execute(testProcessor, common.TestCommandProcessorPIN+".s sleep 1; echo hi")
+		if result == nil || strings.TrimSpace(result.CombinedOutput) != "hi" {
+			t.Fatal(result)
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+	if len(rec.latestResult) != 2 { // echo hi and date
 		t.Fatal(rec.latestResult)
 	}
-	rec.StoreResult("input", &toolbox.Result{CombinedOutput: "another-output"})
-	if r := rec.Get("input"); r == nil || r.CombinedOutput != "another-output" {
-		t.Fatal(r)
+	// Make sure that the commands are indeed executed in parallel
+	if time.Now().Unix()-begin > 4 {
+		t.Fatal("did not execute in parallel")
+	}
+
+	// Wait until TTL expires, date command must not return the same content.
+	time.Sleep((TextCommandReplyTTL + 1) * time.Second)
+	result := rec.Execute(testProcessor, common.TestCommandProcessorPIN+".s sleep 1; date")
+	if result == nil || result.CombinedOutput == "" || result.CombinedOutput == oldResult.CombinedOutput {
+		t.Fatal(result)
+	}
+	if len(rec.latestResult) != 1 { // date by itself
+		t.Fatal(rec.latestResult)
 	}
 }

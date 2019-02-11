@@ -1,9 +1,11 @@
 package dnsd
 
 import (
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 /*
@@ -33,18 +35,57 @@ func (rec *LatestCommands) purgeAfterTTL() {
 	}
 }
 
-// StoreResult stores a new command execution record for potential retrieval before the next TTL refresh.
-func (rec *LatestCommands) StoreResult(cmdInput string, result *toolbox.Result) {
-	rec.mutex.Lock()
-	defer rec.mutex.Unlock()
+/*
+Execute looks for an ongoing or past execution of the command input. If an ongoing execution of the command is found,
+then the function waits until result is ready from the ongoing execution and returns it; if the same command has been
+executed recently, the function will return the past execution result; otherwise, the command execution begins right
+away.
+*/
+func (rec *LatestCommands) Execute(cmdProcessor *common.CommandProcessor, cmdInput string) (result *toolbox.Result) {
+	// Purge old result
 	rec.purgeAfterTTL()
+	// If execution of the command is ongoing, or has recently completed.
+	if result, found := rec.get(cmdInput); found {
+		// If execution of the command has recently started but not yet completed
+		if result == nil {
+			// Wait for its completion at 200ms interval
+			for {
+				result, found = rec.get(cmdInput)
+				if !found {
+					// Due to unfortunate timing, the result is evicted after a period of TTL, therefore re-run the command.
+					goto execute
+				}
+				if result != nil {
+					return result
+				}
+				time.Sleep(200 * time.Millisecond)
+			}
+		} else {
+			// Return completed command result
+			return result
+		}
+	}
+execute:
+	// Offer an indication that the command execution is ongoing but not yet completed
+	rec.mutex.Lock()
+	rec.latestResult[cmdInput] = nil
+	rec.mutex.Unlock()
+	// Execute the command and leave the lock available for another command that runs in parallel
+	result = cmdProcessor.Process(toolbox.Command{
+		TimeoutSec: TextCommandReplyTTL - 1,
+		Content:    cmdInput,
+	}, true)
+	// After the command execution has completed, store the result into map for potential retrieval.
+	rec.mutex.Lock()
 	rec.latestResult[cmdInput] = result
+	rec.mutex.Unlock()
+	return
 }
 
-// Get returns a previous command execution result corresponding to the command input, or nil if there is none.
-func (rec *LatestCommands) Get(cmdInput string) *toolbox.Result {
+// get uses a mutex to guard against concurrent retrieval of past command execution result.
+func (rec *LatestCommands) get(cmdInput string) (result *toolbox.Result, found bool) {
 	rec.mutex.Lock()
 	defer rec.mutex.Unlock()
-	rec.purgeAfterTTL()
-	return rec.latestResult[cmdInput]
+	result, found = rec.latestResult[cmdInput]
+	return
 }
