@@ -2,14 +2,16 @@ package inet
 
 import (
 	"bytes"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io"
 	"mime"
 	"mime/multipart"
+	"mime/quotedprintable"
 	"net/mail"
 	"regexp"
 	"strings"
 	"unicode"
+
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // RegexMailAddress finds *@*.* that looks much like an Email address
@@ -50,8 +52,12 @@ func ReadMailMessage(mailMessage []byte) (prop BasicMail, parsedMail *mail.Messa
 }
 
 /*
+WalkMailMessage dissects input mail message:
 If input message is a multipart message, run the function against each part individually.
 If input message is not a multipart mail message, run the function against the entire message.
+
+As a special case, should the input mail message be encoded as "quoted-printable", the mail body
+will be rid of the quotes before passing into the function.
 
 The function parameters are:
 MailProperties - properties of the entire mail message or part of multipart message.
@@ -81,8 +87,13 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 			} else if err != nil {
 				return err
 			}
+			// For the convenience of consumer, process quoted text and remove those quotes.
+			var contentReader io.Reader = part
+			if strings.Contains(part.Header.Get("Content-Transfer-Encoding"), "quoted-printable") {
+				contentReader = quotedprintable.NewReader(contentReader)
+			}
 			// Read body of the current part
-			body, err := misc.ReadAllUpTo(part, 32*1048576)
+			body, err := misc.ReadAllUpTo(contentReader, 32*1048576)
 			if err != nil {
 				return err
 			}
@@ -100,7 +111,12 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 		}
 	} else {
 		// Use the entire message on function
-		body, err := misc.ReadAllUpTo(parsedMail.Body, 32*1048576)
+		// For the convenience of consumer, process quoted text and remove those quotes.
+		var contentReader io.Reader = parsedMail.Body
+		if strings.Contains(parsedMail.Header.Get("Content-Transfer-Encoding"), "quoted-printable") {
+			contentReader = quotedprintable.NewReader(contentReader)
+		}
+		body, err := misc.ReadAllUpTo(contentReader, 32*1048576)
 		if err != nil {
 			return err
 		}

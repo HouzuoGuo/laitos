@@ -173,3 +173,43 @@ func TestWalkMessage(t *testing.T) {
 		return true, nil
 	})
 }
+
+var TextMailQuotedPrintable = []byte(`From: Howard Guo <howard-from@example.com>
+To: "howard-to@example.com" <howard-to@example.com>
+Subject: test
+Thread-Topic: test
+Thread-Index: AQHUIAzTAAAAAAAAAAAA2oed4cfz5g==
+X-MS-Exchange-MessageSentRepresentingType: 1
+Date: Wed, 12 Feb 2019 06:35:50 +0200
+Content-Language: en-GB
+X-MS-Has-Attach:
+X-MS-Exchange-Organization-SCL: -1
+X-MS-TNEF-Correlator:
+X-MS-Exchange-Organization-RecordReviewCfmType: 0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+haha=0A=
+1234567890.einfo=0A=
+hoho=
+`)
+
+func TestWalkQuotedPrintable(t *testing.T) {
+	WalkMailMessage(TextMailQuotedPrintable, func(prop BasicMail, body []byte) (bool, error) {
+		if !reflect.DeepEqual(prop, BasicMail{
+			ContentType:  `text/plain; charset="iso-8859-1"`,
+			ReplyAddress: "howard-from@example.com",
+			FromAddress:  "howard-from@example.com",
+			Subject:      "test",
+		}) {
+			t.Fatalf("%+v\n", prop)
+		}
+		if string(body) != `haha
+1234567890.einfo
+hoho` {
+			t.Fatal(string(body))
+		}
+		return true, nil
+	})
+}
