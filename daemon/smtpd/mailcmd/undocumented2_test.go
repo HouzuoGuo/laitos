@@ -41,7 +41,8 @@ func TestUndocumented2_SelfTest(t *testing.T) {
 
 func TestUndocumented2_Execute(t *testing.T) {
 	if !TestUndocumented2.IsConfigured() {
-		t.Skip("skip because TestUndocumented2 is not configured")
+		t.Log("skip because TestUndocumented2 is not configured")
+		return
 	}
 	if err := TestUndocumented2.SelfTest(); err != nil {
 		t.Fatal(err)

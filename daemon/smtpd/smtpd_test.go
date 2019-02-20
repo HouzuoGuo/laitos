@@ -1,14 +1,9 @@
 package smtpd
 
 import (
-	"crypto/tls"
-	"fmt"
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/inet"
-	"net"
-	"net/mail"
-	"net/smtp"
 	"strings"
 	"testing"
 )
@@ -123,55 +118,4 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	}
 
 	TestSMTPD(&daemon, t)
-}
-
-func TestTLS(t *testing.T) {
-	t.Skip("This test case is prepared for developer to run manually")
-
-	from := mail.Address{Name: "", Address: "testcase@example.com"}
-	to := mail.Address{Name: "", Address: "testcase@example.com"}
-	headers := make(map[string]string)
-	headers["From"] = from.String()
-	headers["To"] = to.String()
-	headers["Subject"] = "Example subject"
-
-	message := ""
-	for k, v := range headers {
-		message += fmt.Sprintf("%s: %s\r\n", k, v)
-	}
-	message += "\r\n" + "Email body"
-
-	smtpAddr := "example.com:25"
-	host, _, _ := net.SplitHostPort(smtpAddr)
-	tlsConf := &tls.Config{
-		InsecureSkipVerify: false,
-		ServerName:         host,
-	}
-
-	smtpClient, err := smtp.Dial(smtpAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := smtpClient.StartTLS(tlsConf); err != nil {
-		t.Fatal(err)
-	}
-	if err = smtpClient.Mail(from.Address); err != nil {
-		t.Fatal(err)
-	}
-	if err = smtpClient.Rcpt(to.Address); err != nil {
-		t.Fatal(err)
-	}
-	w, err := smtpClient.Data()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = w.Write([]byte(message)); err != nil {
-		t.Fatal(err)
-	}
-	if err = w.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err = smtpClient.Quit(); err != nil {
-		t.Fatal(err)
-	}
 }

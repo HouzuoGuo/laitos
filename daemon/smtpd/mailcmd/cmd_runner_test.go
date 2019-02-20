@@ -34,7 +34,8 @@ func TestMailProcessor_Process(t *testing.T) {
 
 func TestMailProcessor_Process_Undocumented1Reply(t *testing.T) {
 	if TestUndocumented1Message == "" {
-		t.Skip("skip because TestUndocumented1Message is empty")
+		t.Log("skip because TestUndocumented1Message is empty")
+		return
 	}
 	runner := CommandRunner{
 		ReplyMailClient: inet.MailClient{
@@ -62,7 +63,8 @@ func TestMailProcessor_Process_Undocumented1Reply(t *testing.T) {
 
 func TestMailProcessor_Process_Undocumented2Reply(t *testing.T) {
 	if TestUndocumented2Message == "" {
-		t.Skip("skip because TestUndocumented2Message is empty")
+		t.Log("skip because TestUndocumented2Message is empty")
+		return
 	}
 	runner := CommandRunner{
 		ReplyMailClient: inet.MailClient{
@@ -81,7 +83,8 @@ func TestMailProcessor_Process_Undocumented2Reply(t *testing.T) {
 	}
 	// Real MTA is required for the self test
 	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
-		t.Skip("skip self test because there is no mta running on 127.0.0.1")
+		t.Log("skip self test because there is no mta running on 127.0.0.1")
+		return
 	}
 	if err := runner.SelfTest(); err != nil {
 		t.Fatal(err)
@@ -90,7 +93,8 @@ func TestMailProcessor_Process_Undocumented2Reply(t *testing.T) {
 
 func TestMailProcessor_Process_Undocumented3Reply(t *testing.T) {
 	if TestUndocumented3Message == "" {
-		t.Skip("skip because TestUndocumented3Message is empty")
+		t.Log("skip because TestUndocumented3Message is empty")
+		return
 	}
 	runner := CommandRunner{
 		ReplyMailClient: inet.MailClient{

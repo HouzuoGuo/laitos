@@ -85,11 +85,9 @@ func (daemon *Daemon) Initialise() error {
 		}
 	}
 	daemon.smtpConfig = smtp.Config{
-		Limits: &smtp.Limits{
-			MsgSize:   25 * 1024 * 1024,           // Accept mails up to 25 MB large (same as Gmail)
-			IOTimeout: IOTimeoutSec * time.Second, // IO timeout is a reasonable minute
-			BadCmds:   MaxConversationLength / 2,  // Abort connection after consecutive bad commands
-		},
+		IOTimeout:                          IOTimeoutSec * time.Second, // IO timeout is a reasonable minute
+		MaxMessageLength:                   25 * 1024 * 1024,           // Accept mails up to 25 MB large (same as Gmail)
+		MaxConsecutiveUnrecognisedCommands: MaxConversationLength / 2,  // Abort connection after consecutive bad commands
 		// Greet SMTP clients with a list of domain names that this server receives emails for
 		ServerName: strings.Join(daemon.MyDomains, " "),
 	}
@@ -179,9 +177,11 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	defer func() {
 		common.SMTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
-	defer clientConn.Close()
+	defer func() {
+		daemon.logger.MaybeError(clientConn.Close())
+	}()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
-	var numConversations int
+	var numCommands int
 	// The status string is only used for logging
 	var completionStatus string
 	// memorise latest conversations for logging purpose
@@ -190,53 +190,53 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	var fromAddr, mailBody string
 	toAddrs := make([]string, 0, 4)
 
-	smtpConn := smtp.NewConn(clientConn, daemon.smtpConfig, nil)
+	smtpConn := smtp.NewConnection(clientConn, daemon.smtpConfig, nil)
 	rateLimitOK := daemon.rateLimit.Add(clientIP, true)
 	if !rateLimitOK {
-		smtpConn.Reply451()
+		smtpConn.AnswerRateLimited()
 		return
 	}
 
 	for {
-		if numConversations >= MaxConversationLength {
-			smtpConn.Reply451()
+		if numCommands >= MaxConversationLength {
+			smtpConn.AnswerRateLimited()
 			completionStatus = "conversation is taking too long"
 			goto done
 		}
 		// Carry on with conversation
-		numConversations++
-		ev := smtpConn.Next()
+		numCommands++
+		ev := smtpConn.CarryOn()
 		// Memorise latest conversation for logging
-		logConv := fmt.Sprintf("%v[%v](%v)", ev.What, ev.Cmd, ev.Arg)
+		logConv := fmt.Sprintf("%v[%v](%v)", ev.State, ev.Verb, ev.Parameter)
 		if len(logConv) > 80 {
 			logConv = logConv[:80]
 		}
 		latestConv.Push(logConv)
-		switch ev.What {
-		case smtp.DONE:
+		switch ev.State {
+		case smtp.ConvCompleted:
 			completionStatus = "done"
 			goto done
-		case smtp.ABORT:
-			completionStatus = fmt.Sprintf("aborted (%s)", ev.Arg)
+		case smtp.ConvAborted:
+			completionStatus = fmt.Sprintf("aborted (%s)", ev.Parameter)
 			goto done
-		case smtp.COMMAND:
-			switch ev.Cmd {
-			case smtp.MAILFROM:
-				fromAddr = ev.Arg
-			case smtp.RCPTTO:
-				atSign := strings.IndexRune(ev.Arg, '@')
+		case smtp.ConvReceivedCommand:
+			switch ev.Verb {
+			case smtp.VerbMAILFROM:
+				fromAddr = ev.Parameter
+			case smtp.VerbRCPTTO:
+				atSign := strings.IndexRune(ev.Parameter, '@')
 				if atSign > 0 {
-					if domain, exists := daemon.myDomainsHash[ev.Arg[atSign+1:]]; exists {
-						toAddrs = append(toAddrs, ev.Arg)
+					if domain, exists := daemon.myDomainsHash[ev.Parameter[atSign+1:]]; exists {
+						toAddrs = append(toAddrs, ev.Parameter)
 					} else {
 						completionStatus = fmt.Sprintf("rejected domain \"%s\" that is not among my accepted domains", domain)
-						smtpConn.Reject()
+						smtpConn.AnswerNegative()
 						goto done
 					}
 				}
 			}
-		case smtp.GOTDATA:
-			mailBody = ev.Arg
+		case smtp.ConvReceivedData:
+			mailBody = ev.Parameter
 		}
 	}
 done:
@@ -245,11 +245,11 @@ done:
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		daemon.ProcessMail(fromAddr, mailBody)
 	} else {
-		smtpConn.Reject()
+		smtpConn.AnswerNegative()
 		completionStatus += " & rejected mail due to missing parameters"
 	}
 	daemon.logger.Info("HandleConnection", clientIP, nil, "%s after %d conversations (TLS: %s), last commands: %s",
-		completionStatus, numConversations, smtpConn.TLSHelp, strings.Join(latestConv.GetAll(), " | "))
+		completionStatus, numCommands, smtpConn.TLSHelp, strings.Join(latestConv.GetAll(), " | "))
 }
 
 /*
@@ -261,7 +261,9 @@ func (daemon *Daemon) StartAndBlock() (err error) {
 	if err != nil {
 		return fmt.Errorf("smtpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
-	defer listener.Close()
+	defer func() {
+		daemon.logger.MaybeError(listener.Close())
+	}()
 	daemon.listener = listener
 	// Process incoming TCP connections
 	daemon.logger.Info("StartAndBlock", "", nil, "going to listen for connections")
