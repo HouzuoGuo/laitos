@@ -327,9 +327,13 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
 	lastEmailFrom = ""
 	lastEmailBody = ""
+
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
-	} else if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
+	}
+	// Due to unknown circumstance, netSMTP.SendMail often returns successfully before SMTP server has completely processed the mail.
+	time.Sleep(1 * time.Second)
+	if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, []byte(testMessage), []byte(lastEmailBody))
 	}
@@ -339,7 +343,9 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@not-my-domain"}, []byte(testMessage)); strings.Index(err.Error(), "Bad address") == -1 {
 		t.Fatal(err)
-	} else if lastEmailFrom != "" || lastEmailBody != "" {
+	}
+	time.Sleep(1 * time.Second)
+	if lastEmailFrom != "" || lastEmailBody != "" {
 		t.Fatal(lastEmailFrom, lastEmailBody)
 	}
 	// Try run a command via email
@@ -348,7 +354,9 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
-	} else if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
+	}
+	time.Sleep(1 * time.Second)
+	if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatal(lastEmailFrom, lastEmailBody)
 	}
