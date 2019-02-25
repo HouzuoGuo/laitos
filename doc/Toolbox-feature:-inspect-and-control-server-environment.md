@@ -27,8 +27,6 @@ It may also be:
   Consequently laitos program crashes soon and the host computer will need to be reinitialised.
 
 ## Tips
-- In addition to trigger system tuning manually via this feature, laitos can also tune system automatically when it
-  starts up, check out `-tunesystem` command option in [Get started - More command line options](https://github.com/HouzuoGuo/laitos/wiki/Get-started#more-command-line-options).
 - In case that a load balancer periodically checks the health status of laitos by visiting its HTTP server, the checks
   will continue to succeed (indicating a healthy server) even after `lock` action is executed. This is intentional.
 - The `kill` action attempts to delete most of the files on disk (including those mounted on mount points), and wipes
