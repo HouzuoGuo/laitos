@@ -45,16 +45,13 @@ Here is an example setup:
     ...
 
     "TelegramBot": {
-        "AuthorizationToken": "425712345:ABCDEFGHIJKLMNOPERSTUVWXYZ",
-
-        "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
-        "MyDomains": ["howard-homepage.net", "howard-blog.org"],
+        "AuthorizationToken": "425712345:ABCDEFGHIJKLMNOPERSTUVWXYZ"
     },
     "TelegramFilters": {
         "PINAndShortcuts": {
             "PIN": "VerySecretPassword",
             "Shortcuts": {
-                "ILoveYou": ".eruntime",
+                "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
                 "EmergencyLock": ".elock"
             }
@@ -72,7 +69,7 @@ Here is an example setup:
             "TrimSpaces": false
         },
         "NotifyViaEmail": {
-            "Recipients": ["howard@gmail.com"]
+            "Recipients": ["me@example.com"]
         }
     },
 

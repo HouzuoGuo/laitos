@@ -2,6 +2,7 @@
 
 ## Introduction
 The following daemon components have an embedded command processor to let users use toolbox features:
+- [DNS server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server)
 - [Mail server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server)
 - [Telnet server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server)
 - [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot)
@@ -125,7 +126,7 @@ and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-ser
         "PINAndShortcuts": {
             "PIN": "VerySecretPassword",
             "Shortcuts": {
-                "ILoveYou": ".eruntime",
+                "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
                 "EmergencyLock": ".elock"
             }
@@ -143,7 +144,7 @@ and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-ser
             "TrimSpaces": true
         },
         "NotifyViaEmail": {
-            "Recipients": ["howard@gmail.com", "howard@hotmail.com"]
+            "Recipients": ["me@example.com", "me2@hotmail.com"]
         }
     },
 
@@ -199,8 +200,8 @@ Where:
 Take an example - command `MY_TOOLBOX_PIN .il work-mail 0 10`(list 10 Email subjects) is issued to Telegram bot that
 gives it 30 seconds to run and restricts output to 76 characters, resulting in the following response:
 
-    1 howard@gmail.com Project roadmap
-    2 howard@hotmail.com Holiday greetings
+    1 me@example.com Project roadmap
+    2 me@example.com Holiday greetings
     3
 
 Due to combination of `MaxLength` restriction and possible timeout condition, we did not see the remaining 7 Email subjects.
@@ -211,14 +212,14 @@ timeout to 60 seconds:
 
 And we will get the desirable result:
 
-    3 howard@gmail.com Test subject 3
-    4 howard@gmail.com Test subject 4
-    5 howard@gmail.com Test subject 5
-    6 howard@gmail.com Test subject 6
-    7 howard@gmail.com Test subject 7
-    8 howard@gmail.com Test subject 8
-    9 howard@gmail.com Test subject 9
-    10 howard@gmail.com Test subject 10
+    3 me@example.com Test subject 3
+    4 me@example.com Test subject 4
+    5 me@example.com Test subject 5
+    6 me@example.com Test subject 6
+    7 me@example.com Test subject 7
+    8 me@example.com Test subject 8
+    9 me@example.com Test subject 9
+    10 me@example.com Test subject 10
 
 ## Tips
 Regarding password PIN:

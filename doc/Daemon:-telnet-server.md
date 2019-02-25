@@ -60,7 +60,7 @@ Here is a minimal setup example:
         "PINAndShortcuts": {
             "PIN": "VerySecretPassword",
             "Shortcuts": {
-                "ILoveYou": ".eruntime",
+                "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
                 "EmergencyLock": ".elock"
             }
@@ -78,7 +78,7 @@ Here is a minimal setup example:
             "TrimSpaces": false
         },
         "NotifyViaEmail": {
-            "Recipients": ["howard@gmail.com"]
+            "Recipients": ["me@example.com"]
         }
     },
 

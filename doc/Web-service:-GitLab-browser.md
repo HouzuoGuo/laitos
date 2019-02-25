@@ -59,11 +59,11 @@ Here is an example setup:
         "GitlabBrowserEndpointConfig": {
             "PrivateToken": "zpbzwmoigtmrnkjgb",
             "Projects": {
-                "home": "3031111",
-                "important": "3032222",
-                "setup-desktop": "3033333"
+                "GoodProject1": "3031111",
+                "AwesomeProject2": "3032222",
+                "BeautifulCode3": "3033333"
             },
-            "Recipients": ["howard@gmail.com"]
+            "Recipients": ["me@example.com"]
         },
 
         ...

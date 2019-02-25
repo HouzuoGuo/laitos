@@ -6,23 +6,33 @@ laitos runs well on all popular cloud vendors such as Amazon Web Service, Micros
 In fact, it works well on nearly all public and private cloud vendors, irrespective of computer form factor,
 virtualisation technology, hardware model, and administration interface.
 
-## Manually integrate with systemd
+## Important note on sending outgoing mails
+As an anti-spam measure, nearly all major public cloud vendors block outgoing contact to port 25, which means their
+virtual machines will not be able to deliver outgoing mails. Therefore, use a dedicated mail delivery services such as
+[sendgrid](https://sendgrid.com/) that delivers mails on a port different from 25, for example Sendgrid accepts incoming
+connection on port 2525.
+
+Similarly, if laitos system maintenance is configured to check connectivity to a foreign host's port 25, the maintenance
+routine will not check the port connectivity and instead explain that destination port 25 is not reachable from public
+cloud vendor.
+
+## Start laitos automatically via systemd
 systemd is the most popular init system for Linux distributions, it can help launching laitos automatically when
-computer starts up. Create a service file `/etc/systemd/system/laitos.service` and write:
+computer boots up. Create a service file `/etc/systemd/system/laitos.service` and write:
 
     [Unit]
-    Description=laitos - web server infrastructure
+    Description=laitos - personal Internet infrastructure
     After=network.target
-
+    
     [Service]
-    ExecStart=/root/laitos/laitos -config /root/laitos/config.json -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,snmpd,sockd,telegram
+    ExecStart=/root/laitos/laitos -disableconflicts -gomaxprocs 8 -config config.json -daemons autounlock,dnsd,httpd,insecurehttpd,maintenance,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
     User=root
     Group=root
     WorkingDirectory=/root/laitos
     PrivateTmp=true
-    RestartSec=10
+    RestartSec=3600
     Restart=always
-
+    
     [Install]
     WantedBy=multi-user.target
 
@@ -64,7 +74,7 @@ For a fancier setup, Amazon Web Service offers Platform-as-a-Service called "Ela
 
 - `Procfile` tells the command line for starting laitos, the content may look like:
 
-      laitos: ./laitos -config config.json -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,smtpd,snmpd,sockd,telegram
+      laitos: ./laitos -disableconflicts -gomaxprocs 16 -config config.json -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
 
   Be aware that, paths among the command line must be relative to the top level of application bundle zip file.
 
@@ -86,11 +96,6 @@ For a fancier setup, Amazon Web Service offers Platform-as-a-Service called "Ela
 Simply copy laitos program and its data onto a Linux virtual machine and start laitos right away. It is often useful to
 use systemd integration to launch laitos automatically upon system boot. All flavours of Linux distributions supported
 by Azure can run laitos.
-
-Be aware that both Azure and GCE block virtual machines from _outgoing_ connections to port 25, that means while laitos
-will be perfectly capable of receiving mails, it will not be able to forward them to you; therefore, for laitos outgoing
-mail configuration, please sign up for a dedicated mail delivery service such as [sendgrid](https://sendgrid.com/)
-that accepts connection to a port different from 25. Sendgrid accepts incoming connection on port 2525.
 
 ## Deploy on other cloud providers
 laitos runs on nearly all flavours of Linux system, therefore as long as your cloud provider supports Linux compute

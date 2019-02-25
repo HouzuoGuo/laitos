@@ -5,10 +5,10 @@ Download the latest [laitos software](https://github.com/HouzuoGuo/laitos/releas
 
 For geekier scenarios, use the latest go compiler to compile the software from source code like so:
 
-    ~/gopath > go get github.com/HouzuoGuo/laitos
-    ~/gopath/src/github.com/HouzuoGuo/laitos > go build
+    ~/go > go get github.com/HouzuoGuo/laitos
+    ~/go/src/github.com/HouzuoGuo/laitos > go build
 
-laitos source code does not depend on third party library.
+laitos is an all-in-one solution and does not depend on third party library.
 
 ## Prepare configuration
 laitos components go into two categories:
@@ -46,14 +46,15 @@ Note that:
   use `sudo` to ensure their proper operation.
 - Replace `<PATH TO JSON FILE>` by the path to your configuration file. Both absolute and relative paths are acceptable.
 - Replace `<LIST>` by daemon names to start. Use comma to separate names (e.g.`dnsd,smtpd,httpd`). Here are the options:
-  * `dnsd` - DNS server for ad-free and safer browsing experience
-  * `httpd` - Web server secured by TLS certificate
-  * `insecurehttpd` - Web server without TLS encryption
-  * `smtpd` - Mail server
-  * `snmpd` - Network management (program statistics) server
-  * `telegram` - Telegram messenger chat bot
-  * `plainsocket` - Access to toolbox features via plain text Telnet over TCP and UDP
-  * `maintenance` - Automated system maintenance and health report
+  * [`dnsd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server) - DNS server for ad-free and safer browsing experience
+  * [`httpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server) - Web server secured by TLS certificate
+  * [`insecurehttpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server) - Web server without TLS encryption
+  * [`simpleipsvcd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-simple-IP-services) - Simple IP services
+  * [`smtpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server) - Mail server
+  * [`snmpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-SNMP-server) - Network management (program statistics) server
+  * [`telegram`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot) - Telegram messenger chat bot
+  * [`plainsocket`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server) - Access to toolbox features via plain text Telnet over TCP and UDP
+  * [`maintenance`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance) - Automated system maintenance and program health report
 - There is not any individual ON-OFF switch for toolbox features. They become accessible via daemons once configured.
 
 ## Deploy on cloud

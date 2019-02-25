@@ -142,7 +142,7 @@ Here is an example configuration that also checks whether mail(25), DNS(53), and
     ...
 
     "Maintenance": {
-        "Recipients": ["howard@gmail.com"],
+        "Recipients": ["me@example.com"],
         "CheckTCPPorts": [
             "localhost:25",
             "localhost:53",

@@ -96,11 +96,11 @@ Here is a minimal setup example that enables TLS as well:
     ...
 
     "MailDaemon": {
-        "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
-        "MyDomains": ["howard-homepage.net", "howard-blog.org"],
+        "ForwardTo": ["me@example.com", "me2@example.com"],
+        "MyDomains": ["my-home.example.com", "my-blog.example.com"],
 
-        "TLSCertPath": "/root/howard-blog.org.crt",
-        "TLSKeyPath": "/root/howard-blog.org.key"
+        "TLSCertPath": "/root/example.com.crt",
+        "TLSKeyPath": "/root/example.com.key"
     },
 
     ...
@@ -121,18 +121,18 @@ Here is a minimal setup example that comes enables command processor:
     ...
 
     "MailDaemon": {
-        "ForwardTo": ["howard@gmail.com", "howard@hotmail.com"],
-        "MyDomains": ["howard-homepage.net", "howard-blog.org"],
+        "ForwardTo": ["me@example.com", "me2@example.com"],
+        "MyDomains": ["my-home.example.com", "my-blog.example.com"],
 
-        "TLSCertPath": "/root/howard-blog.org.crt",
-        "TLSKeyPath": "/root/howard-blog.org.key"
+        "TLSCertPath": "/root/example.com.crt",
+        "TLSKeyPath": "/root/example.com.key"
     },
 
     "MailFilters": {
         "PINAndShortcuts": {
             "PIN": "VerySecretPassword",
             "Shortcuts": {
-                "ILoveYou": ".eruntime",
+                "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
                 "EmergencyLock": ".elock"
             }
@@ -150,7 +150,7 @@ Here is a minimal setup example that comes enables command processor:
             "TrimSpaces": false
         },
         "NotifyViaEmail": {
-            "Recipients": ["howard@gmail.com"]
+            "Recipients": ["me@example.com"]
         }
     },
 
@@ -171,7 +171,7 @@ At your DNS hosting provider, create or modify a DNS "MX" entry for each of `MyD
 - Time to live (TTL): leave at default or `5 minutes`
 - Value (preference and mail server): `10 laitos-server-public-IP`
 
-Here is an example involving two domain names and three MX entries, assuming that laitos server is on `58.169.236.112`:
+Here are couple of examples involving, assuming that laitos server is on `123.234.123.234`:
 
 <table>
 <tr>
@@ -182,33 +182,33 @@ Here is an example involving two domain names and three MX entries, assuming tha
     <th>Remark</th>
 </tr>
 <tr>
-    <td>howard-homepage.net</td>
+    <td>my-domain-name.net</td>
     <td>MX</td>
     <td>5 minutes</td>
-    <td>10 58.169.236.112</td>
-    <td>First example</td>
+    <td>10 123.234.123.234</td>
+    <td>Domain name example</td>
 </tr>
 <tr>
-    <td>howard-blog.org</td>
+    <td>my-home.example.com</td>
     <td>MX</td>
     <td>5 minutes</td>
-    <td>10 58.169.236.112</td>
-    <td>Second example</td>
+    <td>10 123.234.123.234</td>
+    <td>Sub-domain example</td>
 </tr>
 <tr>
-    <td>cool.howard-blog.org</td>
+    <td>my-blog.example.com</td>
     <td>MX</td>
     <td>5 minutes</td>
-    <td>10 58.169.236.112</td>
-    <td>A sub-domain of second example</td>
+    <td>10 123.234.123.234</td>
+    <td>Another sub-domain example</td>
 </tr>
 </table>
 
 Wait up to an hour for new DNS records to propagate through the Internet.
 
 ## Test
-Send a test mail with subject, text, and attachments to any name under `MyDomains` (e.g. `i@howard-blog.org`). Wait a
-short moment, check the inbox on any of `ForwardTo` address (e.g. `howard@gmail.com`), the test mail should arrive at
+Send a test mail with subject, text, and attachments to any name under `MyDomains` (e.g. `i@my-domain-name.net`). Wait
+a short moment, check the inbox on any of `ForwardTo` address (e.g. `me@example.com`), the test mail should arrive at
 all of the `ForwardTo` addresses.
 
 To try the toolbox command processor, send a mail with any subject, and write down toolbox command in the mail body.

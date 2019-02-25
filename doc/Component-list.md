@@ -12,42 +12,47 @@ laitos components go into two categories:
     <tr>
         <th>Name</th>
         <th>Description</th>
-        <th>Usage</th>
+        <th>Configuration and Usage</th>
     </tr>
     <tr>
         <td>DNS server</td>
-        <td>DNS server automatically and blocks advertising and malware domains for a safer web experience.</td>
+        <td>DNS server offers a safer and cleaner web experience by blocking advertising and malware domains.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Mail server</td>
-        <td>Mail server forwards arriving mails to your personal email address.</td>
+        <td>Mail server forwards incoming emails to your personal email address.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Telnet server</td>
-        <td>The plain text telnet server provides unencrypted access to all toolbox features via basic tools such Telnet and HyperTerminal.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server" target="_blank">Link</a></td>
-    </tr>
-    <tr>
         <td>Web server</td>
-        <td>Host a static personal website made of text and media files, along with rich web services (see below).</td>
+        <td>Web server hosts a static personal website made of text and media files, along with rich web services (see below).</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>SNMP server</td>
-        <td>Offer server statistics over industrial-standard network monitoring protocol.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-SNMP-server" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>Telegram messenger chat-bot</td>
-        <td>Chat-bot provides access to all toolbox features via secure infrastructure provided by Telegram Messenger.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>System maintenance</td>
         <td>Periodic maintenance patches the system for security updates, and checks for environment and program health.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Telnet server</td>
+        <td>Telnet server provides unencrypted access to all toolbox features via basic tools such HyperTerminal.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>SNMP server</td>
+        <td>SNMP server offers program statistics over industrial-standard network monitoring protocol.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-SNMP-server" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Simple IP services server</td>
+        <td>Simple IP services were used in the nostalgic era of computing.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-simple-IP-services" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Telegram messenger chat-bot</td>
+        <td>Telegram chatbot provides access to all toolbox features via secure infrastructure provided by Telegram Messenger.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot" target="_blank">Link</a></td>
     </tr>
 </table>
 
@@ -59,7 +64,7 @@ The following services are hosted by web server and enabled on your demand:
     <tr>
         <th>Name</th>
         <th>Description</th>
-        <th>Usage</th>
+        <th>Configuration and Usage</th>
     </tr>
     <tr>
         <td>GitLab browser</td>
@@ -114,7 +119,7 @@ The following services are hosted by web server and enabled on your demand:
     <tr>
         <th>Name</th>
         <th>Description</th>
-        <th>Usage</th>
+        <th>Configuration and Usage</th>
     </tr>
     <tr>
         <td>Use Twitter</td>
@@ -188,7 +193,7 @@ The following services are hosted by web server and enabled on your demand:
     </tr>
     <tr>
         <td>Program control</td>
-        <td>Retrieve laitos server environment information and control program state.</td>
+        <td>Retrieve laitos server environment information, and self-destruct in unfortunate moments.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-inspect-and-control-server-environment" target="_blank">Link</a></td>
     </tr>
 </table>
