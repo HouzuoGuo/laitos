@@ -132,7 +132,7 @@ Regarding configuration:
 - By specifying forwarders explicitly, the default forwarders will no longer be used.
 
 ## Use DNS server to run toolbox commands
-Beside offering a cleaning and safe web experience, the DNS server also runs toolbox commands via `TXT` queries, this
+Beside offering an ad-free and safe web experience, the DNS server also runs toolbox commands via `TXT` queries, this
 enables Internet usage in an environment where DNS usage is unrestricted but Internet access is not available.
 
 ### Configuration
