@@ -26,7 +26,7 @@ For reliable **Internet access via alternative infrastructures** such as telepho
 
 ## Highlights
 
-- **Efficient** - consume as little as 28MB of memory and 12MB of disk.
+- **Efficient** - consume as little as 15MB of disk and 30MB of memory.
 - **Portable** - run on all flavours of Linux and Windows, both X86 and ARM.
 - **Independent** - reliable stand-alone operation with self healing and automated maintenance.
 - **Hyped by Buzzwords** - certified to run in any container, as well as PaaS, IaaS, \*aaS.
@@ -44,7 +44,7 @@ Should you encounter any challenge during configuration and deployment of the so
 I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gmail.com) and get in touch on [Twitter](https://twitter.com/hzguo).
 
 ## Copyright
-Copyright (C) 2016-2018 Houzuo (Howard) Guo <guohouzuo@gmail.com>
+Copyright (C) 2016-2019 Houzuo (Howard) Guo <guohouzuo@gmail.com>
 
 This program is free software subject to the terms of Mozilla Public License, v. 2.0. You may find the license text in
 [the LICENSE file](https://github.com/HouzuoGuo/laitos/blob/master/LICENSE)
