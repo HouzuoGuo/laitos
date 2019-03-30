@@ -49,6 +49,10 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 	defer toConn.Close()
 	buf := make([]byte, MaxPacketSize)
 	for {
+		if misc.EmergencyLockDown {
+			lalog.DefaultLogger.Warning("PipeTCPConnection", "", misc.ErrEmergencyLockDown, "")
+			return
+		}
 		fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
 		length, err := fromConn.Read(buf)
 		if length > 0 {
@@ -111,6 +115,7 @@ func (daemon *TCPDaemon) StartAndBlock() error {
 
 	for {
 		if misc.EmergencyLockDown {
+			daemon.logger.Warning("StartAndBlockTCP", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		conn, err := listener.Accept()

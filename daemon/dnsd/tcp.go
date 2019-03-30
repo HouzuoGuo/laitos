@@ -36,6 +36,7 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 	daemon.logger.Info("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
 	for {
 		if misc.EmergencyLockDown {
+			daemon.logger.Warning("StartAndBlockTCP", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		clientConn, err := listener.Accept()

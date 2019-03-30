@@ -151,6 +151,11 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 	// Converse with the device in a background routine, signal stopChan to terminate the conversation in case of IO error.
 	go func() {
 		for {
+			if misc.EmergencyLockDown {
+				stopChan <- true
+				return
+			}
+			// Serial devices often use \r or \n (or both) to indicate end of line, readUntilDelimiter only returns non-empty string without delimiter.
 			cmdBytes, err := readUntilDelimiter(io.LimitReader(devFile, MaxCommandLength), '\r', '\n')
 			if err != nil {
 				daemon.logger.Warning("converseWithDevice", devPath, err, "failed to read command")
@@ -176,7 +181,9 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 
 // Stop stops accepting new device connections and then disconnects all ongoing conversations with connected serial devices.
 func (daemon *Daemon) Stop() {
+	// Prevent more conversations from being started
 	daemon.stop <- true
+	// Terminate all ongoing conversations
 	for _, stopChan := range daemon.connectedDevices {
 		stopChan <- true
 	}

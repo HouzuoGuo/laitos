@@ -85,11 +85,12 @@ func (daemon *Daemon) StartAndBlock() error {
 	}
 	defer udpServer.Close()
 	daemon.listener = udpServer
-	daemon.logger.Info("StartAndBlockUDP", listenAddr, nil, "going to serve clients")
+	daemon.logger.Info("StartAndBlock", listenAddr, nil, "going to serve clients")
 	// Process incoming requests
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
 		if misc.EmergencyLockDown {
+			daemon.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		packetLength, clientAddr, err := udpServer.ReadFromUDP(packetBuf)

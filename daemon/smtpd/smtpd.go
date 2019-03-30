@@ -198,6 +198,10 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	}
 
 	for {
+		if misc.EmergencyLockDown {
+			daemon.logger.Warning("HandleConnection", "", misc.ErrEmergencyLockDown, "")
+			return
+		}
 		if numCommands >= MaxConversationLength {
 			smtpConn.AnswerRateLimited()
 			completionStatus = "conversation is taking too long"
@@ -269,7 +273,8 @@ func (daemon *Daemon) StartAndBlock() (err error) {
 	daemon.logger.Info("StartAndBlock", "", nil, "going to listen for connections")
 	for {
 		if misc.EmergencyLockDown {
-			return misc.ErrEmergencyLockDown
+			daemon.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
+			return
 		}
 		clientConn, err := daemon.listener.Accept()
 		if err != nil {

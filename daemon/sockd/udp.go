@@ -126,6 +126,7 @@ func (daemon *UDPDaemon) StartAndBlock() error {
 	udpEncryptedServer := &UDPCipherConnection{PacketConn: udpServer, Cipher: daemon.cipher.Copy()}
 	for {
 		if misc.EmergencyLockDown {
+			daemon.logger.Warning("StartAndBlockUDP", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		atomic.StoreInt32(&daemon.udpLoopIsRunning, 1)

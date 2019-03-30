@@ -189,6 +189,7 @@ func (bot *Daemon) StartAndBlock() error {
 	for {
 		if misc.EmergencyLockDown {
 			atomic.StoreInt32(&bot.loopIsRunning, 0)
+			bot.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		atomic.StoreInt32(&bot.loopIsRunning, 1)

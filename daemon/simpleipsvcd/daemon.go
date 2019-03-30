@@ -176,7 +176,7 @@ func (daemon *Daemon) tcpResponderLoop(port int) {
 	logFunName := fmt.Sprintf("tcpResponderLoop-%d", port)
 	for {
 		if misc.EmergencyLockDown {
-			daemon.logger.Warning(logFunName, "", nil, "quit due to EmergencyLockDown")
+			daemon.logger.Warning(logFunName, "", misc.ErrEmergencyLockDown, "")
 			return
 		}
 		clientConn, err := daemon.tcpServers[port].Accept()
@@ -215,7 +215,7 @@ func (daemon *Daemon) udpResponderLoop(port int) {
 	udpServer := daemon.udpServers[port]
 	for {
 		if misc.EmergencyLockDown {
-			daemon.logger.Warning(logFunName, "", nil, "quit due to EmergencyLockDown")
+			daemon.logger.Warning(logFunName, "", misc.ErrEmergencyLockDown, "")
 			return
 		}
 		// The simple IP services do not ask client to send anything meaningful

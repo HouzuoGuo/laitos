@@ -43,6 +43,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
 		if misc.EmergencyLockDown {
+			daemon.logger.Warning("StartAndBlockUDP", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		packetLength, clientAddr, err := udpServer.ReadFromUDP(packetBuf)
@@ -75,6 +76,10 @@ func (daemon *Daemon) HandleUDPConnection(clientIP string, clientAddr *net.UDPAd
 	daemon.logger.Info("HandleUDPConnection", clientIP, nil, "working on the connection")
 	reader := textproto.NewReader(bufio.NewReader(bytes.NewReader(packet)))
 	for {
+		if misc.EmergencyLockDown {
+			daemon.logger.Warning("HandleUDPConnection", "", misc.ErrEmergencyLockDown, "")
+			return
+		}
 		// Read one line of command
 		line, err := reader.ReadLine()
 		if err != nil {

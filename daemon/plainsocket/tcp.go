@@ -32,6 +32,7 @@ func (daemon *Daemon) StartAndBlockTCP() (err error) {
 	daemon.logger.Info("StartAndBlockTCP", "", nil, "going to listen for connections")
 	for {
 		if misc.EmergencyLockDown {
+			daemon.logger.Warning("StartAndBlockTCP", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		clientConn, err := listener.Accept()
@@ -62,6 +63,10 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 	// Allow up to 4MB of commands to be recieved per connection
 	reader := textproto.NewReader(bufio.NewReader(io.LimitReader(clientConn, 4*1048576)))
 	for {
+		if misc.EmergencyLockDown {
+			daemon.logger.Warning("HandleTCPConnection", "", misc.ErrEmergencyLockDown, "")
+			return
+		}
 		// Read one line of command that may be at most 1MB long
 		clientConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second))
 		line, err := reader.ReadLine()

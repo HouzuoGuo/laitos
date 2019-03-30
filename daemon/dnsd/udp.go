@@ -40,6 +40,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 	packetBuf := make([]byte, MaxPacketSize)
 	for {
 		if misc.EmergencyLockDown {
+			daemon.logger.Warning("StartAndBlockUDP", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		packetLength, clientAddr, err := udpServer.ReadFromUDP(packetBuf)
