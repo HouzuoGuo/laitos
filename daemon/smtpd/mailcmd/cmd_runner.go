@@ -119,7 +119,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		common.MailCommandStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		common.CommandStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	if misc.EmergencyLockDown {
 		return misc.ErrEmergencyLockDown

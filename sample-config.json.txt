@@ -1,5 +1,5 @@
 {
-  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config sample-config.json.txt -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram",
+  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config sample-config.json.txt -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,serialport,simpleipsvcd,smtpd,snmpd,sockd,telegram",
   "DNSDaemon": {
     "AllowQueryIPPrefixes": [
       "192."
@@ -255,6 +255,37 @@
   },
   "SNMPDaemon": {
     "CommunityName": "samplesample"
+  },
+  "SerialPortDaemon": {
+    "DeviceGlobPatterns": [
+      "COM12"
+    ]
+  },
+  "SerialPortFilters": {
+    "LintText": {
+      "CompressToSingleLine": true,
+      "MaxLength": 120,
+      "TrimSpaces": true
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "howard@localhost"
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "verysecret",
+      "Shortcuts": {
+        "serialshortcut": ".secho serialshortcut"
+      }
+    },
+    "TranslateSequences": {
+      "Sequences": [
+        [
+          "123",
+          "456"
+        ]
+      ]
+    }
   },
   "SimpleIPSvcDaemon": {
     "ActiveUserNames": "howard (houzuo) guo",

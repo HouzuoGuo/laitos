@@ -1,17 +1,18 @@
 package launcher
 
 import (
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
+	"github.com/HouzuoGuo/laitos/daemon/maintenance"
+	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
+	"github.com/HouzuoGuo/laitos/daemon/serialport"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd"
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"testing"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
-	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
-	"github.com/HouzuoGuo/laitos/daemon/maintenance"
-	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/simpleipsvcd"
-	"github.com/HouzuoGuo/laitos/daemon/smtpd"
-	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/snmpd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
@@ -259,6 +260,37 @@ var sampleConfigJSON = `
     "CommunityName": "public",
     "Port": 33210
   },
+  "SerialPortDaemon": {
+    "DeviceGlobPatterns": [
+      "COM12"
+    ]
+  },
+  "SerialPortFilters": {
+    "LintText": {
+      "CompressToSingleLine": true,
+      "MaxLength": 120,
+      "TrimSpaces": true
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "howard@localhost"
+      ]
+    },
+    "PINAndShortcuts": {
+      "PIN": "verysecret",
+      "Shortcuts": {
+        "serialshortcut": ".secho serialshortcut"
+      }
+    },
+    "TranslateSequences": {
+      "Sequences": [
+        [
+          "123",
+          "456"
+        ]
+      ]
+    }
+  },
   "SimpleIPSvcDaemon": {
     "ActiveUserNames": "howard (houzuo) guo",
     "ActiveUsersPort": 16222,
@@ -312,7 +344,8 @@ var sampleConfigJSON = `
       ]
     }
   }
-}`
+}
+`
 
 func TestConfig(t *testing.T) {
 	var config Config
@@ -345,6 +378,8 @@ func TestConfig(t *testing.T) {
 
 	plainsocket.TestTCPServer(config.GetPlainSocketDaemon(), t)
 	plainsocket.TestUDPServer(config.GetPlainSocketDaemon(), t)
+
+	serialport.TestDaemon(config.GetSerialPortDaemon(), t)
 
 	sockd.TestSockd(config.GetSockDaemon(), t)
 

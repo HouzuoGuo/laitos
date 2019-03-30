@@ -20,17 +20,18 @@ const (
 	DaemonsFlagName    = "daemons"    // DaemonsFlagName is the CLI string flag of daemon names (comma separated) to launch
 
 	// Individual daemon names as provided by user in CLI to launch laitos:
-	DNSDName          = "dnsd"
-	HTTPDName         = "httpd"
-	InsecureHTTPDName = "insecurehttpd"
-	MaintenanceName   = "maintenance"
-	PlainSocketName   = "plainsocket"
-	SimpleIPSvcName   = "simpleipsvcd"
-	SMTPDName         = "smtpd"
-	SNMPDName         = "snmpd"
-	SOCKDName         = "sockd"
-	TelegramName      = "telegram"
-	AutoUnlockName    = "autounlock"
+	DNSDName             = "dnsd"
+	HTTPDName            = "httpd"
+	InsecureHTTPDName    = "insecurehttpd"
+	MaintenanceName      = "maintenance"
+	PlainSocketName      = "plainsocket"
+	SerialPortDaemonName = "serialport"
+	SimpleIPSvcName      = "simpleipsvcd"
+	SMTPDName            = "smtpd"
+	SNMPDName            = "snmpd"
+	SOCKDName            = "sockd"
+	TelegramName         = "telegram"
+	AutoUnlockName       = "autounlock"
 
 	/*
 		FailureThresholdSec determines the maximum failure interval for supervisor to tolerate before taking action to shed
@@ -44,10 +45,32 @@ const (
 )
 
 // AllDaemons is an unsorted list of string daemon names.
-var AllDaemons = []string{DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, SimpleIPSvcName, SNMPDName, PlainSocketName, SMTPDName, SOCKDName, TelegramName, AutoUnlockName}
+var AllDaemons = []string{AutoUnlockName, DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, PlainSocketName, SerialPortDaemonName, SimpleIPSvcName, SMTPDName, SNMPDName, SOCKDName, TelegramName}
 
-// ShedOrder is the sequence of daemon names to be taken offline one after another in case of program crash.
-var ShedOrder = []string{MaintenanceName, DNSDName, SOCKDName, SNMPDName, SimpleIPSvcName, SMTPDName, HTTPDName, InsecureHTTPDName, PlainSocketName, TelegramName, AutoUnlockName}
+/*
+ShedOrder is the sequence of daemon names to be taken offline one after another by supervisor, in case of rapid and
+repeated program crash. This mechanism is inspired by design of various aircraft abnormal procedure checklists.
+The sequence is prioritised this way:
+1. Automated functions such as always-on background tasks, or those triggering at regular interval.
+2. Non-essential services that do not require authentication/authorisation.
+3. Non-essential services that require authentication/authorisation.
+4. Heavy services that use significant amount of resources.
+5. Essential services.
+
+The supervisor will not shed the last remaining daemon, which is the auto-unlocking daemon, conveniently not present in
+this list. The auto-unlocking daemon provides memorised password to unlock data and configuration of other healthy
+instances of laitos program on the LAN or Internet.
+
+If program continues to crash rapidly and repeatedly,
+*/
+var ShedOrder = []string{
+	MaintenanceName,                       // 1
+	SerialPortDaemonName, SimpleIPSvcName, // 2
+	SNMPDName, DNSDName, // 3
+	SOCKDName, SMTPDName, HTTPDName, // 4
+	InsecureHTTPDName, PlainSocketName, TelegramName, // 5
+	// Never shed - AutoUnlockName
+}
 
 /*
 RemoveFromFlags removes CLI flag from input flags base on a condition function (true to remove). The input flags must

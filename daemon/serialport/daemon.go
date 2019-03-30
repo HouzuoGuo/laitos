@@ -96,6 +96,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		daemon.loopIsRunning = false
 	}()
 	daemon.loopIsRunning = true
+	daemon.logger.Info("StartAndBlock", "", nil, "looking for devices: %s", strings.Join(daemon.DeviceGlobPatterns, " "))
 	for {
 		if misc.EmergencyLockDown {
 			daemon.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
@@ -138,6 +139,8 @@ converseWithDevice continuously proceses toolbox commands input from the serial 
 either termination of daemon or device IO error.
 */
 func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
+	// Put processing duration (including IO time) into statistics
+	beginTimeNano := time.Now().UnixNano()
 	daemon.logger.Info("converseWithDevice", devPath, nil, "beginning conversation")
 	defer func() {
 		// Upon termination, remove the serial device from connected device map.
@@ -145,6 +148,7 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 		delete(daemon.connectedDevices, devPath)
 		daemon.connectedDevicesMutex.Unlock()
 		daemon.logger.Info("converseWithDevice", devPath, nil, "conversation terminated")
+		common.SerialDevicesStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	// Converse with the serial device as if it is an ordinary file. This approach works on both Windows and Linux.
 	devFile, err := os.OpenFile(devPath, os.O_RDWR, 0600)

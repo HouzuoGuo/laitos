@@ -128,7 +128,7 @@ func main() {
 	var disableConflicts, debug, benchmark bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (dnsd, httpd, insecurehttpd, maintenance, plainsocket, simpleipsvcd, smtpd, snmpd, telegram, autounlock)")
+	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (autounlock, dnsd, httpd, insecurehttpd, maintenance, plainsocket, serialport, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.BoolVar(&benchmark, "benchmark", false, fmt.Sprintf("(Optional) continuously run benchmark routines on active daemons while exposing net/http/pprof on port %d", ProfilerHTTPPort))
@@ -311,6 +311,10 @@ func main() {
 		case launcher.PlainSocketName:
 			go func(daemonName string) {
 				daemonErrs <- terminatedDaemonToError(daemonName, config.GetPlainSocketDaemon().StartAndBlock())
+			}(daemonName)
+		case launcher.SerialPortDaemonName:
+			go func(daemonName string) {
+				daemonErrs <- terminatedDaemonToError(daemonName, config.GetSerialPortDaemon().StartAndBlock())
 			}(daemonName)
 		case launcher.SimpleIPSvcName:
 			go func(daemonName string) {

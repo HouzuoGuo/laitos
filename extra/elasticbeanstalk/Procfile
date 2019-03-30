@@ -1,1 +1,1 @@
-laitos: ./laitos -disableconflicts -gomaxprocs 16 -config config.json -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
+laitos: ./laitos -disableconflicts -gomaxprocs 16 -config config.json -daemons autounlock,dnsd,httpd,insecurehttpd,maintenance,plainsocket,serialport,simpleipsvcd,smtpd,snmpd,sockd,telegram
