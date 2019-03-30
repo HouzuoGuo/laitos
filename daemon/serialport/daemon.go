@@ -3,7 +3,9 @@ package serialport
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -46,8 +48,9 @@ type Daemon struct {
 	// stop signals StartAndBlock loop to stop processing newly connected devices.
 	stop chan bool
 
-	rateLimit *misc.RateLimit
-	logger    lalog.Logger
+	loopIsRunning bool // loopIsRunning indicates that daemon is looking for new devices to converse with.
+	rateLimit     *misc.RateLimit
+	logger        lalog.Logger
 }
 
 // Initialise validates configuration and initialises internal states.
@@ -72,7 +75,7 @@ func (daemon *Daemon) Initialise() error {
 
 	// Though serial devices are unlikely to be connected via the Internet, the safety check is nonetheless useful.
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("plainsocket.Initialise: %+v", errs)
+		return fmt.Errorf("serialport.Initialise: %+v", errs)
 	}
 
 	daemon.logger = lalog.Logger{ComponentName: "serialport"}
@@ -82,14 +85,20 @@ func (daemon *Daemon) Initialise() error {
 		UnitSecs: RateLimitIntervalSec,
 		Logger:   daemon.logger,
 	}
+	daemon.stop = make(chan bool)
 	daemon.rateLimit.Initialise()
 	return nil
 }
 
 // StartAndBlock continuously looks for newly connected serial devices and serve them.
 func (daemon *Daemon) StartAndBlock() error {
+	defer func() {
+		daemon.loopIsRunning = false
+	}()
+	daemon.loopIsRunning = true
 	for {
 		if misc.EmergencyLockDown {
+			daemon.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		// Look for all populated serial devices that match the patterns
@@ -139,6 +148,7 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 	}()
 	// Converse with the serial device as if it is an ordinary file. This approach works on both Windows and Linux.
 	devFile, err := os.OpenFile(devPath, os.O_RDWR, 0600)
+
 	if err != nil {
 		daemon.logger.Warning("converseWithDevice", devPath, err, "failed to open device file handle")
 		return
@@ -147,12 +157,12 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 	defer func() {
 		daemon.logger.MaybeError(devFile.Close())
 	}()
-	<-stopChan
 	// Converse with the device in a background routine, signal stopChan to terminate the conversation in case of IO error.
 	go func() {
 		for {
 			if misc.EmergencyLockDown {
 				stopChan <- true
+				daemon.logger.Warning("HandleTCPConnection", "", misc.ErrEmergencyLockDown, "")
 				return
 			}
 			// Serial devices often use \r or \n (or both) to indicate end of line, readUntilDelimiter only returns non-empty string without delimiter.
@@ -161,6 +171,10 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 				daemon.logger.Warning("converseWithDevice", devPath, err, "failed to read command")
 				stopChan <- true
 				return
+			}
+			// Check against rate limit
+			if !daemon.rateLimit.Add(devPath, true) {
+				continue
 			}
 			// Trim the input toolbox command as a string
 			cmd := strings.TrimSpace(string(cmdBytes))
@@ -171,16 +185,21 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 			daemon.logger.Info("converseWithDevice", devPath, nil, "received %d characters", len(cmd))
 			result := daemon.Processor.Process(toolbox.Command{Content: cmd, TimeoutSec: CommandTimeoutSec}, true)
 			daemon.logger.Info("converseWithDevice", devPath, nil, "about to transmit %d characters", len(result.CombinedOutput))
-			if err := writeSlowly(devFile, []byte(result.CombinedOutput)); err != nil {
+			if err := writeSlowly(devFile, []byte(result.CombinedOutput+"\r\n")); err != nil {
 				daemon.logger.Warning("converseWithDevice", devPath, err, "failed to write command response")
 				stopChan <- true
+				return
 			}
 		}
 	}()
+	<-stopChan
 }
 
 // Stop stops accepting new device connections and then disconnects all ongoing conversations with connected serial devices.
 func (daemon *Daemon) Stop() {
+	if !daemon.loopIsRunning {
+		return
+	}
 	// Prevent more conversations from being started
 	daemon.stop <- true
 	// Terminate all ongoing conversations
@@ -191,6 +210,31 @@ func (daemon *Daemon) Stop() {
 
 // TestDaemon provides unit test coverage for the serial port daemon.
 func TestDaemon(daemon *Daemon, t testingstub.T) {
+	// Instead of emulating a serial device driven by OS driver, the test subject simply uses a text file with a line of command.
+	tmpFileNamePrefix := fmt.Sprintf("laitos-serialport-TestDaemon-%d", time.Now().UnixNano())
+	tmpFile, err := ioutil.TempFile("", tmpFileNamePrefix+"*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Remove(tmpFile.Name()); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	// In a toolbox command, write down a valid PIN and a shell command that prints a line of text
+	anticipatedResponse := "test daemon response"
+	if err := ioutil.WriteFile(tmpFile.Name(), []byte(fmt.Sprintf("%s .s echo %s\r\n", common.TestCommandProcessorPIN, anticipatedResponse)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// Reinitialise daemon to use a pattern to glob the temporary text file
+	oldPatterns := daemon.DeviceGlobPatterns
+	daemon.DeviceGlobPatterns = []string{path.Join(os.TempDir(), tmpFileNamePrefix+"*")}
+	defer func() {
+		daemon.DeviceGlobPatterns = oldPatterns
+	}()
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	// Server should start within two seconds
 	var stoppedNormally bool
 	go func() {
@@ -200,6 +244,30 @@ func TestDaemon(daemon *Daemon, t testingstub.T) {
 		stoppedNormally = true
 	}()
 	time.Sleep(2 * time.Second)
+	// Wait for daemon to pick up this newly "connected" serial device file
+	time.Sleep((GlobIntervalSec + 1) * time.Second)
+	successfulContentMatch := make(chan bool, 1)
+	go func() {
+		// Keep watching the file content looking for the anticipated response
+		for i := 0; i < 100; i++ {
+			content, err := ioutil.ReadFile(tmpFile.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Count(string(content), anticipatedResponse) == 2 {
+				successfulContentMatch <- true
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	// Anticipate correct response in a second
+	select {
+	case <-time.After(1 * time.Second):
+		t.Fatal("daemon did not respond to toolbox command timely")
+	case <-successfulContentMatch:
+		// Test is OK
+	}
 
 	// Daemon should stop within a second
 	daemon.Stop()
