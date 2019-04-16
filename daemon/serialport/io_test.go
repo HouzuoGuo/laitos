@@ -34,7 +34,9 @@ func TestWriteSlowly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(fh.Name())
+	defer func() {
+		_ = os.Remove(fh.Name())
+	}()
 
 	// Slowly write 5 seconds worth of bytes
 	beginSec := time.Now().Unix()
@@ -42,7 +44,7 @@ func TestWriteSlowly(t *testing.T) {
 		t.Fatal(err)
 	}
 	durationSec := time.Now().Unix() - beginSec
-	if durationSec < 4 || durationSec > 7 {
+	if durationSec < 4 {
 		t.Fatal(durationSec)
 	}
 }
