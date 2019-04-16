@@ -175,10 +175,8 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	// Put conversation duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
+		daemon.logger.MaybeMinorError(clientConn.Close())
 		common.SMTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}()
-	defer func() {
-		daemon.logger.MaybeError(clientConn.Close())
 	}()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	var numCommands int
@@ -196,6 +194,7 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 		smtpConn.AnswerRateLimited()
 		return
 	}
+	daemon.logger.Info("HandleConnection", clientIP, nil, "working on the connection")
 
 	for {
 		if misc.EmergencyLockDown {
@@ -266,7 +265,7 @@ func (daemon *Daemon) StartAndBlock() (err error) {
 		return fmt.Errorf("smtpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
 	defer func() {
-		daemon.logger.MaybeError(listener.Close())
+		daemon.logger.MaybeMinorError(listener.Close())
 	}()
 	daemon.listener = listener
 	// Process incoming TCP connections

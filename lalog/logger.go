@@ -116,10 +116,10 @@ func (logger *Logger) Panic(functionName, actorName string, err error, template 
 	log.Panic(logger.Format(functionName, actorName, err, template, values...))
 }
 
-// MaybeError logs a simple error, if it is present.
-func (logger *Logger) MaybeError(err error) {
+// MaybeMinorError logs a simple info message for the incoming error only if it is present.
+func (logger *Logger) MaybeMinorError(err error) {
 	if err != nil {
-		logger.Warning("", "", err, "")
+		logger.Info("", "", nil, "minor error - %s", err.Error())
 	}
 }
 

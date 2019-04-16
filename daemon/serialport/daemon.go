@@ -59,7 +59,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.DeviceGlobPatterns = []string{}
 	}
 	if daemon.PerDeviceLimit < 1 {
-		daemon.PerDeviceLimit = 2 // reasonable for interactive usage
+		daemon.PerDeviceLimit = 3 // reasonable for interactive usage
 	}
 
 	// Validate all patterns
@@ -159,7 +159,7 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 	}
 	// Terminate the conversation upon IO error or explicit daemon termination
 	defer func() {
-		daemon.logger.MaybeError(devFile.Close())
+		daemon.logger.MaybeMinorError(devFile.Close())
 	}()
 	// Converse with the device in a background routine, signal stopChan to terminate the conversation in case of IO error.
 	go func() {

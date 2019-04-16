@@ -26,7 +26,9 @@ func (daemon *Daemon) StartAndBlockTCP() (err error) {
 	if err != nil {
 		return fmt.Errorf("plainsocket.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
 	}
-	defer listener.Close()
+	defer func() {
+		daemon.logger.MaybeMinorError(listener.Close())
+	}()
 	daemon.tcpListener = listener
 	// Process incoming TCP conversations
 	daemon.logger.Info("StartAndBlockTCP", "", nil, "going to listen for connections")
@@ -42,6 +44,11 @@ func (daemon *Daemon) StartAndBlockTCP() (err error) {
 			}
 			return fmt.Errorf("plainsocket.StartAndBlockTCP: failed to accept new connection - %v", err)
 		}
+		// Check connection against rate limit
+		if !daemon.rateLimit.Add(clientConn.RemoteAddr().(*net.TCPAddr).IP.String(), true) {
+			daemon.logger.MaybeMinorError(clientConn.Close())
+			continue
+		}
 		go daemon.HandleTCPConnection(clientConn)
 	}
 }
@@ -51,16 +58,12 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 	// Put processing duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
+		daemon.logger.MaybeMinorError(clientConn.Close())
 		common.PlainSocketStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
-	defer clientConn.Close()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
-	// Check connection against rate limit even before reading a line of command
-	if !daemon.rateLimit.Add(clientIP, true) {
-		return
-	}
 	daemon.logger.Info("HandleTCPConnection", clientIP, nil, "working on the connection")
-	// Allow up to 4MB of commands to be recieved per connection
+	// Allow up to 4MB of commands to be received per connection
 	reader := textproto.NewReader(bufio.NewReader(io.LimitReader(clientConn, 4*1048576)))
 	for {
 		if misc.EmergencyLockDown {
@@ -68,7 +71,9 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 			return
 		}
 		// Read one line of command that may be at most 1MB long
-		clientConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second))
+		if err := clientConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+			return
+		}
 		line, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
@@ -87,9 +92,13 @@ func (daemon *Daemon) HandleTCPConnection(clientConn net.Conn) {
 		}
 		// Process line of command and respond
 		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec}, true)
-		clientConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
-		clientConn.Write([]byte(result.CombinedOutput))
-		clientConn.Write([]byte("\r\n"))
+		if err := clientConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+			return
+		} else if _, err := clientConn.Write([]byte(result.CombinedOutput)); err != nil {
+			return
+		} else if _, err := clientConn.Write([]byte("\r\n")); err != nil {
+			return
+		}
 	}
 }
 
@@ -134,7 +143,7 @@ func TestTCPServer(server *Daemon, t testingstub.T) {
 		if string(goodPINResp) != "hi" {
 			t.Fatal(string(goodPINResp))
 		}
-		clientConn.Close()
+		_ = clientConn.Close()
 		success++
 	}
 	if success < 1 || success > server.PerIPLimit*2 {
@@ -148,7 +157,9 @@ func TestTCPServer(server *Daemon, t testingstub.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer clientConn.Close()
+	defer func() {
+		_ = clientConn.Close()
+	}()
 	reader := bufio.NewReader(clientConn)
 	// Command with bad PIN
 	_, err = clientConn.Write([]byte("pin mismatch\r\n"))

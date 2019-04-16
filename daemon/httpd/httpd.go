@@ -104,7 +104,7 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 				the program after consecutive HTTP failures, it would defeat the intention of emergency stop.
 				Hence the status code here is OK.
 			*/
-			w.Write([]byte(misc.ErrEmergencyLockDown.Error()))
+			_, _ = w.Write([]byte(misc.ErrEmergencyLockDown.Error()))
 			common.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			return
 		}

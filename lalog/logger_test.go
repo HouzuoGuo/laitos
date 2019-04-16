@@ -126,6 +126,6 @@ func TestLogger_Warningf(t *testing.T) {
 
 func TestLogger_MaybeError(t *testing.T) {
 	logger := Logger{}
-	logger.MaybeError(nil)
-	logger.MaybeError(errors.New("testError"))
+	logger.MaybeMinorError(nil)
+	logger.MaybeMinorError(errors.New("testError"))
 }

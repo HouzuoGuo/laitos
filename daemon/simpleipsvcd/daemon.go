@@ -190,20 +190,23 @@ func (daemon *Daemon) tcpResponderLoop(port int) {
 		// Check IP address against rate limit
 		clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 		if !daemon.rateLimit.Add(clientIP, true) {
-			clientConn.Close()
+			daemon.logger.MaybeMinorError(clientConn.Close())
 			continue
 		}
 		go func(clientConn net.Conn) {
 			// Put processing duration (including IO time) into statistics
 			beginTimeNano := time.Now().UnixNano()
 			defer func() {
+				daemon.logger.MaybeMinorError(clientConn.Close())
 				common.SimpleIPStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			}()
-			defer clientConn.Close()
 			daemon.logger.Info(logFunName, clientIP, nil, "working on the request")
-			clientConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
-			if _, err := clientConn.Write([]byte(daemon.serverResponseFun[port]())); err != nil {
+			if err := clientConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
 				daemon.logger.Warning(logFunName, clientIP, err, "failed to write response")
+				return
+			} else if _, err := clientConn.Write([]byte(daemon.serverResponseFun[port]())); err != nil {
+				daemon.logger.Warning(logFunName, clientIP, err, "failed to write response")
+				return
 			}
 		}(clientConn)
 	}
@@ -240,9 +243,12 @@ func (daemon *Daemon) udpResponderLoop(port int) {
 				common.SimpleIPStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			}()
 			daemon.logger.Info(logFunName, clientIP, nil, "working on the request")
-			udpServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
-			if _, err := udpServer.WriteToUDP([]byte(daemon.serverResponseFun[port]()), clientAddr); err != nil {
+			if err := udpServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
 				daemon.logger.Warning(logFunName, clientIP, err, "failed to write response")
+				return
+			} else if _, err := udpServer.WriteToUDP([]byte(daemon.serverResponseFun[port]()), clientAddr); err != nil {
+				daemon.logger.Warning(logFunName, clientIP, err, "failed to write response")
+				return
 			}
 		}(clientAddr)
 	}
@@ -280,12 +286,12 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		if err != nil {
 			continue
 		}
-		tcpClient.SetDeadline(time.Now().Add(50 * time.Millisecond))
+		_ = tcpClient.SetDeadline(time.Now().Add(50 * time.Millisecond))
 		response, err := ioutil.ReadAll(tcpClient)
 		if err != nil {
 			continue
 		}
-		tcpClient.Close()
+		_ = tcpClient.Close()
 		if testResponseMatch(daemon.ActiveUsersPort, string(response)) {
 			success++
 		}
@@ -301,7 +307,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		if err != nil {
 			continue
 		}
-		udpClient.SetDeadline(time.Now().Add(50 * time.Millisecond))
+		_ = udpClient.SetDeadline(time.Now().Add(50 * time.Millisecond))
 		_, err = udpClient.Write([]byte{})
 		if err != nil {
 			continue
@@ -310,7 +316,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		if err != nil {
 			continue
 		}
-		udpClient.Close()
+		_ = udpClient.Close()
 		if testResponseMatch(daemon.ActiveUsersPort, udpResponse) {
 			success++
 		}
@@ -332,7 +338,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		tcpClient.Close()
+		_ = tcpClient.Close()
 		if !testResponseMatch(port, string(response)) {
 			t.Fatal(port, string(response))
 		}
@@ -349,7 +355,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		udpClient.Close()
+		_ = udpClient.Close()
 		if !testResponseMatch(port, udpResponse) {
 			t.Fatal(port, udpResponse)
 		}

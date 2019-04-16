@@ -41,7 +41,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.Address = "0.0.0.0"
 	}
 	if daemon.PerIPLimit < 1 {
-		daemon.PerIPLimit = 2 // reasonable for personal use
+		daemon.PerIPLimit = 3 // reasonable for personal use
 	}
 	daemon.logger = lalog.Logger{
 		ComponentName: "plainsocket",

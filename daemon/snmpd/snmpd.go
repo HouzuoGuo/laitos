@@ -83,7 +83,9 @@ func (daemon *Daemon) StartAndBlock() error {
 	if err != nil {
 		return err
 	}
-	defer udpServer.Close()
+	defer func() {
+		daemon.logger.MaybeMinorError(udpServer.Close())
+	}()
 	daemon.listener = udpServer
 	daemon.logger.Info("StartAndBlock", listenAddr, nil, "going to serve clients")
 	// Process incoming requests
@@ -100,7 +102,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			}
 			return fmt.Errorf("snmpd.StartAndBlock: failed to accept new connection - %v", err)
 		}
-		// Check IP address against (connection) rate limit
+		// Check IP address against rate limit
 		clientIP := clientAddr.IP.String()
 		if !daemon.rateLimit.Add(clientIP, true) {
 			continue
@@ -118,13 +120,10 @@ func (daemon *Daemon) HandleRequest(clientIP string, clientAddr *net.UDPAddr, re
 	defer func() {
 		common.SNMPStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
+	reader := bufio.NewReader(bytes.NewReader(requestPacket))
+
 	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
 	daemon.logger.Info("HandleRequest", clientIP, nil, "working on the request")
-	reader := bufio.NewReader(bytes.NewReader(requestPacket))
-	// Check against conversation rate limit
-	if !daemon.rateLimit.Add(clientIP, true) {
-		return
-	}
 	// Parse the input packet
 	packet := snmp.Packet{}
 	if err := packet.ReadFrom(reader); err != nil {

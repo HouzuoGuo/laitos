@@ -32,7 +32,7 @@ func (daemon *Daemon) StartAndBlockUDP() error {
 		return err
 	}
 	defer func() {
-		daemon.logger.MaybeError(udpServer.Close())
+		daemon.logger.MaybeMinorError(udpServer.Close())
 	}()
 	daemon.udpListener = udpServer
 	daemon.logger.Info("StartAndBlockUDP", listenAddr, nil, "going to monitor for queries")
@@ -90,7 +90,7 @@ func (daemon *Daemon) handleUDPQuery(queryBody []byte, client *net.UDPAddr) {
 	respBody[0] = queryBody[0]
 	respBody[1] = queryBody[1]
 	// Set deadline for responding to my DNS client because the query reader and response writer do not share the same timeout
-	daemon.logger.MaybeError(daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
+	daemon.logger.MaybeMinorError(daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
 	if _, err := daemon.udpListener.WriteTo(respBody[:respLenInt], client); err != nil {
 		daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to answer to client")
 		return
@@ -165,7 +165,7 @@ func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte)
 		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to dial forwarder's address")
 		return
 	}
-	daemon.logger.MaybeError(forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
+	daemon.logger.MaybeMinorError(forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
 	if _, err := forwarderConn.Write(queryBody); err != nil {
 		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to write to forwarder")
 		return
@@ -229,15 +229,15 @@ func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
 				t.Fatal(err)
 			}
 			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
-				lalog.DefaultLogger.MaybeError(clientConn.Close())
+				lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
 				t.Fatal(err)
 			}
 			if _, err := clientConn.Write(githubComUDPQuery); err != nil {
-				lalog.DefaultLogger.MaybeError(clientConn.Close())
+				lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
 				t.Fatal(err)
 			}
 			length, err := clientConn.Read(packetBuf)
-			lalog.DefaultLogger.MaybeError(clientConn.Close())
+			lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
 			if err == nil && length > 50 {
 				success++
 			}

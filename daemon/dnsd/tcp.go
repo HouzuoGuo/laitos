@@ -29,7 +29,7 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 		return err
 	}
 	defer func() {
-		daemon.logger.MaybeError(listener.Close())
+		daemon.logger.MaybeMinorError(listener.Close())
 	}()
 	daemon.tcpListener = listener
 	// Process incoming TCP DNS queries
@@ -49,7 +49,7 @@ func (daemon *Daemon) StartAndBlockTCP() error {
 		// Check address against rate limit and allowed IP prefixes
 		clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 		if !daemon.rateLimit.Add(clientIP, true) {
-			daemon.logger.MaybeError(clientConn.Close())
+			daemon.logger.MaybeMinorError(clientConn.Close())
 			continue
 		}
 		go daemon.handleTCPQuery(clientConn)
@@ -60,12 +60,12 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 	// Put query duration (including IO time) into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		daemon.logger.MaybeError(clientConn.Close())
+		daemon.logger.MaybeMinorError(clientConn.Close())
 		common.DNSDStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
 	// Read query length
-	daemon.logger.MaybeError(clientConn.SetDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
+	daemon.logger.MaybeMinorError(clientConn.SetDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
 	queryLen := make([]byte, 2)
 	_, err := clientConn.Read(queryLen)
 	if err != nil {
@@ -188,10 +188,10 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 		return
 	}
 	defer func() {
-		daemon.logger.MaybeError(myForwarder.Close())
+		daemon.logger.MaybeMinorError(myForwarder.Close())
 	}()
 	// Send original query to the resolver without modification
-	daemon.logger.MaybeError(myForwarder.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
+	daemon.logger.MaybeMinorError(myForwarder.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
 	if _, err = myForwarder.Write(queryLen); err != nil {
 		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to write length to forwarder")
 		return
@@ -259,15 +259,15 @@ func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
 				t.Fatal(err)
 			}
 			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
-				lalog.DefaultLogger.MaybeError(clientConn.Close())
+				lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
 				t.Fatal(err)
 			}
 			if _, err := clientConn.Write(githubComTCPQuery); err != nil {
-				lalog.DefaultLogger.MaybeError(clientConn.Close())
+				lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
 				t.Fatal(err)
 			}
 			resp, err := ioutil.ReadAll(clientConn)
-			lalog.DefaultLogger.MaybeError(clientConn.Close())
+			lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
 			if err == nil && len(resp) > 50 {
 				success++
 			}

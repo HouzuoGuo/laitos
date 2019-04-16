@@ -148,7 +148,7 @@ type Command struct {
 // readCommand reads an SMTP command, the command anticipated must not contain mail data.
 func (conn *Connection) readCommand() (cmd string) {
 	conn.limitReader.N = MaxCommandLength
-	conn.logger.MaybeError(conn.netConn.SetReadDeadline(time.Now().Add(conn.Config.IOTimeout)))
+	conn.logger.MaybeMinorError(conn.netConn.SetReadDeadline(time.Now().Add(conn.Config.IOTimeout)))
 	cmd, err := conn.textReader.ReadLine()
 	if err != nil || conn.limitReader.N == 0 {
 		conn.stage = StageAbort
@@ -159,7 +159,7 @@ func (conn *Connection) readCommand() (cmd string) {
 // readMailData reads mail data that arrives in dot-encoding.
 func (conn *Connection) readMailData() string {
 	conn.limitReader.N = conn.Config.MaxMessageLength
-	conn.logger.MaybeError(conn.netConn.SetReadDeadline(time.Now().Add(conn.Config.IOTimeout)))
+	conn.logger.MaybeMinorError(conn.netConn.SetReadDeadline(time.Now().Add(conn.Config.IOTimeout)))
 	decodedBytes, err := conn.textReader.ReadDotBytes()
 	if err != nil || conn.limitReader.N == 0 {
 		conn.stage = StageAbort
@@ -174,7 +174,7 @@ write operation, the SMTP conversation will no longer go on.
 */
 func (conn *Connection) reply(format string, a ...interface{}) {
 	if conn.stage != StageAbort {
-		conn.logger.MaybeError(conn.netConn.SetWriteDeadline(time.Now().Add(conn.Config.IOTimeout)))
+		conn.logger.MaybeMinorError(conn.netConn.SetWriteDeadline(time.Now().Add(conn.Config.IOTimeout)))
 		_, err := conn.netConn.Write([]byte(fmt.Sprintf(format+"\r\n", a...)))
 		if err != nil {
 			conn.stage = StageAbort
@@ -336,13 +336,13 @@ func (conn *Connection) CarryOn() Command {
 					conn.TLSHelp = "connection aborted before negotiation"
 					break
 				}
-				conn.logger.MaybeError(conn.netConn.SetDeadline(time.Now().Add(conn.Config.IOTimeout)))
+				conn.logger.MaybeMinorError(conn.netConn.SetDeadline(time.Now().Add(conn.Config.IOTimeout)))
 				tlsConn := tls.Server(conn.netConn, conn.Config.TLSConfig)
 				err := tlsConn.Handshake()
 				if err == nil {
 					// Upon successful handshake, substitute the underlying connection by the new TLS connection.
 					conn.TLSHelp = "handshake was successful"
-					conn.logger.MaybeError(conn.netConn.SetReadDeadline(time.Time{}))
+					conn.logger.MaybeMinorError(conn.netConn.SetReadDeadline(time.Time{}))
 					conn.setupReaders(tlsConn)
 					conn.TLSAttempted = true
 					conn.TLSState = tlsConn.ConnectionState()

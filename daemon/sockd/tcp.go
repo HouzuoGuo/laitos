@@ -26,7 +26,7 @@ func WriteRand(conn net.Conn) {
 			lalog.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
 			break
 		}
-		conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(330, 540, 880)) * time.Millisecond))
+		_ = conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(330, 540, 880)) * time.Millisecond))
 		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
 			lalog.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
 			break
@@ -40,24 +40,28 @@ func WriteRand(conn net.Conn) {
 }
 
 func TweakTCPConnection(conn *net.TCPConn) {
-	conn.SetNoDelay(true)
-	conn.SetKeepAlive(true)
-	conn.SetKeepAlivePeriod(60 * time.Second)
+	_ = conn.SetNoDelay(true)
+	_ = conn.SetKeepAlive(true)
+	_ = conn.SetKeepAlivePeriod(60 * time.Second)
 }
 
 func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
-	defer toConn.Close()
+	defer func() {
+		_ = toConn.Close()
+	}()
 	buf := make([]byte, MaxPacketSize)
 	for {
 		if misc.EmergencyLockDown {
 			lalog.DefaultLogger.Warning("PipeTCPConnection", "", misc.ErrEmergencyLockDown, "")
 			return
+		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+			return
 		}
-		fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
 		length, err := fromConn.Read(buf)
 		if length > 0 {
-			toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
-			if _, err := toConn.Write(buf[:length]); err != nil {
+			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+				return
+			} else if _, err := toConn.Write(buf[:length]); err != nil {
 				return
 			}
 		}
@@ -109,7 +113,9 @@ func (daemon *TCPDaemon) StartAndBlock() error {
 	if err != nil {
 		return fmt.Errorf("sockd.StartAndBlockTCP: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
 	}
-	defer listener.Close()
+	defer func() {
+		daemon.logger.MaybeMinorError(listener.Close())
+	}()
 	daemon.logger.Info("StartAndBlockTCP", "", nil, "going to listen for connections")
 	daemon.tcpListener = listener
 
@@ -130,7 +136,7 @@ func (daemon *TCPDaemon) StartAndBlock() error {
 		if daemon.rateLimitTCP.Add(clientIP, true) {
 			go NewTCPCipherConnection(daemon, conn, daemon.cipher.Copy(), daemon.logger).HandleTCPConnection()
 		} else {
-			conn.Close()
+			daemon.logger.MaybeMinorError(conn.Close())
 		}
 	}
 }
