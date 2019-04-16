@@ -19,7 +19,7 @@ func TestSerialPortDaemon(t *testing.T) {
 	}
 	// Good processor but empty patterns is acceptable
 	daemon.Processor = common.GetTestCommandProcessor()
-	if err := daemon.Initialise(); err != nil {
+	if err := daemon.Initialise(); err != nil|| daemon.PerDeviceLimit != 3 {
 		t.Fatal(err)
 	}
 	TestDaemon(&daemon, t)
