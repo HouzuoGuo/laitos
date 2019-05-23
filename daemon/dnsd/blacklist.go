@@ -34,6 +34,12 @@ var Whitelist = []string{
 		the culprit.
 	*/
 	"s.youtube.com",
+	/*
+		2019-05-23 - facebook app and instagram app take ~1 minute to load due to blocked connectivity to their graph
+		API domains.
+	*/
+	"graph.facebook.com",
+	"graph.instagram.com",
 }
 
 /*
@@ -49,9 +55,14 @@ func DownloadAllBlacklists(logger lalog.Logger) []string {
 	for i, url := range HostsFileURLs {
 		go func(i int, url string) {
 			resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: BlackListDownloadTimeoutSec}, url)
-			names := ExtractNamesFromHostsContent(string(resp.Body))
-			logger.Info("DownloadAllBlacklists", url, err, "downloaded %d names, please obey the license in which the list author publishes the data.", len(names))
-			lists[i] = names
+			if err == nil {
+				names := ExtractNamesFromHostsContent(string(resp.Body))
+				logger.Info("DownloadAllBlacklists", url, err, "downloaded %d names, please obey the license in which the list author publishes the data.", len(names))
+				lists[i] = names
+			} else {
+				logger.Warning("DownloadAllBlacklists", url, err, "failed to download blacklist")
+				lists[i] = []string{}
+			}
 			defer wg.Done()
 		}(i, url)
 	}

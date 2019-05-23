@@ -60,15 +60,21 @@ func IsAzure() bool {
 	isAzureOnce.Do(func() {
 		/*
 			According to https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service
-			As of 2018-08-31, the metadata API version "2017-08-01" is the only version supported across all regions,
+			As of 2019-05-23, the metadata API version "2018-10-01" is the only version supported across all regions,
 			including Government, China, and Germany.
 		*/
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
-			MaxBytes:   64,
-			Header:     map[string][]string{"Metadata": {"true"}},
-		}, "http://169.254.169.254/metadata/instance?api-version=2017-08-01")
-		if err == nil && resp.StatusCode/200 == 1 && strings.Contains(string(resp.Body), "subscriptionId") {
+			/*
+				Be aware that successful detection of Azure public cloud relies on
+				the appearance of string "azure", which usually comes as:
+				... "azEnvironment":"AzurePublicCloud" ...
+				Therefore, ensure that the response size limit is sufficient. Normally the response does not exceed 1KB.
+			*/
+			MaxBytes: 4096,
+			Header:   map[string][]string{"Metadata": {"true"}},
+		}, "http://169.254.169.254/metadata/instance?api-version=2018-10-01")
+		if err == nil && resp.StatusCode/200 == 1 && strings.Contains(strings.ToLower(string(resp.Body)), "azure") {
 			isAzure = true
 		}
 	})
