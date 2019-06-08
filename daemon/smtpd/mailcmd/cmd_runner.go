@@ -3,11 +3,6 @@ package mailcmd
 import (
 	"errors"
 	"fmt"
-	"net"
-	"strings"
-	"sync"
-	"time"
-
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -15,6 +10,9 @@ import (
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
+	"net"
+	"strings"
+	"sync"
 )
 
 const CommandTimeoutSec = 120 // CommandTimeoutSec is the default command timeout in seconds
@@ -116,11 +114,6 @@ Process only one command (if found) in the incoming mail. If reply addresses are
 to the specified addresses. If they are not specified, use the incoming mail sender's address as reply address.
 */
 func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...string) error {
-	// Put query duration (including IO time) into statistics
-	beginTimeNano := time.Now().UnixNano()
-	defer func() {
-		common.CommandStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}()
 	if misc.EmergencyLockDown {
 		return misc.ErrEmergencyLockDown
 	}
