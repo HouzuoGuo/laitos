@@ -14,7 +14,7 @@ const HandleRecurringCommandsSetupPage = `<html>
     <title>Recurring commands setup</title>
 </head>
 <body>
-    <form action="%s" method="get">
+    <form action="%s" method="post">
 		<p>
 			For pre-configured channel <input type="text" name="channel" value="%s" />:
 		</p>

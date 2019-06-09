@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
@@ -31,6 +33,9 @@ const (
 	DirectoryHandlerRateLimitFactor = 8  // DirectoryHandlerRateLimitFactor is 7 times less expensive than the most expensive handler
 	RateLimitIntervalSec            = 1  // Rate limit is calculated at 1 second interval
 	IOTimeoutSec                    = 60 // IO timeout for both read and write operations
+
+	// MaxRequestBodyBytes is the maximum size of request the HTTP server will process (8MB).
+	MaxRequestBodyBytes = 8 * 1024 * 1024
 )
 
 // HandlerCollection is a mapping between URL and implementation of handlers. It does not contain directory handlers.
@@ -91,9 +96,12 @@ func (daemon *Daemon) GetHandlerByFactoryType(match handler.Handler) string {
 	return ""
 }
 
-// RateLimitMiddleware acts against rate limited clients and global lockdown.
-func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFunc) http.HandlerFunc {
+// RateLimitMiddleware acts against unusually large request body, rate limited clients, and global lock-down.
+func (daemon *Daemon) Middleware(rateLimit *misc.RateLimit, restrictedRequestSize bool, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if restrictedRequestSize {
+			r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
+		}
 		// Put query duration (including IO time) into statistics
 		beginTimeNano := time.Now().UnixNano()
 		if misc.EmergencyLockDown {
@@ -110,7 +118,7 @@ func (daemon *Daemon) Middleware(ratelimit *misc.RateLimit, next http.HandlerFun
 		}
 		// Check client IP against rate limit
 		remoteIP := handler.GetRealClientIP(r)
-		if ratelimit.Add(remoteIP, true) {
+		if rateLimit.Add(remoteIP, true) {
 			daemon.logger.Info("Handler", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
 			next(w, r)
 		} else {
@@ -171,7 +179,7 @@ func (daemon *Daemon) Initialise() error {
 				Logger:   daemon.logger,
 			}
 			daemon.AllRateLimits[urlLocation] = rl
-			daemon.mux.HandleFunc(urlLocation, daemon.Middleware(rl, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
+			daemon.mux.HandleFunc(urlLocation, daemon.Middleware(rl, true, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
 		}
 	}
 	// Collect specialised handlers
@@ -185,7 +193,9 @@ func (daemon *Daemon) Initialise() error {
 			Logger:   daemon.logger,
 		}
 		daemon.AllRateLimits[urlLocation] = rl
-		daemon.mux.HandleFunc(urlLocation, daemon.Middleware(rl, hand.Handle))
+		// With the exception of file upload handler, all handlers will be subject to a limited request size.
+		_, unrestrictedRequestSize := hand.(*handler.HandleFileUpload)
+		daemon.mux.HandleFunc(urlLocation, daemon.Middleware(rl, !unrestrictedRequestSize, hand.Handle))
 	}
 	// Initialise all rate limits
 	for _, limit := range daemon.AllRateLimits {
@@ -313,6 +323,60 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "cmd_form_test") {
 		t.Fatal(err, string(resp.Body))
 	}
+	// File upload - home page
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/upload")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
+		t.Fatal(err, string(resp.Body))
+	}
+	// File upload - upload
+	fileUploadRequestBody := &bytes.Buffer{}
+	fileUploadRequestWriter := multipart.NewWriter(fileUploadRequestBody)
+	fileUploadPart, err := fileUploadRequestWriter.CreateFormFile("upload", "sample-upload.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadSourceFile, err := os.Open("/tmp/test-laitos-index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer uploadSourceFile.Close()
+	if _, err = io.Copy(fileUploadPart, uploadSourceFile); err != nil {
+		t.Fatal(err)
+	}
+	if err = fileUploadRequestWriter.WriteField("submit", "Upload"); err != nil {
+		t.Fatal(err)
+	}
+	if err = fileUploadRequestWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
+		Method:      http.MethodPost,
+		ContentType: fileUploadRequestWriter.FormDataContentType(),
+		Body:        fileUploadRequestBody,
+	}, addr+"/upload")
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatal(err, resp, string(resp.Body))
+	}
+	// File upload - download
+	var downloadFileName string
+	for _, line := range strings.Split(string(resp.Body), "\n") {
+		/*
+			The line looks like:
+			<pre>.... Your file is available for 24 hours under name: xxxx.nnn</pre>
+		*/
+		if strings.Contains(line, "Your file is available for 24 hours") {
+			downloadFileName = line[strings.IndexRune(line, ':')+1 : strings.LastIndexByte(line, '<')]
+		}
+	}
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
+		Method:      http.MethodPost,
+		ContentType: "application/x-www-form-urlencoded",
+		Body:        strings.NewReader(url.Values{"submit": []string{"Download"}, "download": []string{downloadFileName}}.Encode()),
+	}, addr+"/upload")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != TestLaitosIndexHTMLContent {
+		t.Fatal(err, resp, string(resp.Body))
+	}
+
 	// Gitlab handle
 	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/gitlab")
 	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {
@@ -537,11 +601,16 @@ over.]]></Say>`) {
 	}
 }
 
+const (
+	TestLaitosIndexHTMLContent = "this is index #LAITOS_CLIENTADDR #LAITOS_3339TIME"
+)
+
 // PrepareForTestHTTPD sets up a directory and HTML file to be hosted by HTTPD during tests.
 func PrepareForTestHTTPD(t testingstub.T) {
 	// Create a temporary file for index
+	_ = os.MkdirAll("/tmp", 1777)
 	indexFile := "/tmp/test-laitos-index.html"
-	if err := ioutil.WriteFile(indexFile, []byte("this is index #LAITOS_CLIENTADDR #LAITOS_3339TIME"), 0644); err != nil {
+	if err := ioutil.WriteFile(indexFile, []byte(TestLaitosIndexHTMLContent), 0644); err != nil {
 		panic(err)
 	}
 	htmlDir := "/tmp/test-laitos-dir"

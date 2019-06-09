@@ -100,6 +100,7 @@ var sampleConfigJSON = `
   },
   "HTTPHandlers": {
     "CommandFormEndpoint": "/cmd_form",
+    "FileUploadEndpoint": "/upload",
     "GitlabBrowserEndpoint": "/gitlab",
     "GitlabBrowserEndpointConfig": {
       "PrivateToken": "just a dummy token"

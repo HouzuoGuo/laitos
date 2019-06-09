@@ -18,7 +18,7 @@ const HandleGitlabPage = `<html>
     <title>Gitlab browser</title>
 </head>
 <body>
-    <form action="%s" method="get">
+    <form action="%s" method="post">
         <p>
             Shortcut name: <input type="password" name="shortcut" value="%s" />
             <br />

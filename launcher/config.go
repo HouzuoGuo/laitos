@@ -52,6 +52,7 @@ type HTTPHandlers struct {
 	BrowserSlimerJSEndpointConfig handler.HandleBrowserSlimerJS `json:"BrowserSlimerJSEndpointConfig"`
 
 	CommandFormEndpoint string `json:"CommandFormEndpoint"`
+	FileUploadEndpoint  string `json:"FileUploadEndpoint"`
 
 	GitlabBrowserEndpoint       string                      `json:"GitlabBrowserEndpoint"`
 	GitlabBrowserEndpointConfig handler.HandleGitlabBrowser `json:"GitlabBrowserEndpointConfig"`
@@ -379,6 +380,9 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		}
 		if config.HTTPHandlers.CommandFormEndpoint != "" {
 			handlers[config.HTTPHandlers.CommandFormEndpoint] = &handler.HandleCommandForm{}
+		}
+		if config.HTTPHandlers.FileUploadEndpoint != "" {
+			handlers[config.HTTPHandlers.FileUploadEndpoint] = &handler.HandleFileUpload{}
 		}
 		if config.HTTPHandlers.GitlabBrowserEndpoint != "" {
 			config.HTTPHandlers.GitlabBrowserEndpointConfig.MailClient = config.MailClient

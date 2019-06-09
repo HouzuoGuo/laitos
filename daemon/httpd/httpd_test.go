@@ -45,6 +45,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.Processor = common.GetTestCommandProcessor()
 	daemon.HandlerCollection["/info"] = &handler.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
 	daemon.HandlerCollection["/cmd_form"] = &handler.HandleCommandForm{}
+	daemon.HandlerCollection["/upload"] = &handler.HandleFileUpload{}
 	daemon.HandlerCollection["/gitlab"] = &handler.HandleGitlabBrowser{PrivateToken: "token-does-not-matter-in-this-test"}
 	daemon.HandlerCollection["/html"] = &handler.HandleHTMLDocument{HTMLFilePath: "/tmp/test-laitos-index.html"}
 	daemon.HandlerCollection["/mail_me"] = &handler.HandleMailMe{
