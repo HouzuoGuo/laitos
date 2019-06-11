@@ -177,8 +177,8 @@ func (_ *HandleFileUpload) GetRateLimitFactor() int {
 }
 
 func (_ *HandleFileUpload) SelfTest() error {
-	if _, err := os.Stat(fileUploadStorage); err != nil {
-		return fmt.Errorf("HandleFileUpload: failed to read storage directory \"%s\" - %v", fileUploadStorage, err)
+	if err := os.MkdirAll(fileUploadStorage, 0700); err != nil {
+		return fmt.Errorf("HandleFileUpload.SelfTest: failed to read/create storage directory \"%s\" - %v", fileUploadStorage, err)
 	}
 	return nil
 }
