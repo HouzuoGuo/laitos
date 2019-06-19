@@ -14,8 +14,14 @@ import (
 	"github.com/HouzuoGuo/laitos/platform"
 )
 
-// If package manager output contains any of the strings, the procedure output about the package will be reduced into "Nothing to do"
-var suppressOutputMarkers = []string{"no packages marked for update", "nothing to do", "not found", "0 upgraded, 0 newly installed", "unable to locate", "already installed", "is the latest version"}
+/*
+suppressOutputMarkers is a list of strings containing text fragments that may be found in package manager output.
+The fragments indicate that package manager action has not resulted in any modification to the system.
+*/
+var suppressOutputMarkers = []string{
+	"no packages marked for update", "nothing to do", "not found", "0 to upgrade, 0 to newly install",
+	"0 upgraded, 0 newly installed", "unable to locate", "already installed", "is the latest version",
+}
 
 /*
 PrepareDockerRepositorForDebian prepares APT repository for installing docker, because debian does not distribute docker
@@ -177,9 +183,10 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		result, err := platform.InvokeProgram(pkgManagerEnv, 5*60, pkgManagerPath, "update")
 		// There is no need to suppress this output according to markers
 		daemon.logPrintStageStep(out, "update apt manifests: %v - %s", err, strings.TrimSpace(result))
-		// Fix interrupted package installation, otherwise no package will update/install in the next steps.
+		// Repair interrupted package installation, otherwise no package will upgrade/install in the next steps.
+		daemon.logPrintStageStep(out, "repair interrupted package installation if there is any")
 		result, err = platform.InvokeProgram(pkgManagerEnv, 2*3600, "dpkg", "--configure", "-a", "--force-confold", "--force-confdef")
-		daemon.logPrintStageStep(out, "fix interrupted package installation: %v - %s", err, strings.TrimSpace(result))
+		daemon.logPrintStageStep(out, "repaired package installation interruption: %v - %s", err, strings.TrimSpace(result))
 	}
 
 	// Upgrade system packages with a time constraint of two hours
@@ -230,7 +237,8 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"7zip", "bind-utils", "curl", "dateutils", "diffutils", "dnsutils", "finger", "hostname", "htop", "iftop", "iotop", "iputils-ping",
 		"language-pack-en", "locales", "locales-all", "lftp", "lsof", "mailutils", "mailx", "moreutils", "nc", "net-snmp", "net-snmp-utils",
 		"net-tools", "netcat", "nmap", "nmon", "patchutils", "perf", "procps", "psmisc", "rsync", "screen", "sensors", "snmp", "strace", "sudo",
-		"tcpdump", "telnet", "tmux", "traceroute", "tree", "unar", "unzip", "usbutils", "util-linux-locales", "vim", "wget", "whois", "wiggle", "zip",
+		"tcpdump", "telnet", "tmux", "traceroute", "tree", "unar", "unzip", "usbutils", "util-linux", "util-linux-locales", "vim", "wget",
+		"whois", "wiggle", "zip",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)
 	sort.Strings(pkgs)

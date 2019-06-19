@@ -319,7 +319,9 @@ func (daemon *Daemon) SystemMaintenance() string {
 			}
 		}
 	}
-	daemon.MaintainFileSystem(out)
+	daemon.CleanUpFiles(out)
+	daemon.DefragmentAllDisks(out)
+	daemon.TrimAllSSDs(out)
 	daemon.MaintainSwapFile(out)
 
 	/*

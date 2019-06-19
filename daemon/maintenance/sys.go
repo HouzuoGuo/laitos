@@ -23,20 +23,19 @@ const (
 func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
 	daemon.logPrintStage(out, "synchronise clock")
 	if misc.HostIsWindows() {
-		result, err := platform.InvokeProgram(nil, 60, `C:\Windows\system32\w32tm.exe`, "/config", `/manualpeerlist:"0.pool.ntp.org sg.pool.ntp.org us.pool.ntp.org fi.pool.ntp.org"`, "/syncfromflags:manual", "/reliable:yes", "/update")
+		result, err := platform.InvokeProgram(nil, 120, `C:\Windows\system32\w32tm.exe`, "/config", `/manualpeerlist:"0.pool.ntp.org sg.pool.ntp.org us.pool.ntp.org fi.pool.ntp.org"`, "/syncfromflags:manual", "/reliable:yes", "/update")
 		daemon.logPrintStageStep(out, "w32tm config: %v - %s", err, strings.TrimSpace(result))
-		result, err = platform.InvokeProgram(nil, 60, `C:\Windows\system32\w32tm.exe`, "/resync", "/force")
+		result, err = platform.InvokeProgram(nil, 120, `C:\Windows\system32\w32tm.exe`, "/resync", "/force")
 		daemon.logPrintStageStep(out, "w32tm resync: %v - %s", err, strings.TrimSpace(result))
 	} else {
 		// Use three tools to immediately synchronise system clock
-		result, err := platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "ntpdate", "-4", "1.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "au.pool.ntp.org")
+		result, err := platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 120, "ntpdate", "-4", "1.pool.ntp.org", "us.pool.ntp.org", "de.pool.ntp.org", "au.pool.ntp.org")
 		daemon.logPrintStageStep(out, "ntpdate: %v - %s", err, strings.TrimSpace(result))
-		result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "chronyd", "-q", "pool pool.ntp.org iburst")
+		result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 120, "chronyd", "-q", "pool pool.ntp.org iburst")
 		daemon.logPrintStageStep(out, "chronyd: %v - %s", err, strings.TrimSpace(result))
-		result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 60, "busybox", "ntpd", "-n", "-q", "-p", "2.pool.ntp.org", "-p", "uk.pool.ntp.org", "-p", "ca.pool.ntp.org", "-p", "jp.pool.ntp.org")
+		result, err = platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 120, "busybox", "ntpd", "-n", "-q", "-p", "2.pool.ntp.org", "-p", "uk.pool.ntp.org", "-p", "ca.pool.ntp.org", "-p", "jp.pool.ntp.org")
 		daemon.logPrintStageStep(out, "busybox ntpd: %v - %s", err, strings.TrimSpace(result))
 	}
-
 	daemon.CorrectStartupTime(out)
 }
 
@@ -105,15 +104,19 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	}
 	daemon.logPrintStage(out, "maintain windows system integrity")
 	// These tools seriously spend a lot of time
+	daemon.logPrintStageStep(out, "Starting dism StartComponentCleanup")
 	progOut, err := platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/ResetBase")
 	daemon.logPrintStageStep(out, "dism StartComponentCleanup: %v - %s", err, progOut)
+	daemon.logPrintStageStep(out, "Starting dism SPSuperseded")
 	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/SPSuperseded")
 	daemon.logPrintStageStep(out, "dism SPSuperseded: %v - %s", err, progOut)
+	daemon.logPrintStageStep(out, "Starting dism Restorehealth")
 	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/Restorehealth")
 	daemon.logPrintStageStep(out, "dism Restorehealth: %v - %s", err, progOut)
+	daemon.logPrintStageStep(out, "Starting sfc")
 	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
 	daemon.logPrintStageStep(out, "sfc ScanNow: %v - %s", err, progOut)
-	daemon.logPrintStage(out, "install windows updates")
+	daemon.logPrintStage(out, "installing windows updates")
 	// Have to borrow script host's capability to search and installwindows updates
 	script, err := ioutil.TempFile("", "laitos-windows-update-script*.vbs")
 	if err != nil {
@@ -247,32 +250,9 @@ func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
 	}
 }
 
-// MaintainFileSystem gets rid of unused temporary files on both Unix-like and Windows OSes.
-func (daemon *Daemon) MaintainFileSystem(out *bytes.Buffer) {
-	daemon.logPrintStage(out, "maintain file system")
-	// Remove files from temporary locations that have not been modified for over a week
-	daemon.logPrintStageStep(out, "clean up unused temporary files")
-	sevenDaysAgo := time.Now().Add(-(7 * 24 * time.Hour))
-	// Keep in mind that /var/tmp is supposed to hold "persistent temporary files" in Linux
-	for _, location := range []string{`/tmp`, `C:\Temp`, `C:\Windows\Temp`} {
-		filepath.Walk(location, func(thisPath string, info os.FileInfo, err error) error {
-			if err == nil {
-				if info.ModTime().Before(sevenDaysAgo) {
-					if deleteErr := os.RemoveAll(thisPath); deleteErr == nil {
-						daemon.logPrintStageStep(out, "deleted %s", thisPath)
-					} else {
-						daemon.logPrintStageStep(out, "failed to deleted %s - %v", thisPath, deleteErr)
-					}
-				}
-			}
-			return nil
-		})
-	}
-}
-
 // recursivelyChown changes owner and group of all files underneath the path, including the path itself.
 func recursivelyChown(rootPath string, newUID, newGID int) (succeeded, failed int) {
-	filepath.Walk(rootPath, func(thisPath string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(rootPath, func(thisPath string, info os.FileInfo, err error) error {
 		if err := os.Lchown(thisPath, newUID, newGID); err == nil {
 			succeeded++
 		} else {

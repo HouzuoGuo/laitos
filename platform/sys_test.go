@@ -38,7 +38,7 @@ func TestInvokeProgram(t *testing.T) {
 		}
 
 		// Verify cap on program output size
-		out, err = InvokeProgram(nil, 10, "cmd.exe", "/c", `type c:\windows\system32\ntoskrnl.exe`)
+		out, err = InvokeProgram(nil, 3600, "cmd.exe", "/c", `type c:\windows\system32\ntoskrnl.exe`)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -46,7 +46,7 @@ func TestInvokeProgram(t *testing.T) {
 			t.Fatal(len(out))
 		}
 	} else {
-		out, err := InvokeProgram([]string{"A=laitos123"}, 10, "printenv", "A")
+		out, err := InvokeProgram([]string{"A=laitos123"}, 3600, "printenv", "A")
 		if err != nil || out != "laitos123\n" {
 			t.Fatal(err, out)
 		}
@@ -62,7 +62,7 @@ func TestInvokeProgram(t *testing.T) {
 		}
 
 		// Verify cap on program output size
-		out, err = InvokeProgram(nil, 10, "yes", "0123456789")
+		out, err = InvokeProgram(nil, 3600, "yes", "0123456789")
 		if err == nil {
 			t.Fatal("did not timeout")
 		}

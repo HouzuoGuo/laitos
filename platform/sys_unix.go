@@ -66,7 +66,26 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 			logger.Warning("InvokeProgram", program, nil, "failed to kill after time limit exceeded")
 		}
 	})
-	err = proc.Run()
+	// Start external process
+	if err = proc.Start(); err != nil {
+		timeOutTimer.Stop()
+		return
+	}
+	// If the the process may 10 minutes or longer to run, then start logging how much time the process has left every minute.
+	var processQuit bool
+	if timeoutSec >= 10*60 {
+		go func() {
+			beginningSec := time.Now().Unix()
+			for !processQuit && !timedOut {
+				logger.Info("InvokeProgram", program, nil, "external process (PID %d) is running and may continue for another %d minutes",
+					proc.Process.Pid, (timeoutSec-int(time.Now().Unix()-beginningSec))/60)
+				time.Sleep(1 * time.Minute)
+			}
+		}()
+	}
+	// Wait for process to finish
+	err = proc.Wait()
+	processQuit = true
 	timeOutTimer.Stop()
 	if timedOut {
 		err = errors.New("time limit exceeded")

@@ -55,16 +55,29 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		timeOutTimer.Stop()
 		return
 	}
+	// If the the process may 10 minutes or longer to run, then start logging how much time the process has left every minute.
+	var processQuit bool
+	if timeoutSec >= 10*60 {
+		go func() {
+			beginningSec := time.Now().Unix()
+			for !processQuit && !timedOut {
+				logger.Info("InvokeProgram", program, nil, "external process (PID %d) is running and may continue for another %d minutes",
+					proc.Process.Pid, (timeoutSec-int(time.Now().Unix()-beginningSec))/60)
+				time.Sleep(1 * time.Minute)
+			}
+		}()
+	}
 	/*
 		Lower the external process priority to "below normal" (magic priority number 16384). If an error occurs, it
 		usually means the external process is very short lived. There is no need to log WMIC's error.
 	*/
 	wmicCmd := exec.Command(`C:\WINDOWS\System32\Wbem\WMIC.exe`, "process", "where", "ProcessID="+strconv.Itoa(proc.Process.Pid), "call", "SetPriority", "16384")
 	if err := wmicCmd.Start(); err == nil {
-		wmicCmd.Wait()
+		_ = wmicCmd.Wait()
 	}
 	// Wait for process to finish
 	err = proc.Wait()
+	processQuit = true
 	timeOutTimer.Stop()
 	if timedOut {
 		err = errors.New("time limit exceeded")
