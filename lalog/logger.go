@@ -73,18 +73,7 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 		}
 	}
 	msg.WriteString(fmt.Sprintf(template, values...))
-	if msg.Len() > MaxLogMessageLen {
-		// Grab the beginning and end of the message
-		truncatedLabel := "...(truncated)..."
-		firstHalfEnd := MaxLogMessageLen/2 - len(truncatedLabel)/2
-		secondHalfBegin := msg.Len() - (MaxLogMessageLen / 2) + len(truncatedLabel)/2 + 1
-		var truncatedMsg bytes.Buffer
-		truncatedMsg.Write(msg.Bytes()[:firstHalfEnd])
-		truncatedMsg.WriteString(truncatedLabel)
-		truncatedMsg.Write(msg.Bytes()[secondHalfBegin:])
-		msg = truncatedMsg
-	}
-	return msg.String()
+	return TruncateString(msg.String(), MaxLogMessageLen)
 }
 
 // Print a log message and keep the message in warnings buffer.
@@ -125,3 +114,33 @@ func (logger *Logger) MaybeMinorError(err error) {
 
 // DefaultLogger must be used when it is not possible to acquire a reference to a more dedicated logger.
 var DefaultLogger = &Logger{ComponentName: "default", ComponentID: []LoggerIDField{{"PID", os.Getpid()}}}
+
+const truncatedLabel = "...(truncated)..."
+
+/*
+TruncateString returns the input string as-is if it is less or equal to the desired length. Otherwise, it removes text
+from the middle of string to fit to the desired length, and substitutes the removed portion with text
+"...(truncated)..." and then returns.
+*/
+func TruncateString(in string, length int) string {
+	if length < 0 {
+		length = 0
+	}
+	if len(in) > length {
+		if length <= len(truncatedLabel) {
+			return in[:length]
+		}
+		// Grab the beginning and end of the string
+		firstHalfEnd := length/2 - len(truncatedLabel)/2
+		secondHalfBegin := len(in) - (length / 2) + len(truncatedLabel)/2
+		if length%2 == 0 {
+			secondHalfBegin++
+		}
+		var truncatedMsg bytes.Buffer
+		truncatedMsg.WriteString(in[:firstHalfEnd])
+		truncatedMsg.WriteString(truncatedLabel)
+		truncatedMsg.WriteString(in[secondHalfBegin:])
+		return truncatedMsg.String()
+	}
+	return in
+}

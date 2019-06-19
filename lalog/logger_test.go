@@ -129,3 +129,45 @@ func TestLogger_MaybeError(t *testing.T) {
 	logger.MaybeMinorError(nil)
 	logger.MaybeMinorError(errors.New("testError"))
 }
+
+func TestTruncateString(t *testing.T) {
+	if s := TruncateString("", -1); s != "" {
+		t.Fatal(s)
+	}
+	if s := TruncateString("", 0); s != "" {
+		t.Fatal(s)
+	}
+	if s := TruncateString("a", 0); s != "" {
+		t.Fatal(s)
+	}
+
+	if s := TruncateString("aa", 1); s != "a" {
+		t.Fatal(s)
+	}
+	if s := TruncateString("aa", 2); s != "aa" {
+		t.Fatal(s)
+	}
+	if s := TruncateString("aa", 3); s != "aa" {
+		t.Fatal(s)
+	}
+
+	if s := TruncateString("01234567890123456789", 10); s != "0123456789" {
+		t.Fatal(s)
+	}
+	if s := TruncateString("01234567890123456789", 17); s != "01234567890123456" {
+		t.Fatal(s)
+	}
+	if s := TruncateString("01234567890123456789", 18); s != "0...(truncated)..." {
+		t.Fatal(s)
+	}
+	if s := TruncateString("01234567890123456789", 19); s != "0...(truncated)...9" {
+		t.Fatal(s)
+	}
+	if s := TruncateString("012345678901234567890123456789", 25); s != "0123...(truncated)...6789" {
+		t.Fatal(s)
+	}
+
+	if s := TruncateString(strings.Repeat("a", 1000), 500); !strings.Contains(s, strings.Repeat("a", 241)) {
+		t.Fatal(s)
+	}
+}

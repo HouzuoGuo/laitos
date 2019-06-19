@@ -22,15 +22,18 @@ import (
 )
 
 const (
-	TCPPortCheckTimeoutSec = 10 // TCPPortCheckTimeoutSec is the timeout used in knocking ports.
-
+	// TCPPortCheckTimeoutSec is the timeout used in knocking ports.
+	TCPPortCheckTimeoutSec = 10
 	/*
 		MinimumIntervalSec is the lowest acceptable value of system maintenance interval. It must be greater than the
 		maximum possible duration of all maintenance tasks together. Be extra careful that Windows system integrity
 		maintenance can take couple of hours.
 	*/
 	MinimumIntervalSec = 24 * 3600
-	InitialDelaySec    = 180 // InitialDelaySec is the number of seconds to wait for the first maintenance run.
+	// InitialDelaySec is the number of seconds to wait for the first maintenance run.
+	InitialDelaySec = 180
+	// MaxMessageLength is the maximum length of each message entry coming from output of a maintenance action.
+	MaxMessageLength = 1024
 )
 
 /*
@@ -287,13 +290,13 @@ func (daemon *Daemon) Stop() {
 
 // logPrintStage reports the start/finish of a maintenance stage to output buffer and log.
 func (daemon *Daemon) logPrintStage(out *bytes.Buffer, template string, a ...interface{}) {
-	fmt.Fprintf(out, "\n---"+template+"\n", a...)
+	out.WriteString(lalog.TruncateString(fmt.Sprintf("\n---"+template+"\n", a...), MaxMessageLength))
 	daemon.logger.Info("maintenance", "", nil, "Stage: "+template, a...)
 }
 
 // logPrintStage reports the start/finish of a maintenance step to output buffer and log.
 func (daemon *Daemon) logPrintStageStep(out *bytes.Buffer, template string, a ...interface{}) {
-	fmt.Fprintf(out, "---"+template+"\n", a...)
+	out.WriteString(lalog.TruncateString(fmt.Sprintf("---"+template+"\n", a...), MaxMessageLength))
 	daemon.logger.Info("maintenance", "", nil, "Step: "+template, a...)
 }
 

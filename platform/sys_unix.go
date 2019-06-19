@@ -79,8 +79,10 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 			for {
 				time.Sleep(1 * time.Minute)
 				if !processQuit && !timedOut {
-					logger.Info("InvokeProgram", program, nil, "external process (PID %d) is running and may continue for another %d minutes",
-						proc.Process.Pid, (timeoutSec-int(time.Now().Unix()-beginningSec))/60)
+					spentMinutes := (time.Now().Unix() - beginningSec) / 60
+					timeoutRemainingMinutes := (timeoutSec - int(time.Now().Unix()-beginningSec)) / 60
+					logger.Info("InvokeProgram", program, nil, "external process %d has been running for %d minutes and will time out in %d minutes",
+						proc.Process.Pid, spentMinutes, timeoutRemainingMinutes)
 				} else {
 					break
 				}

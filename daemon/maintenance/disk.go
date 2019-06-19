@@ -30,12 +30,16 @@ func (daemon *Daemon) CleanUpFiles(out *bytes.Buffer) {
 		})
 	}
 	if misc.HostIsWindows() {
-		// On Windows, run Disk Cleanup application to do a more thorough round.
-		daemon.logPrintStageStep(out, "running Windows Disk Cleanup")
-		result, err := platform.InvokeProgram(nil, 3600, `C:\Windows\system32\cleanmgr.exe`, "/SAGERUN:1")
-		daemon.logPrintStageStep(out, "disk clean up result (round 1): %v - %s", err, strings.TrimSpace(result))
-		result, err = platform.InvokeProgram(nil, 3600, `C:\Windows\system32\cleanmgr.exe`, "/VERYLOWDISK")
-		daemon.logPrintStageStep(out, "disk clean up result (final round): %v - %s", err, strings.TrimSpace(result))
+		/*
+			Use Windows Disk Cleanup to do a more thorough round of clean up. The Windows program is not very well
+			suited for headless operation, modes such as "/SAGERUN" and "/VERYLOWDISK" have to spawn a window, and in
+			case of headless operation (e.g. running laitos at boot automatically via Task Scheduler) the modes will
+			simply hang.
+			"AUTOCLEAN" however does not hang in headless mode and seems to kick off some kind of background routine to
+			complete the disk clean up operation.
+		*/
+		result, err := platform.InvokeProgram(nil, 3600, `C:\Windows\system32\cleanmgr.exe`, "/AUTOCLEAN")
+		daemon.logPrintStageStep(out, "windows automated disk clean up: %v - %s", err, strings.TrimSpace(result))
 	}
 }
 
@@ -54,12 +58,12 @@ func (daemon *Daemon) DefragmentAllDisks(out *bytes.Buffer) {
 		defragment all drives, ensuring that at lest the system drive is defragmented.
 		This way, the defragmentation of C: drive will not have to share its command timeout with other drives.
 	*/
-	daemon.logPrintStageStep(out, "Defragmenting C drive")
-	result, err := platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Defrag.exe`, "C:", "/V")
+	daemon.logPrintStageStep(out, "defragmenting C drive")
+	result, err := platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Defrag.exe`, "C:")
 	daemon.logPrintStageStep(out, "C drive defragmentation result: %v - %s", err, strings.TrimSpace(result))
-	daemon.logPrintStageStep(out, "Defragmenting all drives")
-	result, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Defrag.exe`, "/C", "/V")
-	daemon.logPrintStageStep(out, "All drives defragmentation result: %v - %s", err, strings.TrimSpace(result))
+	daemon.logPrintStageStep(out, "defragmenting all drives")
+	result, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Defrag.exe`, "/C")
+	daemon.logPrintStageStep(out, "all drives defragmentation result: %v - %s", err, strings.TrimSpace(result))
 }
 
 // TrimSSDDisk executes SSD TRIM operation on C:\ drive (Windows) or all drives
