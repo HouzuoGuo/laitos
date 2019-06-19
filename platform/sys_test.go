@@ -62,7 +62,7 @@ func TestInvokeProgram(t *testing.T) {
 		}
 
 		// Verify cap on program output size
-		out, err = InvokeProgram(nil, 3600, "yes", "0123456789")
+		out, err = InvokeProgram(nil, 1, "yes", "0123456789")
 		if err == nil {
 			t.Fatal("did not timeout")
 		}
