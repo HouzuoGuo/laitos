@@ -86,8 +86,8 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.smtpConfig = smtp.Config{
 		IOTimeout:                          IOTimeoutSec * time.Second, // IO timeout is a reasonable minute
-		MaxMessageLength:                   25 * 1024 * 1024,           // Accept mails up to 25 MB large (same as Gmail)
-		MaxConsecutiveUnrecognisedCommands: MaxConversationLength / 2,  // Abort connection after consecutive bad commands
+		MaxMessageLength:                   inet.MaxMailBodySize,
+		MaxConsecutiveUnrecognisedCommands: MaxConversationLength / 2, // Abort connection after consecutive bad commands
 		// Greet SMTP clients with a list of domain names that this server receives emails for
 		ServerName: strings.Join(daemon.MyDomains, " "),
 	}

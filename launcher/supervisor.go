@@ -197,8 +197,11 @@ Latest stderr: %s
 		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
 		string(sup.mainStdout.Retrieve(false)),
 		string(sup.mainStderr.Retrieve(false)))
-
-	if err := sup.MailClient.Send(subject, inet.LintMailBody(body), sup.NotificationRecipients...); err != nil {
+	/*
+		Instead sending up to inet.MaxMailBodySize bytes (a very generous size) of program output, be on the safe side
+		and limit the size to 1MB, better facilitating successful and speedy delivery.
+	*/
+	if err := sup.MailClient.Send(subject, lalog.LintString(body, 1048576), sup.NotificationRecipients...); err != nil {
 		sup.logger.Warning("notifyFailure", "", err, "failed to send failure notification email")
 	}
 }

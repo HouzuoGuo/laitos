@@ -2,6 +2,7 @@ package inet
 
 import (
 	"bytes"
+	"github.com/HouzuoGuo/laitos/misc"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -9,9 +10,14 @@ import (
 	"net/mail"
 	"regexp"
 	"strings"
-	"unicode"
+)
 
-	"github.com/HouzuoGuo/laitos/misc"
+const (
+	/*
+		MaxMailBodySize is the maximum size of a single mail message acceptable by popular Internet email services.
+		The number defined here is slightly more generous than the norm.
+	*/
+	MaxMailBodySize = 32 * 1048576
 )
 
 // RegexMailAddress finds *@*.* that looks much like an Email address
@@ -30,6 +36,9 @@ type BasicMail struct {
 
 // Parse headers of the mail message and return some basic properties about the mail.
 func ReadMailMessage(mailMessage []byte) (prop BasicMail, parsedMail *mail.Message, err error) {
+	if len(mailMessage) > MaxMailBodySize {
+		mailMessage = mailMessage[:MaxMailBodySize]
+	}
 	// Retrieve headers using standard library function
 	parsedMail, err = mail.ReadMessage(bytes.NewReader(mailMessage))
 	if err != nil {
@@ -93,7 +102,7 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 				contentReader = quotedprintable.NewReader(contentReader)
 			}
 			// Read body of the current part
-			body, err := misc.ReadAllUpTo(contentReader, 32*1048576)
+			body, err := misc.ReadAllUpTo(contentReader, MaxMailBodySize)
 			if err != nil {
 				return err
 			}
@@ -116,27 +125,11 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 		if strings.Contains(parsedMail.Header.Get("Content-Transfer-Encoding"), "quoted-printable") {
 			contentReader = quotedprintable.NewReader(contentReader)
 		}
-		body, err := misc.ReadAllUpTo(contentReader, 32*1048576)
+		body, err := misc.ReadAllUpTo(contentReader, MaxMailBodySize)
 		if err != nil {
 			return err
 		}
 		_, err = fun(prop, body)
 		return err
 	}
-}
-
-/*
-LintMailBody removes weird characters that may appear and cause email display to squeeze all lines together.
-Returns linted string.
-*/
-func LintMailBody(in string) string {
-	var cleanedResult bytes.Buffer
-	for _, r := range in {
-		if r < 128 && (unicode.IsPrint(r) || unicode.IsSpace(r)) {
-			cleanedResult.WriteRune(r)
-		} else {
-			cleanedResult.WriteRune('?')
-		}
-	}
-	return cleanedResult.String()
 }

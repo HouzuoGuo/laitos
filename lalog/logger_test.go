@@ -171,3 +171,21 @@ func TestTruncateString(t *testing.T) {
 		t.Fatal(s)
 	}
 }
+
+func TestLintString(t *testing.T) {
+	if s := LintString("", -1); s != "" {
+		t.Fatal(s)
+	}
+	if s := LintString("", 0); s != "" {
+		t.Fatal(s)
+	}
+	if s := LintString("abc", 1); s != "a" {
+		t.Fatal(s)
+	}
+
+	a := LintString("\x01\x08 a \x0e\x1f b\n \x7f c\t \x80", 100)
+	match := "__ a __ b\n _ c\t _"
+	if a != match {
+		t.Fatalf("\n%s\n%s\n%v\n%v\n", a, match, []byte(a), []byte(match))
+	}
+}

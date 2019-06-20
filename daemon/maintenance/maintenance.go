@@ -229,7 +229,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	} else if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
 		daemon.logger.Warning("Execute", "", err, "failed to send notification mail")
 	}
-	return inet.LintMailBody(result.String()), allOK
+	return lalog.LintString(result.String(), inet.MaxMailBodySize), allOK
 }
 
 func (daemon *Daemon) Initialise() error {

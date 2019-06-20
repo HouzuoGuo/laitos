@@ -196,7 +196,7 @@ hoho=
 `)
 
 func TestWalkQuotedPrintable(t *testing.T) {
-	WalkMailMessage(TextMailQuotedPrintable, func(prop BasicMail, body []byte) (bool, error) {
+	err := WalkMailMessage(TextMailQuotedPrintable, func(prop BasicMail, body []byte) (bool, error) {
 		if !reflect.DeepEqual(prop, BasicMail{
 			ContentType:  `text/plain; charset="iso-8859-1"`,
 			ReplyAddress: "howard-from@example.com",
@@ -212,4 +212,7 @@ hoho` {
 		}
 		return true, nil
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }

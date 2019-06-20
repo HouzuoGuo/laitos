@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"time"
+	"unicode"
 )
 
 const (
@@ -73,7 +74,7 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 		}
 	}
 	msg.WriteString(fmt.Sprintf(template, values...))
-	return TruncateString(msg.String(), MaxLogMessageLen)
+	return LintString(TruncateString(msg.String(), MaxLogMessageLen), MaxLogMessageLen)
 }
 
 // Print a log message and keep the message in warnings buffer.
@@ -122,18 +123,18 @@ TruncateString returns the input string as-is if it is less or equal to the desi
 from the middle of string to fit to the desired length, and substitutes the removed portion with text
 "...(truncated)..." and then returns.
 */
-func TruncateString(in string, length int) string {
-	if length < 0 {
-		length = 0
+func TruncateString(in string, maxLength int) string {
+	if maxLength < 0 {
+		maxLength = 0
 	}
-	if len(in) > length {
-		if length <= len(truncatedLabel) {
-			return in[:length]
+	if len(in) > maxLength {
+		if maxLength <= len(truncatedLabel) {
+			return in[:maxLength]
 		}
 		// Grab the beginning and end of the string
-		firstHalfEnd := length/2 - len(truncatedLabel)/2
-		secondHalfBegin := len(in) - (length / 2) + len(truncatedLabel)/2
-		if length%2 == 0 {
+		firstHalfEnd := maxLength/2 - len(truncatedLabel)/2
+		secondHalfBegin := len(in) - (maxLength / 2) + len(truncatedLabel)/2
+		if maxLength%2 == 0 {
 			secondHalfBegin++
 		}
 		var truncatedMsg bytes.Buffer
@@ -143,4 +144,30 @@ func TruncateString(in string, length int) string {
 		return truncatedMsg.String()
 	}
 	return in
+}
+
+/*
+LintString returns a copy of the input string with unusual characters (such as non-printable characters and record
+separators) replaced by an underscore. Consequently, printable characters such as CJK languages are also replaced.
+Additionally the string return value is capped to the maximum specified length.
+*/
+func LintString(in string, maxLength int) string {
+	if maxLength < 0 {
+		maxLength = 0
+	}
+	var cleanedResult bytes.Buffer
+	for i, r := range in {
+		if i >= maxLength {
+			break
+		}
+		if (r >= 0 && r <= 8) || // Skip NUL...Backspace
+			(r >= 14 && r <= 31) || // Skip ShiftOut..UnitSeparator
+			(r >= 127) || // Skip those beyond ASCII table
+			(!unicode.IsPrint(r) && !unicode.IsSpace(r)) { // Skip non-printable
+			cleanedResult.WriteRune('_')
+		} else {
+			cleanedResult.WriteRune(r)
+		}
+	}
+	return cleanedResult.String()
 }
