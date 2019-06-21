@@ -114,8 +114,14 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/Restorehealth")
 	daemon.logPrintStageStep(out, "dism Restorehealth: %v - %s", err, progOut)
 	daemon.logPrintStageStep(out, "Starting sfc")
-	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
-	daemon.logPrintStageStep(out, "sfc ScanNow: %v - %s", err, progOut)
+	/*
+		The output coming from sfc often causes rendering defects in a large variety of terminals - they appear to be
+		rendered in twice the width of ordinary letters. Consequently, the maintenance report delivered as mail is cut
+		right before the sfc output section by popular SMTP servers. Until the exact nature of the command output can be
+		determined, the output will be suppressed.
+	*/
+	_, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
+	daemon.logPrintStageStep(out, "sfc ScanNow: error? %v", err)
 	daemon.logPrintStage(out, "installing windows updates")
 	// Have to borrow script host's capability to search and installwindows updates
 	script, err := ioutil.TempFile("", "laitos-windows-update-script*.vbs")
