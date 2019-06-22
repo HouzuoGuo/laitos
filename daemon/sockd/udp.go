@@ -320,6 +320,10 @@ func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int,
 			return
 		}
 		dest := string(packet[DMAddrHeaderLength : DMAddrHeaderLength+int(packet[DMAddrLengthIndex])])
+		if strings.ContainsRune(dest, 0) {
+			daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve destination that contains NULL byte")
+			return
+		}
 		destIP = net.ParseIP(dest)
 		if destIP != nil && IsReservedAddr(destIP) {
 			daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve reserved address %s", dest)

@@ -281,6 +281,9 @@ func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, dest
 		destIP = net.ParseIP(dest)
 		destWithPort = net.JoinHostPort(dest, strconv.Itoa(int(port)))
 	}
+	if strings.ContainsRune(destNoPort, 0) || strings.ContainsRune(destWithPort, 0) {
+		err = fmt.Errorf("TCPCipherConnection.ParseRequest: destination must not contain NULL byte")
+	}
 	return
 }
 
@@ -310,7 +313,7 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 		conn.WriteRandAndClose()
 		return
 	}
-	if strings.ContainsRune(destWithPort, 0x00) {
+	if strings.ContainsRune(destWithPort, 0) {
 		conn.logger.Warning("HandleTCPConnection", remoteAddr, nil, "will not serve invalid destination address with 0 in it")
 		conn.WriteRandAndClose()
 		return

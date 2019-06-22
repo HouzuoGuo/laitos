@@ -95,7 +95,10 @@ func ExtractNamesFromHostsContent(content string) []string {
 	ret := make([]string, 0, 16384)
 	for _, line := range strings.Split(content, "\n") {
 		if strings.ContainsRune(line, 0) {
-			// Among all the potentially illegal domain name characters, only NULL causes go to panic in its name resolver routine for Windows.
+			/*
+				If attempting to resolve this name that contains NULL byte on Windows, it will unfortunately trigger an
+				internal panic in Go's DNS resolution routine.
+			*/
 			continue
 		}
 		line = strings.TrimSpace(line)

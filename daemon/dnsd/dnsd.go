@@ -255,6 +255,10 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 						atomic.LoadInt64(&countResolutionAttempts), len(allNames))
 				}
 				name := strings.ToLower(strings.TrimSpace(allNames[j]))
+				// Appearance of NULL byte triggers an unfortunate panic in go's DNS resolution routine on Windows alone
+				if strings.ContainsRune(name, 0) {
+					continue
+				}
 				ips, err := net.LookupIP(name)
 				newBlackListMutex.Lock()
 				newBlackList[name] = struct{}{}
