@@ -233,12 +233,15 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		// busybox and toybox are useful for general maintenance, and busybox can synchronise system clock as well.
 		"busybox", "toybox",
 
-		// Network diagnosis, system maintenance, and other useful utilities.
-		"7zip", "bind-utils", "curl", "dateutils", "diffutils", "dnsutils", "finger", "hostname", "htop", "iftop", "iotop", "iputils-ping",
-		"language-pack-en", "locales", "locales-all", "lftp", "lsof", "mailutils", "mailx", "moreutils", "nc", "net-snmp", "net-snmp-utils",
-		"net-tools", "netcat", "nmap", "nmon", "patchutils", "perf", "procps", "psmisc", "rsync", "screen", "sensors", "snmp", "strace", "sudo",
-		"tcpdump", "telnet", "tmux", "traceroute", "tree", "unar", "unzip", "usbutils", "util-linux", "util-linux-locales", "vim", "wget",
-		"whois", "wiggle", "zip",
+		// Network diagnosis and system maintenance utilities. On a typical Linux distribution they use ~300MB of disk space altogether.
+		"7zip", "apache2-utils", "bash", "bind-utils", "binutils", "busybox", "caca-utils", "ca-certificates-mozilla", "curl", "dateutils",
+		"diffutils", "dnsutils", "dos2unix", "findutils", "finger", "gnutls-bin", "gnutls-utils", "hostname", "htop", "iftop", "imlib2",
+		"imlib2-filters", "imlib2-loaders", "iotop", "iputils", "iputils-ping", "iputils-tracepath", "jsonlint", "language-pack-en", "lftp",
+		"libcaca0", "libcaca0-plugins", "lm-sensors", "locales", "lrzsz", "lsof", "mailutils", "mailx", "minicom", "miscfiles", "moreutils",
+		"mosh", "nc", "netcat", "net-snmp", "net-snmp-utils", "net-tools", "nicstat", "nmap", "nmon", "nping", "p7zip", "patchutils", "pciutils",
+		"perf", "procps", "psmisc", "rsync", "screen", "sensors", "snmp", "socat", "strace", "sudo", "sysinternals", "tcpdump", "tcptraceroute",
+		"telnet", "tmux", "tracepath", "traceroute", "tree", "tshark", "unar", "uniutils", "unzip", "usbutils", "util-linux", "util-linux-locales",
+		"vim", "wbritish", "wbritish-huge", "wget", "whois", "wiggle", "yamllint", "zip",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)
 	sort.Strings(pkgs)
