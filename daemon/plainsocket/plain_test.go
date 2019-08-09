@@ -4,7 +4,6 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestPlainTextDaemon(t *testing.T) {
@@ -33,7 +32,5 @@ func TestPlainTextDaemon(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	TestTCPServer(&daemon, t)
-	time.Sleep(RateLimitIntervalSec * time.Second)
-	TestUDPServer(&daemon, t)
+	TestServer(&daemon, t)
 }

@@ -20,11 +20,17 @@ func NewStats() *Stats {
 
 // Trigger increases counter by one and places the input quantity into numeric statistics.
 func (s *Stats) Trigger(qty float64) {
-	if qty <= 0 {
-		// Other than discarding the value, there's not much to do.
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if qty < 0 {
+		// Invalid quantity
 		return
 	}
-	s.mutex.Lock()
+	s.count++
+	if qty == 0 {
+		// Interval is too small for calculating high/low/average
+		return
+	}
 	if s.highest == 0 || s.highest < qty {
 		s.highest = qty
 	}
@@ -33,12 +39,12 @@ func (s *Stats) Trigger(qty float64) {
 	}
 	s.average = (s.average*float64(s.count) + qty) / (float64(s.count) + 1.0)
 	s.total += qty
-	s.count++
-	s.mutex.Unlock()
 }
 
 // Count returns the verbatim counter value, that is the number of times some action has triggered.
 func (s *Stats) Count() int {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	return int(s.count)
 }
 
