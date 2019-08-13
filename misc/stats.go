@@ -28,7 +28,7 @@ func (s *Stats) Trigger(qty float64) {
 	}
 	s.count++
 	if qty == 0 {
-		// Interval is too small for calculating high/low/average
+		// Interval is too small for updating high/low/average
 		return
 	}
 	if s.highest == 0 || s.highest < qty {
@@ -37,8 +37,8 @@ func (s *Stats) Trigger(qty float64) {
 	if s.lowest == 0 || s.lowest > qty {
 		s.lowest = qty
 	}
-	s.average = (s.average*float64(s.count) + qty) / (float64(s.count) + 1.0)
 	s.total += qty
+	s.average = s.total / float64(s.count)
 }
 
 // Count returns the verbatim counter value, that is the number of times some action has triggered.
