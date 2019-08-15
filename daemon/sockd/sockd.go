@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
@@ -17,10 +17,9 @@ import (
 )
 
 const (
-	MD5SumLength         = 16
-	IOTimeoutSec         = time.Duration(900 * time.Second)
-	RateLimitIntervalSec = 1
-	MaxPacketSize        = 9038
+	MD5SumLength  = 16
+	IOTimeoutSec  = 900
+	MaxPacketSize = 9038
 )
 
 var BlockedReservedCIDR = []net.IPNet{
@@ -128,9 +127,7 @@ type Daemon struct {
 	tcpDaemons []*TCPDaemon
 	udpDaemons []*UDPDaemon
 
-	stop    chan bool
-	started int32
-	logger  lalog.Logger
+	logger lalog.Logger
 }
 
 func (daemon *Daemon) Initialise() error {
@@ -155,11 +152,12 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.tcpDaemons = make([]*TCPDaemon, 0, 0)
 	daemon.udpDaemons = make([]*UDPDaemon, 0, 0)
-	daemon.stop = make(chan bool)
 	return nil
 }
 
 func (daemon *Daemon) StartAndBlock() error {
+	wg := new(sync.WaitGroup)
+
 	if daemon.TCPPorts != nil {
 		for _, tcpPort := range daemon.TCPPorts {
 			tcpDaemon := &TCPDaemon{
@@ -173,11 +171,14 @@ func (daemon *Daemon) StartAndBlock() error {
 				daemon.Stop()
 				return err
 			}
+			wg.Add(1)
 			daemon.tcpDaemons = append(daemon.tcpDaemons, tcpDaemon)
 			go func(tcpDaemon *TCPDaemon) {
 				if tcpErr := tcpDaemon.StartAndBlock(); tcpErr != nil {
 					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("TCP-%d", tcpDaemon.TCPPort), tcpErr, "failed to start TCP daemon")
+					daemon.Stop()
 				}
+				wg.Done()
 			}(tcpDaemon)
 		}
 	}
@@ -194,16 +195,18 @@ func (daemon *Daemon) StartAndBlock() error {
 				daemon.Stop()
 				return err
 			}
+			wg.Add(1)
 			daemon.udpDaemons = append(daemon.udpDaemons, udpDaemon)
 			go func(udpDaemon *UDPDaemon) {
 				if udpErr := udpDaemon.StartAndBlock(); udpErr != nil {
 					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("UDP-%d", udpDaemon.UDPPort), udpErr, "failed to start UDP daemon")
+					daemon.Stop()
 				}
+				wg.Done()
 			}(udpDaemon)
 		}
 	}
-	atomic.StoreInt32(&daemon.started, 1)
-	<-daemon.stop
+	wg.Wait()
 	return nil
 }
 
@@ -216,7 +219,4 @@ func (daemon *Daemon) Stop() {
 	}
 	daemon.tcpDaemons = make([]*TCPDaemon, 0, 0)
 	daemon.udpDaemons = make([]*UDPDaemon, 0, 0)
-	if atomic.CompareAndSwapInt32(&daemon.started, 1, 0) {
-		daemon.stop <- true
-	}
 }

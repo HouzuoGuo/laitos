@@ -23,19 +23,19 @@ func WriteRand(conn net.Conn) {
 	for i := 0; i < RandNum(0, 1, 2); i++ {
 		randBuf := make([]byte, RandNum(70, 120, 200))
 		if _, err := pseudoRand.Read(randBuf); err != nil {
-			lalog.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to get random bytes")
 			break
 		}
-		_ = conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(330, 540, 880)) * time.Millisecond))
+		if err := conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(330, 540, 880)) * time.Millisecond)); err != nil {
+			break
+		}
 		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
-			lalog.DefaultLogger.Warning("sockd.WriteRand", conn.RemoteAddr().String(), err, "failed to write random bytes")
 			break
 		} else {
 			randBytesWritten += n
 		}
 	}
 	if pseudoRand.Intn(100) < 3 {
-		lalog.DefaultLogger.Info("sockd.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
+		lalog.DefaultLogger.Info("sockd.TCP.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
 	}
 }
 
@@ -54,12 +54,12 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 		if misc.EmergencyLockDown {
 			lalog.DefaultLogger.Warning("PipeTCPConnection", "", misc.ErrEmergencyLockDown, "")
 			return
-		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
 			return
 		}
 		length, err := fromConn.Read(buf)
 		if length > 0 {
-			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
 				return
 			} else if _, err := toConn.Write(buf[:length]); err != nil {
 				return
@@ -199,7 +199,7 @@ func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
 }
 
 func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, destWithPort string, err error) {
-	if err = conn.SetReadDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+	if err = conn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
 		conn.logger.MaybeMinorError(err)
 		return
 	}
@@ -259,7 +259,7 @@ func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, dest
 
 func (conn *TCPCipherConnection) WriteRandAndClose() {
 	defer func() {
-		conn.logger.MaybeMinorError(conn.Close())
+		_ = conn.Close()
 	}()
 	randBuf := make([]byte, RandNum(20, 70, 200))
 	_, err := rand.Read(randBuf)
@@ -267,7 +267,7 @@ func (conn *TCPCipherConnection) WriteRandAndClose() {
 		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to get random bytes")
 		return
 	}
-	if err := conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+	if err := conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
 		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to write random bytes")
 		return
 	}
@@ -292,18 +292,18 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	}
 	if destIP != nil && IsReservedAddr(destIP) {
 		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve reserved address %s", destNoPort)
-		conn.logger.MaybeMinorError(conn.Close())
+		_ = conn.Close()
 		return
 	}
 	if conn.daemon.DNSDaemon.IsInBlacklist(destNoPort) {
 		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destNoPort)
-		conn.logger.MaybeMinorError(conn.Close())
+		_ = conn.Close()
 		return
 	}
-	dest, err := net.DialTimeout("tcp", destWithPort, IOTimeoutSec)
+	dest, err := net.DialTimeout("tcp", destWithPort, IOTimeoutSec*time.Second)
 	if err != nil {
 		conn.logger.Warning("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destWithPort)
-		conn.logger.MaybeMinorError(conn.Close())
+		_ = conn.Close()
 		return
 	}
 	TweakTCPConnection(conn.Conn.(*net.TCPConn))

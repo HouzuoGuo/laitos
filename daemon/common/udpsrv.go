@@ -136,6 +136,13 @@ func (srv *UDPServer) handleClient(clientIP string, clientAddr *net.UDPAddr, pac
 	srv.App.HandleUDPClient(srv.logger, clientIP, clientAddr, packet, srv.udpServer)
 }
 
+// IsRunning returns true only if the server has started and has not been told to stop.
+func (srv *UDPServer) IsRunning() bool {
+	srv.mutex.Lock()
+	defer srv.mutex.Unlock()
+	return srv.udpServer != nil
+}
+
 // Stop the UDP server from accepting new clients. Ongoing conversations will continue nonetheless.
 func (srv *UDPServer) Stop() {
 	srv.mutex.Lock()

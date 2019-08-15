@@ -50,6 +50,9 @@ func TestUDPServer(t *testing.T) {
 		shutdown = true
 	}()
 	time.Sleep(3 * time.Second)
+	if !srv.IsRunning() {
+		t.Fatal("not running")
+	}
 
 	// Connect to the server and expect a hello response
 	client, err := net.Dial("udp", fmt.Sprintf("%s:%d", srv.ListenAddr, srv.ListenPort))
@@ -113,8 +116,14 @@ func TestUDPServer(t *testing.T) {
 	if !shutdown {
 		t.Fatal("did not shut down")
 	}
+	if srv.IsRunning() {
+		t.Fatal("must not be running anymore")
+	}
 
 	// It is OK to repeatedly shut down a server
 	srv.Stop()
 	srv.Stop()
+	if srv.IsRunning() {
+		t.Fatal("must not be running anymore")
+	}
 }

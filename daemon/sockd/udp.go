@@ -21,11 +21,11 @@ const (
 	UDPIPv6PacketLength = 1 + IPv6PacketLength
 	UDPIPAddrIndex      = 1
 	DMHeaderLength      = 1 + 1 + 2
+	UDPClearIntervalSec = 3 * IOTimeoutSec
 )
 
 var (
 	ErrMalformedUDPPacket = errors.New("received packet is abnormally small")
-	BacklogClearInterval  = 2 * IOTimeoutSec
 )
 
 func MakeUDPRequestHeader(addr net.Addr) ([]byte, int) {
@@ -59,6 +59,7 @@ type UDPDaemon struct {
 
 	DNSDaemon *dnsd.Daemon
 
+	logger     lalog.Logger
 	udpBackLog *UDPBackLog
 	udpTable   *UDPTable
 	cipher     *Cipher
@@ -76,6 +77,10 @@ func (daemon *UDPDaemon) Initialise() error {
 		LimitPerSec: daemon.PerIPLimit,
 	}
 	daemon.udpServer.Initialise()
+	daemon.logger = lalog.Logger{
+		ComponentName: "sockd",
+		ComponentID:   []lalog.LoggerIDField{{Key: "UDP", Value: strconv.Itoa(daemon.UDPPort)}},
+	}
 	return nil
 }
 
@@ -91,6 +96,17 @@ func (daemon *UDPDaemon) HandleUDPClient(logger lalog.Logger, ip string, client 
 func (daemon *UDPDaemon) StartAndBlock() error {
 	daemon.udpBackLog = &UDPBackLog{backlog: map[string][]byte{}, mutex: new(sync.Mutex)}
 	daemon.udpTable = &UDPTable{connections: map[string]net.PacketConn{}, mutex: new(sync.Mutex)}
+	go func() {
+		for {
+			if !daemon.udpServer.IsRunning() {
+				return
+			}
+			daemon.logger.Info("StartAndBlock", "", nil, "going to clear %d backlog packets and %d connections", daemon.udpBackLog.Len(), daemon.udpTable.Len())
+			daemon.udpBackLog.Clear()
+			daemon.udpTable.Clear()
+			time.Sleep(UDPClearIntervalSec * time.Second)
+		}
+	}()
 	return daemon.udpServer.StartAndBlock()
 }
 
@@ -133,6 +149,15 @@ func (backlog *UDPBackLog) Len() (ret int) {
 type UDPTable struct {
 	mutex       *sync.Mutex
 	connections map[string]net.PacketConn
+}
+
+func (table *UDPTable) Clear() {
+	table.mutex.Lock()
+	defer table.mutex.Unlock()
+	for _, conn := range table.connections {
+		_ = conn.Close()
+	}
+	table.connections = map[string]net.PacketConn{}
 }
 
 func (table *UDPTable) Delete(clientID string) net.PacketConn {
@@ -216,8 +241,9 @@ func (conn *UDPCipherConnection) WriteRand(dest net.Addr) {
 		conn.logger.Warning("WriteRand", dest.String(), err, "failed to get random bytes")
 		return
 	}
-	if err := conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+	if err := conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
 		conn.logger.Warning("WriteRand", dest.String(), err, "failed to write random bytes")
+
 		return
 	}
 	if _, err := conn.WriteTo(randBuf, dest); err != nil && !strings.Contains(err.Error(), "closed") {
@@ -244,7 +270,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 			server.WriteRand(clientAddr)
 			return
 		}
-		destIP = net.IP(packet[UDPIPAddrIndex : UDPIPAddrIndex+net.IPv4len])
+		destIP = packet[UDPIPAddrIndex : UDPIPAddrIndex+net.IPv4len]
 	case AddressTypeIPv6:
 		packetLen = UDPIPv6PacketLength
 		if len(packet) < packetLen {
@@ -252,7 +278,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 			server.WriteRand(clientAddr)
 			return
 		}
-		destIP = net.IP(packet[UDPIPAddrIndex : UDPIPAddrIndex+net.IPv6len])
+		destIP = packet[UDPIPAddrIndex : UDPIPAddrIndex+net.IPv6len]
 	case AddressTypeDM:
 		packetLen = int(packet[DMAddrLengthIndex]) + DMHeaderLength
 		if len(packet) < packetLen {
@@ -319,7 +345,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 			daemon.udpTable.Delete(clientAddr.String())
 		}()
 	}
-	logger.MaybeMinorError(udpClient.SetWriteDeadline(time.Now().Add(IOTimeoutSec)))
+	logger.MaybeMinorError(udpClient.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)))
 	_, err = udpClient.WriteTo(packet[packetLen:n], destAddr)
 	if err != nil {
 		logger.Warning("HandleUDPConnection", clientAddr.IP.String(), err, "failed to respond to client")
@@ -336,17 +362,28 @@ func (daemon *UDPDaemon) PipeUDPConnection(server net.PacketConn, clientAddr *ne
 		_ = client.Close()
 	}()
 	for {
-		client.SetReadDeadline(time.Now().Add(IOTimeoutSec))
+		if misc.EmergencyLockDown {
+			lalog.DefaultLogger.Warning("PipeTCPConnection", "", misc.ErrEmergencyLockDown, "")
+			return
+		} else if err := client.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+			return
+		}
 		length, addr, err := client.ReadFrom(packet)
 		if err != nil {
 			return
 		}
-		server.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+		if err := server.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+			return
+		}
 		if backlogPacket, found := daemon.udpBackLog.Get(addr.String()); found {
-			server.WriteTo(append(backlogPacket, packet[:length]...), clientAddr)
+			if _, err := server.WriteTo(append(backlogPacket, packet[:length]...), clientAddr); err != nil {
+				return
+			}
 		} else {
 			header, headerLength := MakeUDPRequestHeader(addr)
-			server.WriteTo(append(header[:headerLength], packet[:length]...), clientAddr)
+			if _, err := server.WriteTo(append(header[:headerLength], packet[:length]...), clientAddr); err != nil {
+				return
+			}
 		}
 	}
 }
