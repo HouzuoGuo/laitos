@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	RateLimitIntervalSec  = 1   // Rate limit is calculated at 1 second interval
 	IOTimeoutSec          = 60  // IO timeout for both read and write operations
 	MaxConversationLength = 256 // Only converse up to this number of exchanges in an SMTP connection
+	MaxNumRecipients      = 100 // MaxNumRecipients is the maximum number of recipients an SMTP conversation will accept
 )
 
 // Daemon implements an SMTP server that receives mails addressed to configured set of domain names, and optionally forward the received mails to other addresses.
@@ -225,7 +225,9 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, client
 				atSign := strings.IndexRune(ev.Parameter, '@')
 				if atSign > 0 {
 					if domain, exists := daemon.myDomainsHash[ev.Parameter[atSign+1:]]; exists {
-						toAddrs = append(toAddrs, ev.Parameter)
+						if len(toAddrs) < MaxNumRecipients {
+							toAddrs = append(toAddrs, ev.Parameter)
+						}
 					} else {
 						completionStatus = fmt.Sprintf("rejected domain \"%s\" that is not among my accepted domains", domain)
 						smtpConn.AnswerNegative()

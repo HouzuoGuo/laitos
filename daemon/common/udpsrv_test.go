@@ -41,6 +41,11 @@ func TestUDPServer(t *testing.T) {
 	}
 	srv.Initialise()
 
+	// Check folded rate limit
+	if srv.rateLimit.MaxCount != 4 || srv.rateLimit.UnitSecs != 2 {
+		t.Fatal(srv.rateLimit.MaxCount, srv.rateLimit.UnitSecs)
+	}
+
 	// Expect server to start within three seconds
 	var shutdown bool
 	go func() {

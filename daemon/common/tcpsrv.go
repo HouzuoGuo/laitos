@@ -73,10 +73,19 @@ func (srv *TCPServer) Initialise() {
 		ComponentName: srv.AppName,
 		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: srv.ListenAddr}, {Key: "TCPPort", Value: srv.ListenPort}},
 	}
-	srv.rateLimit = &misc.RateLimit{
-		UnitSecs: 1,
-		MaxCount: srv.LimitPerSec,
-		Logger:   srv.logger,
+	// Turn per-second limit into greater limit over multiple seconds to reduce log spamming
+	srv.rateLimit = &misc.RateLimit{Logger: srv.logger}
+	if srv.LimitPerSec%5 == 0 {
+		srv.rateLimit.UnitSecs = 5
+		srv.rateLimit.MaxCount = 5 * srv.LimitPerSec
+	}
+	if srv.LimitPerSec%3 == 0 {
+		srv.rateLimit.UnitSecs = 3
+		srv.rateLimit.MaxCount = 3 * srv.LimitPerSec
+	}
+	if srv.LimitPerSec%2 == 0 {
+		srv.rateLimit.UnitSecs = 2
+		srv.rateLimit.MaxCount = 2 * srv.LimitPerSec
 	}
 	srv.rateLimit.Initialise()
 }
