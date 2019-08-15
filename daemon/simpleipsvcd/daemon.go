@@ -91,7 +91,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		tcpServer := &common.TCPServer{
 			ListenAddr:  daemon.Address,
 			ListenPort:  port,
-			AppName:     "",
+			AppName:     "simpleipsvc",
 			App:         &TCPService{ResponseFun: daemon.serverResponseFun[port]},
 			LimitPerSec: daemon.PerIPLimit,
 		}
@@ -109,7 +109,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		udpServer := &common.UDPServer{
 			ListenAddr:  daemon.Address,
 			ListenPort:  port,
-			AppName:     "",
+			AppName:     "simpleipsvc",
 			App:         &UDPService{ResponseFun: daemon.serverResponseFun[port]},
 			LimitPerSec: daemon.PerIPLimit,
 		}
