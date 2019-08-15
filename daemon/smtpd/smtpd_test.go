@@ -91,7 +91,7 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 	}
 	// Must not initialise if command processor has insane configuration
 	daemon.CommandRunner.Processor = common.GetInsaneCommandProcessor()
-	if err := daemon.Initialise(); !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
 		t.Fatal(err)
 	}
 	// Give it a good command processor

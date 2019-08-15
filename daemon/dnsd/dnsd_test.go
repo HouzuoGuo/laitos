@@ -82,6 +82,5 @@ func TestDNSD(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	TestUDPQueries(&daemon, t)
-	TestTCPQueries(&daemon, t)
+	TestServer(&daemon, t)
 }

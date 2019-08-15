@@ -82,71 +82,38 @@ type TCPDaemon struct {
 
 	DNSDaemon *dnsd.Daemon `json:"-"` // it is assumed to be already initialised
 
-	tcpListener  net.Listener
-	rateLimitTCP *misc.RateLimit
-
-	cipher *Cipher
-	logger lalog.Logger
+	cipher    *Cipher
+	tcpServer *common.TCPServer
 }
 
 func (daemon *TCPDaemon) Initialise() error {
-	daemon.logger = lalog.Logger{
-		ComponentName: "sockd",
-		ComponentID:   []lalog.LoggerIDField{{Key: "TCP", Value: daemon.TCPPort}},
-	}
-	daemon.rateLimitTCP = &misc.RateLimit{
-		Logger:   daemon.logger,
-		MaxCount: daemon.PerIPLimit,
-		UnitSecs: RateLimitIntervalSec,
-	}
-	daemon.rateLimitTCP.Initialise()
-
 	daemon.cipher = &Cipher{}
 	daemon.cipher.Initialise(daemon.Password)
-
+	daemon.tcpServer = &common.TCPServer{
+		ListenAddr:  daemon.Address,
+		ListenPort:  daemon.TCPPort,
+		AppName:     "sockd",
+		App:         daemon,
+		LimitPerSec: daemon.PerIPLimit,
+	}
+	daemon.tcpServer.Initialise()
 	return nil
 }
 
-func (daemon *TCPDaemon) StartAndBlock() error {
-	var err error
-	listener, err := net.Listen("tcp", net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort)))
-	if err != nil {
-		return fmt.Errorf("sockd.StartAndBlockTCP: failed to listen on %s:%d - %v", daemon.Address, daemon.TCPPort, err)
-	}
-	defer func() {
-		daemon.logger.MaybeMinorError(listener.Close())
-	}()
-	daemon.logger.Info("StartAndBlockTCP", "", nil, "going to listen for connections")
-	daemon.tcpListener = listener
+func (daemon *TCPDaemon) GetTCPStatsCollector() *misc.Stats {
+	return common.SOCKDStatsTCP
+}
 
-	for {
-		if misc.EmergencyLockDown {
-			daemon.logger.Warning("StartAndBlockTCP", "", misc.ErrEmergencyLockDown, "")
-			return misc.ErrEmergencyLockDown
-		}
-		conn, err := listener.Accept()
-		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return nil
-			} else {
-				return fmt.Errorf("sockd.StartAndBlockTCP: failed to accept new connection - %v", err)
-			}
-		}
-		clientIP := conn.RemoteAddr().(*net.TCPAddr).IP.String()
-		if daemon.rateLimitTCP.Add(clientIP, true) {
-			go NewTCPCipherConnection(daemon, conn, daemon.cipher.Copy(), daemon.logger).HandleTCPConnection()
-		} else {
-			daemon.logger.MaybeMinorError(conn.Close())
-		}
-	}
+func (daemon *TCPDaemon) HandleTCPConnection(logger lalog.Logger, ip string, client *net.TCPConn) {
+	NewTCPCipherConnection(daemon, client, daemon.cipher.Copy(), logger).HandleTCPConnection()
+}
+
+func (daemon *TCPDaemon) StartAndBlock() error {
+	return daemon.tcpServer.StartAndBlock()
 }
 
 func (daemon *TCPDaemon) Stop() {
-	if listener := daemon.tcpListener; listener != nil {
-		if err := listener.Close(); err != nil {
-			daemon.logger.Warning("Stop", "", err, "failed to close TCP listener")
-		}
-	}
+	daemon.tcpServer.Stop()
 }
 
 type TCPCipherConnection struct {
@@ -232,7 +199,10 @@ func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
 }
 
 func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, destWithPort string, err error) {
-	conn.SetReadDeadline(time.Now().Add(IOTimeoutSec))
+	if err = conn.SetReadDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+		conn.logger.MaybeMinorError(err)
+		return
+	}
 
 	buf := make([]byte, 269)
 	if _, err = io.ReadFull(conn, buf[:AddressTypeIndex+1]); err != nil {
@@ -268,11 +238,11 @@ func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, dest
 
 	switch maskedType {
 	case AddressTypeIPv4:
-		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv4len])
+		destIP = buf[IPPacketIndex : IPPacketIndex+net.IPv4len]
 		destNoPort = destIP.String()
 		destWithPort = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
 	case AddressTypeIPv6:
-		destIP = net.IP(buf[IPPacketIndex : IPPacketIndex+net.IPv6len])
+		destIP = buf[IPPacketIndex : IPPacketIndex+net.IPv6len]
 		destNoPort = destIP.String()
 		destWithPort = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
 	case AddressTypeDM:
@@ -288,24 +258,26 @@ func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, dest
 }
 
 func (conn *TCPCipherConnection) WriteRandAndClose() {
-	defer conn.Close()
+	defer func() {
+		conn.logger.MaybeMinorError(conn.Close())
+	}()
 	randBuf := make([]byte, RandNum(20, 70, 200))
 	_, err := rand.Read(randBuf)
 	if err != nil {
 		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to get random bytes")
 		return
 	}
-	conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+	if err := conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to write random bytes")
+		return
+	}
 	if _, err := conn.Write(randBuf); err != nil {
 		conn.logger.Warning("WriteRandAndClose", conn.Conn.RemoteAddr().String(), err, "failed to write random bytes")
+		return
 	}
 }
 
 func (conn *TCPCipherConnection) HandleTCPConnection() {
-	beginTimeNano := time.Now().UnixNano()
-	defer func() {
-		common.SOCKDStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}()
 	remoteAddr := conn.RemoteAddr().String()
 	destIP, destNoPort, destWithPort, err := conn.ParseRequest()
 	if err != nil {
@@ -320,18 +292,18 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	}
 	if destIP != nil && IsReservedAddr(destIP) {
 		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve reserved address %s", destNoPort)
-		conn.Close()
+		conn.logger.MaybeMinorError(conn.Close())
 		return
 	}
 	if conn.daemon.DNSDaemon.IsInBlacklist(destNoPort) {
 		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destNoPort)
-		conn.Close()
+		conn.logger.MaybeMinorError(conn.Close())
 		return
 	}
 	dest, err := net.DialTimeout("tcp", destWithPort, IOTimeoutSec)
 	if err != nil {
 		conn.logger.Warning("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destWithPort)
-		conn.Close()
+		conn.logger.MaybeMinorError(conn.Close())
 		return
 	}
 	TweakTCPConnection(conn.Conn.(*net.TCPConn))

@@ -13,11 +13,12 @@ func TestSimpleIPDaemon(t *testing.T) {
 	}
 
 	daemon = &Daemon{
+		Address:         "127.0.0.1",
 		ActiveUserNames: "howard (houzuo) guo",
 		QOTD:            "hello from howard",
-		ActiveUsersPort: 10120,
-		DayTimePort:     18949,
-		QOTDPort:        64642,
+		ActiveUsersPort: 15236,
+		DayTimePort:     11673,
+		QOTDPort:        31678,
 	}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)

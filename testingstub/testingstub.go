@@ -7,6 +7,7 @@ packages. However, "testing" package has a package initialiser that puts test mo
 unnecessary. Hence this interface is defined to avoid triggering the initialiser.
 */
 type T interface {
+	Helper()
 	Error(...interface{})
 	Errorf(string, ...interface{})
 	Fatal(...interface{})

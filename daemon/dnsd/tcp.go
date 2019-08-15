@@ -1,13 +1,8 @@
 package dnsd
 
 import (
-	"context"
-	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -15,83 +10,43 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
-/*
-StartAndBlockTCP starts DNS daemon to listen on TCP port only, until daemon is told to stop.
-Daemon must have already been initialised prior to this call.
-*/
-func (daemon *Daemon) StartAndBlockTCP() error {
-	listenAddr := net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.TCPPort))
-	listener, err := net.Listen("tcp", listenAddr)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		daemon.logger.MaybeMinorError(listener.Close())
-	}()
-	daemon.tcpListener = listener
-	// Process incoming TCP DNS queries
-	daemon.logger.Info("StartAndBlockTCP", listenAddr, nil, "going to listen for queries")
-	for {
-		if misc.EmergencyLockDown {
-			daemon.logger.Warning("StartAndBlockTCP", "", misc.ErrEmergencyLockDown, "")
-			return misc.ErrEmergencyLockDown
-		}
-		clientConn, err := listener.Accept()
-		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return nil
-			}
-			return fmt.Errorf("DNSD.StartAndBlockTCP: failed to accept new connection - %v", err)
-		}
-		// Check address against rate limit and allowed IP prefixes
-		clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
-		if !daemon.rateLimit.Add(clientIP, true) {
-			daemon.logger.MaybeMinorError(clientConn.Close())
-			continue
-		}
-		go daemon.handleTCPQuery(clientConn)
-	}
+// GetTCPStatsCollector returns stats collector for the TCP server of this daemon.
+func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
+	return common.DNSDStatsTCP
 }
 
-func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
-	// Put query duration (including IO time) into statistics
-	beginTimeNano := time.Now().UnixNano()
-	defer func() {
-		daemon.logger.MaybeMinorError(clientConn.Close())
-		common.DNSDStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}()
-	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
+// HandleConnection converses with a TCP DNS client.
+func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *net.TCPConn) {
 	// Read query length
-	daemon.logger.MaybeMinorError(clientConn.SetDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
+	logger.MaybeMinorError(conn.SetDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
 	queryLen := make([]byte, 2)
-	_, err := clientConn.Read(queryLen)
+	_, err := conn.Read(queryLen)
 	if err != nil {
-		daemon.logger.Warning("handleTCPQuery", clientIP, err, "failed to read query length from client")
+		logger.Warning("handleTCPQuery", ip, err, "failed to read query length from client")
 		return
 	}
 	queryLenInteger := int(queryLen[0])*256 + int(queryLen[1])
 	// Read query packet
 	if queryLenInteger > MaxPacketSize || queryLenInteger < MinNameQuerySize {
-		daemon.logger.Warning("handleTCPQuery", clientIP, nil, "invalid query length from client")
+		logger.Warning("handleTCPQuery", ip, nil, "invalid query length from client")
 		return
 	}
 	queryBody := make([]byte, queryLenInteger)
-	_, err = clientConn.Read(queryBody)
+	_, err = conn.Read(queryBody)
 	if err != nil {
-		daemon.logger.Warning("handleTCPQuery", clientIP, err, "failed to read query from client")
+		logger.Warning("handleTCPQuery", ip, err, "failed to read query from client")
 		return
 	}
 	// Formulate a response
 	var respBody, respLen []byte
 	if isTextQuery(queryBody) {
 		// Handle toolbox command that arrives as a text query
-		respLen, respBody = daemon.handleTCPTextQuery(clientIP, queryLen, queryBody)
+		respLen, respBody = daemon.handleTCPTextQuery(ip, queryLen, queryBody)
 	} else {
 		// Handle other query types such as name query
-		respLen, respBody = daemon.handleTCPNameOrOtherQuery(clientIP, queryLen, queryBody)
+		respLen, respBody = daemon.handleTCPNameOrOtherQuery(ip, queryLen, queryBody)
 	}
 	// Close client connection in case there is no appropriate response
 	if respBody == nil || len(respBody) < 2 {
@@ -100,11 +55,11 @@ func (daemon *Daemon) handleTCPQuery(clientConn net.Conn) {
 	// Send response to the client, match transaction ID of original query, the deadline is shared with the read deadline above.
 	respBody[0] = queryBody[0]
 	respBody[1] = queryBody[1]
-	if _, err := clientConn.Write(respLen); err != nil {
-		daemon.logger.Warning("handleTCPQuery", clientIP, err, "failed to answer length to client")
+	if _, err := conn.Write(respLen); err != nil {
+		logger.Warning("handleTCPQuery", ip, err, "failed to answer length to client")
 		return
-	} else if _, err := clientConn.Write(respBody); err != nil {
-		daemon.logger.Warning("handleTCPQuery", clientIP, err, "failed to answer to client")
+	} else if _, err := conn.Write(respBody); err != nil {
+		logger.Warning("handleTCPQuery", ip, err, "failed to answer to client")
 		return
 	}
 }
@@ -216,73 +171,4 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 		return
 	}
 	return
-}
-
-// Run unit tests on DNS TCP daemon. See TestDNSD_StartAndBlockTCP for daemon setup.
-func TestTCPQueries(dnsd *Daemon, t testingstub.T) {
-	if misc.HostIsWindows() {
-		// FIXME: fix this test case for Windows
-		t.Log("FIXME: enable TestTCPQueries for Windows")
-		return
-	}
-	// Prevent daemon from listening to UDP queries in this TCP test case
-	udpListenPort := dnsd.UDPPort
-	dnsd.UDPPort = 0
-	defer func() {
-		dnsd.UDPPort = udpListenPort
-	}()
-	// Server should start within two seconds
-	var stoppedNormally bool
-	go func() {
-		if err := dnsd.StartAndBlock(); err != nil {
-			t.Fatal(err)
-		}
-		stoppedNormally = true
-	}()
-	time.Sleep(2 * time.Second)
-	// Use go DNS client to verify that the server returns satisfactory response
-	resolver := &net.Resolver{
-		PreferGo:     true,
-		StrictErrors: true,
-		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
-			return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dnsd.TCPPort))
-		},
-	}
-	testResolveNameAndBlackList(t, dnsd, resolver)
-	// Try to flood the server and reach rate limit
-	success := 0
-	dnsd.blackList = map[string]struct{}{}
-	for i := 0; i < 40; i++ {
-		go func() {
-			clientConn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(dnsd.TCPPort))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
-				lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
-				t.Fatal(err)
-			}
-			if _, err := clientConn.Write(githubComTCPQuery); err != nil {
-				lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
-				t.Fatal(err)
-			}
-			resp, err := ioutil.ReadAll(clientConn)
-			lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
-			if err == nil && len(resp) > 50 {
-				success++
-			}
-		}()
-	}
-	// Wait for rate limit to reset and verify that regular name resolution resumes
-	time.Sleep(RateLimitIntervalSec * time.Second)
-	testResolveNameAndBlackList(t, dnsd, resolver)
-	// Daemon must stop in a second
-	dnsd.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
-	// Repeatedly stopping the daemon should have no negative consequence
-	dnsd.Stop()
-	dnsd.Stop()
 }

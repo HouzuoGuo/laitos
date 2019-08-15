@@ -214,6 +214,10 @@ func (daemon *Daemon) Stop() {
 
 // TestDaemon provides unit test coverage for the serial port daemon.
 func TestDaemon(daemon *Daemon, t testingstub.T) {
+	if misc.HostIsWindows() {
+		t.Log("The daemon is not compatible with windows, hence skipping the tests.")
+		return
+	}
 	// Instead of emulating a serial device driven by OS driver, the test subject simply uses a text file with a line of command.
 	tmpFileNamePrefix := fmt.Sprintf("laitos-serialport-TestDaemon-%d", time.Now().UnixNano())
 	tmpFile, err := ioutil.TempFile("", tmpFileNamePrefix+"*")

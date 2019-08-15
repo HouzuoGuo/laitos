@@ -4,12 +4,10 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
@@ -61,104 +59,43 @@ type UDPDaemon struct {
 
 	DNSDaemon *dnsd.Daemon
 
-	udpBackLog       *UDPBackLog
-	udpListener      *net.UDPConn
-	udpTable         *UDPTable
-	rateLimitUDP     *misc.RateLimit
-	udpLoopIsRunning int32
-	stopUDP          chan bool
-
-	cipher *Cipher
-	logger lalog.Logger
+	udpBackLog *UDPBackLog
+	udpTable   *UDPTable
+	cipher     *Cipher
+	udpServer  *common.UDPServer
 }
 
 func (daemon *UDPDaemon) Initialise() error {
-	daemon.logger = lalog.Logger{
-		ComponentName: "sockd",
-		ComponentID:   []lalog.LoggerIDField{{Key: "UDP", Value: daemon.UDPPort}},
-	}
-	daemon.rateLimitUDP = &misc.RateLimit{
-		Logger:   daemon.logger,
-		MaxCount: daemon.PerIPLimit * 100,
-		UnitSecs: RateLimitIntervalSec,
-	}
-	daemon.rateLimitUDP.Initialise()
-	daemon.udpBackLog = &UDPBackLog{backlog: make(map[string][]byte), mutex: new(sync.Mutex)}
-	daemon.stopUDP = make(chan bool)
-
 	daemon.cipher = &Cipher{}
 	daemon.cipher.Initialise(daemon.Password)
+	daemon.udpServer = &common.UDPServer{
+		ListenAddr:  daemon.Address,
+		ListenPort:  daemon.UDPPort,
+		AppName:     "sockd",
+		App:         daemon,
+		LimitPerSec: daemon.PerIPLimit,
+	}
+	daemon.udpServer.Initialise()
 	return nil
 }
 
-func (daemon *UDPDaemon) StartAndBlock() error {
-	listenAddr := net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.UDPPort))
-	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
-	if err != nil {
-		return fmt.Errorf("sockd.StartAndBlockUDP: failed to resolve address %s - %v", listenAddr, err)
-	}
-	udpServer, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		return fmt.Errorf("sockd.StartAndBlockUDP: failed to listen on %s - %v", listenAddr, err)
-	}
-	defer udpServer.Close()
-	daemon.udpListener = udpServer
-	daemon.logger.Info("StartAndBlockUDP", "", nil, "going to listen for data")
+func (daemon *UDPDaemon) GetUDPStatsCollector() *misc.Stats {
+	return common.SOCKDStatsUDP
+}
 
+func (daemon *UDPDaemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
+	udpEncryptedServer := &UDPCipherConnection{PacketConn: srv, Cipher: daemon.cipher.Copy(), logger: logger}
+	daemon.HandleUDPConnection(logger, udpEncryptedServer, len(packet), client, packet)
+}
+
+func (daemon *UDPDaemon) StartAndBlock() error {
 	daemon.udpBackLog = &UDPBackLog{backlog: map[string][]byte{}, mutex: new(sync.Mutex)}
 	daemon.udpTable = &UDPTable{connections: map[string]net.PacketConn{}, mutex: new(sync.Mutex)}
-	go func() {
-		intervalTick := time.NewTicker(BacklogClearInterval).C
-		loggerTick := time.NewTicker(15 * time.Minute).C
-		for {
-			select {
-			case <-intervalTick:
-				daemon.udpBackLog.Clear()
-			case <-loggerTick:
-				daemon.logger.Info("StartAndBlockUDP", "", nil, "current backlog length %d, connection table length %d",
-					daemon.udpBackLog.Len(), daemon.udpTable.Len())
-			case <-daemon.stopUDP:
-				return
-			}
-		}
-	}()
-
-	udpEncryptedServer := &UDPCipherConnection{PacketConn: udpServer, Cipher: daemon.cipher.Copy()}
-	for {
-		if misc.EmergencyLockDown {
-			daemon.logger.Warning("StartAndBlockUDP", "", misc.ErrEmergencyLockDown, "")
-			return misc.ErrEmergencyLockDown
-		}
-		atomic.StoreInt32(&daemon.udpLoopIsRunning, 1)
-		packetBuf := make([]byte, MaxPacketSize)
-		packetLength, clientAddr, err := udpEncryptedServer.ReadFrom(packetBuf)
-		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return nil
-			}
-			daemon.logger.Warning("StartAndBlockUDP", "", err, "failed to read packet")
-			continue
-		}
-		udpClientAddr := clientAddr.(*net.UDPAddr)
-		clientPacket := make([]byte, packetLength)
-		copy(clientPacket, packetBuf[:packetLength])
-
-		clientIP := udpClientAddr.IP.String()
-		if daemon.rateLimitUDP.Add(clientIP, true) {
-			go daemon.HandleUDPConnection(udpEncryptedServer, packetLength, udpClientAddr, packetBuf)
-		}
-	}
+	return daemon.udpServer.StartAndBlock()
 }
 
 func (daemon *UDPDaemon) Stop() {
-	if listener := daemon.udpListener; listener != nil {
-		if atomic.CompareAndSwapInt32(&daemon.udpLoopIsRunning, 1, 0) {
-			daemon.stopUDP <- true
-		}
-		if err := listener.Close(); err != nil {
-			daemon.logger.Warning("Stop", "", err, "failed to close UDP listener")
-		}
-	}
+	daemon.udpServer.Stop()
 }
 
 type UDPBackLog struct {
@@ -279,13 +216,17 @@ func (conn *UDPCipherConnection) WriteRand(dest net.Addr) {
 		conn.logger.Warning("WriteRand", dest.String(), err, "failed to get random bytes")
 		return
 	}
-	conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+	if err := conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec)); err != nil {
+		conn.logger.Warning("WriteRand", dest.String(), err, "failed to write random bytes")
+		return
+	}
 	if _, err := conn.WriteTo(randBuf, dest); err != nil && !strings.Contains(err.Error(), "closed") {
 		conn.logger.Warning("WriteRand", dest.String(), err, "failed to write random bytes")
+		return
 	}
 }
 
-func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int, clientAddr *net.UDPAddr, packet []byte) {
+func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCipherConnection, n int, clientAddr *net.UDPAddr, packet []byte) {
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
 		common.SOCKDStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
@@ -299,7 +240,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int,
 	case AddressTypeIPv4:
 		packetLen = UDPIPv4PacketLength
 		if len(packet) < packetLen {
-			daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
 		}
@@ -307,7 +248,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int,
 	case AddressTypeIPv6:
 		packetLen = UDPIPv6PacketLength
 		if len(packet) < packetLen {
-			daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
 		}
@@ -315,41 +256,41 @@ func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int,
 	case AddressTypeDM:
 		packetLen = int(packet[DMAddrLengthIndex]) + DMHeaderLength
 		if len(packet) < packetLen {
-			daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
 		}
 		dest := string(packet[DMAddrHeaderLength : DMAddrHeaderLength+int(packet[DMAddrLengthIndex])])
 		if strings.ContainsRune(dest, 0) {
-			daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve destination that contains NULL byte")
+			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve destination that contains NULL byte")
 			return
 		}
 		destIP = net.ParseIP(dest)
 		if destIP != nil && IsReservedAddr(destIP) {
-			daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve reserved address %s", dest)
+			logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve reserved address %s", dest)
 			return
 		}
 		if daemon.DNSDaemon.IsInBlacklist(dest) {
-			daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve blacklisted domain name %s", dest)
+			logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve blacklisted domain name %s", dest)
 			return
 		}
 		resolveDestIP, err := net.ResolveIPAddr("ip", dest)
 		if err != nil {
-			daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to resolve domain name \"%s\"", dest)
+			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to resolve domain name \"%s\"", dest)
 			return
 		}
 		destIP = resolveDestIP.IP
 	default:
-		daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "unknown mask type %d", maskedType)
+		logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "unknown mask type %d", maskedType)
 		server.WriteRand(clientAddr)
 		return
 	}
 	if IsReservedAddr(destIP) {
-		daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve reserved address %s", destIP.String())
+		logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve reserved address %s", destIP.String())
 		return
 	}
 	if daemon.DNSDaemon.IsInBlacklist(destIP.String()) {
-		daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve blacklisted address %s", destIP.String())
+		logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve blacklisted address %s", destIP.String())
 		return
 	}
 	destAddr := &net.UDPAddr{
@@ -357,7 +298,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int,
 		Port: int(binary.BigEndian.Uint16(packet[packetLen-2 : packetLen])),
 	}
 	if destAddr.Port < 1 {
-		daemon.logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not connect to invalid destination port %s:%d", destIP.String(), destAddr.Port)
+		logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not connect to invalid destination port %s:%d", destIP.String(), destAddr.Port)
 		server.WriteRand(clientAddr)
 		return
 	}
@@ -369,7 +310,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int,
 
 	udpClient, found, err := daemon.udpTable.Get(clientAddr.String())
 	if err != nil || udpClient == nil {
-		daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), err, "failed to retrieve connection from table")
+		logger.Warning("HandleUDPConnection", clientAddr.IP.String(), err, "failed to retrieve connection from table")
 		return
 	}
 	if !found {
@@ -378,10 +319,10 @@ func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int,
 			daemon.udpTable.Delete(clientAddr.String())
 		}()
 	}
-	udpClient.SetWriteDeadline(time.Now().Add(IOTimeoutSec))
+	logger.MaybeMinorError(udpClient.SetWriteDeadline(time.Now().Add(IOTimeoutSec)))
 	_, err = udpClient.WriteTo(packet[packetLen:n], destAddr)
 	if err != nil {
-		daemon.logger.Warning("HandleUDPConnection", clientAddr.IP.String(), err, "failed to respond to client")
+		logger.Warning("HandleUDPConnection", clientAddr.IP.String(), err, "failed to respond to client")
 		if conn := daemon.udpTable.Delete(clientAddr.String()); conn != nil {
 			conn.Close()
 		}
@@ -391,7 +332,9 @@ func (daemon *UDPDaemon) HandleUDPConnection(server *UDPCipherConnection, n int,
 
 func (daemon *UDPDaemon) PipeUDPConnection(server net.PacketConn, clientAddr *net.UDPAddr, client net.PacketConn) {
 	packet := make([]byte, MaxPacketSize)
-	defer client.Close()
+	defer func() {
+		_ = client.Close()
+	}()
 	for {
 		client.SetReadDeadline(time.Now().Add(IOTimeoutSec))
 		length, addr, err := client.ReadFrom(packet)

@@ -1,6 +1,7 @@
 package serialport
 
 import (
+	"github.com/HouzuoGuo/laitos/misc"
 	"strings"
 	"testing"
 
@@ -8,7 +9,11 @@ import (
 )
 
 func TestSerialPortDaemon(t *testing.T) {
-	daemon := Daemon{DeviceGlobPatterns: []string{"/[a"}}
+	if misc.HostIsWindows() {
+		t.Log("The daemon is not compatible with windows, hence skipping the tests.")
+		return
+	}
+	daemon := Daemon{DeviceGlobPatterns: []string{"&*(#@"}}
 	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "malformed") == -1 {
 		t.Fatal(err)
 	}

@@ -25,24 +25,25 @@ const (
 	MaxConversationLength = 256 // Only converse up to this number of exchanges in an SMTP connection
 )
 
-// An SMTP daemon that receives mails addressed to its domain name, and optionally forward the received mails to other addresses.
+// Daemon implements an SMTP server that receives mails addressed to configured set of domain names, and optionally forward the received mails to other addresses.
 type Daemon struct {
-	Address     string   `json:"Address"`     // Network address to listen to, e.g. 0.0.0.0 for all network interfaces.
-	Port        int      `json:"Port"`        // Port number to listen on
-	TLSCertPath string   `json:"TLSCertPath"` // (Optional) serve StartTLS via this certificate
-	TLSKeyPath  string   `json:"TLSKeyPath"`  // (Optional) serve StartTLS via this certificate (key)
-	PerIPLimit  int      `json:"PerIPLimit"`  // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
-	MyDomains   []string `json:"MyDomains"`   // Only accept mails addressed to these domain names
-	ForwardTo   []string `json:"ForwardTo"`   // Forward received mails to these addresses
+	Address     string `json:"Address"`     // Address is the TCP address listen to, e.g. 0.0.0.0 for all network interfaces.
+	Port        int    `json:"Port"`        // Port number to listen on.
+	TLSCertPath string `json:"TLSCertPath"` // TLSCertPath is the path to server's TLS certificate for StartTLS operation. This is optional.
+	TLSKeyPath  string `json:"TLSKeyPath"`  // TLSCertPath is the path to server's TLS certificate key for StartTLS operation. This is optional.
+	PerIPLimit  int    `json:"PerIPLimit"`  // PerIPLimit is the maximum number of approximately how many concurrent users are expected to be using the server from same IP address
+	// MyDomains is an array of domain names that this SMTP server receives mails for. Mails addressed to domain names other than these will be rejected.
+	MyDomains []string `json:"MyDomains"`
+	// ForwardTo are the recipients (email addresses) to receive emails that are delivered to this SMTP server.
+	ForwardTo []string `json:"ForwardTo"`
 
 	CommandRunner     *mailcmd.CommandRunner `json:"-"` // Process feature commands from incoming mails
 	ForwardMailClient inet.MailClient        `json:"-"` // ForwardMailClient is used to forward arriving emails.
 
-	myDomainsHash map[string]struct{} // "MyDomains" values in map keys
-	smtpConfig    smtp.Config         // SMTP processor configuration
-	listener      net.Listener        // Once daemon is started, this is its TCP listener.
-	tlsCert       tls.Certificate     // TLS certificate read from the certificate and key files
-	rateLimit     *misc.RateLimit     // Rate limit counter per IP address
+	myDomainsHash map[string]struct{} // myDomainHash has "MyDomains" in map keys
+	smtpConfig    smtp.Config
+	tlsCert       tls.Certificate
+	tcpServer     *common.TCPServer
 	logger        lalog.Logger
 
 	// processMailTestCaseFunc works along side normal delivery routine, it offers mail message to test case for inspection.
@@ -98,12 +99,6 @@ func (daemon *Daemon) Initialise() error {
 		daemon.smtpConfig.TLSConfig.BuildNameToCertificate()
 	}
 
-	daemon.rateLimit = &misc.RateLimit{
-		MaxCount: daemon.PerIPLimit,
-		UnitSecs: RateLimitIntervalSec,
-		Logger:   daemon.logger,
-	}
-	daemon.rateLimit.Initialise()
 	// Do not allow forward to this daemon itself
 	myPublicIP := inet.GetPublicIP()
 	if (strings.HasPrefix(daemon.ForwardMailClient.MTAHost, "127.") ||
@@ -146,6 +141,15 @@ func (daemon *Daemon) Initialise() error {
 			return errors.New("smtpd.Initialise: mail command runner's reply MTA must not be myself")
 		}
 	}
+	// Configure and initialise TCP server
+	daemon.tcpServer = &common.TCPServer{
+		ListenAddr:  daemon.Address,
+		ListenPort:  daemon.Port,
+		AppName:     "smtpd",
+		App:         daemon,
+		LimitPerSec: daemon.PerIPLimit,
+	}
+	daemon.tcpServer.Initialise()
 	return nil
 }
 
@@ -170,15 +174,13 @@ func (daemon *Daemon) ProcessMail(fromAddr, mailBody string) {
 	}
 }
 
-// HandleConnection converses in SMTP over the connection, process retrieved email, and eventually close the connection.
-func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
-	// Put conversation duration (including IO time) into statistics
-	beginTimeNano := time.Now().UnixNano()
-	defer func() {
-		daemon.logger.MaybeMinorError(clientConn.Close())
-		common.SMTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}()
-	clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
+// GetTCPStatsCollector returns the stats collector that counts and times client connections for the TCP application.
+func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
+	return common.SMTPDStats
+}
+
+// HandleTCPConnection converses with the SMTP client. The client connection is closed by server upon returning from the implementation.
+func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, client *net.TCPConn) {
 	var numCommands int
 	// The status string is only used for logging
 	var completionStatus string
@@ -188,14 +190,7 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	var fromAddr, mailBody string
 	toAddrs := make([]string, 0, 4)
 
-	smtpConn := smtp.NewConnection(clientConn, daemon.smtpConfig, nil)
-	rateLimitOK := daemon.rateLimit.Add(clientIP, true)
-	if !rateLimitOK {
-		smtpConn.AnswerRateLimited()
-		return
-	}
-	daemon.logger.Info("HandleConnection", clientIP, nil, "working on the connection")
-
+	smtpConn := smtp.NewConnection(client, daemon.smtpConfig, nil)
 	for {
 		if misc.EmergencyLockDown {
 			daemon.logger.Warning("HandleConnection", "", misc.ErrEmergencyLockDown, "")
@@ -244,14 +239,14 @@ func (daemon *Daemon) HandleConnection(clientConn net.Conn) {
 	}
 done:
 	if fromAddr != "" && len(toAddrs) > 0 && mailBody != "" {
-		daemon.logger.Info("HandleConnection", clientIP, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
+		daemon.logger.Info("HandleTCPConnection", ip, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 		daemon.ProcessMail(fromAddr, mailBody)
 	} else {
 		smtpConn.AnswerNegative()
 		completionStatus += " & rejected mail due to missing parameters"
 	}
-	daemon.logger.Info("HandleConnection", clientIP, nil, "%s after %d conversations (TLS: %s), last commands: %s",
+	daemon.logger.Info("HandleTCPConnection", ip, nil, "%s after %d conversations (TLS: %s), last commands: %s",
 		completionStatus, numCommands, smtpConn.TLSHelp, strings.Join(latestConv.GetAll(), " | "))
 }
 
@@ -260,39 +255,12 @@ You may call this function only after having called Initialise()!
 Start SMTP daemon and block until daemon is told to stop.
 */
 func (daemon *Daemon) StartAndBlock() (err error) {
-	listener, err := net.Listen("tcp", net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port)))
-	if err != nil {
-		return fmt.Errorf("smtpd.StartAndBlock: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
-	}
-	defer func() {
-		daemon.logger.MaybeMinorError(listener.Close())
-	}()
-	daemon.listener = listener
-	// Process incoming TCP connections
-	daemon.logger.Info("StartAndBlock", "", nil, "going to listen for connections")
-	for {
-		if misc.EmergencyLockDown {
-			daemon.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
-			return
-		}
-		clientConn, err := daemon.listener.Accept()
-		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return nil
-			}
-			return fmt.Errorf("SMTPD.StartAndBlock: failed to accept new connection - %v", err)
-		}
-		go daemon.HandleConnection(clientConn)
-	}
+	return daemon.tcpServer.StartAndBlock()
 }
 
 // If SMTP daemon has started (i.e. listener is set), close the listener so that its connection loop will terminate.
 func (daemon *Daemon) Stop() {
-	if listener := daemon.listener; listener != nil {
-		if err := listener.Close(); err != nil {
-			daemon.logger.Warning("Stop", "", err, "failed to close listener")
-		}
-	}
+	daemon.tcpServer.Stop()
 }
 
 // Run unit tests on Daemon. See TestSMTPD_StartAndBlock for daemon setup.
@@ -311,26 +279,14 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	addr := smtpd.Address + ":" + strconv.Itoa(smtpd.Port)
 	// This really should be inet.HTTPPublicIPTimeoutSec * time.Second, but that would be too long.
 	time.Sleep(3 * time.Second)
-	// Try to exceed rate limit
-	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body"
-	success := 0
-	for i := 0; i < 100; i++ {
-		if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err == nil {
-			success++
-		}
-	}
-	if success < 1 || success > smtpd.PerIPLimit*2 {
-		t.Fatal("delivered", success)
-	}
-	// Wait till rate limit expires (leave 3 seconds buffer for pending transfer)
-	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
+
 	// Send an ordinary mail to the daemon
 	var lastEmailFrom, lastEmailBody string
 	smtpd.processMailTestCaseFunc = func(from string, body string) {
 		lastEmailFrom = from
 		lastEmailBody = body
 	}
-	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
+	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
 	lastEmailFrom = ""
 	lastEmailBody = ""
 
@@ -343,6 +299,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, []byte(testMessage), []byte(lastEmailBody))
 	}
+
 	// Send a mail that does not belong to this server's domain, which will be simply discarded.
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
 	lastEmailFrom = ""

@@ -84,8 +84,8 @@ type Daemon struct {
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
 
-	tcpListener net.Listener // Once TCP daemon is started, this is its listener.
-	udpListener *net.UDPConn // Once UDP daemon is started, this is its listener.
+	tcpServer *common.TCPServer
+	udpServer *common.UDPServer
 
 	/*
 		blackList is a map of domain names (in lower case) and their resolved IP addresses that should be blocked. In
@@ -162,9 +162,12 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.rateLimit.Initialise()
 
+	daemon.latestCommands = NewLatestCommands()
+	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
+	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
+
 	// Always allow server itself to query the DNS servers via its public IP
 	daemon.allowMyPublicIP()
-	daemon.latestCommands = NewLatestCommands()
 	return nil
 }
 
@@ -324,7 +327,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	if daemon.UDPPort != 0 {
 		numListeners++
 		go func() {
-			err := daemon.StartAndBlockUDP()
+			err := daemon.udpServer.StartAndBlock()
 			errChan <- err
 			stopAdBlockUpdater <- true
 		}()
@@ -332,7 +335,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	if daemon.TCPPort != 0 {
 		numListeners++
 		go func() {
-			err := daemon.StartAndBlockTCP()
+			err := daemon.tcpServer.StartAndBlock()
 			errChan <- err
 			stopAdBlockUpdater <- true
 		}()
@@ -348,16 +351,8 @@ func (daemon *Daemon) StartAndBlock() error {
 
 // Close all of open TCP and UDP listeners so that they will cease processing incoming connections.
 func (daemon *Daemon) Stop() {
-	if listener := daemon.tcpListener; listener != nil {
-		if err := listener.Close(); err != nil {
-			daemon.logger.Warning("Stop", "", err, "failed to close TCP listener")
-		}
-	}
-	if listener := daemon.udpListener; listener != nil {
-		if err := listener.Close(); err != nil {
-			daemon.logger.Warning("Stop", "", err, "failed to close UDP listener")
-		}
-	}
+	daemon.tcpServer.Stop()
+	daemon.udpServer.Stop()
 }
 
 /*
@@ -413,11 +408,62 @@ func isTextQuery(queryBody []byte) bool {
 	return typeTXTClassIN > 0
 }
 
+// TestServer contains the comprehensive test cases for both TCP and UDP DNS servers.
+func TestServer(dnsd *Daemon, t testingstub.T) {
+	// Server should start within two seconds
+	var stoppedNormally bool
+	go func() {
+		if err := dnsd.StartAndBlock(); err != nil {
+			t.Fatal(err)
+		}
+		stoppedNormally = true
+	}()
+	time.Sleep(2 * time.Second)
+	// Use go DNS client to verify that the server returns satisfactory response
+	tcpResolver := &net.Resolver{
+		PreferGo:     true,
+		StrictErrors: true,
+		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
+			return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dnsd.TCPPort))
+		},
+	}
+	testResolveNameAndBlackList(t, dnsd, tcpResolver)
+	udpResolver := &net.Resolver{
+		PreferGo:     true,
+		StrictErrors: true,
+		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
+			return net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", dnsd.UDPPort))
+		},
+	}
+	testResolveNameAndBlackList(t, dnsd, udpResolver)
+	// Daemon must stop in a second
+	dnsd.Stop()
+	time.Sleep(1 * time.Second)
+	if !stoppedNormally {
+		t.Fatal("did not stop")
+	}
+	// Repeatedly stopping the daemon should have no negative consequence
+	dnsd.Stop()
+	dnsd.Stop()
+}
+
 /*
 testResolveNameAndBlackList is a common test case that tests name resolution of popular domain names as well as black
 list domain names.
 */
 func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
+	if misc.HostIsWindows() {
+		/*
+			As of 2019-08, net.Resolver does not use custom dialer on Windows due to:
+			- https://github.com/golang/go/issues/33621 (net: Resolver does not appear to use its dialer function on Windows)
+			- https://github.com/golang/go/issues/29621 (net: DNS default resolver vs custom resolver behaviors)
+			- https://github.com/golang/go/issues/33086 (net.Resolver Ignores Custom Dialer)
+			- https://github.com/golang/go/issues/33097 (proposal: net: Enable built-in DNS stub resolver on Windows)
+		*/
+		t.Log("due to outstanding issues in Go, DNS server resolution routines cannot be tested on on Windows.")
+		return
+	}
+	t.Helper()
 	// Track and verify the last resolved name
 	var lastResolvedName string
 	daemon.processQueryTestCaseFunc = func(queryInput string) {

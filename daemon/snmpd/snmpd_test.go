@@ -19,6 +19,10 @@ func TestDaemon(t *testing.T) {
 		t.Fatalf("%+v %+v\n", err, daemon)
 	}
 	// Avoid binding to default privileged port for this test case
+	daemon.Address = "127.0.0.1"
 	daemon.Port = 16138
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	TestSNMPD(&daemon, t)
 }

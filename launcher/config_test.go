@@ -368,8 +368,7 @@ func TestConfig(t *testing.T) {
 	httpd.TestAPIHandlers(httpDaemon, t)
 
 	dnsDaemon := config.GetDNSD()
-	dnsd.TestUDPQueries(dnsDaemon, t)
-	dnsd.TestTCPQueries(dnsDaemon, t)
+	dnsd.TestServer(dnsDaemon, t)
 
 	maintenance.TestMaintenance(config.GetMaintenance(), t)
 
@@ -377,8 +376,7 @@ func TestConfig(t *testing.T) {
 
 	smtpd.TestSMTPD(config.GetMailDaemon(), t)
 
-	plainsocket.TestTCPServer(config.GetPlainSocketDaemon(), t)
-	plainsocket.TestUDPServer(config.GetPlainSocketDaemon(), t)
+	plainsocket.TestServer(config.GetPlainSocketDaemon(), t)
 
 	serialport.TestDaemon(config.GetSerialPortDaemon(), t)
 

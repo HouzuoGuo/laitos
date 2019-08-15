@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
@@ -36,9 +34,7 @@ type Daemon struct {
 	*/
 	CommunityName string `json:"CommunityName"`
 
-	listener  *net.UDPConn // Once UDP daemon is started, this is its listener.
-	rateLimit *misc.RateLimit
-	logger    lalog.Logger
+	udpServer *common.UDPServer
 }
 
 // Initialise validates configuration and initialises internal states.
@@ -59,80 +55,39 @@ func (daemon *Daemon) Initialise() error {
 	if len(daemon.CommunityName) < 6 {
 		return fmt.Errorf("snmpd.Initialise: CommunityName must be at least 6 characters long")
 	}
-	daemon.logger = lalog.Logger{
-		ComponentName: "snmpd",
-		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: daemon.Port}},
+	daemon.udpServer = &common.UDPServer{
+		ListenAddr:  daemon.Address,
+		ListenPort:  daemon.Port,
+		AppName:     "snmpd",
+		App:         daemon,
+		LimitPerSec: daemon.PerIPLimit,
 	}
-	daemon.rateLimit = &misc.RateLimit{
-		MaxCount: daemon.PerIPLimit,
-		UnitSecs: RateLimitIntervalSec,
-		Logger:   daemon.logger,
-	}
-	daemon.rateLimit.Initialise()
+	daemon.udpServer.Initialise()
 	return nil
 }
 
 // StartAndBlock starts UDP listener to serve SNMP clients. You may call this function only after having called Initialise().
 func (daemon *Daemon) StartAndBlock() error {
-	listenAddr := net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port))
-	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
-	if err != nil {
-		return err
-	}
-	udpServer, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		daemon.logger.MaybeMinorError(udpServer.Close())
-	}()
-	daemon.listener = udpServer
-	daemon.logger.Info("StartAndBlock", listenAddr, nil, "going to serve clients")
-	// Process incoming requests
-	packetBuf := make([]byte, MaxPacketSize)
-	for {
-		if misc.EmergencyLockDown {
-			daemon.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
-			return misc.ErrEmergencyLockDown
-		}
-		packetLength, clientAddr, err := udpServer.ReadFromUDP(packetBuf)
-		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return nil
-			}
-			return fmt.Errorf("snmpd.StartAndBlock: failed to accept new connection - %v", err)
-		}
-		// Check IP address against rate limit
-		clientIP := clientAddr.IP.String()
-		if !daemon.rateLimit.Add(clientIP, true) {
-			continue
-		}
-
-		clientPacket := make([]byte, packetLength)
-		copy(clientPacket, packetBuf[:packetLength])
-		go daemon.HandleRequest(clientIP, clientAddr, clientPacket)
-	}
+	return daemon.udpServer.StartAndBlock()
 }
 
-func (daemon *Daemon) HandleRequest(clientIP string, clientAddr *net.UDPAddr, requestPacket []byte) {
-	// Put processing duration (including IO time) into statistics
-	beginTimeNano := time.Now().UnixNano()
-	defer func() {
-		common.SNMPStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}()
-	reader := bufio.NewReader(bytes.NewReader(requestPacket))
+// GetUDPStatsCollector returns the stats collector that counts and times UDP conversations.
+func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
+	return common.SNMPStats
+}
 
-	// Unlike TCP, there's no point in checking against rate limit for the connection itself.
-	daemon.logger.Info("HandleRequest", clientIP, nil, "working on the request")
+// HandleUDPClient converses
+func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, clientIP string, client *net.UDPAddr, reqPacket []byte, srv *net.UDPConn) {
+	reader := bufio.NewReader(bytes.NewReader(reqPacket))
 	// Parse the input packet
 	packet := snmp.Packet{}
 	if err := packet.ReadFrom(reader); err != nil {
-		daemon.logger.Warning("HandleRequest", clientIP, err, "failed to parse request packet")
+		logger.Warning("HandleUDPClient", clientIP, err, "failed to parse request packet")
 		return
 	}
 	// Validate community name i.e. password
 	if subtle.ConstantTimeCompare([]byte(packet.CommunityName), []byte(daemon.CommunityName)) != 1 {
-		daemon.logger.Info("HandleRequest", clientIP, nil, "incorrect community name")
+		logger.Info("HandleUDPClient", clientIP, nil, "incorrect community name")
 		return
 	}
 	// Process the request
@@ -144,7 +99,7 @@ func (daemon *Daemon) HandleRequest(clientIP string, clientAddr *net.UDPAddr, re
 		nextOID, endOfMibView := snmp.GetNextNode(baseOID)
 		nextNodeFun, exists := snmp.GetNode(nextOID)
 		if !exists {
-			daemon.logger.Warning("HandleRequest", clientIP, nil, "failed to retrieve OID %v, this is a programming error.", nextOID)
+			logger.Warning("HandleUDPClient", clientIP, nil, "failed to retrieve OID %v, this is a programming error.", nextOID)
 			return
 		}
 		nodeValue := nextNodeFun()
@@ -155,9 +110,9 @@ func (daemon *Daemon) HandleRequest(clientIP string, clientAddr *net.UDPAddr, re
 			EndOfMIBView:   endOfMibView,
 		}
 		if strBytes, isByteArray := nodeValue.([]byte); isByteArray {
-			daemon.logger.Info("HandleRequest", clientIP, nil, "GetNext OID %v = (%v) %s", baseOID, nextOID, strBytes)
+			logger.Info("HandleUDPClient", clientIP, nil, "GetNext OID %v = (%v) %s", baseOID, nextOID, strBytes)
 		} else {
-			daemon.logger.Info("HandleRequest", clientIP, nil, "GetNext OID %v = (%v) %v", baseOID, nextOID, nodeValue)
+			logger.Info("HandleUDPClient", clientIP, nil, "GetNext OID %v = (%v) %v", baseOID, nextOID, nodeValue)
 		}
 	case snmp.PDUGetRequest:
 		requestedOID := packet.Structure.(snmp.GetRequest).RequestedOID
@@ -171,9 +126,9 @@ func (daemon *Daemon) HandleRequest(clientIP string, clientAddr *net.UDPAddr, re
 				EndOfMIBView:   false,
 			}
 			if strBytes, isByteArray := nodeValue.([]byte); isByteArray {
-				daemon.logger.Info("HandleRequest", clientIP, nil, "Get OID %v = %s", requestedOID, strBytes)
+				logger.Info("HandleUDPClient", clientIP, nil, "Get OID %v = %s", requestedOID, strBytes)
 			} else {
-				daemon.logger.Info("HandleRequest", clientIP, nil, "Get OID %v = %v", requestedOID, nodeValue)
+				logger.Info("HandleUDPClient", clientIP, nil, "Get OID %v = %v", requestedOID, nodeValue)
 			}
 		} else {
 			packet.Structure = snmp.GetResponse{
@@ -182,32 +137,31 @@ func (daemon *Daemon) HandleRequest(clientIP string, clientAddr *net.UDPAddr, re
 				NoSuchInstance: true,
 				EndOfMIBView:   false,
 			}
-			daemon.logger.Info("HandleRequest", clientIP, nil, "Get OID %v = NoSuchInstance", requestedOID)
+			logger.Info("HandleUDPClient", clientIP, nil, "Get OID %v = NoSuchInstance", requestedOID)
 		}
 	default:
-		daemon.logger.Info("HandleRequest", clientIP, nil, "unknown PDU %d", packet.PDU)
+		logger.Info("HandleUDPClient", clientIP, nil, "unknown PDU %d", packet.PDU)
 		return
 	}
 	packet.PDU = snmp.PDUGetResponse
 	resp, err = packet.Encode()
 	if err != nil {
-		daemon.logger.Warning("HandleRequest", clientIP, err, "failed to encode response")
+		logger.Warning("HandleUDPClient", clientIP, err, "failed to encode response")
 		return
 	}
-	daemon.listener.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second))
-	if _, err = daemon.listener.WriteTo(resp, clientAddr); err != nil {
-		daemon.logger.Warning("HandleRequest", clientIP, err, "failed to answer to client")
+	if err := srv.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+		logger.Warning("HandleUDPClient", clientIP, err, "failed to answer to client")
+		return
+	}
+	if _, err = srv.WriteTo(resp, client); err != nil {
+		logger.Warning("HandleUDPClient", clientIP, err, "failed to answer to client")
 		return
 	}
 }
 
 // Stop closes server listener so that it ceases to process incoming requests.
 func (daemon *Daemon) Stop() {
-	if listener := daemon.listener; listener != nil {
-		if err := listener.Close(); err != nil {
-			daemon.logger.Warning("Stop", "", err, "failed to close listener")
-		}
-	}
+	daemon.udpServer.Stop()
 }
 
 // TestSNMPD conducts unit tests on SNMP daemon, see TestSNMPD for daemon setup.
@@ -338,34 +292,6 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 		replyBuf = replyBuf[:n]
 		return replyBuf
 	}
-	packetBuf = lastValidOIDTest()
-	if !bytes.Contains(packetBuf, []byte(daemon.CommunityName)) ||
-		!bytes.Contains(packetBuf, []byte{0x1b, 0x6e, 0x63, 0x8a}) || // request ID
-		!bytes.Contains(packetBuf, []byte{snmp.TagEndOfMIBView, 0x00}) {
-		t.Fatalf("%s\n%#v", string(packetBuf), packetBuf)
-	}
-
-	// Test for rate limit - flood the server
-	var success int64
-	for i := 0; i < daemon.PerIPLimit*3; i++ {
-		go func() {
-			floodReplyBuf := lastValidOIDTest()
-			if bytes.Contains(floodReplyBuf, []byte(daemon.CommunityName)) &&
-				bytes.Contains(floodReplyBuf, []byte{0x1b, 0x6e, 0x63, 0x8a}) &&
-				bytes.Contains(floodReplyBuf, []byte{snmp.TagEndOfMIBView, 0x00}) {
-				atomic.AddInt64(&success, 1)
-			} else if len(floodReplyBuf) > 0 {
-				t.Fatal("Faulty reply", floodReplyBuf)
-			}
-		}()
-	}
-	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
-	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
-	if success > int64(daemon.PerIPLimit*2) {
-		t.Fatal(success)
-	}
-
-	// After rate limit resets, request shall work again.
 	packetBuf = lastValidOIDTest()
 	if !bytes.Contains(packetBuf, []byte(daemon.CommunityName)) ||
 		!bytes.Contains(packetBuf, []byte{0x1b, 0x6e, 0x63, 0x8a}) || // request ID

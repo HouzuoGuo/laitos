@@ -1,12 +1,8 @@
 package dnsd
 
 import (
-	"context"
-	"fmt"
 	"math/rand"
 	"net"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -14,85 +10,35 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
-/*
-StartAndBlockUDP starts DNS daemon to listen on UDP port only, until daemon is told to stop.
-Daemon must have already been initialised prior to this call.
-*/
-func (daemon *Daemon) StartAndBlockUDP() error {
-	listenAddr := net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.UDPPort))
-	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
-	if err != nil {
-		return err
-	}
-	udpServer, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		daemon.logger.MaybeMinorError(udpServer.Close())
-	}()
-	daemon.udpListener = udpServer
-	daemon.logger.Info("StartAndBlockUDP", listenAddr, nil, "going to monitor for queries")
-	// Dispatch queries to forwarder queues
-	packetBuf := make([]byte, MaxPacketSize)
-	for {
-		if misc.EmergencyLockDown {
-			daemon.logger.Warning("StartAndBlockUDP", "", misc.ErrEmergencyLockDown, "")
-			return misc.ErrEmergencyLockDown
-		}
-		packetLength, clientAddr, err := udpServer.ReadFromUDP(packetBuf)
-		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return nil
-			}
-			return fmt.Errorf("DNSD.StartAndBlockUDP: failed to accept request - %v", err)
-		}
-		// Check address against rate limit and allowed IP prefixes
-		clientIP := clientAddr.IP.String()
-		if !daemon.rateLimit.Add(clientIP, true) {
-			continue
-		}
-		if packetLength < MinNameQuerySize {
-			daemon.logger.Warning("UDPLoop", clientIP, nil, "received packet is abnormally small")
-			continue
-		}
-		queryPacket := make([]byte, packetLength)
-		copy(queryPacket, packetBuf[:packetLength])
-		go daemon.handleUDPQuery(queryPacket, clientAddr)
-	}
+// GetUDPStatsCollector returns stats collector for the UDP server of this daemon.
+func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
+	return common.PlainSocketStatsUDP
 }
 
-func (daemon *Daemon) handleUDPQuery(queryBody []byte, client *net.UDPAddr) {
-	// Put query duration (including IO time) into statistics
-	beginTimeNano := time.Now().UnixNano()
-	defer func() {
-		common.DNSDStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}()
-	clientIP := client.IP.String()
-
+// Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
+func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
 	var respLenInt int
 	var respBody []byte
-	if isTextQuery(queryBody) {
+	if isTextQuery(packet) {
 		// Handle toolbox command that arrives as a text query
-		respLenInt, respBody = daemon.handleUDPTextQuery(clientIP, queryBody)
+		respLenInt, respBody = daemon.handleUDPTextQuery(ip, packet)
 	} else {
 		// Handle other query types such as name query
-		respLenInt, respBody = daemon.handleUDPNameOrOtherQuery(clientIP, queryBody)
+		respLenInt, respBody = daemon.handleUDPNameOrOtherQuery(ip, packet)
 	}
 	// Ignore the request if there is no appropriate response
 	if respBody == nil || len(respBody) < 3 {
 		return
 	}
 	// Send response to the client, match transaction ID of original query.
-	respBody[0] = queryBody[0]
-	respBody[1] = queryBody[1]
+	respBody[0] = packet[0]
+	respBody[1] = packet[1]
 	// Set deadline for responding to my DNS client because the query reader and response writer do not share the same timeout
-	daemon.logger.MaybeMinorError(daemon.udpListener.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
-	if _, err := daemon.udpListener.WriteTo(respBody[:respLenInt], client); err != nil {
-		daemon.logger.Warning("HandleUDPQuery", clientIP, err, "failed to answer to client")
+	logger.MaybeMinorError(srv.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
+	if _, err := srv.WriteTo(respBody[:respLenInt], client); err != nil {
+		logger.Warning("HandleUDPQuery", ip, err, "failed to answer to client")
 		return
 	}
 }
@@ -181,78 +127,4 @@ func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte)
 		return
 	}
 	return
-}
-
-// Run unit tests on DNS UDP daemon. See TestDNSD for daemon setup.
-func TestUDPQueries(dnsd *Daemon, t testingstub.T) {
-	if misc.HostIsWindows() {
-		// FIXME: fix this test case for Windows
-		t.Log("FIXME: enable TestUDPQueries for Windows")
-		return
-	}
-	// Prevent daemon from listening to TCP queries in this UDP test case
-	tcpListenPort := dnsd.TCPPort
-	dnsd.TCPPort = 0
-	defer func() {
-		dnsd.TCPPort = tcpListenPort
-	}()
-	// Server should start within two seconds
-	var stoppedNormally bool
-	go func() {
-		if err := dnsd.StartAndBlock(); err != nil {
-			t.Fatal(err)
-		}
-		stoppedNormally = true
-	}()
-	time.Sleep(2 * time.Second)
-
-	// Use go DNS client to verify that the server returns satisfactory response
-	resolver := &net.Resolver{
-		PreferGo:     true,
-		StrictErrors: true,
-		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
-			return net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", dnsd.UDPPort))
-		},
-	}
-	testResolveNameAndBlackList(t, dnsd, resolver)
-	// Try to flood the server and reach rate limit
-	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:"+strconv.Itoa(dnsd.UDPPort))
-	if err != nil {
-		t.Fatal(err)
-	}
-	packetBuf := make([]byte, MaxPacketSize)
-	var success int
-	for i := 0; i < 40; i++ {
-		go func() {
-			clientConn, err := net.DialUDP("udp", nil, serverAddr)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := clientConn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
-				lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
-				t.Fatal(err)
-			}
-			if _, err := clientConn.Write(githubComUDPQuery); err != nil {
-				lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
-				t.Fatal(err)
-			}
-			length, err := clientConn.Read(packetBuf)
-			lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
-			if err == nil && length > 50 {
-				success++
-			}
-		}()
-	}
-	// Wait for rate limit to reset and verify that regular name resolution resumes
-	time.Sleep(RateLimitIntervalSec * time.Second)
-	testResolveNameAndBlackList(t, dnsd, resolver)
-	// Daemon must stop in a second
-	dnsd.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
-	// Repeatedly stopping the daemon should have no negative consequence
-	dnsd.Stop()
-	dnsd.Stop()
 }

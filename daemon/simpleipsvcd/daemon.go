@@ -9,7 +9,6 @@ package simpleipsvcd
 
 import (
 	"bufio"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"strconv"
@@ -19,7 +18,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
@@ -38,12 +36,11 @@ type Daemon struct {
 	ActiveUserNames string `json:"ActiveUserNames"` // ActiveUserNames are CRLF-separated list of user names to appear in the response of "sysstat" network service.
 	QOTD            string `json:"QOTD"`            // QOTD is the message to appear in the response of "QOTD" network service.
 
-	rateLimit *misc.RateLimit
-	logger    lalog.Logger
+	logger lalog.Logger
 
-	// tcpServers, udpServers, and serverResponseFun contain listener structures and their corresponding response content function.
-	tcpServers        map[int]net.Listener
-	udpServers        map[int]*net.UDPConn
+	// tcpServers, udpServers, and serverResponseFun contain server instances and their corresponding response content function.
+	tcpServers        map[int]*common.TCPServer
+	udpServers        map[int]*common.UDPServer
 	serverResponseFun map[int]func() string
 }
 
@@ -72,15 +69,9 @@ func (daemon *Daemon) Initialise() error {
 		ComponentName: "simpleipsvcd",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: daemon.Address}},
 	}
-	daemon.rateLimit = &misc.RateLimit{
-		MaxCount: daemon.PerIPLimit,
-		UnitSecs: RateLimitIntervalSec,
-		Logger:   daemon.logger,
-	}
-	daemon.rateLimit.Initialise()
 
-	daemon.tcpServers = make(map[int]net.Listener)
-	daemon.udpServers = make(map[int]*net.UDPConn)
+	daemon.tcpServers = make(map[int]*common.TCPServer)
+	daemon.udpServers = make(map[int]*common.UDPServer)
 	daemon.serverResponseFun = map[int]func() string{
 		daemon.ActiveUsersPort: daemon.responseActiveUsers,
 		daemon.DayTimePort:     daemon.responseDayTime,
@@ -97,35 +88,42 @@ func (daemon *Daemon) StartAndBlock() error {
 		wg.Add(2)
 		daemon.logger.Info("StartAndBlock", "", nil, "going to listen on TCP and UDP port %d", port)
 		// Start TCP listener on the port
-		tcpServer, err := net.Listen("tcp", fmt.Sprintf("%s:%d", daemon.Address, port))
-		if err != nil {
-			daemon.Stop()
-			return fmt.Errorf("simpleipsvcd.StartAndBlock: failed to start TCP server on port %d - %v", port, err)
+		tcpServer := &common.TCPServer{
+			ListenAddr:  daemon.Address,
+			ListenPort:  port,
+			AppName:     "",
+			App:         &TCPService{ResponseFun: daemon.serverResponseFun[port]},
+			LimitPerSec: daemon.PerIPLimit,
 		}
+		tcpServer.Initialise()
 		daemon.tcpServers[port] = tcpServer
-		go func(port int) {
-			daemon.tcpResponderLoop(port)
+		go func() {
+			if err := tcpServer.StartAndBlock(); err != nil {
+				daemon.logger.Warning("StartAndBlock", "", err, "failed to start a TCP server")
+				daemon.Stop()
+			}
 			wg.Done()
-		}(port)
+		}()
 
 		// Start UDP server on the port
-		udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", daemon.Address, port))
-		if err != nil {
-			daemon.Stop()
-			return fmt.Errorf("simpleipsvcd.StartAndBlock: failed to resolve UDP listen address on port %d - %v", port, err)
+		udpServer := &common.UDPServer{
+			ListenAddr:  daemon.Address,
+			ListenPort:  port,
+			AppName:     "",
+			App:         &UDPService{ResponseFun: daemon.serverResponseFun[port]},
+			LimitPerSec: daemon.PerIPLimit,
 		}
-		udpServer, err := net.ListenUDP("udp", udpAddr)
-		if err != nil {
-			daemon.Stop()
-			return fmt.Errorf("simpleipsvcd.StartAndBlock: failed to start UDP server on port %d - %v", port, err)
-		}
+		udpServer.Initialise()
 		daemon.udpServers[port] = udpServer
 		go func(port int) {
-			daemon.udpResponderLoop(port)
+			if err := udpServer.StartAndBlock(); err != nil {
+				daemon.logger.Warning("StartAndBlock", "", err, "failed to start a UDP server")
+				daemon.Stop()
+			}
 			wg.Done()
 		}(port)
 	}
-	// Wait for servers to be stopped
+	// Wait for servers to stop
 	wg.Wait()
 	return nil
 }
@@ -133,27 +131,21 @@ func (daemon *Daemon) StartAndBlock() error {
 // Stop terminates all TCP and UDP servers.
 func (daemon *Daemon) Stop() {
 	if daemon.tcpServers != nil {
-		for port, server := range daemon.tcpServers {
+		for _, server := range daemon.tcpServers {
 			if server == nil {
 				continue
 			}
-			if err := server.Close(); err != nil {
-				daemon.logger.Warning("Stop", strconv.Itoa(port), err, "failed to stop TCP server")
-			}
+			server.Stop()
 		}
 	}
-	daemon.tcpServers = map[int]net.Listener{}
 	if daemon.udpServers != nil {
-		for port, server := range daemon.udpServers {
+		for _, server := range daemon.udpServers {
 			if server == nil {
 				continue
 			}
-			if err := server.Close(); err != nil {
-				daemon.logger.Warning("Stop", strconv.Itoa(port), err, "failed to stop UDP server")
-			}
+			server.Stop()
 		}
 	}
-	daemon.udpServers = map[int]*net.UDPConn{}
 }
 
 // responseActiveUsers returns configured active system user names in response to a sysstat service client.
@@ -169,89 +161,6 @@ func (daemon *Daemon) responseDayTime() string {
 // responseQOTD returns the configured QOTD in response to a QOTD service client.
 func (daemon *Daemon) responseQOTD() string {
 	return daemon.QOTD + "\r\n"
-}
-
-// tcpResponderLoop blocks caller to server all incoming TCP connections on the service port, until its listener is stopped.
-func (daemon *Daemon) tcpResponderLoop(port int) {
-	logFunName := fmt.Sprintf("tcpResponderLoop-%d", port)
-	for {
-		if misc.EmergencyLockDown {
-			daemon.logger.Warning(logFunName, "", misc.ErrEmergencyLockDown, "")
-			return
-		}
-		clientConn, err := daemon.tcpServers[port].Accept()
-		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return
-			}
-			daemon.logger.Warning(logFunName, fmt.Sprintf("Port-%d", port), err, "quit due to error")
-			return
-		}
-		// Check IP address against rate limit
-		clientIP := clientConn.RemoteAddr().(*net.TCPAddr).IP.String()
-		if !daemon.rateLimit.Add(clientIP, true) {
-			daemon.logger.MaybeMinorError(clientConn.Close())
-			continue
-		}
-		go func(clientConn net.Conn) {
-			// Put processing duration (including IO time) into statistics
-			beginTimeNano := time.Now().UnixNano()
-			defer func() {
-				daemon.logger.MaybeMinorError(clientConn.Close())
-				common.SimpleIPStatsTCP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-			}()
-			daemon.logger.Info(logFunName, clientIP, nil, "working on the request")
-			if err := clientConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-				daemon.logger.Warning(logFunName, clientIP, err, "failed to write response")
-				return
-			} else if _, err := clientConn.Write([]byte(daemon.serverResponseFun[port]())); err != nil {
-				daemon.logger.Warning(logFunName, clientIP, err, "failed to write response")
-				return
-			}
-		}(clientConn)
-	}
-}
-
-// udpResponderLoop blocks caller to serve all incoming UDP requests on the service port, until its server is stopped.
-func (daemon *Daemon) udpResponderLoop(port int) {
-	logFunName := fmt.Sprintf("udpResponderLoop-%d", port)
-	udpServer := daemon.udpServers[port]
-	for {
-		if misc.EmergencyLockDown {
-			daemon.logger.Warning(logFunName, "", misc.ErrEmergencyLockDown, "")
-			return
-		}
-		// The simple IP services do not ask client to send anything meaningful
-		discardBuf := make([]byte, 1500)
-		_, clientAddr, err := udpServer.ReadFromUDP(discardBuf)
-		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
-				return
-			}
-			daemon.logger.Warning(logFunName, "", err, "quit due to error")
-			return
-		}
-		// Check IP address against rate limit
-		clientIP := clientAddr.IP.String()
-		if !daemon.rateLimit.Add(clientIP, true) {
-			continue
-		}
-		go func(clientAddr *net.UDPAddr) {
-			// Put processing duration (including IO time) into statistics
-			beginTimeNano := time.Now().UnixNano()
-			defer func() {
-				common.SimpleIPStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-			}()
-			daemon.logger.Info(logFunName, clientIP, nil, "working on the request")
-			if err := udpServer.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-				daemon.logger.Warning(logFunName, clientIP, err, "failed to write response")
-				return
-			} else if _, err := udpServer.WriteToUDP([]byte(daemon.serverResponseFun[port]()), clientAddr); err != nil {
-				daemon.logger.Warning(logFunName, clientIP, err, "failed to write response")
-				return
-			}
-		}(clientAddr)
-	}
 }
 
 func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
@@ -279,54 +188,6 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		return false
 	}
 
-	// Pick port 11 as the test subject for rate limits, TCP and UDP.
-	success := 0
-	for i := 0; i < 40; i++ {
-		tcpClient, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(daemon.ActiveUsersPort))
-		if err != nil {
-			continue
-		}
-		_ = tcpClient.SetDeadline(time.Now().Add(50 * time.Millisecond))
-		response, err := ioutil.ReadAll(tcpClient)
-		if err != nil {
-			continue
-		}
-		_ = tcpClient.Close()
-		if testResponseMatch(daemon.ActiveUsersPort, string(response)) {
-			success++
-		}
-	}
-	if success < 1 || success > daemon.PerIPLimit*3 {
-		t.Fatal("number of succeeded TCP requests is wrong", success)
-	}
-	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
-	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
-	success = 0
-	for i := 0; i < 40; i++ {
-		udpClient, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(daemon.ActiveUsersPort))
-		if err != nil {
-			continue
-		}
-		_ = udpClient.SetDeadline(time.Now().Add(50 * time.Millisecond))
-		_, err = udpClient.Write([]byte{})
-		if err != nil {
-			continue
-		}
-		udpResponse, err := bufio.NewReader(udpClient).ReadString('\n')
-		if err != nil {
-			continue
-		}
-		_ = udpClient.Close()
-		if testResponseMatch(daemon.ActiveUsersPort, udpResponse) {
-			success++
-		}
-	}
-	if success < 1 || success > daemon.PerIPLimit*3 {
-		t.Fatal("number of succeeded UDP requests is wrong", success)
-	}
-	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
-	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
-
 	// Test each of the three services
 	for _, port := range []int{daemon.ActiveUsersPort, daemon.DayTimePort, daemon.QOTDPort} {
 		// Test TCP implementation of the service
@@ -347,7 +208,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = udpClient.Write([]byte{})
+		_, err = udpClient.Write([]byte{0})
 		if err != nil {
 			t.Fatal(err)
 		}
