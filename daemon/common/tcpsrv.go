@@ -78,14 +78,15 @@ func (srv *TCPServer) Initialise() {
 	if srv.LimitPerSec%5 == 0 {
 		srv.rateLimit.UnitSecs = 5
 		srv.rateLimit.MaxCount = 5 * srv.LimitPerSec
-	}
-	if srv.LimitPerSec%3 == 0 {
+	} else if srv.LimitPerSec%3 == 0 {
 		srv.rateLimit.UnitSecs = 3
 		srv.rateLimit.MaxCount = 3 * srv.LimitPerSec
-	}
-	if srv.LimitPerSec%2 == 0 {
+	} else if srv.LimitPerSec%2 == 0 {
 		srv.rateLimit.UnitSecs = 2
 		srv.rateLimit.MaxCount = 2 * srv.LimitPerSec
+	} else {
+		srv.rateLimit.UnitSecs = 1
+		srv.rateLimit.MaxCount = srv.LimitPerSec
 	}
 	srv.rateLimit.Initialise()
 }

@@ -35,12 +35,17 @@ func TestTCPServer(t *testing.T) {
 		ListenPort:  62172,
 		AppName:     "TestTCPServer",
 		App:         &TCPTestApp{stats: misc.NewStats()},
-		LimitPerSec: 2,
+		LimitPerSec: 5,
 	}
 	srv.Initialise()
 
 	// Check folded rate limit
-	if srv.rateLimit.MaxCount != 4 || srv.rateLimit.UnitSecs != 2 {
+	if srv.rateLimit.MaxCount != 25 || srv.rateLimit.UnitSecs != 5 {
+		t.Fatal(srv.rateLimit.MaxCount, srv.rateLimit.UnitSecs)
+	}
+	srv.LimitPerSec = 7
+	srv.Initialise()
+	if srv.rateLimit.MaxCount != 7 || srv.rateLimit.UnitSecs != 1 {
 		t.Fatal(srv.rateLimit.MaxCount, srv.rateLimit.UnitSecs)
 	}
 
