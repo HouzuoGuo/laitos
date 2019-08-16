@@ -23,7 +23,7 @@ func (app *UDPTestApp) HandleUDPClient(logger lalog.Logger, clientIP string, cli
 	if clientIP == "" {
 		panic("client IP must not be empty")
 	}
-	if !reflect.DeepEqual(packet, []byte{0, 1, 2}) {
+	if !reflect.DeepEqual(packet, []byte{0}) {
 		log.Panicf("unexpected incoming packet %v", packet)
 	}
 	if n, err := srv.WriteToUDP([]byte("hello"), client); err != nil || n != 5 {
@@ -64,7 +64,7 @@ func TestUDPServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n, err := client.Write([]byte{0, 1, 2}); err != nil || n != 3 {
+	if n, err := client.Write([]byte{0}); err != nil || n != 1 {
 		t.Fatal(err, n)
 	}
 	buf := make([]byte, 5)
@@ -88,7 +88,7 @@ func TestUDPServer(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if n, err := client.Write([]byte{0, 1, 2}); err != nil || n != 3 {
+		if n, err := client.Write([]byte{0}); err != nil || n != 1 {
 			t.Fatal(err, n)
 		}
 		buf := make([]byte, 5)

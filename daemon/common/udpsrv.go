@@ -120,6 +120,9 @@ func (srv *UDPServer) StartAndBlock() error {
 			}
 			return fmt.Errorf("UDPServer.StartAndBlock(%s): failed to read from next client - %v", srv.AppName, err)
 		}
+		if packetLen == 0 {
+			continue
+		}
 		// Check client IP against rate limit
 		clientIP := clientAddr.IP.String()
 		if !srv.rateLimit.Add(clientIP, true) {
