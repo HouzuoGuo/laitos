@@ -66,7 +66,7 @@ func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 		daemon.logPrintStageStep(out, "failed to determine release name")
 		return
 	}
-	aptOut, err = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(string(lsbOut))))
+	aptOut, err = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(lsbOut)))
 	daemon.logPrintStageStep(out, "enable docker repository - %v %s", err, aptOut)
 }
 

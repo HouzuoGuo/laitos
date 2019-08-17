@@ -97,7 +97,7 @@ func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 	}
 }
 
-// MaintainWindowsIntegrity uses DISM and FSC utilities to maintain Windows system integrity.
+// MaintainWindowsIntegrity uses DISM and SFC utilities to maintain Windows system integrity and runs Windows Update.
 func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	if !misc.HostIsWindows() {
 		return
@@ -129,8 +129,13 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 		daemon.logPrintStageStep(out, "failed to create update script: %v", err)
 		return
 	}
-	defer os.Remove(script.Name())
-	script.Close()
+	defer func() {
+		_ = os.Remove(script.Name())
+	}()
+	if err := script.Close(); err != nil {
+		daemon.logPrintStageStep(out, "failed to create update script: %v", err)
+		return
+	}
 	err = ioutil.WriteFile(script.Name(), []byte(`
 Set updateSession = CreateObject("Microsoft.Update.Session")
 updateSession.ClientApplicationID = "laitos"

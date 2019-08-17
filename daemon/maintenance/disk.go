@@ -15,7 +15,15 @@ func (daemon *Daemon) CleanUpFiles(out *bytes.Buffer) {
 	daemon.logPrintStage(out, "disk clean up")
 	sevenDaysAgo := time.Now().Add(-(7 * 24 * time.Hour))
 	// Keep in mind that /var/tmp is supposed to hold "persistent temporary files" in Linux
-	for _, location := range []string{`/tmp`, `C:\Temp`, `C:\Windows\Temp`} {
+	locations := []string{`/tmp`, `C:\Temp`, `C:\Tmp`, `C:\Windows\Temp`}
+	if envTemp := os.Getenv("TEMP"); envTemp != "" {
+		locations = append(locations, envTemp)
+	}
+	if envTmp := os.Getenv("TMP"); envTmp != "" {
+		locations = append(locations, envTmp)
+	}
+	daemon.logPrintStageStep(out, "will remove week-old temporary files from: %v", locations)
+	for _, location := range locations {
 		_ = filepath.Walk(location, func(thisPath string, info os.FileInfo, err error) error {
 			if err == nil {
 				if info.ModTime().Before(sevenDaysAgo) {

@@ -37,19 +37,9 @@ func TestUDPServer(t *testing.T) {
 		ListenPort:  12382,
 		AppName:     "TestUDPServer",
 		App:         &UDPTestApp{stats: misc.NewStats()},
-		LimitPerSec: 4,
+		LimitPerSec: 5,
 	}
 	srv.Initialise()
-
-	// Check folded rate limit
-	if srv.rateLimit.MaxCount != 8 || srv.rateLimit.UnitSecs != 2 {
-		t.Fatal(srv.rateLimit.MaxCount, srv.rateLimit.UnitSecs)
-	}
-	srv.LimitPerSec = 7
-	srv.Initialise()
-	if srv.rateLimit.MaxCount != 7 || srv.rateLimit.UnitSecs != 1 {
-		t.Fatal(srv.rateLimit.MaxCount, srv.rateLimit.UnitSecs)
-	}
 
 	// Expect server to start within three seconds
 	var shutdown bool

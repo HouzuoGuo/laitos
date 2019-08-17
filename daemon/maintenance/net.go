@@ -41,13 +41,13 @@ func (daemon *Daemon) MaintainsIptables(out *bytes.Buffer) {
 		{"-P", "INPUT", "DROP"},
 		{"-F", "INPUT"},
 	}
-	// Work around a redhat kernel bug that prevented throttle counter from exceeding 20
 	for _, cmd := range iptables {
 		ipOut, ipErr := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "iptables", cmd...)
 		if ipErr != nil {
 			daemon.logPrintStageStep(out, "failed in a step that clears iptables - %v - %s", ipErr, ipOut)
 		}
 	}
+	// Work around a redhat kernel bug that prevented throttle counter from exceeding 20
 	mOut, mErr := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "modprobe", "-r", "xt_recent")
 	daemon.logPrintStageStep(out, "disable xt_recent - %v - %s", mErr, mOut)
 	mOut, mErr = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "modprobe", "xt_recent", "ip_pkt_list_tot=255")

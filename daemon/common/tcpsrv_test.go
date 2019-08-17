@@ -39,16 +39,6 @@ func TestTCPServer(t *testing.T) {
 	}
 	srv.Initialise()
 
-	// Check folded rate limit
-	if srv.rateLimit.MaxCount != 25 || srv.rateLimit.UnitSecs != 5 {
-		t.Fatal(srv.rateLimit.MaxCount, srv.rateLimit.UnitSecs)
-	}
-	srv.LimitPerSec = 7
-	srv.Initialise()
-	if srv.rateLimit.MaxCount != 7 || srv.rateLimit.UnitSecs != 1 {
-		t.Fatal(srv.rateLimit.MaxCount, srv.rateLimit.UnitSecs)
-	}
-
 	// Expect server to start within three seconds
 	var shutdown bool
 	go func() {

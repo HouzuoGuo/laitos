@@ -30,6 +30,16 @@ func (limit *RateLimit) Initialise() {
 		limit.Logger.Panic("Initialise", "RateLimit", nil, "UnitSecs and MaxCount must be greater than 0")
 		return
 	}
+	// Turn per-second limit into greater limit over multiple seconds to reduce log spamming
+	if limit.UnitSecs == 1 {
+		for _, factor := range []int{11, 7, 5, 3, 2} {
+			if limit.MaxCount%factor == 0 {
+				limit.UnitSecs = int64(factor)
+				limit.MaxCount *= factor
+				break
+			}
+		}
+	}
 }
 
 // Increase counter of the actor by one. If the counter exceeds max limit, return false, otherwise return true.

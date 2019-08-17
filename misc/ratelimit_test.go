@@ -7,7 +7,26 @@ import (
 )
 
 func TestRateLimit(t *testing.T) {
-	limit := RateLimit{UnitSecs: 3, MaxCount: 4}
+	// Log spam reduction
+	limit := RateLimit{UnitSecs: 1, MaxCount: 23}
+	limit.Initialise()
+	if limit.UnitSecs != 1 || limit.MaxCount != 23 {
+		t.Fatalf("%+v", limit)
+	}
+
+	limit = RateLimit{UnitSecs: 1, MaxCount: 22}
+	limit.Initialise()
+	if limit.UnitSecs != 11 || limit.MaxCount != 22*11 {
+		t.Fatalf("%+v", limit)
+	}
+
+	limit = RateLimit{UnitSecs: 1, MaxCount: 21}
+	limit.Initialise()
+	if limit.UnitSecs != 7 || limit.MaxCount != 21*7 {
+		t.Fatalf("%+v", limit)
+	}
+
+	limit = RateLimit{UnitSecs: 3, MaxCount: 4}
 	limit.Initialise()
 	// Three actors should get two chances each
 	success := [3]int{}
