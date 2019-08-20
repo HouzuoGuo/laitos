@@ -19,6 +19,10 @@ func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
 func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
+	if len(packet) < MinNameQuerySize {
+		logger.Warning("HandleUDPClient", ip, nil, "packet length is too small")
+		return
+	}
 	var respLenInt int
 	var respBody []byte
 	if isTextQuery(packet) {

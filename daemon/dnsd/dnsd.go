@@ -419,6 +419,29 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 		stoppedNormally = true
 	}()
 	time.Sleep(2 * time.Second)
+
+	// Send a malformed packet and make sure the daemon will not crash
+	tcpClient, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dnsd.TCPPort))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tcpClient.Write([]byte{0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tcpClient.Close(); err != nil {
+		t.Fatal(err)
+	}
+	udpClient, err := net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", dnsd.UDPPort))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := udpClient.Write([]byte{0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := udpClient.Close(); err != nil {
+		t.Fatal(err)
+	}
+
 	// Use go DNS client to verify that the server returns satisfactory response
 	tcpResolver := &net.Resolver{
 		PreferGo:     true,
@@ -464,6 +487,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		return
 	}
 	t.Helper()
+
 	// Track and verify the last resolved name
 	var lastResolvedName string
 	daemon.processQueryTestCaseFunc = func(queryInput string) {

@@ -119,9 +119,9 @@ type Supervisor struct {
 	DaemonNames []string
 	// shedSequence is the sequence at which daemon shedding takes place. Each latter array has one daemon less than the previous.
 	shedSequence [][]string
-	// mainStdout forwards verbatim main program output to stdout and keeps latest several KB for notification.
+	// mainStdout keeps last several KB of program stdout content for failure notification and forwards everything to stdout.
 	mainStdout *lalog.ByteLogWriter
-	// mainStderr forwards verbatim main program output to stdout and keeps latest several KB for notification.
+	// mainStderr keeps last several KB of program stderr content for failure notification and forward everything to stderr.
 	mainStderr *lalog.ByteLogWriter
 
 	logger lalog.Logger
@@ -133,8 +133,8 @@ func (sup *Supervisor) initialise() {
 		ComponentName: "supervisor",
 		ComponentID:   []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}, {Key: "Daemons", Value: sup.DaemonNames}},
 	}
-	sup.mainStderr = lalog.NewByteLogWriter(os.Stderr, MemoriseOutputCapacity)
 	sup.mainStdout = lalog.NewByteLogWriter(os.Stdout, MemoriseOutputCapacity)
+	sup.mainStderr = lalog.NewByteLogWriter(os.Stderr, MemoriseOutputCapacity)
 	// Remove daemon names from CLI flags, because they will be appended by GetLaunchParameters.
 	sup.CLIFlags = RemoveFromFlags(func(s string) bool {
 		return strings.HasPrefix(s, "-"+DaemonsFlagName)
@@ -247,6 +247,7 @@ func (sup *Supervisor) Start() {
 		mainProgram.Stderr = sup.mainStderr
 		if err := FeedDecryptionPasswordToStdinAndStart(misc.UniversalDecryptionKey, mainProgram); err != nil {
 			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "failed to start main program")
+			time.Sleep(1 * time.Second)
 			sup.notifyFailure(cliFlags, err)
 			if time.Now().Unix()-lastAttemptTime < FailureThresholdSec {
 				paramChoice++
@@ -257,6 +258,12 @@ func (sup *Supervisor) Start() {
 		lastAttemptTime = time.Now().Unix()
 		if err := mainProgram.Wait(); err != nil {
 			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "main program has crashed")
+			/*
+				Unsure what's going on - the main program crashes, the buffer storing latest stderr content just barely
+				catches the beginning of a panic message and never the full stack trace. The full panic message
+				including stack trace shows up properly in system journal. Let's see if a delay of a second will help.
+			*/
+			time.Sleep(1 * time.Second)
 			sup.notifyFailure(cliFlags, err)
 			if time.Now().Unix()-lastAttemptTime < FailureThresholdSec {
 				paramChoice++
