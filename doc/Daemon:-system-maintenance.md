@@ -1,24 +1,35 @@
 # Daemon: system maintenance
 
 ## Introduction
-The daemon regularly conducts system maintenance to ensure smooth and safe operation of your laitos server:
-- Validate configuration (such as API credentials for Twitter) used by toolbox commands and HTTP handlers.
-- Collect latest network stats and program logs.
-- Install latest system security updates. Keep installed applications up to date.
-- Clear old temporary files.
-- Harden system security by disabling unused services and users.
-- Check availability of external services running on TCP ports.
-- Install system software that are used by some of laitos components (such as remote controlled browser session).
-- On Windows, maintain system files integrity.
-- On Linux, set up firewall, set system time zone, and synchronise clock.
+The daemon regularly conducts system maintenance to ensure smooth and safe operation of your laitos server.
+A summary report is generated after each run and delivered to designated Email recipients.
 
-A summary report is generated after each run and delivered to designated Email address or printed as program output.
+System maintenance tasks comprise:
+
+(For laitos)
+- Validate configuration (such as API credentials for Twitter) used by toolbox commands and HTTP handlers.
+- Collect latest daemon stats summary and collect latest log entries.
+- Install system software that are used by some of laitos components (such as remote controlled browser session).
+
+(For system security)
+- Install latest system security updates. Keep installed applications up to date.
+- Harden system security by disabling unused services and users.
+- Set up Linux firewall.
+
+(For routine maintenance)
+- Defragment drives, trim SSD drives, and delete expired temporary files.
+- Synchronise system clock.
+- On Windows, maintain system files integrity with `DISM` and `SFC`.
+- Set Linux system time zone
+
+(Miscellaneous)
+- Perform connection check on external TCP services.
 
 laitos can operate with the following software managers for security updates and software installation:
 - `apt-get` (Debian, Ubuntu, etc)
-- `yum` (CentOS, Fedora, Redhat, ScientificLinux, etc)
+- `yum` (Amazon Linux, CentOS, RedHat, Fedora, etc)
 - `zypper` (openSUSE, SLES, SLED, etc)
-- `chocolatey` (Windows)
+- `chocolatey` (Windows server & desktop)
 
 ## Configuration
 1. Construct the following JSON object and place it under JSON key `Maintenance` in configuration file:

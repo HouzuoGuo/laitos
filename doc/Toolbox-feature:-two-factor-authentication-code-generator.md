@@ -22,13 +22,13 @@ Second, prepare account list file for laitos:
    The secret text is not case sensitive, and spaces among the text do not matter.
 2. Encrypt the file using OpenSSL command. When it asks for a password, make sure to use a strong password:
 
-        openssl enc -aes256 -in 2fa-secrets.txt -out encrypted-secrets.bin
+        openssl enc -aes256 -md md5 -in 2fa-secrets.txt -out encrypted-secrets.bin
 3. Delete the plain text file (`2fa-secrets.txt`) and shred the piece of paper on which you noted down the secret text.
 
 Third, retrieve encryption parameters from encrypted secrets:
 1. Use OpenSSL command to reveal the encryption parameters. You will need to enter the password that encrypted the file:
 
-        openssl enc -aes256 -in encrypted-secrets.bin -d -p
+        openssl enc -aes256 -md md5 -in encrypted-secrets.bin -d -p
 
    The output will look something like:
 

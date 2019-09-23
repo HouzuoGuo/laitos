@@ -3,9 +3,10 @@
 The rich set of components not only covers the basic needs of hosting a personal web server,
 but also provide advanced capabilities to satisfy the geeky nature inside of you!
 
-laitos components go into two categories:
-- Toolbox - access to email, post to Twitter, etc.
+laitos components go into three categories:
 - Daemons - web server, mail server, and chat bots. Daemons grant access to all toolbox features.
+- Rich web services - specialised web utilities for the web server.
+- Toolbox features - offer PIN-protected daemons access to emails, posting to Twitter, etc.
 
 ## Daemons
 <table>
@@ -40,6 +41,11 @@ laitos components go into two categories:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server" target="_blank">Link</a></td>
     </tr>
     <tr>
+        <td>Serial port communicator</td>
+        <td>Serial port communicator provides access to all toolbox features to serial port devices.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-serial-port-communicator" target="_blank">Link</a></td>
+    </tr>
+    <tr>
         <td>SNMP server</td>
         <td>SNMP server offers program statistics over industrial-standard network monitoring protocol.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Daemon:-SNMP-server" target="_blank">Link</a></td>
@@ -67,19 +73,19 @@ The following services are hosted by web server and enabled on your demand:
         <th>Configuration and Usage</th>
     </tr>
     <tr>
+        <td>Program health report</td>
+        <td>Display program stats and environment info in a comprehensive report.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-program-health-report" target="_blank">Link</a></td>
+    </tr>
+    <tr>
         <td>GitLab browser</td>
         <td>List and download files from your Git projects.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-GitLab-browser" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Toolbox command form</td>
-        <td>Run toolbox commands via a web form.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>Program health report</td>
-        <td>Display program stats and environment info in a comprehensive report.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-program-health-report" target="_blank">Link</a></td>
+        <td>Temporary file storage</td>
+        <td>Upload files for unlimited retrievel within 24 hours.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-temporary-file-storage" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Simple web proxy</td>
@@ -97,6 +103,11 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-remote-browser-(SlimerJS)" target="_blank">Link</a></td>
     </tr>
     <tr>
+        <td>Toolbox command form</td>
+        <td>Run toolbox commands via a web form.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form" target="_blank">Link</a></td>
+    </tr>
+    <tr>
         <td>Twilio telephone/SMS hook</td>
         <td>Run toolbox commands on telephone, SMS, satellite terminals via Twilio platform (telephone and SMS programming).</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook" target="_blank">Link</a></td>
@@ -108,11 +119,10 @@ The following services are hosted by web server and enabled on your demand:
     </tr>
     <tr>
         <td>Recurring commands</td>
-        <td>Run toolbox commands at regular interval, and retrieve result text.</td>
+        <td>Run toolbox commands at regular interval, and retrieve their result.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Web-service:-recurring-commands" target="_blank">Link</a></td>
     </tr>
 </table>
-
 
 ## Toolbox features
 <table>
@@ -188,7 +198,7 @@ The following services are hosted by web server and enabled on your demand:
     </tr>
     <tr>
         <td>Run system commands</td>
-        <td>Run Linux/Unix shell commands on laitos host.</td>
+        <td>Run Linux/Unix shell commands on laitos server.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-run-system-commands" target="_blank">Link</a></td>
     </tr>
     <tr>

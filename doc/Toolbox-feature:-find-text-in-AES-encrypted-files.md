@@ -9,11 +9,11 @@ Prepare AES-encrypted files for laitos:
 1. Encrypt a plain text file (such as contact list or password book) using OpenSSL command. When it asks for a password,
    make sure to use a strong password:
 
-        openssl enc -aes256 -in password-book.txt -out encrypted-password-book.bin
+        openssl enc -aes256 -md md5 -in password-book.txt -out encrypted-password-book.bin
 2. Delete the plain text file (`password-book.txt`).
 3. Use OpenSSL command to reveal the encryption parameters. You will need to enter the password that encrypted the file:
 
-        openssl enc -aes256 -in encrypted-password-book.bin -d -p
+        openssl enc -aes256 -md md5 -in encrypted-password-book.bin -d -p
 
    The output will look something like:
 

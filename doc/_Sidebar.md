@@ -12,15 +12,16 @@ Daemon Components
 * [SNMP server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-SNMP-server)
 * [Simple IP services server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-simple-IP-services)
 * [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot)
-
+* [Serial port communicator](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-serial-port-communicator)
 
 Web Service Components
-* [GitLab browser](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-GitLab-browser)
-* [Toolbox command form](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form)
 * [Program health report](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-program-health-report)
+* [GitLab browser](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-GitLab-browser)
+* [Temporary file storage](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-temporary-file-storage)
 * [Simple web proxy](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-simple-proxy)
 * [Remote browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-remote-browser-(PhantomJS))
 * [Remote browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-remote-browser-(SlimerJS))
+* [Toolbox command form](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form)
 * [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Twilio-telephone-SMS-hook)
 * [Microsoft bot hook](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-Microsoft-bot-hook)
 * [Recurring commands](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-recurring-commands)

@@ -89,7 +89,6 @@ Construct the following JSON object and place it under JSON key `MailDaemon` in 
 </tr>
 </table>
 
-
 Here is a minimal setup example that enables TLS as well:
 <pre>
 {
@@ -115,7 +114,7 @@ In order for mail server to process toolbox feature commands from mail content, 
 2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) to
    construct configuration for sending mail replies.
 
-Here is a minimal setup example that comes enables command processor:
+Here is a minimal setup example that supports toolbox command processing:
 <pre>
 {
     ...

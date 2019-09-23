@@ -4,6 +4,7 @@
 The following daemon components have an embedded command processor to let users use toolbox features:
 - [DNS server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server)
 - [Mail server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server)
+- [Serial port communicator](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-serial-port-communicator)
 - [Telnet server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server)
 - [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot)
 - Web service [invoke toolbox features in a form](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-toolbox-features-form)
@@ -223,7 +224,7 @@ And we will get the desirable result:
 
 ## Tips
 Regarding password PIN:
-- Must be at least 7 characters long.
+- It must be at least 7 characters long.
 - Do not use space character in the password; otherwise the space characters will cause most features to misbehave.
 - Use a strong password to protect access to toolbox features.
 - Every daemon that has a command processor also has a rate limit mechanism (e.g. `PerIPLimit` configuration),

@@ -49,6 +49,7 @@ Note that:
   * [`dnsd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server) - DNS server for ad-free and safer browsing experience
   * [`httpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server) - Web server secured by TLS certificate
   * [`insecurehttpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server) - Web server without TLS encryption
+  * [`serialport`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-serial-port-communicator) - Serial port communicator
   * [`simpleipsvcd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-simple-IP-services) - Simple IP services
   * [`smtpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server) - Mail server
   * [`snmpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-SNMP-server) - Network management (program statistics) server

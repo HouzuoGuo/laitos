@@ -33,12 +33,10 @@ Here is an example setup:
 </pre>
 
 ## Run
-The form is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server#run).
+The report is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server#run).
 
 ## Usage
 In a web browser, navigate to `InformationEndpoint` of laitos web server, and inspect the produced health report.
 
 ## Tips
-Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!
-
-The service endpoint serves very well as a health check URL, if your advanced load balancer setup needs it.
+Make the URL location secure and hard to guess, it is the only way to secure this web service!

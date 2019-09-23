@@ -36,4 +36,4 @@ In a web browser, navigate to `CommandFormEndpoint` of laitos web server.
 Enter PIN and toolbox command into the text box, click "Exec" button and observe the toolbox command output.
 
 ## Tips
-Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!
+- Make the URL location secure and hard to guess, it helps to secure this web service beyond toolbox's PIN protection!
