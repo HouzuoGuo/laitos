@@ -14,7 +14,7 @@ import (
 
 // GetUDPStatsCollector returns stats collector for the UDP server of this daemon.
 func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
-	return common.PlainSocketStatsUDP
+	return common.DNSDStatsUDP
 }
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
