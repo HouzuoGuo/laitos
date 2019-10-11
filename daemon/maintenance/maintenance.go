@@ -249,6 +249,8 @@ Start health check loop and block caller until Stop function is called.
 */
 func (daemon *Daemon) StartAndBlock() error {
 	firstTime := true
+	daemon.logger.Info("StartAndBlock", "", nil, "the first run will soon begin in %d seconds, and then run every ~%d hours afterwards.",
+		InitialDelaySec, daemon.IntervalSec/3600)
 	// Maintenance is run for the very first time soon (2 minutes) after starting up
 	nextRunAt := time.Now().Add(InitialDelaySec * time.Second)
 	for {
