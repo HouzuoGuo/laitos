@@ -3,6 +3,10 @@ package mailcmd
 import (
 	"errors"
 	"fmt"
+	"net"
+	"strings"
+	"sync"
+
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -10,9 +14,6 @@ import (
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/HouzuoGuo/laitos/toolbox/filter"
-	"net"
-	"strings"
-	"sync"
 )
 
 const CommandTimeoutSec = 120 // CommandTimeoutSec is the default command timeout in seconds
@@ -54,7 +55,7 @@ func (runner *CommandRunner) Initialise() error {
 
 // Run a health check on mailer and "undocumented" things.
 func (runner *CommandRunner) SelfTest() error {
-	ret := make([]string, 0, 0)
+	ret := make([]string, 0)
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
 	// One mailer and 3 undocumented
@@ -173,7 +174,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 			return false, errors.New("the reply has to be sent via Email but configuration is missing")
 		}
 		recipients := replyAddresses
-		if recipients == nil || len(recipients) == 0 {
+		if len(recipients) == 0 {
 			recipients = []string{prop.ReplyAddress}
 		}
 		return false, runner.ReplyMailClient.Send(inet.OutgoingMailSubjectKeyword+"-reply-"+result.Command.Content, result.CombinedOutput, recipients...)

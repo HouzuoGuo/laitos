@@ -39,18 +39,12 @@ const (
 // ReadTag returns a primitive tag read from input.
 func ReadTag(in *bufio.Reader) (tag byte, err error) {
 	tag, err = in.ReadByte()
-	if tag < 0 {
-		err = MissedExpectation("tag", nil, tag)
-	}
 	return
 }
 
 // ReadTag returns a primitive object size read from input.
 func ReadSize(in *bufio.Reader) (size byte, err error) {
 	size, err = in.ReadByte()
-	if size < 0 {
-		err = MissedExpectation("size", nil, size)
-	}
 	return
 }
 

@@ -76,10 +76,10 @@ func TestIMAPAccountsPublicServer(t *testing.T) {
 	if err := accounts.SelfTest(); err == nil {
 		t.Fatal("did not perform login test")
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "test 1, 2"}); strings.Index(ret.Error.Error(), "find mailbox") == -1 {
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "test 1, 2"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "test 1"}); strings.Index(ret.Error.Error(), "find mailbox") == -1 {
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "test 1"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
 		t.Fatal(ret)
 	}
 }
@@ -112,13 +112,13 @@ func TestIMAPAccounts_Execute(t *testing.T) {
 	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "a b"}); ret.Error != ErrBadMailboxParam {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "does_not_exist 1, 2"}); strings.Index(ret.Error.Error(), "find mailbox") == -1 {
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "does_not_exist 1, 2"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "does_not_exist 1"}); strings.Index(ret.Error.Error(), "find mailbox") == -1 {
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "does_not_exist 1"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 100000000, 100"}); strings.Index(ret.Error.Error(), "skip must be") == -1 {
+	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 100000000, 100"}); !strings.Contains(ret.Error.Error(), "skip must be") {
 		t.Fatal(ret)
 	}
 	// List latest messages

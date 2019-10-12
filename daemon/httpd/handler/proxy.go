@@ -246,10 +246,10 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 		} else {
 			strBody = strBody[0:headIndex+6] + injectedJS + strBody[headIndex+6:]
 		}
-		w.Write([]byte(strBody))
+		_, _ = w.Write([]byte(strBody))
 		xy.logger.Info("HandleWebProxy", browseSchemeHostPathQuery, nil, "served modified HTML")
 	} else {
-		w.Write(remoteRespBody)
+		_, _ = w.Write(remoteRespBody)
 	}
 }
 

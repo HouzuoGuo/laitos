@@ -1,14 +1,15 @@
 package plainsocket
 
 import (
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
 )
 
 func TestPlainTextDaemon(t *testing.T) {
 	daemon := Daemon{}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "filters must be configured") == -1 {
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "filters must be configured") {
 		t.Fatal(err)
 	}
 	daemon.Processor = common.GetInsaneCommandProcessor()
@@ -17,7 +18,7 @@ func TestPlainTextDaemon(t *testing.T) {
 	}
 	daemon.Processor = common.GetTestCommandProcessor()
 	// Test missing mandatory settings
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "TCP and UDP ports") == -1 {
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "TCP and UDP ports") {
 		t.Fatal(err)
 	}
 	// Test default settings

@@ -44,16 +44,16 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	NoCache(w)
 	if r.Method == http.MethodGet {
-		w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
 	} else if r.Method == http.MethodPost {
 		if cmd := r.FormValue("cmd"); cmd == "" {
-			w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
 		} else {
 			result := form.cmdProc.Process(toolbox.Command{
 				Content:    cmd,
 				TimeoutSec: CommandFormTimeoutSec,
 			}, true)
-			w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, html.EscapeString(result.CombinedOutput))))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, html.EscapeString(result.CombinedOutput))))
 		}
 	}
 }

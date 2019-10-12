@@ -61,8 +61,8 @@ func TestGetSysctl(t *testing.T) {
 	key := "kernel.pid_max"
 	if runtime.GOOS != "linux" {
 		// Just make sure the function does not crash
-		GetSysctlInt(key)
-		GetSysctlStr(key)
+		_, _ = GetSysctlInt(key)
+		_, _ = GetSysctlStr(key)
 		return
 	}
 	if val, err := GetSysctlStr(key); err != nil || val == "" {
@@ -133,7 +133,7 @@ func TestDisableInterferingResolvd(t *testing.T) {
 
 func TestSwapOff(t *testing.T) {
 	// just make sure it does not panic
-	SwapOff()
+	_ = SwapOff()
 }
 
 func TestSetTimeZone(t *testing.T) {

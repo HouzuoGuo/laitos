@@ -40,37 +40,37 @@ func TestBenchmark(t *testing.T) {
 	}
 	go func() {
 		if err := config.GetDNSD().StartAndBlock(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 	go func() {
 		if err := config.GetHTTPD().StartAndBlockNoTLS(19381); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 	go func() {
 		if err := config.GetPlainSocketDaemon().StartAndBlock(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 	go func() {
 		if err := config.GetMailDaemon().StartAndBlock(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 	go func() {
 		if err := config.GetSockDaemon().StartAndBlock(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 	go func() {
 		if err := config.GetSimpleIPSvcD().StartAndBlock(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 	go func() {
 		if err := config.GetSNMPD().StartAndBlock(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 

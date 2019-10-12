@@ -5,12 +5,13 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 const RSSDownloadTimeoutSec = 10 // RSSDownloadTimeoutSec is the IO timeout used for testing RSS sources.
@@ -89,7 +90,7 @@ func (rss *RSS) Execute(cmd Command) *Result {
 		count = 10
 	}
 	sortedItems, _ := DownloadRSSFeeds(cmd.TimeoutSec, rss.Sources...)
-	if sortedItems == nil || len(sortedItems) == 0 {
+	if len(sortedItems) == 0 {
 		return &Result{Error: errors.New("all RSS sources failed to respond or gave no response")}
 	}
 	// Skip and limit number of items, but make sure at least one feed will be returned.

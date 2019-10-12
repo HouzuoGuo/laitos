@@ -3,7 +3,6 @@ package main
 import (
 	cryptoRand "crypto/rand"
 	"encoding/binary"
-	"github.com/HouzuoGuo/laitos/misc"
 	pseudoRand "math/rand"
 	_ "net/http/pprof"
 	"os"
@@ -11,6 +10,8 @@ import (
 	runtimePprof "runtime/pprof"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // DumpGoroutinesOnInterrupt installs an interrupt signal handler that dumps all goroutine traces to standard error.
@@ -19,7 +20,7 @@ func DumpGoroutinesOnInterrupt() {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for range c {
-			runtimePprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+			_ = runtimePprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
 		}
 	}()
 }

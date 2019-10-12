@@ -175,7 +175,7 @@ func (bench *Benchmark) BenchmarkHTTPDaemon() {
 				bench.Logger.Panic("BenchmarkHTTPDaemon", "", err, "failed to acquire random bytes")
 				return
 			}
-			inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3, Body: bytes.NewReader(buf)}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
+			_, _ = inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3, Body: bytes.NewReader(buf)}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
 		}
 	}, "BenchmarkHTTPDaemon", bench.Logger)
 }
@@ -197,7 +197,7 @@ func (bench *Benchmark) BenchmarkHTTPSDaemon() {
 				return
 			}
 			trigger()
-			inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
+			_, _ = inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
 		}
 	}, "BenchmarkHTTPSDaemon", bench.Logger)
 
@@ -337,7 +337,7 @@ func (bench *Benchmark) BenchmarkSMTPDaemon() {
 				return
 			}
 
-			smtp.SendMail(fmt.Sprintf("localhost:%d", port), nil, "ClientFrom@localhost", []string{"ClientTo@does-not-exist.com"}, buf)
+			_ = smtp.SendMail(fmt.Sprintf("localhost:%d", port), nil, "ClientFrom@localhost", []string{"ClientTo@does-not-exist.com"}, buf)
 		}
 	}, "BenchmarkSMTPDaemon", bench.Logger)
 

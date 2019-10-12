@@ -193,7 +193,7 @@ func (client *MailClient) sendMailWithRetry(from string, recipients []string, me
 
 // Deliver mail to all recipients. Block until mail is sent or an error has occurred.
 func (client *MailClient) Send(subject string, textBody string, recipients ...string) error {
-	if recipients == nil || len(recipients) == 0 {
+	if len(recipients) == 0 {
 		return fmt.Errorf("no recipient specified for mail \"%s\"", subject)
 	}
 	// Construct appropriate mail headers
@@ -205,7 +205,7 @@ func (client *MailClient) Send(subject string, textBody string, recipients ...st
 
 // Deliver unmodified mail body to all recipients. Block until mail is sent or an error has occurred.
 func (client *MailClient) SendRaw(fromAddr string, rawMailBody []byte, recipients ...string) error {
-	if recipients == nil || len(recipients) == 0 {
+	if len(recipients) == 0 {
 		return fmt.Errorf("no recipient specified for mail from \"%s\"", fromAddr)
 	}
 	go client.sendMailWithRetry(client.MailFrom, recipients, rawMailBody)

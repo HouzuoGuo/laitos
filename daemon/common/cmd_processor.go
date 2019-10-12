@@ -78,7 +78,7 @@ From the prospect of Internet-facing mail processor and Twilio hooks, check that
 Return a zero-length slice if everything looks OK.
 */
 func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
-	errs = make([]error, 0, 0)
+	errs = make([]error, 0)
 	// Check for nils too, just in case.
 	if proc.Features == nil {
 		errs = append(errs, errors.New(ErrBadProcessorConfig+"FeatureSet is not assigned"))

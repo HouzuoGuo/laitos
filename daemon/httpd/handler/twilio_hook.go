@@ -84,7 +84,7 @@ func (hand *HandleTwilioSMSHook) Handle(w http.ResponseWriter, r *http.Request) 
 		Content:    r.FormValue("Body"),
 	}, true)
 	// Generate normal XML response
-	w.Write([]byte(fmt.Sprintf(xml.Header+`
+	_, _ = w.Write([]byte(fmt.Sprintf(xml.Header+`
 <Response><Message><![CDATA[%s]]></Message></Response>
 `, XMLEscape(ret.CombinedOutput))))
 }
@@ -129,12 +129,12 @@ func (hand *HandleTwilioCallHook) Handle(w http.ResponseWriter, r *http.Request)
 	hand.logger.Info("HandleTwilioCallHook", phoneNumber, nil, "has received a call")
 	if phoneNumber != "" {
 		if !hand.senderRateLimit.Add(phoneNumber, true) {
-			w.Write([]byte(xml.Header + `<Response><Reject/></Response>`))
+			_, _ = w.Write([]byte(xml.Header + `<Response><Reject/></Response>`))
 			return
 		}
 	}
 	// The greeting XML tells Twilio to ask user for DTMF input, and direct the input to another URL endpoint.
-	w.Write([]byte(fmt.Sprintf(xml.Header+`
+	_, _ = w.Write([]byte(fmt.Sprintf(xml.Header+`
 <Response>
     <Gather action="%s" method="POST" timeout="60" finishOnKey="#" numDigits="1000">
         <Say><![CDATA[%s]]></Say>
@@ -182,7 +182,7 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
 	hand.logger.Info("HandleTwilioCallCallback", phoneNumber, nil, "has received DTMF command via call")
 	if phoneNumber != "" {
 		if !hand.senderRateLimit.Add(phoneNumber, true) {
-			w.Write([]byte(xml.Header + `<Response><Say>You are rate limited.</Say><Hangup/></Response>`))
+			_, _ = w.Write([]byte(xml.Header + `<Response><Say>You are rate limited.</Say><Hangup/></Response>`))
 			return
 		}
 	}
@@ -205,7 +205,7 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
 	}
 	combinedOutput = XMLEscape(combinedOutput)
 	// Repeat command output three times and listen for the next input
-	w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+	_, _ = w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
         <Say><![CDATA[%s.

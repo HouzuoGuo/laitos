@@ -9,7 +9,7 @@ import (
 
 func TestTelegramBot_StartAndBock(t *testing.T) {
 	bot := Daemon{}
-	if err := bot.Initialise(); err == nil || strings.Index(err.Error(), "filters must be configured") == -1 {
+	if err := bot.Initialise(); err == nil || !strings.Contains(err.Error(), "filters must be configured") {
 		t.Fatal(err)
 	}
 	// Must not start if command processor is insane

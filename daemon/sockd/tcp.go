@@ -310,5 +310,4 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	TweakTCPConnection(dest.(*net.TCPConn))
 	go PipeTCPConnection(conn, dest, true)
 	PipeTCPConnection(dest, conn, false)
-	return
 }

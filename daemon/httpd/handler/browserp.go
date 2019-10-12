@@ -160,7 +160,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 			http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 			return
 		}
-		w.Write(RenderControlPage(
+		_, _ = w.Write(RenderControlPage(
 			"Empty Browser", r.RequestURI,
 			index, instance.Tag,
 			nil, instance.GetDebugOutput(),
@@ -179,7 +179,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 				http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 				return
 			}
-			w.Write(RenderControlPage(
+			_, _ = w.Write(RenderControlPage(
 				"Empty Browser", r.RequestURI,
 				index, instance.Tag,
 				nil, instance.GetDebugOutput(),
@@ -224,7 +224,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 		if actionErr == nil {
 			actionErr = pageInfoErr
 		}
-		w.Write(RenderControlPage(
+		_, _ = w.Write(RenderControlPage(
 			pageInfo.Title, r.RequestURI,
 			index, instance.Tag,
 			actionErr, instance.GetDebugOutput(),
@@ -279,7 +279,7 @@ func (remoteBrowserImage *HandleBrowserPhantomJSImage) Handle(w http.ResponseWri
 	}
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Content-Length", strconv.Itoa(len(pngFile)))
-	w.Write(pngFile)
+	_, _ = w.Write(pngFile)
 }
 
 func (_ *HandleBrowserPhantomJSImage) GetRateLimitFactor() int {

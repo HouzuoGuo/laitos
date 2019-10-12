@@ -84,7 +84,7 @@ type PublicContact struct {
 }
 
 func (cs *PublicContact) IsConfigured() bool {
-	return SARContacts != nil && len(SARContacts) > 0
+	return len(SARContacts) > 0
 }
 
 func (cs *PublicContact) SelfTest() error {

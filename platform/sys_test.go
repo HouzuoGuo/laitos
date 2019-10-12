@@ -28,7 +28,7 @@ func TestInvokeProgram(t *testing.T) {
 		}
 
 		begin := time.Now()
-		out, err = InvokeProgram(nil, 3, "cmd.exe", "/c", "waitfor dummydummy /t 60")
+		_, err = InvokeProgram(nil, 3, "cmd.exe", "/c", "waitfor dummydummy /t 60")
 		if err == nil {
 			t.Fatal("did not timeout")
 		}
@@ -52,7 +52,7 @@ func TestInvokeProgram(t *testing.T) {
 		}
 
 		begin := time.Now()
-		out, err = InvokeProgram(nil, 1, "sleep", "5")
+		_, err = InvokeProgram(nil, 1, "sleep", "5")
 		if err == nil {
 			t.Fatal("did not timeout")
 		}

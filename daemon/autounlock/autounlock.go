@@ -130,7 +130,7 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 		} else if r.Method == http.MethodPost {
 			if r.FormValue(PasswordInputName) == pwdMatch {
 				unlocked = true
-				w.Write([]byte("very good!"))
+				_, _ = w.Write([]byte("very good!"))
 			}
 		}
 	})

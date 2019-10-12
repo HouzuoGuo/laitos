@@ -43,7 +43,7 @@ type HandlerCollection map[string]handler.Handler
 
 // SelfTest invokes self test function on all special handlers and report back if any error is encountered.
 func (col HandlerCollection) SelfTest() error {
-	ret := make([]string, 0, 0)
+	ret := make([]string, 0)
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
 	wait.Add(len(col))
@@ -379,7 +379,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 
 	// Gitlab handle
 	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/gitlab")
-	if err != nil || resp.StatusCode != http.StatusOK || strings.Index(string(resp.Body), "Enter path to browse") == -1 {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Enter path to browse") {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// HTML file

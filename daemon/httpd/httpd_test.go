@@ -89,7 +89,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	var stoppedNormally bool
 	go func() {
 		if err := daemon.StartAndBlockNoTLS(0); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		stoppedNormally = true
 	}()

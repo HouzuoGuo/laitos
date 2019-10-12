@@ -2,13 +2,14 @@ package common
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"log"
 	"net"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 type UDPTestApp struct {
@@ -45,7 +46,7 @@ func TestUDPServer(t *testing.T) {
 	var shutdown bool
 	go func() {
 		if err := srv.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		shutdown = true
 	}()

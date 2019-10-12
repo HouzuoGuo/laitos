@@ -56,11 +56,12 @@ func RandNum(absMin, variableLower, randMore int) int {
 }
 
 const (
-	AddressTypeMask  byte = 0xf
-	AddressTypeIndex      = 0
-	AddressTypeIPv4       = 1
-	AddressTypeDM         = 3
-	AddressTypeIPv6       = 4
+	AddressTypeMask byte = 0xf
+
+	AddressTypeIndex = 0
+	AddressTypeIPv4  = 1
+	AddressTypeDM    = 3
+	AddressTypeIPv6  = 4
 
 	IPPacketIndex    = 1
 	IPv4PacketLength = net.IPv4len + 2
@@ -150,8 +151,8 @@ func (daemon *Daemon) Initialise() error {
 	if len(daemon.Password) < 7 {
 		return errors.New("sockd.Initialise: password must be at least 7 characters long")
 	}
-	daemon.tcpDaemons = make([]*TCPDaemon, 0, 0)
-	daemon.udpDaemons = make([]*UDPDaemon, 0, 0)
+	daemon.tcpDaemons = make([]*TCPDaemon, 0)
+	daemon.udpDaemons = make([]*UDPDaemon, 0)
 	return nil
 }
 
@@ -217,6 +218,6 @@ func (daemon *Daemon) Stop() {
 	for _, udpDaemon := range daemon.udpDaemons {
 		udpDaemon.Stop()
 	}
-	daemon.tcpDaemons = make([]*TCPDaemon, 0, 0)
-	daemon.udpDaemons = make([]*UDPDaemon, 0, 0)
+	daemon.tcpDaemons = make([]*TCPDaemon, 0)
+	daemon.udpDaemons = make([]*UDPDaemon, 0)
 }

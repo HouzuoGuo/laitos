@@ -338,14 +338,14 @@ func DisableStopDaemon(daemonNameNoSuffix string) (ok bool) {
 		}
 	} else {
 		// Some hosting providers still have not used systemd yet, such as the OS on Elastic Beanstalk.
-		platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "/etc/init.d/"+daemonNameNoSuffix, "stop")
+		_, _ = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "/etc/init.d/"+daemonNameNoSuffix, "stop")
 		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chkconfig", " --level", "0123456", daemonNameNoSuffix, "off"); err == nil {
 			ok = true
 		}
 		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chmod", "0000", "/etc/init.d/"+daemonNameNoSuffix); err == nil {
 			ok = true
 		}
-		platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "stop", daemonNameNoSuffix+".service")
+		_, _ = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "stop", daemonNameNoSuffix+".service")
 		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "disable", daemonNameNoSuffix+".service"); err == nil {
 			ok = true
 		}
@@ -367,14 +367,14 @@ func EnableStartDaemon(daemonNameNoSuffix string) (ok bool) {
 		}
 	} else {
 		// Some hosting providers still have not used systemd yet, such as the OS on Elastic Beanstalk.
-		platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chmod", "0755", "/etc/init.d/"+daemonNameNoSuffix)
+		_, _ = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chmod", "0755", "/etc/init.d/"+daemonNameNoSuffix)
 		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chkconfig", " --level", "345", daemonNameNoSuffix, "on"); err == nil {
 			ok = true
 		}
 		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "/etc/init.d/"+daemonNameNoSuffix, "start"); err == nil {
 			ok = true
 		}
-		platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "unmask", daemonNameNoSuffix+".service")
+		_, _ = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "unmask", daemonNameNoSuffix+".service")
 		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "enable", daemonNameNoSuffix+".service"); err == nil {
 			ok = true
 		}

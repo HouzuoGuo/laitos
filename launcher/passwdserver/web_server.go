@@ -73,7 +73,7 @@ Sys load: %s
 Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
 `,
 		time.Now().String(),
-		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Now().Sub(misc.StartupTime).String(),
+		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
 		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
 		totalRoot/1024, usedRoot/1024, freeRoot/1024,
 		misc.GetSystemLoad(),
@@ -109,7 +109,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	defer ws.handlerMutex.Unlock()
 	if ws.alreadyUnlocked {
 		// If an unlock attempt has already been successfully carried out, do not allow a second attempt to be made
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 		return
 	}
 	switch r.Method {
@@ -121,22 +121,22 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		key := []byte(strings.TrimSpace(r.FormValue(PasswordInputName)))
 		decryptedConfig, err := misc.Decrypt(misc.ConfigFilePath, key)
 		if err != nil {
-			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
+			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
 			return
 		}
 		if decryptedConfig[0] != '{' {
-			w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "wrong key or malformed config file")))
+			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "wrong key or malformed config file")))
 			return
 		}
 		// Success!
-		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "success")))
+		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "success")))
 		ws.alreadyUnlocked = true
 		// A short moment later, the function will launch laitos supervisor along with daemons.
 		go ws.LaunchMainProgram([]byte(strings.TrimSpace(r.FormValue("password"))))
 		return
 	default:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
-		w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "")))
+		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "")))
 		return
 	}
 }
@@ -163,7 +163,7 @@ func (ws *WebServer) Start() error {
 		WriteTimeout: IOTimeout, IdleTimeout: IOTimeout,
 	}
 	ws.logger.Info("Start", "", nil, "will listen on TCP port %d", ws.Port)
-	if err := ws.server.ListenAndServe(); err != nil && strings.Index(err.Error(), "closed") == -1 {
+	if err := ws.server.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "closed") {
 		ws.logger.Warning("Start", "", err, "failed to listen on TCP port")
 		return err
 	}
@@ -208,12 +208,15 @@ func (ws *WebServer) LaunchMainProgram(decryptionPassword []byte) {
 	cmd = exec.Command(executablePath, flagsNoExec...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	launcher.FeedDecryptionPasswordToStdinAndStart(decryptionPassword, cmd)
+	// Attempt to launch the main program
+	if err := launcher.FeedDecryptionPasswordToStdinAndStart(decryptionPassword, cmd); err != nil {
+		ws.logger.Abort("LaunchMainProgram", "", nil, "failed to start main program - %v", err)
+		return
+	}
 	// Wait forever for the main program
 	if err := cmd.Wait(); err != nil {
 		ws.logger.Abort("LaunchMainProgram", "", nil, "main program has abnormally exited due to - %v", err)
 		return
 	}
 	ws.logger.Info("LaunchMainProgram", "", nil, "main program has exited cleanly")
-	return
 }

@@ -137,12 +137,12 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		projectID, found := lab.Projects[shortcutName]
 		if !found {
-			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 			return
 		}
 		dirs, fileNames, err := lab.ListGitObjects(projectID, browsePath, GitlabMaxObjects)
 		if err != nil {
-			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Error: "+err.Error())))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Error: "+err.Error())))
 			return
 		}
 		// Directory names are already sorted
@@ -157,26 +157,26 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 		for _, fileName := range sortedFiles {
 			contentList += fmt.Sprintf("%s\n", fileName)
 		}
-		w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, contentList)))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, contentList)))
 	case "Download":
 		projectID, found := lab.Projects[shortcutName]
 		if !found {
 			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 			return
 		}
 		content, err := lab.DownloadGitBlob(GetRealClientIP(r), projectID, browsePath, fileName)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Error: "+err.Error())))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Error: "+err.Error())))
 			return
 		}
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
-		w.Write(content)
+		_, _ = w.Write(content)
 	default:
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Enter path to browse or blob ID to download")))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Enter path to browse or blob ID to download")))
 	}
 }
 
@@ -185,7 +185,7 @@ func (_ *HandleGitlabBrowser) GetRateLimitFactor() int {
 }
 
 func (lab *HandleGitlabBrowser) SelfTest() error {
-	errs := make([]error, 0, 0)
+	errs := make([]error, 0)
 	for shortcut, projectID := range lab.Projects {
 		if _, _, err := lab.ListGitObjects(projectID, "/", 3); err != nil {
 			errs = append(errs, fmt.Errorf("project %s(%s) - %v", shortcut, projectID, err))

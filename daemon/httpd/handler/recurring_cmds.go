@@ -107,17 +107,19 @@ func (notif *HandleRecurringCommands) Handle(w http.ResponseWriter, r *http.Requ
 			} else {
 				conclusion = "Cannot find channel ID: " + channel
 			}
+
 		}
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(fmt.Sprintf(HandleRecurringCommandsSetupPage, r.RequestURI, channel, newCommand, textToStore, conclusion)))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleRecurringCommandsSetupPage, r.RequestURI, channel, newCommand, textToStore, conclusion)))
 	} else {
+
 		// Retrieve results in JSON format
 		timer, exists := notif.RecurringCommands[retrieveFromChannel]
 		if exists {
 			resp, err := json.Marshal(timer.GetResults())
 			if err == nil {
 				w.Header().Set("Content-Type", "application/json")
-				w.Write(resp)
+				_, _ = w.Write(resp)
 			} else {
 				http.Error(w, "JSON serialisation failure: "+err.Error(), http.StatusInternalServerError)
 			}

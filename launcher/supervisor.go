@@ -105,8 +105,9 @@ func RemoveFromFlags(condition func(string) bool, flags []string) (ret []string)
 }
 
 /*
-Supervisor manages the lifecycle of laitos main program that runs daemons. In case of main program crash, the supervisor
-relaunches the main program using reduced number of daemons, thus ensuring maximum availability of healthy daemons.
+Supervisor manages the lifecycle of laitos main program that runs daemons. In case that main program crashes rapidly,
+the supervisor will attempt to isolate the crashing daemon by restarting laitos main program with reduced set of daemons,
+helping healthy daemons to stay online as long as possible.
 */
 type Supervisor struct {
 	// CLIFlags are the thorough list of original program flags to launch laitos. This must not include the leading executable path.
@@ -191,7 +192,7 @@ Latest stderr: %s
 `, launchErr,
 		cliFlags,
 		time.Now().String(),
-		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Now().Sub(misc.StartupTime).String(),
+		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
 		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
 		misc.GetSystemLoad(),
 		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
@@ -224,9 +225,11 @@ func FeedDecryptionPasswordToStdinAndStart(decryptionPassword []byte, cmd *exec.
 }
 
 /*
-Start will fork and launch laitos main program. If the main program crashes repeatedly within 20 minutes, the supervisor
-will restart the main program with a reduced set of features and send a notification email.
-The function blocks caller and runs forever.
+Start will fork and launch laitos main program and restarts it in case of crash.
+If consecutive crashes occur within 20 minutes, each crash will lead to reduced set of daemons being restarted
+with the main program. If Email notification recipients are configured, a crash report will be delivered to those
+recipients.
+The function blocks caller indefinitely.
 */
 func (sup *Supervisor) Start() {
 	sup.initialise()

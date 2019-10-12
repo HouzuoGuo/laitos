@@ -65,7 +65,6 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 }
 
 func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
-	respBody = make([]byte, 0)
 	queriedName := ExtractTextQueryInput(queryBody)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(queriedName)

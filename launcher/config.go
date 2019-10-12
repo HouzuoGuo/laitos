@@ -4,8 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/HouzuoGuo/laitos/daemon/serialport"
 	"sync"
+
+	"github.com/HouzuoGuo/laitos/daemon/serialport"
 
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/common"

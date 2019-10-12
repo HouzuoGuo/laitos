@@ -48,7 +48,6 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 }
 
 func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
-	respBody = make([]byte, 0)
 	queriedName := ExtractTextQueryInput(queryBody)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(queriedName)
@@ -76,7 +75,6 @@ forwardToRecursiveResolver:
 }
 
 func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
-	respBody = make([]byte, 0)
 	// Handle other query types such as name query
 	domainName := ExtractDomainName(queryBody)
 	if domainName == "" {

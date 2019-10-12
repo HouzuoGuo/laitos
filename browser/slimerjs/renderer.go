@@ -689,10 +689,8 @@ func (instance *Instance) GetDebugOutput() string {
 // Send a control request via HTTP to the browser server, optionally deserialise the response into receiver.
 func (instance *Instance) SendRequest(actionName string, params map[string]interface{}, jsonReceiver interface{}) (err error) {
 	body := url.Values{}
-	if params != nil {
-		for k, v := range params {
-			body[k] = []string{fmt.Sprint(v)}
-		}
+	for k, v := range params {
+		body[k] = []string{fmt.Sprint(v)}
 	}
 	// The web server PhantomJS comes with is implemented in Javascript and does not properly handle URL encoding
 	fixSpaceForBody := strings.Replace(body.Encode(), "+", "%20", -1)
@@ -861,7 +859,7 @@ const (
 // SendKey either sends a key string or a key code into the currently focused element on page.
 func (instance *Instance) SendKey(aString string, aCode int64) error {
 	if aString != "" {
-		instance.SendRequest("type", map[string]interface{}{"key_string": aString}, nil)
+		return instance.SendRequest("type", map[string]interface{}{"key_string": aString}, nil)
 	} else if aCode != 0 {
 		return instance.SendRequest("type", map[string]interface{}{"key_code": strconv.FormatInt(aCode, 10)}, nil)
 	}

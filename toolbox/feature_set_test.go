@@ -91,7 +91,9 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 			AuthPassword: "does-not-exist",
 		},
 	}
-	features.IMAPAccounts.Initialise()
+	if err := features.IMAPAccounts.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	features.RSS.Sources[0] = "this rss url does not work"
 	features.SendMail.MailClient = inet.MailClient{
 		MailFrom:     "very bad",

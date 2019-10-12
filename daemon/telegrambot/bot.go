@@ -255,7 +255,7 @@ func (bot *Daemon) Stop() {
 func TestTelegramBot(bot *Daemon, t testingstub.T) {
 	// Well then it is really difficult to test the chat routine
 	// So I am going to only going to start the daemon using invalid configuration, which is definitely failing.
-	if err := bot.StartAndBlock(); err == nil || strings.Index(err.Error(), "AuthorizationToken") == -1 {
+	if err := bot.StartAndBlock(); err == nil || !strings.Contains(err.Error(), "AuthorizationToken") {
 		t.Fatal(err)
 	}
 	// Repeatedly stopping the daemon should have no negative consequence

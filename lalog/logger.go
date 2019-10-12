@@ -59,7 +59,7 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 		if msg.Len() > 0 {
 			msg.WriteRune('.')
 		}
-		msg.WriteString(fmt.Sprintf("%s", functionName))
+		msg.WriteString(functionName)
 	}
 	if actorName != "" {
 		msg.WriteString(fmt.Sprintf("(%s)", actorName))

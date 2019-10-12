@@ -9,11 +9,12 @@ import (
 	"bufio"
 	"crypto/tls"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/lalog"
 	"io"
 	"net"
 	"net/textproto"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 /*
@@ -324,7 +325,6 @@ func (conn *Connection) CarryOn() Command {
 			case VerbQUIT:
 				conn.stage = StageQuit
 				conn.reply("221 2.0.0 Bye")
-				break
 			case VerbSTARTTLS:
 				if conn.Config.TLSConfig == nil || conn.TLSAttempted {
 					conn.reply("502 Command not implemented")

@@ -60,11 +60,11 @@ func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
 	if r.Method == http.MethodGet {
 		// Render the page
-		w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, "")))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, "")))
 	} else if r.Method == http.MethodPost {
 		// Retrieve message and deliver it
 		if msg := r.FormValue("msg"); msg == "" {
-			w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, "")))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, "")))
 		} else {
 			prompt := "出问题了，发不出去。"
 			if err := mm.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
@@ -72,7 +72,7 @@ func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 			} else {
 				mm.logger.Warning("HandleMailMe", r.RemoteAddr, err, "failed to deliver mail")
 			}
-			w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, prompt)))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, prompt)))
 		}
 	}
 }

@@ -2,13 +2,14 @@ package common
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -89,6 +90,9 @@ func (srv *UDPServer) StartAndBlock() error {
 	srv.logger.Info("StartAndBlock", "", nil, "starting UDP listener")
 	var err error
 	listenUDPAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(srv.ListenAddr, strconv.Itoa(srv.ListenPort)))
+	if err != nil {
+		return fmt.Errorf("UDPServer.StartAndBlock(%s): failed to resolve listning address %s - %v", srv.AppName, srv.ListenAddr, err)
+	}
 	srv.udpServer, err = net.ListenUDP("udp", listenUDPAddr)
 	srv.mutex.Unlock()
 	if err != nil {

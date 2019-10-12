@@ -39,7 +39,7 @@ func (info *HandleSystemInfo) Handle(w http.ResponseWriter, r *http.Request) {
 	result.WriteString(toolbox.GetLatestLog())
 	result.WriteString("\nStack traces:\n")
 	result.WriteString(toolbox.GetGoroutineStacktraces())
-	w.Write(result.Bytes())
+	_, _ = w.Write(result.Bytes())
 }
 
 func (_ *HandleSystemInfo) GetRateLimitFactor() int {

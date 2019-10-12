@@ -102,7 +102,7 @@ func (daemon *Daemon) runPortsCheck() error {
 		return nil
 	}
 
-	portErrs := make([]string, 0, 0)
+	portErrs := make([]string, 0)
 	portErrsMutex := new(sync.Mutex)
 	wait := new(sync.WaitGroup)
 

@@ -44,7 +44,7 @@ error will be returned.
 */
 func (conn *IMAPSConnection) converse(request string) (status, body string, err error) {
 	// Expect both request and response to complete within the timeout constraint
-	conn.tlsConn.SetDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
+	_ = conn.tlsConn.SetDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
 	// Random challenge is a string prefixed to an IMAP request
 	challenge := randomChallenge()
 	_, err = conn.tlsConn.Write([]byte(fmt.Sprintf("%s %s\r\n", challenge, request)))
@@ -123,7 +123,7 @@ func (conn *IMAPSConnection) LogoutDisconnect() {
 	if conn.tlsConn == nil {
 		return
 	}
-	conn.converse("LOGOUT") // intentionally ignore conversation error
+	_, _, _ = conn.converse("LOGOUT") // intentionally ignore conversation error
 	conn.disconnect()
 }
 
@@ -245,7 +245,7 @@ func (mbox *IMAPS) ConnectLoginSelect() (conn *IMAPSConnection, err error) {
 		return nil, fmt.Errorf("IMAPS.ConnectLoginSelect: TLS connection error - %v", err)
 	}
 	// Absorb the connection greeting message sent by server
-	tlsWrapper.SetReadDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
+	_ = tlsWrapper.SetReadDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
 	reader := bufio.NewReader(tlsWrapper)
 	_, _, err = reader.ReadLine()
 	if err != nil {
@@ -427,7 +427,7 @@ func (imap *IMAPAccounts) ReadMessage(cmd Command) *Result {
 	// If mail is multi-part, prefer to retrieve the plain text mail body.
 	var anyText, plainText string
 	err = inet.WalkMailMessage([]byte(entireMessage), func(prop inet.BasicMail, body []byte) (bool, error) {
-		if strings.Index(prop.ContentType, "plain") == -1 {
+		if !strings.Contains(prop.ContentType, "plain") {
 			anyText = string(body)
 		} else {
 			plainText = string(body)

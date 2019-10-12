@@ -1,14 +1,15 @@
 package launcher
 
 import (
+	"testing"
+	"time"
+
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/serialport"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
-	"testing"
-	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
@@ -359,7 +360,7 @@ func TestConfig(t *testing.T) {
 	// HTTP daemon is expected to start in two seconds
 	go func() {
 		if err := httpDaemon.StartAndBlockNoTLS(0); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 	time.Sleep(2 * time.Second)

@@ -136,7 +136,6 @@ func (backlog *UDPBackLog) Put(addr string, packet []byte) {
 	backlog.mutex.Lock()
 	backlog.backlog[addr] = packet
 	backlog.mutex.Unlock()
-	return
 }
 
 func (backlog *UDPBackLog) Len() (ret int) {
@@ -353,7 +352,6 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 			conn.Close()
 		}
 	}
-	return
 }
 
 func (daemon *UDPDaemon) PipeUDPConnection(server net.PacketConn, clientAddr *net.UDPAddr, client net.PacketConn) {

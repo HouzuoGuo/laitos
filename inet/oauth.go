@@ -7,7 +7,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -15,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // FIXME: clean this up (howard)
@@ -70,7 +71,9 @@ type OAuthHeader struct {
 func (a *OAuthHeader) Sign(tokenSecret, message string) (string, error) {
 	signingKey := strings.Join([]string{a.ConsumerSecret, tokenSecret}, "&")
 	mac := hmac.New(sha1.New, []byte(signingKey))
-	mac.Write([]byte(message))
+	if _, err := mac.Write([]byte(message)); err != nil {
+		return "", err
+	}
 	signatureBytes := mac.Sum(nil)
 	return base64.StdEncoding.EncodeToString(signatureBytes), nil
 }
@@ -79,7 +82,9 @@ func (a *OAuthHeader) Sign(tokenSecret, message string) (string, error) {
 // requests with an AccessToken (token credential) according to RFC 5849 3.1.
 func (a *OAuthHeader) SetRequestAuthHeader(req *http.Request) error {
 	nounce := make([]byte, 32)
-	rand.Read(nounce)
+	if _, err := rand.Read(nounce); err != nil {
+		return err
+	}
 
 	oauthParams := map[string]string{
 		"oauth_consumer_key":     a.ConsumerKey,

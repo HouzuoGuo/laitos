@@ -10,15 +10,15 @@ import (
 
 func TestSockd_StartAndBlock(t *testing.T) {
 	daemon := Daemon{}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "dns daemon") == -1 {
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "dns daemon") {
 		t.Fatal(err)
 	}
 	daemon.DNSDaemon = &dnsd.Daemon{}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "listen port") == -1 {
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "listen port") {
 		t.Fatal(err)
 	}
 	daemon.TCPPorts = []int{27101}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "password") == -1 {
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "password") {
 		t.Fatal(err)
 	}
 	daemon.Password = "abcdefg"

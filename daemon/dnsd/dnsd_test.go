@@ -1,11 +1,12 @@
 package dnsd
 
 import (
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/inet"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 func TestUpdateBlackList(t *testing.T) {
@@ -43,7 +44,7 @@ func TestCheckAllowClientIP(t *testing.T) {
 
 func TestDNSD(t *testing.T) {
 	daemon := Daemon{AllowQueryIPPrefixes: []string{"192.", ""}}
-	if err := daemon.Initialise(); err == nil || strings.Index(err.Error(), "may not contain empty string") == -1 {
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "may not contain empty string") {
 		t.Fatal(err)
 	}
 	daemon.AllowQueryIPPrefixes = nil

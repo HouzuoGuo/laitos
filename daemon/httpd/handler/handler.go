@@ -48,7 +48,7 @@ address read from header "X-Real-Ip".
 func GetRealClientIP(r *http.Request) string {
 	ip := r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')]
 	if strings.HasPrefix(ip, "127.") {
-		if realIP := r.Header["X-Real-Ip"]; realIP != nil && len(realIP) > 0 {
+		if realIP := r.Header["X-Real-Ip"]; len(realIP) > 0 {
 			ip = realIP[0]
 		}
 	}

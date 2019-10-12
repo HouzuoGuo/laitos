@@ -3,13 +3,14 @@ package common
 import (
 	"bufio"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io"
 	"log"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 type TCPTestApp struct {
@@ -43,7 +44,7 @@ func TestTCPServer(t *testing.T) {
 	var shutdown bool
 	go func() {
 		if err := srv.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		shutdown = true
 	}()

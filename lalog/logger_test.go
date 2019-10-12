@@ -41,7 +41,7 @@ func TestLogger_Format(t *testing.T) {
 
 func TestLogger_Panicf(t *testing.T) {
 	defer func() {
-		recover()
+		_ = recover()
 	}()
 	logger := Logger{}
 	logger.Panic("", "", nil, "")

@@ -172,6 +172,9 @@ func TestWalkMessage(t *testing.T) {
 		partsWalked++
 		return true, nil
 	})
+	if err != nil || partsWalked != 2 {
+		t.Fatal(err, partsWalked)
+	}
 }
 
 var TextMailQuotedPrintable = []byte(`From: Howard Guo <howard-from@example.com>

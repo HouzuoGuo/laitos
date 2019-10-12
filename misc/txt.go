@@ -75,7 +75,7 @@ DecryptIfNecessary uses the input key to decrypt each of the possibly encrypted 
 If an inpuit file is not encrypted, its content is simply read and returned.
 */
 func DecryptIfNecessary(key []byte, filePaths ...string) (decryptedContent [][]byte, isEncrypted []bool, err error) {
-	decryptedContent = make([][]byte, 0, 0)
+	decryptedContent = make([][]byte, 0)
 	isEncrypted = make([]bool, 0)
 	for _, aPath := range filePaths {
 		var content []byte
@@ -153,7 +153,7 @@ func Encrypt(filePath string, key []byte) error {
 	cipherWriter := &cipher.StreamWriter{S: ctrStream, W: file}
 	// Copy data into encrypted file stream to complete encryptioin
 	_, err = cipherWriter.Write(content)
-	return nil
+	return err
 }
 
 // Decrypt decrypts the input file and returns its content. The entire operation is conducted in memory.

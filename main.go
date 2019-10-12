@@ -50,7 +50,6 @@ func DecryptFile(filePath string) {
 		return
 	}
 	lalog.DefaultLogger.Info("DecryptFile", "main", nil, "successfully decrypte the file")
-	return
 }
 
 /*
@@ -98,7 +97,6 @@ func StartPasswordWebServer(port int, url string) {
 		}
 	}
 	logger.Abort("StartPasswordWebServer", "main", nil, "failed to start the web server after many attempts")
-	return
 }
 
 // terminatedDaemonToError wraps the daemon name and daemon's return value into an error.
@@ -235,7 +233,7 @@ func main() {
 	}
 	// Figure out what daemons are to be started
 	daemonNames := regexp.MustCompile(`\w+`).FindAllString(daemonList, -1)
-	if daemonNames == nil || len(daemonNames) == 0 {
+	if len(daemonNames) == 0 {
 		logger.Abort("main", "", nil, "please provide comma-separated list of daemon services to start (-daemons).")
 		return
 	}

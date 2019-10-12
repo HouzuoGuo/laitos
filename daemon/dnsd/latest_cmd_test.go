@@ -26,12 +26,12 @@ func TestLatestCommands(t *testing.T) {
 			result := rec.Execute(testProcessor, common.TestCommandProcessorPIN+".s sleep 1; date")
 			oldResult = result // data race is OK
 			if result == nil || result.CombinedOutput == "" {
-				t.Fatal(result)
+				panic(result)
 			}
 			for i := 0; i < 3; i++ {
 				moreResult := rec.Execute(testProcessor, common.TestCommandProcessorPIN+".s sleep 1; date")
 				if moreResult == nil || moreResult.CombinedOutput != result.CombinedOutput {
-					t.Fatal(moreResult)
+					panic(moreResult)
 				}
 				wg.Done()
 				time.Sleep(1 * time.Second)
@@ -41,7 +41,7 @@ func TestLatestCommands(t *testing.T) {
 	go func() {
 		result := rec.Execute(testProcessor, common.TestCommandProcessorPIN+".s sleep 1; echo hi")
 		if result == nil || strings.TrimSpace(result.CombinedOutput) != "hi" {
-			t.Fatal(result)
+			panic(result)
 		}
 		wg.Done()
 	}()

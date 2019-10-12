@@ -3,12 +3,13 @@ package toolbox
 import (
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 )
 
 var (
@@ -19,7 +20,7 @@ var (
 
 // FormatElementInfoArray prints element information into strings.
 func FormatElementInfoArrayPhantomJS(elements []phantomjs.ElementInfo) string {
-	if elements == nil || len(elements) == 0 {
+	if len(elements) == 0 {
 		return "(nothing)"
 	}
 	lines := make([]string, 0, len(elements))
@@ -74,7 +75,7 @@ func (bro *BrowserPhantomJS) Execute(cmd Command) (ret *Result) {
 	}
 	// Make sure there is a browser instance
 	bro.mutex.Lock()
-	bro.mutex.Unlock()
+	defer bro.mutex.Unlock()
 	if bro.renderer != nil {
 		// The retrieved instance may be nil if it was killed due to timeout.
 		bro.renderer = bro.Renderers.Retrieve(bro.renderer.Index, bro.renderer.Tag)
@@ -121,7 +122,7 @@ func (bro *BrowserPhantomJS) Execute(cmd Command) (ret *Result) {
 			return &Result{Error: errors.New("nn: bad number")}
 		}
 		var elements []phantomjs.ElementInfo
-		elements, err = bro.renderer.LONextNElements(n)
+		elements, _ = bro.renderer.LONextNElements(n)
 		output = FormatElementInfoArrayPhantomJS(elements)
 	case "0":
 		// Reset navigation back to the first DOM element

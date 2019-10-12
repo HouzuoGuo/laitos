@@ -83,7 +83,7 @@ Program flags: %v
 `,
 		inet.GetPublicIP(),
 		time.Now().String(),
-		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Now().Sub(misc.StartupTime).String(),
+		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
 		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
 		totalRoot/1024, usedRoot/1024, freeRoot/1024,
 		misc.GetSystemLoad(),
@@ -116,7 +116,7 @@ func GetLatestWarnings() string {
 // Return stack traces of all currently running goroutines.
 func GetGoroutineStacktraces() string {
 	buf := new(bytes.Buffer)
-	pprof.Lookup("goroutine").WriteTo(buf, 1)
+	_ = pprof.Lookup("goroutine").WriteTo(buf, 1)
 	return buf.String()
 }
 

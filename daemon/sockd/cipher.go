@@ -19,7 +19,9 @@ type Cipher struct {
 
 func md5Sum(d []byte) []byte {
 	md5Digest := md5.New()
-	md5Digest.Write(d)
+	if _, err := md5Digest.Write(d); err != nil {
+		return []byte{}
+	}
 	return md5Digest.Sum(nil)
 }
 

@@ -38,7 +38,7 @@ var (
 		},
 		// 1.3.6.1.4.1.52535.121.102 Integer - number of seconds program has been running
 		102: func() interface{} {
-			return int64(time.Now().Sub(misc.StartupTime).Seconds())
+			return int64(time.Since(misc.StartupTime).Seconds())
 		},
 		// 1.3.6.1.4.1.52535.121.103 Integer - number of CPUs
 		103: func() interface{} {

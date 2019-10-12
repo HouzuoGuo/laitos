@@ -306,7 +306,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
 	lastEmailFrom = ""
 	lastEmailBody = ""
-	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@not-my-domain"}, []byte(testMessage)); strings.Index(err.Error(), "Bad address") == -1 {
+	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@not-my-domain"}, []byte(testMessage)); !strings.Contains(err.Error(), "Bad address") {
 		t.Fatal(err)
 	}
 	time.Sleep(1 * time.Second)

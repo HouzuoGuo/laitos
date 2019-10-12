@@ -39,7 +39,7 @@ func GetTwoFACodeForTimeDivision(secret string, time int64) (string, error) {
 		return "", err
 	}
 	shaHMAC := hmac.New(sha1.New, secretBin)
-	timeMessage := make([]byte, 8, 8)
+	timeMessage := make([]byte, 8)
 	timeMessage[0] = (byte)(time >> (7 * 8) & 0xff)
 	timeMessage[1] = (byte)(time >> (6 * 8) & 0xff)
 	timeMessage[2] = (byte)(time >> (5 * 8) & 0xff)
@@ -121,6 +121,9 @@ func (codegen *TwoFACodeGenerator) Execute(cmd Command) (ret *Result) {
 		return &Result{Error: errors.New("Cannot decode hex key")}
 	}
 	plainContent, err := codegen.SecretFile.Decrypt(keySuffix)
+	if err != nil {
+		return &Result{Error: err}
+	}
 	var accountFound bool
 	var codeOutput bytes.Buffer
 	// Read the account name and secrets among the lines

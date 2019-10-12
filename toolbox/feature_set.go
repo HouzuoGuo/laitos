@@ -54,7 +54,7 @@ func (fs *FeatureSet) Initialise() error {
 		fs.TwoFACodeGenerator.Trigger(): &fs.TwoFACodeGenerator, // 2
 		fs.WolframAlpha.Trigger():       &fs.WolframAlpha,       // w
 	}
-	errs := make([]string, 0, 0)
+	errs := make([]string, 0)
 	for trigger, featureRef := range triggers {
 		/*
 			Collect initialisation errors (if any) from all failed features so that all mistakes can be presented to
@@ -75,7 +75,7 @@ func (fs *FeatureSet) Initialise() error {
 
 // Run self test of all configured features in parallel. Return test errors if any.
 func (fs *FeatureSet) SelfTest() error {
-	ret := make([]string, 0, 0)
+	ret := make([]string, 0)
 	retMutex := &sync.Mutex{}
 	wait := &sync.WaitGroup{}
 	wait.Add(len(fs.LookupByTrigger))

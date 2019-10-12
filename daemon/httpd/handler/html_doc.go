@@ -42,7 +42,7 @@ func (doc *HandleHTMLDocument) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
 	page := strings.Replace(doc.contentString, HTMLCurrentDateTime, time.Now().Format(time.RFC3339), -1)
 	page = strings.Replace(page, HTMLClientAddress, GetRealClientIP(r), -1)
-	w.Write([]byte(page))
+	_, _ = w.Write([]byte(page))
 }
 
 func (_ *HandleHTMLDocument) GetRateLimitFactor() int {

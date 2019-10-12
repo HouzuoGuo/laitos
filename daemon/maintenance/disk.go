@@ -2,12 +2,13 @@ package maintenance
 
 import (
 	"bytes"
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/platform"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 // CleanUpFiles gets rid of unused temporary files on both Unix-like and Windows OSes.

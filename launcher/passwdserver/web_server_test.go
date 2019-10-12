@@ -30,7 +30,7 @@ func TestWebServer(t *testing.T) {
 	var shutdown bool
 	go func() {
 		if err := ws.Start(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		shutdown = true
 	}()

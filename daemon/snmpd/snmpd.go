@@ -203,7 +203,7 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 	}
 	// Expect a valid response to IP address query i.e. the first supported OID
 	packetBuf := make([]byte, MaxPacketSize)
-	clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_ = clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	_, err = clientConn.Read(packetBuf)
 	if err != nil {
 		t.Fatal(err)
@@ -230,7 +230,7 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 	}
 	// Expect a valid response to IP address query i.e. the first supported OID
 	packetBuf = make([]byte, MaxPacketSize)
-	clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_ = clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	_, err = clientConn.Read(packetBuf)
 	if err == nil {
 		t.Fatal("should not have responded")
@@ -252,7 +252,7 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 	}
 	// Expect a valid response
 	packetBuf = make([]byte, MaxPacketSize)
-	clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_ = clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	_, err = clientConn.Read(packetBuf)
 	if err != nil {
 		t.Fatal(err)
@@ -286,7 +286,7 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 		}
 		// Expect an EndOfMibView response
 		replyBuf := make([]byte, MaxPacketSize)
-		clientConn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		_ = clientConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 		// Should IO error occur, the return value shall be an empty byte slice.
 		n, _ := clientConn.Read(replyBuf)
 		replyBuf = replyBuf[:n]

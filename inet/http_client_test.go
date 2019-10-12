@@ -76,10 +76,14 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 		default:
 			// Further responses are HTTP 201
 			w.WriteHeader(201)
-			w.Write([]byte("response from faulty server"))
+			_, _ = w.Write([]byte("response from faulty server"))
 		}
 	})
-	go http.Serve(listener, router)
+	go func() {
+		if err = http.Serve(listener, router); err != nil {
+			panic(err)
+		}
+	}()
 	// Expect server to be ready in a second
 	time.Sleep(1 * time.Second)
 
@@ -114,9 +118,13 @@ func TestDoHTTPGoodServer(t *testing.T) {
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		okServerRequestsServed++
 		w.WriteHeader(202)
-		w.Write([]byte("response from ok server"))
+		_, _ = w.Write([]byte("response from ok server"))
 	})
-	go http.Serve(listener, router)
+	go func() {
+		if err := http.Serve(listener, router); err != nil {
+			panic(err)
+		}
+	}()
 	// Expect server to be ready in a second
 	time.Sleep(1 * time.Second)
 

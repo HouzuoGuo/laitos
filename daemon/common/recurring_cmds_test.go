@@ -22,7 +22,9 @@ func TestRecurringCommands(t *testing.T) {
 		TestCommandProcessorPIN + ".s echo first",
 		TestCommandProcessorPIN + ".s echo second",
 	}
-	cmds.Initialise()
+	if err := cmds.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 
 	// There shall be no transient commands or results to begin with
 	if a := cmds.GetTransientCommands(); !reflect.DeepEqual(a, []string{}) {
