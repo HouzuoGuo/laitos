@@ -21,6 +21,7 @@ The fragments indicate that package manager action has not resulted in any modif
 var suppressOutputMarkers = []string{
 	"no packages marked for update", "nothing to do", "not found", "0 to upgrade, 0 to newly install",
 	"0 upgraded, 0 newly installed", "unable to locate", "already installed", "is the latest version",
+	"Unable to find a match",
 }
 
 /*
