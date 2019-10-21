@@ -15,14 +15,20 @@ import (
 )
 
 /*
-suppressOutputMarkers is a list of strings containing text fragments that may be found in package manager output.
-The fragments indicate that package manager action has not resulted in any modification to the system.
+suppressOutputMarkers is a list of strings containing text phrases that indicate system package manager has not modified
+the system, for example, when a package to install is not found, or system is already up to date.
 */
 var suppressOutputMarkers = []string{
-	"no packages marked for update", "nothing to do", "not found", "0 to upgrade, 0 to newly install",
-	"0 upgraded, 0 newly installed", "unable to locate", "already installed", "is the latest version",
-	"Unable to find a match",
+	"no package", "nothing to do", "not found", "0 to upgrade, 0 to newly install",
+	"0 upgraded, 0 newly installed", "unable to locate", "already installed", "is the latest",
+	"unable to find", "no match",
 }
+
+/*
+pkgAlreadyInstalledMarkers is a list of strings containing text phrases that indicate package manager has succeeded in
+installing/updating a package even though no action is taken, for example, when a package to install is already up to date.
+*/
+var pkgAlreadyInstalledMarkers = []string{"already the newest", "already installed", "no packages marked for update"}
 
 /*
 PrepareDockerRepositorForDebian prepares APT repository for installing docker, because debian does not distribute docker
@@ -199,7 +205,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 			break
 		}
 	}
-	daemon.logPrintStageStep(out, "upgrade system result: %v - %s", err, strings.TrimSpace(result))
+	daemon.logPrintStageStep(out, "upgrade system result: (err? %v) %s", err, strings.TrimSpace(result))
 
 	/*
 		Install additional software packages.
@@ -228,6 +234,11 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"libpng", "libpng16-16", "nss", "openssl", "ttf-dejavu", "ttf-freefont", "ttf-liberation", "wqy-zenhei", "xfonts-utils",
 		"xorg-x11-font-utils", "xorg-x11-fonts-Type1", "zlib", "zlib1g",
 
+		// Soft and hard dependencies of remote virtual machine
+		"qemu", "qemu-common", "qemu-img", "qemu-kvm", "qemu-kvm-common", "qemu-kvm-core",
+		"qemu-system", "qemu-system-common", "qemu-system-x86", "qemu-system-x86-core",
+		"qemu-user", "qemu-user-binfmt", "qemu-utils",
+
 		// Time maintenance utilities
 		"ntp", "ntpd", "ntpdate",
 
@@ -235,14 +246,17 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"busybox", "toybox",
 
 		// Network diagnosis and system maintenance utilities. On a typical Linux distribution they use ~300MB of disk space altogether.
-		"7zip", "apache2-utils", "bash", "bind-utils", "binutils", "busybox", "caca-utils", "ca-certificates-mozilla", "curl", "dateutils",
-		"diffutils", "dnsutils", "dos2unix", "findutils", "finger", "gnutls-bin", "gnutls-utils", "hostname", "htop", "iftop", "imlib2",
-		"imlib2-filters", "imlib2-loaders", "iotop", "iputils", "iputils-ping", "iputils-tracepath", "jsonlint", "language-pack-en", "lftp",
-		"libcaca0", "libcaca0-plugins", "lm-sensors", "locales", "lrzsz", "lsof", "mailutils", "mailx", "minicom", "miscfiles", "moreutils",
-		"mosh", "nc", "netcat", "net-snmp", "net-snmp-utils", "net-tools", "nicstat", "nmap", "nmon", "nping", "p7zip", "patchutils", "pciutils",
-		"perf", "procps", "psmisc", "rsync", "screen", "sensors", "snmp", "socat", "strace", "sudo", "sysinternals", "tcpdump", "tcptraceroute",
-		"telnet", "tmux", "tracepath", "traceroute", "tree", "tshark", "unar", "uniutils", "unzip", "usbutils", "util-linux", "util-linux-locales",
-		"vim", "wbritish", "wbritish-huge", "wget", "whois", "wiggle", "yamllint", "zip",
+		"7zip", "apache2-utils", "bash", "bind-utils", "binutils", "caca-utils", "ca-certificates-mozilla", "cgroup-tools", "curl",
+		"dateutils", "diffutils", "dnsutils", "dos2unix", "findutils", "finger", "glibc-locale-source", "gnutls-bin", "gnutls-utils",
+		"hostname", "htop", "iftop", "imlib2", "imlib2-filters", "imlib2-loaders", "iotop", "iputils", "iputils-ping", "iputils-tracepath",
+		"jsonlint", "language-pack-en", "lftp", "libcaca0", "libcaca0-plugins", "libcgroup-tools", "lm-sensors", "locales", "lrzsz", "lsof",
+		"mailutils", "mailx", "minicom", "miscfiles", "moreutils", "mosh",
+		"nc", "netcat", "net-snmp", "net-snmp-utils", "net-tools", "nicstat", "nmap", "nmon", "nping",
+		"p7zip", "patchutils", "pciutils", "perf", "procps", "psmisc", "rsync",
+		"screen", "sensors", "snmp", "socat", "strace", "sudo", "sysinternals",
+		"tcpdump", "tcptraceroute", "telnet", "tmux", "tracepath", "traceroute", "tree", "tshark",
+		"unar", "uniutils", "unzip", "usbutils", "util-linux", "util-linux-locales", "vim", "wbritish", "wbritish-huge",
+		"wget", "whois", "wiggle", "yamllint", "zip",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)
 	sort.Strings(pkgs)
@@ -260,17 +274,32 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		installCmd[len(pkgInstallArgs)] = name
 		// Ten minutes should be good enough for each package
 		result, err := platform.InvokeProgram(pkgManagerEnv, 10*60, pkgManagerPath, installCmd...)
-		if err == nil {
-			daemon.logPrintStageStep(out, "install/upgrade %s: OK", name)
-		} else {
+		// If installation proceeded successfully (i.e. package exists) but no action taken, inform user about it.
+		alreadyInstalled := false
+		for _, marker := range pkgAlreadyInstalledMarkers {
+			if strings.Contains(strings.ToLower(result), marker) {
+				result = "already installed/up-to-date"
+				alreadyInstalled = true
+				err = nil
+				break
+			}
+		}
+		// If nothing can be done about the package (i.e. package does not exist), inform the user about it and suppress the error output.
+		nothingToDo := false
+		if !alreadyInstalled {
 			for _, marker := range suppressOutputMarkers {
-				// If nothing was done about the package, suppress the rather useless output.
 				if strings.Contains(strings.ToLower(result), marker) {
-					result = "(nothing to do or not available)"
+					result = "nothing to do or not available"
+					nothingToDo = true
+					err = nil
 					break
 				}
 			}
-			daemon.logPrintStageStep(out, "install/upgrade %s: %v - %s", name, err, strings.TrimSpace(result))
+		}
+		if err != nil || alreadyInstalled || nothingToDo {
+			daemon.logPrintStageStep(out, "install/upgrade %s: (err? %v) %s", name, err, strings.TrimSpace(result))
+		} else {
+			daemon.logPrintStageStep(out, "install/upgrade %s: OK", name)
 		}
 	}
 }
