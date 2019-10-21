@@ -126,8 +126,8 @@ func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManage
 		sysUpgradeArgs = []string{"upgrade", "-y", "all"}
 	case "yum":
 		// yum is simple and easy
-		pkgInstallArgs = []string{"-y", "-t", "--skip-broken", "install"}
-		sysUpgradeArgs = []string{"-y", "-t", "--skip-broken", "update"}
+		pkgInstallArgs = []string{"-y", "--skip-broken", "install"}
+		sysUpgradeArgs = []string{"-y", "--skip-broken", "update"}
 	case "apt":
 		// apt and apt-get are too old to be convenient
 		fallthrough
