@@ -225,14 +225,15 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"docker", "docker-client", "docker.io", "docker-ce",
 
 		// Soft and hard dependencies of PhantomJS
-		"bzip2", "bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dbus", "dejavu-fonts-common",
-		"dejavu-sans-fonts", "dejavu-serif-fonts", "expat", "firefox", "font-noto", "fontconfig", "fontconfig-config",
-		"fontpackages-filesystem", "fonts-arphic-ukai", "fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "freetype",
-		"gnutls", "icu", "intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1", "libXfont", "libbz2-1",
-		"libbz2-1.0", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
-		"liberation2-fonts", "libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libicu", "libicu57", "libicu60_2",
-		"libpng", "libpng16-16", "nss", "openssl", "ttf-dejavu", "ttf-freefont", "ttf-liberation", "wqy-zenhei", "xfonts-utils",
-		"xorg-x11-font-utils", "xorg-x11-fonts-Type1", "zlib", "zlib1g",
+		"bzip2", "bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dbus", "dejavu-fonts-common", "dejavu-sans-fonts",
+		"dejavu-serif-fonts", "expat", "firefox", "fontconfig", "fontconfig-config", "font-noto", "fontpackages-filesystem", "fonts-arphic-ukai",
+		"fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "fonts-noto-cjk", "fonts-wqy-microhei", "fonts-wqy-zenhei", "freetype", "gnutls",
+		"google-noto-cjk-fonts-common", "google-noto-sans-cjk-fonts", "google-noto-sans-cjk-ttc-fonts", "google-noto-sans-jp-fonts", "google-noto-sans-kr-fonts",
+		"google-noto-sans-sc-fonts", "google-noto-sans-tc-fonts", "icu", "intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1",
+		"libbz2-1", "libbz2-1.0", "liberation2-fonts", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
+		"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libicu", "libicu57", "libicu60_2", "libpng", "libpng16-16", "libXfont", "nss", "openssl",
+		"ttf-dejavu", "ttf-freefont", "ttf-liberation", "wqy-zenhei", "wqy-zenhei-fonts", "xfonts-utils", "xorg-x11-fonts-Type1", "xorg-x11-font-utils", "zlib",
+		"zlib1g",
 
 		// Soft and hard dependencies of remote virtual machine
 		"qemu", "qemu-common", "qemu-img", "qemu-kvm", "qemu-kvm-common", "qemu-kvm-core",
@@ -255,7 +256,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"p7zip", "patchutils", "pciutils", "perf", "procps", "psmisc", "rsync",
 		"screen", "sensors", "snmp", "socat", "strace", "sudo", "sysinternals",
 		"tcpdump", "tcptraceroute", "telnet", "tmux", "tracepath", "traceroute", "tree", "tshark",
-		"unar", "uniutils", "unzip", "usbutils", "util-linux", "util-linux-locales", "vim", "wbritish", "wbritish-huge",
+		"unar", "uniutils", "unzip", "usbutils", "util-linux", "util-linux-user", "util-linux-locales", "vim", "wbritish", "wbritish-huge",
 		"wget", "whois", "wiggle", "yamllint", "zip",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)

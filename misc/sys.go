@@ -299,10 +299,14 @@ func BlockUserLogin(userName string) (ok bool, out string) {
 			out += fmt.Sprintf("net user failed: %v - %s\n", err, strings.TrimSpace(progOut))
 		}
 	} else {
+		// Some systems use chsh while some others use chmod
 		progOut, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chsh", "-s", "/bin/false", userName)
 		if err != nil {
-			ok = false
-			out += fmt.Sprintf("chsh failed: %v - %s\n", err, strings.TrimSpace(progOut))
+			usermodOut, usermodErr := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "usermod", "-s", "/bin/false", userName)
+			if usermodErr != nil {
+				ok = false
+				out += fmt.Sprintf("chsh failed (%v - %s) and then usermod shell failed as well: %v - %s\n", err, strings.TrimSpace(progOut), usermodErr, strings.TrimSpace(usermodOut))
+			}
 		}
 		progOut, err = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "passwd", "-l", userName)
 		if err != nil {
@@ -312,7 +316,7 @@ func BlockUserLogin(userName string) (ok bool, out string) {
 		progOut, err = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "usermod", "--expiredate", "1", userName)
 		if err != nil {
 			ok = false
-			out += fmt.Sprintf("usermod failed: %v - %s\n", err, strings.TrimSpace(progOut))
+			out += fmt.Sprintf("usermod expiry failed: %v - %s\n", err, strings.TrimSpace(progOut))
 		}
 	}
 	return
