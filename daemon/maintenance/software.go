@@ -163,7 +163,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 	// Prepare package manager
 	if misc.HostIsWindows() {
 		daemon.logPrintStageStep(out, "install windows features")
-		shellOut, err := misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShell-ISE, Windows-Defender, Windows-Defender-Gui, TFTP-Client, Telnet-Client, Server-Media-Foundation, GPMC, NET-Framework-45-Core, WebDAV-Redirector`)
+		shellOut, err := misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShell-ISE, Windows-Defender, TFTP-Client, Telnet-Client, Server-Media-Foundation, GPMC, NET-Framework-45-Core, WebDAV-Redirector`)
 		if err != nil {
 			daemon.logPrintStageStep(out, "failed to install windows features: %v - %s", err, shellOut)
 		}
