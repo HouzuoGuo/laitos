@@ -58,43 +58,51 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	proc.Stderr = outBuf
 	// Use process group so that child processes are also killed upon time out, Windows does not require this.
 	proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	// Monitor for time out
-	var timedOut bool
-	timeOutTimer := time.AfterFunc(time.Duration(timeoutSec)*time.Second, func() {
-		timedOut = true
-		if proc.Process != nil && !KillProcess(proc.Process) {
-			logger.Warning("InvokeProgram", program, nil, "failed to kill after time limit exceeded")
-		}
-	})
 	// Start external process
+	unixSecAtStart := time.Now().Unix()
+	timeLimitExceeded := time.After(time.Duration(timeoutSec) * time.Second)
 	if err = proc.Start(); err != nil {
-		timeOutTimer.Stop()
 		return
 	}
-	// If the the process may 10 minutes or longer to run, then start logging how much time the process has left every minute.
-	var processQuit bool
-	if timeoutSec >= 10*60 {
-		go func() {
-			beginningSec := time.Now().Unix()
-			for {
-				time.Sleep(1 * time.Minute)
-				if !processQuit && !timedOut {
-					spentMinutes := (time.Now().Unix() - beginningSec) / 60
-					timeoutRemainingMinutes := (timeoutSec - int(time.Now().Unix()-beginningSec)) / 60
-					logger.Info("InvokeProgram", program, nil, "external process %d has been running for %d minutes and will time out in %d minutes",
-						proc.Process.Pid, spentMinutes, timeoutRemainingMinutes)
-				} else {
-					break
-				}
+	// Wait for the process to finish
+	processExitChan := make(chan error, 1)
+	go func() {
+		exitErr := proc.Wait()
+		if exitErr == nil {
+			logger.Info("InvokeProgram", program, nil, "process exited normally after %d seconds", time.Now().Unix()-unixSecAtStart)
+		} else {
+			logger.Info("InvokeProgram", program, nil, "process exited after %d seconds due to: %v", time.Now().Unix()-unixSecAtStart, exitErr)
+		}
+		processExitChan <- exitErr
+	}()
+	minuteTicker := time.NewTicker(1 * time.Minute)
+processMonitorLoop:
+	for {
+		// Monitor long-duration process, time-out condition, and regular process exit.
+		select {
+		case <-minuteTicker.C:
+			// If the the process may 10 minutes or longer to run, then start logging how much time the process has left every minute.
+			if timeoutSec >= 10*60 {
+				spentMinutes := (time.Now().Unix() - unixSecAtStart) / 60
+				timeoutRemainingMinutes := (timeoutSec - int(time.Now().Unix()-unixSecAtStart)) / 60
+				logger.Info("InvokeProgram", program, nil, "external process %d has been running for %d minutes and will time out in %d minutes",
+					proc.Process.Pid, spentMinutes, timeoutRemainingMinutes)
 			}
-		}()
-	}
-	// Wait for process to finish
-	err = proc.Wait()
-	processQuit = true
-	timeOutTimer.Stop()
-	if timedOut {
-		err = errors.New("time limit exceeded")
+		case <-timeLimitExceeded:
+			// Forcibly kill the process upon exceeding time limit
+			logger.Warning("InvokeProgram", program, nil, "killing the program due to time limit (%d seconds)", timeoutSec)
+			if proc.Process != nil && !KillProcess(proc.Process) {
+				logger.Warning("InvokeProgram", program, nil, "failed to kill after time limit exceeded")
+			}
+			err = errors.New("time limit exceeded")
+			minuteTicker.Stop()
+			break processMonitorLoop
+		case exitErr := <-processExitChan:
+			// Normal or abnormal exit that is not a time out
+			err = exitErr
+			minuteTicker.Stop()
+			break processMonitorLoop
+		}
 	}
 	out = string(outBuf.Retrieve(false))
 	return
@@ -105,17 +113,18 @@ func KillProcess(proc *os.Process) (success bool) {
 	if proc == nil {
 		return true
 	}
-	// Kill process group if it is one
+	// Kill the process' group (i.e. itself and child processes)
 	if killErr := syscall.Kill(-proc.Pid, syscall.SIGKILL); killErr == nil {
 		success = true
 	}
+	// Kill the process itself
 	if killErr := syscall.Kill(proc.Pid, syscall.SIGKILL); killErr == nil {
 		success = true
 	}
 	if proc.Kill() == nil {
 		success = true
 	}
-	_, _ = proc.Wait()
+	_ = proc.Release()
 	return
 }
 

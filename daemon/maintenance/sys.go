@@ -57,18 +57,26 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 	if daemon.DisableStopServices == nil && daemon.EnableStartServices == nil {
 		return
 	}
-	daemon.logPrintStage(out, "maintain service state")
+	daemon.logPrintStage(out, "maintain system services")
 
 	if daemon.DisableStopServices != nil {
 		sort.Strings(daemon.DisableStopServices)
 		for _, name := range daemon.DisableStopServices {
-			daemon.logPrintStageStep(out, "disable&stop %s: success? %v", name, misc.DisableStopDaemon(name))
+			if misc.DisableStopDaemon(name) {
+				daemon.logPrintStageStep(out, "disable&stop %s: OK", name)
+			} else {
+				daemon.logPrintStageStep(out, "disable&stop %s: failed or service does not exist", name)
+			}
 		}
 	}
 	if daemon.EnableStartServices != nil {
 		sort.Strings(daemon.EnableStartServices)
 		for _, name := range daemon.EnableStartServices {
-			daemon.logPrintStageStep(out, "enable&start %s: success? %v", name, misc.EnableStartDaemon(name))
+			if misc.EnableStartDaemon(name) {
+				daemon.logPrintStageStep(out, "enable&start %s: OK", name)
+			} else {
+				daemon.logPrintStageStep(out, "enable&start %s: failed or service does not exist", name)
+			}
 		}
 	}
 }
