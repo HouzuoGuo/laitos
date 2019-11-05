@@ -3,8 +3,10 @@ package maintenance
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +37,9 @@ const (
 	// MaxMessageLength is the maximum length of each message entry coming from output of a maintenance action.
 	MaxMessageLength = 1024
 )
+
+// ReportFilePath is the absolute file path to the text report from latest maintenance run.
+var ReportFilePath = path.Join(os.TempDir(), "laitos-latest-maintenance-report.txt")
 
 /*
 Daemon is a system maintenance daemon that periodically triggers health check and software updates. Maintenance routine
@@ -221,13 +226,17 @@ func (daemon *Daemon) Execute() (string, bool) {
 	} else {
 		daemon.logger.Warning("Execute", "", nil, "completed with some errors")
 	}
+	// If there are no recipients, print the report to standard output.
 	if daemon.Recipients == nil || len(daemon.Recipients) == 0 {
-		// If there are no recipients, print the report to standard output.
 		daemon.logger.Info("Execute", "", nil, "report will now be printed to standard output")
 		fmt.Println("Maintenance report:")
 		fmt.Println(result.String())
 	} else if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
 		daemon.logger.Warning("Execute", "", err, "failed to send notification mail")
+	}
+	// Leave the latest maintenance report in system temporary directory for inspection, overwrite existing report.
+	if err := ioutil.WriteFile(ReportFilePath, result.Bytes(), 0600); err != nil {
+		daemon.logger.Warning("Execute", "", err, "failed to persist latest maintenance report in %s, you may still find the report in Email or laitos program output.", ReportFilePath)
 	}
 	return lalog.LintString(result.String(), inet.MaxMailBodySize), allOK
 }
@@ -387,8 +396,16 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	}
 	// Break a feature
 	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{}
-	if result, ok := check.Execute(); ok || !strings.Contains(result, ".s") {
+	if result, ok := check.Execute(); ok || !strings.Contains(result, "Shell.SelfTest") { // broken shell configuration
 		t.Fatal(result)
+	}
+	// Look for maintenance report in temporary file
+	defer os.RemoveAll(ReportFilePath)
+	os.Remove(ReportFilePath)
+	if content, err := ioutil.ReadFile(ReportFilePath); err != nil {
+		t.Fatal(err)
+	} else if !strings.Contains(string(content), "Shell.SelfTest") { // broken shell configuration
+		t.Fatal(string(content))
 	}
 	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{InterpreterPath: "/bin/bash"}
 	// Expect checks to begin within a second
