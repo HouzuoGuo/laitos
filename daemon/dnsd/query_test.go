@@ -76,36 +76,40 @@ func TestDecodeDTMFCommandInput(t *testing.T) {
 	if d := DecodeDTMFCommandInput("_"); d != "" {
 		t.Fatal(d)
 	}
+	if d := DecodeDTMFCommandInput("example.com"); d != "" {
+		t.Fatal(d)
+	}
+	if d := DecodeDTMFCommandInput("_.example.com."); d != "" {
+		t.Fatal(d)
+	}
 	// 0 -> space
-	if d := DecodeDTMFCommandInput("_0"); d != " " {
+	// The function must not see an extra label in the trailing dot
+	if d := DecodeDTMFCommandInput("_0.example.com."); d != " " {
 		t.Fatal(d)
 	}
-	if d := DecodeDTMFCommandInput("123"); d != "" {
-		t.Fatal(d)
-	}
-	if d := DecodeDTMFCommandInput("abc"); d != "" {
-		t.Fatal(d)
-	}
-	if d := DecodeDTMFCommandInput("_abc"); d != "abc" {
+	if d := DecodeDTMFCommandInput("_abc.example.com."); d != "abc" {
 		t.Fatal(d)
 	}
 	// 0 -> 1, 2 -> a
-	if d := DecodeDTMFCommandInput("_a1b2"); d != "a0ba" {
+	if d := DecodeDTMFCommandInput("_a1b2.example.com"); d != "a0ba" {
 		t.Fatal(d)
 	}
-	if d := DecodeDTMFCommandInput("_a1b2c"); d != "a0bac" {
+	if d := DecodeDTMFCommandInput("_a1b2c.example.com"); d != "a0bac" {
 		t.Fatal(d)
 	}
 	// 0 -> space, 2 -> a
-	if d := DecodeDTMFCommandInput("_0a2"); d != " aa" {
+	if d := DecodeDTMFCommandInput("_0a2.example.com"); d != " aa" {
 		t.Fatal(d)
 	}
 	// 10 -> number 0 literally
-	if d := DecodeDTMFCommandInput("_101010"); d != "000" {
+	if d := DecodeDTMFCommandInput("_101010.example.com"); d != "000" {
 		t.Fatal(d)
 	}
-	if d := DecodeDTMFCommandInput("_101010.a.b"); d != "000" {
+	// Connect labels together
+	if d := DecodeDTMFCommandInput("_.a.b.c.example.com"); d != "abc" {
 		t.Fatal(d)
 	}
-
+	if d := DecodeDTMFCommandInput("_.11a.12b.13c.example.com"); d != "1a2b3c" {
+		t.Fatal(d)
+	}
 }

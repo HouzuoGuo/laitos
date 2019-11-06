@@ -3,9 +3,10 @@ package dnsd
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"regexp"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 )
 
 // Sample queries for composing test cases
@@ -159,22 +160,35 @@ DecodeDTMFCommandInput decodes input query name consisting of latin letter input
 complete, recovered toolbox command input.
 */
 func DecodeDTMFCommandInput(queriedName string) (decodedCommand string) {
-	if len(queriedName) < 2 {
+	/*
+		According to blog post "What is the real maximum length of a DNS name?" authored by "Raymond":
+		https://devblogs.microsoft.com/oldnewthing/20120412-00/?p=7873
+		The maximum length of a DNS name shall be 254 octets or 253 characters, and each label (e.g. "abc" in abc.example.com)
+		may contain up to 63 characters/octets.
+		63 characters often aren't long enough for entering a useful command, therefore, look for the command from DNS labels
+		connected altogether, minus the domain name that occupies the last 2 labels.
+	*/
+	if len(queriedName) < 2 || len(queriedName) > 253 || queriedName[0] != ToolboxCommandPrefix {
 		return ""
 	}
-	if queriedName[0] != ToolboxCommandPrefix {
+	// Disover labels
+	dnsLabels := make([]string, 0)
+	for _, label := range strings.Split(queriedName[1:], ".") {
+		if trimmedLabel := strings.TrimSpace(label); trimmedLabel != "" {
+			dnsLabels = append(dnsLabels, trimmedLabel)
+		}
+	}
+	if len(dnsLabels) < 3 {
 		return ""
 	}
-	// Extract command input from the sub-domain name only
-	indexDot := strings.IndexRune(queriedName, '.')
-	if indexDot == -1 {
-		// In case the query does not look like a domain name at all, try interpreting the entire sequence as a command.
-		indexDot = len(queriedName)
-	}
-	// Skip the prefix and parts beyond sub-domain name
-	queriedName = queriedName[1:indexDot]
-
-	// Look for DTMF number sequences
+	// Remove last two DNS labels that belong to domain name
+	dnsLabels = dnsLabels[:len(dnsLabels)-2]
+	// Extract command from remaining eligible labels
+	queriedName = strings.Join(dnsLabels, "")
+	/*
+		Most of the special characters and symbols cannot appear in a DNS label, users may still enter them in DTMF
+		number sequences. Find all DTMF sequences and translate them back into special characters.
+	*/
 	consecutiveNumbersRegex := regexp.MustCompile(`[0-9]+`)
 	consecutiveNumbers := consecutiveNumbersRegex.FindAllStringSubmatchIndex(queriedName, -1)
 	strIdx := 0
