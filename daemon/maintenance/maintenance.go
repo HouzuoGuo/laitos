@@ -365,6 +365,8 @@ func (daemon *Daemon) SystemMaintenance() string {
 
 // Run unit tests on the maintenance daemon. See TestMaintenance_Execute for daemon setup.
 func TestMaintenance(check *Daemon, t testingstub.T) {
+	defer os.RemoveAll(ReportFilePath)
+	os.Remove(ReportFilePath)
 	// Make sure maintenance is checking the ports and reporting their errors
 	check.CheckTCPPorts = map[string][]int{"localhost": {11334}}
 	if result, ok := check.Execute(); ok || !strings.Contains(result, "Port errors") {
@@ -400,8 +402,6 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 		t.Fatal(result)
 	}
 	// Look for maintenance report in temporary file
-	defer os.RemoveAll(ReportFilePath)
-	os.Remove(ReportFilePath)
 	if content, err := ioutil.ReadFile(ReportFilePath); err != nil {
 		t.Fatal(err)
 	} else if !strings.Contains(string(content), "Shell.SelfTest") { // broken shell configuration
