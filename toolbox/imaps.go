@@ -169,7 +169,6 @@ func (conn *IMAPSConnection) GetHeaders(from, to int) (ret map[int]string, err e
 			if thisMessage.Len() > 0 {
 				// Only store valid message
 				ret[thisNumber] = thisMessage.String()
-				thisNumber = 0
 				thisMessage.Reset()
 			}
 			// Parse current message number

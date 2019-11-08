@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -96,4 +97,35 @@ func DisableConflicts() {
 	} else {
 		logger.Info("DisableConflicts", "systemd-resolved", nil, "will not touch name resolution settings as resolved is not active")
 	}
+}
+
+/*
+AutoRestartFunc runs the input function and restarts it when it returns an error, subjected to increasing delay of up to 60 seconds
+between each restart.
+If the input function crashes in a panic, there won't be an auto-restart.
+The function returns to the caller only after the input function returns nil.
+*/
+func AutoRestart(logger lalog.Logger, logActorName string, fun func() error) {
+	delaySec := 0
+	for {
+		if misc.EmergencyLockDown {
+			logger.Warning("AutoRestart", logActorName, nil, "emergency lock-down has been activated, no further restart is performed.")
+			return
+		}
+		if err := fun(); err == nil {
+			logger.Info("AutoRestart", logActorName, nil, "the function has returned successfully, no further restart is required.")
+			return
+		} else {
+			if delaySec == 0 {
+				logger.Warning("AutoRestart", logActorName, err, "restarting immediately")
+			} else {
+				logger.Warning("AutoRestart", logActorName, err, "restarting in %d seconds", delaySec)
+			}
+			time.Sleep(time.Duration(delaySec) * time.Second)
+			if delaySec < 60 {
+				delaySec += 10
+			}
+		}
+	}
+
 }

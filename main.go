@@ -84,24 +84,12 @@ func StartPasswordWebServer(port int, url string) {
 	}
 	/*
 		On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching the new
-		version, which means the web server often runs into port conflicts. Therefore, keep trying for 3 minutes.
+		version, which means the web server often runs into port conflicts when its updated version starts up.
+		AutoRestart function helps to restart the server.
 	*/
-	for i := 0; i < 30; i++ {
-		if err := ws.Start(); err == nil {
-			// Upon success, wait almost indefinitely (~5 years) because this is the main routine of this CLI action.
-			time.Sleep(5 * 365 * 24 * time.Hour)
-		} else {
-			// Retry upon failure
-			logger.Info("StartPasswordWebServer", "main", err, "failed to start the web server (attempt %d)", i)
-			time.Sleep(6 * time.Second)
-		}
-	}
-	logger.Abort("StartPasswordWebServer", "main", nil, "failed to start the web server after many attempts")
-}
-
-// terminatedDaemonToError wraps the daemon name and daemon's return value into an error.
-func terminatedDaemonToError(daemonName string, daemonReturnValue error) error {
-	return fmt.Errorf("Daemon \"%s\" has quit with error \"%+v\"", daemonName, daemonReturnValue)
+	AutoRestart(logger, "StartPasswordWebServer", ws.Start)
+	// Wait indefinitely upon success, because this function is the main function of the web server.
+	select {}
 }
 
 /*
@@ -281,63 +269,40 @@ func main() {
 		DisableConflicts()
 	}
 
-	daemonErrs := make(chan error, len(daemonNames))
 	for _, daemonName := range daemonNames {
-		// Daemons are started asynchronously because the order of startup does not matter.
+		// Daemons are started asynchronously and the order does not matter
 		switch daemonName {
 		case launcher.DNSDName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetDNSD().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetDNSD().StartAndBlock)
 		case launcher.HTTPDName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetHTTPD().StartAndBlockWithTLS())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetHTTPD().StartAndBlockWithTLS)
 		case launcher.InsecureHTTPDName:
-			go func(daemonName string) {
-				/*
-					There is not an independent port settings for launching both TLS-enabled and TLS-free HTTP servers
-					at the same time. If user really wishes to launch both at the same time, the TLS-free HTTP server
-					will fallback to use port number 80.
-				*/
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetHTTPD().StartAndBlockNoTLS(80))
-			}(daemonName)
+			/*
+				There is not an independent port settings for launching both TLS-enabled and TLS-free HTTP servers
+				at the same time. If user really wishes to launch both at the same time, the TLS-free HTTP server
+				will fallback to use port number 80.
+			*/
+			go AutoRestart(logger, daemonName, func() error {
+				return config.GetHTTPD().StartAndBlockNoTLS(80)
+			})
 		case launcher.MaintenanceName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetMaintenance().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetMaintenance().StartAndBlock)
 		case launcher.PlainSocketName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetPlainSocketDaemon().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetPlainSocketDaemon().StartAndBlock)
 		case launcher.SerialPortDaemonName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetSerialPortDaemon().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetSerialPortDaemon().StartAndBlock)
 		case launcher.SimpleIPSvcName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetSimpleIPSvcD().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetSimpleIPSvcD().StartAndBlock)
 		case launcher.SMTPDName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetMailDaemon().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetMailDaemon().StartAndBlock)
 		case launcher.SNMPDName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetSNMPD().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetSNMPD().StartAndBlock)
 		case launcher.SOCKDName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetSockDaemon().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetSockDaemon().StartAndBlock)
 		case launcher.TelegramName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetTelegramBot().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetTelegramBot().StartAndBlock)
 		case launcher.AutoUnlockName:
-			go func(daemonName string) {
-				daemonErrs <- terminatedDaemonToError(daemonName, config.GetAutoUnlock().StartAndBlock())
-			}(daemonName)
+			go AutoRestart(logger, daemonName, config.GetAutoUnlock().StartAndBlock)
 		}
 	}
 
@@ -354,10 +319,6 @@ func main() {
 		go bench.RunBenchmarkAndProfiler()
 	}
 
-	// Wait for daemons to quit (they really should not).
-	for i := 0; i < len(daemonNames); i++ {
-		err := <-daemonErrs
-		logger.Warning("main", "", err, "a daemon has aborted")
-	}
-	logger.Abort("main", "", nil, "all daemons have failed to start, laitos will now exit.")
+	// Daemons are already started in background goroutines, the main function now waits indefinitely.
+	select {}
 }
