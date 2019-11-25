@@ -26,8 +26,8 @@ import (
 const (
 	// QEMUExecutableName is the X86(64-bit) QEMU program's executable name, without the prefix path.
 	QEMUExecutableName = "qemu-system-x86_64"
-	// QMPCommandTimeoutSec is the number of seconds to wait for a QMP response before timing out.
-	QMPCommandTimeoutSec = 30
+	// QMPCommandResponseTimeoutSec is the number of seconds after which an outstanding QMP command is aborted due to timeout.
+	QMPCommandResponseTimeoutSec = 10
 	// AutoKillTimeoutSec is the number of seconds after which the emulator will be forcibly stopped.
 	AutoKillTimeoutSec = 3600 * 24
 )
@@ -44,12 +44,13 @@ type VM struct {
 	emulatorExecutable  string
 	emulatorCmd         *exec.Cmd
 	emulatorDebugOutput *lalog.ByteLogWriter
+	qmpConn             *net.TCPConn
 	qmpClient           *textproto.Conn
 
 	lastScreenWidth, lastScreenHeight int
 
-	mutex  *sync.Mutex
-	logger lalog.Logger
+	qmpMutex *sync.Mutex
+	logger   lalog.Logger
 }
 
 // Initialise internal states. It also determines the availability of KVM and QEMU on the host system.
@@ -100,13 +101,12 @@ func (vm *VM) Initialise() error {
 	}
 	// Keep the latest 1KB of emulator output for on-demand diagnosis. ISO download progress and QMP command execution result are also kept here.
 	vm.emulatorDebugOutput = lalog.NewByteLogWriter(ioutil.Discard, 1024)
-	vm.mutex = new(sync.Mutex)
+	vm.qmpMutex = new(sync.Mutex)
 	return nil
 }
 
 // DownloadISO downloads an ISO file from the input URL and saves it in a file. There is a hard limit of 15 minutes for the download operation to complete.
 func (vm *VM) DownloadISO(isoURL string, destPath string) error {
-	// No need to use a mutex.
 	client := &http.Client{Timeout: 15 * time.Minute}
 	resp, err := client.Get(isoURL)
 	fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: saving %s to %s, this may take a while.\n", isoURL, destPath)
@@ -154,12 +154,11 @@ Start the virtual machine. The function returns to the caller as soon as QEMU/KV
 commands. The emulator started is subjected to a time-out of 24-hours, after which it will be killed forcibly.
 */
 func (vm *VM) Start(isoFilePath string) error {
+	vm.qmpMutex.Lock()
+	defer vm.qmpMutex.Unlock()
 	if _, err := os.Stat(isoFilePath); err != nil {
 		return fmt.Errorf("VM.Start: failed to read OS ISO file \"%s\" - %v", isoFilePath, err)
 	}
-
-	vm.mutex.Lock()
-	defer vm.mutex.Unlock()
 	// Prevent repeated startup of the same VM
 	if vm.emulatorCmd != nil {
 		return errors.New("VM.Start: already started")
@@ -188,8 +187,7 @@ func (vm *VM) Start(isoFilePath string) error {
 	vm.emulatorCmd.Stdout = vm.emulatorDebugOutput
 	vm.emulatorCmd.Stderr = vm.emulatorDebugOutput
 	// Start the emulator process in background
-	go func() {
-		emulatorCmd := vm.emulatorCmd
+	go func(emulatorCmd *exec.Cmd) {
 		if err := emulatorCmd.Start(); err != nil {
 			emulatorProcErr <- err
 			return
@@ -197,7 +195,7 @@ func (vm *VM) Start(isoFilePath string) error {
 		if err := emulatorCmd.Wait(); err != nil {
 			emulatorProcErr <- err
 		}
-	}()
+	}(vm.emulatorCmd)
 	// Connect and prepare QMP connection
 	if err := vm.connectToQMP(); err != nil {
 		vm.Kill()
@@ -221,22 +219,23 @@ connectToQMP is an internal function that initialises a QMP client connection an
 The function tolerates temporary connection failures.
 */
 func (vm *VM) connectToQMP() error {
-	var qmpConn net.Conn
 	var connErr error
 	// Give the server 10 seconds to start
-	for i := 0; i < 10*10; i++ {
-		qmpConn, connErr = net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", vm.QMPPort), 1*time.Second)
+	for i := 0; i < 10; i++ {
+		conn, connErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", vm.QMPPort), 1*time.Second)
 		if connErr == nil {
+			vm.qmpConn = conn.(*net.TCPConn)
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	}
-	if connErr != nil {
+	if vm.qmpConn == nil {
 		vm.Kill()
 		return connErr
 	}
 	// Absorb the greeting JSON message
-	vm.qmpClient = textproto.NewConn(qmpConn)
+	vm.qmpClient = textproto.NewConn(vm.qmpConn)
+	_ = vm.qmpConn.SetDeadline(time.Now().Add(10 * time.Second))
 	greeting, err := vm.qmpClient.ReadLine()
 	if err != nil || !strings.Contains(greeting, "QMP") {
 		fmt.Fprintf(vm.emulatorDebugOutput, "QMP: missing protocol greeting -  %v %s\n", err, greeting)
@@ -255,16 +254,18 @@ func (vm *VM) connectToQMP() error {
 
 // Kill the emulator.
 func (vm *VM) Kill() {
-	vm.mutex.Lock()
-	defer vm.mutex.Unlock()
 	if client := vm.qmpClient; client != nil {
 		_ = client.Close()
 	}
 	vm.qmpClient = nil
-	if emulatorCmd := vm.emulatorCmd; emulatorCmd != nil {
-		if emulatorProc := emulatorCmd.Process; emulatorProc != nil {
-			vm.logger.Info("Kill", "", nil, "killing process PID %d", emulatorProc.Pid)
-			if !platform.KillProcess(emulatorProc) {
+	if conn := vm.qmpConn; conn != nil {
+		_ = conn.Close()
+	}
+	vm.qmpConn = nil
+	if cmd := vm.emulatorCmd; cmd != nil {
+		if proc := cmd.Process; proc != nil {
+			vm.logger.Info("Kill", "", nil, "killing process PID %d", proc.Pid)
+			if !platform.KillProcess(proc) {
 				vm.logger.Warning("Kill", "", nil, "failed to kill emulator process")
 			}
 		}
@@ -285,8 +286,6 @@ TakeScreenshot takes a screenshot of the emulator video display, the screenshot 
 The function also updates the screen total resolution tracked internally for calculating mouse movement coordinates.
 */
 func (vm *VM) TakeScreenshot(outputFileName string) error {
-	vm.mutex.Lock()
-	defer vm.mutex.Unlock()
 	// Create a temporary file to store the screenshot output
 	tmpFile, err := ioutil.TempFile("", "laitos-vm-take-screenshot*.ppm")
 	if err != nil {
@@ -360,8 +359,6 @@ Prior to calling this function the caller should have quite recently taken a scr
 the resolution of the VM screen is internally memorised to help with calculating mouse movement coordinates.
 */
 func (vm *VM) MoveMouse(x, y int) error {
-	vm.mutex.Lock()
-	defer vm.mutex.Unlock()
 	/*
 		Be aware that few live Linux distributions do not work with QEMU mouse input, such as TinyCore.
 
@@ -414,8 +411,6 @@ QEMU developers have made it very challenging to find the comprehensive list of 
 but a partial list can be found at: https://en.wikibooks.org/wiki/QEMU/Monitor#sendkey_keys
 */
 func (vm *VM) ClickKeyboard(qKeyCodes ...string) error {
-	vm.mutex.Lock()
-	defer vm.mutex.Unlock()
 	keys := make([]interface{}, len(qKeyCodes))
 	for i, code := range qKeyCodes {
 		keys[i] = map[string]interface{}{
@@ -437,8 +432,6 @@ func (vm *VM) ClickKeyboard(qKeyCodes ...string) error {
 
 // HoldButton holds down or releases the left or right mouse button.
 func (vm *VM) HoldMouse(leftButton, holdDown bool) error {
-	vm.mutex.Lock()
-	defer vm.mutex.Unlock()
 	button := "left"
 	if !leftButton {
 		button = "right"
@@ -462,8 +455,6 @@ func (vm *VM) HoldMouse(leftButton, holdDown bool) error {
 
 // ClickMouse makes a 100 milliseconds long mouse click with either the left button or right mouse button.
 func (vm *VM) ClickMouse(leftButton bool) error {
-	vm.mutex.Lock()
-	defer vm.mutex.Unlock()
 	button := "left"
 	if !leftButton {
 		button = "right"
@@ -494,8 +485,6 @@ func (vm *VM) ClickMouse(leftButton bool) error {
 
 // DoubleClickMouse makes a double click with either left or right mouse button in 200 milliseconds.
 func (vm *VM) DoubleClickMouse(leftButton bool) error {
-	vm.mutex.Lock()
-	defer vm.mutex.Unlock()
 	button := "left"
 	if !leftButton {
 		button = "right"
@@ -530,6 +519,8 @@ emulator's response.
 For the simplicity of implementation, each command makes a new TCP connection to the emulator's TCP server.
 */
 func (vm *VM) executeQMP(in interface{}) (resp string, err error) {
+	vm.qmpMutex.Lock()
+	defer vm.qmpMutex.Unlock()
 	if vm.qmpClient == nil {
 		return "", errors.New("QMP client is not initialised yet")
 	}
@@ -540,6 +531,7 @@ func (vm *VM) executeQMP(in interface{}) (resp string, err error) {
 	}
 	fmt.Fprintf(vm.emulatorDebugOutput, "Debug: request - %s\n", string(req))
 	// Send the input command
+	_ = vm.qmpConn.SetDeadline(time.Now().Add(QMPCommandResponseTimeoutSec * time.Second))
 	if err := vm.qmpClient.PrintfLine(strings.ReplaceAll(string(req), "%", "%%")); err != nil {
 		fmt.Fprintf(vm.emulatorDebugOutput, "Error: failed to send command -  %v %s\n", err, string(resp))
 		return "", err
