@@ -672,15 +672,15 @@ func (instance *Instance) Kill() {
 				instance.logger.Warning("Kill", "", nil, "failed to kill process")
 			}
 		}
-		instance.jsProcCmd = nil
 		if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {
 			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
 		}
 		if err := os.Remove(instance.serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
 			instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", instance.serverJSFile.Name())
 		}
-		instance.serverJSFile = nil
 	}
+	instance.serverJSFile = nil
+	instance.jsProcCmd = nil
 }
 
 // GoBack navigates browser backward in history.

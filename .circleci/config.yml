@@ -1,12 +1,13 @@
+---
 version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.13
     working_directory: /go/src/github.com/HouzuoGuo/laitos
     parallelism: 1
     steps:
       - checkout
       - run: go build
       - run: go vet ./...
-      - run: go test -v -cover ./...
+      - run: sudo -E go test -v -cover ./...

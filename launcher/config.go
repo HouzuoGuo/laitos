@@ -52,6 +52,9 @@ type HTTPHandlers struct {
 	BrowserSlimerJSEndpoint       string                        `json:"BrowserSlimerJSEndpoint"`
 	BrowserSlimerJSEndpointConfig handler.HandleBrowserSlimerJS `json:"BrowserSlimerJSEndpointConfig"`
 
+	VirtualMachineEndpoint       string                       `json:"VirtualMachineEndpoint"`
+	VirtualMachineEndpointConfig handler.HandleVirtualMachine `json:"VirtualMachineEndpointConfig"`
+
 	CommandFormEndpoint string `json:"CommandFormEndpoint"`
 	FileUploadEndpoint  string `json:"FileUploadEndpoint"`
 
@@ -379,6 +382,26 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			browserImageHandler.Browsers = &browserHandler.Browsers
 			handlers[config.HTTPHandlers.BrowserSlimerJSEndpoint] = &browserHandler
 		}
+
+		// Configure a virtual machine screenshot endpoint at a randomly generated endpoint name
+		if config.HTTPHandlers.VirtualMachineEndpoint != "" {
+			randBytes := make([]byte, 32)
+			_, err := rand.Read(randBytes)
+			if err != nil {
+				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
+				return
+			}
+			// The screenshot endpoint
+			vmScreenshotHandler := &handler.HandleVirtualMachineScreenshot{}
+			vmHandler := config.HTTPHandlers.VirtualMachineEndpointConfig
+			screenshotEndpoint := "/vm-screenshot-" + hex.EncodeToString(randBytes)
+			handlers[screenshotEndpoint] = vmScreenshotHandler
+			// The VM control endpoint is given the screenshot endpoint location and instance
+			vmHandler.ScreenshotEndpoint = screenshotEndpoint
+			vmHandler.ScreenshotHandlerInstance = vmScreenshotHandler
+			handlers[config.HTTPHandlers.VirtualMachineEndpoint] = &vmHandler
+		}
+
 		if config.HTTPHandlers.CommandFormEndpoint != "" {
 			handlers[config.HTTPHandlers.CommandFormEndpoint] = &handler.HandleCommandForm{}
 		}

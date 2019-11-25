@@ -29,7 +29,7 @@ const (
 	   "supervisord" that resets PATH variable to deliberately exclude sbin directories, therefore, it is often useful to use
 	   this hard coded PATH value to launch programs.
 	*/
-	CommonPATH = UtilityDir + ":/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin"
+	CommonPATH = UtilityDir + ":/bin:/sbin:/usr/bin:/usr/sbin:/usr/libexec:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin"
 )
 
 var (

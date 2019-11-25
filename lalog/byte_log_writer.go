@@ -86,6 +86,7 @@ func (writer *ByteLogWriter) absorb(in []byte) {
 		} else {
 			copy(writer.latestBytes[writer.latestPos:], in)
 			copy(writer.latestBytes[:room], in[room:])
+			writer.latestPos = room
 			writer.everFull = true
 		}
 	}

@@ -1,0 +1,12 @@
+{
+  "Comment": "This sample config file demonstrates laitos remote virtual machine feature. To launch the program: sudo ./laitos -config sample-config.json -daemons insecurehttpd",
+  "HTTPDaemon": {
+    "Port": 53001
+  },
+  "HTTPHandlers": {
+    "VirtualMachineEndpoint": "/laitos-remote-vm",
+    "VirtualMachineEndpointConfig": {
+      "LocalUtilityPortNumber": 60102
+    }
+  }
+}

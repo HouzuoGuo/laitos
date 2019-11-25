@@ -785,7 +785,6 @@ func (instance *Instance) Kill() {
 				instance.logger.Warning("Kill", "", nil, "failed to kill process")
 			}
 		}
-		instance.jsProcCmd = nil
 		// Kill SlimerJS container
 		instance.logger.Info("Kill", "", nil, "killing container %s", instance.containerName)
 		if out, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "docker", "kill", instance.containerName); err != nil {
@@ -799,8 +798,9 @@ func (instance *Instance) Kill() {
 		if err := os.Remove(instance.serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
 			instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", instance.serverJSFile.Name())
 		}
-		instance.serverJSFile = nil
 	}
+	instance.serverJSFile = nil
+	instance.jsProcCmd = nil
 }
 
 // GoBack navigates browser backward in history.
