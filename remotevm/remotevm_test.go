@@ -43,6 +43,9 @@ func TestVMInteractions(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer vm.Kill()
+	if err := vm.Start(tmpFile.Name()); err == nil {
+		t.Fatal("should have prevented repeated start attempts")
+	}
 
 	screenshotFile, err := ioutil.TempFile("", "laitos-remotevm-test-screenshot*.jpg")
 	if err != nil {
@@ -97,5 +100,7 @@ func TestVMInteractions(t *testing.T) {
 		t.Log(vm.GetDebugOutput())
 	}
 	// Repeatedly calling kill should not lead to undesirable effect
+	vm.Kill()
+	vm.Kill()
 	vm.Kill()
 }

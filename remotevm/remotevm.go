@@ -49,58 +49,23 @@ type VM struct {
 
 	lastScreenWidth, lastScreenHeight int
 
-	qmpMutex *sync.Mutex
-	logger   lalog.Logger
+	emulatorMutex *sync.Mutex
+	qmpMutex      *sync.Mutex
+	logger        lalog.Logger
 }
 
-// Initialise internal states. It also determines the availability of KVM and QEMU on the host system.
+// Initialise internal variables.
 func (vm *VM) Initialise() error {
-	// Prefer to use the much-faster KVM. KVM requires root privilege
-	if os.Getuid() == 0 {
-		for _, prefixDir := range strings.Split(platform.CommonPATH, ":") {
-			kvmPath := path.Join(prefixDir, "kvm")
-			if _, err := os.Stat(kvmPath); err == nil {
-				vm.emulatorExecutable = kvmPath
-				break
-			}
-			qemuKVMPath := path.Join(prefixDir, "qemu-kvm")
-			if _, err := os.Stat(qemuKVMPath); err == nil {
-				vm.emulatorExecutable = qemuKVMPath
-				break
-			}
-		}
-	}
-	// Look for regular QEMU if KVM isn't available
-	if vm.emulatorExecutable == "" {
-		for _, prefixDir := range strings.Split(platform.CommonPATH, ":") {
-			qemuPath := path.Join(prefixDir, QEMUExecutableName)
-			if _, err := os.Stat(qemuPath); err == nil {
-				vm.emulatorExecutable = qemuPath
-				break
-			}
-		}
-	}
-	// If neither KVM nor QEMU can be found in common PATH, then let OS do its best to look for QEMU.
-	if vm.emulatorExecutable == "" {
-		vm.emulatorExecutable = QEMUExecutableName
-	}
-	// Look for QEMU among program files of Windows
-	if misc.HostIsWindows() {
-		winQEMU := fmt.Sprintf(`C:\Program Files\qemu\%s.exe`, QEMUExecutableName)
-		if _, err := os.Stat(winQEMU); err == nil {
-			vm.emulatorExecutable = winQEMU
-		}
-	}
-
 	vm.logger = lalog.Logger{
 		ComponentName: "vm",
 		ComponentID: []lalog.LoggerIDField{{
-			Key:   path.Base(vm.emulatorExecutable),
+			Key:   "Spec",
 			Value: fmt.Sprintf("%dC%dM", vm.NumCPU, vm.MemSizeMB),
 		}},
 	}
 	// Keep the latest 1KB of emulator output for on-demand diagnosis. ISO download progress and QMP command execution result are also kept here.
 	vm.emulatorDebugOutput = lalog.NewByteLogWriter(ioutil.Discard, 1024)
+	vm.emulatorMutex = new(sync.Mutex)
 	vm.qmpMutex = new(sync.Mutex)
 	return nil
 }
@@ -154,8 +119,9 @@ Start the virtual machine. The function returns to the caller as soon as QEMU/KV
 commands. The emulator started is subjected to a time-out of 24-hours, after which it will be killed forcibly.
 */
 func (vm *VM) Start(isoFilePath string) error {
-	vm.qmpMutex.Lock()
-	defer vm.qmpMutex.Unlock()
+	vm.emulatorExecutable = findEmulatorExecutable()
+	vm.emulatorMutex.Lock()
+	defer vm.emulatorMutex.Unlock()
 	if _, err := os.Stat(isoFilePath); err != nil {
 		return fmt.Errorf("VM.Start: failed to read OS ISO file \"%s\" - %v", isoFilePath, err)
 	}
@@ -187,30 +153,28 @@ func (vm *VM) Start(isoFilePath string) error {
 	vm.emulatorCmd.Stdout = vm.emulatorDebugOutput
 	vm.emulatorCmd.Stderr = vm.emulatorDebugOutput
 	// Start the emulator process in background
-	go func(emulatorCmd *exec.Cmd) {
-		if err := emulatorCmd.Start(); err != nil {
+	go func(vm *VM) {
+		if err := vm.emulatorCmd.Start(); err != nil {
 			emulatorProcErr <- err
 			return
 		}
-		if err := emulatorCmd.Wait(); err != nil {
+		if err := vm.emulatorCmd.Wait(); err != nil {
 			emulatorProcErr <- err
 		}
-	}(vm.emulatorCmd)
-	// Connect and prepare QMP connection
-	if err := vm.connectToQMP(); err != nil {
-		vm.Kill()
-		return fmt.Errorf("Start: failed to prepare QMP client - %w", err)
-	}
+	}(vm)
 	// Unconditionally kill the emulator after a period of time
-	go func() {
+	go func(vm *VM) {
 		select {
 		case err := <-emulatorProcErr:
 			vm.logger.Info("Start", "", err, "emulator has quit")
+			return
 		case <-time.After(AutoKillTimeoutSec * time.Second):
 		}
+		vm.logger.Warning("Start", "", nil, "maximum usage duration has been reached, killing the emulator.")
 		vm.Kill()
-	}()
-	fmt.Fprint(vm.emulatorDebugOutput, "Emulator started successfully.\n", vm.emulatorExecutable, isoFilePath)
+	}(vm)
+	vm.logger.Info("Start", vm.emulatorExecutable, nil, "emulator successfully started %s", isoFilePath)
+	fmt.Fprintf(vm.emulatorDebugOutput, "emulator %s successfully started %s\n", vm.emulatorExecutable, isoFilePath)
 	return nil
 }
 
@@ -219,10 +183,15 @@ connectToQMP is an internal function that initialises a QMP client connection an
 The function tolerates temporary connection failures.
 */
 func (vm *VM) connectToQMP() error {
+	// Disconnect existing client if there is one
+	if client := vm.qmpClient; client != nil {
+		_ = client.Close()
+	}
+	// Repeat new connection attempts for up to 10 seconds
 	var connErr error
-	// Give the server 10 seconds to start
+	var conn net.Conn
 	for i := 0; i < 10; i++ {
-		conn, connErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", vm.QMPPort), 1*time.Second)
+		conn, connErr = net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", vm.QMPPort), 1*time.Second)
 		if connErr == nil {
 			vm.qmpConn = conn.(*net.TCPConn)
 			break
@@ -238,7 +207,6 @@ func (vm *VM) connectToQMP() error {
 	_ = vm.qmpConn.SetDeadline(time.Now().Add(10 * time.Second))
 	greeting, err := vm.qmpClient.ReadLine()
 	if err != nil || !strings.Contains(greeting, "QMP") {
-		fmt.Fprintf(vm.emulatorDebugOutput, "QMP: missing protocol greeting -  %v %s\n", err, greeting)
 		vm.Kill()
 		return fmt.Errorf("QMP did not send greeting - %w %s", err, greeting)
 	}
@@ -249,11 +217,14 @@ func (vm *VM) connectToQMP() error {
 	if _, err := vm.qmpClient.ReadLine(); err != nil {
 		return fmt.Errorf("Failed to exchange initialisation QMP command - %w", err)
 	}
+	vm.logger.Info("connectToQMP", strconv.Itoa(vm.QMPPort), nil, "successfully connected to emulator QMP")
 	return nil
 }
 
 // Kill the emulator.
 func (vm *VM) Kill() {
+	vm.emulatorMutex.Lock()
+	defer vm.emulatorMutex.Unlock()
 	if client := vm.qmpClient; client != nil {
 		_ = client.Close()
 	}
@@ -264,7 +235,7 @@ func (vm *VM) Kill() {
 	vm.qmpConn = nil
 	if cmd := vm.emulatorCmd; cmd != nil {
 		if proc := cmd.Process; proc != nil {
-			vm.logger.Info("Kill", "", nil, "killing process PID %d", proc.Pid)
+			vm.logger.Info("Kill", "", nil, "killing emulator process PID %d", proc.Pid)
 			if !platform.KillProcess(proc) {
 				vm.logger.Warning("Kill", "", nil, "failed to kill emulator process")
 			}
@@ -519,27 +490,45 @@ emulator's response.
 For the simplicity of implementation, each command makes a new TCP connection to the emulator's TCP server.
 */
 func (vm *VM) executeQMP(in interface{}) (resp string, err error) {
-	vm.qmpMutex.Lock()
-	defer vm.qmpMutex.Unlock()
-	if vm.qmpClient == nil {
-		return "", errors.New("QMP client is not initialised yet")
+	if vm.emulatorCmd == nil {
+		return "", errors.New("emulator is not running yet")
 	}
 	// Serialise incoming command
 	req, err := json.Marshal(in)
 	if err != nil {
 		return "", err
 	}
-	fmt.Fprintf(vm.emulatorDebugOutput, "Debug: request - %s\n", string(req))
+	vm.qmpMutex.Lock()
+	defer vm.qmpMutex.Unlock()
+	// Connect to QMP when used for the first time
+	if vm.qmpClient == nil || vm.qmpConn == nil {
+		if err = vm.connectToQMP(); err != nil {
+			return
+		}
+	}
+	// Ask caller to retry in case that emulator is forcibly killed
+	qmpClient := vm.qmpClient
+	qmpConn := vm.qmpConn
+	if qmpClient == nil || qmpConn == nil {
+		return "", errors.New("emulator was forcibly killed, try again.")
+	}
 	// Send the input command
-	_ = vm.qmpConn.SetDeadline(time.Now().Add(QMPCommandResponseTimeoutSec * time.Second))
-	if err := vm.qmpClient.PrintfLine(strings.ReplaceAll(string(req), "%", "%%")); err != nil {
+	fmt.Fprintf(vm.emulatorDebugOutput, "Debug: request - %s\n", string(req))
+	_ = qmpConn.SetDeadline(time.Now().Add(QMPCommandResponseTimeoutSec * time.Second))
+	if err := qmpClient.PrintfLine(strings.ReplaceAll(string(req), "%", "%%")); err != nil {
 		fmt.Fprintf(vm.emulatorDebugOutput, "Error: failed to send command -  %v %s\n", err, string(resp))
+		// IO error often results in broken request/reply sequence, disconnect and reconnect on next use.
+		_ = qmpClient.Close()
+		vm.qmpClient = nil
 		return "", err
 	}
 	// Read the command response. The QMP responses are most often useless.
-	resp, err = vm.qmpClient.ReadLine()
+	resp, err = qmpClient.ReadLine()
 	fmt.Fprintf(vm.emulatorDebugOutput, "Debug: response - %v %s\n", err, string(resp))
 	if err != nil {
+		// IO error often results in broken request/reply sequence, disconnect and reconnect on next use.
+		_ = qmpClient.Close()
+		vm.qmpClient = nil
 		return
 	}
 	if !strings.Contains(resp, "return") {
@@ -547,4 +536,40 @@ func (vm *VM) executeQMP(in interface{}) (resp string, err error) {
 		err = fmt.Errorf("executeQMP: likely protocol error response - %s", string(resp))
 	}
 	return
+}
+
+// findEmulatorExecutable is an internal function that helps to determine the executable location of KVM or QEMU on the host.
+func findEmulatorExecutable() string {
+	// Prefer to use the much-faster KVM if it is available
+	if _, err := os.Stat("/dev/kvm"); err == nil {
+		// KVM requires root user privilege
+		if os.Getuid() == 0 {
+			for _, prefixDir := range strings.Split(platform.CommonPATH, ":") {
+				kvmPath := path.Join(prefixDir, "kvm")
+				if _, err := os.Stat(kvmPath); err == nil {
+					return kvmPath
+				}
+				qemuKVMPath := path.Join(prefixDir, "qemu-kvm")
+				if _, err := os.Stat(qemuKVMPath); err == nil {
+					return qemuKVMPath
+				}
+			}
+		}
+	}
+	// Look for regular QEMU if KVM is unavailable
+	for _, prefixDir := range strings.Split(platform.CommonPATH, ":") {
+		qemuPath := path.Join(prefixDir, QEMUExecutableName)
+		if _, err := os.Stat(qemuPath); err == nil {
+			return qemuPath
+		}
+	}
+	// Look for regular QEMU among installed program files on Windows
+	if misc.HostIsWindows() {
+		winQEMUPath := fmt.Sprintf(`C:\Program Files\qemu\%s.exe`, QEMUExecutableName)
+		if _, err := os.Stat(winQEMUPath); err == nil {
+			return winQEMUPath
+		}
+	}
+	// Let OS do its best to find QEMU as the ultimate fallback
+	return QEMUExecutableName
 }
