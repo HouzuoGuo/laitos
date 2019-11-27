@@ -5,8 +5,9 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 // Send query to WolframAlpha.
@@ -64,7 +65,7 @@ func (wa *WolframAlpha) Query(timeoutSec int, query string) (resp inet.HTTPRespo
 	totalTimeout := AtLeast(timeoutSec-2, 2)
 	resp, err = inet.DoHTTP(
 		inet.HTTPRequest{TimeoutSec: timeoutSec},
-		"https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext&scantimeout=%s&podtimeout=%s&formattimeout=%s&parsetimeout=%s&totaltimeout=%s",
+		"https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext&scantimeout=%s&podtimeout=%s&formattimeout=%s&parsetimeout=%s&totaltimeout=%s&reinterpret=true&translation=true&ignorecase=true",
 		wa.AppID, query, scanTimeout, podTimeout, formatTimeout, parseTimeout, totalTimeout)
 	return
 }
