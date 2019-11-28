@@ -106,12 +106,29 @@ func (wa *WolframAlpha) ExtractResponse(xmlBody []byte) (string, error) {
 	// Compact information from all pods into a single string
 	var outBuf bytes.Buffer
 	for _, pod := range result.Pods {
-		for _, subPod := range pod.SubPods {
-			// Compact pod's key+value ("key | value") by eliminating the pipe symbol
-			outBuf.WriteString(strings.TrimSpace(strings.Replace(subPod.TextInfo, " |", "", -1)))
-			// Terminate a piece of pod info with full stop
-			outBuf.WriteRune('.')
+		// Print titles in upper case to improve their visibility
+		if pod.Title != "" {
+			outBuf.WriteString(fmt.Sprintf("(%s) ", strings.ToUpper(pod.Title)))
 		}
+		for _, subPod := range pod.SubPods {
+			/*
+				In an individual subpod, the pipe symbol is often used as a separator between item and description.
+				However for text response there are often entirely empty items without an item name and description,
+				leaving only the pipe symbol in place.
+				Therefore, remove all instances of the pipe symbol to make the text response much more readable.
+			*/
+			// In an individual Turn pod response "Item | Item Description" into "Item: Item Description" for better readability
+			text := strings.TrimSpace(strings.Replace(subPod.TextInfo, " |", "", -1))
+			if text == "" {
+				continue
+			}
+			if subPod.Title != "" {
+				outBuf.WriteString(fmt.Sprintf("[%s] ", strings.ToUpper(pod.Title)))
+			}
+			outBuf.WriteString(text)
+			outBuf.WriteRune('\n')
+		}
+		outBuf.WriteRune('\n')
 	}
 	return outBuf.String(), nil
 }
