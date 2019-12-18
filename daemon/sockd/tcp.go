@@ -18,14 +18,15 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
+// WriteRand writes up to 5 packets of random data to the connection, each packet contains up to 600 bytes of data.
 func WriteRand(conn net.Conn) {
 	randBytesWritten := 0
-	for i := 0; i < RandNum(0, 1, 2); i++ {
-		randBuf := make([]byte, RandNum(70, 120, 200))
+	for i := 0; i < RandNum(1, 2, 5); i++ {
+		randBuf := make([]byte, RandNum(80, 210, 550))
 		if _, err := pseudoRand.Read(randBuf); err != nil {
 			break
 		}
-		if err := conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(330, 540, 880)) * time.Millisecond)); err != nil {
+		if err := conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(890, 1440, 2330)) * time.Millisecond)); err != nil {
 			break
 		}
 		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
@@ -39,10 +40,63 @@ func WriteRand(conn net.Conn) {
 	}
 }
 
+// TweakTCPConnection tweaks the TCP connection settings for improved responsiveness.
 func TweakTCPConnection(conn *net.TCPConn) {
 	_ = conn.SetNoDelay(true)
 	_ = conn.SetKeepAlive(true)
 	_ = conn.SetKeepAlivePeriod(60 * time.Second)
+	_ = conn.SetDeadline(time.Now().Add(time.Duration(IOTimeoutSec * time.Second)))
+	_ = conn.SetLinger(5)
+}
+
+/*
+ReadWithRetry makes at most 5 attempts at reading incoming data from the connection.
+If data is partially read before an IO error occurs, then the connection will be closed.
+*/
+func ReadWithRetry(conn net.Conn, buf []byte) (n int, err error) {
+	attempts := 0
+	for ; attempts < 5; attempts++ {
+		if err = conn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err == nil {
+			if n, err = conn.Read(buf); err == nil {
+				break
+			} else if n > 0 {
+				// IO error occurred after data is partially read, the data stream is now broken.
+				_ = conn.Close()
+				break
+			}
+		}
+		// Sleep couple of seconds in between attempts
+		time.Sleep(time.Second * time.Duration(attempts))
+	}
+	if pseudoRand.Intn(100) < 3 {
+		lalog.DefaultLogger.Info("sockd.TCP.ReadWithRetry", conn.RemoteAddr().String(), err, "read %d amount of data in %d attempts", n, attempts+1)
+	}
+	return
+}
+
+/*
+WriteWithRetry makes at most 5 attempts at writing the data into the connection.
+If data is partially written before an IO error occurs, then the connection will be closed.
+*/
+func WriteWithRetry(conn net.Conn, buf []byte) (n int, err error) {
+	attempts := 0
+	for ; attempts < 5; attempts++ {
+		if err = conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err == nil {
+			if n, err = conn.Write(buf); err == nil {
+				break
+			} else if n > 0 {
+				// IO error occurred after data is partially written, the data stream is now broken.
+				_ = conn.Close()
+				break
+			}
+		}
+		// Sleep couple of seconds in between attempts
+		time.Sleep(time.Second * time.Duration(attempts))
+	}
+	if pseudoRand.Intn(100) < 3 {
+		lalog.DefaultLogger.Info("sockd.TCP.WriteWithRetry", conn.RemoteAddr().String(), err, "wrote %d amount of data in %d attempts", n, attempts+1)
+	}
+	return
 }
 
 func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
@@ -54,22 +108,18 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 		if misc.EmergencyLockDown {
 			lalog.DefaultLogger.Warning("PipeTCPConnection", "", misc.ErrEmergencyLockDown, "")
 			return
-		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-			return
 		}
-		length, err := fromConn.Read(buf)
-		if length > 0 {
-			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-				return
-			} else if _, err := toConn.Write(buf[:length]); err != nil {
-				return
-			}
-		}
+		length, err := ReadWithRetry(fromConn, buf)
 		if err != nil {
 			if doWriteRand {
 				WriteRand(fromConn)
 			}
 			return
+		}
+		if length > 0 {
+			if _, err := WriteWithRetry(toConn, buf[:length]); err != nil {
+				return
+			}
 		}
 	}
 }
