@@ -18,6 +18,15 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
+// TweakTCPConnection tweaks the TCP connection settings for improved responsiveness.
+func TweakTCPConnection(conn *net.TCPConn) {
+	_ = conn.SetNoDelay(true)
+	_ = conn.SetKeepAlive(true)
+	_ = conn.SetKeepAlivePeriod(60 * time.Second)
+	_ = conn.SetDeadline(time.Now().Add(time.Duration(IOTimeoutSec * time.Second)))
+	_ = conn.SetLinger(5)
+}
+
 // WriteRand writes up to 5 packets of random data to the connection, each packet contains up to 600 bytes of data.
 func WriteRand(conn net.Conn) {
 	randBytesWritten := 0
@@ -35,18 +44,9 @@ func WriteRand(conn net.Conn) {
 			randBytesWritten += n
 		}
 	}
-	if pseudoRand.Intn(100) < 3 {
+	if pseudoRand.Intn(100) < 2 {
 		lalog.DefaultLogger.Info("sockd.TCP.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
 	}
-}
-
-// TweakTCPConnection tweaks the TCP connection settings for improved responsiveness.
-func TweakTCPConnection(conn *net.TCPConn) {
-	_ = conn.SetNoDelay(true)
-	_ = conn.SetKeepAlive(true)
-	_ = conn.SetKeepAlivePeriod(60 * time.Second)
-	_ = conn.SetDeadline(time.Now().Add(time.Duration(IOTimeoutSec * time.Second)))
-	_ = conn.SetLinger(5)
 }
 
 /*
@@ -66,9 +66,9 @@ func ReadWithRetry(conn net.Conn, buf []byte) (n int, err error) {
 			}
 		}
 		// Sleep couple of seconds in between attempts
-		time.Sleep(time.Second * time.Duration(attempts))
+		time.Sleep(time.Duration((attempts+1)*500) * time.Millisecond)
 	}
-	if pseudoRand.Intn(100) < 1 {
+	if pseudoRand.Intn(100) < 2 {
 		lalog.DefaultLogger.Info("sockd.TCP.ReadWithRetry", conn.RemoteAddr().String(), err, "read %d bytes in %d attempts", n, attempts+1)
 	}
 	return
@@ -91,7 +91,7 @@ func WriteWithRetry(conn net.Conn, buf []byte) (n int, err error) {
 			}
 		}
 		// Sleep couple of seconds in between attempts
-		time.Sleep(time.Second * time.Duration(attempts))
+		time.Sleep(time.Duration((attempts+1)*500) * time.Millisecond)
 	}
 	if pseudoRand.Intn(100) < 1 {
 		lalog.DefaultLogger.Info("sockd.TCP.WriteWithRetry", conn.RemoteAddr().String(), err, "wrote %d bytes in %d attempts", n, attempts+1)
@@ -108,18 +108,22 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 		if misc.EmergencyLockDown {
 			lalog.DefaultLogger.Warning("PipeTCPConnection", "", misc.ErrEmergencyLockDown, "")
 			return
+		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+			return
 		}
-		length, err := ReadWithRetry(fromConn, buf)
+		length, err := fromConn.Read(buf)
+		if length > 0 {
+			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+				return
+			} else if _, err := toConn.Write(buf[:length]); err != nil {
+				return
+			}
+		}
 		if err != nil {
 			if doWriteRand {
 				WriteRand(fromConn)
 			}
 			return
-		}
-		if length > 0 {
-			if _, err := WriteWithRetry(toConn, buf[:length]); err != nil {
-				return
-			}
 		}
 	}
 }
@@ -209,7 +213,7 @@ func (conn *TCPCipherConnection) Read(b []byte) (n int, err error) {
 		cipherData = cipherData[:len(b)]
 	}
 
-	n, err = conn.Conn.Read(cipherData)
+	n, err = ReadWithRetry(conn.Conn, cipherData)
 	if n > 0 {
 		conn.Decrypt(b[0:n], cipherData[0:n])
 	}
@@ -239,7 +243,7 @@ func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
 	}
 
 	conn.Encrypt(cipherData[len(iv):], buf)
-	n, err = conn.Conn.Write(cipherData)
+	n, err = WriteWithRetry(conn.Conn, cipherData)
 
 	if n >= headerLen {
 		n -= headerLen
