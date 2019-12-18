@@ -68,8 +68,8 @@ func ReadWithRetry(conn net.Conn, buf []byte) (n int, err error) {
 		// Sleep couple of seconds in between attempts
 		time.Sleep(time.Second * time.Duration(attempts))
 	}
-	if pseudoRand.Intn(100) < 3 {
-		lalog.DefaultLogger.Info("sockd.TCP.ReadWithRetry", conn.RemoteAddr().String(), err, "read %d amount of data in %d attempts", n, attempts+1)
+	if pseudoRand.Intn(100) < 1 {
+		lalog.DefaultLogger.Info("sockd.TCP.ReadWithRetry", conn.RemoteAddr().String(), err, "read %d bytes in %d attempts", n, attempts+1)
 	}
 	return
 }
@@ -93,8 +93,8 @@ func WriteWithRetry(conn net.Conn, buf []byte) (n int, err error) {
 		// Sleep couple of seconds in between attempts
 		time.Sleep(time.Second * time.Duration(attempts))
 	}
-	if pseudoRand.Intn(100) < 3 {
-		lalog.DefaultLogger.Info("sockd.TCP.WriteWithRetry", conn.RemoteAddr().String(), err, "wrote %d amount of data in %d attempts", n, attempts+1)
+	if pseudoRand.Intn(100) < 1 {
+		lalog.DefaultLogger.Info("sockd.TCP.WriteWithRetry", conn.RemoteAddr().String(), err, "wrote %d bytes in %d attempts", n, attempts+1)
 	}
 	return
 }
