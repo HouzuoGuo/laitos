@@ -41,23 +41,30 @@ const (
 )
 
 /*
-DefaultForwarders is a list of well tested, public, recursive DNS resolvers that must support both TCP and UDP for
-queries. When DNS daemon's forwarders are left unspecified, it will use these default forwarders.
-
-All of the resolvers below claim to improve cypher security to some degree.
+DefaultForwarders is a list of well tested, public, recursive DNS resolvers that must support both TCP and UDP for queries.
+When DNS daemon's forwarders are left unspecified, it will use these default forwarders.
+Operators of the DNS resolvers below claim to offer enhanced cyber security to some degree.
+Having more addresses in the list helps to improve DNS server reliability, as each client query is handled by a random forwarder.
 */
 var DefaultForwarders = []string{
-	// Quad9 (https://www.quad9.net)
+	// Quad9 (https://www.quad9.net/)
 	"9.9.9.9:53",
 	"149.112.112.112:53",
-	// SafeDNS (https://www.safedns.com)
+	// SafeDNS (https://www.safedns.com/en/setup-on-dsl-wi-fi-routers/)
 	"195.46.39.39:53",
 	"195.46.39.40:53",
 	// OpenDNS (https://www.opendns.com/setupguide/)
 	"208.67.222.222:53",
 	"208.67.220.220:53",
-	// Do not use Comodo SecureDNS because it has severe reliability issue as of 2018-03-30
-	// Do not use neustar based resolvers (neustar.biz, norton connectsafe, etc) as they are teamed up with yahoo search
+	// AdGuard DNS (https://adguard.com/en/adguard-dns/overview.html)
+	"176.103.130.130:53",
+	"176.103.130.131:53",
+	// Neustar - threat protection without family security (https://www.home.neustar/dns-services/ultra-recursive-dns)
+	// Neustar redirects unresolved names to a landing page with yahoo search - that's unfortunate.
+	"156.154.70.2:53",
+	"156.154.71.2:53",
+	// Do not use Comodo SecureDNS because it has severe reliability issue as of 2018-03-30.
+	// Norton ConnectSafe was shut down in November 2018.
 }
 
 // A query to forward to DNS forwarder via DNS.

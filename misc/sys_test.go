@@ -126,7 +126,7 @@ func TestEnableStartDaemon(t *testing.T) {
 	t.Log(EnableStartDaemon("this-service-does-not-exist"))
 }
 
-func TestDisableInterferingResolvd(t *testing.T) {
+func TestDisableInterferingResolved(t *testing.T) {
 	// just make sure it does not panic
 	t.Log(DisableInterferingResolved())
 }
