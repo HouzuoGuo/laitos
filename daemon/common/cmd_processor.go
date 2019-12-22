@@ -6,6 +6,7 @@ import (
 	"errors"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -15,7 +16,7 @@ import (
 )
 
 const (
-	//ErrBadProcessorConfig prefixes error messages in function "IsSaneForInternet".
+	//ErrBadProcessorConfig is used as the prefix string in all errors returned by "IsSaneForInternet" function.
 	ErrBadProcessorConfig = "bad configuration: "
 
 	/*
@@ -26,6 +27,9 @@ const (
 
 	// TestCommandProcessorPIN is the PIN secret used in test command processor, as returned by GetTestCommandProcessor.
 	TestCommandProcessorPIN = "verysecret"
+
+	// MaxCmdPerSecHardLimit is the hard uppper limit of the approximate maximum number of commands a command processor will process in a second.
+	MaxCmdPerSecHardLimit = 1000
 )
 
 // ErrBadPrefix is a command execution error triggered if the command does not contain a valid toolbox feature trigger.
@@ -33,6 +37,9 @@ var ErrBadPrefix = errors.New("bad prefix or feature is not configured")
 
 // ErrBadPLT reminds user of the proper syntax to invoke PLT magic.
 var ErrBadPLT = errors.New(PrefixCommandPLT + " P L T command")
+
+// ErrRateLimitExceeded is a command execution error indicating that the internal command processing rate limit has been exceeded
+var ErrRateLimitExceeded = errors.New("command processor internal rate limit has been exceeded")
 
 // RegexCommandWithPLT parses PLT magic parameters position, length, and timeout, all of which are integers.
 var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`)
@@ -43,11 +50,41 @@ type CommandProcessor struct {
 	CommandFilters []filter.CommandFilter // CommandFilters are applied one by one to alter input command content and/or timeout.
 	ResultFilters  []filter.ResultFilter  // ResultFilters are applied one by one to alter command execution result.
 
+	/*
+		MaxCmdPerSec is the approximate maximum number of commands allowed to be processed per second.
+		The limit is a defensive measure against an attacker trying to guess the correct password by using visiting a daemon
+		from large range of source IP addresses in an attempt to bypass daemon's own per-IP rate limit mechanism.
+	*/
+	MaxCmdPerSec int
+	rateLimit    *misc.RateLimit
+	// initOnce helps to initialise the command processor in preparation for processing command for the first time.
+	initOnce sync.Once
+
 	logger lalog.Logger
 }
 
-// SetLogger assigns a logger to command processor and all of its filters.
+// initialiseOnce prepares the command processor for processing command for the first time.
+func (proc *CommandProcessor) initialiseOnce() {
+	proc.initOnce.Do(func() {
+		// Reset the maximum command per second limit
+		if proc.MaxCmdPerSec < 1 || proc.MaxCmdPerSec > MaxCmdPerSecHardLimit {
+			proc.MaxCmdPerSec = MaxCmdPerSecHardLimit
+		}
+		// Initialise command rate limit
+		if proc.rateLimit == nil {
+			proc.rateLimit = &misc.RateLimit{
+				UnitSecs: 1,
+				MaxCount: proc.MaxCmdPerSec,
+				Logger:   proc.logger,
+			}
+			proc.rateLimit.Initialise()
+		}
+	})
+}
+
+// SetLogger uses the input logger to prepare the command processor and its filters.
 func (proc *CommandProcessor) SetLogger(logger lalog.Logger) {
+	// The command processor itself as well as the filters are going to share the same logger
 	proc.logger = logger
 	for _, b := range proc.ResultFilters {
 		b.SetLogger(logger)
@@ -95,17 +132,17 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 		for _, cmdBridge := range proc.CommandFilters {
 			if pin, yes := cmdBridge.(*filter.PINAndShortcuts); yes {
 				if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
-					errs = append(errs, errors.New(ErrBadProcessorConfig+"PIN is empty and there is no shortcut defined, hence no command will ever execute."))
+					errs = append(errs, errors.New(ErrBadProcessorConfig+"Defined in PINAndShortcuts there has to be password PIN, command shortcuts, or both."))
 				}
 				if pin.PIN != "" && len(pin.PIN) < 7 {
-					errs = append(errs, errors.New(ErrBadProcessorConfig+"PIN is too short, make it at least 7 characters long to be somewhat secure."))
+					errs = append(errs, errors.New(ErrBadProcessorConfig+"Password PIN must be at least 7 characters long"))
 				}
 				seenPIN = true
 				break
 			}
 		}
 		if !seenPIN {
-			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"PINAndShortcuts\" bridge is not used, this is horribly insecure."))
+			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"PINAndShortcuts\" filter must be defined to set up password PIN protection or command shortcuts"))
 		}
 	}
 	if proc.ResultFilters == nil {
@@ -116,14 +153,14 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 		for _, resultBridge := range proc.ResultFilters {
 			if linter, yes := resultBridge.(*filter.LintText); yes {
 				if linter.MaxLength < 35 || linter.MaxLength > 4096 {
-					errs = append(errs, errors.New(ErrBadProcessorConfig+"Maximum output length is not within [35, 4096]. This may cause undesired telephone cost."))
+					errs = append(errs, errors.New(ErrBadProcessorConfig+"Maximum output length for LintText must be within [35, 4096]"))
 				}
 				seenLinter = true
 				break
 			}
 		}
 		if !seenLinter {
-			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"LintText\" bridge is not used, this may cause crashes or undesired telephone cost."))
+			errs = append(errs, errors.New(ErrBadProcessorConfig+"\"LintText\" filter must be defined to restrict command output length"))
 		}
 	}
 	return
@@ -136,12 +173,17 @@ A special content prefix called "PLT prefix" alters filter settings to temporari
 settings, and it may optionally discard a number of characters from the beginning.
 */
 func (proc *CommandProcessor) Process(cmd toolbox.Command, runResultFilters bool) (ret *toolbox.Result) {
-	// Put execution duration into statistics
-	beginTimeNano := time.Now().UnixNano()
-	// Do not execute a command if global lock down is effective
+	proc.initialiseOnce()
+	// Refuse to execute a command if global lock down has been triggered
 	if misc.EmergencyLockDown {
 		return &toolbox.Result{Error: misc.ErrEmergencyLockDown}
 	}
+	// Refuse to execute a command if the internal rate limit has been reached
+	if !proc.rateLimit.Add("instance", true) {
+		return &toolbox.Result{Error: ErrRateLimitExceeded}
+	}
+	// Put execution duration into statistics
+	beginTimeNano := time.Now().UnixNano()
 	var filterDisapproval error
 	var matchedFeature toolbox.Feature
 	var overrideLintText filter.LintText

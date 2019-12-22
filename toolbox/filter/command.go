@@ -2,9 +2,11 @@
 package filter
 
 import (
+	"crypto/subtle"
 	"errors"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 /*
@@ -43,7 +45,7 @@ func (pin *PINAndShortcuts) Transform(cmd toolbox.Command) (toolbox.Command, err
 			}
 		}
 		// Try to match PIN prefix, then remove it from successfully matched line.
-		if len(line) > len(pin.PIN) && line[0:len(pin.PIN)] == pin.PIN {
+		if len(line) > len(pin.PIN) && subtle.ConstantTimeCompare([]byte(line[0:len(pin.PIN)]), []byte(pin.PIN)) == 1 {
 			ret := cmd
 			ret.Content = line[len(pin.PIN):]
 			return ret, nil

@@ -1,12 +1,14 @@
 package common
 
 import (
-	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/HouzuoGuo/laitos/toolbox/filter"
 )
 
 func TestCommandProcessor_NonWindows(t *testing.T) {
@@ -94,6 +96,40 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 		t.Fatal(result)
 	}
 	misc.EmergencyLockDown = false
+}
+
+func TestCommandProcessor_RateLimit(t *testing.T) {
+	proc := GetTestCommandProcessor()
+	proc.MaxCmdPerSec = 2
+
+	// Exceed the rate limit by repeatedly executing a command
+	succeeded := 0
+	failed := 0
+	for i := 0; i < 30; i++ {
+		if result := proc.Process(toolbox.Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error == nil {
+			succeeded++
+		} else if result.Error == ErrRateLimitExceeded {
+			failed++
+		}
+	}
+	if succeeded < 2 || succeeded > 4 || failed < 30-succeeded {
+		t.Fatal(succeeded, failed)
+	}
+
+	// Wait for rate limit to expire and retry
+	time.Sleep(2 * time.Second)
+	if result := proc.Process(toolbox.Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error != nil {
+		t.Fatal(result.Error)
+	}
+
+	// Use the default hard upper limit with a new command processor
+	proc = GetTestCommandProcessor()
+	if result := proc.Process(toolbox.Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error != nil {
+		t.Fatal(result.Error)
+	}
+	if proc.MaxCmdPerSec != MaxCmdPerSecHardLimit {
+		t.Fatal(proc.MaxCmdPerSec)
+	}
 }
 
 func TestCommandProcessorIsSaneForInternet(t *testing.T) {
