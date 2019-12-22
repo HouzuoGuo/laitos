@@ -234,8 +234,8 @@ PIN mismatch`
 	lastResult = nil
 	if err := runner.Process([]byte(pinMismatch)); err != filter.ErrPINAndShortcutNotFound {
 		t.Fatal(err)
-	} else if lastResult != nil {
-		t.Fatal("should not have executed any command", lastResult)
+	} else if lastResult == nil || lastResult.Error != filter.ErrPINAndShortcutNotFound {
+		t.Fatalf("should not have executed any command %+v", lastResult)
 	}
 	// PIN matches
 	pinMatch := `From howard@localhost Sun Feb 26 18:17:34 2017

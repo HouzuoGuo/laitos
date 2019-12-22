@@ -206,7 +206,6 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 	if errs := proc.IsSaneForInternet(); len(errs) != 0 {
 		t.Fatal(errs)
 	}
-
 }
 
 func TestGetTestCommandProcessor(t *testing.T) {

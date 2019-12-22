@@ -24,7 +24,7 @@ func TestMailProcessor_Process(t *testing.T) {
 	}
 	// CommandRunner has insane command processor
 	runner.Processor = common.GetInsaneCommandProcessor()
-	if err := runner.Initialise(); err == nil || !strings.Contains(err.Error(), "PIN is too short") {
+	if err := runner.Initialise(); err == nil || !strings.Contains(err.Error(), "PIN must be at least 7") {
 		t.Fatal(err)
 	}
 	// Prepare a good processor
