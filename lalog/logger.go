@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 	"unicode"
 )
@@ -106,9 +107,12 @@ func (logger *Logger) Panic(functionName, actorName string, err error, template 
 	log.Panic(logger.Format(functionName, actorName, err, template, values...))
 }
 
-// MaybeMinorError logs a simple info message for the incoming error only if it is present.
+/*
+MaybeMinorError logs a simple info message for the incoming error only if it is present.
+As a special case, if the error string contains keyword "closed" or "broken", then no log message will be written.
+*/
 func (logger *Logger) MaybeMinorError(err error) {
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
 		logger.Info("", "", nil, "minor error - %s", err.Error())
 	}
 }

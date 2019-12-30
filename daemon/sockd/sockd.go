@@ -52,7 +52,11 @@ func IsReservedAddr(addr net.IP) bool {
 var randSeed = int(time.Now().UnixNano())
 
 func RandNum(absMin, variableLower, randMore int) int {
-	return absMin + randSeed%variableLower + rand.Intn(randMore)
+	lower := 0
+	if variableLower != 0 {
+		lower = randSeed % variableLower
+	}
+	return absMin + lower + rand.Intn(randMore)
 }
 
 const (
