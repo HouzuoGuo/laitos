@@ -11,16 +11,17 @@ For geekier scenarios, use the latest go compiler to compile the software from s
 laitos is an all-in-one solution and does not depend on third party library.
 
 ## Prepare configuration
-laitos components go into two categories:
-- Toolbox features - read and send mails, post to Twitter, etc.
-- Daemons - web server, mail server, chat bots, etc. Secured by a PIN entry, they grant access to all toolbox features.
+laitos components go into three categories:
+- Apps - reading news and Emails, make a Tweet, ask about weather, etc.
+- Daemons - web/mail/DNS servers, chat bots, etc. Many daemons offer access to apps, protected with a password PIN.
+- Rich web services - useful web-based utilities hosted by the web server.
 
 Follow the links in [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list) to craft your very own
-configuration in [JSON](https://en.wikipedia.org/wiki/JSON). Keep in mind - without configuration, a component remains
-inactive.
+configuration in [JSON](https://en.wikipedia.org/wiki/JSON).
+Keep in mind - nearly all components require configuration to be useful.
 
-As an example, here we use laitos DNS server for a safer and ad-free web experience, and automatically keep server
-computer updated with latest software:
+As an example, here we use laitos DNS server for a safer and ad-free web experience at home, and automatically keep
+the laitos server computer up-to-date with latest security patches:
 
     {
       "DNSDaemon": {
@@ -43,20 +44,20 @@ Assume that latios software is in current directory, run the following command:
 
 Note that:
 - Web, mail, and many other daemons usually bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html),
-  use `sudo` to ensure their proper operation.
-- Replace `<PATH TO JSON FILE>` by the path to your configuration file. Both absolute and relative paths are acceptable.
-- Replace `<LIST>` by daemon names to start. Use comma to separate names (e.g.`dnsd,smtpd,httpd`). Here are the options:
-  * [`dnsd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-DNS-server) - DNS server for ad-free and safer browsing experience
-  * [`httpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server) - Web server secured by TLS certificate
-  * [`insecurehttpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-web-server) - Web server without TLS encryption
-  * [`serialport`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-serial-port-communicator) - Serial port communicator
-  * [`simpleipsvcd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-simple-IP-services) - Simple IP services
-  * [`smtpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server) - Mail server
-  * [`snmpd`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-SNMP-server) - Network management (program statistics) server
-  * [`telegram`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telegram-chat-bot) - Telegram messenger chat bot
-  * [`plainsocket`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-telnet-server) - Access to toolbox features via plain text Telnet over TCP and UDP
-  * [`maintenance`](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance) - Automated system maintenance and program health report
-- There is not any individual ON-OFF switch for toolbox features. They become accessible via daemons once configured.
+  Run laitos using `sudo` to ensure their proper operation.
+- Replace `<PATH TO JSON FILE>` by the relative or absolute path to your configuration file.
+- Replace `<LIST>` by daemon names to start. Use comma to separate names (e.g.`dnsd,smtpd,httpd`). Here are the names:
+  * [`dnsd`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server) - DNS server for ad-free and safer browsing experience
+  * [`httpd`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server) - Web server secured by TLS certificate
+  * [`insecurehttpd`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server) - Web server without TLS encryption
+  * [`serialport`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-serial-port-communicator) - Serial port communicator
+  * [`simpleipsvcd`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-simple-IP-services) - Simple IP services
+  * [`smtpd`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-mail-server) - Mail server
+  * [`snmpd`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-SNMP-server) - Network management (program statistics) server
+  * [`telegram`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telegram-chat-bot) - Telegram messenger chat bot
+  * [`plainsocket`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telnet-server) - Use plain text (Telnet) over TCP and UDP to access apps.
+  * [`maintenance`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance) - Automated server maintenance and program health report
+- Apps are enabled automatically once they are configured in the JSON file. Some apps such as the RSS News Reader are automatically enabled via their built-in default configuration.
 
 ## Deploy on cloud
 laitos runs well on all popular cloud vendors. Check out these [tips](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips)

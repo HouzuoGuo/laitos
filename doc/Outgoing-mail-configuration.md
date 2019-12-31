@@ -2,11 +2,12 @@
 
 ## Introduction
 A shared outgoing mail configuration must be created, in order for the following components to send emails:
-- Daemon: [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-system-maintenance)
-- Daemon: [mail server](https://github.com/HouzuoGuo/laitos/wiki/Daemon:-mail-server)
-- Web service: [GitLab browser](https://github.com/HouzuoGuo/laitos/wiki/Web-service:-GitLab-browser)
-- `NotifyViaEmail` of [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) together with daemons that embed command processor.
-- Toolbox feature: [sending emails](https://github.com/HouzuoGuo/laitos/wiki/Toolbox-feature:-sending-emails).
+- Daemon: [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance)
+- Daemon: [mail server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-mail-server)
+- Web service: [GitLab browser](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-GitLab-browser)
+- `NotifyViaEmail` of [app command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor)
+- All daemons that use app command processor that have `NotifyViaEmail` enabled.
+- App: [sending emails](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-sending-emails).
 - Program [supervisor](https://github.com/HouzuoGuo/laitos/wiki/Get-started#supervisor)
 
 ## Configuration

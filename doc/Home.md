@@ -2,27 +2,22 @@
 
 # laitos - Empower your personal web server
 
-_For all users:_
-
 **laitos** web server suite offers the simplest way to host your personal website, receive Emails, block ads and
-malicious websites at DNS level, plus many more. 
+malicious websites with a DNS server, and much more!
 
-_And for geeks:_
+_And for geeks 🤓_
 
-As a professional geek, you would never want to be left without Internet access!
+As a professional geek, you need Internet access whenever and wherever!
 
-For reliable **Internet access via alternative infrastructures** such as telephone, SMS, and satellite terminals,
-**laitos** has a comprehensive all-in-one toolkit for:
+laitos connects to primitive infrastructure such as telephone, SMS, and satellite terminal network to offer reliable
+access to many Internet features, such as:
 
-- Keep in touch via Twitter and Emails
-- Read news via RSS
-- Make calls and send SMS
-- Ask about latest weather and factoids
-- Run Linux/Unix shell commands
-- Generate 2nd factor authentication code
-- Browse the web via a text-based JavaScript-capable browser
-
-.. and a lot more!
+- Browse news, weather, and Twitter.
+- Keep in touch via Email, telephone call, and SMS.
+- Browse the web via a text-based JavaScript-capable browser.
+- Run Linux/Windows shell commands.
+- Generate 2nd factor authentication code.
+- ... more apps to explore!
 
 ## Highlights
 
@@ -31,12 +26,12 @@ For reliable **Internet access via alternative infrastructures** such as telepho
 - **Independent** - reliable stand-alone operation with self healing and automated maintenance.
 - **Hyped by Buzzwords** - certified to run in any container, as well as PaaS, IaaS, \*aaS.
 
-**Did you know?** one of laitos components gets you modern & rich web experience on the nostalgic Mosaic browser running
-on Windows 95! Explore more in the comprehensive [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
+**Did you know?** When you have a nostalgic computer running Windows 95 and Mosaic browser, laitos gives it the modern & rich
+web browsing experience! Explore more in the [comprehensive component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
 
 ## Get Started
 Download ready-to-use [latest release](https://github.com/HouzuoGuo/laitos/releases), then craft your own server with
-the friendly [Get started](https://github.com/HouzuoGuo/laitos/wiki/Get-started) page.
+the friendly [get started](https://github.com/HouzuoGuo/laitos/wiki/Get-started) page.
 
 ## Support
 Should you encounter any challenge during configuration and deployment of the software, please file an [issue](https://github.com/HouzuoGuo/laitos/issues).
@@ -44,7 +39,7 @@ Should you encounter any challenge during configuration and deployment of the so
 I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gmail.com) and get in touch on [Twitter](https://twitter.com/hzguo).
 
 ## Copyright
-Copyright (C) 2016-2019 Houzuo (Howard) Guo <guohouzuo@gmail.com>
+Copyright (C) 2016-2020 Houzuo (Howard) Guo <guohouzuo@gmail.com>
 
 This program is free software subject to the terms of Mozilla Public License, v. 2.0. You may find the license text in
 [the LICENSE file](https://github.com/HouzuoGuo/laitos/blob/master/LICENSE)
@@ -52,8 +47,7 @@ This program is free software subject to the terms of Mozilla Public License, v.
 ## Project name and origin
 In late 2015/early 2016, a much smaller program called "websh" was born that only offered basic shell access via SMS and
 telephone. The laitos project evolved from the smaller program, restarted from scratch in late 2016, and throughout
-2017 the project gained a full suite of web servers along with powerful social network features and other "toolbox"
-utility features.
+2017 the project gained a full suite of web servers along with powerful social network apps as well as utility apps.
 
 Finland is my favourite country and a good Finnish friend on IRC by the name of "zutt" recommended Finnish word "laitos"
 (meaning institute, apparently) to replace the old name "websh". I do not understand the rationale, but it
