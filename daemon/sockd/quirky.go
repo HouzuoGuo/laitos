@@ -9,18 +9,8 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 )
 
-// TweakTCPConnection tweaks the TCP connection settings for improved responsiveness.
-func TweakTCPConnection(conn *net.TCPConn) {
-	_ = conn.SetNoDelay(true)
-	_ = conn.SetKeepAlive(true)
-	_ = conn.SetKeepAlivePeriod(60 * time.Second)
-	_ = conn.SetDeadline(time.Now().Add(time.Duration(IOTimeoutSec * time.Second)))
-	_ = conn.SetLinger(5)
-}
-
 // WriteRand writes a random amount of data (up to couple of KB) to the connection.
-func WriteRand(conn net.Conn) {
-	randBytesWritten := 0
+func WriteRand(conn net.Conn) (randBytesWritten int) {
 	for i := 0; i < RandNum(1, 2, 3); i++ {
 		randBuf := make([]byte, RandNum(210, 340, 550))
 		if _, err := rand.Read(randBuf); err != nil {
@@ -40,6 +30,7 @@ func WriteRand(conn net.Conn) {
 	if rand.Intn(100) < 2 {
 		lalog.DefaultLogger.Info("sockd.quirky.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
 	}
+	return
 }
 
 // ReadWithRetry makes at most 3 attempts to read incoming data from the connection. If an IO error occurs, the connection will be closed.

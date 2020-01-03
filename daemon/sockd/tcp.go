@@ -16,6 +16,21 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
+// TweakTCPConnection tweaks the TCP connection settings for improved responsiveness.
+func TweakTCPConnection(conn *net.TCPConn) {
+	_ = conn.SetNoDelay(true)
+	_ = conn.SetKeepAlive(true)
+	_ = conn.SetKeepAlivePeriod(60 * time.Second)
+	_ = conn.SetDeadline(time.Now().Add(time.Duration(IOTimeoutSec * time.Second)))
+	_ = conn.SetLinger(5)
+}
+
+/*
+PipeTCPConnection receives data from the first connection and copies the data into the second connection.
+The function returns after the first connection is closed or other IO error occurs, and before returning
+the function closes the second connection and optionally writes a random amount of data into the supposedly
+already terminated first connection.
+*/
 func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 	defer func() {
 		_ = toConn.Close()
