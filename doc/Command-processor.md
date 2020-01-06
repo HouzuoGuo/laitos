@@ -189,7 +189,7 @@ Here are the comprehensive list of `.app_identifier` identifiers:
 - `.t` - [Read and post tweets](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-Twitter)
 - `.w` - [WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-WolframAlpha)
 
-### The special "PLT" command
+### The special "PLT" command prefix
 "PLT" is a special command prepended to an ordinary command, in order to seek to position among result output,
 and temporarily modify max length and timeout restriction. The usage is:
 
@@ -231,7 +231,8 @@ Regarding password PIN:
 - Use a strong password that is hard to guess.
 - All daemons capable of invoking app commands offer rate limit mechanism to reduce impact of brute-force password guessing.
   Pay special attention to the rate limit settings in individual daemon configuration.
-- Each laitos daemon will execute a maximum of 1000 commands per second, regardless of their rate limit configuration.
+- For prevention of brute-force guessing of password PIN via DDoS, each laitos daemon will execute a maximum of 1000 commands
+  per second, regardless of their rate limit configuration.
 - Incorrect password PIN entry does not result in an Email notification, however,
   the attempts are logged in warnings and can be inspected via [environment inspection](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-inspect-and-control-server-environment)
   or [program health report](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report).

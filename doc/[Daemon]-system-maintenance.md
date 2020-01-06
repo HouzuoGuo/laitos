@@ -9,25 +9,27 @@ System maintenance tasks comprise:
 (For laitos)
 - Validate configuration (such as API credentials for Twitter) used by apps and HTTP handlers.
 - Collect latest daemon stats summary and collect latest log entries.
-- Install system software that are used by some of laitos components (such as remote controlled browser session).
+- Install common system administration and maintenance software using system package manager.
+- Install dependency software of advanced laitos features (such as browser-in-a-browser and VM-in-a-browser) using system package manager.
 
 (For system security)
-- Install latest system security updates. Keep installed applications up to date.
-- Harden system security by disabling unused services and users.
-- Set up Linux firewall.
+- Install the latest system security updates and keep installed software up to date.
+- Harden system security by disabling unused services and users (additional configuration required).
+- Set up Linux firewall to throttle incoming packets and block unused ports (additional configuration required).
 
 (For routine maintenance)
 - Defragment drives, trim SSD drives, and delete expired temporary files.
 - Synchronise system clock.
 - On Windows, maintain system files integrity with `DISM` and `SFC`.
-- Set Linux system time zone
+- Set Linux system time zone (additional configuration required).
 
 (Miscellaneous)
-- Perform connection check on external TCP services.
+- Perform connection check on external TCP services (additional configuration required).
 
-laitos can operate with the following software managers for security updates and software installation:
+laitos works with the following system package managers for installing and updating system software:
 - `apt-get` (Debian, Ubuntu, etc)
 - `yum` (Amazon Linux, CentOS, RedHat, Fedora, etc)
+- `dnf` (via its `yum`-compatibility)
 - `zypper` (openSUSE, SLES, SLED, etc)
 - `chocolatey` (Windows server & desktop)
 
@@ -44,7 +46,7 @@ laitos can operate with the following software managers for security updates and
 <tr>
     <td>IntervalSec</td>
     <td>integer</td>
-    <td>Interval at which system maintenance routine runs.</td>
+    <td>Run the system maintenance routine regularly at this interval (seconds). It must be greater or equal to 86400 (24 hours).</td>
     <td>86400 - daily maintenance is good enough</td>
     <td>All</td>
 </tr>
@@ -147,7 +149,7 @@ laitos can operate with the following software managers for security updates and
 2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).
 
 
-Here is an example configuration that also checks whether mail(25), DNS(53), and HTTP(80, 443) daemons are working:
+Here is an example configuration that keeps system up-to-date, while also checking whether mail(25), DNS(53), and HTTP(80, 443) daemons are online:
 <pre>
 {
     ...
@@ -172,22 +174,28 @@ Tell laitos to run periodic system maintenance in the command line:
     sudo ./laitos -config <CONFIG FILE> -daemons ...,maintenance,...
 
 ## Usage
-The system maintenance daemon runs for the first time after a 60 seconds delay. Afterwards it runs at regular interval
-specified in configuration. Manual action is not required.
+The daemon runs the maintenance routine 3 minutes after it starts up, afterwards it automatically runs at regular interval according to configuration.
+No manual or interactive action is required.
+
+Each run produces a very detailed system maintenance report for inspection, which may be found in:
+- A text file located under system temporary files directory (`/tmp/laitos-latest-maintenance-report.txt` for Linux and `%USERPROFILE%/AppData/Local/Temp/laitos-latest-maintenance-report.txt` for Windows).
+  Old report file will be overwritten.
+- An Email addressed to the recipients defined in configuration.
+- `laitos` program standard output (only if there are no Email recipeints).
 
 ## Tips
 System maintenance does not have to run too often. Let it run daily is usually good enough.
 
-The additional softwares installed and updated during maintenance are:
+The maintenance routine always automatically installs the following software and keeps them up-to-date:
 - Dependencies of PhantomJS used by [remote browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-remote-browser-(PhantomJS))
   and [text-based interactive web browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(PhantomJS)).
   They may not function properly until system maintenance has run for the first time.
 - Docker container runtime and tools used by [remote browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-remote-browser-(SlimerJS))
   and [text-based interactive web browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(SlimerJS)).
   They may not function properly until system maintenance has run for the first time.
+- QEMU and KVM virtualisation software.
 - Clock synchronisation tools.
-- Zip file manipulation tools.
-- Network and system diagnosis tools.
+- Other system administration and diagnosis tools.
 
 Exercise extra care when using the advanced maintenance options:
 - Use `InstallPackages` configuration option to keep your productivity software applications up-to-date.

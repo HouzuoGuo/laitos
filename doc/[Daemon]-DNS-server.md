@@ -4,16 +4,19 @@
 The DNS server daemon is a recursive DNS resolver that provides a safer web experience by blocking most of advertisement
 and malicious domains.
 
-Upon start up and twice a day, the blacklists are automatically acquired from well-known sources:
+Upon start up and twice a day, the blacklists for advertisement and malicious domains are automatically updated from
+well-known sources:
 - [malwaredomainlist.com](http://www.malwaredomainlist.com)
 - [someonewhocares.org](http://someonewhocares.org/hosts/hosts)
 - [mvps.org](http://winhelp2002.mvps.org)
 - [yoyo.org](http://pgl.yoyo.org)
 
-Beyond blacklist filter, the daemon uses redundant set of secure and trusted public DNS services provided by:
-- [OpenDNS](https://www.opendns.com)
+Beyond the blacklists, the DNS resolver uses redundant set of secure and trusted public DNS services provided by:
 - [Quad9](https://www.quad9.net)
 - [SafeDNS](https://www.safedns.com)
+- [OpenDNS](https://www.opendns.com)
+- [AdGuard DNS](https://adguard.com/en/adguard-dns/overview.html)
+- [Neustar - threat protection](https://www.home.neustar/dns-services/ultra-recursive-dns)
 
 ## Configuration
 Construct the following JSON object and place it under key `DNSDaemon` in configuration file:
@@ -42,9 +45,9 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
 </tr>
 <tr>
     <td>Forwarders</td>
-    <td>array of "IP:port"</td>
+    <td>array of "IP:port" strings</td>
     <td>Public DNS resolvers (IP:Port) to use. They must be able to handle both UDP and TCP for queries.</td>
-    <td>OpenDNS, Quad9, SafeDNS</td>
+    <td>Quad9, SafeDNS, OpenDNS, AdGuard DNS, Neustar.</td>
 </tr>
 <tr>
     <td>UDPPort</td>
@@ -148,7 +151,7 @@ to construct configuration for JSON key `DNSFilters`, for example:
     },
     "DNSFilters": {
         "PINAndShortcuts": {
-            "PIN": "verysecretpassword",
+            "PIN": "mypassword",
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
@@ -246,44 +249,54 @@ its name servers to the following:
 The DNS changes made above will take couple of hours to propagate through the Internet.
 
 ### Invoke app command
-After DNS changes have been propagated, compose an app command, except that numbers and symbols input must be substituted
-by [DTMF input sequence table](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook#usage).
-Prepend the substituted command input with an underscore `_` as prefix, and append the first domain name as suffix.
-
-For example, to compose an app command that prints "123" `verysecretpassword.s echo 123`:
-1. Find the DTMF input corresponding to full-stop (DTMF 142), space (DTMF 0), and digits (DTMF 11, 12, 13). Keep in mind
-   that according to DTMF input rules, extra DTMF input `0` needs to be used to mark each instance of DTMF sub-phrase.
-2. Substitute all of the symbols, spaces, and digits with DTMF input sequence: `veryverysecretpassword1420s0echo0110120130`.
-3. Prepend an underscore `_` as prefix: `_veryverysecretpassword1420s0echo0110120130`
-4. Append the first domain name as suffix:  `_veryverysecretpassword1420s0echo0110120130.my-throw-away-domain-example.net`
+First, prepare the app command that is about to run:
+1. Compose an app command, e.g. `mypassword.s echo 123`
+2. Substitute all numbers and symbols with [DTMF input sequence table](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook#usage).
+   e.g. `mypassword1420s0echo0110120130`
+3. Prepend the app command with an underscore `_` as prefix, e.g. `_mypassword1420s0echo0110120130`
+4. If the command is longer than 63 characters, split it into segments of less than 63 characters each, and concatenate
+   the segments with a dot, e.g. `_mypassword.1420s0.echo0110120130`. You pay split the command even if it is already
+   sufficiently short.
+5. Append the throw-away domain name at the end, e.g. `_mypassword.1420s0.echo0110120130.my-throw-away-domain-example.net`.
 
 From any computer, mobile phone, or tablet, send the name query as a TXT record query. For example via via the `dig`
 command on Linux:
 
-    dig -t TXT _veryverysecretpassword1420s0echo0110120130.my-throw-away-domain-example.net +timeout=30
-    ; <<>> DiG 9.9.4-RedHat-9.9.4-61.amzn2.1.1 <<>> -t TXT _veryverysecretpassword1420s0echo0110120130.my-throw-away-domain-example.net
+    dig -t TXT _mypassword.1420s0.echo0110120130.my-throw-away-domain-example.net +timeout=30
+    ; <<>> DiG 9.9.4-RedHat-9.9.4-61.amzn2.1.1 <<>> -t TXT _mypassword.1420s0.echo0110120130.my-throw-away-domain-example.net
     ;; global options: +cmd
     ;; Got answer:
     ;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 33180
     ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 0
     
     ;; QUESTION SECTION:
-    ;_veryverysecretpassword1420s0echo0110120130.my-throw-away-domain-example.net. IN TXT
+    ;_mypassword.1420s0.echo0110120130.my-throw-away-domain-example.net. IN TXT
     
     ;; ANSWER SECTION:
-    _veryverysecretpassword1420s0echo0110120130.my-throw-away-domain-example.net. 30 IN TXT "123"
+    _mypassword.1420s0.echo0110120130.my-throw-away-domain-example.net. 30 IN TXT "123"
     
     ;; Query time: 29 msec
     ;; SERVER: 10.12.0.2#53(10.12.0.2)
     ;; WHEN: Mon Feb 25 18:41:51 UTC 2019
     ;; MSG SIZE  rcvd: 167
 
-The app command response can be read from `ANSWER SECTION`.
+The app command response (string `123` from our example) can be read in the `ANSWER SECTION`.
 
-Keep in mind that:
+### Tips
+- Respect and comply with the terms and policies imposed by your Internet service provider in regards to usage of DNS
+  queries.
 - DNS queries are not encrypted, your app command input (including password) and command output will be exposed to
   the public Internet. Only use DNS for app command invocation as a last resort when all other encrypted channels are
   unavailable.
-- The app command response from DNS query result has a maximum length of 255 characters.
-- Respect and comply with the terms and policies imposed by your Internet service provider in regards to usage of DNS
-  queries.
+- The entire DNS query, including app command, throw-away domain name, and dots in between, may not exceed 254 characters.
+- The app command response from DNS query result has a maximum length of 254 characters.
+- The DNS query response carrying app command response uses a TTL (time-to-live) of 30 seconds, which means, if an
+  identical app command is issued within 30 seconds of the previous query, it will not reach laitos server, instead,
+  the cached response from 30 seconds ago will arrive instantaneously.
+- By default, each app command is given 29 seconds to complete unless the timeout duration is overriden by `PLT`
+  command processor mechanism.
+- Recursive DNS resolvers on the public Internet usually expects a query response from laitos in less than 10 seconds.
+  However, in preactice, many app commands take more than 10 seconds to complete, in which case the public recursive
+  DNS resolver will respond to DNS client with an error "(upstream) name server failure". Don't worry - internally,
+  laitos patiently waits for the command completion (or time out), and makes the command response ready for immediate
+  retrieval when the user invokes the identical app command within 30 seconds of the command completion.

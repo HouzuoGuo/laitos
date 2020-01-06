@@ -68,14 +68,19 @@ laitos is well tuned for running on Windows server and desktop. Check out this [
 that helps to start laitos automatically as a background service.
 
 ## Advanced behaviours
-### Supervisor
-laitos uses a built-in supervisor mechanism to restart main program in the unlikely event of crash. If under extremely
-rare circumstances laitos crashes more than once in quick succession (20 minutes), the supervisor will restart main
-program while shedding off potentially faulty components.
+### Self-healing
+laitos is extremely reliable thanks to its many built-in mechanisms that activate automatically in the unlikely event of program anormaly.
+The mechanisms are fully automatic and do not require manual intervention:
 
-Optionally, the supervisor can send server owner a notification mail when a crash occurs. To enable the notification,
-follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) and then
-specify recipients in program JSON configuration:
+1. Access to external resources, such as API services on the public Internet, automatically recover from transient errors.
+2. Each daemon automatically restarts in case of a transient initialisation error, such as when required system resource is unavailable.
+3. laitos program and its daemons restart automatically in case of a complete program crash.
+4. In the extremely unlikely event of repeated program crashes in short succession (20 minutes), laitos will restart automatically while
+   shedding of its daemons starting from the heaviest daemon, thus ensuring the maximum availabily of remaining healthy daemons.
+
+Optionally, laitos can send server owner a notification mail when a program crash occurs. To enable the notification, follow
+[outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) and then specify Email recipients in
+program JSON configuration:
 
     {
       ...
@@ -87,8 +92,8 @@ specify recipients in program JSON configuration:
       ...
     }
 
-Please use [Github issues](https://github.com/HouzuoGuo/laitos/issues) to report laitos crashes. Notification mail
-content and program output contain valuable clues for diagnosis.
+Please use [Github issues](https://github.com/HouzuoGuo/laitos/issues) to report program crashes. Notification mail content and program
+output contain valuable clues for diagnosis - please retain them for an issue report.
 
 ### More command line options
 Use the following command line options with extra care:
@@ -103,7 +108,7 @@ Use the following command line options with extra care:
 </tr>
 <tr>
     <td>-gomaxprocs</td>
-    <td>Specify maximum number of concurrent goroutines. Default to number of system CPU threads.</td>
+    <td>Specify maximum number of concurrent goroutines. The default value is the number of CPU cores/threads.</td>
 </tr>
 <tr>
     <td>-disableconflicts</td>
