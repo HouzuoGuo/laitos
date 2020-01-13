@@ -135,6 +135,8 @@ func TuneLinux() string {
 		"kernel.sysrq":              "0",
 		"kernel.panic":              "10",
 		"kernel.randomize_va_space": "2",
+		"fs.protected_hardlinks":    "1",
+		"fs.protected_symlinks":     "1",
 
 		// Optimise system stability in low memory situation
 		"vm.zone_reclaim_mode": "1",
@@ -163,17 +165,18 @@ func TuneLinux() string {
 		"net.ipv4.icmp_ignore_bogus_error_responses": "1",
 		"net.ipv4.tcp_syncookies":                    "1",
 
-		// Optimise network bandwidth
+		// Optimise network performance
 		"net.core.default_qdisc":          "fq_codel",
 		"net.ipv4.tcp_congestion_control": "bbr",
 		"net.ipv4.tcp_fastopen":           "3",
+		"net.ipv4.tcp_sack":               "1",
 
 		// Optimise network compatibility
 		"net.ipv4.tcp_mtu_probing": "2",
 		"net.ipv4.tcp_base_mss":    "1024",
 		"net.ipv4.tcp_rfc1337":     "1",
 
-		// Optimise network resource usage
+		// Optimise network behaviour
 		"net.ipv4.tcp_tw_recycle":       "0",
 		"net.ipv4.tcp_tw_reuse":         "1",
 		"net.ipv4.tcp_synack_retries":   "3",
@@ -184,7 +187,7 @@ func TuneLinux() string {
 	}
 	// The following settings are influenced by system memory size
 	atLeast := map[string]int{
-		/// Optimise network availability
+		/// Optimise network resource usage
 		"net.core.somaxconn":           memSizeKB / 1024 / 512 * 256,  // 256 per 512MB of mem
 		"net.ipv4.tcp_max_syn_backlog": memSizeKB / 1024 / 512 * 512,  // 512 per 512MB of mem
 		"net.core.netdev_max_backlog":  memSizeKB / 1024 / 512 * 1024, // 1024 per 512MB of mem

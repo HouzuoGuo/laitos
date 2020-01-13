@@ -238,7 +238,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		// Soft and hard dependencies of remote virtual machine
 		"qemu", "qemu-common", "qemu-img", "qemu-kvm", "qemu-kvm-common", "qemu-kvm-core",
 		"qemu-system", "qemu-system-common", "qemu-system-x86", "qemu-system-x86-core",
-		"qemu-user", "qemu-user-binfmt", "qemu-utils",
+		"qemu-user", "qemu-utils",
 
 		// Time maintenance utilities
 		"ntp", "ntpd", "ntpdate",
