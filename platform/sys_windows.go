@@ -109,7 +109,7 @@ func KillProcess(proc *os.Process) (success bool) {
 	if proc.Kill() == nil {
 		success = true
 	}
-	_ = proc.Release()
+	_, _ = proc.Wait()
 	return
 }
 
