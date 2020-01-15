@@ -102,7 +102,8 @@ func KillProcess(proc *os.Process) (success bool) {
 	if proc == nil {
 		return true
 	}
-	err := exec.Command(`C:\WINDOWS\System32\taskkill.exe`, "/F", "/T", "/PID", strconv.Itoa(proc.Pid)).Run()
+	// Usage of taskkill.exe is explained in: https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/taskkill
+	err := exec.Command(`C:\Windows\system32\taskkill.exe`, "/f", "/t", "/pid", strconv.Itoa(proc.Pid)).Run()
 	if err == nil {
 		success = true
 	}
