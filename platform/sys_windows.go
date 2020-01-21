@@ -110,7 +110,7 @@ func KillProcess(proc *os.Process) (success bool) {
 	}
 	time.Sleep(1 * time.Second)
 	// Forcibly terminate the processes
-	err := exec.Command(`C:\Windows\system32\taskkill.exe`, "/f", "/t", "/pid", strconv.Itoa(proc.Pid)).Run()
+	err = exec.Command(`C:\Windows\system32\taskkill.exe`, "/f", "/t", "/pid", strconv.Itoa(proc.Pid)).Run()
 	if err == nil {
 		success = true
 	}
