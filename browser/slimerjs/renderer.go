@@ -775,13 +775,11 @@ func (instance *Instance) RenderPage() error {
 
 // Kill browser server process and delete rendered web page image.
 func (instance *Instance) Kill() {
-	instance.jsProcMutex.Lock()
-	defer instance.jsProcMutex.Unlock()
-	if instance.jsProcCmd != nil {
+	if jsProcCmd := instance.jsProcCmd; jsProcCmd != nil {
 		// Kill the docker client
-		if instance.jsProcCmd.Process != nil {
-			instance.logger.Info("Kill", "", nil, "killing process PID %d", instance.jsProcCmd.Process.Pid)
-			if !platform.KillProcess(instance.jsProcCmd.Process) {
+		if proc := jsProcCmd.Process; proc != nil {
+			instance.logger.Info("Kill", "", nil, "killing process PID %d", proc.Pid)
+			if !platform.KillProcess(proc) {
 				instance.logger.Warning("Kill", "", nil, "failed to kill process")
 			}
 		}
@@ -795,8 +793,10 @@ func (instance *Instance) Kill() {
 		if err := os.RemoveAll(instance.RenderImageDir); err != nil && !os.IsNotExist(err) {
 			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImageDir)
 		}
-		if err := os.Remove(instance.serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
-			instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", instance.serverJSFile.Name())
+		if serverJSFile := instance.serverJSFile; serverJSFile != nil {
+			if err := os.Remove(serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
+				instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", serverJSFile.Name())
+			}
 		}
 	}
 	instance.serverJSFile = nil

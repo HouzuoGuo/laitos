@@ -112,16 +112,16 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	}
 	daemon.logPrintStage(out, "maintain windows system integrity")
 	// These tools seriously spend a lot of time
-	daemon.logPrintStageStep(out, "Starting dism StartComponentCleanup")
+	daemon.logPrintStageStep(out, "running dism StartComponentCleanup")
 	progOut, err := platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/ResetBase")
-	daemon.logPrintStageStep(out, "dism StartComponentCleanup: %v - %s", err, progOut)
-	daemon.logPrintStageStep(out, "Starting dism SPSuperseded")
+	daemon.logPrintStageStep(out, "dism StartComponentCleanup result is: %v - %s", err, progOut)
+	daemon.logPrintStageStep(out, "running dism SPSuperseded")
 	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/SPSuperseded")
-	daemon.logPrintStageStep(out, "dism SPSuperseded: %v - %s", err, progOut)
-	daemon.logPrintStageStep(out, "Starting dism Restorehealth")
+	daemon.logPrintStageStep(out, "dism SPSuperseded, result is: %v - %s", err, progOut)
+	daemon.logPrintStageStep(out, "starting dism Restorehealth")
 	progOut, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\Dism.exe`, "/Online", "/Cleanup-Image", "/Restorehealth")
-	daemon.logPrintStageStep(out, "dism Restorehealth: %v - %s", err, progOut)
-	daemon.logPrintStageStep(out, "Starting sfc")
+	daemon.logPrintStageStep(out, "dism Restorehealth result is: %v - %s", err, progOut)
+	daemon.logPrintStageStep(out, "running system file checker")
 	/*
 		The output coming from sfc often causes rendering defects in a large variety of terminals - they appear to be
 		rendered in twice the width of ordinary letters. Consequently, the maintenance report delivered as mail is cut
@@ -129,7 +129,7 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 		determined, the output will be suppressed.
 	*/
 	_, err = platform.InvokeProgram(nil, 4*3600, `C:\Windows\system32\sfc.exe`, "/ScanNow")
-	daemon.logPrintStageStep(out, "sfc ScanNow: error? %v", err)
+	daemon.logPrintStageStep(out, "system file checker result is: %v", err)
 	daemon.logPrintStage(out, "installing windows updates")
 	// Have to borrow script host's capability to search and installwindows updates
 	script, err := ioutil.TempFile("", "laitos-windows-update-script*.vbs")

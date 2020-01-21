@@ -96,9 +96,10 @@ type Daemon struct {
 	MailCmdRunnerToTest *mailcmd.CommandRunner  `json:"-"`          // MailCmdRunnerToTest is mail command runner to be tested during health check.
 	HTTPHandlersToCheck httpd.HandlerCollection `json:"-"`          // HTTPHandlersToCheck are the URL handlers of an HTTP daemon to be tested during health check.
 
-	loopIsRunning int32     // Value is 1 only when maintenance loop is running
-	stop          chan bool // Signal maintenance loop to stop
-	logger        lalog.Logger
+	lastStepTimestamp int64     // lastStepTimestamp is the unix timestamp at which the last maintenance stage or a stage stap took place
+	loopIsRunning     int32     // Value is 1 only when maintenance loop is running
+	stop              chan bool // Signal maintenance loop to stop
+	logger            lalog.Logger
 }
 
 // runPortsCheck knocks on TCP ports that are to be checked in parallel, it returns an error if any of the ports fails to connect.
@@ -299,16 +300,24 @@ func (daemon *Daemon) Stop() {
 	}
 }
 
-// logPrintStage reports the start/finish of a maintenance stage to output buffer and log.
+// logPrintStage reports the start/finish of a maintenance stage to the output buffer and program log.
 func (daemon *Daemon) logPrintStage(out *bytes.Buffer, template string, a ...interface{}) {
+	if duration := time.Now().Unix() - daemon.lastStepTimestamp; duration > 5 {
+		out.WriteString(fmt.Sprintf("(it took %d seconds)\n", duration))
+	}
 	out.WriteString(lalog.TruncateString(fmt.Sprintf("\n---"+template+"\n", a...), MaxMessageLength))
 	daemon.logger.Info("maintenance", "", nil, "Stage: "+template, a...)
+	daemon.lastStepTimestamp = time.Now().Unix()
 }
 
-// logPrintStage reports the start/finish of a maintenance step to output buffer and log.
+// logPrintStage reports the start/finish of a maintenance step to the output buffer and program log.
 func (daemon *Daemon) logPrintStageStep(out *bytes.Buffer, template string, a ...interface{}) {
+	if duration := time.Now().Unix() - daemon.lastStepTimestamp; duration > 5 {
+		out.WriteString(fmt.Sprintf("(it took %d seconds)\n", duration))
+	}
 	out.WriteString(lalog.TruncateString(fmt.Sprintf("---"+template+"\n", a...), MaxMessageLength))
 	daemon.logger.Info("maintenance", "", nil, "Step: "+template, a...)
+	daemon.lastStepTimestamp = time.Now().Unix()
 }
 
 // SystemMaintenance is a long routine that conducts comprehensive general system maintenance tasks.
