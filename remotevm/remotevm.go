@@ -28,8 +28,6 @@ const (
 	QEMUExecutableName = "qemu-system-x86_64"
 	// QMPCommandResponseTimeoutSec is the number of seconds after which an outstanding QMP command is aborted due to timeout.
 	QMPCommandResponseTimeoutSec = 10
-	// AutoKillTimeoutSec is the number of seconds after which the emulator will be forcibly stopped.
-	AutoKillTimeoutSec = 3600 * 24
 )
 
 /*
@@ -131,7 +129,6 @@ func (vm *VM) Start(isoFilePath string) error {
 	}
 	vm.logger.Info("Start", isoFilePath, nil, "starting emulator %s, this may take a minute", vm.emulatorExecutable)
 	fmt.Fprintf(vm.emulatorDebugOutput, "Starting emulator %s for ISO file %s, this may take a minute.\n", vm.emulatorExecutable, isoFilePath)
-	emulatorProcErr := make(chan error, 1)
 	vm.emulatorCmd = exec.Command(vm.emulatorExecutable,
 		"-smp", strconv.Itoa(vm.NumCPU), "-m", fmt.Sprintf("%dM", vm.MemSizeMB),
 		/*
@@ -152,27 +149,9 @@ func (vm *VM) Start(isoFilePath string) error {
 		"-qmp", fmt.Sprintf("tcp:127.0.0.1:%d,server,nowait", vm.QMPPort))
 	vm.emulatorCmd.Stdout = vm.emulatorDebugOutput
 	vm.emulatorCmd.Stderr = vm.emulatorDebugOutput
-	// Start the emulator process in background
-	go func(vm *VM) {
-		if err := vm.emulatorCmd.Start(); err != nil {
-			emulatorProcErr <- err
-			return
-		}
-		if err := vm.emulatorCmd.Wait(); err != nil {
-			emulatorProcErr <- err
-		}
-	}(vm)
-	// Unconditionally kill the emulator after a period of time
-	go func(vm *VM) {
-		select {
-		case err := <-emulatorProcErr:
-			vm.logger.Info("Start", "", err, "emulator has quit")
-			return
-		case <-time.After(AutoKillTimeoutSec * time.Second):
-		}
-		vm.logger.Warning("Start", "", nil, "maximum usage duration has been reached, killing the emulator.")
-		vm.Kill()
-	}(vm)
+	if err := vm.emulatorCmd.Start(); err != nil {
+		return err
+	}
 	vm.logger.Info("Start", vm.emulatorExecutable, nil, "emulator successfully started %s", isoFilePath)
 	fmt.Fprintf(vm.emulatorDebugOutput, "emulator %s successfully started %s\n", vm.emulatorExecutable, isoFilePath)
 	return nil
