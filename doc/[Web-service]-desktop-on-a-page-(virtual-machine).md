@@ -65,7 +65,7 @@ To start the desktop (virtual machine):
 - Click "Refresh Screen" regularly to view desktop screen.
 
 To use mouse:
-- On the desktop screen picture, click at a location of your interest. If your web browser does not understand Javascript, you will have to manually
+- On the desktop screen picture, click at a location of your interest. If your web browser does not understand javascript, you will have to manually
   enter the location coordinates into X and Y text boxes.
 - Click on a mouse control button, e.g. "LClick" sends a left mouse click at the coordinates, and "Move To" moves mouse cursor to the coordinates.
 
@@ -78,5 +78,6 @@ To use keyboard:
 - The local utility port number from configuration is only for internal localhost use. It does not have to be open on your network firewall.
 - laitos server has to have QEMU or KVM installed in order to start the desktop virtual machine. You may rely on [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance)
   to automatically install the software for you.
-- laitos server prefers to use KVM to start the desktop virtual machine as KVM offers enhanced performance. When KVM is not avaialble, laitos
+- laitos server prefers to use KVM to start the desktop virtual machine as KVM offers enhanced performance. When KVM is not available, laitos
   will fall back to QEMU automatically.
+- The desktop virtual machine works faster with a lightweight Linux distribution ISO medium. The well-known lightweight PuppyLinux works very well, and laitos recommends it by using it as the default ISO download URL.
