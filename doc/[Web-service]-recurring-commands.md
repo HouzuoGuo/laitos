@@ -1,5 +1,3 @@
-# Web service: recurring commands
-
 ## Introduction
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the service hosts channels
 of pre-configured app commands that are run at regular interval, and let user retrieve the command results in JSON

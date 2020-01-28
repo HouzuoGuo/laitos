@@ -26,7 +26,7 @@ the following properties:
     <td>
         An arbitrary number above 20000 and below 65535.
         <br/>
-        It must not clash with port numbers from other components, such as the PhantomJS based interactive web browser,
+        It must not clash with port numbers used by other components, such as the PhantomJS based interactive web browser,
         and the remote browser web services.
     </td>
     <td>(This is a mandatory property without a default value)

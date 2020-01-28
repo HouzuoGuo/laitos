@@ -1,5 +1,3 @@
-# Web service: Microsoft bot hook
-
 ## Introduction
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), users can chat
 with laitos server and invoke app commands, using programs supported by Microsofot bot framework such as Skype.

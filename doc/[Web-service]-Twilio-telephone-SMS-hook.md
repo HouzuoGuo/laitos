@@ -1,5 +1,3 @@
-# Web service: Twilio telephone/SMS hook
-
 ## Introduction
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the web service is triggered
 by incoming calls and SMS from Twilio platform, and let caller/sender invoke app commands.

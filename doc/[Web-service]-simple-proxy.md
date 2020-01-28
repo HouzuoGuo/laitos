@@ -1,5 +1,3 @@
-# Web service: simple proxy
-
 ## Introduction
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the simple web proxy offers
 visitor access to websites internal to laitos host.

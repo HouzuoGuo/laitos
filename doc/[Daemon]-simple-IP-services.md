@@ -1,5 +1,3 @@
-# Daemon: simple IP services
-
 ## Introduction
 The simple IP services implement standard Internet services that were used in the nostalgic era of computing.
 

@@ -1,5 +1,3 @@
-# Web service: GitLab browser
-
 ## Introduction
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the GitLab browser enables
 you to browse and download files from git repositories hosted on GitLab.com.

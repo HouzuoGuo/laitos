@@ -1,5 +1,3 @@
-# Daemon: telegram chat bot
-
 ## Introduction
 Telegram Messenger is a popular mobile messaging app that excels in communication security.
 

@@ -1,5 +1,3 @@
-# Daemon: SNMP server
-
 ## Introduction
 The SNMP server implements industrial standard network management protocol - SNMP version 2 with mandatory community name, to offer telemetry data for remote monitoring.
 

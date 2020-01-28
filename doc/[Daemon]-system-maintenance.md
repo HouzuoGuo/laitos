@@ -1,7 +1,5 @@
-# Daemon: system maintenance
-
 ## Introduction
-The daemon regularly conducts system maintenance to ensure smooth and safe operation of your laitos server.
+The daemon regularly carries out system maintenance to ensure smooth and safe operation of your laitos server.
 A summary report is generated after each run and delivered to designated Email recipients.
 
 System maintenance tasks comprise:
@@ -187,10 +185,10 @@ Each run produces a very detailed system maintenance report for inspection, whic
 System maintenance does not have to run too often. Let it run daily is usually good enough.
 
 The maintenance routine always automatically installs the following software and keeps them up-to-date:
-- Dependencies of PhantomJS used by [remote browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-remote-browser-(PhantomJS))
+- Dependencies of PhantomJS used by [web browser on a page (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(PhantomJS))
   and [text-based interactive web browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(PhantomJS)).
   They may not function properly until system maintenance has run for the first time.
-- Docker container runtime and tools used by [remote browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-remote-browser-(SlimerJS))
+- Docker container runtime and tools used by [web browser on a page (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(SlimerJS))
   and [text-based interactive web browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(SlimerJS)).
   They may not function properly until system maintenance has run for the first time.
 - QEMU and KVM virtualisation software.

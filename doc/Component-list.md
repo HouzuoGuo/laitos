@@ -93,14 +93,19 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-simple-proxy" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Remote browser (PhantomJS)</td>
-        <td>Hand you control over a remote browser app that runs on laitos server. It uses the older PhantomJS technology.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-remote-browser-(PhantomJS)" target="_blank">Link</a></td>
+        <td>Web browser on a page (SlimerJS)</td>
+        <td>Present you with a fully functional web browser running on laitos server. It uses the newer SlimmerJS technology.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(SlimerJS)" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Remote browser (SlimerJS)</td>
-        <td>Hand you control over a remote browser app that runs on laitos server. It uses the newer SlimerJS technology.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-remote-browser-(SlimerJS)" target="_blank">Link</a></td>
+        <td>Web browser on a page (PhantomJS)</td>
+        <td>Present you with a fully functional web browser running on laitos server. It uses the older PhantomJS technology.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(PhantomJS)" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Desktop on a page (virtual machine)</td>
+        <td>Present you with a fully functional computer desktop running on laitos server as a virtual machine.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-desktop-on-a-page-(virtual-machine)" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>App command form</td>

@@ -1,5 +1,3 @@
-# Web service: temporary file storage
-
 ## Introduction
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the service enables users
 to upload files (up to 64MB each) for unlimited retrieval within 24 hours.

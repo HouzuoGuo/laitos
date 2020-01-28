@@ -1,13 +1,12 @@
-# Web service: remote browser (PhantomJS)
-
 ## Introduction
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the service renders websites
-on laitos server and let you interact with it via mouse and keyboard input. It may be used for:
-- Browsing websites internal to laitos host.
+on laitos server and let you interact with it via mouse and keyboard input. It is often useful for:
+- General web browsing.
 - Enable outdated computers (e.g. Windows 95 + Mosaic browser) to enjoy rich experience of modern web.
+- Browsing websites internal to laitos server.
 
-Be ware that PhantomJS is an old software that may not render some modern web sites. Consider using the remote browser
-based on [SlimerJS](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-remote-browser-(SlimerJS)), which
+Be ware that PhantomJS is an old software that may not properly display modern web sites. Consider using the remote browser
+based on [SlimerJS](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(SlimerJS)), which
 is better in many ways.
 
 ## Configuration
@@ -28,7 +27,7 @@ Construct the following properties under JSON key `HTTPHandlers`:
     <td>
         An arbitrary number above 20000 and below 65535.
         <br/>
-        It must not clash with port numbers from other components, such as that used by SlimerJS based remote browser, and
+        It must not clash with port numbers used by other components, such as that used by SlimerJS based web browser, and
         the "interactive web browser" app.
     </td>
     <td>(This is a mandatory property without a default value)
@@ -86,7 +85,7 @@ Here is an example:
 </pre>
 
 ## Run
-The form is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
+The service is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
 
 ## Usage
 In a web browser, navigate to `BrowserPhantomJSEndpoint` of laitos web server.

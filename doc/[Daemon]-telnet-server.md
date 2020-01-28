@@ -1,5 +1,3 @@
-# Daemon: telnet server
-
 ## Introduction
 The plain text telnet server provide access to app commands via very basic client programs, such as `telnet`, `netcat`,
 and `HyperTerminal`.

@@ -1,10 +1,9 @@
-# Web service: remote browser (SlimerJS)
-
 ## Introduction
 Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the service renders websites
-on laitos server and let you interact with it via mouse and keyboard input. It may be used for:
-- Browsing websites internal to laitos host.
+on laitos server and let you interact with it via mouse and keyboard input. It is often useful for:
+- General web browsing.
 - Enable outdated computers (e.g. Windows 95 + Mosaic browser) to enjoy rich experience of modern web.
+- Browsing websites internal to laitos server.
 
 In contrast to PhantomJS based web browser, SlimerJS based web browser is more capable of rendering very modern
 websites, even Google Maps and YouTube. However, SlimerJS based web browsers rely on Docker container runtime or
@@ -29,7 +28,7 @@ Construct the following properties under JSON key `HTTPHandlers`:
     <td>
         An arbitrary number above 20000 and below 65535.
         <br/>
-        It must not clash with port numbers from other components, such as the PhantomJS based remote browser, and the
+        It must not clash with port numbers used by other components, such as the PhantomJS based web browser, and the
         "interactive web browser" app.
     </td>
     <td>(This is a mandatory property without a default value)
@@ -80,7 +79,7 @@ Here is an example:
 </pre>
 
 ## Run
-The form is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
+The service is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
 
 ## Usage
 In a web browser, navigate to `BrowserSlimerJSEndpoint` of laitos web server.

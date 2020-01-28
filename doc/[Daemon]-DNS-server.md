@@ -1,5 +1,3 @@
-# Daemon: DNS server
-
 ## Introduction
 The DNS server daemon is a recursive DNS resolver that provides a safer web experience by blocking most of advertisement
 and malicious domains.

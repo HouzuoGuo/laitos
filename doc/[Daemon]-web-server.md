@@ -1,5 +1,3 @@
-# Daemon: web server
-
 ## Introduction
 The web server hosts a static personal website that consists of:
 - A home page in an HTML file.
