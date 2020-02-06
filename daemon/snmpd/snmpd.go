@@ -73,7 +73,7 @@ func (daemon *Daemon) StartAndBlock() error {
 
 // GetUDPStatsCollector returns the stats collector that counts and times UDP conversations.
 func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
-	return common.SNMPStats
+	return misc.SNMPStats
 }
 
 // HandleUDPClient converses

@@ -9,6 +9,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestHTTPD_StartAndBlock(t *testing.T) {
@@ -21,11 +22,11 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		},
 	}
 	// Must not initialise if command processor is not sane
-	daemon.Processor = common.GetInsaneCommandProcessor()
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
+	daemon.Processor = toolbox.GetInsaneCommandProcessor()
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), toolbox.ErrBadProcessorConfig) {
 		t.Fatal("did not error due to insane CommandProcessor")
 	}
-	daemon.Processor = common.GetTestCommandProcessor()
+	daemon.Processor = toolbox.GetTestCommandProcessor()
 	// Test default settings
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
@@ -42,7 +43,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	}
 
 	// Set up API handlers
-	daemon.Processor = common.GetTestCommandProcessor()
+	daemon.Processor = toolbox.GetTestCommandProcessor()
 	daemon.HandlerCollection["/info"] = &handler.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
 	daemon.HandlerCollection["/cmd_form"] = &handler.HandleCommandForm{}
 	daemon.HandlerCollection["/upload"] = &handler.HandleFileUpload{}
@@ -67,12 +68,12 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.HandlerCollection["/recurring_cmds"] = &handler.HandleRecurringCommands{
 		RecurringCommands: map[string]*common.RecurringCommands{
 			"channel1": {
-				PreConfiguredCommands: []string{common.TestCommandProcessorPIN + ".s echo -n this is channel1"},
+				PreConfiguredCommands: []string{toolbox.TestCommandProcessorPIN + ".s echo -n this is channel1"},
 				IntervalSec:           1,
 				MaxResults:            4,
 			},
 			"channel2": {
-				PreConfiguredCommands: []string{common.TestCommandProcessorPIN + ".s echo -n this is channel2"},
+				PreConfiguredCommands: []string{toolbox.TestCommandProcessorPIN + ".s echo -n this is channel2"},
 				IntervalSec:           1,
 				MaxResults:            4,
 			},

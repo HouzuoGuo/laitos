@@ -12,7 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -74,9 +73,9 @@ type APIUpdates struct {
 
 // Process feature commands from incoming telegram messages, reply to the chats with command results.
 type Daemon struct {
-	AuthorizationToken string                   `json:"AuthorizationToken"` // Telegram bot API auth token
-	PerUserLimit       int                      `json:"PerUserLimit"`       // PerUserLimit determines how many messages may be processed per chat at regular interval
-	Processor          *common.CommandProcessor `json:"-"`                  // Feature command processor
+	AuthorizationToken string                    `json:"AuthorizationToken"` // Telegram bot API auth token
+	PerUserLimit       int                       `json:"PerUserLimit"`       // PerUserLimit determines how many messages may be processed per chat at regular interval
+	Processor          *toolbox.CommandProcessor `json:"-"`                  // Feature command processor
 
 	messageOffset int64           // Process chat messages arrived after this point
 	userRateLimit *misc.RateLimit // Prevent user from flooding bot with new messages
@@ -167,7 +166,7 @@ func (bot *Daemon) ProcessMessages(updates APIUpdates) {
 			if err := bot.ReplyTo(ding.Message.Chat.ID, result.CombinedOutput); err != nil {
 				bot.logger.Warning("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
 			}
-			common.TelegramBotStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+			misc.TelegramBotStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 		}(ding, beginTimeNano)
 	}
 }

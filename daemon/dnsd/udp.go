@@ -6,15 +6,14 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
+	"github.com/HouzuoGuo/laitos/toolbox"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // GetUDPStatsCollector returns stats collector for the UDP server of this daemon.
 func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
-	return common.DNSDStatsUDP
+	return misc.DNSDStatsUDP
 }
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
@@ -54,7 +53,7 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (res
 	}
 	if dtmfDecoded := DecodeDTMFCommandInput(queriedName); len(dtmfDecoded) > 1 {
 		cmdResult := daemon.latestCommands.Execute(daemon.Processor, dtmfDecoded)
-		if cmdResult.Error == filter.ErrPINAndShortcutNotFound {
+		if cmdResult.Error == toolbox.ErrPINAndShortcutNotFound {
 			/*
 				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is
 				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.

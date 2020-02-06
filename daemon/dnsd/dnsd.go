@@ -15,6 +15,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/testingstub"
+	"github.com/HouzuoGuo/laitos/toolbox"
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -82,11 +83,11 @@ type TCPForwarderQuery struct {
 
 // A DNS forwarder daemon that selectively refuse to answer certain A record requests made against advertisement servers.
 type Daemon struct {
-	Address              string                   `json:"Address"`              // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
-	AllowQueryIPPrefixes []string                 `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
-	PerIPLimit           int                      `json:"PerIPLimit"`           // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
-	Forwarders           []string                 `json:"Forwarders"`           // DefaultForwarders are recursive DNS resolvers that will resolve name queries. They must support both TCP and UDP.
-	Processor            *common.CommandProcessor `json:"-"`                    // Processor enables TXT queries to execute toolbox command
+	Address              string                    `json:"Address"`              // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
+	AllowQueryIPPrefixes []string                  `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
+	PerIPLimit           int                       `json:"PerIPLimit"`           // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
+	Forwarders           []string                  `json:"Forwarders"`           // DefaultForwarders are recursive DNS resolvers that will resolve name queries. They must support both TCP and UDP.
+	Processor            *toolbox.CommandProcessor `json:"-"`                    // Processor enables TXT queries to execute toolbox command
 
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
@@ -143,7 +144,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
-		daemon.Processor = common.GetEmptyCommandProcessor()
+		daemon.Processor = toolbox.GetEmptyCommandProcessor()
 	}
 	daemon.Processor.SetLogger(daemon.logger)
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {

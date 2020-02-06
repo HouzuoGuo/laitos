@@ -20,13 +20,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const (
@@ -76,7 +75,7 @@ type Daemon struct {
 	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
 
 	HandlerCollection HandlerCollection          `json:"-"` // Specialised handlers that implement handler.HandlerFactory interface
-	Processor         *common.CommandProcessor   `json:"-"` // Feature command processor
+	Processor         *toolbox.CommandProcessor  `json:"-"` // Feature command processor
 	AllRateLimits     map[string]*misc.RateLimit `json:"-"` // Aggregate all routes and their rate limit counters
 
 	mux           *http.ServeMux
@@ -113,7 +112,7 @@ func (daemon *Daemon) Middleware(rateLimit *misc.RateLimit, restrictedRequestSiz
 				Hence the status code here is OK.
 			*/
 			_, _ = w.Write([]byte(misc.ErrEmergencyLockDown.Error()))
-			common.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+			misc.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			return
 		}
 		// Check client IP against rate limit
@@ -124,7 +123,7 @@ func (daemon *Daemon) Middleware(rateLimit *misc.RateLimit, restrictedRequestSiz
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
 		}
-		common.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		misc.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}
 }
 
@@ -145,7 +144,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
-		daemon.Processor = common.GetEmptyCommandProcessor()
+		daemon.Processor = toolbox.GetEmptyCommandProcessor()
 	}
 	daemon.logger = lalog.Logger{
 		ComponentName: "httpd",
@@ -442,7 +441,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Body": {"incorrect PIN"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Message><![CDATA[`+filter.ErrPINAndShortcutNotFound.Error()+`]]></Message>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Message><![CDATA[`+toolbox.ErrPINAndShortcutNotFound.Error()+`]]></Message>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
@@ -499,7 +498,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Digits": {"0000000"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), filter.ErrPINAndShortcutNotFound.Error()) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), toolbox.ErrPINAndShortcutNotFound.Error()) {
 		t.Fatal(err, string(resp.Body))
 	}
 	//                         v  e r  y  s   e c  r  e t .   s    tr  u e

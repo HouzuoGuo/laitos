@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -55,10 +54,10 @@ type HandleMicrosoftBot struct {
 	conversationRateLimit *misc.RateLimit // conversationRateLimit prevents excessively chatty conversations from taking place
 
 	logger  lalog.Logger
-	cmdProc *common.CommandProcessor
+	cmdProc *toolbox.CommandProcessor
 }
 
-func (hand *HandleMicrosoftBot) Initialise(logger lalog.Logger, cmdProc *common.CommandProcessor) error {
+func (hand *HandleMicrosoftBot) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	hand.latestJwtMutex = new(sync.Mutex)

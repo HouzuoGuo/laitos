@@ -85,7 +85,7 @@ func (daemon *UDPDaemon) Initialise() error {
 }
 
 func (daemon *UDPDaemon) GetUDPStatsCollector() *misc.Stats {
-	return common.SOCKDStatsUDP
+	return misc.SOCKDStatsUDP
 }
 
 func (daemon *UDPDaemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
@@ -254,7 +254,7 @@ func (conn *UDPCipherConnection) WriteRand(dest net.Addr) {
 func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCipherConnection, n int, clientAddr *net.UDPAddr, packet []byte) {
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
-		common.SOCKDStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		misc.SOCKDStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 
 	if len(packet) < 3 {

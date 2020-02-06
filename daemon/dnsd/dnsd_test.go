@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestUpdateBlackList(t *testing.T) {
@@ -55,11 +55,11 @@ func TestDNSD(t *testing.T) {
 		t.Fatal(daemon.AllowQueryIPPrefixes)
 	}
 	// Must not initialise if command processor is not sane
-	daemon.Processor = common.GetInsaneCommandProcessor()
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
+	daemon.Processor = toolbox.GetInsaneCommandProcessor()
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), toolbox.ErrBadProcessorConfig) {
 		t.Fatal("did not error due to insane CommandProcessor")
 	}
-	daemon.Processor = common.GetTestCommandProcessor()
+	daemon.Processor = toolbox.GetTestCommandProcessor()
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}

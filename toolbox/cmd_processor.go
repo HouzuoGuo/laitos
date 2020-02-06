@@ -1,4 +1,4 @@
-package common
+package toolbox
 
 import (
 	"crypto/rand"
@@ -11,8 +11,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/toolbox"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 )
 
 const (
@@ -46,9 +44,9 @@ var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(
 
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
-	Features       *toolbox.FeatureSet    // Features is the aggregation of initialised toolbox feature routines.
-	CommandFilters []filter.CommandFilter // CommandFilters are applied one by one to alter input command content and/or timeout.
-	ResultFilters  []filter.ResultFilter  // ResultFilters are applied one by one to alter command execution result.
+	Features       *FeatureSet     // Features is the aggregation of initialised toolbox feature routines.
+	CommandFilters []CommandFilter // CommandFilters are applied one by one to alter input command content and/or timeout.
+	ResultFilters  []ResultFilter  // ResultFilters are applied one by one to alter command execution result.
 
 	/*
 		MaxCmdPerSec is the approximate maximum number of commands allowed to be processed per second.
@@ -103,7 +101,7 @@ func (proc *CommandProcessor) IsEmpty() bool {
 	}
 	for _, cmdFilter := range proc.CommandFilters {
 		// An empty processor does not have a PIN
-		if pinFilter, ok := cmdFilter.(*filter.PINAndShortcuts); ok && pinFilter.PIN == "" {
+		if pinFilter, ok := cmdFilter.(*PINAndShortcuts); ok && pinFilter.PIN == "" {
 			return true
 		}
 	}
@@ -130,7 +128,7 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 		// Check whether PIN bridge is sanely configured
 		seenPIN := false
 		for _, cmdBridge := range proc.CommandFilters {
-			if pin, yes := cmdBridge.(*filter.PINAndShortcuts); yes {
+			if pin, yes := cmdBridge.(*PINAndShortcuts); yes {
 				if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
 					errs = append(errs, errors.New(ErrBadProcessorConfig+"Defined in PINAndShortcuts there has to be password PIN, command shortcuts, or both."))
 				}
@@ -151,7 +149,7 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 		// Check whether string linter is sanely configured
 		seenLinter := false
 		for _, resultBridge := range proc.ResultFilters {
-			if linter, yes := resultBridge.(*filter.LintText); yes {
+			if linter, yes := resultBridge.(*LintText); yes {
 				if linter.MaxLength < 35 || linter.MaxLength > 4096 {
 					errs = append(errs, errors.New(ErrBadProcessorConfig+"Maximum output length for LintText must be within [35, 4096]"))
 				}
@@ -172,34 +170,34 @@ filters to the execution result and return.
 A special content prefix called "PLT prefix" alters filter settings to temporarily override timeout and max.length
 settings, and it may optionally discard a number of characters from the beginning.
 */
-func (proc *CommandProcessor) Process(cmd toolbox.Command, runResultFilters bool) (ret *toolbox.Result) {
+func (proc *CommandProcessor) Process(cmd Command, runResultFilters bool) (ret *Result) {
 	proc.initialiseOnce()
 	// Refuse to execute a command if global lock down has been triggered
 	if misc.EmergencyLockDown {
-		return &toolbox.Result{Error: misc.ErrEmergencyLockDown}
+		return &Result{Error: misc.ErrEmergencyLockDown}
 	}
 	// Refuse to execute a command if the internal rate limit has been reached
 	if !proc.rateLimit.Add("instance", true) {
-		return &toolbox.Result{Error: ErrRateLimitExceeded}
+		return &Result{Error: ErrRateLimitExceeded}
 	}
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
 	var filterDisapproval error
-	var matchedFeature toolbox.Feature
-	var overrideLintText filter.LintText
+	var matchedFeature Feature
+	var overrideLintText LintText
 	var hasOverrideLintText bool
 	var logCommandContent string
 	// Walk the command through all filters
 	for _, cmdBridge := range proc.CommandFilters {
 		cmd, filterDisapproval = cmdBridge.Transform(cmd)
 		if filterDisapproval != nil {
-			ret = &toolbox.Result{Error: filterDisapproval}
+			ret = &Result{Error: filterDisapproval}
 			goto result
 		}
 	}
 	// If filters approve, then the command execution is to be tracked in stats.
 	defer func() {
-		CommandStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		misc.CommandStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	// Trim spaces and expect non-empty command
 	if ret = cmd.Trim(); ret != nil {
@@ -209,38 +207,38 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command, runResultFilters bool
 	if cmd.FindAndRemovePrefix(PrefixCommandPLT) {
 		// Find the configured LintText bridge
 		for _, resultBridge := range proc.ResultFilters {
-			if aBridge, isLintText := resultBridge.(*filter.LintText); isLintText {
+			if aBridge, isLintText := resultBridge.(*LintText); isLintText {
 				overrideLintText = *aBridge
 				hasOverrideLintText = true
 				break
 			}
 		}
 		if !hasOverrideLintText {
-			ret = &toolbox.Result{Error: errors.New("PLT is not available because LintText is not used")}
+			ret = &Result{Error: errors.New("PLT is not available because LintText is not used")}
 			goto result
 		}
 		// Parse P. L. T. <cmd> parameters
 		pltParams := RegexCommandWithPLT.FindStringSubmatch(cmd.Content)
 		if len(pltParams) != 5 { // 4 groups + 1
-			ret = &toolbox.Result{Error: ErrBadPLT}
+			ret = &Result{Error: ErrBadPLT}
 			goto result
 		}
 		var intErr error
 		if overrideLintText.BeginPosition, intErr = strconv.Atoi(pltParams[1]); intErr != nil {
-			ret = &toolbox.Result{Error: ErrBadPLT}
+			ret = &Result{Error: ErrBadPLT}
 			goto result
 		}
 		if overrideLintText.MaxLength, intErr = strconv.Atoi(pltParams[2]); intErr != nil {
-			ret = &toolbox.Result{Error: ErrBadPLT}
+			ret = &Result{Error: ErrBadPLT}
 			goto result
 		}
 		if cmd.TimeoutSec, intErr = strconv.Atoi(pltParams[3]); intErr != nil {
-			ret = &toolbox.Result{Error: ErrBadPLT}
+			ret = &Result{Error: ErrBadPLT}
 			goto result
 		}
 		cmd.Content = pltParams[4]
 		if cmd.Content == "" {
-			ret = &toolbox.Result{Error: ErrBadPLT}
+			ret = &Result{Error: ErrBadPLT}
 			goto result
 		}
 	}
@@ -254,7 +252,7 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command, runResultFilters bool
 	for prefix, configuredFeature := range proc.Features.LookupByTrigger {
 		if cmd.FindAndRemovePrefix(string(prefix)) {
 			// Hacky workaround - do not log content of AES decryption commands as they can reveal encryption key
-			if prefix == toolbox.AESDecryptTrigger || prefix == toolbox.TwoFATrigger {
+			if prefix == AESDecryptTrigger || prefix == TwoFATrigger {
 				logCommandContent = "<hidden due to AESDecryptTrigger or TwoFATrigger>"
 			}
 			matchedFeature = configuredFeature
@@ -263,7 +261,7 @@ func (proc *CommandProcessor) Process(cmd toolbox.Command, runResultFilters bool
 	}
 	// Unknown command prefix or the requested feature is not configured
 	if matchedFeature == nil {
-		ret = &toolbox.Result{Error: ErrBadPrefix}
+		ret = &Result{Error: ErrBadPrefix}
 		goto result
 	}
 	// Run the feature
@@ -287,11 +285,11 @@ result:
 	if runResultFilters {
 		for _, resultFilter := range proc.ResultFilters {
 			// LintText bridge may have been manipulated by override
-			if _, isLintText := resultFilter.(*filter.LintText); isLintText && hasOverrideLintText {
+			if _, isLintText := resultFilter.(*LintText); isLintText && hasOverrideLintText {
 				resultFilter = &overrideLintText
 			}
 			if err := resultFilter.Transform(ret); err != nil {
-				return &toolbox.Result{Command: ret.Command, Error: filterDisapproval}
+				return &Result{Command: ret.Command, Error: filterDisapproval}
 			}
 		}
 	}
@@ -304,20 +302,20 @@ func GetTestCommandProcessor() *CommandProcessor {
 		Prepare feature set - certain simple features such as shell commands and environment control will be available
 		right away without configuration.
 	*/
-	features := &toolbox.FeatureSet{}
+	features := &FeatureSet{}
 	if err := features.Initialise(); err != nil {
 		panic(err)
 	}
 	// Prepare realistic command bridges
-	commandBridges := []filter.CommandFilter{
-		&filter.PINAndShortcuts{PIN: TestCommandProcessorPIN},
-		&filter.TranslateSequences{Sequences: [][]string{{"alpha", "beta"}}},
+	commandBridges := []CommandFilter{
+		&PINAndShortcuts{PIN: TestCommandProcessorPIN},
+		&TranslateSequences{Sequences: [][]string{{"alpha", "beta"}}},
 	}
 	// Prepare realistic result bridges
-	resultBridges := []filter.ResultFilter{
-		&filter.LintText{TrimSpaces: true, MaxLength: 35},
-		&filter.SayEmptyOutput{},
-		&filter.NotifyViaEmail{},
+	resultBridges := []ResultFilter{
+		&LintText{TrimSpaces: true, MaxLength: 35},
+		&SayEmptyOutput{},
+		&NotifyViaEmail{},
 	}
 	return &CommandProcessor{
 		Features:       features,
@@ -328,7 +326,7 @@ func GetTestCommandProcessor() *CommandProcessor {
 
 // Return a do-nothing yet sane command processor that has a random long password, rendering it unable to invoke any feature.
 func GetEmptyCommandProcessor() *CommandProcessor {
-	features := &toolbox.FeatureSet{}
+	features := &FeatureSet{}
 	if err := features.Initialise(); err != nil {
 		panic(err)
 	}
@@ -338,12 +336,12 @@ func GetEmptyCommandProcessor() *CommandProcessor {
 	}
 	return &CommandProcessor{
 		Features: features,
-		CommandFilters: []filter.CommandFilter{
-			&filter.PINAndShortcuts{PIN: hex.EncodeToString(randPIN)},
+		CommandFilters: []CommandFilter{
+			&PINAndShortcuts{PIN: hex.EncodeToString(randPIN)},
 		},
-		ResultFilters: []filter.ResultFilter{
-			&filter.LintText{MaxLength: 35},
-			&filter.SayEmptyOutput{},
+		ResultFilters: []ResultFilter{
+			&LintText{MaxLength: 35},
+			&SayEmptyOutput{},
 		},
 	}
 }
@@ -353,18 +351,18 @@ GetInsaneCommandProcessor returns a command processor that does not have a sane 
 This is a test case helper.
 */
 func GetInsaneCommandProcessor() *CommandProcessor {
-	features := &toolbox.FeatureSet{}
+	features := &FeatureSet{}
 	if err := features.Initialise(); err != nil {
 		panic(err)
 	}
 	return &CommandProcessor{
 		Features: features,
-		CommandFilters: []filter.CommandFilter{
-			&filter.PINAndShortcuts{PIN: "short"},
+		CommandFilters: []CommandFilter{
+			&PINAndShortcuts{PIN: "short"},
 		},
-		ResultFilters: []filter.ResultFilter{
-			&filter.LintText{MaxLength: 10},
-			&filter.SayEmptyOutput{},
+		ResultFilters: []ResultFilter{
+			&LintText{MaxLength: 10},
+			&SayEmptyOutput{},
 		},
 	}
 }

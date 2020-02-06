@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 // An HTTP handler function factory.
 type Handler interface {
 	// Initialise prepares internal handler states and optionally memorises the logger and command processor instance.
-	Initialise(lalog.Logger, *common.CommandProcessor) error
+	Initialise(lalog.Logger, *toolbox.CommandProcessor) error
 
 	// GetHandler is the HTTP handler implementation that uses handler internal states to serve API requests.
 	Handle(http.ResponseWriter, *http.Request)

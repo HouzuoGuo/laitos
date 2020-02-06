@@ -1,11 +1,12 @@
 package smtpd
 
 import (
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
-	"github.com/HouzuoGuo/laitos/inet"
 	"strings"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestSMTPD_StartAndBlock(t *testing.T) {
@@ -90,12 +91,12 @@ func TestSMTPD_StartAndBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Must not initialise if command processor has insane configuration
-	daemon.CommandRunner.Processor = common.GetInsaneCommandProcessor()
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
+	daemon.CommandRunner.Processor = toolbox.GetInsaneCommandProcessor()
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), toolbox.ErrBadProcessorConfig) {
 		t.Fatal(err)
 	}
 	// Give it a good command processor
-	daemon.CommandRunner.Processor = common.GetTestCommandProcessor()
+	daemon.CommandRunner.Processor = toolbox.GetTestCommandProcessor()
 
 	// Must not initialise if mail processor reply mailer is myself
 	daemon.CommandRunner.ReplyMailClient = inet.MailClient{

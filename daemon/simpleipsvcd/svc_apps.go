@@ -1,11 +1,11 @@
 package simpleipsvcd
 
 import (
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"net"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // TCPService implements common.TCPApp interface for a simple IP service.
@@ -16,7 +16,7 @@ type TCPService struct {
 
 // GetTCPStatsCollector returns the stats collector that counts and times client connections for the TCP application.
 func (svc *TCPService) GetTCPStatsCollector() *misc.Stats {
-	return common.SimpleIPStatsTCP
+	return misc.SimpleIPStatsTCP
 }
 
 // HandleTCPConnection
@@ -34,7 +34,7 @@ type UDPService struct {
 
 // GetUDPStatsCollector returns the stats collector that counts and times client connections for the TCP application.
 func (svc *UDPService) GetUDPStatsCollector() *misc.Stats {
-	return common.SimpleIPStatsUDP
+	return misc.SimpleIPStatsUDP
 }
 
 // HandleTCPConnection

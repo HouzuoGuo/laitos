@@ -6,15 +6,14 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
+	"github.com/HouzuoGuo/laitos/toolbox"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // GetTCPStatsCollector returns stats collector for the TCP server of this daemon.
 func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
-	return common.DNSDStatsTCP
+	return misc.DNSDStatsTCP
 }
 
 // HandleConnection converses with a TCP DNS client.
@@ -71,7 +70,7 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 	}
 	if dtmfDecoded := DecodeDTMFCommandInput(queriedName); len(dtmfDecoded) > 1 {
 		cmdResult := daemon.latestCommands.Execute(daemon.Processor, dtmfDecoded)
-		if cmdResult.Error == filter.ErrPINAndShortcutNotFound {
+		if cmdResult.Error == toolbox.ErrPINAndShortcutNotFound {
 			/*
 				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is
 				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.

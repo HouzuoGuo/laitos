@@ -176,7 +176,7 @@ func (daemon *Daemon) ProcessMail(fromAddr, mailBody string) {
 
 // GetTCPStatsCollector returns the stats collector that counts and times client connections for the TCP application.
 func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
-	return common.SMTPDStats
+	return misc.SMTPDStats
 }
 
 // HandleTCPConnection converses with the SMTP client. The client connection is closed by server upon returning from the implementation.

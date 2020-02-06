@@ -1,4 +1,4 @@
-package filter
+package toolbox
 
 import (
 	"bytes"
@@ -8,15 +8,14 @@ import (
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 var RegexConsecutiveSpaces = regexp.MustCompile("[[:space:]]+") // match consecutive space characters
 
 // ResultFilter applies transformations to command execution result, the result is modified in-place.
 type ResultFilter interface {
-	Transform(*toolbox.Result) error // Operate on the command result. Return an error if no further transformation shall be done.
-	SetLogger(lalog.Logger)          // Assign a logger to use
+	Transform(*Result) error // Operate on the command result. Return an error if no further transformation shall be done.
+	SetLogger(lalog.Logger)  // Assign a logger to use
 }
 
 /*
@@ -37,7 +36,7 @@ type LintText struct {
 	MaxLength               int  `json:"MaxLength"`
 }
 
-func (lint *LintText) Transform(result *toolbox.Result) error {
+func (lint *LintText) Transform(result *Result) error {
 	ret := result.CombinedOutput
 	// Trim
 	if lint.TrimSpaces {
@@ -102,7 +101,7 @@ func (notify *NotifyViaEmail) IsConfigured() bool {
 	return notify.Recipients != nil && len(notify.Recipients) > 0 && notify.MailClient.IsConfigured()
 }
 
-func (notify *NotifyViaEmail) Transform(result *toolbox.Result) error {
+func (notify *NotifyViaEmail) Transform(result *Result) error {
 	if notify.IsConfigured() && result.Error != ErrPINAndShortcutNotFound {
 		go func() {
 			subject := inet.OutgoingMailSubjectKeyword + "-notify-" + result.Command.Content
@@ -125,7 +124,7 @@ type SayEmptyOutput struct {
 var RegexGraphChar = regexp.MustCompile("[[:graph:]]") // Match any visible character
 const EmptyOutputText = "EMPTY OUTPUT"                 // Text to substitute empty combined output with (SayEmptyOutput)
 
-func (empty *SayEmptyOutput) Transform(result *toolbox.Result) error {
+func (empty *SayEmptyOutput) Transform(result *Result) error {
 	if !RegexGraphChar.MatchString(result.CombinedOutput) {
 		result.CombinedOutput = EmptyOutputText
 	}

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -113,9 +114,6 @@ var CommonMailLogger = lalog.Logger{
 	ComponentID:   []lalog.LoggerIDField{{Key: "Common", Value: "Shared"}},
 }
 
-// OutstandingMailBytes is the total size of all outstanding mails waiting to be delivered.
-var OutstandingMailBytes int64
-
 // Send emails via SMTP.
 type MailClient struct {
 	MailFrom     string `json:"MailFrom"`     // FROM address of the outgoing mails
@@ -139,9 +137,9 @@ func (client *MailClient) sendMailWithRetry(from string, recipients []string, me
 	var auth smtp.Auth
 
 	// Count the size of this Email
-	atomic.AddInt64(&OutstandingMailBytes, int64(len(message)))
+	atomic.AddInt64(&misc.OutstandingMailBytes, int64(len(message)))
 	defer func() {
-		atomic.AddInt64(&OutstandingMailBytes, -int64(len(message)))
+		atomic.AddInt64(&misc.OutstandingMailBytes, -int64(len(message)))
 	}()
 
 	CommonMailLogger.Info("sendMailWithRetry", from, nil, "attempting to deliver mail to %v", recipients)
@@ -180,7 +178,7 @@ func (client *MailClient) sendMailWithRetry(from string, recipients []string, me
 		cancel()
 		CommonMailLogger.Warning("sendMailWithRetry", from, err, "failed to deliver mail to %v in the attempt %d (tls error? %v)", recipients, i, tlsErr)
 		// At least one attempt of mail delivery must have been made in order to consider dropping the mail
-		if atomic.LoadInt64(&OutstandingMailBytes) > MaxOutstandingMailSize {
+		if atomic.LoadInt64(&misc.OutstandingMailBytes) > MaxOutstandingMailSize {
 			CommonMailLogger.Warning("sendMailWithRetry", from, nil, "max outstanding mail size is reached, permanently dropping mail of size %d", len(message))
 			return
 		}

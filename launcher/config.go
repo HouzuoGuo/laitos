@@ -9,7 +9,6 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/serialport"
 
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
@@ -24,7 +23,6 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 )
 
 /*
@@ -34,12 +32,12 @@ by deserialised JSON text.
 */
 type StandardFilters struct {
 	// For input command content
-	TranslateSequences filter.TranslateSequences `json:"TranslateSequences"`
-	PINAndShortcuts    filter.PINAndShortcuts    `json:"PINAndShortcuts"`
+	TranslateSequences toolbox.TranslateSequences `json:"TranslateSequences"`
+	PINAndShortcuts    toolbox.PINAndShortcuts    `json:"PINAndShortcuts"`
 
 	// For command execution result
-	NotifyViaEmail filter.NotifyViaEmail `json:"NotifyViaEmail"`
-	LintText       filter.LintText       `json:"LintText"`
+	NotifyViaEmail toolbox.NotifyViaEmail `json:"NotifyViaEmail"`
+	LintText       toolbox.LintText       `json:"LintText"`
 }
 
 // Configure path to HTTP handlers and handler themselves.
@@ -237,15 +235,15 @@ func (config *Config) DeserialiseFromJSON(in []byte) error {
 func (config *Config) GetDNSD() *dnsd.Daemon {
 	config.dnsDaemonInit.Do(func() {
 		// Assemble DNS command prcessor from features and filters
-		config.DNSDaemon.Processor = &common.CommandProcessor{
+		config.DNSDaemon.Processor = &toolbox.CommandProcessor{
 			Features: config.Features,
-			CommandFilters: []filter.CommandFilter{
+			CommandFilters: []toolbox.CommandFilter{
 				&config.DNSFilters.PINAndShortcuts,
 				&config.DNSFilters.TranslateSequences,
 			},
-			ResultFilters: []filter.ResultFilter{
+			ResultFilters: []toolbox.ResultFilter{
 				&config.DNSFilters.LintText,
-				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&toolbox.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.DNSFilters.NotifyViaEmail,
 			},
 		}
@@ -260,15 +258,15 @@ func (config *Config) GetDNSD() *dnsd.Daemon {
 // GetSerialPortDaemon initialises serial port devices daemon instance and returns it.
 func (config *Config) GetSerialPortDaemon() *serialport.Daemon {
 	config.serialPortDaemonInit.Do(func() {
-		config.SerialPortDaemon.Processor = &common.CommandProcessor{
+		config.SerialPortDaemon.Processor = &toolbox.CommandProcessor{
 			Features: config.Features,
-			CommandFilters: []filter.CommandFilter{
+			CommandFilters: []toolbox.CommandFilter{
 				&config.SerialPortFilters.PINAndShortcuts,
 				&config.SerialPortFilters.TranslateSequences,
 			},
-			ResultFilters: []filter.ResultFilter{
+			ResultFilters: []toolbox.ResultFilter{
 				&config.SerialPortFilters.LintText,
-				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&toolbox.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.SerialPortFilters.NotifyViaEmail,
 			},
 		}
@@ -321,15 +319,15 @@ func (config *Config) GetMaintenance() *maintenance.Daemon {
 func (config *Config) GetHTTPD() *httpd.Daemon {
 	config.httpDaemonInit.Do(func() {
 		// Assemble command processor from features and filters
-		config.HTTPDaemon.Processor = &common.CommandProcessor{
+		config.HTTPDaemon.Processor = &toolbox.CommandProcessor{
 			Features: config.Features,
-			CommandFilters: []filter.CommandFilter{
+			CommandFilters: []toolbox.CommandFilter{
 				&config.HTTPFilters.PINAndShortcuts,
 				&config.HTTPFilters.TranslateSequences,
 			},
-			ResultFilters: []filter.ResultFilter{
+			ResultFilters: []toolbox.ResultFilter{
 				&config.HTTPFilters.LintText,
-				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&toolbox.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.HTTPFilters.NotifyViaEmail,
 			},
 		}
@@ -482,15 +480,15 @@ independent mail command runner is useful in certain scenarios, such as integrat
 func (config *Config) GetMailCommandRunner() *mailcmd.CommandRunner {
 	config.mailCommandRunnerInit.Do(func() {
 		// Assemble command processor from features and filters
-		config.MailCommandRunner.Processor = &common.CommandProcessor{
+		config.MailCommandRunner.Processor = &toolbox.CommandProcessor{
 			Features: config.Features,
-			CommandFilters: []filter.CommandFilter{
+			CommandFilters: []toolbox.CommandFilter{
 				&config.MailFilters.PINAndShortcuts,
 				&config.MailFilters.TranslateSequences,
 			},
-			ResultFilters: []filter.ResultFilter{
+			ResultFilters: []toolbox.ResultFilter{
 				&config.MailFilters.LintText,
-				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&toolbox.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.MailFilters.NotifyViaEmail,
 			},
 		}
@@ -522,15 +520,15 @@ It will use common mail client for sending outgoing emails.
 func (config *Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 	config.plainSocketDaemonInit.Do(func() {
 		// Assemble command processor from features and filters
-		config.PlainSocketDaemon.Processor = &common.CommandProcessor{
+		config.PlainSocketDaemon.Processor = &toolbox.CommandProcessor{
 			Features: config.Features,
-			CommandFilters: []filter.CommandFilter{
+			CommandFilters: []toolbox.CommandFilter{
 				&config.PlainSocketFilters.PINAndShortcuts,
 				&config.PlainSocketFilters.TranslateSequences,
 			},
-			ResultFilters: []filter.ResultFilter{
+			ResultFilters: []toolbox.ResultFilter{
 				&config.PlainSocketFilters.LintText,
-				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&toolbox.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.PlainSocketFilters.NotifyViaEmail,
 			},
 		}
@@ -559,15 +557,15 @@ func (config *Config) GetSockDaemon() *sockd.Daemon {
 func (config *Config) GetTelegramBot() *telegrambot.Daemon {
 	config.telegramBotInit.Do(func() {
 		// Assemble telegram bot from features and filters
-		config.TelegramBot.Processor = &common.CommandProcessor{
+		config.TelegramBot.Processor = &toolbox.CommandProcessor{
 			Features: config.Features,
-			CommandFilters: []filter.CommandFilter{
+			CommandFilters: []toolbox.CommandFilter{
 				&config.TelegramFilters.PINAndShortcuts,
 				&config.TelegramFilters.TranslateSequences,
 			},
-			ResultFilters: []filter.ResultFilter{
+			ResultFilters: []toolbox.ResultFilter{
 				&config.TelegramFilters.LintText,
-				&filter.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&toolbox.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
 				&config.TelegramFilters.NotifyViaEmail,
 			},
 		}

@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestMaintenance_Execute(t *testing.T) {
-	features := common.GetTestCommandProcessor().Features
+	features := toolbox.GetTestCommandProcessor().Features
 	maint := Daemon{
 		BlockSystemLoginExcept: []string{"root", "howard"},
 		EnableStartServices:    []string{"does-not-exist"},

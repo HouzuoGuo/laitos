@@ -1,4 +1,4 @@
-package filter
+package toolbox
 
 import (
 	"net"
@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestLintText_Transform(t *testing.T) {
 	lint := LintText{}
-	result := &toolbox.Result{}
+	result := &Result{}
 	if err := lint.Transform(result); err != nil || result.CombinedOutput != "" {
 		t.Fatal(err, result.CombinedOutput)
 	}
@@ -53,7 +52,7 @@ func TestNotifyViaEmail_Transform(t *testing.T) {
 		t.Fatal("should not be configured")
 	}
 	// It simply must not panic
-	if err := notify.Transform(&toolbox.Result{}); err != nil {
+	if err := notify.Transform(&Result{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -68,7 +67,7 @@ func TestNotifyViaEmail_Transform(t *testing.T) {
 	}
 
 	// It must not panic
-	if err := notify.Transform(&toolbox.Result{}); err != nil {
+	if err := notify.Transform(&Result{}); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(2 * time.Second)
@@ -81,7 +80,7 @@ func TestNotifyViaEmail_Transform(t *testing.T) {
 
 func TestSayEmptyOutput_Transform(t *testing.T) {
 	empty := SayEmptyOutput{}
-	result := &toolbox.Result{CombinedOutput: "    \t\r\n    "}
+	result := &Result{CombinedOutput: "    \t\r\n    "}
 	if err := empty.Transform(result); err != nil || result.CombinedOutput != EmptyOutputText {
 		t.Fatal(err, result)
 	}

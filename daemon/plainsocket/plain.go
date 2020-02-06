@@ -33,11 +33,11 @@ const (
 
 // Daemon implements a Telnet-compatible service to provide unencrypted, plain-text access to all toolbox features, via both TCP and UDP.
 type Daemon struct {
-	Address    string                   `json:"Address"`    // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
-	TCPPort    int                      `json:"TCPPort"`    // TCP port to listen on
-	UDPPort    int                      `json:"UDPPort"`    // UDP port to listen on
-	PerIPLimit int                      `json:"PerIPLimit"` // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
-	Processor  *common.CommandProcessor `json:"-"`          // Feature command processor
+	Address    string                    `json:"Address"`    // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
+	TCPPort    int                       `json:"TCPPort"`    // TCP port to listen on
+	UDPPort    int                       `json:"UDPPort"`    // UDP port to listen on
+	PerIPLimit int                       `json:"PerIPLimit"` // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
+	Processor  *toolbox.CommandProcessor `json:"-"`          // Feature command processor
 
 	tcpServer *common.TCPServer
 	udpServer *common.UDPServer
@@ -68,7 +68,7 @@ func (daemon *Daemon) Initialise() error {
 
 // GetTCPStatsCollector returns stats collector for the TCP server of this daemon.
 func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
-	return common.PlainSocketStatsTCP
+	return misc.PlainSocketStatsTCP
 }
 
 // HandleConnection converses with a TCP client.
@@ -115,7 +115,7 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 
 // GetUDPStatsCollector returns stats collector for the UDP server of this daemon.
 func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
-	return common.PlainSocketStatsUDP
+	return misc.PlainSocketStatsUDP
 }
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
@@ -219,7 +219,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(badPINResp) != filter.ErrPINAndShortcutNotFound.Error() {
+	if string(badPINResp) != toolbox.ErrPINAndShortcutNotFound.Error() {
 		t.Fatal(string(badPINResp))
 	}
 	// With good PIN
@@ -253,7 +253,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(badPINResp) != filter.ErrPINAndShortcutNotFound.Error() {
+	if string(badPINResp) != toolbox.ErrPINAndShortcutNotFound.Error() {
 		t.Fatal(string(badPINResp))
 	}
 	// With good PIN

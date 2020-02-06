@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestMailProcessor_Process(t *testing.T) {
 	runner := CommandRunner{
-		Processor: &common.CommandProcessor{},
+		Processor: &toolbox.CommandProcessor{},
 		ReplyMailClient: inet.MailClient{
 			MTAHost:  "127.0.0.1",
 			MTAPort:  25,
@@ -23,12 +23,12 @@ func TestMailProcessor_Process(t *testing.T) {
 		t.Fatal(err)
 	}
 	// CommandRunner has insane command processor
-	runner.Processor = common.GetInsaneCommandProcessor()
+	runner.Processor = toolbox.GetInsaneCommandProcessor()
 	if err := runner.Initialise(); err == nil || !strings.Contains(err.Error(), "PIN must be at least 7") {
 		t.Fatal(err)
 	}
 	// Prepare a good processor
-	runner.Processor = common.GetTestCommandProcessor()
+	runner.Processor = toolbox.GetTestCommandProcessor()
 	TestCommandRunner(&runner, t)
 }
 
@@ -46,7 +46,7 @@ func TestMailProcessor_Process_Undocumented1Reply(t *testing.T) {
 		Undocumented1: TestUndocumented1,
 	}
 	// Prepare a good processor
-	runner.Processor = common.GetTestCommandProcessor()
+	runner.Processor = toolbox.GetTestCommandProcessor()
 	runner.Processor.Features.WolframAlpha = TestWolframAlpha
 	runner.Processor.Features.LookupByTrigger[TestWolframAlpha.Trigger()] = &TestWolframAlpha
 	if err := runner.Process([]byte(TestUndocumented1Message)); err != nil {
@@ -75,7 +75,7 @@ func TestMailProcessor_Process_Undocumented2Reply(t *testing.T) {
 		Undocumented2: TestUndocumented2,
 	}
 	// Prepare a good processor
-	runner.Processor = common.GetTestCommandProcessor()
+	runner.Processor = toolbox.GetTestCommandProcessor()
 	runner.Processor.Features.WolframAlpha = TestWolframAlpha
 	runner.Processor.Features.LookupByTrigger[TestWolframAlpha.Trigger()] = &TestWolframAlpha
 	if err := runner.Process([]byte(TestUndocumented2Message)); err != nil {
@@ -105,7 +105,7 @@ func TestMailProcessor_Process_Undocumented3Reply(t *testing.T) {
 		Undocumented3: TestUndocumented3,
 	}
 	// Prepare a good processor
-	runner.Processor = common.GetTestCommandProcessor()
+	runner.Processor = toolbox.GetTestCommandProcessor()
 	runner.Processor.Features.WolframAlpha = TestWolframAlpha
 	runner.Processor.Features.LookupByTrigger[TestWolframAlpha.Trigger()] = &TestWolframAlpha
 	if err := runner.Process([]byte(TestUndocumented3Message)); err != nil {

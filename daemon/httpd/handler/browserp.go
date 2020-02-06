@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/browser/phantomjs"
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const (
@@ -93,7 +93,7 @@ type HandleBrowserPhantomJS struct {
 	Browsers      phantomjs.Instances `json:"Browsers"`
 }
 
-func (remoteBrowser *HandleBrowserPhantomJS) Initialise(lalog.Logger, *common.CommandProcessor) error {
+func (remoteBrowser *HandleBrowserPhantomJS) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
 	return remoteBrowser.Browsers.Initialise()
 }
 
@@ -248,7 +248,7 @@ type HandleBrowserPhantomJSImage struct {
 	Browsers *phantomjs.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
-func (_ *HandleBrowserPhantomJSImage) Initialise(lalog.Logger, *common.CommandProcessor) error {
+func (_ *HandleBrowserPhantomJSImage) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
 	return nil
 }
 

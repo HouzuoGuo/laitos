@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestPlainTextDaemon(t *testing.T) {
@@ -12,11 +12,11 @@ func TestPlainTextDaemon(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "filters must be configured") {
 		t.Fatal(err)
 	}
-	daemon.Processor = common.GetInsaneCommandProcessor()
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
+	daemon.Processor = toolbox.GetInsaneCommandProcessor()
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), toolbox.ErrBadProcessorConfig) {
 		t.Fatal(err)
 	}
-	daemon.Processor = common.GetTestCommandProcessor()
+	daemon.Processor = toolbox.GetTestCommandProcessor()
 	// Test missing mandatory settings
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "TCP and UDP ports") {
 		t.Fatal(err)

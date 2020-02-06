@@ -87,7 +87,7 @@ func (daemon *TCPDaemon) Initialise() error {
 }
 
 func (daemon *TCPDaemon) GetTCPStatsCollector() *misc.Stats {
-	return common.SOCKDStatsTCP
+	return misc.SOCKDStatsTCP
 }
 
 func (daemon *TCPDaemon) HandleTCPConnection(logger lalog.Logger, ip string, client *net.TCPConn) {

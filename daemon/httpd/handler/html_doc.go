@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const (
@@ -27,7 +27,7 @@ type HandleHTMLDocument struct {
 	contentString string // contentString is the HTML document file's content in string
 }
 
-func (doc *HandleHTMLDocument) Initialise(lalog.Logger, *common.CommandProcessor) error {
+func (doc *HandleHTMLDocument) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
 	var err error
 	if doc.contentBytes, err = ioutil.ReadFile(doc.HTMLFilePath); err != nil {
 		return fmt.Errorf("HandleHTMLDocument.Initialise: failed to open HTML file at %s - %v", doc.HTMLFilePath, err)

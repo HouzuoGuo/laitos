@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
@@ -40,7 +39,7 @@ type Daemon struct {
 	// PerDeviceLimit is the approximate number of requests allowed from a serial device within a designated interval.
 	PerDeviceLimit int `json:"PerDeviceLimit"`
 	// Processor is the toolbox command processor.
-	Processor *common.CommandProcessor `json:"-"`
+	Processor *toolbox.CommandProcessor `json:"-"`
 
 	// connectedDevices contains the device names of all ongoing serial connections. The value signals ongoing connection to stop.
 	connectedDevices      map[string]chan bool
@@ -148,7 +147,7 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 		delete(daemon.connectedDevices, devPath)
 		daemon.connectedDevicesMutex.Unlock()
 		daemon.logger.Info("converseWithDevice", devPath, nil, "conversation terminated")
-		common.SerialDevicesStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+		misc.SerialDevicesStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
 	// Converse with the serial device as if it is an ordinary file. This approach works on both Windows and Linux.
 	devFile, err := os.OpenFile(devPath, os.O_RDWR, 0600)
@@ -225,7 +224,7 @@ func TestDaemon(daemon *Daemon, t testingstub.T) {
 	}()
 	// In a toolbox command, write down a valid PIN and a shell command that prints a line of text
 	anticipatedResponse := "test-daemon-response"
-	if err := ioutil.WriteFile(tmpFile.Name(), []byte(fmt.Sprintf("%s .s echo %s\r\n", common.TestCommandProcessorPIN, anticipatedResponse)), 0600); err != nil {
+	if err := ioutil.WriteFile(tmpFile.Name(), []byte(fmt.Sprintf("%s .s echo %s\r\n", toolbox.TestCommandProcessorPIN, anticipatedResponse)), 0600); err != nil {
 		t.Fatal(err)
 	}
 	// Reinitialise daemon to use a pattern to glob the temporary text file

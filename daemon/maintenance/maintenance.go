@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/inet"
@@ -192,7 +191,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	}
 	result.WriteString(toolbox.GetRuntimeInfo())
 	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
-	result.WriteString(common.GetLatestStats())
+	result.WriteString(misc.GetLatestStats())
 	if portsErr == nil {
 		result.WriteString("\nPorts: OK\n")
 	} else {

@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -97,7 +96,7 @@ func (daemon *Daemon) StartAndBlock() error {
 					} else {
 						daemon.logger.Warning("StartAndBlock", "", nil, "successfully unlocked domain %s, response is: %s", parsedURL.Host, submitResp.GetBodyUpTo(1024))
 					}
-					common.AutoUnlockStats.Trigger(float64(time.Now().UnixNano() - begin))
+					misc.AutoUnlockStats.Trigger(float64(time.Now().UnixNano() - begin))
 				}
 			}
 		}

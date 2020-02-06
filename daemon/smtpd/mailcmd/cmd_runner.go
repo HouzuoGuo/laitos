@@ -7,13 +7,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 )
 
 const CommandTimeoutSec = 120 // CommandTimeoutSec is the default command timeout in seconds
@@ -24,11 +22,11 @@ results. Usually used in combination of laitos' own SMTP daemon, but it can also
 such as the forwarding-mail-to-program mechanism from postfix.
 */
 type CommandRunner struct {
-	Undocumented1   Undocumented1            `json:"Undocumented1"` // Intentionally undocumented he he he he
-	Undocumented2   Undocumented2            `json:"Undocumented2"` // Intentionally undocumented he he he he
-	Undocumented3   Undocumented3            `json:"Undocumented3"` // Intentionally undocumented he he he he
-	Processor       *common.CommandProcessor `json:"-"`             // Feature configuration
-	ReplyMailClient inet.MailClient          `json:"-"`             // To deliver Email replies
+	Undocumented1   Undocumented1             `json:"Undocumented1"` // Intentionally undocumented he he he he
+	Undocumented2   Undocumented2             `json:"Undocumented2"` // Intentionally undocumented he he he he
+	Undocumented3   Undocumented3             `json:"Undocumented3"` // Intentionally undocumented he he he he
+	Processor       *toolbox.CommandProcessor `json:"-"`             // Feature configuration
+	ReplyMailClient inet.MailClient           `json:"-"`             // To deliver Email replies
 	logger          lalog.Logger
 
 	// processTestCaseFunc works along side of command processing routine, it offers execution result to test case for inspection.
@@ -135,7 +133,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 			runner.processTestCaseFunc(result)
 		}
 		// If this part does not have a PIN/shortcut match, simply move on to the next part.
-		if result.Error == filter.ErrPINAndShortcutNotFound {
+		if result.Error == toolbox.ErrPINAndShortcutNotFound {
 			// Move on, do not return error.
 			return true, nil
 		} else if result.Error != nil {
@@ -184,7 +182,7 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 	}
 	// If all parts have been visited but no command is found, return the PIN mismatch error.
 	if !commandIsProcessed {
-		return filter.ErrPINAndShortcutNotFound
+		return toolbox.ErrPINAndShortcutNotFound
 	}
 	return nil
 }
@@ -232,9 +230,9 @@ Status: R
 
 PIN mismatch`
 	lastResult = nil
-	if err := runner.Process([]byte(pinMismatch)); err != filter.ErrPINAndShortcutNotFound {
+	if err := runner.Process([]byte(pinMismatch)); err != toolbox.ErrPINAndShortcutNotFound {
 		t.Fatal(err)
-	} else if lastResult == nil || lastResult.Error != filter.ErrPINAndShortcutNotFound {
+	} else if lastResult == nil || lastResult.Error != toolbox.ErrPINAndShortcutNotFound {
 		t.Fatalf("should not have executed any command %+v", lastResult)
 	}
 	// PIN matches

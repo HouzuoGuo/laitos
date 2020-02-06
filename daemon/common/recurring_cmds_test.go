@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestRecurringCommands(t *testing.T) {
@@ -17,10 +19,10 @@ func TestRecurringCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmds.MaxResults = 4
-	cmds.CommandProcessor = GetTestCommandProcessor()
+	cmds.CommandProcessor = toolbox.GetTestCommandProcessor()
 	cmds.PreConfiguredCommands = []string{
-		TestCommandProcessorPIN + ".s echo first",
-		TestCommandProcessorPIN + ".s echo second",
+		toolbox.TestCommandProcessorPIN + ".s echo first",
+		toolbox.TestCommandProcessorPIN + ".s echo second",
 	}
 	if err := cmds.Initialise(); err != nil {
 		t.Fatal(err)
@@ -46,8 +48,8 @@ func TestRecurringCommands(t *testing.T) {
 	}
 
 	// Add two proper transient commands
-	cmds.AddTransientCommand(TestCommandProcessorPIN + ".s echo third")
-	cmds.AddTransientCommand(TestCommandProcessorPIN + ".s echo fourth")
+	cmds.AddTransientCommand(toolbox.TestCommandProcessorPIN + ".s echo third")
+	cmds.AddTransientCommand(toolbox.TestCommandProcessorPIN + ".s echo fourth")
 
 	// Collect result from all four commands
 	cmds.runAllCommands()

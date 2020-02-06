@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const HandleMailMePage = `<html>
@@ -47,7 +47,7 @@ type HandleMailMe struct {
 	logger lalog.Logger
 }
 
-func (mm *HandleMailMe) Initialise(logger lalog.Logger, _ *common.CommandProcessor) error {
+func (mm *HandleMailMe) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
 	mm.logger = logger
 	if mm.Recipients == nil || len(mm.Recipients) == 0 || !mm.MailClient.IsConfigured() {
 		return errors.New("HandleMailMe.Initialise: recipient list is empty or mailer is not configured")

@@ -1,5 +1,5 @@
 // filter package contains transformation functions that may be combined in order to enrich command input and result.
-package filter
+package toolbox
 
 import (
 	"crypto/subtle"
@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 /*
@@ -15,7 +14,7 @@ CommandFilter applies transformations to any aspect of input command, such as it
 function returns transformed command instead of modifying the command in-place.
 */
 type CommandFilter interface {
-	Transform(toolbox.Command) (toolbox.Command, error)
+	Transform(Command) (Command, error)
 }
 
 /*
@@ -41,7 +40,7 @@ var ErrTOTPAlreadyUsed = errors.New("the TOTP has already been used with a diffe
 /*
 getTOTP returns TOTP-based PINs that work as alternative to password PIN text input.
 TOTP based PINs are calculated based on system clock, therefore, the function returns a set of acceptable numbers in 90 seconds interval
-and user may use any of the numbers instead of password PIN, this helps to mask the real password PIN when executing toolbox commands
+and user may use any of the numbers instead of password PIN, this helps to mask the real password PIN when executing app commands
 over less-secure communication channels such as DNS queries and SMS text.
 
 The TOTP number set is calculated this way:
@@ -55,7 +54,7 @@ func (pin *PINAndShortcuts) getTOTP() (ret map[string]bool) {
 		return
 	}
 	// Calculate TOTP using password PIN - list 1
-	prev1, current1, next1, err := toolbox.GetTwoFACodes(pin.PIN)
+	prev1, current1, next1, err := GetTwoFACodes(pin.PIN)
 	if err != nil {
 		lalog.DefaultLogger.Info("getTOTP", "", err, "failed to calculate TOTP")
 		return
@@ -67,7 +66,7 @@ func (pin *PINAndShortcuts) getTOTP() (ret map[string]bool) {
 	}
 	reversedStr := string(reversed)
 	// Calculate TOTP using reversed password PIN - list 2
-	prev2, current2, next2, err := toolbox.GetTwoFACodes(reversedStr)
+	prev2, current2, next2, err := GetTwoFACodes(reversedStr)
 	if err != nil {
 		lalog.DefaultLogger.Info("getTOTP", "", err, "failed to calculate TOTP")
 		return
@@ -85,9 +84,9 @@ func (pin *PINAndShortcuts) getTOTP() (ret map[string]bool) {
 	return
 }
 
-func (pin *PINAndShortcuts) Transform(cmd toolbox.Command) (toolbox.Command, error) {
+func (pin *PINAndShortcuts) Transform(cmd Command) (Command, error) {
 	if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
-		return toolbox.Command{}, errors.New("PINAndShortcut must use a password PIN, shortcut(s), or both.")
+		return Command{}, errors.New("PINAndShortcut must use a password PIN, shortcut(s), or both.")
 	}
 	// Calculate password-derived TOTP codes that can be used in place of password PIN
 	totpCodes := pin.getTOTP()
@@ -108,7 +107,7 @@ func (pin *PINAndShortcuts) Transform(cmd toolbox.Command) (toolbox.Command, err
 		if pin.PIN != "" {
 			if len(line) > len(pin.PIN) && subtle.ConstantTimeCompare([]byte(line[:len(pin.PIN)]), []byte(pin.PIN)) == 1 {
 				ret := cmd
-				// Remove matched password from the input, leave the toolbox command in-place.
+				// Remove matched password from the input, leave the app command in-place.
 				ret.Content = line[len(pin.PIN):]
 				return ret, nil
 			}
@@ -139,7 +138,7 @@ type TranslateSequences struct {
 	Sequences [][]string `json:"Sequences"`
 }
 
-func (tr *TranslateSequences) Transform(cmd toolbox.Command) (toolbox.Command, error) {
+func (tr *TranslateSequences) Transform(cmd Command) (Command, error) {
 	if tr.Sequences == nil {
 		return cmd, nil
 	}

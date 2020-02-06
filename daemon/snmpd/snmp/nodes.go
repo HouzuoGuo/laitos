@@ -6,7 +6,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 )
@@ -54,23 +53,23 @@ var (
 		},
 		/// 1.3.6.1.4.1.52535.121.110 Integer - number of command execution attempts
 		110: func() interface{} {
-			return int64(common.CommandStats.Count())
+			return int64(misc.CommandStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.111 Integer - number of web server requests processed
 		111: func() interface{} {
-			return int64(common.HTTPDStats.Count())
+			return int64(misc.HTTPDStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.112 Integer - number of SMTP conversations
 		112: func() interface{} {
-			return int64(common.SMTPDStats.Count())
+			return int64(misc.SMTPDStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.114 Integer - number of SMTP conversations
 		114: func() interface{} {
-			return int64(common.AutoUnlockStats.Count())
+			return int64(misc.AutoUnlockStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.115 Integer - size of outstanding mails to deliver in bytes
 		115: func() interface{} {
-			return int64(inet.OutstandingMailBytes)
+			return int64(misc.OutstandingMailBytes)
 		},
 	}
 	/*

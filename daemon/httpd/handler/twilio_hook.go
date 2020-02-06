@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -45,10 +44,10 @@ type HandleTwilioSMSHook struct {
 	senderRateLimit *misc.RateLimit // senderRateLimit prevents excessive SMS replies from being replied to spam numbers
 
 	logger  lalog.Logger
-	cmdProc *common.CommandProcessor
+	cmdProc *toolbox.CommandProcessor
 }
 
-func (hand *HandleTwilioSMSHook) Initialise(logger lalog.Logger, cmdProc *common.CommandProcessor) error {
+func (hand *HandleTwilioSMSHook) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	// Allow maximum of 1 SMS to be received every 5 seconds, per phone number.
@@ -102,10 +101,10 @@ type HandleTwilioCallHook struct {
 
 	senderRateLimit *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
 	logger          lalog.Logger
-	cmdProc         *common.CommandProcessor
+	cmdProc         *toolbox.CommandProcessor
 }
 
-func (hand *HandleTwilioCallHook) Initialise(logger lalog.Logger, cmdProc *common.CommandProcessor) error {
+func (hand *HandleTwilioCallHook) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
 	if hand.CallGreeting == "" || hand.CallbackEndpoint == "" {
 		return errors.New("HandleTwilioCallHook.Initialise: greeting and callback endpoint must not be empty")
 	}
@@ -155,10 +154,10 @@ type HandleTwilioCallCallback struct {
 
 	senderRateLimit *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
 	logger          lalog.Logger
-	cmdProc         *common.CommandProcessor
+	cmdProc         *toolbox.CommandProcessor
 }
 
-func (hand *HandleTwilioCallCallback) Initialise(logger lalog.Logger, cmdProc *common.CommandProcessor) error {
+func (hand *HandleTwilioCallCallback) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
 	if hand.MyEndpoint == "" {
 		return errors.New("HandleTwilioCallCallback.Initialise: MyEndpoint must not be empty")
 	}

@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"net/http"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
@@ -17,7 +17,7 @@ type HandleSystemInfo struct {
 	logger             lalog.Logger
 }
 
-func (info *HandleSystemInfo) Initialise(logger lalog.Logger, _ *common.CommandProcessor) error {
+func (info *HandleSystemInfo) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
 	info.logger = logger
 	return nil
 }
@@ -31,7 +31,7 @@ func (info *HandleSystemInfo) Handle(w http.ResponseWriter, r *http.Request) {
 	result.WriteString(toolbox.GetRuntimeInfo())
 	// Latest stats
 	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
-	result.WriteString(common.GetLatestStats())
+	result.WriteString(misc.GetLatestStats())
 	// Warnings, logs, and stack traces, in that order.
 	result.WriteString("\nWarnings:\n")
 	result.WriteString(toolbox.GetLatestWarnings())

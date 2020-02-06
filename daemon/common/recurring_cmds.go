@@ -27,7 +27,7 @@ type RecurringCommands struct {
 	// MaxResults is the maximum number of results to memorise from command execution and text messages.
 	MaxResults int `json:"MaxResults"`
 	// CommandProcessor is the one going to run all commands.
-	CommandProcessor *CommandProcessor `json:"-"`
+	CommandProcessor *toolbox.CommandProcessor `json:"-"`
 
 	/*
 		transientCommands are new commands that are added on the fly and can be cleared by calling a function.

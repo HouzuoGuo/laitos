@@ -4,8 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/daemon/common"
-	"github.com/HouzuoGuo/laitos/lalog"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -14,6 +12,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 // HandleFileUploadPage is the HTML source code template of the file upload page.
@@ -55,7 +56,7 @@ type HandleFileUpload struct {
 }
 
 // Initialise prepares handler logger.
-func (upload *HandleFileUpload) Initialise(logger lalog.Logger, _ *common.CommandProcessor) error {
+func (upload *HandleFileUpload) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
 	upload.logger = logger
 	return nil
 }

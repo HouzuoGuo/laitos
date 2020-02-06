@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/remotevm"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const (
@@ -97,7 +97,7 @@ type HandleVirtualMachine struct {
 }
 
 // Initialise internal state of the HTTP handler.
-func (handler *HandleVirtualMachine) Initialise(logger lalog.Logger, _ *common.CommandProcessor) error {
+func (handler *HandleVirtualMachine) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
 	handler.logger = logger
 	// Calculate the number of CPUs and amount of memory to be granted to virtual machine
 	// Give the virtual machine half of the system CPUs
@@ -255,7 +255,7 @@ type HandleVirtualMachineScreenshot struct {
 }
 
 // Initialise is not applicable to this HTTP handler, as its internal
-func (_ *HandleVirtualMachineScreenshot) Initialise(lalog.Logger, *common.CommandProcessor) error {
+func (_ *HandleVirtualMachineScreenshot) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
 	// Initialised by HandleVirtualMachine.Initialise
 	return nil
 }

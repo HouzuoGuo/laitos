@@ -7,6 +7,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const HandleRecurringCommandsSetupPage = `<html>
@@ -41,7 +42,7 @@ type HandleRecurringCommands struct {
 	logger            lalog.Logger
 }
 
-func (notif *HandleRecurringCommands) Initialise(logger lalog.Logger, cmdProc *common.CommandProcessor) error {
+func (notif *HandleRecurringCommands) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
 	notif.logger = logger
 	if notif.RecurringCommands == nil || len(notif.RecurringCommands) == 0 {
 		return fmt.Errorf("HandleRecurringCommands: there must be at least one recurring command channel in configuration")

@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const HandleGitlabPage = `<html>
@@ -49,7 +49,7 @@ type HandleGitlabBrowser struct {
 	logger lalog.Logger
 }
 
-func (lab *HandleGitlabBrowser) Initialise(logger lalog.Logger, _ *common.CommandProcessor) error {
+func (lab *HandleGitlabBrowser) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
 	lab.logger = logger
 	return nil
 }

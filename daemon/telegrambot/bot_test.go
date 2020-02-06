@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func TestTelegramBot_StartAndBock(t *testing.T) {
@@ -15,13 +15,13 @@ func TestTelegramBot_StartAndBock(t *testing.T) {
 	// Must not start if command processor is insane
 	bot = Daemon{
 		AuthorizationToken: "dummy",
-		Processor:          common.GetInsaneCommandProcessor(),
+		Processor:          toolbox.GetInsaneCommandProcessor(),
 	}
-	if err := bot.Initialise(); !strings.Contains(err.Error(), common.ErrBadProcessorConfig) {
+	if err := bot.Initialise(); !strings.Contains(err.Error(), toolbox.ErrBadProcessorConfig) {
 		t.Fatal(err)
 	}
 	// Give it a good command processor and check other initialisation errors
-	cmdproc := common.GetTestCommandProcessor()
+	cmdproc := toolbox.GetTestCommandProcessor()
 	bot = Daemon{
 		AuthorizationToken: "",
 		Processor:          cmdproc,

@@ -3,8 +3,9 @@ package toolbox
 
 import (
 	"errors"
-	"github.com/HouzuoGuo/laitos/inet"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 const (
