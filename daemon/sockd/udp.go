@@ -256,6 +256,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 	defer func() {
 		common.SOCKDStatsUDP.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
+
 	var destIP net.IP
 	var packetLen int
 	addrType := packet[AddressTypeIndex]
@@ -279,8 +280,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 		}
 		destIP = packet[UDPIPAddrIndex : UDPIPAddrIndex+net.IPv6len]
 	case AddressTypeDM:
-		packetLen = int(packet[DMAddrLengthIndex]) + DMHeaderLength
-		if len(packet) < packetLen {
+		if len(packet) < DMHeaderLength || len(packet) < int(packet[DMAddrLengthIndex])+DMHeaderLength {
 			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
