@@ -19,6 +19,12 @@ type CommandFilter interface {
 }
 
 /*
+LastTOTP and LastTOTPCommandContent track the command executed and successfully authenticated via TOTP instead of password PIN entry.
+A successfully authenticated TOTP may only be used to execute a single command - one or more times while the TOTP remains valid.
+*/
+var LastTOTP, LastTOTPCommandContent string
+
+/*
 Match prefix PIN (or pre-defined shortcuts) against lines among input command. Return the matched line trimmed
 and without PIN prefix, or expanded shortcut if found.
 To successfully expend shortcut, the shortcut must occupy the entire line, without extra prefix or suffix.
@@ -30,6 +36,7 @@ type PINAndShortcuts struct {
 }
 
 var ErrPINAndShortcutNotFound = errors.New("invalid password PIN or shortcut")
+var ErrTOTPAlreadyUsed = errors.New("the TOTP has already been used with a different command")
 
 /*
 getTOTP returns TOTP-based PINs that work as alternative to password PIN text input.
@@ -106,11 +113,20 @@ func (pin *PINAndShortcuts) Transform(cmd toolbox.Command) (toolbox.Command, err
 				return ret, nil
 			}
 			// Look for a TOTP code match. The code is made of two TOTP numbers with six digits each.
-			if len(line) > 12 && totpCodes[line[:12]] {
-				ret := cmd
-				// Remove matched code from the input, leave the toolbox command in-place.
-				ret.Content = line[12:]
-				return ret, nil
+			if len(line) > 12 {
+				totpInput := line[:12]
+				if totpCodes[totpInput] {
+					// Prevent a TOTP from executing more than one commands in short succession
+					if totpInput == LastTOTP && cmd.Content != LastTOTPCommandContent {
+						return cmd, ErrTOTPAlreadyUsed
+					}
+					ret := cmd
+					LastTOTP = totpInput
+					LastTOTPCommandContent = cmd.Content
+					// Remove matched TOTP from the input, leave the toolbox command in-place.
+					ret.Content = line[12:]
+					return ret, nil
+				}
 			}
 		}
 	}

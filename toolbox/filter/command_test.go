@@ -82,10 +82,16 @@ func TestPINAndShortcuts_Transform(t *testing.T) {
 	if out, err := pin.Transform(toolbox.Command{Content: "this is not a matching totp"}); err != ErrPINAndShortcutNotFound || out.Content != "this is not a matching totp" {
 		t.Fatal(out, err)
 	}
-	if out, err := pin.Transform(toolbox.Command{Content: current1 + current2 + "apple"}); err != nil || out.Content != "apple" {
+	// Find TOTP in between multi-line text
+	if out, err := pin.Transform(toolbox.Command{Content: fmt.Sprintf("\nline1\n %s%salpha\nline\n", current1, current2)}); err != nil || out.Content != "alpha" {
 		t.Fatal(out, err)
 	}
-	if out, err := pin.Transform(toolbox.Command{Content: fmt.Sprintf("\nline1\n %s%sapple\nline\n", current1, current2)}); err != nil || out.Content != "apple" {
+	// Repeat same command using identical TOTP shall succeed
+	if out, err := pin.Transform(toolbox.Command{Content: fmt.Sprintf("\nline1\n %s%salpha\nline\n", current1, current2)}); err != nil || out.Content != "alpha" {
+		t.Fatal(out, err)
+	}
+	// Run a new command using identical TOTP shall fail - the entire command content has to match the one previously executed in order to reuse a TOTP.
+	if out, err := pin.Transform(toolbox.Command{Content: current1 + current2 + "alpha"}); err != ErrTOTPAlreadyUsed {
 		t.Fatal(out, err)
 	}
 }
