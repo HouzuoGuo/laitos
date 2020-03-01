@@ -242,7 +242,7 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	// Get ready to construct the new blacklist
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
-	numRoutines := 16
+	numRoutines := 8
 	if misc.HostIsWindows() {
 		/*
 			Windows is very slow to do concurrent DNS lookup, these parallel routines will even trick windows into
