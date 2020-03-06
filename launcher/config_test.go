@@ -149,7 +149,9 @@ var sampleConfigJSON = `
       "CallGreeting": "Hi there"
     },
     "TwilioSMSEndpoint": "/sms",
-    "WebProxyEndpoint": "/proxy"
+    "WebProxyEndpoint": "/proxy",
+		"AppCommandEndpoint": "/cmd",
+		"ReportsRetrievalEndpoint": "/reports"
   },
   "MailClient": {
     "MTAHost": "127.0.0.1",

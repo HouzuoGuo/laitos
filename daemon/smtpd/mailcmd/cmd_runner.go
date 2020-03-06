@@ -112,7 +112,7 @@ Make sure mail processor is sane before processing the incoming mail.
 Process only one command (if found) in the incoming mail. If reply addresses are specified, send command result
 to the specified addresses. If they are not specified, use the incoming mail sender's address as reply address.
 */
-func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...string) error {
+func (runner *CommandRunner) Process(clientIP string, mailContent []byte, replyAddresses ...string) error {
 	if misc.EmergencyLockDown {
 		return misc.ErrEmergencyLockDown
 	}
@@ -125,6 +125,8 @@ func (runner *CommandRunner) Process(mailContent []byte, replyAddresses ...strin
 		runner.logger.Info("Process", prop.FromAddress, nil, "process message of type %s, subject \"%s\"", prop.ContentType, prop.Subject)
 		// By contract, PIN processor finds command among input lines.
 		result := runner.Processor.Process(toolbox.Command{
+			DaemonName: "smtpd",
+			ClientID:   clientIP,
 			Content:    string(body),
 			TimeoutSec: CommandTimeoutSec,
 		}, true)
@@ -230,7 +232,7 @@ Status: R
 
 PIN mismatch`
 	lastResult = nil
-	if err := runner.Process([]byte(pinMismatch)); err != toolbox.ErrPINAndShortcutNotFound {
+	if err := runner.Process("", []byte(pinMismatch)); err != toolbox.ErrPINAndShortcutNotFound {
 		t.Fatal(err)
 	} else if lastResult == nil || lastResult.Error != toolbox.ErrPINAndShortcutNotFound {
 		t.Fatalf("should not have executed any command %+v", lastResult)
@@ -257,14 +259,14 @@ PIN mismatch
 verysecret.s echo hi
 `
 	lastResult = nil
-	if err := runner.Process([]byte(pinMatch)); err != nil {
+	if err := runner.Process("", []byte(pinMatch)); err != nil {
 		t.Fatal(err)
 	} else if lastResult == nil || lastResult.Error != nil || strings.TrimSpace(lastResult.CombinedOutput) != "hi" {
 		t.Fatalf("%+v", lastResult)
 	}
 	// PIN matches and override reply addr
 	lastResult = nil
-	if err := runner.Process([]byte(pinMatch), "root@localhost"); err != nil {
+	if err := runner.Process("", []byte(pinMatch), "root@localhost"); err != nil {
 		t.Fatal(err)
 	} else if lastResult == nil || lastResult.Error != nil || strings.TrimSpace(lastResult.CombinedOutput) != "hi" {
 		t.Fatalf("%+v", lastResult)

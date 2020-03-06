@@ -79,6 +79,9 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 			},
 		},
 	}
+	daemon.HandlerCollection["/cmd"] = &handler.HandleAppCommand{}
+	daemon.HandlerCollection["/reports"] = &handler.HandleReportsRetrieval{}
+
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}

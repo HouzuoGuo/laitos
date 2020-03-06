@@ -69,7 +69,7 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 		daemon.processQueryTestCaseFunc(queriedName)
 	}
 	if dtmfDecoded := DecodeDTMFCommandInput(queriedName); len(dtmfDecoded) > 1 {
-		cmdResult := daemon.latestCommands.Execute(daemon.Processor, dtmfDecoded)
+		cmdResult := daemon.latestCommands.Execute(daemon.Processor, clientIP, dtmfDecoded)
 		if cmdResult.Error == toolbox.ErrPINAndShortcutNotFound {
 			/*
 				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is

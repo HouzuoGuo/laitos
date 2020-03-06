@@ -182,7 +182,7 @@ func (remoteBrowserImage *HandleBrowserSlimerJSImage) Handle(w http.ResponseWrit
 }
 
 func (_ *HandleBrowserSlimerJSImage) GetRateLimitFactor() int {
-	return 2
+	return 3
 }
 
 func (_ *HandleBrowserSlimerJSImage) SelfTest() error {

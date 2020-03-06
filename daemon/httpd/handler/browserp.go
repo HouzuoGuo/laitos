@@ -283,7 +283,7 @@ func (remoteBrowserImage *HandleBrowserPhantomJSImage) Handle(w http.ResponseWri
 }
 
 func (_ *HandleBrowserPhantomJSImage) GetRateLimitFactor() int {
-	return 2
+	return 3
 }
 
 func (_ *HandleBrowserPhantomJSImage) SelfTest() error {

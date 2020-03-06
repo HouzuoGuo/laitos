@@ -29,7 +29,8 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 5 ||
+	if len(features.LookupByTrigger) != 6 ||
+		features.LookupByTrigger[".0m"] == nil || // store&forward command processor
 		features.LookupByTrigger[".c"] == nil || // public contacts
 		features.LookupByTrigger[".e"] == nil || // environment control
 		features.LookupByTrigger[".j"] == nil || // joke
@@ -42,14 +43,14 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 	if err := features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// 4 always-available features + 2 newly configured features (AES + 2FA)
-	if len(features.LookupByTrigger) != 7 {
+	// 6 always-available features + 2 newly configured features (AES + 2FA)
+	if len(features.LookupByTrigger) != 8 {
 		t.Fatal(features.LookupByTrigger)
 	}
 	if err := features.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".2", ".a", ".c", ".e", ".j", ".r", ".s"}) {
+	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".0m", ".2", ".a", ".c", ".e", ".j", ".r", ".s"}) {
 		t.Fatal(triggers)
 	}
 
@@ -62,13 +63,13 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 		if err := features.SelfTest(); err != nil {
 			t.Fatal(err)
 		}
-		if len(features.LookupByTrigger) != 14 {
+		if len(features.LookupByTrigger) != 15 {
 			t.Skip(features.LookupByTrigger)
 		}
 		if err := features.Initialise(); err != nil {
 			t.Fatal(err)
 		}
-		if len(features.LookupByTrigger) != 14 {
+		if len(features.LookupByTrigger) != 15 {
 			t.Fatal(features.LookupByTrigger)
 		}
 		if err := features.SelfTest(); err != nil {

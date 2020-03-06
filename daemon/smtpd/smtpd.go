@@ -154,7 +154,7 @@ func (daemon *Daemon) Initialise() error {
 }
 
 // Unconditionally forward the mail to forward addresses, then process feature commands if they are found.
-func (daemon *Daemon) ProcessMail(fromAddr, mailBody string) {
+func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
 	bodyBytes := []byte(mailBody)
 	// Forward the mail
 	if err := daemon.ForwardMailClient.SendRaw(daemon.ForwardMailClient.MailFrom, bodyBytes, daemon.ForwardTo...); err == nil {
@@ -168,7 +168,7 @@ func (daemon *Daemon) ProcessMail(fromAddr, mailBody string) {
 	}
 	// Run feature command from mail body
 	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
-		if err := daemon.CommandRunner.Process(bodyBytes); err != nil {
+		if err := daemon.CommandRunner.Process(clientIP, bodyBytes); err != nil {
 			daemon.logger.Warning("ProcessMail", fromAddr, err, "failed to process toolbox command from mail body")
 		}
 	}
@@ -243,7 +243,7 @@ done:
 	if fromAddr != "" && len(toAddrs) > 0 && mailBody != "" {
 		daemon.logger.Info("HandleTCPConnection", ip, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
 		// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
-		daemon.ProcessMail(fromAddr, mailBody)
+		daemon.ProcessMail(ip, fromAddr, mailBody)
 	} else {
 		smtpConn.AnswerNegative()
 		completionStatus += " & rejected mail due to missing parameters"

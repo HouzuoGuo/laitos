@@ -90,6 +90,7 @@ func (cmds *RecurringCommands) runAllCommands() {
 		for _, cmd := range cmds.PreConfiguredCommands {
 			// Skip result filters that may send notifications or manipulate result in other means
 			cmds.results.Push(cmds.CommandProcessor.Process(toolbox.Command{
+				DaemonName: "RecurringCommands",
 				TimeoutSec: TimerCommandTimeoutSec,
 				Content:    cmd,
 			}, false).CombinedOutput)
@@ -104,6 +105,7 @@ func (cmds *RecurringCommands) runAllCommands() {
 	for _, cmd := range transientCommands {
 		// Skip result filters that may send notifications or manipulate result in other means
 		cmds.results.Push(cmds.CommandProcessor.Process(toolbox.Command{
+			DaemonName: "RecurringCommands",
 			TimeoutSec: TimerCommandTimeoutSec,
 			Content:    cmd,
 		}, false).CombinedOutput)

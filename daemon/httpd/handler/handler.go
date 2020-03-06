@@ -40,16 +40,22 @@ func NoCache(w http.ResponseWriter) {
 }
 
 /*
-GetRealClientIP returns the IP of HTTP client who made the request.
-Usually, the return value is identical to IP portion of RemoteAddr, but if there is an nginx
-proxy in front of web server (typical for Elastic Beanstalk), the return value will be client IP
-address read from header "X-Real-Ip".
+GetRealClientIP returns the IP of HTTP client that initiated the HTTP request.
+Usually, the return value is identical to IP portion of RemoteAddr, but if there is a proxy server in between,
+such as a load balancer or LAN proxy, the return value will be the client IP address read from header
+"X-Real-Ip" (preferred) or "X-Forwarded-For".
 */
 func GetRealClientIP(r *http.Request) string {
 	ip := r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')]
 	if strings.HasPrefix(ip, "127.") {
 		if realIP := r.Header["X-Real-Ip"]; len(realIP) > 0 {
 			ip = realIP[0]
+		} else if forwardedFor := r.Header["X-Forwarded-For"]; len(forwardedFor) > 0 {
+			// X-Forwarded-For value looks like "1.1.1.1[, 2.2.2.2, 3.3.3.3 ...]" where the first IP is the client IP
+			split := strings.Split(forwardedFor[0], ",")
+			if len(split) > 0 {
+				ip = split[0]
+			}
 		}
 	}
 	return ip

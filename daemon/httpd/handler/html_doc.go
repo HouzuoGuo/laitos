@@ -49,7 +49,7 @@ func (_ *HandleHTMLDocument) GetRateLimitFactor() int {
 	/*
 		Usually nobody visits the index page (or plain HTML document) this often, but on Elastic Beanstalk the nginx
 		proxy in front of the HTTP 80 server visits the index page a lot! If HTTP server fails to serve this page,
-		Elastic Beanstalk will consider the instance unhealthy. Therefore, the factor here allows 4x as many requests
+		Elastic Beanstalk will consider the instance unhealthy. Therefore, the factor here allows 8x as many requests
 		to be processed.
 	*/
 	return 8

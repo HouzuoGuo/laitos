@@ -18,10 +18,16 @@ var (
 	ErrIncompleteConfig = errors.New("incomplete configuration")
 )
 
-// Execution details for invoking a feature.
+// Command is a text representing app command input, collected by a daemon.
 type Command struct {
+	// ClientID identifies the origin/client of the command input to the receiving daemon, such as an IP address, this is used for logging.
+	ClientID string
+	// DaemonName is the name of daemon that received this command, this is used for logging.
+	DaemonName string
+	// TimeoutSec is what the daemon thinks the timeout of command execution shall be.
 	TimeoutSec int
-	Content    string
+	// Content is the app command input.
+	Content string
 }
 
 // Modify command content to remove leading and trailing white spaces. Return error result if command becomes empty afterwards.

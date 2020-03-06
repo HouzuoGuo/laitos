@@ -96,6 +96,15 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 	misc.EmergencyLockDown = false
 }
 
+func TestCommandProcessor_LengthLimit(t *testing.T) {
+	proc := GetTestCommandProcessor()
+
+	result := proc.Process(Command{Content: TestCommandProcessorPIN + ".s " + strings.Repeat("a", MaxCmdLength)}, true)
+	if result.Error != ErrCommandTooLong {
+		t.Fatalf("%+v", result)
+	}
+}
+
 func TestCommandProcessor_RateLimit(t *testing.T) {
 	proc := GetTestCommandProcessor()
 	proc.MaxCmdPerSec = 2

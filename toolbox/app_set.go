@@ -14,22 +14,25 @@ FeatureSet contains an instance of every available toolbox feature. Together the
 and receive configuration from JSON.
 */
 type FeatureSet struct {
-	AESDecrypt         AESDecrypt          `json:"AESDecrypt"`
-	BrowserPhantomJS   BrowserPhantomJS    `json:"BrowserPhantomJS"`
-	BrowserSlimerJS    BrowserSlimerJS     `json:"BrowserSlimerJS"`
-	PublicContact      PublicContact       `json:"PublicContact"`
-	EnvControl         EnvControl          `json:"EnvControl"`
-	IMAPAccounts       IMAPAccounts        `json:"IMAPAccounts"`
-	Joke               Joke                `json:"Joke"`
-	RSS                RSS                 `json:"RSS"`
-	SendMail           SendMail            `json:"SendMail"`
-	Shell              Shell               `json:"Shell"`
-	TextSearch         TextSearch          `json:"TextSearch"`
-	Twilio             Twilio              `json:"Twilio"`
-	Twitter            Twitter             `json:"Twitter"`
-	TwoFACodeGenerator TwoFACodeGenerator  `json:"TwoFACodeGenerator"`
-	WolframAlpha       WolframAlpha        `json:"WolframAlpha"`
-	LookupByTrigger    map[Trigger]Feature `json:"-"`
+	LookupByTrigger map[Trigger]Feature `json:"-"`
+
+	AESDecrypt         AESDecrypt         `json:"AESDecrypt"`
+	BrowserPhantomJS   BrowserPhantomJS   `json:"BrowserPhantomJS"`
+	BrowserSlimerJS    BrowserSlimerJS    `json:"BrowserSlimerJS"`
+	PublicContact      PublicContact      `json:"PublicContact"`
+	EnvControl         EnvControl         `json:"EnvControl"`
+	IMAPAccounts       IMAPAccounts       `json:"IMAPAccounts"`
+	Joke               Joke               `json:"Joke"`
+	RSS                RSS                `json:"RSS"`
+	SendMail           SendMail           `json:"SendMail"`
+	Shell              Shell              `json:"Shell"`
+	TextSearch         TextSearch         `json:"TextSearch"`
+	Twilio             Twilio             `json:"Twilio"`
+	Twitter            Twitter            `json:"Twitter"`
+	TwoFACodeGenerator TwoFACodeGenerator `json:"TwoFACodeGenerator"`
+	WolframAlpha       WolframAlpha       `json:"WolframAlpha"`
+
+	MessageProcessor MessageProcessor `json:"MessageProcessor"`
 }
 
 //var TestFeatureSet = FeatureSet{} // Features are assigned by init_test.go
@@ -53,6 +56,8 @@ func (fs *FeatureSet) Initialise() error {
 		fs.Twitter.Trigger():            &fs.Twitter,            // t
 		fs.TwoFACodeGenerator.Trigger(): &fs.TwoFACodeGenerator, // 2
 		fs.WolframAlpha.Trigger():       &fs.WolframAlpha,       // w
+
+		fs.MessageProcessor.Trigger(): &fs.MessageProcessor, // 0m
 	}
 	errs := make([]string, 0)
 	for trigger, featureRef := range triggers {

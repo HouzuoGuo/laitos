@@ -1,13 +1,23 @@
 package toolbox
 
 import (
+	"encoding/json"
+	"log"
+	"os"
+	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestMessageProcessor_StoreReport(t *testing.T) {
-	proc := NewMessageProcessor()
+	proc := &MessageProcessor{}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 
 	// Retrieve non-existent reports
 	if reports := proc.GetLatestReports(1000); len(reports) != 0 {
@@ -21,9 +31,7 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		SubjectIP:       "subject-ip1",
 		SubjectHostName: "subject-host-name1",
 		SubjectPlatform: "subject-platform",
-		ServerAddress:   "server-addr",
 		ServerDaemon:    "server-daemon",
-		ServerPort:      123,
 	}, "ip", "daemon")
 
 	if reports := proc.GetLatestReports(1000); len(reports) != 1 {
@@ -43,9 +51,7 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		SubjectIP:       "subject-ip2",
 		SubjectHostName: "subject-host-name2",
 		SubjectPlatform: "subject-platform",
-		ServerAddress:   "server-addr",
 		ServerDaemon:    "server-daemon",
-		ServerPort:      123,
 	}, "ip", "daemon")
 
 	// Keep in mind that reports are retrieved from latest to oldest
@@ -66,9 +72,7 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		SubjectIP:       "subject-ip1",
 		SubjectHostName: "subject-host-name1",
 		SubjectPlatform: "new-subject-platform",
-		ServerAddress:   "new-server-addr",
 		ServerDaemon:    "new-server-daemon",
-		ServerPort:      123,
 	}, "ip", "daemon")
 
 	if reports := proc.GetLatestReports(1000); len(reports) != 3 {
@@ -85,16 +89,17 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 }
 
 func TestMessageProcessor_EvictOldReports(t *testing.T) {
-	proc := NewMessageProcessor()
+	proc := &MessageProcessor{}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	// Evict older reports (10 of them) from memory
 	for i := 0; i < MaxReportsPerHostName+10; i++ {
 		proc.StoreReport(SubjectReportRequest{
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name1",
 			SubjectPlatform: "new-subject-platform",
-			ServerAddress:   "new-server-addr",
 			ServerDaemon:    "new-server-daemon",
-			ServerPort:      123,
 		}, "ip", "daemon")
 	}
 
@@ -112,18 +117,19 @@ func TestMessageProcessor_EvictOldReports(t *testing.T) {
 }
 
 func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
-	proc := NewMessageProcessor()
+	proc := &MessageProcessor{}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	// Store a report
 	proc.StoreReport(SubjectReportRequest{
 		SubjectIP:       "1",
 		SubjectHostName: "subject-host-name1",
 		SubjectPlatform: "new-subject-platform",
-		ServerAddress:   "new-server-addr",
 		ServerDaemon:    "new-server-daemon",
-		ServerPort:      123,
 	}, "ip", "daemon")
 	// Change the timestamp of the report to make it expire
-	(*proc.SubjectReports["subject-host-name1"])[0].StoredAt = time.Now().Add(-(SubjectExpirySecond + 1) * time.Second)
+	(*proc.SubjectReports["subject-host-name1"])[0].OriginalRequest.ServerTime = time.Now().Add(-(SubjectExpirySecond + 1) * time.Second)
 
 	// Store thousands of reports for an active subject, which triggers clean up in the meanwhile.
 	for i := 0; i < MaxReportsPerHostName+10; i++ {
@@ -131,13 +137,303 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name2",
 			SubjectPlatform: "new-subject-platform",
-			ServerAddress:   "new-server-addr",
 			ServerDaemon:    "new-server-daemon",
-			ServerPort:      123,
 		}, "ip", "daemon")
 	}
 
 	if reports := proc.GetLatestReportsFromSubject("subject-host-name1", 1000); len(reports) != 0 {
 		t.Fatal(len(reports))
+	}
+	if len(proc.OutstandingCommands) != 0 {
+		t.Fatalf("%+v", proc.OutstandingCommands)
+	}
+}
+
+func TestMessageProcessor_processCommandRequest_QuickCommand(t *testing.T) {
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	// Store a report that carries a command with incorrect password
+	cmd := "BadPass .s echo 123"
+	resp := proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+		CommandRequest:  AppCommandRequest{Command: cmd},
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
+		resp.CommandResponse.Result != ErrPINAndShortcutNotFound.Error() {
+		t.Fatalf("%+v", resp)
+	}
+	// Store a report that carries a quick command
+	cmd = TestCommandProcessorPIN + ".s echo 123"
+	resp = proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+		CommandRequest:  AppCommandRequest{Command: cmd},
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
+		resp.CommandResponse.Result != "123" {
+		t.Fatalf("%+v", resp)
+	}
+}
+
+func TestMessageProcessor_processCommandRequest_RecursiveCommand(t *testing.T) {
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	// Store a report that carries a recursive command, which shall be met with an error response.
+	cmd := TestCommandProcessorPIN + `.0m  {  "something JSON`
+	resp := proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+		CommandRequest:  AppCommandRequest{Command: cmd},
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
+		!strings.Contains(resp.CommandResponse.Result, "will not run a recursive") {
+		t.Fatalf("%+v", resp)
+	}
+	if len(proc.OutstandingCommands) != 0 {
+		t.Fatalf("%+v", proc.OutstandingCommands)
+	}
+}
+
+func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	// The slow command test uses "touch" shell command that is not compatible with Windows
+	misc.SkipIfWindows(t)
+	// Store a report that carries a slow command
+	fileName := "/tmp/laitos-storenforward-slow-command"
+	_ = os.Remove(fileName)
+	defer os.Remove(fileName)
+	cmd := TestCommandProcessorPIN + ".s sleep 3; touch " + fileName + "; echo done"
+	go func() {
+		resp := proc.StoreReport(SubjectReportRequest{
+			SubjectHostName: "subject-host-name1",
+			CommandRequest:  AppCommandRequest{Command: cmd},
+		}, "ip", "daemon")
+		if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+			resp.CommandResponse.Result != "done" {
+			log.Panicf("%+v", resp)
+		}
+	}()
+	// Retrieve result of that outstanding command - duration -1 indicates the command execution is still ongoing
+	time.Sleep(1 * time.Second)
+	resp := proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+		CommandRequest:  AppCommandRequest{Command: cmd},
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != -1 ||
+		resp.CommandResponse.Result != "" {
+		t.Fatalf("%+v", resp)
+	}
+	if _, err := os.Stat(fileName); !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	// Retrieve result of that outstanding command - without repeating the same command in the request
+	time.Sleep(1 * time.Second)
+	resp = proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != "" || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != -1 ||
+		resp.CommandResponse.Result != "" {
+		t.Fatalf("%+v", resp)
+	}
+	if _, err := os.Stat(fileName); !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	// Retrieve result of the completed command
+	time.Sleep(2 * time.Second)
+	resp = proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != "" || resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+		resp.CommandResponse.Result != "done" {
+		t.Fatalf("%+v", resp)
+	}
+	if _, err := os.Stat(fileName); err != nil {
+		t.Fatal(err)
+	}
+	// Delete the created file and for the next 5 seconds ensure that the file is not created, i.e. command not repeated
+	if err := os.Remove(fileName); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		time.Sleep(1 * time.Second)
+		resp = proc.StoreReport(SubjectReportRequest{
+			SubjectHostName: "subject-host-name1",
+		}, "ip", "daemon")
+		if resp.CommandRequest.Command != "" || resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+			resp.CommandResponse.Result != "done" {
+			t.Fatalf("%+v", resp)
+		}
+		if _, err := os.Stat(fileName); !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testing.T) {
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	// The slow command test uses "touch" shell command that is not compatible with Windows
+	misc.SkipIfWindows(t)
+
+	// The first slow command ultimately creates a new file
+	fileName1 := "/tmp/laitos-storenforward-slow-alternating-command1"
+	cmd1 := TestCommandProcessorPIN + ".s sleep 3; touch " + fileName1 + "; echo done1"
+	_ = os.Remove(fileName1)
+	defer os.Remove(fileName1)
+	go func() {
+		resp := proc.StoreReport(SubjectReportRequest{
+			SubjectHostName: "subject-host-name1",
+			CommandRequest:  AppCommandRequest{Command: cmd1},
+		}, "ip", "daemon")
+		if resp.CommandRequest.Command != cmd1 || resp.CommandResponse.Command != cmd1 || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+			resp.CommandResponse.Result != "done1" {
+			log.Panicf("%+v", resp)
+		}
+	}()
+	// Retrieve result of that outstanding command - duration -1 indicates the command execution is still ongoing
+	time.Sleep(1 * time.Second)
+	resp := proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != "" || resp.CommandResponse.Command != cmd1 || resp.CommandResponse.RunDurationSec != -1 ||
+		resp.CommandResponse.Result != "" {
+		t.Fatalf("%+v", resp)
+	}
+	if _, err := os.Stat(fileName1); !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	// The second slow command also creates a new file
+	fileName2 := "/tmp/laitos-storenforward-slow-alternating-command1"
+	cmd2 := TestCommandProcessorPIN + ".s sleep 3; touch " + fileName2 + "; echo done2"
+	_ = os.Remove(fileName2)
+	defer os.Remove(fileName2)
+	go func() {
+		resp := proc.StoreReport(SubjectReportRequest{
+			SubjectHostName: "subject-host-name1",
+			CommandRequest:  AppCommandRequest{Command: cmd2},
+		}, "ip", "daemon")
+		if resp.CommandRequest.Command != cmd2 || resp.CommandResponse.Command != cmd2 || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+			resp.CommandResponse.Result != "done2" {
+			log.Panicf("%+v", resp)
+		}
+	}()
+
+	// Retrieve result of the second outstanding command
+	time.Sleep(1 * time.Second)
+	resp = proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+		CommandRequest:  AppCommandRequest{Command: cmd2},
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != cmd2 || resp.CommandResponse.Command != cmd2 || resp.CommandResponse.RunDurationSec != -1 ||
+		resp.CommandResponse.Result != "" {
+		t.Fatalf("%+v", resp)
+	}
+	if _, err := os.Stat(fileName2); !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	// Wait till both commands are completed and check that both files now exist
+	time.Sleep(4 * time.Second)
+	if _, err := os.Stat(fileName1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(fileName2); err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve the output from second command
+	resp = proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+		CommandRequest:  AppCommandRequest{Command: cmd2},
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != cmd2 || resp.CommandResponse.Command != cmd2 || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+		resp.CommandResponse.Result != "done2" {
+		t.Fatalf("%+v", resp)
+	}
+}
+
+func TestMessageProcessor_App(t *testing.T) {
+	// Initialise with a bad command processor results in an error
+	proc := &MessageProcessor{CmdProcessor: GetInsaneCommandProcessor()}
+	if err := proc.Initialise(); err == nil || !strings.Contains(err.Error(), "bad configuration") {
+		t.Fatal(err)
+	}
+	if !proc.IsConfigured() {
+		t.Fatal("not configured")
+	}
+
+	// Initialise with a good command processor
+	proc = &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if !proc.IsConfigured() {
+		t.Fatal("not configured")
+	}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if err := proc.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Construct the report and encode into JSON
+	report := SubjectReportRequest{
+		SubjectIP:       "subject-ip",
+		SubjectHostName: "subject-host-name",
+		SubjectPlatform: "subject-platform",
+		ServerDaemon:    "subject-daemon",
+		ServerTime:      time.Now(),
+		CommandRequest: AppCommandRequest{
+			Command: TestCommandProcessorPIN + ".s echo hi",
+		},
+	}
+	reportJSON, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%s", reportJSON)
+
+	// Send it to app for execution
+	result := proc.Execute(Command{
+		ClientID:   "subject-ip",
+		DaemonName: "command-daemon-name",
+		Content:    string(reportJSON),
+	})
+	if result.Error != nil || result.Output == "" {
+		t.Fatalf("%+v", result)
+	}
+	t.Logf("Report size is %d, response size is %d", len(reportJSON), len(result.Output))
+	// Decode execution result
+	var resp SubjectReportResponse
+	if err := json.Unmarshal([]byte(result.Output), &resp); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify execution result
+	if resp.CommandRequest != report.CommandRequest || resp.CommandResponse.Command != report.CommandRequest.Command ||
+		resp.CommandResponse.Result != "hi" || resp.CommandResponse.RunDurationSec != 0 {
+		t.Fatalf("%+v", resp)
+	}
+	// Verify stored report
+	reports := proc.GetLatestReports(100)
+	if len(reports) != 1 {
+		t.Fatalf("%+v", reports)
+	}
+	report0 := reports[0]
+	if time.Now().Unix()-report0.OriginalRequest.ServerTime.Unix() > 3 {
+		t.Fatalf("%+v", report0)
+	}
+	report0.OriginalRequest.ServerTime = report.ServerTime
+	if report0.DaemonName != "command-daemon-name" || report0.SubjectClientIP != "subject-ip" || !reflect.DeepEqual(report0.OriginalRequest, report) {
+		t.Fatalf("%+v", report0)
 	}
 }

@@ -33,8 +33,8 @@ const (
 	RateLimitIntervalSec            = 1  // Rate limit is calculated at 1 second interval
 	IOTimeoutSec                    = 60 // IO timeout for both read and write operations
 
-	// MaxRequestBodyBytes is the maximum size of request the HTTP server will process (8MB).
-	MaxRequestBodyBytes = 8 * 1024 * 1024
+	// MaxRequestBodyBytes is the maximum size of request the HTTP server will process (1MB).
+	MaxRequestBodyBytes = 1024 * 1024
 )
 
 // HandlerCollection is a mapping between URL and implementation of handlers. It does not contain directory handlers.
@@ -597,6 +597,47 @@ EMPTY OUTPUT.
 over.]]></Say>`) {
 			t.Fatal(err, string(resp.Body))
 		}
+	}
+
+	// Test app command execution endpoint
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
+		Method: http.MethodPost,
+		Body:   strings.NewReader(url.Values{"cmd": {toolbox.TestCommandProcessorPIN + ".s echo hi"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleAppCommand{}))
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "hi" {
+		t.Fatal(err, string(resp.Body))
+	}
+
+	// Test reports endpoint
+	httpd.Processor.Features.MessageProcessor.StoreReport(toolbox.SubjectReportRequest{
+		SubjectHostName: "subject-host-name",
+	}, "client-ip1", "client-daemon1")
+	httpd.Processor.Features.MessageProcessor.StoreReport(toolbox.SubjectReportRequest{
+		SubjectHostName: "subject-host-name",
+	}, "client-ip2", "client-daemon2")
+	// Retrieve both reports
+	var reports []toolbox.SubjectReport
+	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatal(err, string(resp.Body))
+	}
+	if err := json.Unmarshal(resp.Body, &reports); err != nil {
+		t.Fatal(err)
+	}
+	if len(reports) != 2 || reports[0].SubjectClientIP != "client-ip2" || reports[1].SubjectClientIP != "client-ip1" {
+		t.Fatalf("%+v", reports)
+	}
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
+		Method: http.MethodPost,
+		Body:   strings.NewReader(url.Values{"n": {"1"}, "host": {"subject-host-name"}}.Encode()),
+	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatal(err, string(resp.Body))
+	}
+	if err := json.Unmarshal(resp.Body, &reports); err != nil {
+		t.Fatal(err)
+	}
+	if len(reports) != 1 || reports[0].SubjectClientIP != "client-ip2" {
+		t.Fatalf("%+v", reports)
 	}
 }
 

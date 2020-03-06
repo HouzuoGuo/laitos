@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"sync"
@@ -28,6 +29,8 @@ const (
 
 	// MaxCmdPerSecHardLimit is the hard uppper limit of the approximate maximum number of commands a command processor will process in a second.
 	MaxCmdPerSecHardLimit = 1000
+	// MaxCmdLength is the maximum length of a single command, including password PIN and other prefixes, the command processor will accept.
+	MaxCmdLength = 1024 * 1024
 )
 
 // ErrBadPrefix is a command execution error triggered if the command does not contain a valid toolbox feature trigger.
@@ -35,6 +38,9 @@ var ErrBadPrefix = errors.New("bad prefix or feature is not configured")
 
 // ErrBadPLT reminds user of the proper syntax to invoke PLT magic.
 var ErrBadPLT = errors.New(PrefixCommandPLT + " P L T command")
+
+// ErrCommandTooLong is a command execution error indicating that the input is too long and cannot be accepted.
+var ErrCommandTooLong = fmt.Errorf("command input exceeds the maximum length of %d characters", MaxCmdLength)
 
 // ErrRateLimitExceeded is a command execution error indicating that the internal command processing rate limit has been exceeded
 var ErrRateLimitExceeded = errors.New("command processor internal rate limit has been exceeded")
@@ -180,6 +186,11 @@ func (proc *CommandProcessor) Process(cmd Command, runResultFilters bool) (ret *
 	if !proc.rateLimit.Add("instance", true) {
 		return &Result{Error: ErrRateLimitExceeded}
 	}
+	// Refuse to execute a command if it is exceedingly long
+	if len(cmd.Content) > MaxCmdLength {
+		return &Result{Error: ErrCommandTooLong}
+	}
+
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
 	var filterDisapproval error
@@ -255,6 +266,13 @@ func (proc *CommandProcessor) Process(cmd Command, runResultFilters bool) (ret *
 			if prefix == AESDecryptTrigger || prefix == TwoFATrigger {
 				logCommandContent = "<hidden due to AESDecryptTrigger or TwoFATrigger>"
 			}
+			/*
+				Hacky workaround - do not run result filter for the store&forward message processor, which runs an app command
+				with its own command processor and its own result filters.
+			*/
+			if prefix == StoreAndForwardMessageProcessorTrigger {
+				runResultFilters = false
+			}
 			matchedFeature = configuredFeature
 			break
 		}
@@ -265,9 +283,9 @@ func (proc *CommandProcessor) Process(cmd Command, runResultFilters bool) (ret *
 		goto result
 	}
 	// Run the feature
-	proc.logger.Info("Process", "CommandProcessor", nil, "going to run %s", logCommandContent)
+	proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientID), nil, "running \"%s\"", logCommandContent)
 	defer func() {
-		proc.logger.Info("Process", "CommandProcessor", nil, "finished %s (ok? %v)", logCommandContent, ret.Error == nil)
+		proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientID), nil, "completed \"%s\" (ok? %v)", logCommandContent, ret.Error == nil)
 	}()
 	ret = matchedFeature.Execute(cmd)
 result:

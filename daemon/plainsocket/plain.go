@@ -18,7 +18,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
-	"github.com/HouzuoGuo/laitos/toolbox/filter"
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -74,8 +73,8 @@ func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
 // HandleConnection converses with a TCP client.
 func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *net.TCPConn) {
 	daemon.Processor.SetLogger(logger)
-	// Allow up to 4MB of commands to be received per connection
-	reader := textproto.NewReader(bufio.NewReader(io.LimitReader(conn, 4*1048576)))
+	// Allow up to 1MB of commands to be received per connection
+	reader := textproto.NewReader(bufio.NewReader(io.LimitReader(conn, 1*1048576)))
 	for {
 		if misc.EmergencyLockDown {
 			logger.Warning("HandleTCPConnection", "", misc.ErrEmergencyLockDown, "")
@@ -102,7 +101,12 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 			continue
 		}
 		// Process line of command and respond
-		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec}, true)
+		result := daemon.Processor.Process(toolbox.Command{
+			DaemonName: "plainsocket",
+			ClientID:   ip,
+			Content:    string(line),
+			TimeoutSec: CommandTimeoutSec,
+		}, true)
 		if err := conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
 			return
 		} else if _, err := conn.Write([]byte(result.CombinedOutput)); err != nil {
@@ -145,7 +149,12 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 			continue
 		}
 		// Process line of command and respond
-		result := daemon.Processor.Process(toolbox.Command{Content: string(line), TimeoutSec: CommandTimeoutSec}, true)
+		result := daemon.Processor.Process(toolbox.Command{
+			DaemonName: "plainsocket",
+			ClientID:   ip,
+			Content:    string(line),
+			TimeoutSec: CommandTimeoutSec,
+		}, true)
 		if err := srv.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
 			logger.Warning("HandleUDPClient", ip, err, "failed to write response")
 			return

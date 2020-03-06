@@ -49,7 +49,7 @@ func TestMailProcessor_Process_Undocumented1Reply(t *testing.T) {
 	runner.Processor = toolbox.GetTestCommandProcessor()
 	runner.Processor.Features.WolframAlpha = TestWolframAlpha
 	runner.Processor.Features.LookupByTrigger[TestWolframAlpha.Trigger()] = &TestWolframAlpha
-	if err := runner.Process([]byte(TestUndocumented1Message)); err != nil {
+	if err := runner.Process("", []byte(TestUndocumented1Message)); err != nil {
 		t.Fatal(err)
 	}
 	// Real MTA is required for the self test
@@ -78,7 +78,7 @@ func TestMailProcessor_Process_Undocumented2Reply(t *testing.T) {
 	runner.Processor = toolbox.GetTestCommandProcessor()
 	runner.Processor.Features.WolframAlpha = TestWolframAlpha
 	runner.Processor.Features.LookupByTrigger[TestWolframAlpha.Trigger()] = &TestWolframAlpha
-	if err := runner.Process([]byte(TestUndocumented2Message)); err != nil {
+	if err := runner.Process("", []byte(TestUndocumented2Message)); err != nil {
 		t.Fatal(err)
 	}
 	// Real MTA is required for the self test
@@ -108,7 +108,7 @@ func TestMailProcessor_Process_Undocumented3Reply(t *testing.T) {
 	runner.Processor = toolbox.GetTestCommandProcessor()
 	runner.Processor.Features.WolframAlpha = TestWolframAlpha
 	runner.Processor.Features.LookupByTrigger[TestWolframAlpha.Trigger()] = &TestWolframAlpha
-	if err := runner.Process([]byte(TestUndocumented3Message)); err != nil {
+	if err := runner.Process("", []byte(TestUndocumented3Message)); err != nil {
 		t.Fatal(err)
 	}
 	// Real MTA is required for the self test

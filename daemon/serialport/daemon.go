@@ -186,7 +186,12 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 			}
 			// Execute the toolbox comamnd
 			daemon.logger.Info("converseWithDevice", devPath, nil, "received %d characters", len(cmd))
-			result := daemon.Processor.Process(toolbox.Command{Content: cmd, TimeoutSec: CommandTimeoutSec}, true)
+			result := daemon.Processor.Process(toolbox.Command{
+				DaemonName: "serialport",
+				ClientID:   devPath,
+				Content:    cmd,
+				TimeoutSec: CommandTimeoutSec,
+			}, true)
 			daemon.logger.Info("converseWithDevice", devPath, nil, "about to transmit %d characters", len(result.CombinedOutput))
 			if err := writeSlowly(devFile, []byte(result.CombinedOutput+"\r\n")); err != nil {
 				daemon.logger.Warning("converseWithDevice", devPath, err, "failed to write command response")

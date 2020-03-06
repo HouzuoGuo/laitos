@@ -80,17 +80,24 @@ type HTTPHandlers struct {
 	TwilioSMSEndpoint        string                       `json:"TwilioSMSEndpoint"`
 	TwilioCallEndpoint       string                       `json:"TwilioCallEndpoint"`
 	TwilioCallEndpointConfig handler.HandleTwilioCallHook `json:"TwilioCallEndpointConfig"`
+
+	AppCommandEndpoint       string `json:"AppCommandEndpoint"`
+	ReportsRetrievalEndpoint string `json:"ReportsRetrievalEndpoint"`
 }
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
 type Config struct {
 	/*
-		Features are toolbox feature instances shared by all daemons and command runners. Avoid duplicating this
-		structure because certain toolbox features (such as AES file decryption) may hold large amount of data in
-		memory. Therefore, all daemon preparation and initialisation routines operate on reference to this FeatureSet.
+		Features consist of all app instances, shared by all daemons and command runners. Avoid duplicating this
+		structure because certain app features (such as AES file decryption) may hold large amount of data in
+		memory. Therefore, all daemons with app command execution capability share the same app instances.
 	*/
-	Features   *toolbox.FeatureSet `json:"Features"`
-	MailClient inet.MailClient     `json:"MailClient"` // MailClient is the common client configuration for sending notification emails and mail command runner results.
+	Features *toolbox.FeatureSet `json:"Features"`
+
+	// MessageProcessorFilters configure the Message Processor app's own command processor.
+	MessageProcessorFilters StandardFilters `json:"MessageProcessorFilters"`
+
+	MailClient inet.MailClient `json:"MailClient"` // MailClient is the common client configuration for sending notification emails and mail command runner results.
 
 	Maintenance *maintenance.Daemon `json:"Maintenance"` // Daemon configures behaviour of periodic health-check/system maintenance
 
@@ -142,17 +149,36 @@ type Config struct {
 
 // Initialise decorates feature configuration and command bridge configuration in preparation for daemon operations.
 func (config *Config) Initialise() error {
-	/*
-		Fill in some blanks so that Get**** functions will be able to call Initialise() function, which in turn
-		returns an error with meaningful message telling user that daemon is lacking configuration and will not start.
-		If the nil daemons are not empty, user will only see a panic caused by nil, which is not very helpful.
-
-		For the config.Features case, an empty FeatureSet can still offer several useful features such as program
-		environment control and public institution contacts.
-	*/
+	// An empty FeatureSet can still offer several useful features such as program environment control and public institution contacts.
 	if config.Features == nil {
 		config.Features = &toolbox.FeatureSet{}
 	}
+
+	/*
+		Even though MessageProcessor is an app, it has its own command processor just like a daemon.
+		The command processor is initialised from configuration input.
+	*/
+	if config.MessageProcessorFilters.PINAndShortcuts.PIN != "" {
+		messageProcessorCommandProcessor := &toolbox.CommandProcessor{
+			Features: config.Features,
+			CommandFilters: []toolbox.CommandFilter{
+				&config.MessageProcessorFilters.PINAndShortcuts,
+				&config.MessageProcessorFilters.TranslateSequences,
+			},
+			ResultFilters: []toolbox.ResultFilter{
+				&config.MessageProcessorFilters.LintText,
+				&toolbox.SayEmptyOutput{},
+				&config.MessageProcessorFilters.NotifyViaEmail,
+			},
+		}
+		config.Features.MessageProcessor = toolbox.MessageProcessor{CmdProcessor: messageProcessorCommandProcessor}
+	}
+	/*
+		Fill in some blanks so that Get*Daemon functions will be able to call Initialise() function at very least.
+		So that if a user turns on a daemon in the daemon list but forgets to write its configuration, the individual daemon will
+		try to initialise itself (otherwise it's a nil pointer panic), and reports a helpful initialisation error reminding the
+		user of the missing configuration.
+	*/
 	config.mailCommandRunnerInit = new(sync.Once)
 	if config.MailCommandRunner == nil {
 		config.MailCommandRunner = &mailcmd.CommandRunner{}
@@ -461,6 +487,12 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			handlers[config.HTTPHandlers.TwilioCallEndpoint] = &callEndpointConfig
 			// The callback handler will use the callback point that points to itself to carry on with phone conversation
 			handlers[callbackEndpoint] = &handler.HandleTwilioCallCallback{MyEndpoint: callbackEndpoint}
+		}
+		if config.HTTPHandlers.AppCommandEndpoint != "" {
+			handlers[config.HTTPHandlers.AppCommandEndpoint] = &handler.HandleAppCommand{}
+		}
+		if config.HTTPHandlers.ReportsRetrievalEndpoint != "" {
+			handlers[config.HTTPHandlers.ReportsRetrievalEndpoint] = &handler.HandleReportsRetrieval{}
 		}
 		config.HTTPDaemon.HandlerCollection = handlers
 		if err := config.HTTPDaemon.Initialise(); err != nil {

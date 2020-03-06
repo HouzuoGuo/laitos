@@ -239,9 +239,9 @@ func (handler *HandleVirtualMachine) Handle(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// GetRateLimitFactor returns 2, which is at least 2 actions/second, more than sufficient for a virtual machine operator.
+// GetRateLimitFactor returns 3, which is at least 3 actions/second, more than sufficient for a virtual machine operator.
 func (_ *HandleVirtualMachine) GetRateLimitFactor() int {
-	return 2
+	return 3
 }
 
 // SelfTest is not applicable to this HTTP handler.
@@ -285,9 +285,9 @@ func (handler *HandleVirtualMachineScreenshot) Handle(w http.ResponseWriter, r *
 	_, _ = w.Write(jpegContent)
 }
 
-// GetRateLimitFactor returns 2, which is at least 2 screenshots/second, more than sufficient for a virtual machine operator.
+// GetRateLimitFactor returns 3, which is at least 3 screenshots/second, more than sufficient for a virtual machine operator.
 func (_ *HandleVirtualMachineScreenshot) GetRateLimitFactor() int {
-	return 2
+	return 3
 }
 
 // SelfTest is not applicable to this HTTP handler.
