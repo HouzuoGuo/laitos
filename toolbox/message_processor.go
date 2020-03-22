@@ -14,15 +14,15 @@ import (
 const (
 	/*
 		ReportIntervalSec is the recommended interval at which subjects are to send their reports to a daemon.
-		Subjects may potentially exceed this interval by reporting to multiple daemons.
+		This is only a recommendation - subjects may freely exceed or relax the interval as they see fit.
 	*/
-	ReportIntervalSec = 120
+	ReportIntervalSec = 60
 	/*
 		AppCommandResponseRetentionSec is the maximum duration to retain an app command execution result per host. During the retention period the result
 		will be available for retrieval After the retention period the result will be available for retrieval one last time, and then removed from memory.
 		The command execution timeout shares the same number.
 	*/
-	CommandResponseRetentionSec = 120
+	CommandResponseRetentionSec = ReportIntervalSec * 10
 	/*
 		MaxReportsPerHostName is the maximum number of reports to be kept in memory per each subject, identified by subject's self-reported
 		host name, regardless of which server daemon received the report.
@@ -48,6 +48,7 @@ additional subject information collected by the message processor.
 type SubjectReport struct {
 	OriginalRequest SubjectReportRequest // OriginalRequest is the agent's report received by the message processor.
 	SubjectClientIP string               // SubjectClientID is the subject's IP address as observed by server daemon.
+	ServerTime      time.Time            // ServerClock is the system time of this computer upon receiving the report.
 	DaemonName      string               // DaemonName is the name of server daemon that received this report.
 }
 
@@ -63,14 +64,18 @@ type OutstandingCommand struct {
 
 /*
 MessageProcessor collects subject reports and relays outstanding app command requests and responses using the store&forward technique.
-It implements app interfaces and works just like an ordinary app, while also offering routines that help running a store&forward
-messaging daemon.
+It also implements the usual toolbox app interface so that monitored subjects can reach it via app-compatible daemons to send their reports.
 */
 type MessageProcessor struct {
 	// SubjectReports is a map of subject's self-reported host name and its most recent reports, sorted from earliest to latest.
 	SubjectReports map[string]*[]SubjectReport `json:"-"`
-	// OutstandingCommands is a map of subject's self reported host name and an app command the processor would like it to run.
+	// OutstandingCommands is a map of subject's self reported host name and an app command the subject would like the message processor to run.
 	OutstandingCommands map[string]*OutstandingCommand `json:"-"`
+	/*
+		PendingSubjectCommand is a map of subject's self reported host name and an app command that the message processor would like the subject to run.
+		This command is delivered as often as the reports in.
+	*/
+	UpcomingSubjectCommand map[string]string `json:"-"`
 	// CmdProcessor processes app commands as requested by a remote server.
 	CmdProcessor *CommandProcessor `json:"-"`
 
@@ -79,6 +84,13 @@ type MessageProcessor struct {
 	// mutex prevents concurrent modifications made to internal structures.
 	mutex  *sync.Mutex
 	logger lalog.Logger
+}
+
+// SetUpcomingSubjectCommand stores an app command that the message processor carries in a reply to a subject report.
+func (proc *MessageProcessor) SetUpcomingSubjectCommand(host, cmdContent string) {
+	proc.mutex.Lock()
+	defer proc.mutex.Unlock()
+	proc.UpcomingSubjectCommand[host] = cmdContent
 }
 
 /*
@@ -99,6 +111,7 @@ func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientIP
 	newReport := SubjectReport{
 		OriginalRequest: request,
 		SubjectClientIP: clientIP,
+		ServerTime:      request.ServerTime,
 		DaemonName:      daemonName,
 	}
 	// Discard the oldest report
@@ -113,12 +126,21 @@ func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientIP
 	if proc.totalReports%MaxReportsPerHostName == 0 {
 		proc.removeExpiredSubjects()
 	}
+	upcomingSubjectCommand := proc.UpcomingSubjectCommand[request.SubjectHostName]
+	pendingCommandRequest := AppCommandRequest{
+		Command: upcomingSubjectCommand,
+	}
 	// Release the lock for report handling is now completed. The app command (if requested) will run without holding the lock.
 	proc.mutex.Unlock()
-	proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientIP), nil, "received report via daemon %s", daemonName)
+	cmdResponse := proc.processCommandRequest(request, clientIP, daemonName)
+	if upcomingSubjectCommand == "" {
+		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientIP), nil, "received report via daemon %s", daemonName)
+	} else {
+		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientIP), nil, "received report via daemon %s, replying with its pending app command.", daemonName)
+	}
 	return SubjectReportResponse{
-		CommandRequest:  request.CommandRequest,
-		CommandResponse: proc.processCommandRequest(request, clientIP, daemonName),
+		CommandRequest:  pendingCommandRequest,
+		CommandResponse: cmdResponse,
 	}
 }
 
@@ -305,6 +327,7 @@ func (proc *MessageProcessor) removeExpiredSubjects() {
 		proc.logger.Warning("removeExpiredSubjects", subject, nil, "removing the inactive subject, its last report was: %+v", lastReport)
 		delete(proc.SubjectReports, subject)
 		delete(proc.OutstandingCommands, subject)
+		delete(proc.UpcomingSubjectCommand, subject)
 	}
 }
 
@@ -322,6 +345,7 @@ func (proc *MessageProcessor) SelfTest() error {
 func (proc *MessageProcessor) Initialise() error {
 	proc.SubjectReports = make(map[string]*[]SubjectReport)
 	proc.OutstandingCommands = make(map[string]*OutstandingCommand)
+	proc.UpcomingSubjectCommand = make(map[string]string)
 	proc.mutex = new(sync.Mutex)
 	if proc.CmdProcessor != nil {
 		if errs := proc.CmdProcessor.IsSaneForInternet(); len(errs) > 0 {

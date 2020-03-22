@@ -639,6 +639,17 @@ over.]]></Say>`) {
 	if len(reports) != 1 || reports[0].SubjectClientIP != "client-ip2" {
 		t.Fatalf("%+v", reports)
 	}
+	// Assign subject a command to run
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
+		Method: http.MethodPost,
+		Body:   strings.NewReader(url.Values{"tohost": {"subject-host-name"}, "cmd": {"test123"}}.Encode()),
+	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "will carry an app command") {
+		t.Fatal(err, string(resp.Body))
+	}
+	if cmd := httpd.Processor.Features.MessageProcessor.UpcomingSubjectCommand["subject-host-name"]; cmd != "test123" {
+		t.Fatal(cmd)
+	}
 }
 
 const (

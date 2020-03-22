@@ -96,7 +96,7 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 			actionErr = instance.SetRenderArea(drawTop, drawLeft, drawWidth, drawHeight)
 		case "Kill All":
 			remoteBrowser.Browsers.KillAll()
-			actionErr = errors.New(fmt.Sprint("All browser sessions are gone. Please nagivate back to this browser page by re-entering the URL, do not refresh the page."))
+			actionErr = errors.New("All browser sessions are gone. Please nagivate back to this browser page by re-entering the URL, do not refresh the page.")
 		case "Back":
 			actionErr = instance.GoBack()
 		case "Forward":

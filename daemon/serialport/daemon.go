@@ -52,7 +52,7 @@ type Daemon struct {
 	logger        lalog.Logger
 }
 
-// Initialise validates configuration and initialises internal states.
+// Initialise validates the daemon configuration and initialises internal states.
 func (daemon *Daemon) Initialise() error {
 	if daemon.DeviceGlobPatterns == nil {
 		daemon.DeviceGlobPatterns = []string{}

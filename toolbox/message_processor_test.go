@@ -31,7 +31,6 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		SubjectIP:       "subject-ip1",
 		SubjectHostName: "subject-host-name1",
 		SubjectPlatform: "subject-platform",
-		ServerDaemon:    "server-daemon",
 	}, "ip", "daemon")
 
 	if reports := proc.GetLatestReports(1000); len(reports) != 1 {
@@ -39,9 +38,11 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 	} else if reports[0].OriginalRequest.SubjectIP != "subject-ip1" {
 		t.Fatalf("%+v", reports)
 	}
+	// Verify the time keeping aspect of the report as well
 	if reports := proc.GetLatestReportsFromSubject("subject-host-name1", 1000); len(reports) != 1 {
 		t.Fatalf("%+v", reports)
-	} else if reports[0].OriginalRequest.SubjectIP != "subject-ip1" {
+	} else if reports[0].OriginalRequest.SubjectIP != "subject-ip1" || time.Now().Unix()-reports[0].ServerTime.Unix() > 3 ||
+		time.Now().Unix()-reports[0].OriginalRequest.ServerTime.Unix() > 3 {
 		t.Fatalf("%+v", reports)
 	}
 
@@ -51,7 +52,6 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		SubjectIP:       "subject-ip2",
 		SubjectHostName: "subject-host-name2",
 		SubjectPlatform: "subject-platform",
-		ServerDaemon:    "server-daemon",
 	}, "ip", "daemon")
 
 	// Keep in mind that reports are retrieved from latest to oldest
@@ -72,7 +72,6 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		SubjectIP:       "subject-ip1",
 		SubjectHostName: "subject-host-name1",
 		SubjectPlatform: "new-subject-platform",
-		ServerDaemon:    "new-server-daemon",
 	}, "ip", "daemon")
 
 	if reports := proc.GetLatestReports(1000); len(reports) != 3 {
@@ -99,7 +98,6 @@ func TestMessageProcessor_EvictOldReports(t *testing.T) {
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name1",
 			SubjectPlatform: "new-subject-platform",
-			ServerDaemon:    "new-server-daemon",
 		}, "ip", "daemon")
 	}
 
@@ -126,7 +124,6 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 		SubjectIP:       "1",
 		SubjectHostName: "subject-host-name1",
 		SubjectPlatform: "new-subject-platform",
-		ServerDaemon:    "new-server-daemon",
 	}, "ip", "daemon")
 	// Change the timestamp of the report to make it expire
 	(*proc.SubjectReports["subject-host-name1"])[0].OriginalRequest.ServerTime = time.Now().Add(-(SubjectExpirySecond + 1) * time.Second)
@@ -137,7 +134,6 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name2",
 			SubjectPlatform: "new-subject-platform",
-			ServerDaemon:    "new-server-daemon",
 		}, "ip", "daemon")
 	}
 
@@ -146,6 +142,44 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 	}
 	if len(proc.OutstandingCommands) != 0 {
 		t.Fatalf("%+v", proc.OutstandingCommands)
+	}
+}
+
+func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	if err := proc.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := TestCommandProcessorPIN + ".s echo 123"
+	proc.SetUpcomingSubjectCommand("subject-host-name1", "test cmd")
+	resp := proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+		CommandRequest:  AppCommandRequest{Command: cmd},
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != "test cmd" ||
+		resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 || resp.CommandResponse.Result != "123" {
+		t.Fatalf("%+v", resp)
+	}
+
+	proc.SetUpcomingSubjectCommand("subject-host-name1", "test cmd2")
+	resp = proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+		CommandRequest:  AppCommandRequest{Command: cmd},
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != "test cmd2" ||
+		resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 || resp.CommandResponse.Result != "123" {
+		t.Fatalf("%+v", resp)
+	}
+
+	proc.SetUpcomingSubjectCommand("subject-host-name1", "")
+	resp = proc.StoreReport(SubjectReportRequest{
+		SubjectHostName: "subject-host-name1",
+		CommandRequest:  AppCommandRequest{Command: cmd},
+	}, "ip", "daemon")
+	if resp.CommandRequest.Command != "" ||
+		resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 || resp.CommandResponse.Result != "123" {
+		t.Fatalf("%+v", resp)
 	}
 }
 
@@ -160,7 +194,7 @@ func TestMessageProcessor_processCommandRequest_QuickCommand(t *testing.T) {
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
-	if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
+	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
 		resp.CommandResponse.Result != ErrPINAndShortcutNotFound.Error() {
 		t.Fatalf("%+v", resp)
 	}
@@ -170,7 +204,7 @@ func TestMessageProcessor_processCommandRequest_QuickCommand(t *testing.T) {
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
-	if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
+	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
 		resp.CommandResponse.Result != "123" {
 		t.Fatalf("%+v", resp)
 	}
@@ -187,7 +221,7 @@ func TestMessageProcessor_processCommandRequest_RecursiveCommand(t *testing.T) {
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
-	if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
+	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
 		!strings.Contains(resp.CommandResponse.Result, "will not run a recursive") {
 		t.Fatalf("%+v", resp)
 	}
@@ -213,7 +247,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 			SubjectHostName: "subject-host-name1",
 			CommandRequest:  AppCommandRequest{Command: cmd},
 		}, "ip", "daemon")
-		if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+		if resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
 			resp.CommandResponse.Result != "done" {
 			log.Panicf("%+v", resp)
 		}
@@ -224,7 +258,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
-	if resp.CommandRequest.Command != cmd || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != -1 ||
+	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != -1 ||
 		resp.CommandResponse.Result != "" {
 		t.Fatalf("%+v", resp)
 	}
@@ -236,7 +270,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 	resp = proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 	}, "ip", "daemon")
-	if resp.CommandRequest.Command != "" || resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != -1 ||
+	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != -1 ||
 		resp.CommandResponse.Result != "" {
 		t.Fatalf("%+v", resp)
 	}
@@ -248,7 +282,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 	resp = proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 	}, "ip", "daemon")
-	if resp.CommandRequest.Command != "" || resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+	if resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
 		resp.CommandResponse.Result != "done" {
 		t.Fatalf("%+v", resp)
 	}
@@ -264,7 +298,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 		resp = proc.StoreReport(SubjectReportRequest{
 			SubjectHostName: "subject-host-name1",
 		}, "ip", "daemon")
-		if resp.CommandRequest.Command != "" || resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+		if resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
 			resp.CommandResponse.Result != "done" {
 			t.Fatalf("%+v", resp)
 		}
@@ -292,7 +326,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 			SubjectHostName: "subject-host-name1",
 			CommandRequest:  AppCommandRequest{Command: cmd1},
 		}, "ip", "daemon")
-		if resp.CommandRequest.Command != cmd1 || resp.CommandResponse.Command != cmd1 || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+		if resp.CommandResponse.Command != cmd1 || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
 			resp.CommandResponse.Result != "done1" {
 			log.Panicf("%+v", resp)
 		}
@@ -302,7 +336,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 	resp := proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 	}, "ip", "daemon")
-	if resp.CommandRequest.Command != "" || resp.CommandResponse.Command != cmd1 || resp.CommandResponse.RunDurationSec != -1 ||
+	if resp.CommandResponse.Command != cmd1 || resp.CommandResponse.RunDurationSec != -1 ||
 		resp.CommandResponse.Result != "" {
 		t.Fatalf("%+v", resp)
 	}
@@ -320,7 +354,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 			SubjectHostName: "subject-host-name1",
 			CommandRequest:  AppCommandRequest{Command: cmd2},
 		}, "ip", "daemon")
-		if resp.CommandRequest.Command != cmd2 || resp.CommandResponse.Command != cmd2 || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+		if resp.CommandResponse.Command != cmd2 || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
 			resp.CommandResponse.Result != "done2" {
 			log.Panicf("%+v", resp)
 		}
@@ -332,7 +366,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd2},
 	}, "ip", "daemon")
-	if resp.CommandRequest.Command != cmd2 || resp.CommandResponse.Command != cmd2 || resp.CommandResponse.RunDurationSec != -1 ||
+	if resp.CommandResponse.Command != cmd2 || resp.CommandResponse.RunDurationSec != -1 ||
 		resp.CommandResponse.Result != "" {
 		t.Fatalf("%+v", resp)
 	}
@@ -354,7 +388,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd2},
 	}, "ip", "daemon")
-	if resp.CommandRequest.Command != cmd2 || resp.CommandResponse.Command != cmd2 || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
+	if resp.CommandResponse.Command != cmd2 || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
 		resp.CommandResponse.Result != "done2" {
 		t.Fatalf("%+v", resp)
 	}
@@ -390,7 +424,6 @@ func TestMessageProcessor_App(t *testing.T) {
 		SubjectIP:       "subject-ip",
 		SubjectHostName: "subject-host-name",
 		SubjectPlatform: "subject-platform",
-		ServerDaemon:    "subject-daemon",
 		ServerTime:      time.Now(),
 		CommandRequest: AppCommandRequest{
 			Command: TestCommandProcessorPIN + ".s echo hi",
@@ -419,8 +452,7 @@ func TestMessageProcessor_App(t *testing.T) {
 	}
 
 	// Verify execution result
-	if resp.CommandRequest != report.CommandRequest || resp.CommandResponse.Command != report.CommandRequest.Command ||
-		resp.CommandResponse.Result != "hi" || resp.CommandResponse.RunDurationSec != 0 {
+	if resp.CommandResponse.Command != report.CommandRequest.Command || resp.CommandResponse.Result != "hi" || resp.CommandResponse.RunDurationSec != 0 {
 		t.Fatalf("%+v", resp)
 	}
 	// Verify stored report

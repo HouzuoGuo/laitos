@@ -32,6 +32,7 @@ const (
 	SOCKDName            = "sockd"
 	TelegramName         = "telegram"
 	AutoUnlockName       = "autounlock"
+	PhoneHomeName        = "phonehome"
 
 	/*
 		FailureThresholdSec determines the maximum failure interval for supervisor to tolerate before taking action to shed
@@ -45,13 +46,16 @@ const (
 )
 
 // AllDaemons is an unsorted list of string daemon names.
-var AllDaemons = []string{AutoUnlockName, DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, PlainSocketName, SerialPortDaemonName, SimpleIPSvcName, SMTPDName, SNMPDName, SOCKDName, TelegramName}
+var AllDaemons = []string{
+	AutoUnlockName, DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, PhoneHomeName,
+	PlainSocketName, SerialPortDaemonName, SimpleIPSvcName, SMTPDName, SNMPDName, SOCKDName, TelegramName,
+}
 
 /*
 ShedOrder is the sequence of daemon names to be taken offline one after another by supervisor, in case of rapid and
 repeated program crash. This mechanism is inspired by design of various aircraft abnormal procedure checklists.
 The sequence is prioritised this way:
-1. Automated functions such as always-on background tasks, or those triggering at regular interval.
+1. System maintenance daemon
 2. Non-essential services that do not require authentication/authorisation.
 3. Non-essential services that require authentication/authorisation.
 4. Heavy services that use significant amount of resources.
@@ -68,7 +72,7 @@ var ShedOrder = []string{
 	SerialPortDaemonName, SimpleIPSvcName, // 2
 	SNMPDName, DNSDName, // 3
 	SOCKDName, SMTPDName, HTTPDName, // 4
-	InsecureHTTPDName, PlainSocketName, TelegramName, // 5
+	InsecureHTTPDName, PlainSocketName, TelegramName, PhoneHomeName, // 5
 	// Never shed - AutoUnlockName
 }
 

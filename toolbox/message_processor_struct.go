@@ -34,17 +34,17 @@ regularly transmitted to a server.
 The JSON attribute tags are deliberately kept short to save bandwidth in transit.
 */
 type SubjectReportRequest struct {
-	// SubjectIP is the public IP address of the computer.
+	// SubjectIP is the public IP address of the computer. This may not be identical to the client IP observed by server.
 	SubjectIP string `json:"ip"`
 	// SubjectHostName is the host name of the computer.
 	SubjectHostName string `json:"host"`
 	// SubjectPlatform is the OS and CPU architecture of the computer (GOOS/GOARCH).
 	SubjectPlatform string `json:"plat"`
+	// SubjectComment is a free from text the subject chooses to include in this report.
+	SubjectComment string `json:"comment"`
 
-	// ServerDaemon is the server daemon intended for handling this request.
-	ServerDaemon string `json:"daemon"`
-	// ServerClock is the system time of this computer upon receiving the request.
-	ServerTime time.Time `json:"time"`
+	// ServerTime is overwritten by server upon receiving the request, it is not supplied by a subject, and only used by the server internally.
+	ServerTime time.Time `json:"-"`
 
 	// CommandRequest is an app command that the subject would like server to run (if any).
 	CommandRequest AppCommandRequest `json:"req"`

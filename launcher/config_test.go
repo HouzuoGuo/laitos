@@ -228,6 +228,32 @@ var sampleConfigJSON = `
     ],
     "TuneLinux": true
   },
+	"PhoneHomeDaemon": {
+		"MessageProcessorServers": {
+			"dummy": {
+				"Password": "dummy"
+			}
+		},
+		"ReportIntervalSec": 1
+	},
+  "PhoneHomeFilters": {
+		"LintText": {
+			"CompressToSingleLine": false,
+			"MaxLength": 1000,
+			"TrimSpaces": true
+		},
+		"NotifyViaEmail": {
+			"Recipients": [
+				"howard@localhost"
+			]
+		},
+		"PINAndShortcuts": {
+			"PIN": "verysecret",
+			"Shortcuts": {
+				"plainsocketshortcut": ".secho plainsockethortcut"
+			}
+		}
+	},
   "PlainSocketDaemon": {
     "Address": "127.0.0.1",
     "PerIPLimit": 5,

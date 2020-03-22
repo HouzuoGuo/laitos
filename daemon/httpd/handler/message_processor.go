@@ -11,7 +11,10 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
-// HandleReportsRetrieval reads the latest reports from store&forward message processor.
+/*
+HandleReportsRetrieval works as a frontend to the store&forward message processor, allowing visitors to view historical reports and
+assign an app command for a subject to retireve in its next report.
+*/
 type HandleReportsRetrieval struct {
 	cmdProc *toolbox.CommandProcessor
 }
@@ -31,13 +34,23 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	NoCache(w)
 
-	// The default maximum number of reports to retrieve is 1000
+	// endpoint/..?tohost=abc&cmd=xxxxxx
+	toHost := r.FormValue("tohost")
+	upcomingAppCmd := r.FormValue("cmd")
+	if toHost != "" {
+		hand.cmdProc.Features.MessageProcessor.SetUpcomingSubjectCommand(toHost, upcomingAppCmd)
+		_, _ = w.Write([]byte(fmt.Sprintf("OK, the next reply made in response to %s's report will carry an app command %d characters long.", toHost, len(upcomingAppCmd))))
+		return
+	}
+
+	// endpoint/...?n=123&host=abc
+	host := r.FormValue("host")
 	limitStr := r.FormValue("n")
 	limitNum, _ := strconv.Atoi(limitStr)
 	if limitNum < 1 {
+		// The default maximum number of reports to retrieve is 1000
 		limitNum = 1000
 	}
-	host := r.FormValue("host")
 	jsonWriter := json.NewEncoder(w)
 	jsonWriter.SetIndent("", "  ")
 	if host == "" {

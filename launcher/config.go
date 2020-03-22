@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/HouzuoGuo/laitos/daemon/phonehome"
 	"github.com/HouzuoGuo/laitos/daemon/serialport"
 
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
@@ -113,6 +114,9 @@ type Config struct {
 
 	MailFilters StandardFilters `json:"MailFilters"` // MailFilters configure command processor for mail command runner
 
+	PhoneHomeDaemon  *phonehome.Daemon `json:"PhoneHomeDaemon"`  // PhoneHomeDaemon daemon instance and daemon configuration
+	PhoneHomeFilters StandardFilters   `json:"PhoneHomeFilters"` // PhoneHomeFilters daemon command processor configuration
+
 	PlainSocketDaemon  *plainsocket.Daemon `json:"PlainSocketDaemon"`  // Plain text protocol TCP and UDP daemon configuration
 	PlainSocketFilters StandardFilters     `json:"PlainSocketFilters"` // Plain text daemon filter configuration
 
@@ -140,6 +144,7 @@ type Config struct {
 	httpDaemonInit        *sync.Once
 	mailCommandRunnerInit *sync.Once
 	mailDaemonInit        *sync.Once
+	phoneHomeDaemonInit   *sync.Once
 	plainSocketDaemonInit *sync.Once
 	serialPortDaemonInit  *sync.Once
 	sockDaemonInit        *sync.Once
@@ -199,6 +204,10 @@ func (config *Config) Initialise() error {
 	if config.MailDaemon == nil {
 		config.MailDaemon = &smtpd.Daemon{}
 	}
+	config.phoneHomeDaemonInit = new(sync.Once)
+	if config.PhoneHomeDaemon == nil {
+		config.PhoneHomeDaemon = &phonehome.Daemon{}
+	}
 	config.plainSocketDaemonInit = new(sync.Once)
 	if config.PlainSocketDaemon == nil {
 		config.PlainSocketDaemon = &plainsocket.Daemon{}
@@ -228,9 +237,11 @@ func (config *Config) Initialise() error {
 		config.AutoUnlock = &autounlock.Daemon{}
 	}
 	// All notification filters share the common mail client
+	config.MessageProcessorFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.DNSFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.HTTPFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.MailFilters.NotifyViaEmail.MailClient = config.MailClient
+	config.PhoneHomeFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.PlainSocketFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.TelegramFilters.NotifyViaEmail.MailClient = config.MailClient
 	// SendMail feature also shares the common mail client
@@ -543,6 +554,30 @@ func (config *Config) GetMailDaemon() *smtpd.Daemon {
 		}
 	})
 	return config.MailDaemon
+}
+
+// GetPhoneHomeDaemon initialises a Phone-Home daemon and returns it.
+func (config *Config) GetPhoneHomeDaemon() *phonehome.Daemon {
+	config.phoneHomeDaemonInit.Do(func() {
+		config.PhoneHomeDaemon.Processor = &toolbox.CommandProcessor{
+			Features: config.Features,
+			CommandFilters: []toolbox.CommandFilter{
+				&config.PhoneHomeFilters.PINAndShortcuts,
+				&config.PhoneHomeFilters.TranslateSequences,
+			},
+			ResultFilters: []toolbox.ResultFilter{
+				&config.PhoneHomeFilters.LintText,
+				&toolbox.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
+				&config.PhoneHomeFilters.NotifyViaEmail,
+			},
+		}
+		// Call initialise so that daemon is ready to start
+		if err := config.PhoneHomeDaemon.Initialise(); err != nil {
+			config.logger.Abort("GetPhoneHomeDaemon", "", err, "failed to initialise")
+			return
+		}
+	})
+	return config.PhoneHomeDaemon
 }
 
 /*

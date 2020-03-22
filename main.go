@@ -287,6 +287,8 @@ func main() {
 			})
 		case launcher.MaintenanceName:
 			go AutoRestart(logger, daemonName, config.GetMaintenance().StartAndBlock)
+		case launcher.PhoneHomeName:
+			go AutoRestart(logger, daemonName, config.GetPhoneHomeDaemon().StartAndBlock)
 		case launcher.PlainSocketName:
 			go AutoRestart(logger, daemonName, config.GetPlainSocketDaemon().StartAndBlock)
 		case launcher.SerialPortDaemonName:
