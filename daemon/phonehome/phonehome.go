@@ -46,15 +46,6 @@ type Daemon struct {
 	// MessageProcessorServers is a map between message processor server URL and their configuration.
 	MessageProcessorServers map[string]*MessageProcessorServer `json:"MessageProcessorServers"`
 
-	/*
-		UseRandomDelay introduces an artifacial delay for up to 2 seconds between each report.
-		When an operator runs more than one instances of this daemon from different locations and all
-		of them reach the same message processor servers, this option gives the reports much better chance
-		at reaching all of the servers instead of reaching just the first server - keeping in mind that
-		servers do not accept identical 2FA code a second time.
-	*/
-	UseRandomDelay bool `json:"UseRandomDelay"`
-
 	// ReportIntervalSec is the interval in seconds at which this daemon reports to the servers.
 	ReportIntervalSec int `json:"ReportIntervalSec"`
 
@@ -140,10 +131,20 @@ func (daemon *Daemon) StartAndBlock() error {
 			daemon.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
-		for cmdUrl, srv := range daemon.MessageProcessorServers {
-			if daemon.UseRandomDelay {
-				time.Sleep(time.Duration(rand.Intn(3)) * time.Second)
-			}
+		/*
+			Shuffle the destination URLs that reports are sent to.
+			Reports are sent using 2FA authentication rather than the regular password authentication, if destinations
+			are not contacted in a random order, there is a chance that the daemon may reach its own server first (this
+			is a valid configuration) and it will always reject further reports as 2FA codes cannot be used a second time.
+		*/
+		allURLs := make([]string, 0, len(daemon.MessageProcessorServers))
+		for cmdURL := range daemon.MessageProcessorServers {
+			allURLs = append(allURLs, cmdURL)
+		}
+		rand.Shuffle(len(allURLs), func(i, j int) { allURLs[i], allURLs[j] = allURLs[j], allURLs[i] })
+
+		for _, cmdURL := range allURLs {
+			srv := daemon.MessageProcessorServers[cmdURL]
 			_, reportJSON := daemon.getLatestReport(srv)
 			// Send the HTTP request
 			resp, err := inet.DoHTTP(inet.HTTPRequest{
@@ -153,20 +154,20 @@ func (daemon *Daemon) StartAndBlock() error {
 				Body: strings.NewReader(url.Values{
 					"cmd": {daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + string(reportJSON)},
 				}.Encode()),
-			}, cmdUrl)
+			}, cmdURL)
 			if err != nil {
-				daemon.logger.Warning("StartAndBlock", cmdUrl, err, "failed to send HTTP request")
+				daemon.logger.Warning("StartAndBlock", cmdURL, err, "failed to send HTTP request")
 				continue
 			}
 			var reportResponse toolbox.SubjectReportResponse
 			if err := json.Unmarshal(resp.Body, &reportResponse); err != nil {
-				daemon.logger.Warning("StartAndBlock", cmdUrl, err, "failed to deserialise JSON report response - %s", resp.GetBodyUpTo(200))
+				daemon.logger.Warning("StartAndBlock", cmdURL, err, "failed to deserialise JSON report response - %s", resp.GetBodyUpTo(200))
 				continue
 			}
 			if newCmd := reportResponse.CommandRequest.Command; newCmd != "" && daemon.Processor != nil {
 				if newCmd != srv.LastAppCommand || srv.LastCommandReceivedAt.Before(time.Now().Add(-toolbox.CommandResponseRetentionSec*time.Second)) {
 					// Execute the command sent back by the server
-					daemon.logger.Info("StartAndBlock", cmdUrl, nil, "running app command from report reply")
+					daemon.logger.Info("StartAndBlock", cmdURL, nil, "running app command from report reply")
 					srv.LastAppCommand = newCmd
 					srv.LastCommandReceivedAt = time.Now()
 					// By convention duration of -1 indicates that the command is yet to complete
@@ -176,7 +177,7 @@ func (daemon *Daemon) StartAndBlock() error {
 						start := time.Now()
 						result := daemon.Processor.Process(toolbox.Command{
 							// The "client" that asked for this app command is the message processor server
-							ClientID:   cmdUrl,
+							ClientID:   cmdURL,
 							DaemonName: "phonehome",
 							TimeoutSec: toolbox.CommandResponseRetentionSec,
 							Content:    newCmd,
@@ -186,11 +187,11 @@ func (daemon *Daemon) StartAndBlock() error {
 						srv.LastCommandResult = result.CombinedOutput
 					}(srv, newCmd)
 				} else {
-					daemon.logger.Info("StartAndBlock", cmdUrl, nil,
+					daemon.logger.Info("StartAndBlock", cmdURL, nil,
 						"skipping the app command from report reply as it was run quite recently at %s", srv.LastCommandReceivedAt)
 				}
 			} else {
-				daemon.logger.Info("StartAndBlock", cmdUrl, nil, "report sent")
+				daemon.logger.Info("StartAndBlock", cmdURL, nil, "report sent")
 			}
 		}
 		/*
