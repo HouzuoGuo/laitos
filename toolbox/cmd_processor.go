@@ -48,6 +48,9 @@ var ErrRateLimitExceeded = errors.New("command processor internal rate limit has
 // RegexCommandWithPLT parses PLT magic parameters position, length, and timeout, all of which are integers.
 var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`)
 
+// RegexSubjectReportUsing2FA matches a message processor's subject report app command invoked via 2FA.
+var RegexSubjectReportUsing2FA = regexp.MustCompile(`[\d]{12}[\s]*\` + StoreAndForwardMessageProcessorTrigger)
+
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
 	Features       *FeatureSet     // Features is the aggregation of initialised toolbox feature routines.
@@ -190,6 +193,13 @@ func (proc *CommandProcessor) Process(cmd Command, runResultFilters bool) (ret *
 	if len(cmd.Content) > MaxCmdLength {
 		return &Result{Error: ErrCommandTooLong}
 	}
+	/*
+		Hacky workaround - do not run result filter for the store&forward message processor, which runs an app command
+		with its own command processor and its own result filters.
+	*/
+	if RegexSubjectReportUsing2FA.MatchString(cmd.Content) {
+		runResultFilters = false
+	}
 
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
@@ -266,13 +276,6 @@ func (proc *CommandProcessor) Process(cmd Command, runResultFilters bool) (ret *
 			if prefix == AESDecryptTrigger || prefix == TwoFATrigger {
 				logCommandContent = "<hidden due to AESDecryptTrigger or TwoFATrigger>"
 			}
-			/*
-				Hacky workaround - do not run result filter for the store&forward message processor, which runs an app command
-				with its own command processor and its own result filters.
-			*/
-			if prefix == StoreAndForwardMessageProcessorTrigger {
-				runResultFilters = false
-			}
 			matchedFeature = configuredFeature
 			break
 		}
@@ -283,9 +286,9 @@ func (proc *CommandProcessor) Process(cmd Command, runResultFilters bool) (ret *
 		goto result
 	}
 	// Run the feature
-	proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientID), nil, "running \"%s\"", logCommandContent)
+	proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientID), nil, "running \"%s\" (post-process result? %v)", logCommandContent, runResultFilters)
 	defer func() {
-		proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientID), nil, "completed \"%s\" (ok? %v)", logCommandContent, ret.Error == nil)
+		proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientID), nil, "completed \"%s\" (ok? %v post-process reslt? %v)", logCommandContent, ret.Error == nil, runResultFilters)
 	}()
 	ret = matchedFeature.Execute(cmd)
 result:

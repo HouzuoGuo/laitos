@@ -31,7 +31,6 @@ func (hand *HandleReportsRetrieval) Initialise(_ lalog.Logger, cmdProc *toolbox.
 }
 
 func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	NoCache(w)
 
 	// endpoint/..?tohost=abc&cmd=xxxxxx
@@ -39,10 +38,12 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 	upcomingAppCmd := r.FormValue("cmd")
 	if toHost != "" {
 		hand.cmdProc.Features.MessageProcessor.SetUpcomingSubjectCommand(toHost, upcomingAppCmd)
+		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte(fmt.Sprintf("OK, the next reply made in response to %s's report will carry an app command %d characters long.", toHost, len(upcomingAppCmd))))
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	// endpoint/...?n=123&host=abc
 	host := r.FormValue("host")
 	limitStr := r.FormValue("n")
@@ -55,13 +56,13 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 	jsonWriter.SetIndent("", "  ")
 	if host == "" {
 		// Get the latest reports across all hosts
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetLatestReports(limitNum)); err != nil {
 			lalog.DefaultLogger.Warning("HandleReportsRetrieval", r.Host, err, "failed to serialise JSON response")
 		}
 	} else {
 		// Get the latest reports from a particular host
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetLatestReportsFromSubject(host, limitNum)); err != nil {
 			lalog.DefaultLogger.Warning("HandleReportsRetrieval", r.Host, err, "failed to serialise JSON response")
 		}
@@ -95,10 +96,16 @@ func (hand *HandleAppCommand) Initialise(_ lalog.Logger, cmdProc *toolbox.Comman
 func (hand *HandleAppCommand) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	NoCache(w)
+	cmd := r.FormValue("cmd")
+	if cmd == "" {
+		// Ignore request that does not carry an app command
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	result := hand.cmdProc.Process(toolbox.Command{
 		DaemonName: "httpd",
 		ClientID:   GetRealClientIP(r),
-		Content:    r.FormValue("cmd"),
+		Content:    cmd,
 		TimeoutSec: HTTPClienAppCommandTimeout,
 	}, true)
 	_, _ = w.Write([]byte(result.CombinedOutput))

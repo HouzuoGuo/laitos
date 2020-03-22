@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -44,6 +45,15 @@ app command execution URLs.
 type Daemon struct {
 	// MessageProcessorServers is a map between message processor server URL and their configuration.
 	MessageProcessorServers map[string]*MessageProcessorServer `json:"MessageProcessorServers"`
+
+	/*
+		UseRandomDelay introduces an artifacial delay for up to 2 seconds between each report.
+		When an operator runs more than one instances of this daemon from different locations and all
+		of them reach the same message processor servers, this option gives the reports much better chance
+		at reaching all of the servers instead of reaching just the first server - keeping in mind that
+		servers do not accept identical 2FA code a second time.
+	*/
+	UseRandomDelay bool `json:"UseRandomDelay"`
 
 	// ReportIntervalSec is the interval in seconds at which this daemon reports to the servers.
 	ReportIntervalSec int `json:"ReportIntervalSec"`
@@ -131,6 +141,9 @@ func (daemon *Daemon) StartAndBlock() error {
 			return misc.ErrEmergencyLockDown
 		}
 		for cmdUrl, srv := range daemon.MessageProcessorServers {
+			if daemon.UseRandomDelay {
+				time.Sleep(time.Duration(rand.Intn(3)) * time.Second)
+			}
 			_, reportJSON := daemon.getLatestReport(srv)
 			// Send the HTTP request
 			resp, err := inet.DoHTTP(inet.HTTPRequest{
