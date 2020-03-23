@@ -1,6 +1,7 @@
 package phonehome
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,10 +53,8 @@ type Daemon struct {
 	// cmdProcessor runs app commands coming in from a store&forward message processor server.
 	Processor *toolbox.CommandProcessor `json:"-"`
 
-	// stop signals StartAndBlock loop to stop processing newly connected devices.
-	stop          chan bool
-	loopIsRunning bool
-	logger        lalog.Logger
+	runLoop bool
+	logger  lalog.Logger
 }
 
 // Initialise validates the daemon configuration and initalises internal states.
@@ -71,7 +70,21 @@ func (daemon *Daemon) Initialise() error {
 			return fmt.Errorf("phonehome.Initialise: %+v", errs)
 		}
 	}
-	daemon.stop = make(chan bool)
+	// Interactively ask user for the missing server passwords
+	stdioReader := bufio.NewReader(os.Stdin)
+	for url, srv := range daemon.MessageProcessorServers {
+		if srv == nil {
+			return fmt.Errorf("phonehome.Initialise: missing password configuration for server URL %s", url)
+		}
+		if srv.Password == "" {
+			fmt.Printf("phonehome.Initialise: please enter password for server URL %s:\n", url)
+			pwd, err := stdioReader.ReadString('\n')
+			if pwd == "" || err != nil {
+				return fmt.Errorf("phonehome.Initialise: missing password for server URl %s and failed to collect the password input from STDIN", url)
+			}
+			srv.Password = strings.TrimSpace(pwd)
+		}
+	}
 	daemon.logger = lalog.Logger{ComponentName: "phonehome"}
 	return nil
 }
@@ -122,10 +135,19 @@ func (daemon *Daemon) getTwoFACode(server *MessageProcessorServer) string {
 // StartAndBlock starts the periodic reports and blocks caller until the daemon is stopped.
 func (daemon *Daemon) StartAndBlock() error {
 	defer func() {
-		daemon.loopIsRunning = false
+		daemon.runLoop = false
 	}()
-	daemon.loopIsRunning = true
-	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d URLs", len(daemon.MessageProcessorServers))
+	/*
+		Instead of sending numerous reports in a row and then wait for a longer duration, send one report at a time and wait a shorter duration.
+		This helps to reduce server load and overall offers more reliability.
+		If there is a large number of servers to contact, the minimum interval will be one second.
+	*/
+	intervalSecBetweenReports := daemon.ReportIntervalSec / len(daemon.MessageProcessorServers)
+	if intervalSecBetweenReports < 1 {
+		intervalSecBetweenReports = 1
+	}
+	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d URLs and pausing %d seconds between each", len(daemon.MessageProcessorServers), intervalSecBetweenReports)
+	daemon.runLoop = true
 	for {
 		if misc.EmergencyLockDown {
 			daemon.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
@@ -144,6 +166,10 @@ func (daemon *Daemon) StartAndBlock() error {
 		rand.Shuffle(len(allURLs), func(i, j int) { allURLs[i], allURLs[j] = allURLs[j], allURLs[i] })
 
 		for _, cmdURL := range allURLs {
+			if !daemon.runLoop {
+				return nil
+			}
+			time.Sleep(time.Duration(intervalSecBetweenReports) * time.Second)
 			srv := daemon.MessageProcessorServers[cmdURL]
 			_, reportJSON := daemon.getLatestReport(srv)
 			// Send the HTTP request
@@ -194,24 +220,12 @@ func (daemon *Daemon) StartAndBlock() error {
 				daemon.logger.Info("StartAndBlock", cmdURL, nil, "report sent")
 			}
 		}
-		/*
-			Sleep for the interval and continue to the next round.
-			The actual reporting interval is not going to be exactly the recommended interval due to latency with IO.
-		*/
-		select {
-		case <-daemon.stop:
-			return nil
-		case <-time.After(time.Duration(daemon.ReportIntervalSec) * time.Second):
-		}
 	}
 }
 
 // Stop the daemon.
 func (daemon *Daemon) Stop() {
-	if daemon.loopIsRunning {
-		daemon.loopIsRunning = false
-		daemon.stop <- true
-	}
+	daemon.runLoop = false
 }
 
 // TestServer implements test cases for the phone-home daemon.

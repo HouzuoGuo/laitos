@@ -12,7 +12,7 @@ func TestPhoneHomeDaemon(t *testing.T) {
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "at least one entry") {
 		t.Fatal(err)
 	}
-	daemon.MessageProcessorServers = map[string]*MessageProcessorServer{"a": nil}
+	daemon.MessageProcessorServers = map[string]*MessageProcessorServer{"a": &MessageProcessorServer{Password: "a"}}
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), toolbox.ErrBadProcessorConfig) {
 		t.Fatal(err)
 	}
