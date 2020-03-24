@@ -107,7 +107,7 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 	// Construct HTTP client and optionally disable TLS strict verification
 	client := &http.Client{
 		Timeout:   time.Duration(reqParam.TimeoutSec) * time.Second,
-		Transport: &http.Transport{DisableKeepAlives: true},
+		Transport: &http.Transport{},
 	}
 	defer client.CloseIdleConnections()
 	if reqParam.InsecureTLS {
