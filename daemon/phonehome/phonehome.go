@@ -185,7 +185,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			}
 			var reportResponse toolbox.SubjectReportResponse
 			if err := json.Unmarshal(resp.Body, &reportResponse); err != nil {
-				daemon.logger.Warning("StartAndBlock", cmdURL, err, "failed to deserialise JSON report response - %s", resp.GetBodyUpTo(200))
+				daemon.logger.Info("StartAndBlock", cmdURL, nil, "failed to deserialise JSON report response - %s", resp.GetBodyUpTo(200))
 				continue
 			}
 			// Deserialise the server response and pass it to local message processor to process the command request
