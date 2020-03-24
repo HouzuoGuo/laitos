@@ -162,6 +162,10 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 		t.Fatalf("%+v", resp)
 	}
 
+	if cmds := proc.GetAllUpcomingSubjectCommands(); len(cmds) != 1 || cmds["subject-host-name1"] != "test cmd" {
+		t.Fatalf("%+v", cmds)
+	}
+
 	proc.SetUpcomingSubjectCommand("subject-host-name1", "test cmd2")
 	resp = proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",

@@ -39,7 +39,9 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 	if toHost != "" {
 		hand.cmdProc.Features.MessageProcessor.SetUpcomingSubjectCommand(toHost, upcomingAppCmd)
 		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte(fmt.Sprintf("OK, the next reply made in response to %s's report will carry an app command %d characters long.", toHost, len(upcomingAppCmd))))
+		_, _ = w.Write([]byte(fmt.Sprintf(`OK, the next reply made in response to %s's report will carry an app command %d characters long.
+All upcoming commands:
+%+v`, toHost, len(upcomingAppCmd), hand.cmdProc.Features.MessageProcessor.GetAllUpcomingSubjectCommands())))
 		return
 	}
 

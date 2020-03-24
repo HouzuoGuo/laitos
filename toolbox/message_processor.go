@@ -93,6 +93,17 @@ func (proc *MessageProcessor) SetUpcomingSubjectCommand(host, cmdContent string)
 	proc.UpcomingSubjectCommand[host] = cmdContent
 }
 
+// GetAllUpcomingSubjectCommands returns a copy of all app commands that are about to be delivered to reporting subjects.
+func (proc *MessageProcessor) GetAllUpcomingSubjectCommands() map[string]string {
+	proc.mutex.Lock()
+	defer proc.mutex.Unlock()
+	ret := make(map[string]string)
+	for k, v := range proc.UpcomingSubjectCommand {
+		ret[k] = v
+	}
+	return ret
+}
+
 /*
 StoreReports stores the most recent report from a subject and evicts older report automatically.
 If the report carries an app command, then the command will run in the background.
