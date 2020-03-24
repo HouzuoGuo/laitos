@@ -623,7 +623,7 @@ over.]]></Say>`) {
 	if err := json.Unmarshal(resp.Body, &reports); err != nil {
 		t.Fatal(err)
 	}
-	if len(reports) != 2 || reports[0].SubjectClientIP != "client-ip2" || reports[1].SubjectClientIP != "client-ip1" {
+	if len(reports) != 2 || reports[0].SubjectClientID != "client-ip2" || reports[1].SubjectClientID != "client-ip1" {
 		t.Fatalf("%+v", reports)
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
@@ -636,7 +636,7 @@ over.]]></Say>`) {
 	if err := json.Unmarshal(resp.Body, &reports); err != nil {
 		t.Fatal(err)
 	}
-	if len(reports) != 1 || reports[0].SubjectClientIP != "client-ip2" {
+	if len(reports) != 1 || reports[0].SubjectClientID != "client-ip2" {
 		t.Fatalf("%+v", reports)
 	}
 	// Assign subject a command to run
