@@ -176,7 +176,10 @@ func (config *Config) Initialise() error {
 				&config.MessageProcessorFilters.NotifyViaEmail,
 			},
 		}
-		config.Features.MessageProcessor = toolbox.MessageProcessor{CmdProcessor: messageProcessorCommandProcessor}
+		config.Features.MessageProcessor = toolbox.MessageProcessor{
+			OwnerName:    "app",
+			CmdProcessor: messageProcessorCommandProcessor,
+		}
 	}
 	/*
 		Fill in some blanks so that Get*Daemon functions will be able to call Initialise() function at very least.

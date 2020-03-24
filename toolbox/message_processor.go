@@ -78,6 +78,8 @@ type MessageProcessor struct {
 		self reported host name.
 	*/
 	MaxReportsPerHostName int `json:"MaxReportsPerHostName"`
+	// OwnerName is the name of the component that carries this message processor. This is used for logging purpose.
+	OwnerName string `json:"-"`
 
 	// totalReports is the total number of reports received thus far.
 	totalReports int
@@ -366,6 +368,10 @@ func (proc *MessageProcessor) Initialise() error {
 		if errs := proc.CmdProcessor.IsSaneForInternet(); len(errs) > 0 {
 			return fmt.Errorf("MessageProcessor.Initialise: %+v", errs)
 		}
+	}
+	proc.logger = lalog.Logger{
+		ComponentName: "MessageProcessor",
+		ComponentID:   []lalog.LoggerIDField{{Key: "Owner", Value: proc.OwnerName}},
 	}
 	return nil
 }

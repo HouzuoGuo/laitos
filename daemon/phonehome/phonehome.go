@@ -69,7 +69,11 @@ func (daemon *Daemon) Initialise() error {
 		}
 	}
 	// There is no point in keeping many app command exchange reports in memory
-	daemon.LocalMessageProcessor = &toolbox.MessageProcessor{MaxReportsPerHostName: 10, CmdProcessor: daemon.Processor}
+	daemon.LocalMessageProcessor = &toolbox.MessageProcessor{
+		OwnerName:             "phonehome",
+		MaxReportsPerHostName: 10,
+		CmdProcessor:          daemon.Processor,
+	}
 	if err := daemon.LocalMessageProcessor.Initialise(); err != nil {
 		return fmt.Errorf("phonehome.Initialise: failed to initialise local message processor - %v", err)
 	}
