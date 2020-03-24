@@ -6,7 +6,8 @@ import (
 	"time"
 )
 
-const HTTPPublicIPTimeoutSec = 10 // HTTPPublicIPTimeoutSec is the HTTP timeout for determining public IP address.
+// HTTPPublicIPTimeoutSec is the timeout in seconds used when determining public IP and cloud detection.
+const HTTPPublicIPTimeoutSec = 10
 
 var (
 	// isAWS is true only if IsAWS function has determined that the program is running on Amazon Web Service.
@@ -24,6 +25,13 @@ var (
 	// isAlibaba is true only if IsAlibaba has determined that the program is running on Alibaba Cloud.
 	isAlibaba     bool
 	isAlibabaOnce = new(sync.Once)
+
+	// lastIP is the latest public IP retrieved recently.
+	lastPublicIP string
+	//lastIPMutex protects last public IP from concurrent modifcation.
+	lastPublicIPMutex = new(sync.Mutex)
+	// lastIPTimeStamp is the time at which the last public IP was determined.
+	lastPublicIPTimeStamp time.Time
 )
 
 // IsAWS returns true only if the program is running on Amazon Web Service.
@@ -96,10 +104,10 @@ func IsAlibaba() bool {
 }
 
 /*
-GetPublicIP returns the latest public IP address of the computer. If the IP address cannot be determined, it will return
-an empty string. The function may take up to 10 seconds to return to caller.
+getPublicIP is an internal function that determines the public IP address of this computer. If the IP address cannot be
+determined, it will return "0.0.0.0". It may take up to 10 seconds to return.
 */
-func GetPublicIP() string {
+func getPublicIP() string {
 	/*
 		Kick off multiple routines to determine public IP at the same time. Each routine uses a different approach, the
 		fastest valid response will be returned to caller. Usually the public cloud metadata endpoints are the fastest
@@ -185,6 +193,27 @@ func GetPublicIP() string {
 	case ip := <-ipfyPublic:
 		return ip
 	case <-time.After(HTTPPublicIPTimeoutSec * time.Second):
-		return ""
+		return "0.0.0.0"
 	}
+}
+
+/*
+GetPublicIP returns the latest public IP address of the computer. If the IP address cannot be determined, it will return
+an empty string. If the public IP has been determined recently (less than 3 minutes ago), the cached public IP will be
+returned.
+*/
+func GetPublicIP() string {
+	/*
+		Normally it is quite harmless to retrieve public IP address in short succession, however the cloud internal endpoints
+		are not reachable on an ordinary computer, and by attempting to connect to them (e.g. 169.254.169.254), there is going
+		to be a half-open TCP connection that will stick around for a while before OS cleans it up. When such half-open
+		connections pile up, the OS will have exhausted local port numbers and refuse to make more outgoing connections.
+	*/
+	lastPublicIPMutex.Lock()
+	defer lastPublicIPMutex.Unlock()
+	if time.Now().Unix()-lastPublicIPTimeStamp.Unix() > 3*60 {
+		lastPublicIP = getPublicIP()
+		lastPublicIPTimeStamp = time.Now()
+	}
+	return lastPublicIP
 }

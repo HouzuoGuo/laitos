@@ -97,19 +97,21 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 	if reqParam.Header != nil {
 		req.Header = reqParam.Header
 	}
-	// Let function further manipulate HTTP request
+	// Use the input function to further customise the HTTP request
 	if reqParam.RequestFunc != nil {
 		if err = reqParam.RequestFunc(req); err != nil {
 			return
 		}
 	}
 	req.Header.Set("Content-Type", reqParam.ContentType)
-	// Configure timeout and TLS behaviour
-	client := &http.Client{Timeout: time.Duration(reqParam.TimeoutSec) * time.Second}
+	// Construct HTTP client and optionally disable TLS strict verification
+	client := &http.Client{
+		Timeout:   time.Duration(reqParam.TimeoutSec) * time.Second,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
+	defer client.CloseIdleConnections()
 	if reqParam.InsecureTLS {
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
+		client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	// Send the request away, and retry in case of error.
 	for attempt := 0; attempt < reqParam.MaxRetry; attempt++ {

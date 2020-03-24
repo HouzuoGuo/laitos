@@ -5,8 +5,12 @@ import (
 )
 
 func TestGetPublicIP(t *testing.T) {
-	if ip := GetPublicIP(); len(ip) < 7 || len(ip) > 46 {
+	ip := GetPublicIP()
+	if len(ip) < 7 || len(ip) > 46 {
 		t.Fatal(ip)
+	}
+	if ip2 := GetPublicIP(); ip2 != ip {
+		t.Fatal(ip, ip2)
 	}
 }
 
