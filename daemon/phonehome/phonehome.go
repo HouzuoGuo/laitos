@@ -1,7 +1,6 @@
 package phonehome
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,15 +27,8 @@ app command that the server requested this subject to run.
 type MessageProcessorServer struct {
 	// Password is the password PIN that the server accepts for command execution.
 	Password string `json:"Password"`
-
-	// LastAppCommand is the very latest app command that message processor server asked this subject to run.
-	LastAppCommand string `json:"-"`
-	// LastCommandReceivedAt is the clock time of this computer upon receiving the app command from message processor server.
-	LastCommandReceivedAt time.Time `json:"-"`
-	// LastCommandResult is the Combined Output of app command execution result upon completion.
-	LastCommandResult string `json:"-"`
-	// LastCommandResult is the duration in seconds it took to run the app command.
-	LastCommandDurationSec int `json:"-"`
+	// HostName is the host name portion of server app command execution URL, it is calculated by Initialise function.
+	HostName string `json:"-"`
 }
 
 /*
@@ -50,6 +42,8 @@ type Daemon struct {
 	// ReportIntervalSec is the interval in seconds at which this daemon reports to the servers.
 	ReportIntervalSec int `json:"ReportIntervalSec"`
 
+	// LocalMessageProcessor answers to servers' app command requests
+	LocalMessageProcessor *toolbox.MessageProcessor `json:"-"`
 	// cmdProcessor runs app commands coming in from a store&forward message processor server.
 	Processor *toolbox.CommandProcessor `json:"-"`
 
@@ -65,53 +59,35 @@ func (daemon *Daemon) Initialise() error {
 	if len(daemon.MessageProcessorServers) == 0 {
 		return errors.New("phonehome.Initialise: MessageProcessorServers must have at least one entry")
 	}
+	/*
+		Daemon's app command processor is not used directly, instead it is given to the local message processor
+		to process app commands requested by remote server.
+	*/
 	if daemon.Processor != nil {
 		if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 			return fmt.Errorf("phonehome.Initialise: %+v", errs)
 		}
 	}
-	// Interactively ask user for the missing server passwords
-	stdioReader := bufio.NewReader(os.Stdin)
-	for url, srv := range daemon.MessageProcessorServers {
-		if srv == nil {
-			return fmt.Errorf("phonehome.Initialise: missing password configuration for server URL %s", url)
+	// There is no point in keeping many app command exchange reports in memory
+	daemon.LocalMessageProcessor = &toolbox.MessageProcessor{MaxReportsPerHostName: 10, CmdProcessor: daemon.Processor}
+	if err := daemon.LocalMessageProcessor.Initialise(); err != nil {
+		return fmt.Errorf("phonehome.Initialise: failed to initialise local message processor - %v", err)
+	}
+	// Calculate the host name portion of each URL, the host name is used by the local message processor.
+	for cmdURL, srv := range daemon.MessageProcessorServers {
+		if srv == nil || srv.Password == "" {
+			return fmt.Errorf("phonehome.Initialise: missing password configuration for server URL %s", cmdURL)
 		}
-		if srv.Password == "" {
-			fmt.Printf("phonehome.Initialise: please enter password for server URL %s:\n", url)
-			pwd, err := stdioReader.ReadString('\n')
-			if pwd == "" || err != nil {
-				return fmt.Errorf("phonehome.Initialise: missing password for server URl %s and failed to collect the password input from STDIN", url)
-			}
-			srv.Password = strings.TrimSpace(pwd)
+		u, err := url.Parse(cmdURL)
+		if err != nil {
+			return fmt.Errorf("phonehome.Initialise: malformed app command URL \"%s\"", cmdURL)
 		}
+		srv.HostName = u.Hostname()
 	}
 	daemon.logger = lalog.Logger{ComponentName: "phonehome"}
 	return nil
 }
 
-// getLatestReport constructs the latest report for this system as a monitored subject.
-func (daemon *Daemon) getLatestReport(server *MessageProcessorServer) (report toolbox.SubjectReportRequest, reportJSON []byte) {
-	hostname, _ := os.Hostname()
-	report = toolbox.SubjectReportRequest{
-		SubjectIP:       inet.GetPublicIP(),
-		SubjectHostName: hostname,
-		SubjectPlatform: fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
-		SubjectComment:  toolbox.GetRuntimeInfo(),
-		CommandResponse: toolbox.AppCommandResponse{
-			Command:        server.LastAppCommand,
-			ReceivedAt:     server.LastCommandReceivedAt,
-			Result:         server.LastCommandResult,
-			RunDurationSec: server.LastCommandDurationSec,
-		},
-	}
-	// Serialise the report into JSON as the app command input
-	var err error
-	reportJSON, err = json.Marshal(report)
-	if err != nil {
-		daemon.logger.Warning("getLatestReport", "", err, "failed to generate the latest report")
-	}
-	return
-}
 func (daemon *Daemon) getTwoFACode(server *MessageProcessorServer) string {
 	// The first 2FA is calculated from the command password
 	_, cmdPassword1, _, err := toolbox.GetTwoFACodes(server.Password)
@@ -132,21 +108,44 @@ func (daemon *Daemon) getTwoFACode(server *MessageProcessorServer) string {
 	return cmdPassword1 + cmdPassword2
 }
 
+func (daemon *Daemon) getReportForServer(cmdURL string) string {
+	srv := daemon.MessageProcessorServers[cmdURL]
+	// Ask local message processor for a pending app command request and/or app command response
+	cmdExchange := daemon.LocalMessageProcessor.StoreReport(toolbox.SubjectReportRequest{SubjectHostName: srv.HostName}, cmdURL, "phonehome")
+	// Craft the report for this server
+	hostname, _ := os.Hostname()
+	report := toolbox.SubjectReportRequest{
+		SubjectIP:       inet.GetPublicIP(),
+		SubjectHostName: hostname,
+		SubjectPlatform: fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
+		SubjectComment:  toolbox.GetRuntimeInfo(),
+		CommandRequest:  cmdExchange.CommandRequest,
+		CommandResponse: cmdExchange.CommandResponse,
+	}
+	reportJSON, err := json.Marshal(report)
+	if err != nil {
+		daemon.logger.Warning("getReportForServer", cmdURL, err, "failed to serialise report")
+		return ""
+	}
+	return string(reportJSON)
+}
+
 // StartAndBlock starts the periodic reports and blocks caller until the daemon is stopped.
 func (daemon *Daemon) StartAndBlock() error {
 	defer func() {
 		daemon.runLoop = false
 	}()
 	/*
-		Instead of sending numerous reports in a row and then wait for a longer duration, send one report at a time and wait a shorter duration.
-		This helps to reduce server load and overall offers more reliability.
+		Instead of sending numerous reports in a row and then wait for a longer duration, send one report at a time and
+		wait a shorter duration. This helps to reduce server load and overall offers more reliability.
 		If there is a large number of servers to contact, the minimum interval will be one second.
 	*/
 	intervalSecBetweenReports := daemon.ReportIntervalSec / len(daemon.MessageProcessorServers)
 	if intervalSecBetweenReports < 1 {
 		intervalSecBetweenReports = 1
 	}
-	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d URLs and pausing %d seconds between each", len(daemon.MessageProcessorServers), intervalSecBetweenReports)
+	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d URLs and pausing %d seconds between each",
+		len(daemon.MessageProcessorServers), intervalSecBetweenReports)
 	daemon.runLoop = true
 	for {
 		if misc.EmergencyLockDown {
@@ -171,14 +170,13 @@ func (daemon *Daemon) StartAndBlock() error {
 			}
 			time.Sleep(time.Duration(intervalSecBetweenReports) * time.Second)
 			srv := daemon.MessageProcessorServers[cmdURL]
-			_, reportJSON := daemon.getLatestReport(srv)
-			// Send the HTTP request
+			// Send the latest report via HTTP client
 			resp, err := inet.DoHTTP(inet.HTTPRequest{
 				TimeoutSec: 15,
 				MaxBytes:   16 * 1024,
 				Method:     http.MethodPost,
 				Body: strings.NewReader(url.Values{
-					"cmd": {daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + string(reportJSON)},
+					"cmd": {daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(cmdURL)},
 				}.Encode()),
 			}, cmdURL)
 			if err != nil {
@@ -190,32 +188,15 @@ func (daemon *Daemon) StartAndBlock() error {
 				daemon.logger.Warning("StartAndBlock", cmdURL, err, "failed to deserialise JSON report response - %s", resp.GetBodyUpTo(200))
 				continue
 			}
+			// Deserialise the server response and pass it to local message processor to process the command request
+			daemon.LocalMessageProcessor.StoreReport(toolbox.SubjectReportRequest{
+				SubjectHostName: srv.HostName,
+				ServerTime:      time.Time{},
+				CommandRequest:  reportResponse.CommandRequest,
+				CommandResponse: reportResponse.CommandResponse,
+			}, cmdURL, "phonehome")
+
 			if newCmd := reportResponse.CommandRequest.Command; newCmd != "" && daemon.Processor != nil {
-				if newCmd != srv.LastAppCommand || srv.LastCommandReceivedAt.Before(time.Now().Add(-toolbox.CommandResponseRetentionSec*time.Second)) {
-					// Execute the command sent back by the server
-					daemon.logger.Info("StartAndBlock", cmdURL, nil, "running app command from report reply")
-					srv.LastAppCommand = newCmd
-					srv.LastCommandReceivedAt = time.Now()
-					// By convention duration of -1 indicates that the command is yet to complete
-					srv.LastCommandDurationSec = -1
-					// Run the app command in background to avoid blocking this loop
-					go func(srv *MessageProcessorServer, newCmd string) {
-						start := time.Now()
-						result := daemon.Processor.Process(toolbox.Command{
-							// The "client" that asked for this app command is the message processor server
-							ClientID:   cmdURL,
-							DaemonName: "phonehome",
-							TimeoutSec: toolbox.CommandResponseRetentionSec,
-							Content:    newCmd,
-						}, true)
-						srv.LastAppCommand = newCmd
-						srv.LastCommandDurationSec = int(time.Now().Unix() - start.Unix())
-						srv.LastCommandResult = result.CombinedOutput
-					}(srv, newCmd)
-				} else {
-					daemon.logger.Info("StartAndBlock", cmdURL, nil,
-						"skipping the app command from report reply as it was run quite recently at %s", srv.LastCommandReceivedAt)
-				}
 			} else {
 				daemon.logger.Info("StartAndBlock", cmdURL, nil, "report sent")
 			}
@@ -253,7 +234,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 				if result.Error != nil {
 					t.Fatalf("1st request error: %+v", result)
 				}
-				if len(muxMessageProcessor.OutstandingCommands) > 0 {
+				if len(muxMessageProcessor.OutstandingCommands) != 1 { // "local-to-server"
 					t.Fatalf("1st request unexpected outstanding command: %+v", muxMessageProcessor.OutstandingCommands)
 				}
 				if len(muxMessageProcessor.SubjectReports) != 1 {
@@ -261,8 +242,8 @@ func TestServer(server *Daemon, t testingstub.T) {
 				}
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					report0 := (*reports)[0]
-					if report0.SubjectClientIP == "" || report0.DaemonName == "" || report0.OriginalRequest.SubjectHostName == "" ||
-						report0.OriginalRequest.CommandRequest.Command != "" || report0.OriginalRequest.CommandResponse.Command != "" {
+					if report0.SubjectClientID == "" || report0.DaemonName == "" || report0.OriginalRequest.SubjectHostName == "" ||
+						report0.OriginalRequest.CommandRequest.Command != "local-to-server" || report0.OriginalRequest.CommandResponse.Command != "" {
 						t.Fatalf("1st request, unexpected memorised report: %+v", report0)
 					}
 				}
@@ -291,7 +272,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 				if result.Error != nil {
 					t.Fatalf("2st request error: %+v", result)
 				}
-				if len(muxMessageProcessor.OutstandingCommands) > 0 {
+				if len(muxMessageProcessor.OutstandingCommands) != 1 { // "local-to-server"
 					t.Fatalf("2st request unexpected outstanding command: %+v", muxMessageProcessor.OutstandingCommands)
 				}
 				if len(muxMessageProcessor.SubjectReports) != 1 {
@@ -299,16 +280,10 @@ func TestServer(server *Daemon, t testingstub.T) {
 				}
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					report1 := (*reports)[1]
-					if report1.SubjectClientIP == "" || report1.DaemonName == "" || report1.OriginalRequest.SubjectHostName == "" ||
-						report1.OriginalRequest.CommandRequest.Command != "" || report1.OriginalRequest.CommandResponse.Command == "" ||
+					if report1.SubjectClientID == "" || report1.DaemonName == "" || report1.OriginalRequest.SubjectHostName == "" ||
+						report1.OriginalRequest.CommandRequest.Command != "local-to-server" || report1.OriginalRequest.CommandResponse.Command == "" ||
 						report1.OriginalRequest.CommandResponse.Result != "hi" || report1.OriginalRequest.CommandResponse.RunDurationSec > 2 {
 						t.Fatalf("2nd request, unexpected memorised report: %+v", report1)
-					}
-				}
-				// Validate the command execution from daemon's perspective
-				for _, mp := range server.MessageProcessorServers {
-					if mp.LastAppCommand == "" || mp.LastCommandDurationSec < 0 || mp.LastCommandResult != "hi" {
-						t.Fatalf("2nd request, unexpected result from daemon: %+v", mp)
 					}
 				}
 
@@ -338,11 +313,15 @@ func TestServer(server *Daemon, t testingstub.T) {
 		}
 	}()
 	// Start phone-home daemon
+	cmdURL := fmt.Sprintf("http://localhost:%d/test", l.Addr().(*net.TCPAddr).Port)
 	server.MessageProcessorServers = map[string]*MessageProcessorServer{
-		fmt.Sprintf("http://localhost:%d/test", l.Addr().(*net.TCPAddr).Port): &MessageProcessorServer{
-			Password: toolbox.TestCommandProcessorPIN,
-		},
+		cmdURL: &MessageProcessorServer{Password: toolbox.TestCommandProcessorPIN},
 	}
+	if err := server.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	// Prepare an outstanding to be sent to the server by the local message processor
+	server.LocalMessageProcessor.SetUpcomingSubjectCommand("localhost", "local-to-server")
 	var stoppedNormally bool
 	go func() {
 		if err := server.StartAndBlock(); err != nil {
@@ -354,6 +333,10 @@ func TestServer(server *Daemon, t testingstub.T) {
 	time.Sleep(5 * time.Second)
 	if muxNumRequests < 2 {
 		t.Fatalf("did not hit test server - got %d requests", muxNumRequests)
+	}
+	// Check local message processor's number of reports
+	if localReports := server.LocalMessageProcessor.GetLatestReports(1000); len(localReports) < 6 {
+		t.Fatalf("%+v", localReports)
 	}
 	// Daemon should stop within a second
 	server.Stop()

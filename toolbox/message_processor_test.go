@@ -14,7 +14,7 @@ import (
 )
 
 func TestMessageProcessor_StoreReport(t *testing.T) {
-	proc := &MessageProcessor{}
+	proc := &MessageProcessor{MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -88,12 +88,12 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 }
 
 func TestMessageProcessor_EvictOldReports(t *testing.T) {
-	proc := &MessageProcessor{}
+	proc := &MessageProcessor{MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
 	// Evict older reports (10 of them) from memory
-	for i := 0; i < MaxReportsPerHostName+10; i++ {
+	for i := 0; i < proc.MaxReportsPerHostName+10; i++ {
 		proc.StoreReport(SubjectReportRequest{
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name1",
@@ -101,21 +101,21 @@ func TestMessageProcessor_EvictOldReports(t *testing.T) {
 		}, "ip", "daemon")
 	}
 
-	if reports := proc.GetLatestReports(2 * MaxReportsPerHostName); len(reports) != MaxReportsPerHostName {
+	if reports := proc.GetLatestReports(2 * proc.MaxReportsPerHostName); len(reports) != proc.MaxReportsPerHostName {
 		t.Fatal(len(reports))
-	} else if latestReport := reports[0]; latestReport.OriginalRequest.SubjectIP != strconv.Itoa(MaxReportsPerHostName+10-1) {
+	} else if latestReport := reports[0]; latestReport.OriginalRequest.SubjectIP != strconv.Itoa(proc.MaxReportsPerHostName+10-1) {
 		t.Fatalf("%+v", latestReport)
 	}
 
-	if reports := proc.GetLatestReports(2 * MaxReportsPerHostName); len(reports) != MaxReportsPerHostName {
+	if reports := proc.GetLatestReports(2 * proc.MaxReportsPerHostName); len(reports) != proc.MaxReportsPerHostName {
 		t.Fatal(len(reports))
-	} else if latestReport := reports[0]; latestReport.OriginalRequest.SubjectIP != strconv.Itoa(MaxReportsPerHostName+10-1) {
+	} else if latestReport := reports[0]; latestReport.OriginalRequest.SubjectIP != strconv.Itoa(proc.MaxReportsPerHostName+10-1) {
 		t.Fatalf("%+v", latestReport)
 	}
 }
 
 func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
-	proc := &MessageProcessor{}
+	proc := &MessageProcessor{MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 	(*proc.SubjectReports["subject-host-name1"])[0].OriginalRequest.ServerTime = time.Now().Add(-(SubjectExpirySecond + 1) * time.Second)
 
 	// Store thousands of reports for an active subject, which triggers clean up in the meanwhile.
-	for i := 0; i < MaxReportsPerHostName+10; i++ {
+	for i := 0; i < proc.MaxReportsPerHostName+10; i++ {
 		proc.StoreReport(SubjectReportRequest{
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name2",
@@ -146,7 +146,7 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 }
 
 func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
-	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor(), MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 }
 
 func TestMessageProcessor_processCommandRequest_QuickCommand(t *testing.T) {
-	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor(), MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestMessageProcessor_processCommandRequest_QuickCommand(t *testing.T) {
 }
 
 func TestMessageProcessor_processCommandRequest_RecursiveCommand(t *testing.T) {
-	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor(), MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func TestMessageProcessor_processCommandRequest_RecursiveCommand(t *testing.T) {
 }
 
 func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
-	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor(), MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +309,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 }
 
 func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testing.T) {
-	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	proc := &MessageProcessor{CmdProcessor: GetTestCommandProcessor(), MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -396,7 +396,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 
 func TestMessageProcessor_App(t *testing.T) {
 	// Initialise with a bad command processor results in an error
-	proc := &MessageProcessor{CmdProcessor: GetInsaneCommandProcessor()}
+	proc := &MessageProcessor{CmdProcessor: GetInsaneCommandProcessor(), MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err == nil || !strings.Contains(err.Error(), "bad configuration") {
 		t.Fatal(err)
 	}
@@ -405,7 +405,7 @@ func TestMessageProcessor_App(t *testing.T) {
 	}
 
 	// Initialise with a good command processor
-	proc = &MessageProcessor{CmdProcessor: GetTestCommandProcessor()}
+	proc = &MessageProcessor{CmdProcessor: GetTestCommandProcessor(), MaxReportsPerHostName: 100}
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -465,7 +465,7 @@ func TestMessageProcessor_App(t *testing.T) {
 		t.Fatalf("%+v", report0)
 	}
 	report0.OriginalRequest.ServerTime = report.ServerTime
-	if report0.DaemonName != "command-daemon-name" || report0.SubjectClientIP != "subject-ip" || !reflect.DeepEqual(report0.OriginalRequest, report) {
+	if report0.DaemonName != "command-daemon-name" || report0.SubjectClientID != "subject-ip" || !reflect.DeepEqual(report0.OriginalRequest, report) {
 		t.Fatalf("%+v", report0)
 	}
 }
