@@ -110,53 +110,57 @@ determined, it will return "0.0.0.0". It may take up to 10 seconds to return.
 func getPublicIP() string {
 	/*
 		Kick off multiple routines to determine public IP at the same time. Each routine uses a different approach, the
-		fastest valid response will be returned to caller. Usually the public cloud metadata endpoints are the fastest
-		and slightly more trustworthy.
+		fastest valid response will be returned to caller. Usually the cloud metadata endpoints are the fastest and slightly
+		more reliable.
+		Avoid contacting cloud metadata endpoints unless the host is actually on public cloud. Otherwise, the connection will
+		remain half open for quite a while until OS or router cleans it up.
 	*/
-
+	ip := make(chan string, 5)
 	// GCE internal
-	gceInternal := make(chan string, 1)
 	go func() {
-		resp, err := DoHTTP(HTTPRequest{
-			TimeoutSec: HTTPPublicIPTimeoutSec,
-			MaxBytes:   64,
-			Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
-		}, "http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
-		if err == nil && resp.StatusCode/200 == 1 {
-			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-				gceInternal <- respBody
+		if IsGCE() {
+			resp, err := DoHTTP(HTTPRequest{
+				TimeoutSec: HTTPPublicIPTimeoutSec,
+				MaxBytes:   64,
+				Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
+			}, "http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
+			if err == nil && resp.StatusCode/200 == 1 {
+				if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+					ip <- respBody
+				}
 			}
 		}
 	}()
 	// AWS internal
-	awsInternal := make(chan string, 1)
 	go func() {
-		resp, err := DoHTTP(HTTPRequest{
-			TimeoutSec: HTTPPublicIPTimeoutSec,
-			MaxBytes:   64,
-		}, "http://169.254.169.254/2018-03-28/meta-data/public-ipv4")
-		if err == nil && resp.StatusCode/200 == 1 {
-			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-				awsInternal <- respBody
+		if IsAWS() {
+			resp, err := DoHTTP(HTTPRequest{
+				TimeoutSec: HTTPPublicIPTimeoutSec,
+				MaxBytes:   64,
+			}, "http://169.254.169.254/2018-03-28/meta-data/public-ipv4")
+			if err == nil && resp.StatusCode/200 == 1 {
+				if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+					ip <- respBody
+				}
 			}
 		}
 	}()
 	// Azure internal
-	azureInternal := make(chan string, 1)
 	go func() {
-		resp, err := DoHTTP(HTTPRequest{
-			TimeoutSec: HTTPPublicIPTimeoutSec,
-			MaxBytes:   64,
-			Header:     map[string][]string{"Metadata": {"true"}},
-		}, "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-12-01&format=text")
-		if err == nil && resp.StatusCode/200 == 1 {
-			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-				azureInternal <- respBody
+		if IsAzure() {
+			resp, err := DoHTTP(HTTPRequest{
+				TimeoutSec: HTTPPublicIPTimeoutSec,
+				MaxBytes:   64,
+				Header:     map[string][]string{"Metadata": {"true"}},
+			}, "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-12-01&format=text")
+			if err == nil && resp.StatusCode/200 == 1 {
+				if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+					ip <- respBody
+				}
 			}
 		}
 	}()
 	// AWS public
-	awsPublic := make(chan string, 1)
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
@@ -164,12 +168,11 @@ func getPublicIP() string {
 		}, "http://checkip.amazonaws.com")
 		if err == nil && resp.StatusCode/200 == 1 {
 			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-				awsPublic <- respBody
+				ip <- respBody
 			}
 		}
 	}()
 	// ipfy.org
-	ipfyPublic := make(chan string, 1)
 	go func() {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
@@ -177,21 +180,13 @@ func getPublicIP() string {
 		}, "https://api.ipify.org")
 		if err == nil && resp.StatusCode/200 == 1 {
 			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-				ipfyPublic <- respBody
+				ip <- respBody
 			}
 		}
 	}()
 	select {
-	case ip := <-gceInternal:
-		return ip
-	case ip := <-awsInternal:
-		return ip
-	case ip := <-azureInternal:
-		return ip
-	case ip := <-awsPublic:
-		return ip
-	case ip := <-ipfyPublic:
-		return ip
+	case s := <-ip:
+		return s
 	case <-time.After(HTTPPublicIPTimeoutSec * time.Second):
 		return "0.0.0.0"
 	}
@@ -204,10 +199,12 @@ returned.
 */
 func GetPublicIP() string {
 	/*
-		Normally it is quite harmless to retrieve public IP address in short succession, however the cloud internal endpoints
-		are not reachable on an ordinary computer, and by attempting to connect to them (e.g. 169.254.169.254), there is going
-		to be a half-open TCP connection that will stick around for a while before OS cleans it up. When such half-open
-		connections pile up, the OS will have exhausted local port numbers and refuse to make more outgoing connections.
+		Normally it is quite harmless to retrieve public IP address in short succession, however when laitos host's network
+		fails to reach some of the IP address retrieval endpoints, such as when a home server tries to contact cloud metadata
+		service on 169.254.169.254, the connection will remain half open for quite a while until the host or router cleans it up.
+		Doing so in short succession (e.g. the "phonehome" daemon gets the latest public IP address several times a minute)
+		quickly exhausts local port numbers, and the host OS will be incapable of making more outbound TCP connections.
+		Therefore, cache the latest public IP address for up to three minutes.
 	*/
 	lastPublicIPMutex.Lock()
 	defer lastPublicIPMutex.Unlock()
