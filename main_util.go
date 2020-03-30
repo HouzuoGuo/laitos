@@ -91,12 +91,7 @@ func DisableConflicts() {
 		}(name)
 	}
 	waitGroup.Wait()
-
-	if relevant, out := misc.DisableInterferingResolved(); relevant {
-		logger.Info("DisableConflicts", "systemd-resolved", nil, "attempted to disable resolved: %s", out)
-	} else {
-		logger.Info("DisableConflicts", "systemd-resolved", nil, "will not touch name resolution settings as resolved is not active")
-	}
+	logger.Info("DisableConflicts", "systemd-resolved", nil, "%s", misc.DisableInterferingResolved())
 }
 
 /*
