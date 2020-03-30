@@ -408,11 +408,10 @@ func DisableInterferingResolved() (out string) {
 			}
 		}
 	}
-	// Completely disable systemd-resolved
-	if DisableStopDaemon("systemd-resolved") {
-		out += "systemd-resolved is disabled\n"
-	} else {
-		out += "failed to disable systemd-resolved\n"
+	// Stop systemd-resolved but do not disable it, it still helps to collect uplink DNS server configuration next boot.
+	_, err = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "stop", "systemd-resolved.service")
+	if err != nil {
+		out += "failed to stop systemd-resolved.service\n"
 	}
 	// Distributions that use systemd-resolved usually makes resolv.conf a symbol link to an automatically generated file
 	os.RemoveAll("/etc/resolv.conf")

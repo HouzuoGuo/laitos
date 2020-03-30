@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -428,27 +427,26 @@ func TestMessageProcessor_App(t *testing.T) {
 		SubjectIP:       "subject-ip",
 		SubjectHostName: "subject-host-name",
 		SubjectPlatform: "subject-platform",
-		ServerTime:      time.Now(),
 		CommandRequest: AppCommandRequest{
 			Command: TestCommandProcessorPIN + ".s echo hi",
 		},
+		CommandResponse: AppCommandResponse{
+			Command:        "resp command",
+			Result:         "resp result",
+			RunDurationSec: 1,
+		},
 	}
-	reportJSON, err := json.Marshal(report)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%s", reportJSON)
 
 	// Send it to app for execution
 	result := proc.Execute(Command{
 		ClientID:   "subject-ip",
 		DaemonName: "command-daemon-name",
-		Content:    string(reportJSON),
+		Content:    report.SerialiseCompact(),
 	})
 	if result.Error != nil || result.Output == "" {
 		t.Fatalf("%+v", result)
 	}
-	t.Logf("Report size is %d, response size is %d", len(reportJSON), len(result.Output))
+	t.Logf("Report size is %d, response size is %d", len(report.SerialiseCompact()), len(result.Output))
 	// Decode execution result
 	var resp SubjectReportResponse
 	if err := json.Unmarshal([]byte(result.Output), &resp); err != nil {
@@ -468,8 +466,14 @@ func TestMessageProcessor_App(t *testing.T) {
 	if time.Now().Unix()-report0.OriginalRequest.ServerTime.Unix() > 3 {
 		t.Fatalf("%+v", report0)
 	}
-	report0.OriginalRequest.ServerTime = report.ServerTime
-	if report0.DaemonName != "command-daemon-name" || report0.SubjectClientID != "subject-ip" || !reflect.DeepEqual(report0.OriginalRequest, report) {
-		t.Fatalf("%+v", report0)
+	if report0.DaemonName != "command-daemon-name" || report0.SubjectClientID != "subject-ip" ||
+		report0.OriginalRequest.SubjectIP != report.SubjectIP ||
+		report0.OriginalRequest.SubjectHostName != report.SubjectHostName ||
+		report0.OriginalRequest.SubjectPlatform != report.SubjectPlatform ||
+		report0.OriginalRequest.CommandRequest.Command != report.CommandRequest.Command ||
+		report0.OriginalRequest.CommandResponse.Command != report.CommandResponse.Command ||
+		report0.OriginalRequest.CommandResponse.Result != report.CommandResponse.Result ||
+		report0.OriginalRequest.CommandResponse.RunDurationSec != report.CommandResponse.RunDurationSec {
+		t.Fatalf("\n%+v\n%+v\n%+v\n", report0, report0.OriginalRequest, report)
 	}
 }

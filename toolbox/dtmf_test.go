@@ -1,4 +1,4 @@
-package handler
+package toolbox
 
 import (
 	"testing"
@@ -9,6 +9,9 @@ func TestDTMFDecode(t *testing.T) {
 		t.Fatal(s)
 	}
 	if s := DTMFDecode("0"); s != " " {
+		t.Fatal(s)
+	}
+	if s := DTMFDecode("01470"); s != " \n" {
 		t.Fatal(s)
 	}
 	if s := DTMFDecode(" awzxv<>?  \n\t<w;'{}   -=  "); s != "" {

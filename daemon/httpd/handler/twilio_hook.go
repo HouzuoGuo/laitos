@@ -200,11 +200,11 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
 		DaemonName: "httpd",
 		ClientID:   phoneNumber,
 		TimeoutSec: TwilioHandlerTimeoutSec,
-		Content:    DTMFDecode(dtmfInput),
+		Content:    toolbox.DTMFDecode(dtmfInput),
 	}, true)
 	combinedOutput := ret.CombinedOutput
 	if phoneticSpelling {
-		combinedOutput = SpellPhonetically(combinedOutput)
+		combinedOutput = toolbox.SpellPhonetically(combinedOutput)
 	}
 	combinedOutput = XMLEscape(combinedOutput)
 	// Repeat command output three times and listen for the next input

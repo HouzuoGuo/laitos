@@ -21,10 +21,21 @@ import (
 )
 
 /*
-MessageProcessorServer contains password configuration and memorises execution result of the most recent
-app command that the server requested this subject to run.
+MessageProcessorServer contains server and password password configuration. If the server has an HTTP Endpoint URL,
+the report will be sent via an HTTP client. Otherwise if the server has a DNS domain name, the report will be sent
+via DNS TXT query.
 */
 type MessageProcessorServer struct {
+	/*
+		HTTPEndpointURL is the complete URL of endpoint HandleAppCommand that will receive subject reports.
+		If this is set, then DNSDomainName will be ignored.
+	*/
+	HTTPEndpointURL string `json:"HTTPEndpointURL"`
+	/*
+		DNSDomainName is the domain name where laitos DNS server runs to receive subject reports.
+		If this is set, then HTTPEndpointURL will be ignored.
+	*/
+	DNSDomainName string `json:"DNSDomainName"`
 	// Password is the password PIN that the server accepts for command execution.
 	Password string `json:"Password"`
 	// HostName is the host name portion of server app command execution URL, it is calculated by Initialise function.
@@ -37,7 +48,7 @@ app command execution URLs.
 */
 type Daemon struct {
 	// MessageProcessorServers is a map between message processor server URL and their configuration.
-	MessageProcessorServers map[string]*MessageProcessorServer `json:"MessageProcessorServers"`
+	MessageProcessorServers []*MessageProcessorServer `json:"MessageProcessorServers"`
 
 	// ReportIntervalSec is the interval in seconds at which this daemon reports to the servers.
 	ReportIntervalSec int `json:"ReportIntervalSec"`
@@ -77,16 +88,22 @@ func (daemon *Daemon) Initialise() error {
 	if err := daemon.LocalMessageProcessor.Initialise(); err != nil {
 		return fmt.Errorf("phonehome.Initialise: failed to initialise local message processor - %v", err)
 	}
-	// Calculate the host name portion of each URL, the host name is used by the local message processor.
-	for cmdURL, srv := range daemon.MessageProcessorServers {
-		if srv == nil || srv.Password == "" {
-			return fmt.Errorf("phonehome.Initialise: missing password configuration for server URL %s", cmdURL)
+	for _, srv := range daemon.MessageProcessorServers {
+		if srv.DNSDomainName == "" && srv.HTTPEndpointURL == "" {
+			return fmt.Errorf("phonehome.Initialise: a server configuration is missing both DNSDomainName and HTTPEndpointURL")
 		}
-		u, err := url.Parse(cmdURL)
-		if err != nil {
-			return fmt.Errorf("phonehome.Initialise: malformed app command URL \"%s\"", cmdURL)
+		if srv.Password == "" {
+			return fmt.Errorf("phonehome.Initialise: server configuration for %s must contain the app command execution password", srv.DNSDomainName+srv.HTTPEndpointURL)
 		}
-		srv.HostName = u.Hostname()
+		srv.HostName = srv.DNSDomainName
+		if srv.HTTPEndpointURL != "" {
+			// Calculate the host name portion of each URL, the host name is used by the local message processor.
+			u, err := url.Parse(srv.HTTPEndpointURL)
+			if err != nil {
+				return fmt.Errorf("phonehome.Initialise: malformed app command URL \"%s\"", srv.HTTPEndpointURL)
+			}
+			srv.HostName = u.Hostname()
+		}
 	}
 	daemon.logger = lalog.Logger{ComponentName: "phonehome"}
 	return nil
@@ -112,12 +129,15 @@ func (daemon *Daemon) getTwoFACode(server *MessageProcessorServer) string {
 	return cmdPassword1 + cmdPassword2
 }
 
-func (daemon *Daemon) getReportForServer(cmdURL string) string {
-	srv := daemon.MessageProcessorServers[cmdURL]
+func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostName bool) string {
 	// Ask local message processor for a pending app command request and/or app command response
-	cmdExchange := daemon.LocalMessageProcessor.StoreReport(toolbox.SubjectReportRequest{SubjectHostName: srv.HostName}, cmdURL, "phonehome")
+	cmdExchange := daemon.LocalMessageProcessor.StoreReport(toolbox.SubjectReportRequest{SubjectHostName: serverHostName}, serverHostName, "phonehome")
 	// Craft the report for this server
 	hostname, _ := os.Hostname()
+	if shortenMyHostName && len(hostname) > 16 {
+		// Shorten the host name for a report transmitted via DNS. Length of 16 looks familiar to the nostalgic NetBIOS users.
+		hostname = hostname[:16]
+	}
 	report := toolbox.SubjectReportRequest{
 		SubjectIP:       inet.GetPublicIP(),
 		SubjectHostName: hostname,
@@ -126,12 +146,7 @@ func (daemon *Daemon) getReportForServer(cmdURL string) string {
 		CommandRequest:  cmdExchange.CommandRequest,
 		CommandResponse: cmdExchange.CommandResponse,
 	}
-	reportJSON, err := json.Marshal(report)
-	if err != nil {
-		daemon.logger.Warning("getReportForServer", cmdURL, err, "failed to serialise report")
-		return ""
-	}
-	return string(reportJSON)
+	return report.SerialiseCompact()
 }
 
 // StartAndBlock starts the periodic reports and blocks caller until the daemon is stopped.
@@ -148,7 +163,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	if intervalSecBetweenReports < 1 {
 		intervalSecBetweenReports = 1
 	}
-	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d URLs and pausing %d seconds between each",
+	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d servers and pausing %d seconds between each",
 		len(daemon.MessageProcessorServers), intervalSecBetweenReports)
 	daemon.runLoop = true
 	for {
@@ -162,48 +177,56 @@ func (daemon *Daemon) StartAndBlock() error {
 			are not contacted in a random order, there is a chance that the daemon may reach its own server first (this
 			is a valid configuration) and it will always reject further reports as 2FA codes cannot be used a second time.
 		*/
-		allURLs := make([]string, 0, len(daemon.MessageProcessorServers))
-		for cmdURL := range daemon.MessageProcessorServers {
-			allURLs = append(allURLs, cmdURL)
+		srvIndexes := make([]int, 0, len(daemon.MessageProcessorServers))
+		for i := range daemon.MessageProcessorServers {
+			srvIndexes = append(srvIndexes, i)
 		}
-		rand.Shuffle(len(allURLs), func(i, j int) { allURLs[i], allURLs[j] = allURLs[j], allURLs[i] })
+		rand.Shuffle(len(srvIndexes), func(i, j int) { srvIndexes[i], srvIndexes[j] = srvIndexes[j], srvIndexes[i] })
 
-		for _, cmdURL := range allURLs {
+		for _, i := range srvIndexes {
 			if !daemon.runLoop {
 				return nil
 			}
 			time.Sleep(time.Duration(intervalSecBetweenReports) * time.Second)
-			srv := daemon.MessageProcessorServers[cmdURL]
-			// Send the latest report via HTTP client
-			resp, err := inet.DoHTTP(inet.HTTPRequest{
-				TimeoutSec: 15,
-				MaxBytes:   16 * 1024,
-				Method:     http.MethodPost,
-				Body: strings.NewReader(url.Values{
-					"cmd": {daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(cmdURL)},
-				}.Encode()),
-			}, cmdURL)
-			if err != nil {
-				daemon.logger.Warning("StartAndBlock", cmdURL, err, "failed to send HTTP request")
-				continue
+			srv := daemon.MessageProcessorServers[i]
+			var reportResponseJSON []byte
+			if srv.DNSDomainName != "" {
+				// Send the latest report via DNS name query
+				reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, true)
+				queryResponse, err := net.LookupTXT(GetDNSQuery(reportCmd, srv.DNSDomainName))
+				if err != nil {
+					daemon.logger.Warning("StartAndBlock", srv.DNSDomainName, err, "failed to send DNS request")
+					continue
+				}
+				reportResponseJSON = []byte(strings.Join(queryResponse, ""))
+			} else if srv.HTTPEndpointURL != "" {
+				// Send the latest report via HTTP client
+				reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, false)
+				resp, err := inet.DoHTTP(inet.HTTPRequest{
+					TimeoutSec: 15,
+					MaxBytes:   16 * 1024,
+					Method:     http.MethodPost,
+					Body:       strings.NewReader(url.Values{"cmd": {reportCmd}}.Encode()),
+				}, srv.HTTPEndpointURL)
+				if err != nil {
+					daemon.logger.Warning("StartAndBlock", srv.HTTPEndpointURL, err, "failed to send HTTP request")
+					continue
+				}
+				reportResponseJSON = resp.Body
 			}
+			// Deserialise the server JSON response and pass it to local message processor to process the command request
 			var reportResponse toolbox.SubjectReportResponse
-			if err := json.Unmarshal(resp.Body, &reportResponse); err != nil {
-				daemon.logger.Info("StartAndBlock", cmdURL, nil, "failed to deserialise JSON report response - %s", resp.GetBodyUpTo(200))
+			if err := json.Unmarshal(reportResponseJSON, &reportResponse); err != nil {
+				daemon.logger.Info("StartAndBlock", srv.DNSDomainName+srv.HTTPEndpointURL, nil, "failed to deserialise JSON report response - %s", string(reportResponseJSON))
 				continue
 			}
-			// Deserialise the server response and pass it to local message processor to process the command request
 			daemon.LocalMessageProcessor.StoreReport(toolbox.SubjectReportRequest{
 				SubjectHostName: srv.HostName,
 				ServerTime:      time.Time{},
 				CommandRequest:  reportResponse.CommandRequest,
 				CommandResponse: reportResponse.CommandResponse,
-			}, cmdURL, "phonehome")
-
-			if newCmd := reportResponse.CommandRequest.Command; newCmd != "" && daemon.Processor != nil {
-			} else {
-				daemon.logger.Info("StartAndBlock", cmdURL, nil, "report sent")
-			}
+			}, srv.HostName, "phonehome")
+			daemon.logger.Info("StartAndBlock", srv.HostName, nil, "report sent")
 		}
 	}
 }
@@ -318,8 +341,9 @@ func TestServer(server *Daemon, t testingstub.T) {
 	}()
 	// Start phone-home daemon
 	cmdURL := fmt.Sprintf("http://localhost:%d/test", l.Addr().(*net.TCPAddr).Port)
-	server.MessageProcessorServers = map[string]*MessageProcessorServer{
-		cmdURL: &MessageProcessorServer{Password: toolbox.TestCommandProcessorPIN},
+	server.MessageProcessorServers = []*MessageProcessorServer{
+		{Password: toolbox.TestCommandProcessorPIN, HTTPEndpointURL: cmdURL},
+		{Password: toolbox.TestCommandProcessorPIN, DNSDomainName: "example.com"},
 	}
 	if err := server.Initialise(); err != nil {
 		t.Fatal(err)

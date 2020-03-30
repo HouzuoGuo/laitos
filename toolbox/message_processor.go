@@ -2,6 +2,7 @@ package toolbox
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -384,10 +385,15 @@ func (proc *MessageProcessor) Execute(cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}
-	// Subject report arrives as a JSON payload
+	// Subject report arrives as a compacted string
 	var incomingReport SubjectReportRequest
-	if err := json.Unmarshal([]byte(cmd.Content), &incomingReport); err != nil {
-		return &Result{Error: fmt.Errorf("failed to decode JSON input: %w", err)}
+	if err := incomingReport.DeserialiseFromCompact(cmd.Content); err == ErrSubjectReportTruncated {
+		proc.logger.Warning("Execute", cmd.ClientID, nil, "the subject report request was truncated")
+		// It is OK to continue with a truncated report
+	} else if err != nil {
+		return &Result{Error: fmt.Errorf("failed to decode subject report: %w", err)}
+	} else if incomingReport.SubjectHostName == "" {
+		return &Result{Error: errors.New("the report does not have a host name")}
 	}
 	/*
 		Store the subject report, the client ID is an IP address by convention.
@@ -396,7 +402,7 @@ func (proc *MessageProcessor) Execute(cmd Command) *Result {
 		is memorised for unlimited retrieval according to rentention timeout.
 	*/
 	resp := proc.StoreReport(incomingReport, cmd.ClientID, cmd.DaemonName)
-	// The response is base64 encoded gob data
+	// The response is JSON instead of a compacted string
 	respBytes, err := json.Marshal(resp)
 	if err != nil {
 		return &Result{Error: fmt.Errorf("failed to encode JSON response: %w", err)}

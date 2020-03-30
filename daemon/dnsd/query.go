@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 // Sample queries for composing test cases
@@ -198,7 +198,7 @@ func DecodeDTMFCommandInput(queriedName string) (decodedCommand string) {
 			decodedCommand += queriedName[strIdx:match[0]]
 		}
 		// Decode from DTMF
-		decodedCommand += handler.DTMFDecode(queriedName[match[0]:match[1]])
+		decodedCommand += toolbox.DTMFDecode(queriedName[match[0]:match[1]])
 		strIdx = match[1]
 	}
 	// Collect remaining letters

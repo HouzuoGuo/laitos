@@ -1,4 +1,4 @@
-package handler
+package toolbox
 
 import (
 	"bytes"
@@ -9,12 +9,20 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 )
 
+// DTMFDecodeTable is the mapping between DTMF character sequences and the symbol/number/letter that they translate into.
 var DTMFDecodeTable = map[string]string{
 	` `:   ` `,
 	`111`: `!`, `112`: `@`, `113`: `#`, `114`: `$`, `115`: `%`, `116`: `^`, `117`: `&`, `118`: `*`, `119`: `(`,
 	`121`: "`", `122`: `~`, `123`: `)`, `124`: `-`, `125`: `_`, `126`: `=`, `127`: `+`, `128`: `[`, `129`: `{`,
 	`131`: `]`, `132`: `}`, `133`: `\`, `134`: `|`, `135`: `;`, `136`: `:`, `137`: `'`, `138`: `"`, `139`: `,`,
 	`141`: `<`, `142`: `.`, `143`: `>`, `144`: `/`, `145`: `?`,
+	/*
+		146 is the unit separator character, it helps message processor SubjectReportRequest to serialise a request
+		in a compact form and subsequently transmitted by phonehome daemon.
+	*/
+	`146`: fmt.Sprintf("%c", SubjectReportSerialisedFieldSeparator),
+	`147`: "\n",
+
 	`1`: `0`, `11`: `1`, `12`: `2`, `13`: `3`, `14`: `4`, `15`: `5`, `16`: `6`, `17`: `7`, `18`: `8`, `19`: `9`,
 	`2`: "a", `22`: `b`, `222`: `c`,
 	`3`: "d", `33`: `e`, `333`: `f`,
@@ -24,9 +32,9 @@ var DTMFDecodeTable = map[string]string{
 	`7`: "p", `77`: `q`, `777`: `r`, `7777`: `s`,
 	`8`: "t", `88`: `u`, `888`: `v`,
 	`9`: "w", `99`: `x`, `999`: `y`, `9999`: `z`,
-} // Decode sequence of DTMF digits into letters and symbols
+}
 
-// Decode a sequence of character string sent via DTMF. Input is a sequence of key names (0-9 and *)
+// DTMFDecode decodes a sequence of character string sent via DTMF. Input is a sequence of key names (0-9 and *).
 func DTMFDecode(digits string) string {
 	digits = strings.TrimSpace(digits)
 	if len(digits) == 0 {
