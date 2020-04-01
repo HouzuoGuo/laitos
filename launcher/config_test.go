@@ -229,11 +229,12 @@ var sampleConfigJSON = `
     "TuneLinux": true
   },
 	"PhoneHomeDaemon": {
-		"MessageProcessorServers": {
-			"dummy": {
+		"MessageProcessorServers": [
+			{
+				"HTTPEndpointURL": "dummy",
 				"Password": "dummy"
 			}
-		},
+		],
 		"ReportIntervalSec": 1
 	},
   "PhoneHomeFilters": {
