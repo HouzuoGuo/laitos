@@ -257,33 +257,36 @@ func TestServer(server *Daemon, t testingstub.T) {
 					ClientID:   r.RemoteAddr,
 					DaemonName: "httpd",
 				})
-				t.Log(reqCmd)
+				t.Log("1st req:", reqCmd)
 				if result.Error != nil {
 					t.Fatalf("1st request error: %+v", result)
 				}
-				if len(muxMessageProcessor.OutstandingCommands) != 1 { // "local-to-server"
+				if len(muxMessageProcessor.OutstandingCommands) != 1 { // ".s echo 2server"
 					t.Fatalf("1st request unexpected outstanding command: %+v", muxMessageProcessor.OutstandingCommands)
 				}
 				if len(muxMessageProcessor.SubjectReports) != 1 {
 					t.Fatalf("1st request unexpected subject reports: %+v", muxMessageProcessor.SubjectReports)
 				}
 				for _, reports := range muxMessageProcessor.SubjectReports {
+					// Verify the collected report details
 					report0 := (*reports)[0]
 					if report0.SubjectClientID == "" || report0.DaemonName == "" || report0.OriginalRequest.SubjectHostName == "" ||
-						report0.OriginalRequest.CommandRequest.Command != "local-to-server" || report0.OriginalRequest.CommandResponse.Command != "" {
+						!strings.Contains(report0.OriginalRequest.SubjectComment, "IP:") || !strings.Contains(report0.OriginalRequest.SubjectComment, "Program flags:") ||
+						report0.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" {
 						t.Fatalf("1st request, unexpected memorised report: %+v", report0)
 					}
 				}
 				// The response will ask the daemon to run an app command
 				resp := toolbox.SubjectReportResponse{
 					CommandRequest: toolbox.AppCommandRequest{
-						Command: toolbox.TestCommandProcessorPIN + ".s echo hi",
+						Command: toolbox.TestCommandProcessorPIN + ".s echo 2client",
 					},
 				}
 				respJSON, err := json.Marshal(resp)
 				if err != nil {
 					t.Fatal(err)
 				}
+				t.Log("1st resp:", string(respJSON))
 				_, _ = w.Write(respJSON)
 				muxNumRequests++
 			} else if muxNumRequests == 1 {
@@ -295,7 +298,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 					ClientID:   r.RemoteAddr,
 					DaemonName: "httpd",
 				})
-				t.Log(reqCmd)
+				t.Log("2nd req:", reqCmd)
 				if result.Error != nil {
 					t.Fatalf("2st request error: %+v", result)
 				}
@@ -308,23 +311,17 @@ func TestServer(server *Daemon, t testingstub.T) {
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					report1 := (*reports)[1]
 					if report1.SubjectClientID == "" || report1.DaemonName == "" || report1.OriginalRequest.SubjectHostName == "" ||
-						report1.OriginalRequest.CommandRequest.Command != "local-to-server" || report1.OriginalRequest.CommandResponse.Command == "" ||
-						report1.OriginalRequest.CommandResponse.Result != "hi" || report1.OriginalRequest.CommandResponse.RunDurationSec > 2 {
+						!strings.Contains(report1.OriginalRequest.SubjectComment, "Clock:") || !strings.Contains(report1.OriginalRequest.SubjectComment, "Program flags:") ||
+						report1.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" ||
+						report1.OriginalRequest.CommandResponse.Command != toolbox.TestCommandProcessorPIN+".s echo 2client" ||
+						report1.OriginalRequest.CommandResponse.Result != "2client" || report1.OriginalRequest.CommandResponse.RunDurationSec < 0 {
 						t.Fatalf("2nd request, unexpected memorised report: %+v", report1)
 					}
 				}
 
 				// The response will ask the daemon to run an app command
-				resp := toolbox.SubjectReportResponse{
-					CommandRequest: toolbox.AppCommandRequest{
-						Command: toolbox.TestCommandProcessorPIN + ".s echo hi",
-					},
-				}
-				respJSON, err := json.Marshal(resp)
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, _ = w.Write(respJSON)
+				_, _ = w.Write([]byte(result.Output))
+				t.Log("2nd resp:", result.Output)
 				muxNumRequests++
 			}
 		}
@@ -349,7 +346,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 		t.Fatal(err)
 	}
 	// Prepare an outstanding to be sent to the server by the local message processor
-	server.LocalMessageProcessor.SetUpcomingSubjectCommand("localhost", "local-to-server")
+	server.LocalMessageProcessor.SetUpcomingSubjectCommand("localhost", toolbox.TestCommandProcessorPIN+".s echo 2server")
 	var stoppedNormally bool
 	go func() {
 		if err := server.StartAndBlock(); err != nil {
@@ -363,8 +360,19 @@ func TestServer(server *Daemon, t testingstub.T) {
 		t.Fatalf("did not hit test server - got %d requests", muxNumRequests)
 	}
 	// Check local message processor's number of reports
-	if localReports := server.LocalMessageProcessor.GetLatestReports(1000); len(localReports) < 6 {
-		t.Fatalf("%+v", localReports)
+	localReports := server.LocalMessageProcessor.GetLatestReports(1000)
+	if len(localReports) < 5 {
+		t.Fatalf("%d\n%+v", len(localReports), localReports)
+	}
+	// Check server response from the 2nd request
+	lastReport := localReports[0]
+	t.Logf("phonehome latest report: %+v", lastReport)
+	if lastReport.SubjectClientID != "localhost" || time.Now().Unix()-lastReport.ServerTime.Unix() > 10 || lastReport.DaemonName != "phonehome" ||
+		lastReport.OriginalRequest.CommandRequest.Command != "" ||
+		lastReport.OriginalRequest.CommandResponse.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" ||
+		lastReport.OriginalRequest.CommandResponse.RunDurationSec < 0 ||
+		lastReport.OriginalRequest.CommandResponse.Result != "2server" {
+		t.Fatalf("%+v", lastReport)
 	}
 	// Daemon should stop within a second
 	server.Stop()

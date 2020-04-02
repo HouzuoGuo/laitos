@@ -11,14 +11,14 @@ func TestSubjectReportRequest_SerialiseCompact(t *testing.T) {
 		SubjectIP:       "123.132.123.123",
 		SubjectHostName: "hzgl-dev-abc.example.com",
 		SubjectPlatform: "windows/amd64",
-		SubjectComment:  "hello there",
+		SubjectComment:  "hello there\nsecond line",
 		CommandRequest: AppCommandRequest{
 			Command: "123456098765.s start-computer",
 		},
 		CommandResponse: AppCommandResponse{
 			Command:        "123456098765.s stop-computer",
 			ReceivedAt:     time.Unix(1234567890, 0),
-			Result:         "stopped the computer all right, i am doing fine with this",
+			Result:         "stopped the computer all right\nsecond line",
 			RunDurationSec: 182,
 		},
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -46,9 +47,32 @@ func TestGetDNSQuery(t *testing.T) {
 	if q := GetDNSQuery("a1!2B", "def.ghi"); q != "_.a1101110120B.def.ghi" {
 		t.Fatal(q)
 	}
+	if q := GetDNSQuery("a\nB", "def.ghi"); q != "_.a1470B.def.ghi" {
+		t.Fatal(q)
+	}
 	// Span across several labels
 	q := GetDNSQuery(strings.Repeat("abcdefghijklmnopqrstuvwxyz", 100), "example.com")
 	if q != "_.abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefgh.ijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnop.qrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwx.yzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwx.example.com" {
+		t.Fatal(q)
+	}
+	// Sophisticated query
+	req := toolbox.SubjectReportRequest{
+		SubjectIP:       "1.2.3.4",
+		SubjectHostName: "hzgl-dev",
+		SubjectPlatform: "windows",
+		SubjectComment:  "comment 1\ncomment 2",
+		CommandRequest: toolbox.AppCommandRequest{
+			Command: "pass.s date",
+		},
+		CommandResponse: toolbox.AppCommandResponse{
+			Command:        "pass.s date",
+			ReceivedAt:     time.Unix(1234567890, 0),
+			Result:         "result 1\nresult2",
+			RunDurationSec: 321,
+		},
+	}
+	q = GetDNSQuery("987654987654"+toolbox.StoreAndForwardMessageProcessorTrigger+req.SerialiseCompact(), "example.com")
+	if q != "_.190180170160150140190180170160150140142010mhzgl1240dev1460pa.ss1420s0date1460pass1420s0date1460result01101470result120146.0windows1460comment01101470comment01201460110142012014201301.4201401460110120130140150160170180190101460130120110.example.com" {
 		t.Fatal(q)
 	}
 }

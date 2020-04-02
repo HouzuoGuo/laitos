@@ -83,11 +83,14 @@ func TestDecodeDTMFCommandInput(t *testing.T) {
 		t.Fatal(d)
 	}
 	// 0 -> space
-	// The function must not see an extra label in the trailing dot
+	// Should also properly handle the training dot in a DNS name
 	if d := DecodeDTMFCommandInput("_0.example.com."); d != " " {
 		t.Fatal(d)
 	}
 	if d := DecodeDTMFCommandInput("_abc.example.com."); d != "abc" {
+		t.Fatal(d)
+	}
+	if d := DecodeDTMFCommandInput("_.abc.example.com."); d != "abc" {
 		t.Fatal(d)
 	}
 	// 0 -> 1, 2 -> a
@@ -111,5 +114,11 @@ func TestDecodeDTMFCommandInput(t *testing.T) {
 	}
 	if d := DecodeDTMFCommandInput("_.11a.12b.13c.example.com"); d != "1a2b3c" {
 		t.Fatal(d)
+	}
+	// Decode a more complicated query similar to that sent by phonehome daemon
+	q := "_.190180170160150140190180170160150140142010mhzgl1240dev1460pa.ss1420s0date1460pass1420s0date1460result01101470result120146.0windows1460comment01101470comment01201460110142012014201301.4201401460110120130140150160170180190101460130120110.example.com"
+	match := "987654987654.0mhzgl-dev\x1fpass.s date\x1fpass.s date\x1fresult 1\nresult2\x1fwindows\x1fcomment 1\ncomment 2\x1f1.2.3.4\x1f1234567890\x1f321"
+	if decoded := DecodeDTMFCommandInput(q); decoded != match {
+		t.Fatalf("\n%s\n%s\n", decoded, match)
 	}
 }

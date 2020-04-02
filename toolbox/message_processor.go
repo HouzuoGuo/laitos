@@ -148,9 +148,9 @@ func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID
 	proc.mutex.Unlock()
 	cmdResponse := proc.processCommandRequest(request, clientID, daemonName)
 	if upcomingSubjectCommand == "" {
-		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "received report via daemon %s", daemonName)
+		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "store report from daemon %s", daemonName)
 	} else {
-		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "received report via daemon %s, replying with its pending app command.", daemonName)
+		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "store report from daemon %s, replying with a pending app command.", daemonName)
 	}
 	return SubjectReportResponse{
 		CommandRequest:  pendingCommandRequest,
@@ -388,7 +388,7 @@ func (proc *MessageProcessor) Execute(cmd Command) *Result {
 	// Subject report arrives as a compacted string
 	var incomingReport SubjectReportRequest
 	if err := incomingReport.DeserialiseFromCompact(cmd.Content); err == ErrSubjectReportTruncated {
-		proc.logger.Warning("Execute", cmd.ClientID, nil, "the subject report request was truncated")
+		proc.logger.Info("Execute", cmd.ClientID, nil, "the subject report request was truncated")
 		// It is OK to continue with a truncated report
 	} else if err != nil {
 		return &Result{Error: fmt.Errorf("failed to decode subject report: %w", err)}
