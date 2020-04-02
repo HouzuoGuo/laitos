@@ -11,7 +11,7 @@ func TestDTMFDecode(t *testing.T) {
 	if s := DTMFDecode("0"); s != " " {
 		t.Fatal(s)
 	}
-	if s := DTMFDecode("01470"); s != " \n" {
+	if s := DTMFDecode("01470"); s != " \x1e" {
 		t.Fatal(s)
 	}
 	if s := DTMFDecode(" awzxv<>?  \n\t<w;'{}   -=  "); s != "" {
