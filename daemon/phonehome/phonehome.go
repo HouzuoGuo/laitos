@@ -193,6 +193,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			if srv.DNSDomainName != "" {
 				// Send the latest report via DNS name query
 				reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, true)
+				fmt.Println("SENDING DNSD " + reportCmd)
 				queryResponse, err := net.LookupTXT(GetDNSQuery(reportCmd, srv.DNSDomainName))
 				if err != nil {
 					daemon.logger.Warning("StartAndBlock", srv.DNSDomainName, err, "failed to send DNS request")
@@ -202,6 +203,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			} else if srv.HTTPEndpointURL != "" {
 				// Send the latest report via HTTP client
 				reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, false)
+				fmt.Println("SENDING HTTPD " + url.Values{"cmd": {reportCmd}}.Encode())
 				resp, err := inet.DoHTTP(inet.HTTPRequest{
 					TimeoutSec: 15,
 					MaxBytes:   16 * 1024,

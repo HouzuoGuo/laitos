@@ -21,7 +21,7 @@ func TestEncodeToDTMF(t *testing.T) {
 		t.Fatal(s)
 	}
 	// Mix of everything
-	if s := EncodeToDTMF("A \nb "); s != "A01470b0" {
+	if s := EncodeToDTMF("A\x1eb "); s != "A1470b0" {
 		t.Fatal(s)
 	}
 	s := EncodeToDTMF(fmt.Sprintf("a1!%c 2", toolbox.SubjectReportSerialisedFieldSeparator))
@@ -47,7 +47,7 @@ func TestGetDNSQuery(t *testing.T) {
 	if q := GetDNSQuery("a1!2B", "def.ghi"); q != "_.a1101110120B.def.ghi" {
 		t.Fatal(q)
 	}
-	if q := GetDNSQuery("a\nB", "def.ghi"); q != "_.a1470B.def.ghi" {
+	if q := GetDNSQuery("a\x1e\x1fB", "def.ghi"); q != "_.a14701460B.def.ghi" {
 		t.Fatal(q)
 	}
 	// Span across several labels

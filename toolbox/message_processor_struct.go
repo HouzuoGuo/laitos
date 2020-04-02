@@ -15,6 +15,12 @@ single string.
 const SubjectReportSerialisedFieldSeparator = '\x1f'
 
 /*
+SubjectReportSerialisedLineSeparator is a separator character, ASCII Record Separator, used in between lines of a compacted subject report
+request.
+*/
+const SubjectReportSerialisedLineSeparator = '\x1e'
+
+/*
 AppCommandRequest consists of an app command to run. It is embedded in subject report requests or server responses when one of them would
 like the other party to run an app command.
 The JSON attribute tags are deliberately kept short to save bandwidth in transit.
@@ -77,12 +83,12 @@ func (req *SubjectReportRequest) SerialiseCompact() string {
 		SubjectReportSerialisedFieldSeparator,
 		req.CommandResponse.Command,
 		SubjectReportSerialisedFieldSeparator,
-		req.CommandResponse.Result,
+		strings.ReplaceAll(req.CommandResponse.Result, "\n", fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator)),
 		SubjectReportSerialisedFieldSeparator,
 
 		req.SubjectPlatform,
 		SubjectReportSerialisedFieldSeparator,
-		req.SubjectComment,
+		strings.ReplaceAll(req.SubjectComment, "\n", fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator)),
 		SubjectReportSerialisedFieldSeparator,
 		req.SubjectIP,
 		SubjectReportSerialisedFieldSeparator,
@@ -111,13 +117,13 @@ func (req *SubjectReportRequest) DeserialiseFromCompact(in string) error {
 		req.CommandResponse.Command = components[2]
 	}
 	if len(components) > 3 {
-		req.CommandResponse.Result = components[3]
+		req.CommandResponse.Result = strings.ReplaceAll(components[3], fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator), "\n")
 	}
 	if len(components) > 4 {
 		req.SubjectPlatform = components[4]
 	}
 	if len(components) > 5 {
-		req.SubjectComment = components[5]
+		req.SubjectComment = strings.ReplaceAll(components[5], fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator), "\n")
 	}
 	if len(components) > 6 {
 		req.SubjectIP = components[6]

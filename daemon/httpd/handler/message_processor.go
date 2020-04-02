@@ -99,6 +99,7 @@ func (hand *HandleAppCommand) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	NoCache(w)
 	cmd := r.FormValue("cmd")
+	lalog.DefaultLogger.Info("HandleAppCommand", "", nil, cmd)
 	if cmd == "" {
 		// Ignore request that does not carry an app command
 		w.WriteHeader(http.StatusOK)

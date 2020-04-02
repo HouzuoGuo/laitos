@@ -19,12 +19,9 @@ var DTMFEncodeTable = map[rune]string{
 	'`': `1210`, '~': `1220`, ')': `1230`, '-': `1240`, '_': `1250`, '=': `1260`, '+': `1270`, '[': `1280`, '{': `1290`,
 	']': `1310`, '}': `1320`, '\\': `1330`, '|': `1340`, ';': `1350`, ':': `1360`, '\'': `1370`, '"': `1380`, ',': `1390`,
 	'<': `1410`, '.': `1420`, '>': `1430`, '/': `1440`, '?': `1450`,
-	/*
-		146 is the unit separator character, it helps message processor SubjectReportRequest to serialise a request
-		in a compact form and subsequently transmitted by phonehome daemon.
-	*/
+
 	toolbox.SubjectReportSerialisedFieldSeparator: `1460`,
-	'\n': `1470`,
+	toolbox.SubjectReportSerialisedLineSeparator:  `1470`,
 
 	'0': `10`, '1': `110`, '2': `120`, '3': `130`, '4': `140`, '5': `150`, '6': `160`, '7': `170`, '8': `180`, '9': `190`,
 }

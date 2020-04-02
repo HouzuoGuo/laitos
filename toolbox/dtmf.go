@@ -16,12 +16,9 @@ var DTMFDecodeTable = map[string]string{
 	`121`: "`", `122`: `~`, `123`: `)`, `124`: `-`, `125`: `_`, `126`: `=`, `127`: `+`, `128`: `[`, `129`: `{`,
 	`131`: `]`, `132`: `}`, `133`: `\`, `134`: `|`, `135`: `;`, `136`: `:`, `137`: `'`, `138`: `"`, `139`: `,`,
 	`141`: `<`, `142`: `.`, `143`: `>`, `144`: `/`, `145`: `?`,
-	/*
-		146 is the unit separator character, it helps message processor SubjectReportRequest to serialise a request
-		in a compact form and subsequently transmitted by phonehome daemon.
-	*/
+
 	`146`: fmt.Sprintf("%c", SubjectReportSerialisedFieldSeparator),
-	`147`: "\n",
+	`147`: fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator),
 
 	`1`: `0`, `11`: `1`, `12`: `2`, `13`: `3`, `14`: `4`, `15`: `5`, `16`: `6`, `17`: `7`, `18`: `8`, `19`: `9`,
 	`2`: "a", `22`: `b`, `222`: `c`,
