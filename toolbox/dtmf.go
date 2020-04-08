@@ -98,7 +98,7 @@ func DTMFDecode(digits string) string {
 		} else {
 			decoded, found := DTMFDecodeTable[seq]
 			if !found {
-				lalog.DefaultLogger.Warning("DTMFDecode", "", nil, "failed to decode sequence - %s", seq)
+				lalog.DefaultLogger.Info("DTMFDecode", "", nil, "failed to decode sequence - \"%s\"", seq)
 				continue
 			}
 			if shift {

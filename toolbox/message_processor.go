@@ -17,7 +17,7 @@ const (
 		ReportIntervalSec is the recommended interval at which subjects are to send their reports to a daemon.
 		This is only a recommendation - subjects may freely exceed or relax the interval as they see fit.
 	*/
-	ReportIntervalSec = 60
+	ReportIntervalSec = 5 * 60
 	/*
 		AppCommandResponseRetentionSec is the maximum duration to retain an app command execution result per host. During the retention period the result
 		will be available for retrieval After the retention period the result will be available for retrieval one last time, and then removed from memory.
