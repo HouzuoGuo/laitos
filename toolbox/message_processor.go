@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -90,10 +91,14 @@ type MessageProcessor struct {
 }
 
 // SetUpcomingSubjectCommand stores an app command that the message processor carries in a reply to a subject report.
-func (proc *MessageProcessor) SetUpcomingSubjectCommand(host, cmdContent string) {
+func (proc *MessageProcessor) SetUpcomingSubjectCommand(hostName, cmdContent string) {
+	hostName = strings.ToLower(hostName)
 	proc.mutex.Lock()
 	defer proc.mutex.Unlock()
-	proc.UpcomingSubjectCommand[host] = cmdContent
+	if cmdContent == "" {
+		delete(proc.UpcomingSubjectCommand, hostName)
+	}
+	proc.UpcomingSubjectCommand[hostName] = cmdContent
 }
 
 // GetAllUpcomingSubjectCommands returns a copy of all app commands that are about to be delivered to reporting subjects.
@@ -113,7 +118,7 @@ If the report carries an app command, then the command will run in the backgroun
 */
 func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID, daemonName string) SubjectReportResponse {
 	proc.mutex.Lock()
-	hostName := request.SubjectHostName
+	hostName := strings.ToLower(request.SubjectHostName)
 	reports := proc.SubjectReports[hostName]
 	if reports == nil {
 		// Reserve the maximum capacity as computer subjects often stay online for quite a while
@@ -250,6 +255,7 @@ The returned values are sorted from latest to oldest, in contrast to the order t
 When there are insufficient number of reports arrived from that subject, the number of returned values will be less than the maximum limit.
 */
 func (proc *MessageProcessor) GetLatestReportsFromSubject(hostName string, maxLimit int) (ret []SubjectReport) {
+	hostName = strings.ToLower(hostName)
 	ret = make([]SubjectReport, 0)
 	if maxLimit < 1 {
 		return

@@ -28,7 +28,7 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 	// Store one report and retrieve
 	proc.StoreReport(SubjectReportRequest{
 		SubjectIP:       "subject-ip1",
-		SubjectHostName: "subject-host-name1",
+		SubjectHostName: "subject-host-NAME1", // all incoming subject host names are converted to lower case
 		SubjectPlatform: "subject-platform",
 	}, "ip", "daemon")
 
@@ -49,7 +49,7 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 	time.Sleep(1100 * time.Millisecond)
 	proc.StoreReport(SubjectReportRequest{
 		SubjectIP:       "subject-ip2",
-		SubjectHostName: "subject-host-name2",
+		SubjectHostName: "subject-host-NAME2",
 		SubjectPlatform: "subject-platform",
 	}, "ip", "daemon")
 
@@ -151,7 +151,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 	}
 
 	cmd := TestCommandProcessorPIN + ".s echo 123"
-	proc.SetUpcomingSubjectCommand("subject-host-name1", "test cmd")
+	proc.SetUpcomingSubjectCommand("subject-host-NAME1", "test cmd")
 	resp := proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
@@ -165,7 +165,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 		t.Fatalf("%+v", cmds)
 	}
 
-	proc.SetUpcomingSubjectCommand("subject-host-name1", "test cmd2")
+	proc.SetUpcomingSubjectCommand("subject-host-NAME1", "test cmd2")
 	resp = proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
@@ -175,7 +175,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 		t.Fatalf("%+v", resp)
 	}
 
-	proc.SetUpcomingSubjectCommand("subject-host-name1", "")
+	proc.SetUpcomingSubjectCommand("subject-host-NAME1", "")
 	resp = proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
