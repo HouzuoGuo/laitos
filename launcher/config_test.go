@@ -144,6 +144,7 @@ var sampleConfigJSON = `
         }
       }
     },
+		"TheThingsNetworkEndpoint": "/ttn",
     "TwilioCallEndpoint": "/call_greeting",
     "TwilioCallEndpointConfig": {
       "CallGreeting": "Hi there"

@@ -78,6 +78,8 @@ type HTTPHandlers struct {
 
 	WebProxyEndpoint string `json:"WebProxyEndpoint"`
 
+	TheThingsNetworkEndpoint string `json:"TheThingsNetworkEndpoint"`
+
 	TwilioSMSEndpoint        string                       `json:"TwilioSMSEndpoint"`
 	TwilioCallEndpoint       string                       `json:"TwilioCallEndpoint"`
 	TwilioCallEndpointConfig handler.HandleTwilioCallHook `json:"TwilioCallEndpointConfig"`
@@ -478,6 +480,9 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		}
 		if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
 			handlers[proxyEndpoint] = &handler.HandleWebProxy{OwnEndpoint: proxyEndpoint}
+		}
+		if ttnEndpoint := config.HTTPHandlers.TheThingsNetworkEndpoint; ttnEndpoint != "" {
+			handlers[ttnEndpoint] = &handler.HandleTheThingsNetworkHTTPIntegration{}
 		}
 		if config.HTTPHandlers.TwilioSMSEndpoint != "" {
 			handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &handler.HandleTwilioSMSHook{}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -120,6 +121,9 @@ func (daemon *Daemon) Middleware(rateLimit *misc.RateLimit, restrictedRequestSiz
 		if rateLimit.Add(remoteIP, true) {
 			daemon.logger.Info("Handler", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
 			next(w, r)
+			if r.Body != nil {
+				_ = r.Body.Close()
+			}
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
 		}
@@ -436,6 +440,19 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, resp.StatusCode, string(resp.Body))
 	}
 
+	// TTN HTTP hook (payload is 10 empty bytes + letters "ABC")
+	ttnUplinkPayload := base64.StdEncoding.EncodeToString([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 66, 67})
+	resp, err = inet.DoHTTP(inet.HTTPRequest{
+		Method: http.MethodPost,
+		Body:   strings.NewReader(fmt.Sprintf(`{"app_id": "test_app", "dev_id": "test_dev", "hardware_serial": "ttn-tx", "payload_raw": "%s"}`, ttnUplinkPayload)),
+	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTheThingsNetworkHTTPIntegration{}))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatal(err, string(resp.Body))
+	}
+	if reports := httpd.Processor.Features.MessageProcessor.GetLatestReportsFromSubject("test_dev", 1000); len(reports) != 1 {
+		t.Fatalf("%+v", reports)
+	}
+
 	// Twilio - exchange SMS with bad PIN
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
@@ -614,7 +631,7 @@ over.]]></Say>`) {
 	httpd.Processor.Features.MessageProcessor.StoreReport(toolbox.SubjectReportRequest{
 		SubjectHostName: "subject-host-name",
 	}, "client-ip2", "client-daemon2")
-	// Retrieve both reports
+	// Retrieve TTN report + two host reports from the latest to oldest
 	var reports []toolbox.SubjectReport
 	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
 	if err != nil || resp.StatusCode != http.StatusOK {
@@ -623,7 +640,7 @@ over.]]></Say>`) {
 	if err := json.Unmarshal(resp.Body, &reports); err != nil {
 		t.Fatal(err)
 	}
-	if len(reports) != 2 || reports[0].SubjectClientID != "client-ip2" || reports[1].SubjectClientID != "client-ip1" {
+	if len(reports) != 3 || reports[0].SubjectClientID != "client-ip2" || reports[1].SubjectClientID != "client-ip1" || reports[2].SubjectClientID != "ttn-tx" {
 		t.Fatalf("%+v", reports)
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{

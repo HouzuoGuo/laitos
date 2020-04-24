@@ -62,6 +62,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		ClientAppSecret: "dummy secret",
 	}
 	daemon.HandlerCollection["/proxy"] = &handler.HandleWebProxy{OwnEndpoint: "/proxy"}
+	daemon.HandlerCollection["/ttn"] = &handler.HandleTheThingsNetworkHTTPIntegration{}
 	daemon.HandlerCollection["/sms"] = &handler.HandleTwilioSMSHook{}
 	daemon.HandlerCollection["/call_greeting"] = &handler.HandleTwilioCallHook{CallGreeting: "Hi there", CallbackEndpoint: "/test"}
 	daemon.HandlerCollection["/call_command"] = &handler.HandleTwilioCallCallback{MyEndpoint: "/endpoint-does-not-matter-in-this-test"}

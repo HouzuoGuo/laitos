@@ -40,7 +40,7 @@ type AppCommandResponse struct {
 	Command string
 	// ReceivedAt is the timestamp of the command that was received.
 	ReceivedAt time.Time
-	// Response is the app command execution result.
+	// Response is the execution result of a previously executed app command.
 	Result string
 	// Duration is the number of seconds the app command took to run.
 	RunDurationSec int
