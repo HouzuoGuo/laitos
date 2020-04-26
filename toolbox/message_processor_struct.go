@@ -21,17 +21,16 @@ request.
 const SubjectReportSerialisedLineSeparator = '\x1e'
 
 /*
-AppCommandRequest consists of an app command to run. It is embedded in subject report requests or server responses when either of them would
-like the other party to run an app command.
+AppCommandRequest is an app command that a subject (remote) would like this message processor (local) to run.
+The app command follows the conventional format, e.g. "PasswordPIN.e info".
 */
 type AppCommandRequest struct {
-	// Command is a complete app command following the conventional format.
-	Command string
+	Command string // Command is a complete app command following the conventional format.
 }
 
 /*
-AppCommandResponse consists of an app command, timestamp, and execution stats. After a subject or a server has completed an app command
-previously requested by the other party, this response will be embedded in the next message exchange.
+AppCommandResponse is the result of app command executed by this message processor (local), as a result of request made by a subject (remote).
+The result field is updated upon completion of the command execution.
 */
 type AppCommandResponse struct {
 	// Command is the app command that was run.
@@ -45,8 +44,8 @@ type AppCommandResponse struct {
 }
 
 /*
-SubjectReportRequest is a request message consisting of subject's system status and result from most recent command execution (if asked),
-regularly transmitted to a server.
+SubjectReportRequest is a subject's (remote's) system description and status report transmitted at regular interval to this message
+processor (local).
 */
 type SubjectReportRequest struct {
 	// SubjectIP is the public IP address of the computer. This may not be identical to the client IP observed by server.
@@ -61,9 +60,9 @@ type SubjectReportRequest struct {
 	// ServerTime is overwritten by server upon receiving the request, it is not supplied by a subject, and only used by the server internally.
 	ServerTime time.Time `json:"-"`
 
-	// CommandRequest is an app command that the subject would like server to run (if any).
+	// CommandRequest is an app command that the subject (remote) would like this message processor (local) to run, if any.
 	CommandRequest AppCommandRequest
-	// CommandResponse is an response for a command that server previously asked the subject to run (if asked).
+	// CommandResponse is result of app command execution the subject (remote) made in response to command request originated from this message processor (local).
 	CommandResponse AppCommandResponse
 }
 
@@ -143,12 +142,13 @@ func (req *SubjectReportRequest) DeserialiseFromCompact(in string) error {
 }
 
 /*
-SubjectReportResponse is made in reply to a report, the response consists of a pending app command for the subject to run (if any), or result
-from most recent command an agent asked the server to run (if asked).
+SubjectReportResponse is a reply made in response to a subject (remote) report. It may embed a command request that this
+message processor (local) would like the subject (remote) to execute, and/or result from app command execution this
+message processor (local) made in response to a previous command request from subject (remote).
 */
 type SubjectReportResponse struct {
-	// CommandRequest is an app command that the server would like a subject to run (if any).
+	// CommandRequest is an app command that this message processor (local) would like subject (remote) to run.
 	CommandRequest AppCommandRequest
-	// CommandResponse is an response for a command that a subject previously asked the server to run (if any).
+	// CommandResponse is the result from app command that subject (remote) previously asked local to execute.
 	CommandResponse AppCommandResponse
 }
