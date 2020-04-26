@@ -140,7 +140,7 @@ func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostNam
 	}
 	report := toolbox.SubjectReportRequest{
 		SubjectIP:       inet.GetPublicIP(),
-		SubjectHostName: hostname,
+		SubjectHostName: strings.ToLower(hostname),
 		SubjectPlatform: fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
 		SubjectComment:  toolbox.GetRuntimeInfo(),
 		CommandRequest:  cmdExchange.CommandRequest,

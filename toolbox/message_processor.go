@@ -118,9 +118,13 @@ StoreReports stores the most recent report from a subject and evicts older repor
 If the report carries an app command, then the command will run in the background.
 */
 func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID, daemonName string) SubjectReportResponse {
+	request.SubjectHostName = strings.TrimSpace(strings.ToLower(request.SubjectHostName))
+	if request.SubjectHostName == "" {
+		// Empty host name does not make a valid report
+		return SubjectReportResponse{}
+	}
 	proc.mutex.Lock()
-	hostName := strings.ToLower(request.SubjectHostName)
-	reports := proc.SubjectReports[hostName]
+	reports := proc.SubjectReports[request.SubjectHostName]
 	if reports == nil {
 		// Reserve the maximum capacity as computer subjects often stay online for quite a while
 		newReports := make([]SubjectReport, 0, proc.MaxReportsPerHostName)
@@ -140,16 +144,13 @@ func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID
 	}
 	// Append the latest report
 	*reports = append(*reports, newReport)
-	proc.SubjectReports[hostName] = reports
+	proc.SubjectReports[request.SubjectHostName] = reports
 	// Scan and remove expired subjects every couple of thousands of reports
 	proc.totalReports++
 	if proc.totalReports%proc.MaxReportsPerHostName == 0 {
 		proc.removeExpiredSubjects()
 	}
 	outgoingCommandForSubject := proc.OutgoingAppCommands[request.SubjectHostName]
-	pendingCommandRequest := AppCommandRequest{
-		Command: outgoingCommandForSubject,
-	}
 	// Release the lock for report handling is now completed. The app command (if requested) will run without holding the lock.
 	proc.mutex.Unlock()
 	cmdResponse := proc.processCommandRequest(request, clientID, daemonName)
@@ -159,7 +160,9 @@ func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID
 		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "store report from daemon %s, replying with a pending app command.", daemonName)
 	}
 	return SubjectReportResponse{
-		CommandRequest:  pendingCommandRequest,
+		CommandRequest: AppCommandRequest{
+			Command: outgoingCommandForSubject,
+		},
 		CommandResponse: cmdResponse,
 	}
 }
