@@ -139,8 +139,8 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 	if reports := proc.GetLatestReportsFromSubject("subject-host-name1", 1000); len(reports) != 0 {
 		t.Fatal(len(reports))
 	}
-	if len(proc.OutstandingCommands) != 0 {
-		t.Fatalf("%+v", proc.OutstandingCommands)
+	if len(proc.IncomingAppCommands) != 0 {
+		t.Fatalf("%+v", proc.IncomingAppCommands)
 	}
 }
 
@@ -151,7 +151,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 	}
 
 	cmd := TestCommandProcessorPIN + ".s echo 123"
-	proc.SetUpcomingSubjectCommand("subject-host-NAME1", "test cmd")
+	proc.SetOutgoingCommand("subject-host-NAME1", "test cmd")
 	resp := proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
@@ -161,11 +161,11 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 		t.Fatalf("%+v", resp)
 	}
 
-	if cmds := proc.GetAllUpcomingSubjectCommands(); len(cmds) != 1 || cmds["subject-host-name1"] != "test cmd" {
+	if cmds := proc.GetAllOutgoingCommands(); len(cmds) != 1 || cmds["subject-host-name1"] != "test cmd" {
 		t.Fatalf("%+v", cmds)
 	}
 
-	proc.SetUpcomingSubjectCommand("subject-host-NAME1", "test cmd2")
+	proc.SetOutgoingCommand("subject-host-NAME1", "test cmd2")
 	resp = proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
@@ -175,7 +175,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 		t.Fatalf("%+v", resp)
 	}
 
-	proc.SetUpcomingSubjectCommand("subject-host-NAME1", "")
+	proc.SetOutgoingCommand("subject-host-NAME1", "")
 	resp = proc.StoreReport(SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
@@ -228,8 +228,8 @@ func TestMessageProcessor_processCommandRequest_RecursiveCommand(t *testing.T) {
 		!strings.Contains(resp.CommandResponse.Result, "will not run a recursive") {
 		t.Fatalf("%+v", resp)
 	}
-	if len(proc.OutstandingCommands) != 0 {
-		t.Fatalf("%+v", proc.OutstandingCommands)
+	if len(proc.IncomingAppCommands) != 0 {
+		t.Fatalf("%+v", proc.IncomingAppCommands)
 	}
 }
 

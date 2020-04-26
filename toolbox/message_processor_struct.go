@@ -21,9 +21,8 @@ request.
 const SubjectReportSerialisedLineSeparator = '\x1e'
 
 /*
-AppCommandRequest consists of an app command to run. It is embedded in subject report requests or server responses when one of them would
+AppCommandRequest consists of an app command to run. It is embedded in subject report requests or server responses when either of them would
 like the other party to run an app command.
-The JSON attribute tags are deliberately kept short to save bandwidth in transit.
 */
 type AppCommandRequest struct {
 	// Command is a complete app command following the conventional format.
@@ -33,7 +32,6 @@ type AppCommandRequest struct {
 /*
 AppCommandResponse consists of an app command, timestamp, and execution stats. After a subject or a server has completed an app command
 previously requested by the other party, this response will be embedded in the next message exchange.
-The JSON attribute tags are deliberately kept short to save bandwidth in transit.
 */
 type AppCommandResponse struct {
 	// Command is the app command that was run.
@@ -49,7 +47,6 @@ type AppCommandResponse struct {
 /*
 SubjectReportRequest is a request message consisting of subject's system status and result from most recent command execution (if asked),
 regularly transmitted to a server.
-The JSON attribute tags are deliberately kept short to save bandwidth in transit.
 */
 type SubjectReportRequest struct {
 	// SubjectIP is the public IP address of the computer. This may not be identical to the client IP observed by server.
@@ -148,7 +145,6 @@ func (req *SubjectReportRequest) DeserialiseFromCompact(in string) error {
 /*
 SubjectReportResponse is made in reply to a report, the response consists of a pending app command for the subject to run (if any), or result
 from most recent command an agent asked the server to run (if asked).
-The JSON attribute tags are deliberately kept short to save bandwidth in transit.
 */
 type SubjectReportResponse struct {
 	// CommandRequest is an app command that the server would like a subject to run (if any).

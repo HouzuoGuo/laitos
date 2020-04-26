@@ -49,10 +49,11 @@ type SubjectReport struct {
 }
 
 /*
-OutstandingCommand is a complete application command (and later on execution result) that a subject requested store&forward message processor to run.
+OutstandingCommand is an application command that a subject requested store&forward message processor to run.
 A message processor keeps track of maximum of one outstanding command per host name, where the host name is self-reported by a subject.
+Upon completion, the command execution result will be updated in this structure.
 */
-type OutstandingCommand struct {
+type IncomingAppCommand struct {
 	Request        SubjectReportRequest
 	RunDurationSec int
 	Result         Result
@@ -65,13 +66,13 @@ It also implements the usual toolbox app interface so that monitored subjects ca
 type MessageProcessor struct {
 	// SubjectReports is a map of subject's self-reported host name and its most recent reports, sorted from earliest to latest.
 	SubjectReports map[string]*[]SubjectReport `json:"-"`
-	// OutstandingCommands is a map of subject's self reported host name and an app command the subject would like the message processor to run.
-	OutstandingCommands map[string]*OutstandingCommand `json:"-"`
+	// IncomingAppCommands is a map of subject's self reported host name and an app command the subject would like the message processor to run.
+	IncomingAppCommands map[string]*IncomingAppCommand `json:"-"`
 	/*
-		UpcomingSubjectCommand is a map of subject's self reported host name and an app command that the message processor would like the subject to run.
+		OutgoingAppCommands is a map of subject's self reported host name and an app command that this message processor would like the subject to run.
 		This command is delivered to the subject when it sends the next report.
 	*/
-	UpcomingSubjectCommand map[string]string `json:"-"`
+	OutgoingAppCommands map[string]string `json:"-"`
 	// CmdProcessor processes app commands as requested by a remote server.
 	CmdProcessor *CommandProcessor `json:"-"`
 
@@ -90,23 +91,23 @@ type MessageProcessor struct {
 	logger lalog.Logger
 }
 
-// SetUpcomingSubjectCommand stores an app command that the message processor carries in a reply to a subject report.
-func (proc *MessageProcessor) SetUpcomingSubjectCommand(hostName, cmdContent string) {
+// SetOutgoingCommand stores an app command that the message processor carries in a reply to a subject report.
+func (proc *MessageProcessor) SetOutgoingCommand(hostName, cmdContent string) {
 	hostName = strings.ToLower(hostName)
 	proc.mutex.Lock()
 	defer proc.mutex.Unlock()
 	if cmdContent == "" {
-		delete(proc.UpcomingSubjectCommand, hostName)
+		delete(proc.OutgoingAppCommands, hostName)
 	}
-	proc.UpcomingSubjectCommand[hostName] = cmdContent
+	proc.OutgoingAppCommands[hostName] = cmdContent
 }
 
-// GetAllUpcomingSubjectCommands returns a copy of all app commands that are about to be delivered to reporting subjects.
-func (proc *MessageProcessor) GetAllUpcomingSubjectCommands() map[string]string {
+// GetAllOutgoingCommands returns a copy of all app commands that are about to be delivered to reporting subjects.
+func (proc *MessageProcessor) GetAllOutgoingCommands() map[string]string {
 	proc.mutex.Lock()
 	defer proc.mutex.Unlock()
 	ret := make(map[string]string)
-	for k, v := range proc.UpcomingSubjectCommand {
+	for k, v := range proc.OutgoingAppCommands {
 		ret[k] = v
 	}
 	return ret
@@ -140,19 +141,19 @@ func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID
 	// Append the latest report
 	*reports = append(*reports, newReport)
 	proc.SubjectReports[hostName] = reports
-	// Remove expired subjects after couple of thousands of reports
+	// Scan and remove expired subjects every couple of thousands of reports
 	proc.totalReports++
 	if proc.totalReports%proc.MaxReportsPerHostName == 0 {
 		proc.removeExpiredSubjects()
 	}
-	upcomingSubjectCommand := proc.UpcomingSubjectCommand[request.SubjectHostName]
+	outgoingCommandForSubject := proc.OutgoingAppCommands[request.SubjectHostName]
 	pendingCommandRequest := AppCommandRequest{
-		Command: upcomingSubjectCommand,
+		Command: outgoingCommandForSubject,
 	}
 	// Release the lock for report handling is now completed. The app command (if requested) will run without holding the lock.
 	proc.mutex.Unlock()
 	cmdResponse := proc.processCommandRequest(request, clientID, daemonName)
-	if upcomingSubjectCommand == "" {
+	if outgoingCommandForSubject == "" {
 		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "store report from daemon %s", daemonName)
 	} else {
 		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "store report from daemon %s, replying with a pending app command.", daemonName)
@@ -175,7 +176,7 @@ func (proc *MessageProcessor) processCommandRequest(request SubjectReportRequest
 	appCmd := request.CommandRequest.Command
 
 	proc.mutex.Lock()
-	prevCmd, exists := proc.OutstandingCommands[request.SubjectHostName]
+	prevCmd, exists := proc.IncomingAppCommands[request.SubjectHostName]
 	proc.mutex.Unlock()
 
 	if appCmd == "" || exists && prevCmd.Request.CommandRequest.Command == appCmd {
@@ -186,7 +187,7 @@ func (proc *MessageProcessor) processCommandRequest(request SubjectReportRequest
 			if prevCmd.Request.ServerTime.Before(time.Now().Add(-CommandResponseRetentionSec * time.Second)) {
 				// Erase the result from memory beyond the retention period
 				proc.mutex.Lock()
-				delete(proc.OutstandingCommands, request.SubjectHostName)
+				delete(proc.IncomingAppCommands, request.SubjectHostName)
 				proc.mutex.Unlock()
 			}
 			// Return the memorised result
@@ -219,7 +220,7 @@ func (proc *MessageProcessor) processCommandRequest(request SubjectReportRequest
 		}
 		proc.mutex.Lock()
 		// Store the constructed command as an outstanding commands
-		proc.OutstandingCommands[request.SubjectHostName] = &OutstandingCommand{
+		proc.IncomingAppCommands[request.SubjectHostName] = &IncomingAppCommand{
 			Request:        request,
 			RunDurationSec: -1, // duration of -1 indicates that result is not yet available
 			Result:         Result{Command: cmd},
@@ -230,7 +231,7 @@ func (proc *MessageProcessor) processCommandRequest(request SubjectReportRequest
 		result := proc.CmdProcessor.Process(cmd, true)
 		durationSec := time.Now().Unix() - startTimeSec
 		proc.mutex.Lock()
-		proc.OutstandingCommands[request.SubjectHostName] = &OutstandingCommand{
+		proc.IncomingAppCommands[request.SubjectHostName] = &IncomingAppCommand{
 			Request:        request,
 			RunDurationSec: int(durationSec),
 			Result:         *result,
@@ -346,8 +347,8 @@ func (proc *MessageProcessor) removeExpiredSubjects() {
 	for subject, lastReport := range subjectsToRemove {
 		proc.logger.Warning("removeExpiredSubjects", subject, nil, "removing the inactive subject, its last report was: %+v", lastReport)
 		delete(proc.SubjectReports, subject)
-		delete(proc.OutstandingCommands, subject)
-		delete(proc.UpcomingSubjectCommand, subject)
+		delete(proc.IncomingAppCommands, subject)
+		delete(proc.OutgoingAppCommands, subject)
 	}
 }
 
@@ -368,8 +369,8 @@ func (proc *MessageProcessor) Initialise() error {
 		proc.MaxReportsPerHostName = 3 * 24 * 3600 / ReportIntervalSec
 	}
 	proc.SubjectReports = make(map[string]*[]SubjectReport)
-	proc.OutstandingCommands = make(map[string]*OutstandingCommand)
-	proc.UpcomingSubjectCommand = make(map[string]string)
+	proc.IncomingAppCommands = make(map[string]*IncomingAppCommand)
+	proc.OutgoingAppCommands = make(map[string]string)
 	proc.mutex = new(sync.Mutex)
 	if proc.CmdProcessor != nil {
 		if errs := proc.CmdProcessor.IsSaneForInternet(); len(errs) > 0 {

@@ -261,8 +261,8 @@ func TestServer(server *Daemon, t testingstub.T) {
 				if result.Error != nil {
 					t.Fatalf("1st request error: %+v", result)
 				}
-				if len(muxMessageProcessor.OutstandingCommands) != 1 { // ".s echo 2server"
-					t.Fatalf("1st request unexpected outstanding command: %+v", muxMessageProcessor.OutstandingCommands)
+				if len(muxMessageProcessor.IncomingAppCommands) != 1 { // ".s echo 2server"
+					t.Fatalf("1st request unexpected incoming command: %+v", muxMessageProcessor.IncomingAppCommands)
 				}
 				if len(muxMessageProcessor.SubjectReports) != 1 {
 					t.Fatalf("1st request unexpected subject reports: %+v", muxMessageProcessor.SubjectReports)
@@ -302,8 +302,8 @@ func TestServer(server *Daemon, t testingstub.T) {
 				if result.Error != nil {
 					t.Fatalf("2st request error: %+v", result)
 				}
-				if len(muxMessageProcessor.OutstandingCommands) != 1 { // "local-to-server"
-					t.Fatalf("2st request unexpected outstanding command: %+v", muxMessageProcessor.OutstandingCommands)
+				if len(muxMessageProcessor.IncomingAppCommands) != 1 { // "local-to-server"
+					t.Fatalf("2st request unexpected incoming command: %+v", muxMessageProcessor.IncomingAppCommands)
 				}
 				if len(muxMessageProcessor.SubjectReports) != 1 {
 					t.Fatalf("2st request unexpected subject reports: %+v", muxMessageProcessor.SubjectReports)
@@ -345,8 +345,8 @@ func TestServer(server *Daemon, t testingstub.T) {
 	if err := server.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// Prepare an outstanding to be sent to the server by the local message processor
-	server.LocalMessageProcessor.SetUpcomingSubjectCommand("localhost", toolbox.TestCommandProcessorPIN+".s echo 2server")
+	// Prepare an outgoing to be sent to the server by the local message processor
+	server.LocalMessageProcessor.SetOutgoingCommand("localhost", toolbox.TestCommandProcessorPIN+".s echo 2server")
 	var stoppedNormally bool
 	go func() {
 		if err := server.StartAndBlock(); err != nil {
@@ -374,9 +374,9 @@ func TestServer(server *Daemon, t testingstub.T) {
 		lastReport.OriginalRequest.CommandResponse.Result != "2server" {
 		t.Fatalf("%+v", lastReport)
 	}
-	// Daemon should stop within a second
+	// Daemon should stop shortly
 	server.Stop()
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 	if !stoppedNormally {
 		t.Fatal("did not stop")
 	}

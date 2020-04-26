@@ -664,7 +664,7 @@ over.]]></Say>`) {
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "will carry an app command") {
 		t.Fatal(err, string(resp.Body))
 	}
-	if cmd := httpd.Processor.Features.MessageProcessor.UpcomingSubjectCommand["subject-host-name"]; cmd != "test123" {
+	if cmd := httpd.Processor.Features.MessageProcessor.OutgoingAppCommands["subject-host-name"]; cmd != "test123" {
 		t.Fatal(cmd)
 	}
 }
