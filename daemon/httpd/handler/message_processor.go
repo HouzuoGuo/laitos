@@ -38,21 +38,23 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 	upcomingAppCmd := r.FormValue("cmd")
 	clearUpcomingCmd := r.FormValue("clear")
 	if toHost != "" {
+		w.Header().Set("Content-Type", "text/plain")
 		if clearUpcomingCmd == "" {
-			hand.cmdProc.Features.MessageProcessor.SetUpcomingSubjectCommand(toHost, upcomingAppCmd)
-			w.Header().Set("Content-Type", "text/plain")
-			_, _ = w.Write([]byte(fmt.Sprintf(`OK, the next reply made in response to %s's report will carry an app command %d characters long.
-All upcoming commands:
-%+v`, toHost, len(upcomingAppCmd), hand.cmdProc.Features.MessageProcessor.GetAllUpcomingSubjectCommands())))
-			return
+			// Store a new command to deliver to the host (?tohost=abc&cmd=xxxxx)
+			if upcomingAppCmd != "" {
+				hand.cmdProc.Features.MessageProcessor.SetUpcomingSubjectCommand(toHost, upcomingAppCmd)
+				_, _ = w.Write([]byte(fmt.Sprintf("The next reply made in response to %s's report will carry an app command %d characters long.\r\n", toHost, len(upcomingAppCmd))))
+			}
 		} else {
-			hand.cmdProc.Features.MessageProcessor.SetUpcomingSubjectCommand(toHost, upcomingAppCmd)
-			w.Header().Set("Content-Type", "text/plain")
-			_, _ = w.Write([]byte(fmt.Sprintf(`OK, cleared upcoming command for host %s.
-All upcoming commands:
-%+v`, toHost, hand.cmdProc.Features.MessageProcessor.GetAllUpcomingSubjectCommands())))
-			return
+			// Clear a host's upcoming command (?tohost=abc&clear=x)
+			hand.cmdProc.Features.MessageProcessor.SetUpcomingSubjectCommand(toHost, "")
+			_, _ = w.Write([]byte(fmt.Sprintf("Cleared upcoming command for host %s.\r\n", toHost)))
 		}
+		_, _ = w.Write([]byte(fmt.Sprintf("All upcoming commands:\r\n")))
+		for host, cmd := range hand.cmdProc.Features.MessageProcessor.GetAllUpcomingSubjectCommands() {
+			_, _ = w.Write([]byte(fmt.Sprintf("%s: %v\r\n", host, cmd)))
+		}
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
