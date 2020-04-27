@@ -152,6 +152,16 @@ func (handler *HandleVirtualMachine) parseSubmission(r *http.Request) (button, i
 	return
 }
 
+// getISODownloadLocation returns the file system location where downloaded OS ISO file is kept,.
+func (handler *HandleVirtualMachine) getISODownloadLocation() string {
+	// Prefer to use user's home directory over temp directory so that it won't be deleted when laitos restarts.
+	parentDir, _ := os.UserHomeDir()
+	if parentDir == "" {
+		parentDir = os.TempDir()
+	}
+	return path.Join(parentDir, ".laitos-remote-vm-iso-download.iso")
+}
+
 // Handle renders HTML page, reads user input from HTML form submission, and carries out corresponding VM control operations.
 func (handler *HandleVirtualMachine) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
@@ -167,10 +177,10 @@ func (handler *HandleVirtualMachine) Handle(w http.ResponseWriter, r *http.Reque
 		case "Refresh Screen":
 			// Simply re-render the page, including the screenshot. No extra action is required.
 		case "Download OS":
-			actionErr = errors.New(`Download is in progress, use "Refresh Screen" button to monitor the progress from Info output.`)
 			go func() {
-				_ = handler.VM.DownloadISO(isoURL, VirtualMachineISOFileDownloadPath)
+				_ = handler.VM.DownloadISO(isoURL, handler.getISODownloadLocation())
 			}()
+			actionErr = errors.New(`Download is in progress, use "Refresh Screen" button to monitor the progress from Info output.`)
 		case "Start":
 			// Kill the older VM (if it exists) and then start a new VM
 			handler.VM.Kill()
