@@ -40,7 +40,8 @@ type FeatureSet struct {
 // Run initialisation routine on all features, and then populate lookup table for all configured features.
 func (fs *FeatureSet) Initialise() error {
 	fs.LookupByTrigger = map[Trigger]Feature{}
-	triggers := map[Trigger]Feature{
+	// Initialise the apps that do not reference this FeatureSet
+	apps := map[Trigger]Feature{
 		fs.AESDecrypt.Trigger():         &fs.AESDecrypt,         // a
 		fs.BrowserPhantomJS.Trigger():   &fs.BrowserPhantomJS,   // bp
 		fs.BrowserSlimerJS.Trigger():    &fs.BrowserSlimerJS,    // bs
@@ -56,20 +57,29 @@ func (fs *FeatureSet) Initialise() error {
 		fs.Twitter.Trigger():            &fs.Twitter,            // t
 		fs.TwoFACodeGenerator.Trigger(): &fs.TwoFACodeGenerator, // 2
 		fs.WolframAlpha.Trigger():       &fs.WolframAlpha,       // w
-
-		fs.MessageProcessor.Trigger(): &fs.MessageProcessor, // 0m
 	}
 	errs := make([]string, 0)
-	for trigger, featureRef := range triggers {
-		/*
-			Collect initialisation errors (if any) from all failed features so that all mistakes can be presented to
-			caller at once.
-		*/
-		if featureRef.IsConfigured() {
-			if err := featureRef.Initialise(); err != nil {
+	for appTriggerPrefix, app := range apps {
+		// Collect initialisation errors (if any) from all failed apps
+		if app.IsConfigured() {
+			if err := app.Initialise(); err == nil {
+				fs.LookupByTrigger[appTriggerPrefix] = app
+			} else {
 				errs = append(errs, err.Error())
 			}
-			fs.LookupByTrigger[trigger] = featureRef
+		}
+	}
+	/*
+		Initialise the one and only app that references this FeatureSet. If this app was placed
+		inside the triggers map, then its initialisation routine might fail when it validates
+		that the FeatureSet has at least one app in there.
+	*/
+	msgProcessorApp := &fs.MessageProcessor
+	if msgProcessorApp.IsConfigured() {
+		if err := msgProcessorApp.Initialise(); err == nil {
+			fs.LookupByTrigger[msgProcessorApp.Trigger()] = msgProcessorApp
+		} else {
+			errs = append(errs, err.Error())
 		}
 	}
 	if len(errs) != 0 {
