@@ -98,7 +98,10 @@ func (codegen *TwoFACodeGenerator) SelfTest() error {
 }
 
 func (codegen *TwoFACodeGenerator) Initialise() error {
-	return codegen.SecretFile.Initialise()
+	if err := codegen.SecretFile.Initialise(); err != nil {
+		return fmt.Errorf("TwoFACodeGenerator: failed to initialise encrypted secret file - %w", err)
+	}
+	return nil
 }
 
 func (codegen *TwoFACodeGenerator) Trigger() Trigger {

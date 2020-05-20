@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // StringContainsAllOf returns an error with detailed message if the input string does not contain all of the substring markers.
@@ -21,69 +19,46 @@ func StringContainsAllOf(s string, markers []Trigger) error {
 	return nil
 }
 
-func TestFeatureSet_SelfTest(t *testing.T) {
-	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
-	misc.PrepareUtilities(lalog.Logger{})
-	// Initially, an empty FeatureSet should have four features pre-enabled - shell, environment control, public contacts, RSS.
-	features := FeatureSet{}
-	if err := features.Initialise(); err != nil {
+func TestFeatureSet_InitSelfTest(t *testing.T) {
+	// Several apps will work without explicit configuration
+	apps := FeatureSet{}
+	if err := apps.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(features.LookupByTrigger) != 6 ||
-		features.LookupByTrigger[".0m"] == nil || // store&forward command processor
-		features.LookupByTrigger[".c"] == nil || // public contacts
-		features.LookupByTrigger[".e"] == nil || // environment control
-		features.LookupByTrigger[".j"] == nil || // joke
-		features.LookupByTrigger[".r"] == nil || // RSS reader
-		features.LookupByTrigger[".s"] == nil { // shell
-		t.Fatal(features.LookupByTrigger)
+	if len(apps.LookupByTrigger) != 6 ||
+		apps.LookupByTrigger[".0m"] == nil || // store&forward command processor
+		apps.LookupByTrigger[".c"] == nil || // public contacts
+		apps.LookupByTrigger[".e"] == nil || // environment control
+		apps.LookupByTrigger[".j"] == nil || // joke
+		apps.LookupByTrigger[".r"] == nil || // RSS reader
+		apps.LookupByTrigger[".s"] == nil { // shell
+		t.Fatal(apps.LookupByTrigger)
 	}
-	// Configure AES decrypt and 2fa code generator
-	features = FeatureSet{AESDecrypt: GetTestAESDecrypt(), TwoFACodeGenerator: GetTestTwoFACodeGenerator()}
-	if err := features.Initialise(); err != nil {
+	// Validate self-test result from AES encrypted text search and 2FA code generator in addition to the apps above
+	apps = FeatureSet{AESDecrypt: GetTestAESDecrypt(), TwoFACodeGenerator: GetTestTwoFACodeGenerator()}
+	if err := apps.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// 6 always-available features + 2 newly configured features (AES + 2FA)
-	if len(features.LookupByTrigger) != 8 {
-		t.Fatal(features.LookupByTrigger)
+	// 6 always-available apps + 2 newly configured features (AES + 2FA)
+	if len(apps.LookupByTrigger) != 8 {
+		t.Fatal(apps.LookupByTrigger)
 	}
-	if err := features.SelfTest(); err != nil {
+	if err := apps.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if triggers := features.GetTriggers(); !reflect.DeepEqual(triggers, []string{".0m", ".2", ".a", ".c", ".e", ".j", ".r", ".s"}) {
+	if triggers := apps.GetTriggers(); !reflect.DeepEqual(triggers, []string{".0m", ".2", ".a", ".c", ".e", ".j", ".r", ".s"}) {
 		t.Fatal(triggers)
 	}
+}
 
-	// Configure all features via JSON and verify via self test
-	/*
-		features = TestFeatureSet
-		if err := features.Initialise(); err != nil {
-			t.Fatal(err)
-		}
-		if err := features.SelfTest(); err != nil {
-			t.Fatal(err)
-		}
-		if len(features.LookupByTrigger) != 15 {
-			t.Skip(features.LookupByTrigger)
-		}
-		if err := features.Initialise(); err != nil {
-			t.Fatal(err)
-		}
-		if len(features.LookupByTrigger) != 15 {
-			t.Fatal(features.LookupByTrigger)
-		}
-		if err := features.SelfTest(); err != nil {
-			t.Fatal(err)
-		}
-	*/
-
-	/*
-		Give nearly every feature a configuration error and expect them to be reported in self test.
-		Usually, a configuration change must be followed by reinitialisation, however here I am taking a shortcut by
-		directly manipulating the internal feature state, especially in the case of Twitter AccessToken.
-	*/
-	features.AESDecrypt.EncryptedFiles[TestAESDecryptFileBetaName].FilePath = "does not exist"
-	features.IMAPAccounts.Accounts = map[string]*IMAPS{
+func TestFeatureSet_InitSelfTestErr(t *testing.T) {
+	// Configure AES encrypted text search and 2FA in addition to the always-available apps
+	apps := FeatureSet{AESDecrypt: GetTestAESDecrypt(), TwoFACodeGenerator: GetTestTwoFACodeGenerator()}
+	if err := apps.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	apps.AESDecrypt.EncryptedFiles[TestAESDecryptFileBetaName].FilePath = "does not exist"
+	apps.IMAPAccounts.Accounts = map[string]*IMAPS{
 		"a": {
 			Host:         "does-not-exist",
 			Port:         1234,
@@ -92,48 +67,62 @@ func TestFeatureSet_SelfTest(t *testing.T) {
 			AuthPassword: "does-not-exist",
 		},
 	}
-	if err := features.IMAPAccounts.Initialise(); err != nil {
+	if err := apps.IMAPAccounts.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	features.RSS.Sources[0] = "this rss url does not work"
-	features.SendMail.MailClient = inet.MailClient{
+	apps.RSS.Sources[0] = "this rss url does not work"
+	apps.SendMail.MailClient = inet.MailClient{
 		MailFrom:     "very bad",
 		MTAHost:      "very bad",
 		MTAPort:      123,
 		AuthUsername: "very bad",
 		AuthPassword: "very bad",
 	}
-	features.Shell.InterpreterPath = "very bad"
-	features.TextSearch.FilePaths = map[string]string{"file": "does notexist"}
-	features.Twilio = Twilio{
-		PhoneNumber:     "very bad",
-		AccountSID:      "very bad",
-		AuthToken:       "very bad",
-		TestPhoneNumber: "very bad",
+	apps.Shell.InterpreterPath = "very bad"
+	apps.TextSearch.FilePaths = map[string]string{"file": "does notexist"}
+	apps.Twilio = Twilio{
+		PhoneNumber: "very bad",
+		AccountSID:  "very bad",
+		AuthToken:   "very bad",
 	}
-	features.Twitter.AccessToken = "very bad"
-	features.Twitter.reqSigner = &inet.OAuthHeader{AccessToken: "very bad"}
-	features.TwoFACodeGenerator.SecretFile.FilePath = "does not exist"
-	features.WolframAlpha.AppID = "very bad"
+	apps.Twitter = Twitter{
+		AccessToken:       "very bad",
+		AccessTokenSecret: "bad ",
+		ConsumerKey:       "bad",
+		ConsumerSecret:    "bad",
+		reqSigner: &inet.OAuthHeader{
+			AccessToken: "bad",
+		},
+	}
+	apps.TwoFACodeGenerator.SecretFile.FilePath = "does not exist"
+	apps.WolframAlpha.AppID = "very bad"
 
-	fmt.Println("initialisation error: ", features.Initialise())
-
-	errString := features.SelfTest().Error()
-
-	findAllErr := StringContainsAllOf(errString, []Trigger{
-		features.AESDecrypt.Trigger(),
-		features.IMAPAccounts.Trigger(),
-		features.RSS.Trigger(),
-		features.SendMail.Trigger(),
-		features.Shell.Trigger(),
-		features.TextSearch.Trigger(),
-		features.Twilio.Trigger(),
-		features.Twitter.Trigger(),
-		features.TwoFACodeGenerator.Trigger(),
-		features.WolframAlpha.Trigger(),
+	// Very few apps discover configuration error during initialisation
+	initErr := apps.Initialise()
+	t.Logf("Initialisation discoveries: %+v", initErr)
+	findAllInitErrs := StringContainsAllOf(initErr.Error(), []Trigger{
+		"AESEncryptedFile",
+		"TextSearch",
+		"TwoFA",
 	})
+	if findAllInitErrs != nil {
+		t.Fatal(findAllInitErrs)
+	}
+	// Apps that fail initialisation remain disabled
 
-	if findAllErr != nil {
-		t.Fatal(findAllErr)
+	// Majority of the apps discover configuration error during self test
+	selfTestErr := apps.SelfTest()
+	t.Logf("Self test discoveries: %+v", selfTestErr)
+	findAllSelfTestErrs := StringContainsAllOf(selfTestErr.Error(), []Trigger{
+		"IMAPAccounts",
+		"RSS",
+		"SendMail",
+		"Shell",
+		"Twilio",
+		"Twitter",
+		"WolframAlpha",
+	})
+	if findAllSelfTestErrs != nil {
+		t.Fatal(findAllSelfTestErrs)
 	}
 }
