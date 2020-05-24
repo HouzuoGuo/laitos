@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	netSMTP "net/smtp"
 	"strconv"
@@ -96,7 +97,6 @@ func (daemon *Daemon) Initialise() error {
 		daemon.smtpConfig.TLSConfig = &tls.Config{
 			Certificates: []tls.Certificate{daemon.tlsCert},
 		}
-		daemon.smtpConfig.TLSConfig.BuildNameToCertificate()
 	}
 
 	// Do not allow forward to this daemon itself
@@ -156,7 +156,16 @@ func (daemon *Daemon) Initialise() error {
 // Unconditionally forward the mail to forward addresses, then process feature commands if they are found.
 func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
 	bodyBytes := []byte(mailBody)
-	// Forward the mail
+	// Determine whether the sender enforces DMARC policy
+	fromAddrWithoutDmarc := GetFromAddressWithDmarcWorkaround(fromAddr, rand.Intn(100000))
+	if fromAddrWithoutDmarc != fromAddr {
+		// Change the sender's domain to the non-existent domain without a DMARC policy
+		daemon.logger.Info("ProcessMail", fromAddr, nil, "rewriting From address from %s to %s to evade DMARC validation", fromAddr, fromAddrWithoutDmarc)
+		fromAddr = fromAddrWithoutDmarc
+		// Change the sender's domain in "From:" header
+		bodyBytes = WithHeaderFromAddr(bodyBytes, fromAddrWithoutDmarc)
+	}
+	// Forward the mail to all recipients
 	if err := daemon.ForwardMailClient.SendRaw(daemon.ForwardMailClient.MailFrom, bodyBytes, daemon.ForwardTo...); err == nil {
 		daemon.logger.Info("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
 	} else {
@@ -164,7 +173,7 @@ func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
 	}
 	// Offer the processed mail to test case
 	if daemon.processMailTestCaseFunc != nil {
-		daemon.processMailTestCaseFunc(fromAddr, mailBody)
+		daemon.processMailTestCaseFunc(fromAddr, string(bodyBytes))
 	}
 	// Run feature command from mail body
 	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
@@ -291,7 +300,6 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
 	lastEmailFrom = ""
 	lastEmailBody = ""
-
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
 	}
@@ -300,6 +308,20 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, []byte(testMessage), []byte(lastEmailBody))
+	}
+
+	// Send a mail with a From address of a DMARC-enforcing domain
+	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@microsoft.com\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
+	lastEmailFrom = ""
+	lastEmailBody = ""
+	if err := netSMTP.SendMail(addr, nil, "MsgFrom@microsoft.com", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(1 * time.Second)
+	if !strings.HasPrefix(lastEmailFrom, "MsgFrom@laitos-nodmarc-") || !strings.HasSuffix(lastEmailFrom, "-microsoft.com") ||
+		!strings.Contains(lastEmailBody, "From: "+lastEmailFrom) || !strings.Contains(lastEmailBody, "Subject: text subject\n\ntest body") {
+		// Keep in mind that server reads input mail message through the textproto.DotReader
+		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, testMessage, lastEmailBody)
 	}
 
 	// Send a mail that does not belong to this server's domain, which will be simply discarded.
@@ -313,6 +335,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	if lastEmailFrom != "" || lastEmailBody != "" {
 		t.Fatal(lastEmailFrom, lastEmailBody)
 	}
+
 	// Try run a command via email
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\nverysecret.s echo hi\r\n"
 	lastEmailFrom = ""
@@ -325,6 +348,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatal(lastEmailFrom, lastEmailBody)
 	}
+
 	// Daemon must stop in a second
 	smtpd.Stop()
 	time.Sleep(1 * time.Second)
