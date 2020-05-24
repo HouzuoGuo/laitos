@@ -8,11 +8,12 @@ import (
 )
 
 /*
-DmarcWorkaroundDomainPrefix is the prefix string prepended to mail's From address when the address domain name has strong DMARC
-verification requirement. By adding the prefix to the forwarded mail, the recipient will not perform a DMARC verification,
-enhancing the chance of mail delivery at the expense of sacrificing message authenticity.
+DmarcWorkaroundDomainLabel is a short string added to mail's From domain name when the domain has strong DMARC verification
+requirement. By adding the label to the domain name, the recipient's MTA will not perform a DMARC verification that would otherwise
+fail for the genuine domain name and lead to rejected delivery, hence improving the chance of mail delivery at the expense of
+sacrificing message authenticity.
 */
-const DmarcWorkaroundDomainPrefix = "laitos-nodmarc"
+const DmarcWorkaroundDomainLabel = "laitos-nodmarc"
 
 /*
 GetMailAddressComponents returns the mail address (e.g. "name@example.com") broken down into its name and domain name components.
@@ -74,8 +75,8 @@ func IsDmarcPolicyEnforcing(domain string) bool {
 }
 
 /*
-GetFromAddressWithDmarcWorkaround returns an altered mail From address that contains a workaround prefix string in its domain name
-portion, only if the original domain name enforces DMARC verification.
+GetFromAddressWithDmarcWorkaround returns an altered mail From address that comes with extra string and random number in its domain
+name portion. The modification is only appled when the original domain name enforces DMARC verification.
 The modified domain name prevents the recipient of this mail from performing DMARC verification, which means, laitos has a better
 chance at delivering this mail to the recipient, at the expense of sacrificing message authenticity.
 If the domain name does not enforce DMARC verification, the function will return the verbatim address.
@@ -88,7 +89,12 @@ func GetFromAddressWithDmarcWorkaround(fromAddr string, randNum int) string {
 	if !IsDmarcPolicyEnforcing(domain) {
 		return fromAddr
 	}
-	return fmt.Sprintf("%s@%s-%d-%s", name, DmarcWorkaroundDomainPrefix, randNum, domain)
+	indexLastDot := strings.LastIndexByte(domain, '.')
+	if indexLastDot < 1 && indexLastDot >= len(domain)-1 {
+		// Malformed domain name
+		return fromAddr
+	}
+	return fmt.Sprintf("%s@%s-%s-%d.%s", name, domain[:indexLastDot], DmarcWorkaroundDomainLabel, randNum, domain[indexLastDot+1:])
 }
 
 // WithHeaderFromAddr changes the "From:" header value into the input string and returns the new message.

@@ -318,7 +318,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 		t.Fatal(err)
 	}
 	time.Sleep(1 * time.Second)
-	if !strings.HasPrefix(lastEmailFrom, "MsgFrom@laitos-nodmarc-") || !strings.HasSuffix(lastEmailFrom, "-microsoft.com") ||
+	if !strings.HasPrefix(lastEmailFrom, "MsgFrom@microsoft-laitos-nodmarc-") || !strings.HasSuffix(lastEmailFrom, ".com") ||
 		!strings.Contains(lastEmailBody, "From: "+lastEmailFrom) || !strings.Contains(lastEmailBody, "Subject: text subject\n\ntest body") {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, testMessage, lastEmailBody)

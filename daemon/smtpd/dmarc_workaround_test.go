@@ -75,13 +75,19 @@ func TestGetFromAddressWithDmarcWorkaround(t *testing.T) {
 		t.Fatal(addr)
 	}
 	// DMARC-enforcing domains
-	if addr := GetFromAddressWithDmarcWorkaround("user@microsoft.com", 123); addr != "user@laitos-nodmarc-123-microsoft.com" {
+	if addr := GetFromAddressWithDmarcWorkaround("user@microsoft.com", 123); addr != "user@microsoft-laitos-nodmarc-123.com" {
 		t.Fatal(addr)
 	}
-	if addr := GetFromAddressWithDmarcWorkaround("user@emails.ifttt.com", 123); addr != "user@laitos-nodmarc-123-emails.ifttt.com" {
+	if addr := GetFromAddressWithDmarcWorkaround("user@emails.ifttt.com", 123); addr != "user@emails.ifttt-laitos-nodmarc-123.com" {
+		t.Fatal(addr)
+	}
+	if addr := GetFromAddressWithDmarcWorkaround("user@123.emails.ifttt.com", 123); addr != "user@123.emails.ifttt-laitos-nodmarc-123.com" {
 		t.Fatal(addr)
 	}
 	// DMARC non-enforcing domains
+	if addr := GetFromAddressWithDmarcWorkaround("user@www.b737.org.uk", 123); addr != "user@www.b737.org.uk" {
+		t.Fatal(addr)
+	}
 	if addr := GetFromAddressWithDmarcWorkaround("user@github.com", 123); addr != "user@github.com" {
 		t.Fatal(addr)
 	}
