@@ -60,10 +60,8 @@ var DefaultForwarders = []string{
 	// AdGuard DNS (https://adguard.com/en/adguard-dns/overview.html)
 	"176.103.130.130:53",
 	"176.103.130.131:53",
-	// Neustar - threat protection without family security (https://www.home.neustar/dns-services/ultra-recursive-dns)
-	// Neustar redirects unresolved names to a landing page with yahoo search - that's unfortunate.
-	"156.154.70.2:53",
-	"156.154.71.2:53",
+	// Do not use Neustar (also known as "ultradns" and "dnsadvantage") as it often redirects users to their search home page,
+	// sometimes maliciously (e.g. facebook -> search).
 	// Do not use Comodo SecureDNS because it has severe reliability issue as of 2018-03-30.
 	// Norton ConnectSafe was shut down in November 2018.
 }
