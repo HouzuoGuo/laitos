@@ -51,15 +51,18 @@ var DefaultForwarders = []string{
 	// Quad9 (https://www.quad9.net/)
 	"9.9.9.9:53",
 	"149.112.112.112:53",
-	// SafeDNS (https://www.safedns.com/en/setup-on-dsl-wi-fi-routers/)
-	"195.46.39.39:53",
-	"195.46.39.40:53",
+	// CloudFlare with malware prevention (https://blog.cloudflare.com/introducing-1-1-1-1-for-families/)
+	"1.1.1.2:53",
+	"1.0.0.2:53",
 	// OpenDNS (https://www.opendns.com/setupguide/)
 	"208.67.222.222:53",
 	"208.67.220.220:53",
 	// AdGuard DNS (https://adguard.com/en/adguard-dns/overview.html)
 	"176.103.130.130:53",
 	"176.103.130.131:53",
+	// SafeDNS (https://www.safedns.com/en/setup-on-dsl-wi-fi-routers/)
+	"195.46.39.39:53",
+	"195.46.39.40:53",
 	// Do not use Neustar (also known as "ultradns" and "dnsadvantage") as it often redirects users to their search home page,
 	// sometimes maliciously (e.g. facebook -> search).
 	// Do not use Comodo SecureDNS because it has severe reliability issue as of 2018-03-30.
