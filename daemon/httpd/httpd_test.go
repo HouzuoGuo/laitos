@@ -29,6 +29,7 @@ func TestHTTPD_WithURLPrefix(t *testing.T) {
 	daemon.HandlerCollection["/info"] = &handler.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
 	// Use environment variable to configure URL prefix
 	os.Setenv(EnvironmentURLRoutePrefixKey, "/test-prefix/abc")
+	defer os.Unsetenv(EnvironmentURLRoutePrefixKey)
 	if err := daemon.Initialise(); err != nil {
 		t.Fatalf("%+v", err)
 	}

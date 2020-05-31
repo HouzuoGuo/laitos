@@ -122,5 +122,4 @@ func AutoRestart(logger lalog.Logger, logActorName string, fun func() error) {
 			}
 		}
 	}
-
 }

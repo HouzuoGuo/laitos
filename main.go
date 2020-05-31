@@ -93,19 +93,23 @@ func StartPasswordWebServer(port int, url string) {
 }
 
 /*
-main runs one of several distinct routines as dictated by input command line flags:
+main runs one of several distinct routines according to the presented combination of command line flags:
 
-- Utilities for maintaining encrypted program data archive (-datautil=extract|archive).
+- Maintain encrypted program data files: -datautil=encrypt|decrypt
 
-- Data unlocker (password input server) that accepts a password input to launch laitos daemons in supervisor mode by decrypting its
-  program data (-pwdserver & -pwdserverport= & -pwdserverurl=).
+- Launch a simple web server to collect program data decryption password, and proceeds to launch laitos with supervisor:
+  -pwdserver & -pwdserverport= & -pwdserverurl=
+	This routine is useful only if some program data files have been encrypted.
 
-- Supervisor runs laitos daemons in a seperate process and re-launches them in case of crash. Supervisor is turned on by
-  default (-supervisor=true).
+- Launch a supervisor that automatically restarts laitos main process in case of crash: -supervisor=true (already true by default)
+  This is the routine of choice for launching laitos as an OS daemon service.
 
-- Whether launched by supervisor or launched independently, start daemons (-config= & -daemons=).
+- Launch all specified daemons: -config c.json -daemons httpd,smtpd... -supervisor=false
+  Supervisor launches laitos main process this way.
 
-- Benchmark routine that runs after daemons have been launched.
+- Launch a benchmark routine that feeds random input to (nearly) all started daemons: -benchmark=true
+  This routine is occasionally used for fuzzy-test daemons.
+
 */
 func main() {
 	hzgl.HZGL()
@@ -132,7 +136,7 @@ func main() {
 	flag.StringVar(&dataUtilFile, "datautilfile", "", "(Optional) program data encryption utility: encrypt/decrypt file location")
 	// Internal supervisor flag
 	var isSupervisor = true
-	flag.BoolVar(&isSupervisor, launcher.SupervisorFlagName, true, "(Internal use only) enter supervisor mode")
+	flag.BoolVar(&isSupervisor, launcher.SupervisorFlagName, true, "(Internal use only) launch a supervisor process to auto-restart laitos main process in case of crash")
 
 	flag.Parse()
 
