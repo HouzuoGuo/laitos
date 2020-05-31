@@ -36,6 +36,9 @@ const (
 
 	// MaxRequestBodyBytes is the maximum size of request the HTTP server will process (1MB).
 	MaxRequestBodyBytes = 1024 * 1024
+
+	// EnvironmentURLRoutePrefixKey is the key of environment variable that overrides the URLRoutePrefix configuration value.
+	EnvironmentURLRoutePrefixKey = "LAITOS_HTTP_URL_ROUTE_PREFIX"
 )
 
 // HandlerCollection is a mapping between URL and implementation of handlers. It does not contain directory handlers.
@@ -74,6 +77,18 @@ type Daemon struct {
 	TLSKeyPath       string            `json:"TLSKeyPath"`       // (Optional) serve HTTPS via this certificate (key)
 	PerIPLimit       int               `json:"PerIPLimit"`       // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
 	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
+
+	/*
+		RoutePrefix is a URL prefix string that is expected to show up in every request made against this web server, it must begin with
+		a forward slash and must not end with a forward slash.
+		This often helps when some kind of API gateway (e.g. AWS API gateway) proxies visitors' requests and places a prefix string in each
+		request (e.g. "/stageLive").
+		If the prefix is given, the web server will automatically remove the prefix from incoming request URL, and subsequently match
+		the requested URL to intended handler (e.g. "/stageLive/cmd-form" -> "/cmd-form").
+		As some API gateway implementations encourage usage of a dynamic route prefix, the web server will allow environment variable
+		LAITOS_HTTP_URL_ROUTE_PREFIX to override the value configured here during initialisation.
+	*/
+	URLRoutePrefix string `json:"URLRoutePrefix"`
 
 	HandlerCollection HandlerCollection          `json:"-"` // Specialised handlers that implement handler.HandlerFactory interface
 	Processor         *toolbox.CommandProcessor  `json:"-"` // Feature command processor
@@ -161,6 +176,17 @@ func (daemon *Daemon) Initialise() error {
 	if (daemon.TLSCertPath != "" || daemon.TLSKeyPath != "") && (daemon.TLSCertPath == "" || daemon.TLSKeyPath == "") {
 		return errors.New("httpd.Initialise: missing TLS certificate or key path")
 	}
+	// The route prefix must begin with a forward slash and must not end with a forward slash
+	if prefixOverride := os.Getenv(EnvironmentURLRoutePrefixKey); prefixOverride != "" {
+		daemon.URLRoutePrefix = prefixOverride
+	}
+	if daemon.URLRoutePrefix != "" {
+		if daemon.URLRoutePrefix[0] != '/' {
+			daemon.URLRoutePrefix = "/" + daemon.URLRoutePrefix
+		}
+		daemon.URLRoutePrefix = strings.TrimSuffix(daemon.URLRoutePrefix, "/")
+		daemon.logger.Info("Initialise", "", nil, "the URL route prefix string is \"%s\"", daemon.URLRoutePrefix)
+	}
 	// Install handlers with rate-limiting middleware
 	daemon.mux = new(http.ServeMux)
 	daemon.AllRateLimits = map[string]*misc.RateLimit{}
@@ -176,6 +202,7 @@ func (daemon *Daemon) Initialise() error {
 			if urlLocation[len(urlLocation)-1] != '/' {
 				urlLocation += "/"
 			}
+			urlLocation = daemon.URLRoutePrefix + urlLocation
 			rl := &misc.RateLimit{
 				UnitSecs: RateLimitIntervalSec,
 				MaxCount: DirectoryHandlerRateLimitFactor * daemon.PerIPLimit,
@@ -195,6 +222,7 @@ func (daemon *Daemon) Initialise() error {
 			MaxCount: hand.GetRateLimitFactor() * daemon.PerIPLimit,
 			Logger:   daemon.logger,
 		}
+		urlLocation = daemon.URLRoutePrefix + urlLocation
 		daemon.AllRateLimits[urlLocation] = rl
 		// With the exception of file upload handler, all handlers will be subject to a limited request size.
 		_, unrestrictedRequestSize := hand.(*handler.HandleFileUpload)

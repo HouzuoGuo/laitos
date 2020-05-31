@@ -2,6 +2,8 @@ package httpd
 
 import (
 	"fmt"
+	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +13,54 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
+
+func TestHTTPD_WithURLPrefix(t *testing.T) {
+	PrepareForTestHTTPD(t)
+	// Prepare directory listing route, text file rendering route, and a handler function route.
+	daemon := Daemon{
+		Address:          "localhost",
+		Port:             16251,
+		Processor:        toolbox.GetTestCommandProcessor(),
+		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir", "dir": "/tmp/test-laitos-dir"},
+		HandlerCollection: map[string]handler.Handler{
+			"/": &handler.HandleHTMLDocument{HTMLFilePath: "/tmp/test-laitos-index.html"},
+		},
+	}
+	daemon.HandlerCollection["/info"] = &handler.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
+	// Use environment variable to configure URL prefix
+	os.Setenv(EnvironmentURLRoutePrefixKey, "/test-prefix/abc")
+	if err := daemon.Initialise(); err != nil {
+		t.Fatalf("%+v", err)
+	}
+	// Expect server to startup within two seconds
+	go func() {
+		if err := daemon.StartAndBlockNoTLS(0); err != nil {
+			panic(err)
+		}
+	}()
+	time.Sleep(2 * time.Second)
+	// Test directory listing route
+	serverURLPrefix := fmt.Sprintf("http://localhost:%d/test-prefix/abc", daemon.Port)
+	resp, err := inet.DoHTTP(inet.HTTPRequest{}, serverURLPrefix+"/my/dir")
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
+<a href="a.html">a.html</a>
+</pre>
+` {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	// Test file route
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, serverURLPrefix+"/")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "this is index") {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+	// Test info handler function route
+	resp, err = inet.DoHTTP(inet.HTTPRequest{}, serverURLPrefix+"/info")
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
+		t.Fatal(err, string(resp.Body), resp)
+	}
+
+	daemon.StopNoTLS()
+}
 
 func TestHTTPD_StartAndBlock(t *testing.T) {
 	PrepareForTestHTTPD(t)
