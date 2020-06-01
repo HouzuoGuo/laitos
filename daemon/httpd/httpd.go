@@ -85,8 +85,7 @@ type Daemon struct {
 		request (e.g. "/stageLive").
 		If the prefix is given, the web server will automatically remove the prefix from incoming request URL, and subsequently match
 		the requested URL to intended handler (e.g. "/stageLive/cmd-form" -> "/cmd-form").
-		As some API gateway implementations encourage usage of a dynamic route prefix, the web server will allow environment variable
-		LAITOS_HTTP_URL_ROUTE_PREFIX to override the value configured here during initialisation.
+		Web server will allow environment variable LAITOS_HTTP_URL_ROUTE_PREFIX to override the value configured here during initialisation.
 	*/
 	URLRoutePrefix string `json:"URLRoutePrefix"`
 
@@ -282,7 +281,7 @@ StartAndBlockWithTLS starts HTTP daemon and serve encrypted connections. Blocks 
 You may call this function only after having called Initialise()!
 */
 func (daemon *Daemon) StartAndBlockWithTLS() error {
-	contents, _, err := misc.DecryptIfNecessary(misc.UniversalDecryptionKey, daemon.TLSCertPath, daemon.TLSKeyPath)
+	contents, _, err := misc.DecryptIfNecessary(misc.ProgramDataDecryptionPassword, daemon.TLSCertPath, daemon.TLSKeyPath)
 	if err != nil {
 		return err
 	}

@@ -21,10 +21,18 @@ var (
 	ErrEmergencyLockDown = errors.New("LOCKED DOWN")
 
 	/*
-		  UniversalDecryptionKey is granted by password unlock server via standard input. Various configuration and data files are to be
-			decrypted using this key when daemons initialise themselves.
+		ProgramDataDecryptionPassword is the password string used to decrypt program data that was previously encrypted by
+		laitos' "datautil" encryption routine, protecting files such as configuration file, TLS certificate key.
+		The main function and various daemons find the decryption password from this variable.
+		The password is collected by the main function from STDIN or ProgramDataDecryptionPasswordInput, preserved in memory
+		so that supervisor can re-use the password input in case that main process crashes.
 	*/
-	UniversalDecryptionKey []byte
+	ProgramDataDecryptionPassword string
+	/*
+		ProgramDataDecryptionPasswordInput is used by AWS lambda handler to feed data decryption password from API gateway's
+		stage variable when the first request arrives via lambda.
+	*/
+	ProgramDataDecryptionPasswordInput = make(chan string)
 
 	// logger is used by some of the miscellaneous actions affecting laitos process globally.
 	logger = lalog.Logger{ComponentName: "misc", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}

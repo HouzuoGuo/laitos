@@ -17,7 +17,7 @@ const (
 	*/
 	NumLatestLogEntries = 128
 	// MaxLogMessageLen is the maximum length memorised for each of the latest log entries.
-	MaxLogMessageLen = 1024
+	MaxLogMessageLen = 2048
 )
 
 var LatestLogs = NewRingBuffer(NumLatestLogEntries)     // Keep latest log entry of all kinds in the buffer

@@ -118,7 +118,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 
 		var err error
 		// Try decrypting program configuration JSON file using the input password
-		key := []byte(strings.TrimSpace(r.FormValue(PasswordInputName)))
+		key := strings.TrimSpace(r.FormValue(PasswordInputName))
 		decryptedConfig, err := misc.Decrypt(misc.ConfigFilePath, key)
 		if err != nil {
 			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
@@ -132,7 +132,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "success")))
 		ws.alreadyUnlocked = true
 		// A short moment later, the function will launch laitos supervisor along with daemons.
-		go ws.LaunchMainProgram([]byte(strings.TrimSpace(r.FormValue("password"))))
+		go ws.LaunchMainProgram(strings.TrimSpace(r.FormValue("password")))
 		return
 	default:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
@@ -184,7 +184,7 @@ decrypted data from ramdisk.
 If an error occurs, this program will exit abnormally and the function will not return.
 If the forked main program exits normally, the function will return.
 */
-func (ws *WebServer) LaunchMainProgram(decryptionPassword []byte) {
+func (ws *WebServer) LaunchMainProgram(decryptionPassword string) {
 	// Replicate the CLI flagsNoExec that were used to launch this password web server.
 	flagsNoExec := make([]string, len(os.Args))
 	copy(flagsNoExec, os.Args[1:])

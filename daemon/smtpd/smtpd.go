@@ -77,7 +77,7 @@ func (daemon *Daemon) Initialise() error {
 			return errors.New("smtpd.Initialise: TLS certificate or key path is missing")
 		}
 		var err error
-		contents, _, err := misc.DecryptIfNecessary(misc.UniversalDecryptionKey, daemon.TLSCertPath, daemon.TLSKeyPath)
+		contents, _, err := misc.DecryptIfNecessary(misc.ProgramDataDecryptionPassword, daemon.TLSCertPath, daemon.TLSKeyPath)
 		if err != nil {
 			return err
 		}

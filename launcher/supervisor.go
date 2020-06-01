@@ -212,7 +212,7 @@ Latest stderr: %s
 }
 
 // FeedDecryptionPasswordToStdinAndStart starts the main program and writes the universal decryption password into its stdin.
-func FeedDecryptionPasswordToStdinAndStart(decryptionPassword []byte, cmd *exec.Cmd) error {
+func FeedDecryptionPasswordToStdinAndStart(decryptionPassword string, cmd *exec.Cmd) error {
 	// Start laitos main program
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -222,7 +222,7 @@ func FeedDecryptionPasswordToStdinAndStart(decryptionPassword []byte, cmd *exec.
 		return err
 	}
 	// Feed password into its standard input followed by line break
-	if _, err := stdin.Write([]byte(string(decryptionPassword) + "\n")); err != nil {
+	if _, err := stdin.Write([]byte(decryptionPassword + "\n")); err != nil {
 		return err
 	}
 	return stdin.Close()
@@ -252,7 +252,7 @@ func (sup *Supervisor) Start() {
 		mainProgram := exec.Command(executablePath, cliFlags...)
 		mainProgram.Stdout = sup.mainStdout
 		mainProgram.Stderr = sup.mainStderr
-		if err := FeedDecryptionPasswordToStdinAndStart(misc.UniversalDecryptionKey, mainProgram); err != nil {
+		if err := FeedDecryptionPasswordToStdinAndStart(misc.ProgramDataDecryptionPassword, mainProgram); err != nil {
 			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "failed to start main program")
 			time.Sleep(1 * time.Second)
 			sup.notifyFailure(cliFlags, err)

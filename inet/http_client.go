@@ -104,6 +104,11 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 		}
 	}
 	req.Header.Set("Content-Type", reqParam.ContentType)
+	if len(reqParam.Header) > 0 {
+		if contentType := reqParam.Header.Get("Content-Type"); contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
+	}
 	// Construct HTTP client and optionally disable TLS strict verification
 	client := &http.Client{
 		Timeout:   time.Duration(reqParam.TimeoutSec) * time.Second,

@@ -68,10 +68,11 @@ func (instances *Instances) TestPhantomJSExecutable() error {
 		return nil
 	}
 	if _, err := os.Stat(instances.PhantomJSExecPath); err == nil {
-		// If the executable path appears to be a file that is readable, then make sure it has the correct executable permission.
-		if err := os.Chmod(instances.PhantomJSExecPath, 0755); err != nil {
-			return fmt.Errorf("phantomjs.Instances.Initialise: failed to chmod PhantomJS - %v", err)
-		}
+		/*
+			If the executable path appears to be a file that is readable, then make sure it has the correct executable permission.
+			Ignore the error if the file cannot be modified, e.g. laitos progrma data resides on a read-only file system.
+		*/
+		_ = os.Chmod(instances.PhantomJSExecPath, 0755)
 	} else if strings.ContainsRune(instances.PhantomJSExecPath, '/') {
 		/*
 			If the executable path looks like a file path (i.e., "programs/phantomjs" instead of "phantomjs"), but it

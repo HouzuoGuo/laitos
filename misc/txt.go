@@ -74,7 +74,7 @@ func ReadAllUpTo(r io.Reader, upTo int) (ret []byte, err error) {
 DecryptIfNecessary uses the input key to decrypt each of the possibly encrypted input files and returns their content.
 If an inpuit file is not encrypted, its content is simply read and returned.
 */
-func DecryptIfNecessary(key []byte, filePaths ...string) (decryptedContent [][]byte, isEncrypted []bool, err error) {
+func DecryptIfNecessary(key string, filePaths ...string) (decryptedContent [][]byte, isEncrypted []bool, err error) {
 	decryptedContent = make([][]byte, 0)
 	isEncrypted = make([]bool, 0)
 	for _, aPath := range filePaths {
@@ -157,7 +157,7 @@ func Encrypt(filePath string, key []byte) error {
 }
 
 // Decrypt decrypts the input file and returns its content. The entire operation is conducted in memory.
-func Decrypt(filePath string, key []byte) (content []byte, err error) {
+func Decrypt(filePath string, key string) (content []byte, err error) {
 	// Read the input encrypted data in its entirety
 	encryptedContent, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -170,10 +170,11 @@ func Decrypt(filePath string, key []byte) (content []byte, err error) {
 	// Read original IV that was prepended to file
 	iv := encryptedContent[len(EncryptionFileHeader) : len(EncryptionFileHeader)+EncryptionIVSizeBytes]
 	// Initialise decryption stream using input key and the original IV
-	if len(key) < 32 {
-		key = append(key, bytes.Repeat([]byte{0}, 32-len(key))...)
+	keyBytes := []byte(key)
+	if len(keyBytes) < 32 {
+		keyBytes = append(keyBytes, bytes.Repeat([]byte{0}, 32-len(keyBytes))...)
 	}
-	keyCipher, err := aes.NewCipher(key)
+	keyCipher, err := aes.NewCipher(keyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialise cipher - %v", err)
 	}
