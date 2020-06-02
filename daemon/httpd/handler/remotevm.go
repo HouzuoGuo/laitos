@@ -84,9 +84,6 @@ const (
 </html>`
 )
 
-// VirtualMachineISOFileDownloadPath is a location in file system where VM ISO file is saved in.
-var VirtualMachineISOFileDownloadPath = path.Join(os.TempDir(), "laitos-handle-virtual-machine-iso.iso")
-
 // HandleVirtualMachine is an HTTP handler that offers remote virtual machine controls, excluding the screenshot itself.
 type HandleVirtualMachine struct {
 	LocalUtilityPortNumber    int                             `json:"LocalUtilityPortNumber"`
@@ -184,14 +181,14 @@ func (handler *HandleVirtualMachine) Handle(w http.ResponseWriter, r *http.Reque
 		case "Start":
 			// Kill the older VM (if it exists) and then start a new VM
 			handler.VM.Kill()
-			if _, isoErr := os.Stat(VirtualMachineISOFileDownloadPath); os.IsNotExist(isoErr) {
+			if _, isoErr := os.Stat(handler.getISODownloadLocation()); os.IsNotExist(isoErr) {
 				// If an ISO file does not yet exist, download the default Linux distribution.
 				actionErr = errors.New(`Downloading Linux distribution, use "Refresh Screen" to monitor the progress from Info output, and then press "Start" again.`)
 				go func() {
-					_ = handler.VM.DownloadISO(isoURL, VirtualMachineISOFileDownloadPath)
+					_ = handler.VM.DownloadISO(isoURL, handler.getISODownloadLocation())
 				}()
 			} else {
-				actionErr = handler.VM.Start(VirtualMachineISOFileDownloadPath)
+				actionErr = handler.VM.Start(handler.getISODownloadLocation())
 			}
 		case "Kill":
 			handler.VM.Kill()

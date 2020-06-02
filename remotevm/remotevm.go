@@ -78,35 +78,28 @@ func (vm *VM) DownloadISO(isoURL string, destPath string) error {
 		return fmt.Errorf("DownloadISO: failed to download %s - %w", isoURL, err)
 	}
 	defer resp.Body.Close()
-	// Download the new ISO image into a temporary file
-	tmpFile, err := ioutil.TempFile("", path.Base(destPath)+".tmp")
+	destFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
-		fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: failed to create temporary file - %v\n", err)
-		return fmt.Errorf("DownloadISO: failed to create temporary file - %w", err)
+		fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: failed to truncate destination file - %v\n", err)
+		return fmt.Errorf("DownloadISO: failed to truncate destination file - %w", err)
 	}
-	_, err = io.Copy(tmpFile, resp.Body)
+	_, err = io.Copy(destFile, resp.Body)
 	if err != nil {
 		fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: download failed - %v\n", err)
 		return fmt.Errorf("DownloadISO: failed to download %s - %w", isoURL, err)
 	}
-	if err := tmpFile.Close(); err != nil {
-		fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: failed to save temporary file - %v\n", err)
-		return fmt.Errorf("DownloadISO: failed to close temporary file %s - %w", tmpFile.Name(), err)
+	if err := destFile.Close(); err != nil {
+		fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: failed to save file - %v\n", err)
+		return fmt.Errorf("DownloadISO: failed to save file %s - %w", destFile.Name(), err)
 	}
-	// Check ISO file access and file size
-	stat, err := os.Stat(tmpFile.Name())
+	stat, err := os.Stat(destFile.Name())
 	if err != nil {
-		fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: failed to read temporary file - %v\n", err)
-		return fmt.Errorf("DownloadISO: failed to read temporary file %s - %w", tmpFile.Name(), err)
+		fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: failed to read file - %v\n", err)
+		return fmt.Errorf("DownloadISO: failed to read file %s - %w", destFile.Name(), err)
 	}
 	if stat.Size() < 8*1048576 {
 		fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: ISO file seems too small (only %d MB)\n", stat.Size()/1048576)
 		return fmt.Errorf("DownloadISO: ISO file seems too small (only %d MB)", stat.Size()/1048576)
-	}
-	// Move the new file in-place, possibly overwriting an existing ISO file.
-	if err := os.Rename(tmpFile.Name(), destPath); err != nil {
-		fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: failed to move downloaded ISO file to %s - %v\n", destPath, err)
-		return fmt.Errorf("DownloadISO: failed to move downloaded ISO file to %s - %w", destPath, err)
 	}
 	fmt.Fprintf(vm.emulatorDebugOutput, "DownloadISO: successfully saved %s (%d MB) to %s\n", isoURL, stat.Size()/1048576, destPath)
 	return nil
