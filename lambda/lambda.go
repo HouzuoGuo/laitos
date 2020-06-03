@@ -111,7 +111,7 @@ func (hand *Handler) decodeAndHandleHTTPRequest(awsRequestID string, invocationJ
 			// Use environment variable PORT to tell HTTP (not HTTPS) server to listen on port expected by lambda handler
 			os.Setenv("PORT", strconv.Itoa(UpstreamWebServerPort))
 			// Use environment variable LAITOS_HTTP_URL_ROUTE_PREFIX to tell HTTP (not HTTPS) server to auto-strip API gateway stage prefix
-			os.Setenv(launcher.EnvironmentURLRoutePrefixKey, input.RequestContext.Stage)
+			os.Setenv(launcher.EnvironmentURLRoutePrefixKey, "/"+input.RequestContext.Stage)
 			// The main function awaits program data password
 			hand.logger.Info("decodeAndHandleHTTPRequest", awsRequestID, err, "decrypting program data using a password %d bytes long", len(decryptionPass))
 			// Even though the channel is not buffered, HTTP server is not going to be ready immediately.

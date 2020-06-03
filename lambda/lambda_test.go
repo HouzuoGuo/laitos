@@ -4,9 +4,14 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/launcher"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestLambdaHandler(t *testing.T) {
@@ -32,11 +37,13 @@ func TestLambdaHandler(t *testing.T) {
 	hand := Handler{}
 	invocationInput := InvocationInput{
 		StageVariables: map[string]string{
-			"Test-Stage-Variable": "val1",
+			"Test-Stage-Variable":      "val1",
+			DecryptionPasswordStageVar: "test-password",
 		},
 		RequestContext: RequestContext{
 			Path:       "/stage-dev/resource1",
 			HTTPMethod: "DELETE",
+			Stage:      "dev",
 		},
 		MultiValueQueryStringParameters: map[string][]string{
 			"i": []string{"1"},
@@ -53,6 +60,12 @@ func TestLambdaHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Collect the program data decryption password
+	var decryptionPassword string
+	go func() {
+		decryptionPassword = <-misc.ProgramDataDecryptionPasswordInput
+	}()
+	// Decode and handle the request
 	lambdaResponse, err := hand.decodeAndHandleHTTPRequest("test-request-id", input, 60110)
 	if err != nil {
 		t.Fatal(err)
@@ -60,6 +73,20 @@ func TestLambdaHandler(t *testing.T) {
 	var invocationOutput InvocationOutput
 	if err = json.Unmarshal(lambdaResponse, &invocationOutput); err != nil {
 		t.Fatal(err)
+	}
+	// Check environment variables
+	if s := os.Getenv("PORT"); s != strconv.Itoa(UpstreamWebServerPort) {
+		t.Fatal(s)
+	}
+	if s := os.Getenv(launcher.EnvironmentURLRoutePrefixKey); s != "/"+invocationInput.RequestContext.Stage {
+		t.Fatal(s)
+	}
+	// Check data decryption password
+	if !IsProgramDataDecrypted {
+		t.Fatal("did not decrypt program data")
+	}
+	if decryptionPassword != "test-password" {
+		t.Fatal(decryptionPassword)
 	}
 	// Check web request translation
 	if lastPath != "/stage-dev/resource1" {
