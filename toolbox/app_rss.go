@@ -28,8 +28,6 @@ var (
 		"http://feeds.bbci.co.uk/news/rss.xml",
 		// Home page from The Guardian
 		"https://www.theguardian.com/uk/rss",
-		// "Top news" from Reuters
-		"http://feeds.reuters.com/reuters/topNews",
 		// "Top news" from CNBC
 		"https://www.cnbc.com/id/100003114/device/rss/rss.html",
 	}
