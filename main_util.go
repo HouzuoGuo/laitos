@@ -50,23 +50,21 @@ func ReseedPseudoRandAndInBackground() {
 		for {
 			time.Sleep(3 * time.Minute)
 			reseedFun()
-			logger.Info("ReseedPseudoRandAndInBackground", "", nil, "has reseeded just now")
+			logger.Info("ReseedPseudoRandAndInBackground", "", nil, "successfully seeded RNG")
 		}
 	}()
 }
 
 /*
-PrepareUtilitiesAndInBackground immediately copies utility programs that are not essential but helpful to certain
+CopyNonEssentialUtilitiesInBackground immediately copies utility programs that are not essential but helpful to certain
 toolbox features and daemons, and then continues in background at regular interval (1 hour).
-
 */
-func PrepareUtilitiesAndInBackground() {
-	misc.PrepareUtilities(logger)
+func CopyNonEssentialUtilitiesInBackground() {
 	go func() {
 		for {
+			misc.CopyNonEssentialUtilities(logger)
+			logger.Info("PrepareUtilitiesAndInBackground", "", nil, "successfully copied non-essential utility programs")
 			time.Sleep(1 * time.Hour)
-			misc.PrepareUtilities(logger)
-			logger.Info("PrepareUtilitiesAndInBackground", "", nil, "has run PrepareUtilities just now")
 		}
 	}()
 }

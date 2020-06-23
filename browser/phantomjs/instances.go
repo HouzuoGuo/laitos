@@ -48,9 +48,6 @@ func (instances *Instances) Initialise() error {
 	if instances.BasePortNumber < 1024 {
 		return errors.New("phantomjs.Instances.Initialise: BasePortNumber must be greater than 1023")
 	}
-	if err := instances.TestPhantomJSExecutable(); err != nil {
-		return err
-	}
 
 	instances.browserMutex = new(sync.Mutex)
 	instances.browsers = make([]*Instance, instances.MaxInstances)

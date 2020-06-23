@@ -241,7 +241,7 @@ func main() {
 		initialise, therefore prepare the non-essential utilities (which will prepare phantomJS among others) before
 		deserialising and initialising configuration.
 	*/
-	PrepareUtilitiesAndInBackground()
+	CopyNonEssentialUtilitiesInBackground()
 	if err := config.DeserialiseFromJSON(configBytes); err != nil {
 		logger.Abort("main", "", err, "failed to deserialise/initialise config file \"%s\"", misc.ConfigFilePath)
 		return

@@ -14,8 +14,8 @@ func TestReseedPseudoRandAndInBackground(t *testing.T) {
 	ReseedPseudoRandAndInBackground()
 }
 
-func TestPrepareUtilitiesAndInBackground(t *testing.T) {
-	PrepareUtilitiesAndInBackground()
+func TestCopyNonEssentialUtilitiesInBackground(t *testing.T) {
+	CopyNonEssentialUtilitiesInBackground()
 }
 
 func TestAutoRestart(t *testing.T) {

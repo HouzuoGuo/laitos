@@ -14,7 +14,7 @@ func TestBrowserInstances(t *testing.T) {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
 	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
-	misc.PrepareUtilities(lalog.Logger{})
+	misc.CopyNonEssentialUtilities(lalog.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	misc.SkipTestIfCI(t)
 	instances := Instances{}
@@ -22,10 +22,6 @@ func TestBrowserInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	instances.BasePortNumber = 65110
-	instances.PhantomJSExecPath = "this does not exist"
-	if err := instances.Initialise(); !strings.Contains(err.Error(), "cannot find PhantomJS") {
-		t.Fatal(err)
-	}
 	instances.PhantomJSExecPath = "" // automatically find phantomjs among $PATH
 	// Test default settings
 	if err := instances.Initialise(); err != nil || instances.MaxInstances != 5 || instances.MaxLifetimeSec != 1800 {

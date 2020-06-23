@@ -50,7 +50,7 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 			hand.cmdProc.Features.MessageProcessor.SetOutgoingCommand(toHost, "")
 			_, _ = w.Write([]byte(fmt.Sprintf("Cleared outgoing command for host %s.\r\n", toHost)))
 		}
-		_, _ = w.Write([]byte(fmt.Sprintf("All outgoing commands:\r\n")))
+		_, _ = w.Write([]byte("All outgoing commands:\r\n"))
 		for host, cmd := range hand.cmdProc.Features.MessageProcessor.GetAllOutgoingCommands() {
 			_, _ = w.Write([]byte(fmt.Sprintf("%s: %v\r\n", host, cmd)))
 		}

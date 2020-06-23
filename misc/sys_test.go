@@ -91,8 +91,8 @@ func TestInvokeShell(t *testing.T) {
 	}
 }
 
-func TestPrepareUtilities(t *testing.T) {
-	PrepareUtilities(lalog.Logger{})
+func TestCopyNonEssentialUtilities(t *testing.T) {
+	CopyNonEssentialUtilities(lalog.Logger{})
 	if HostIsWindows() {
 		// Just make sure it does not panic
 		return

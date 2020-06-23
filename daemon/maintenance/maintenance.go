@@ -354,7 +354,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 		Hence, right here the utility programs are copied once again.
 	*/
 	daemon.logPrintStage(out, "re-copy non-essential laitos utilities")
-	misc.PrepareUtilities(daemon.logger)
+	misc.CopyNonEssentialUtilities(daemon.logger)
 
 	// Software maintenance
 	daemon.InstallSoftware(out)

@@ -85,14 +85,15 @@ func GetSystemUptimeSec() int {
 }
 
 /*
-PrepareUtilities resets program environment PATH to be a comprehensive list of common executable locations, then
-it copies non-essential laitos utility programs to a designated directory.
+CopyNonEssentialUtilities sets program environment PATH to a comprehensive list of common executable directories on popular OSes.
 
-This is a rather expensive function due to involvement of heavy file IO, and be aware that the OS template on AWS
-ElasticBeanstalk aggressively clears /tmp at regular interval, therefore caller may want to to invoke this function at
-regular interval.
+Then it copies non-essential utility programs (busybox, toybox, phantomjs, etc) from CWD into a temporary directory, the temporary
+directory is already among environment PATH.
+
+This function may take couple of seconds to complete. Be aware that certain Linux distributions (e.g. that used by AWS ElasticBeanstalk)
+aggresively clears /tmp at regular interval, caller should consider invoking this function at a slow and regular interval.
 */
-func PrepareUtilities(progress lalog.Logger) {
+func CopyNonEssentialUtilities(progress lalog.Logger) {
 	if HostIsWindows() {
 		progress.Info("PrepareUtilities", "", nil, "will not do anything on Windows")
 		return
