@@ -2,13 +2,14 @@ package common
 
 import (
 	"fmt"
-	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -162,4 +163,5 @@ func (srv *TCPServer) Stop() {
 		}
 		srv.listener = nil
 	}
+	srv.logger.Info("Stop", "", nil, "TCP server has shut down successfully")
 }

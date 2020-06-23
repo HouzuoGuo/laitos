@@ -119,7 +119,10 @@ func (srv *UDPServer) StartAndBlock() error {
 		if !srv.rateLimit.Add(clientIP, true) {
 			continue
 		}
-		go srv.handleClient(clientIP, clientAddr, packet[:packetLen])
+		// Hand over a copy of this packet to the UDP app for processing
+		packetCopy := make([]byte, packetLen)
+		copy(packetCopy, packet[:packetLen])
+		go srv.handleClient(clientIP, clientAddr, packetCopy)
 	}
 }
 
@@ -161,4 +164,5 @@ func (srv *UDPServer) Stop() {
 		}
 		srv.udpServer = nil
 	}
+	srv.logger.Info("Stop", "", nil, "UDP server has shut down successfully")
 }

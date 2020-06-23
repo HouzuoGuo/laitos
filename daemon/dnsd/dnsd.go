@@ -198,7 +198,7 @@ func (daemon *Daemon) allowMyPublicIP() {
 		return
 	}
 	daemon.myPublicIP = latestIP
-	daemon.logger.Info("allowMyPublicIP", "", nil, "the latest public IP address %s of this computer is now allowed to query", daemon.myPublicIP)
+	daemon.logger.Info("allowMyPublicIP", "", nil, "the computer may send DNS queries to its public IP address %s", daemon.myPublicIP)
 }
 
 // checkAllowClientIP returns true only if the input IP address is among the allowed addresses.
@@ -429,7 +429,7 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 	}()
 	time.Sleep(2 * time.Second)
 
-	// Send a malformed packet and make sure the daemon will not crash
+	// Send a simple malformed packet and make sure the daemon will not crash
 	tcpClient, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dnsd.TCPPort))
 	if err != nil {
 		t.Fatal(err)
@@ -468,6 +468,7 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 		},
 	}
 	testResolveNameAndBlackList(t, dnsd, udpResolver)
+
 	// Daemon must stop in a second
 	dnsd.Stop()
 	time.Sleep(1 * time.Second)
@@ -484,6 +485,7 @@ testResolveNameAndBlackList is a common test case that tests name resolution of 
 list domain names.
 */
 func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
+	t.Helper()
 	if misc.HostIsWindows() {
 		/*
 			As of 2019-08, net.Resolver does not use custom dialer on Windows due to:
@@ -495,7 +497,6 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		t.Log("due to outstanding issues in Go, DNS server resolution routines cannot be tested on on Windows.")
 		return
 	}
-	t.Helper()
 
 	// Track and verify the last resolved name
 	var lastResolvedName string
@@ -504,7 +505,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	}
 
 	// Resolve A and TXT records from popular domains
-	for _, domain := range []string{"apple.com", "bing.com", "github.com"} {
+	for _, domain := range []string{"bing.com", "github.com", "microsoft.com", "wikipedia.org"} {
 		lastResolvedName = ""
 		if result, err := resolver.LookupTXT(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
 			t.Fatal("failed to resolve domain name TXT record", domain, err, result)
