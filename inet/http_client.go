@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -119,7 +120,7 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 		client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	// Send the request away, and retry in case of error.
-	for attempt := 0; attempt < reqParam.MaxRetry; attempt++ {
+	for retry := 0; retry < reqParam.MaxRetry; retry++ {
 		var httpResp *http.Response
 		httpResp, err = client.Do(req)
 		if err == nil {
@@ -129,11 +130,15 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 			httpResp.Body.Close()
 			if err == nil && httpResp.StatusCode/400 != 1 && httpResp.StatusCode/500 != 1 {
 				// Return the response upon success
+				if retry > 0 {
+					// Let operator know that this URL endpoint may not be quite reliable
+					lalog.DefaultLogger.Info("DoHTTP", urlTemplate, nil, "took %d retries to complete this %s request", retry, reqParam.Method)
+				}
 				return
 			}
 		}
 		// Retry in case of IO error, 4xx, and 5xx responses.
-		time.Sleep(time.Duration(attempt+1) * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	return
 }
