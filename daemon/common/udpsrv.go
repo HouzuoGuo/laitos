@@ -119,10 +119,10 @@ func (srv *UDPServer) StartAndBlock() error {
 		if !srv.rateLimit.Add(clientIP, true) {
 			continue
 		}
-		// Hand over a copy of this packet to the UDP app for processing
+		// Make a copy of the packet for processing because multiple packets may be processed concurrently
 		packetCopy := make([]byte, packetLen)
 		copy(packetCopy, packet[:packetLen])
-		go srv.handleClient(clientIP, clientAddr, packetCopy)
+		go srv.handleClient(srv.udpServer, clientIP, clientAddr, packetCopy)
 	}
 }
 
@@ -132,7 +132,11 @@ func (srv *UDPServer) AddAndCheckRateLimit(clientIP string) bool {
 }
 
 // handleConnection is launched in an independent goroutine by StartAndBlock to interact with a connected client.
-func (srv *UDPServer) handleClient(clientIP string, clientAddr *net.UDPAddr, packet []byte) {
+func (srv *UDPServer) handleClient(udpServer *net.UDPConn, clientIP string, clientAddr *net.UDPAddr, packet []byte) {
+	if udpServer == nil {
+		// Server has already shut down
+		return
+	}
 	// Put processing duration into statistics
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
@@ -140,11 +144,11 @@ func (srv *UDPServer) handleClient(clientIP string, clientAddr *net.UDPAddr, pac
 	}()
 	srv.logger.Info("handleClient", clientIP, nil, "conversation started")
 	// Apply the default IO timeout to prevent a potentially malfunctioning connection handler from hanging
-	if err := srv.udpServer.SetWriteDeadline(time.Now().Add(ServerDefaultIOTimeoutSec * time.Second)); err != nil {
+	if err := udpServer.SetWriteDeadline(time.Now().Add(ServerDefaultIOTimeoutSec * time.Second)); err != nil {
 		srv.logger.Warning("handleClient", clientIP, err, "failed to set default write deadline, terminating the conversation.")
 		return
 	}
-	srv.App.HandleUDPClient(srv.logger, clientIP, clientAddr, packet, srv.udpServer)
+	srv.App.HandleUDPClient(srv.logger, clientIP, clientAddr, packet, udpServer)
 }
 
 // IsRunning returns true only if the server has started and has not been told to stop.
