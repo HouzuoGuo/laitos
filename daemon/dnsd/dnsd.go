@@ -548,7 +548,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	if result, err := resolver.LookupTXT(context.Background(), appCmdQueryWithBadPassword); err == nil || result != nil {
 		t.Fatal(result, err)
 	}
-	if lastResolvedName != appCmdQueryWithBadPassword {
+	if !strings.HasPrefix(lastResolvedName, appCmdQueryWithBadPassword) {
 		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
 	}
 
@@ -560,7 +560,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	if err != nil || len(result) == 0 || !strings.Contains(result[0], thisYear) {
 		t.Fatal(result, err)
 	}
-	if lastResolvedName != appCmdQueryWithGoodPassword {
+	if !strings.HasPrefix(lastResolvedName, appCmdQueryWithGoodPassword) {
 		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
 	}
 	// Rapidly making the same request before TTL period elapses should be met the same command response
@@ -574,7 +574,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	if repeatResult, err := resolver.LookupTXT(context.Background(), appCmdQueryWithGoodPassword); err != nil || reflect.DeepEqual(repeatResult, result) || !strings.Contains(result[0], thisYear) {
 		t.Fatal(repeatResult, result, err)
 	}
-	if lastResolvedName != appCmdQueryWithGoodPassword {
+	if !strings.HasPrefix(lastResolvedName, appCmdQueryWithGoodPassword) {
 		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
 	}
 }
