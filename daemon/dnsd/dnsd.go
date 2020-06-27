@@ -485,7 +485,6 @@ testResolveNameAndBlackList is a common test case that tests name resolution of 
 list domain names.
 */
 func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
-	t.Helper()
 	if misc.HostIsWindows() {
 		/*
 			As of 2019-08, net.Resolver does not use custom dialer on Windows due to:
@@ -505,7 +504,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	}
 
 	// Resolve A and TXT records from popular domains
-	for _, domain := range []string{"bing.com", "github.com", "microsoft.com", "wikipedia.org"} {
+	for _, domain := range []string{"bing.com", "wikipedia.org"} {
 		lastResolvedName = ""
 		if result, err := resolver.LookupTXT(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
 			t.Fatal("failed to resolve domain name TXT record", domain, err, result)
@@ -540,29 +539,42 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		// _.apple.com.            3599    IN      TXT     "v=spf1 redirect=_spf.apple.com"
 		t.Fatal(result, err)
 	}
+	if lastResolvedName != "_.apple.com" {
+		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
+	}
 
 	// Make a TXT query that carries toolbox command prefix and an invalid PIN
-	if result, err := resolver.LookupTXT(context.Background(), "_badpin .s echo hi"); err == nil || result != nil {
+	appCmdQueryWithBadPassword := "_badpass142s0date.example.com"
+	if result, err := resolver.LookupTXT(context.Background(), appCmdQueryWithBadPassword); err == nil || result != nil {
 		t.Fatal(result, err)
+	}
+	if lastResolvedName != appCmdQueryWithBadPassword {
+		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
 	}
 
 	// Prefix _ indicates it is a toolbox command, DTMF sequence 142 becomes a full-stop, 0 becomes a space.
-	var cmdInput = "_verysecret142s0date"
+	appCmdQueryWithGoodPassword := "_verysecret142s0date.example.com"
 	thisYear := strconv.Itoa(time.Now().Year())
 	// Make a TXT query that carries toolbox command prefix and a valid command
-	result, err := resolver.LookupTXT(context.Background(), cmdInput+".example.com")
+	result, err := resolver.LookupTXT(context.Background(), appCmdQueryWithGoodPassword)
 	if err != nil || len(result) == 0 || !strings.Contains(result[0], thisYear) {
 		t.Fatal(result, err)
 	}
+	if lastResolvedName != appCmdQueryWithGoodPassword {
+		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
+	}
 	// Rapidly making the same request before TTL period elapses should be met the same command response
-	for i := 0; i < 10; i++ {
-		if repeatResult, err := resolver.LookupTXT(context.Background(), cmdInput+".example.com"); err != nil || !reflect.DeepEqual(repeatResult, result) {
+	for i := 0; i < 3; i++ {
+		if repeatResult, err := resolver.LookupTXT(context.Background(), appCmdQueryWithGoodPassword); err != nil || !reflect.DeepEqual(repeatResult, result) {
 			t.Fatal(repeatResult, result, err)
 		}
 	}
 	// Wait for TTL to expire and repeat the same request, it should receive a new response.
 	time.Sleep((TextCommandReplyTTL + 1) * time.Second)
-	if repeatResult, err := resolver.LookupTXT(context.Background(), cmdInput+".example.com"); err != nil || reflect.DeepEqual(repeatResult, result) || !strings.Contains(result[0], thisYear) {
+	if repeatResult, err := resolver.LookupTXT(context.Background(), appCmdQueryWithGoodPassword); err != nil || reflect.DeepEqual(repeatResult, result) || !strings.Contains(result[0], thisYear) {
 		t.Fatal(repeatResult, result, err)
+	}
+	if lastResolvedName != appCmdQueryWithGoodPassword {
+		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
 	}
 }
