@@ -21,7 +21,7 @@ request.
 const SubjectReportSerialisedLineSeparator = '\x1e'
 
 /*
-AppCommandRequest is an app command that a subject (remote) would like this message processor (local) to run.
+AppCommandRequest describes an app command that message processor (local) would like monitored subject (remote to run).
 The app command follows the conventional format, e.g. "PasswordPIN.e info".
 */
 type AppCommandRequest struct {
