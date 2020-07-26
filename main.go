@@ -1,3 +1,19 @@
+/*
+package main
+
+laitos web server suite offers the simplest way to host your personal website, receive Emails, block ads and malicious websites with a DNS server, and much more!
+
+And for geeks 🤓 - as a professional geek, you need Internet access whenever and wherever!
+
+laitos connects to primitive infrastructure such as telephone, SMS, and satellite terminal network to offer reliable access to many Internet features, such as:
+
+- Browse news, weather, and Twitter.
+- Keep in touch via Email, telephone call, and SMS.
+- Browse the web via a text-based JavaScript-capable browser.
+- Run Linux/Windows shell commands.
+- Generate 2nd factor authentication code.
+- ... more apps to explore!
+*/
 package main
 
 import (
