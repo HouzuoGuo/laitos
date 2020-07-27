@@ -473,7 +473,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Body": {"incorrect PIN"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Message><![CDATA[`+toolbox.ErrPINAndShortcutNotFound.Error()+`]]></Message>`) {
+	if err != nil || resp.StatusCode != http.StatusServiceUnavailable || strings.TrimSpace(string(resp.Body)) != toolbox.ErrPINAndShortcutNotFound.Error() {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.

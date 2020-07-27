@@ -30,13 +30,13 @@ const (
 		per HTTP server rate limit interval. Be aware that API handlers place an extra rate limit based on incoming phone number.
 		This rate limit is designed to protect brute force PIN attack from accidentally exposed API handler URL.
 	*/
-	TwilioAPIRateLimitFactor = 16
+	TwilioAPIRateLimitFactor = 8
 
 	/*
 		TwilioPhoneNumberRateLimitIntervalSec is an interval measured in number of seconds that an incoming phone number is
 		allowed to invoke SMS or voice call routine. This rate limit is designed to prevent spam SMS and calls.
 	*/
-	TwilioPhoneNumberRateLimitIntervalSec = 5
+	TwilioPhoneNumberRateLimitIntervalSec = 10
 )
 
 // Handle Twilio phone number's SMS hook.
@@ -69,9 +69,8 @@ func (hand *HandleTwilioSMSHook) Handle(w http.ResponseWriter, r *http.Request) 
 	if phoneNumber != "" {
 		if !hand.senderRateLimit.Add(phoneNumber, true) {
 			/*
-				Twilio does not have a reject feature for incoming SMS, therefore, use a non-2xx HTTP status code to
-				inform Twilio not to make an SMS reply. Twilio user will see the the rate limit error message in Twilio
-				console.
+				Twilio does not have a reject feature for incoming SMS. Use a non-2xx HTTP status code to inform Twilio
+				that an SMS reply isn't available. Twilio operator can inspect these failures from the Twilio console.
 			*/
 			http.Error(w, "rate limit is exceeded by sender "+phoneNumber, http.StatusServiceUnavailable)
 			return
@@ -84,6 +83,14 @@ func (hand *HandleTwilioSMSHook) Handle(w http.ResponseWriter, r *http.Request) 
 		TimeoutSec: TwilioHandlerTimeoutSec,
 		Content:    r.FormValue("Body"),
 	}, true)
+	if ret.CombinedOutput == toolbox.ErrPINAndShortcutNotFound.Error() {
+		/*
+			Twilio does not have a reject feature for incoming SMS. Use a non-2xx HTTP status code to inform Twilio
+			that an SMS reply isn't available. Twilio operator can inspect these failures from the Twilio console.
+		*/
+		http.Error(w, toolbox.ErrPINAndShortcutNotFound.Error(), http.StatusServiceUnavailable)
+		return
+	}
 	// Generate normal XML response
 	_, _ = w.Write([]byte(fmt.Sprintf(xml.Header+`
 <Response><Message><![CDATA[%s]]></Message></Response>
