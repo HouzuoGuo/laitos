@@ -17,7 +17,7 @@ Where action can be:
 - `stack` - Get the latest stack traces.
 
 It may also be:
-- `tune` - Use well known techniques to automatically tune the Linux host that runs laitos.
+- `tune` - Automatically tune server kernel parameters for enhanced performance and security.
 - `lock` - Keep laitos program running, but disable all apps and daemons, All web server URLs will return
   status 200 (OK) and an error text. The only way to recover from this state is to restart laitos program manually.
 - `stop` - Crash the laitos program.

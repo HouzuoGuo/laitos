@@ -5,9 +5,8 @@ to upload files (up to 64MB each) for unlimited retrieval within 24 hours.
 Uploaded files are temporary in nature, they are automatically deleted after 24 hours.
 
 ## Configuration
-Under JSON key `HTTPHandlers`, write a string property called `FileUploadEndpoint`, value being the URL
-location that users visit to upload and retrieve files. The location should be a secret for intended users only -
-make it difficult to guess.
+Under JSON key `HTTPHandlers`, write a string property called `FileUploadEndpoint`, value being the URL location of the service.
+The location should be kept a secret for intended users only - make it difficult to guess.
 
 Here is an example setup:
 <pre>

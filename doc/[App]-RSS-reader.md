@@ -17,7 +17,7 @@ object called `RSS` that has the following properties:
     <td>Sources</td>
     <td>array of strings</td>
     <td>URLs to various RSS sources.</td>
-    <td>Top stories/home page from A(ustralia)BC, BBC, Reuters, The Guardian, CNBC, and Jerusalem Post.</td>
+    <td>Top stories/home page from A(ustralia)BC, BBC, The Guardian, CNBC.</td>
 </tr>
 </table>
 
@@ -31,8 +31,8 @@ Here is an example:
 
          "RSS": {
               "Sources": [
-                  "http://feeds.reuters.com/reuters/topNews",
-                  "https://www.theguardian.com/uk/rss"
+                  "https://www.theguardian.com/uk/rss",
+                  "https://www.cnbc.com/id/100003114/device/rss/rss.html"
               ]
             },
 

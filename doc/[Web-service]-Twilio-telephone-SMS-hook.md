@@ -110,7 +110,7 @@ pound '#' sign, then wait for command execution and then a spoken response. The 
 
 Here are the digit sequences for entering letters, symbols, and numbers:
 <pre>
-111 - !  112 - @  113 - #  114 - $  115 - %  116 - ^  117 - &  118 - *  119 - (  121 - `
+111 - !  112 - @  113 - #  114 - $  115 - %  116 - ^  117 - &  118 - *  119 - (  121 - backtick
 122 - ~  123 - )  124 - -  125 - _  126 - =  127 - +  128 - [  129 - {  131 - ]  132 - }
 133 - \  134 - |  135 - ;  136 - :  137 - '  138 - "  139 - ,  141 - <  142 - .  143 - >
 144 - /  145 - ?  0 – Space
@@ -129,7 +129,8 @@ commands.
 
 ## Tips
 Telephone and mobile networks are prone to eavesdropping attacks that can reveal your password PIN and app command responses
-to potential attackers. Use telephone/SMS only as the last resort.
+to potential attackers. Use telephone/SMS only as the last resort. The web service does not respond to an SMS if the sender
+fails to use the correct password PIN. All SMS and calls are logged for inspection on Twilio console.
 
 Regarding laitos configuration:
 - Make sure to choose a very secure URL for both call and SMS endpoints, it is the only way to secure this web service!

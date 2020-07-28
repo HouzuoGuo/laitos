@@ -114,7 +114,7 @@ laitos works with the following system package managers for installing and updat
 <tr>
     <td>TuneLinux</td>
     <td>true/false</td>
-    <td>Automatically tune Linux kernel parameters for optimal performance.</td>
+    <td>Automatically tune server kernel parameters for enhnaced performance and security.</td>
     <td>(Not used) false</td>
     <td>Linux</td>
 </tr>
@@ -184,7 +184,7 @@ Each run produces a very detailed system maintenance report for inspection, whic
 ## Tips
 System maintenance does not have to run too often. Let it run daily is usually good enough.
 
-The maintenance routine always automatically installs the following software and keeps them up-to-date:
+The maintenance routine always automatically installs the following software and keeps them up-to-date. The altogether use about 300 MB of disk space:
 - Dependencies of PhantomJS used by [web browser on a page (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(PhantomJS))
   and [text-based interactive web browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(PhantomJS)).
   They may not function properly until system maintenance has run for the first time.
@@ -197,8 +197,8 @@ The maintenance routine always automatically installs the following software and
 
 Exercise extra care when using the advanced maintenance options:
 - Use `InstallPackages` configuration option to keep your productivity software applications up-to-date.
-- Use `DisableStopServices` to disable unused system services (such as "nfs", "snmp") to save system resources.
-- Use `EnableStartServices` to ensure that essential services (such as "sshd") remain active.
+- Use `DisableStopServices` to disable unused system services of your choice (such as "nfs", "snmp") to conserve system resources.
+- Use `EnableStartServices` to ensure that essential services of your choice (such as "sshd") remain active.
 - Use `BlockSystemLoginExcept` to ensure that only essential users (such as "root" and "my-own-username") may login to
   the system, and all other users are blocked from login.
 - Use `SetTimeZone` to set system global time zone (via changing `/etc/localtime` link). List of all available names can

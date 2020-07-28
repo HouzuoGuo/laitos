@@ -78,6 +78,7 @@ To use keyboard:
 - The local utility port number from configuration is only for internal localhost use. It does not have to be open on your network firewall.
 - laitos server has to have QEMU or KVM installed in order to start the desktop virtual machine. You may rely on [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance)
   to automatically install the software for you.
-- laitos server prefers to use KVM to start the desktop virtual machine as KVM offers enhanced performance. When KVM is not available, laitos
+- laitos server prefers to use KVM to start the desktop virtual machine as KVM offers enhanced performance. If KVM is not available, laitos
   will fall back to QEMU automatically.
 - The desktop virtual machine works faster with a lightweight Linux distribution ISO medium. The well-known lightweight PuppyLinux works very well, and laitos recommends it by using it as the default ISO download URL.
+- After the virtual machine starts up, it remains running indefinitely until it shuts itself down (e.g. from VM's Start menu), or the user shuts it down forcibly with the "Kill" button from the web controls.

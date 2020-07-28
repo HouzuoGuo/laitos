@@ -11,10 +11,10 @@ well-known sources:
 
 Beyond the blacklists, the DNS resolver uses redundant set of secure and trusted public DNS services provided by:
 - [Quad9](https://www.quad9.net)
-- [SafeDNS](https://www.safedns.com)
+- [CloudFlare with malware prevention](https://blog.cloudflare.com/introducing-1-1-1-1-for-families/)
 - [OpenDNS](https://www.opendns.com)
 - [AdGuard DNS](https://adguard.com/en/adguard-dns/overview.html)
-- [Neustar - threat protection](https://www.home.neustar/dns-services/ultra-recursive-dns)
+- [SafeDNS](https://www.safedns.com)
 
 ## Configuration
 Construct the following JSON object and place it under key `DNSDaemon` in configuration file:

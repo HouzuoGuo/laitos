@@ -2,10 +2,10 @@
 The mail server forwards arriving mails as-is to your personal mail address. No mails are stored on the server after
 they are forwarded.
 
-With additional configuration, the server will invoke app commands from incoming mail, and mail response to
-the sender.
+With additional configuration, the server will execute password-protected app commands from incoming mail, and mail
+command response back to the sender.
 
-For communication secrecy, the server supports StartTLS operation and identifies itself with TLS certificate.
+For communication secrecy, the server supports StartTLS operation and identifies itself with a TLS certificate.
 
 ## Preparation
 In order for an Internet user to successfully send mails to your domain names, they must be covered by a DNS hosting
@@ -208,11 +208,15 @@ Send a test mail with subject, text, and attachments to any name under `MyDomain
 a short moment, check the inbox on any of `ForwardTo` address (e.g. `me@example.com`), the test mail should arrive at
 all of the `ForwardTo` addresses.
 
-Try invoking an app command - send laitos server an email with arbitrary subject, and write down password PIN and app
-command in the content body. Look for the command response in an email replied to the sender.
+Try invoking an app command - send laitos server a mail with arbitrary subject, and write down password PIN and app command
+in the content body. Look for the command response in a mail replied to the sender.
 
 ## Tips
 - Mail servers are often targeted by spam mails - but don't worry, use a personal mail service that comes with strong
   spam filter (such as Gmail) as `ForwardTo` address, then spam mails will not bother you any longer.
 - Occasionally spam filter (such as Gmail's) may consider legitimate mails forwarded by laitos as spam, therefore please
   check your spam folders regularly.
+- Many Internet domain names use [DMARC](https://en.wikipedia.org/wiki/DMARC) to protect their business from mail spoofing.
+  Though laitos usually forwards the verbatim copy of incoming mail to you, DMARC makes an exception - laitos has to change
+  the sender from `name@protected-domain.com` to `name@protected-domain-laitos-nodmarc-###.com` where hash is a random digit.
+  Otherwise your mail provder will discard the mail silently - without a trace in spam folder.

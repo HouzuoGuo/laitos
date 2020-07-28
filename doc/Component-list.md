@@ -31,14 +31,14 @@ laitos components go into three categories:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>System maintenance</td>
-        <td>Periodic maintenance patches the system for security updates, and checks for environment and program health.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance" target="_blank">Link</a></td>
-    </tr>
-    <tr>
         <td>Telnet server</td>
         <td>Telnet server provides unencrypted access to all apps via basic tools such HyperTerminal.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telnet-server" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Telegram messenger chat-bot</td>
+        <td>Telegram chatbot provides access to all apps via secure infrastructure provided by Telegram Messenger.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telegram-chat-bot" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Serial port communicator</td>
@@ -46,22 +46,26 @@ laitos components go into three categories:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-serial-port-communicator" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>SNMP server</td>
-        <td>SNMP server offers program statistics over industrial-standard network monitoring protocol.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-SNMP-server" target="_blank">Link</a></td>
-    </tr>
-    <tr>
         <td>Simple IP services server</td>
         <td>Simple IP services were used in the nostalgic era of computing.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-simple-IP-services" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Telegram messenger chat-bot</td>
-        <td>Telegram chatbot provides access to all apps via secure infrastructure provided by Telegram Messenger.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telegram-chat-bot" target="_blank">Link</a></td>
+        <td>SNMP server</td>
+        <td>SNMP server offers program statistics over industrial-standard network monitoring protocol.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-SNMP-server" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>System maintenance</td>
+        <td>Periodic maintenance patches the system for security updates, and checks for environment and program health.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Phone home telemetry</td>
+        <td>Periodically report the system status of this computer to your laitos servers.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-phone-home-telemetry" target="_blank">Link</a></td>
     </tr>
 </table>
-
 
 #### Rich web services
 The following services are hosted by web server and enabled on your demand:
@@ -73,9 +77,29 @@ The following services are hosted by web server and enabled on your demand:
         <th>Configuration and Usage</th>
     </tr>
     <tr>
-        <td>Program health report</td>
-        <td>Display program stats and environment info in a comprehensive report.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report" target="_blank">Link</a></td>
+        <td>Twilio telephone/SMS hook</td>
+        <td>Run app commands on telephone, SMS, satellite terminals via Twilio platform (telephone and SMS programming).</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Microsoft bot hook</td>
+        <td>Run app commands on Skype and Cortana via Microsoft Bot Framework.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Microsoft-bot-hook" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Recurring commands</td>
+        <td>Run app commands at regular interval, and retrieve their result.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-recurring-commands" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>App command form</td>
+        <td>Run app commands via a web form.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-invoke-app-command" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Simple app command execution API</td>
+        <td>A command-line friendly API for executing app commands.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-simple-app-command-execution-API" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>GitLab browser</td>
@@ -108,24 +132,19 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-desktop-on-a-page-(virtual-machine)" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>App command form</td>
-        <td>Run app commands via a web form.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-invoke-app-command" target="_blank">Link</a></td>
+        <td>Program health report</td>
+        <td>Display program stats, log entries, and system resource usage in a comprehensive report.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Twilio telephone/SMS hook</td>
-        <td>Run app commands on telephone, SMS, satellite terminals via Twilio platform (telephone and SMS programming).</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook" target="_blank">Link</a></td>
+        <td>Read telemetry records</td>
+        <td>Read phone-home telemetry records collected by this server.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Microsoft bot hook</td>
-        <td>Run app commands on Skype and Cortana via Microsoft Bot Framework.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Microsoft-bot-hook" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>Recurring commands</td>
-        <td>Run app commands at regular interval, and retrieve their result.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-recurring-commands" target="_blank">Link</a></td>
+        <td>The Things Network LORA tracker integration</td>
+        <td>Collect location telemetry from your LoRa IoT devices that run The Things Network Mapper program.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-the-things-network-LORA-tracker-integration" target="_blank">Link</a></td>
     </tr>
 </table>
 
@@ -147,28 +166,18 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-WolframAlpha" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Wild joke</td>
-            <td>Grab a quick laugh from the Internet.</td>
-            <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-wild-joke" target="_blank">Link</a></td>
-        </tr>
-    <tr>
         <td>RSS feeds</td>
-            <td>Read news feeds and briefings via RSS.</td>
-            <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-RSS-reader" target="_blank">Link</a></td>
-        </tr>
-    <tr>
-        <td>Web browser (PhantomJS)</td>
-        <td>Take control over a fully feature web browser (PhantomJS) via text commands.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(PhantomJS)" target="_blank">Link</a></td>
+        <td>Read news feeds and briefings via RSS.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-RSS-reader" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Web browser (SlimerJS)</td>
-        <td>Take control over a fully feature web browser (SlimerJS) via text commands.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(SlimerJS)" target="_blank">Link</a></td>
-        </tr>
+        <td>Wild joke</td>
+        <td>Grab a quick laugh from the Internet.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-wild-joke" target="_blank">Link</a></td>
+    </tr>
     <tr>
         <td>Read Emails</td>
-        <td>List and read personal Emails from popular services such as Hotmail and Gmail.</td>
+        <td>Read your personal Emails from popular sites such as Hotmail and Gmail.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-reading-emails" target="_blank">Link</a></td>
     </tr>
     <tr>
@@ -180,11 +189,6 @@ The following services are hosted by web server and enabled on your demand:
         <td>Make calls and send SMS</td>
         <td>Send text to friend's phone number, or call a friend to speak a short message.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-make-calls-and-send-SMS" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>Public contacts</td>
-        <td>Look up contact information from several public institutions.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-public-institution-contacts" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>2FA code generator</td>
@@ -202,6 +206,21 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-text-search" target="_blank">Link</a></td>
     </tr>
     <tr>
+        <td>Public contacts</td>
+        <td>Look up contact information from several public institutions.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-public-institution-contacts" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Web browser (SlimerJS)</td>
+        <td>Take control over a fully feature web browser (SlimerJS) via text commands.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(SlimerJS)" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Web browser (PhantomJS)</td>
+        <td>Take control over a fully feature web browser (PhantomJS) via text commands.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(PhantomJS)" target="_blank">Link</a></td>
+    </tr>
+    <tr>
         <td>Run system commands</td>
         <td>Run Linux/Unix shell commands on laitos server.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-run-system-commands" target="_blank">Link</a></td>
@@ -210,5 +229,10 @@ The following services are hosted by web server and enabled on your demand:
         <td>Program control</td>
         <td>Retrieve laitos server environment information, and self-destruct in unfortunate moments.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-inspect-and-control-server-environment" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Phone home telemetry handler</td>
+        <td>Read telemetry record fields from input and store them in memory.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler" target="_blank">Link</a></td>
     </tr>
 </table>

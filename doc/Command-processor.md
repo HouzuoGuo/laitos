@@ -1,21 +1,24 @@
 # Command processor
 
 ## Introduction
-The following daemon components have an embedded command processor to let users invoke app commands:
+The following daemon components are capable of executing app commands:
 - [DNS server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server)
 - [Mail server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-mail-server)
 - [Serial port communicator](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-serial-port-communicator)
 - [Telnet server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telnet-server)
 - [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telegram-chat-bot)
-- Web service [invoke app command](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-invoke-app-command)
+- [Phone home telemetry](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-phone-home-telemetry)
+- Web service [app command form](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-invoke-app-command)
+- Web service [simple app command execution API](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-simple-app-command-execution-API)
 - Web service [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook)
 - Web service [Microsoft bot hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Microsoft-bot-hook)
+- Web service [The Things Network LORA tracker integration](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-the-things-network-LORA-tracker-integration)
 
 During app command invocation, the following actions take place:
 1. The user enters a command, for example, by using the "invoke app command" web service form, or by sending an app command
    in an Email addressed to laitos mail server. (e.g. `mypass .e info`)
 2. laitos validates the password PIN from the input command to match configuration from `PINAndShortcuts`, or if the input
-   is a shortcut, expands the shortcut into full command without looking for a password PIN.
+   is a shortcut, laitos expands the shortcut into full command without looking for a password PIN.
 3. laitos walks the app command (not the password PIN) through `TranslateSequences` mechanism that replaces sequence of
    characters by a different sequence.
 4. laitos identifies the app (e.g. `.e` for program control) and gives the app remainder of the command input for parameters.
@@ -66,7 +69,7 @@ Optional `TranslateSequences` - translate sequence of command characters to a di
 </tr>
 </table>
 
-Mandatory `LintText` - compact and clean command result:
+Mandatory `LintText` - compact and clean up command output text:
 <table>
 <tr>
     <th>Property</th>
@@ -76,27 +79,39 @@ Mandatory `LintText` - compact and clean command result:
 <tr>
     <td>CompressSpaces</td>
     <td>true/false</td>
-    <td>Compress consecutive space characters into a single space character.</td>
+    <td>
+      Replace consecutive space characters into a single space character.
+      This helps to compact the output text.
+    </td>
 </tr>
 <tr>
     <td>CompressToSingleLine</td>
     <td>true/false</td>
-    <td>Connect all lines by semi-colon(;) character</td>
+    <td>
+      Repalce line breaks with a semi-colon (;) character.
+      This helps to display the output on devices unable to display multi-line text.
+    </td>
 </tr>
 <tr>
     <td>KeepVisible7BitCharOnly</td>
     <td>true/false</td>
-    <td>Only keep Latin letters/digits/symbols and discard letters from other languages.</td>
+    <td>
+      Retain Latin letters, digits, and symbols, discard the rest such as Cyrillic and CJK characters.
+      This helps to display the output on devices that are unable to display richer character sets.
+    </td>
 </tr>
 <tr>
     <td>TrimSpaces</td>
     <td>true/false</td>
-    <td>Remove leading and trailing space characters.</td>
+    <td>
+      Remove leading and trailing space characters.
+      This helps to compact the output text.
+    </td>
 </tr>
 <tr>
     <td>MaxLength</td>
     <td>integer</td>
-    <td>Only keep this many characters in the result, discard the remaining ones.</td>
+    <td>Maximum number of characters to retain in the command output. Remaining text is discarded.</td>
 </tr>
 </table>
 
@@ -110,12 +125,17 @@ Optional `NotifyViaEmail` - send notification Email for the command input and re
 <tr>
     <td>Recipients</td>
     <td>array of strings</td>
-    <td>Email addresses that will be notified with app commands and command response.</td>
+    <td>These Email addresses will receive a message with each input app command and command response.</td>
 </tr>
 </table>
 
 To enable Email notification, please also follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration)
 to construct configuration for sending Email responses.
+
+In order to protect encryption secret, the notification Email will hide the input command for laitos 2FA code generator app and
+AES-encrypted text search app, though the result (2FA codes and encrypted text search result) will still appear in the Email mesage.
+
+
 
 ## Configuration example
 Here is an example configuration for [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server),
@@ -158,18 +178,17 @@ and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-
 
 In the example:
 - For SMS, `LintText` compacts result and limits length to 160 characters.
-- `PINAndShortcuts` has a strong password and three shortcut commands.
-- Some dumb phones cannot enter `|` pipe character in SMS, `TranslateSequences` helps them to enter the character
-  via `#/` instead.
+- `PINAndShortcuts` uses a strong password for app command access, and defines three shortcuts - each translates into a command without having to enter the password.
+- Certain old mobile phones cannot enter the pipe character `|` in an SMS, `TranslateSequences` helps those phones to enter a pipe character via combo `#/` instead.
 
 ## Usage
 App command looks like:
 
-    PIN .app_identifier parameter1 parameter2 parameter3 ...
+    PasswordPIN .app_identifier parameter1 parameter2 parameter3 ...
 
 Where:
-- `.app_identifier` is a short text string that identifies the app to invoke. Pay attention to the leading `.` dot.
-- Parameters are passed as-is to the app for interpretation.
+- `.app_identifier` is a short text string that identifies the app to invoke. Pay attention to the mandatory leading `.` dot.
+- Parameters are passed as-is to the specified app as its input.
 
 Here are the comprehensive list of `.app_identifier` identifiers:
 
@@ -189,27 +208,43 @@ Here are the comprehensive list of `.app_identifier` identifiers:
 - `.t` - [Read and post tweets](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-Twitter)
 - `.w` - [WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-WolframAlpha)
 
-### The special "PLT" command prefix
-"PLT" is a special command prepended to an ordinary command, in order to seek to position among result output,
-and temporarily modify max length and timeout restriction. The usage is:
+### Use one-time-password in place of password PIN
+If you become concerned of eavesdroppers that might maliciously intercept the password PIN, consider using one-time-password in place of password PIN in an
+app command input. Follow these steps:
 
-    PIN .plt <SKIP> <MAX LENGTH> <TIMEOUT SECONDS> .app_identifier parameter1 parameter 2 parameter 3 ...
+1. Download and install a two factor authentication code generator, such as [Authy](https://authy.com/) app.
+2. In the app, create a new time-based account, name it "LaitosOTP1", and instead of scanning a QR code, manually enter the password PIN for the secret.
+3. In the app, create another time-based account, name it "LaitosOTP2", and instead of scanning a QR code, manually enter the reversed password PIN for the secret.
+
+Back to laitos, enter an app command this way: `LaitosOTP1LaitosOTP2 .app_identifier ...`. Each OTP has 6 digits, put the two OTPs together with no space in between.
+Should a malicious eavesdropper intercept the communication, the eavesdropper will not be able to recover your password PIN.
+
+Enforced by laitos server, an OTP combo may only be used with one app command until the OTP expires, for example, if that OTP 1 is `123123` and OTP 2 is `789789`:
+- User may repeatedly execute app command `123123789789 .s echo hello` arbitrary number of times via any daemon.
+- User may not execute command `123123789789 .s echo hello` and then `123123789789 .s echo hoho`, the first command will succeed but laitos will refuse to execute
+  the second "hoho" command by saying "the TOTP has already been used with a different command".
+
+### Override output length and timeout restriction
+Prepend the lower case string "plt" and three parameters to an app command, to position (skip) first N characters from the command output,
+override the output length restriction, and/or override the command execution timeout:
+
+    .plt <SKIP> <MAX LENGTH> <TIMEOUT SECONDS> PasswordPIN .app_identifier parameter1 parameter 2 parameter 3 ...
 
 Where:
 - `<SKIP>` is the number of characters to discard from beginning of the result output.
-- `<MAX LENGTH>` is the number of characters to respond. It overrides `MaxLength` of `LintText`.
-- `<TIMEOUT SECONDS>` is the maximum number of seconds for the app to run. It overrides the usual timeout limit configured in daemons.
+- `<MAX LENGTH>` is the maximum number of characters to collect from command response. It overrides `MaxLength` of `LintText` as well as
+  certain daemons' internal default limit.
+- `<TIMEOUT SECONDS>` is the maximum number of seconds the app may spend to execute the command. It overrides daemon's internal default limit.
 
-Take an example - command `mypassword .il work-mail 0 10`(list 10 Email subjects) is issued to Telegram bot that
-gives it 30 seconds to run and restricts output to 76 characters, resulting in the following response:
+Take an example - a user uses the Telegram bot daemon to execute command `mypassword .il work-mail 0 10` (get the latest 10 Email subjects).
+The user previously configured `LintText` to restrict output to only 76 characters, and Telegram bot internally spends at most 30 seconds to
+execute a command. These constraints would result in this incomplete response:
 
     1 me@example.com Project roadmap
     2 me@example.com Holiday greetings
     3
 
-Due to combination of `MaxLength` restriction and possible timeout condition, we did not see the remaining 7 Email subjects.
-Let us try PLT to retrieve the full output - skip the 2 Emails we have already seen, override `MaxLength` to 10000 and
-timeout to 60 seconds:
+Let us try to retrieve the full output - skip the 2 Email subjects already seen, override `MaxLength` to 10000 and timeout to 60 seconds:
 
     .plt 75 10000 60 mypassword .il work-mail 0 10
 
