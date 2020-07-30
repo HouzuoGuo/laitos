@@ -7,14 +7,13 @@ In fact, it works well on nearly all public and private cloud vendors, irrespect
 virtualisation technology, hardware model, and administration interface.
 
 ## Important note on sending outgoing mails
-As an anti-spam measure, nearly all major public cloud vendors block outgoing contact to port 25, which means their
-virtual machines will not be able to deliver outgoing mails. Therefore, use a dedicated mail delivery services such as
-[sendgrid](https://sendgrid.com/) that delivers mails on a port different from 25, for example Sendgrid accepts incoming
-connection on port 2525.
+As an anti-spam measure, nearly all major public cloud vendors block outgoing contact to port 25, which means applications
+running on their infrastructure will not be able to deliver outgoing mails - this does not interfere with mails coming in.
+Therefore, use laitos program with a dedicated mail delivery services such as [sendgrid](https://sendgrid.com/) that has
+anti-spam measures built-in, sendgrid accepts incoming connection on port 2525 for mail delivery.
 
-Similarly, if laitos system maintenance is configured to check connectivity to a foreign host's port 25, the maintenance
-routine will not check the port connectivity and instead explain that destination port 25 is not reachable from public
-cloud vendor.
+In laitos system maintenance daemon configuration, if there is a connectivity check for port 25 on a foreign host, laitos
+will skip that check.
 
 ## Start laitos automatically via systemd
 systemd is the most popular init system for Linux distributions, it can help launching laitos automatically when
@@ -25,7 +24,7 @@ computer boots up. Create a service file `/etc/systemd/system/laitos.service` an
     After=network.target
     
     [Service]
-    ExecStart=/root/laitos/laitos -disableconflicts -gomaxprocs 8 -config config.json -daemons autounlock,dnsd,httpd,insecurehttpd,maintenance,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
+    ExecStart=/root/laitos/laitos -disableconflicts -gomaxprocs 8 -config config.json -daemons autounlock,dnsd,httpd,insecurehttpd,maintenance,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
     User=root
     Group=root
     WorkingDirectory=/root/laitos
@@ -42,19 +41,70 @@ by superuser `root`.
 
 After the service file is in place, run these commands as root user:
 
-    # systemctl daemon-reload    (Re-read all service files, including the new one)
-    # systemctl enable laitos    (Remember to start laitos when system boots up)
-    # systemctl start laitos     (tell systemd to start laitos immediately)
+    # systemctl daemon-reload    (Reload daemon service files, including the new one for laitos.)
+    # systemctl enable laitos    (Automatically start laitos when system boots up)
+    # systemctl start laitos     (Start laitos right now)
 
-## Deploy on Amazon Web Service
-In ordinary scenarios, simply copy laitos program and its data onto an EC2 instance and start laitos right away. It is
-often useful to use systemd integration to launch laitos automatically upon system boot. All flavours of Linux
-distributions supported by EC2 can run laitos.
+## Deploy on Amazon Web Service - EC2
+Simply copy laitos program and its data onto an EC2 instance, compose and save the system service file, start laitos
+right away. All flavours of Linux distributions that run on EC2 can run laitos.
 
-For a fancier setup, Amazon Web Service offers Platform-as-a-Service called "ElasticBeanstalk" that deploys application
-(laitos) on automatically managed EC2 instances. Here are some tips for using laitos on ElasticBeanstalk:
-- For a personal web server, it is sufficient to use "Single Instance" as environment type. Load balancer is not
-  necessary in this case.
+## Deploy on Amazon Web Service - Lambda
+Lambda is the flagship Function-as-a-Service product offered by AWS. As a serverless offering, the product does not support
+general purpose computing. For laitos, lambda can run its web server without having to prepare an EC2 instance manually.
+
+Lambda offers pre-built runtime environment (including Go) with built-in web server. Because laitos runs its own web server,
+we will build a "lambda custom runtime", start with creating a shell script and name it `bootstrap`:
+
+    #!/bin/sh
+    ./laitos -config config.json -daemons insecurehttpd -awslambda
+
+Note that:
+
+1. The script file must be named `bootstrap` without an extension name. The file must have executable permission: `chmod 755 bootstrap`.
+2. If your laitos data files, such as web pages, static assets, and configuration files reside in a sub-directory, then put
+   an additional statement `cd MyLaitosDataDirectory || exit 1` before the statement executing laitos program.
+3. Lambda uses a custom domain name provided by AWS to serve websites, therefore laitos needs to run the HTTP web server
+   `insecurehttpd` rather than the HTTPS web server `httpd`.
+4. Lambda is not a general purpose computing service, it is unable to work with other laitos daemons such as `dnsd` and
+   `smtpd`, it is harmless to include them in the `-daemons` list, though doing so will slow down lambda.
+
+Zip the compiled laitos program, program data files, and the important `bootstrap` file:
+
+    zip -r my-laitos-bundle.zip ./bootstrap ./laitos ./MyLaitosDataDirectory
+
+Visit AWS management console and create a lambda function:
+
+1. Choose "Author from scratch" option for creating the new function.
+2. Name the function however you wish.
+3. Choose "Provide your own bootstrap" as the function runtime.
+
+AWS management console does not seem to let us upload the zip file, so we have to use AWS CLI:
+
+    aws lambda update-function-code --function-name my-lambda-function-name --zip-file fileb://my-laitos-bundle.zip
+
+Check out AWS official guide [Custom Runtime](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-walkthrough.html) for
+more help.
+
+Finally, create an AWS API Gateway (serverless web middleware) to expose laitos lambda function in an AWS-managed server:
+
+1. Choose "REST API" for the API type. Do not use "HTTP API" or "REST API private".
+2. Choose "REST" for the protocol and "regional" for the endpoint type.
+3. Create an API resource "/", matching any method, in Integration Request choose "Lambda function" and enable
+   "Use Lambda proxy integration", select your laitos lambda function. Leave other request and response options at default.
+4. Create an API resource "/{proxy+}", matching any method, configure Integration Request in the same way.
+5. Navigate to API Settings, find "Binary Media Types" and enter "*/*" without quotes as the binary media type.
+6. Deploy the API to a Stage.
+7. Navigate to stage's URL in web browser, it should greet with your laitos web server home page.
+
+If something seems amiss, enable CloudWatch logging in Stage editor, and navigate to CloudWatch console to find both
+API gateway and Lambda log streams, they may give a clue.
+
+## Deploy on Amazon Web Service - Elastic Beanstalk
+AWS offers a Platform-as-a-Service product "ElasticBeanstalk" that automatically manages EC2 instances for you.
+Here are some tips for using laitos on ElasticBeanstalk:
+- For a personal web server, it is sufficient to use "Single Instance" as environment type. Load balancer incurs
+  additional cost and it is often not necessary for a personal web server.
 - ElasticBeanstalk always expects their application to serve a web server on port 5000, otherwise it will consider
   an application (laitos) to be malfunctioning. If your laitos configuration has already set up web server, you must
   start `insecurehttpd` that will automatically listen on port 5000 when it detects ElasticBeanstalk environment.

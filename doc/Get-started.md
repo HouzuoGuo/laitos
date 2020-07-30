@@ -61,8 +61,9 @@ Note that:
 - Apps are enabled automatically once they are configured in the JSON file. Some apps such as the RSS News Reader are automatically enabled via their built-in default configuration.
 
 ## Deploy on cloud
-laitos runs well on all popular cloud vendors. Check out these [tips](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips)
-for smoother deployment experience.
+laitos runs well on all popular cloud vendors, it supports cloud virtual machines for a straight-forward installation,
+as well as more advanced cloud features such as AWS Elastic Beanstalk and AWS Lambda (in combination with API gateway).
+Check out the [cloud deployment tips](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips).
 
 ## Deploy on Windows
 laitos is well tuned for running on Windows server and desktop. Check out this [PowerShell script](https://raw.githubusercontent.com/HouzuoGuo/laitos/master/extra/windows/setup.ps1)
@@ -123,6 +124,14 @@ Use the following command line options with extra care:
             <li>postfix mail server</li>
             <li>sendmail mail server</li>
         </ul>
+    </td>
+</tr>
+<tr>
+    <td>-awslambda</td>
+    <td>
+      Launch laitos as a handler for AWS Lambda function.
+      <br/>
+      See <a href="https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips">cloud deployment tips</a> for the detailed usage.
     </td>
 </tr>
 </table>

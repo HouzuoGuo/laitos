@@ -129,17 +129,19 @@ commands.
 
 ## Tips
 Telephone and mobile networks are prone to eavesdropping attacks that can reveal your password PIN and app command responses
-to potential attackers. Use telephone/SMS only as the last resort. The web service does not respond to an SMS if the sender
-fails to use the correct password PIN. All SMS and calls are logged for inspection on Twilio console.
+to potential attackers. Consider using [one-time password in place of password PIN](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password-pin).
+
+The web service does not respond if an SMS sender fails to use the correct password PIN. All SMS and calls are logged for
+inspection on Twilio console.
 
 Regarding laitos configuration:
 - Make sure to choose a very secure URL for both call and SMS endpoints, it is the only way to secure this web service!
 - Under `HTTPFilters`, double check that `MaxLength` of `LintText` is set to a reasonable number below 1000, otherwise
   if laitos sends an exceedingly large SMS response, Twilio will break apart the response into multiple SMS segments,
-  and charge you very high fees for sending all segments! Also, consider turning on all compression routines in
+  and then charge a high fee for sending the segments altogether! Also, consider turning on all compression features of
   `LintText` to further reduce cost.
-- To prevent spam, laitos limits number of incoming calls to one call every 5 seconds per caller, and limits SMS
-  messages to one SMS every 5 seconds per sender.
+- To prevent spam, laitos limits number of incoming calls to once every 10 seconds per each caller, and limits incoming SMS
+  messages to once every 10 seconds per each sender.
 
 Regarding Twilio configuration:
 - Usage of HTTPS is mandatory in web hook, your laitos web server must be serving HTTPS traffic using a valid TLS

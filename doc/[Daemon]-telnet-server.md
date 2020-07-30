@@ -1,11 +1,9 @@
 ## Introduction
-The plain text telnet server provide access to app commands via very basic client programs, such as `telnet`, `netcat`,
+The plain text telnet server provide access to app commands via rudimentary client software such as `telnet`, `netcat`,
 and `HyperTerminal`.
 
-The sockets are served via both TCP and UDP ports in plain text.
-
-Due to the incredibly simple communication protocol, the text information exchanged between server and client are prone
-to attacks such as eavesdropping, therefore only use plain text sockets in trusted private network!
+The server is capable of operating on both TCP and UDP. Due to the simplicity of underlying protocol, data are exchanged
+in plain text between client software and this server daemon. See tips below.
 
 ## Configuration
 1. Construct the following JSON object and place it under JSON key `PlainSocketDaemon` in configuration file:
@@ -108,6 +106,8 @@ And type app commands similar to the TCP example.
 
 ## Tips
 - The plain text daemon helps to invoke app commands in the unlikely event of losing access to all other daemons.
-  The primitive nature of the protocol opens up possibility of eavesdropping, therefore, only use the plain socket
-  daemon as the last resort.
-- UDP can only carry a small amount of data (app command response) and it is not as reliable as TCP.
+  The primitive nature of the protocol opens up possibility of eavesdropping, consider using [one-time password in place of password PIN](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password-pin).
+- The size of app command and command response are limited to roughly 1200 characters each when using UDP.
+- When using Telnet client program on Linux and Unix, the client program displays (echos) the keyboard input automatically.
+  However on Windows the Telnet program does not display input automatically, to work around it, type `Ctrl+]` after establishing
+  telnet connection, and then type `set localecho` to enable input display.

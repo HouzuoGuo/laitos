@@ -1,6 +1,4 @@
 /*
-package main
-
 laitos web server suite offers the simplest way to host your personal website, receive Emails, block ads and malicious websites with a DNS server, and much more!
 
 And for geeks 🤓 - as a professional geek, you need Internet access whenever and wherever!
