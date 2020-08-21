@@ -25,13 +25,14 @@ type Handler interface {
 	SelfTest() error
 }
 
-// Escape sequences in a string to make it safe for being element data.
+// XMLEscape returns properly escaped XML equivalent of the plain text input.
 func XMLEscape(in string) string {
-	var escapeOutput bytes.Buffer
-	if err := xml.EscapeText(&escapeOutput, []byte(in)); err != nil {
-		lalog.DefaultLogger.Warning("XMLEscape", "", err, "failed to escape input string")
+	out := new(bytes.Buffer)
+	err := xml.EscapeText(out, []byte(in))
+	if err != nil {
+		lalog.DefaultLogger.Warning("XMLEscape", "", err, "failed to escape XML")
 	}
-	return escapeOutput.String()
+	return out.String()
 }
 
 // Set response headers to prevent client from caching HTTP request or response.

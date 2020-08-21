@@ -481,7 +481,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<![CDATA[01234567890123456789012345678901234]]>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `01234567890123456789012345678901234`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - prevent SMS spam according to incoming phone number
@@ -492,7 +492,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 			"From": {"sms number"},
 		}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<![CDATA[01234567890123456789012345678901234]]>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `01234567890123456789012345678901234`) {
 		t.Fatal(err, resp)
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
@@ -507,7 +507,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	}
 	// Twilio - check phone call greeting
 	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/call_greeting")
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>Hi there</Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - prevent call spam according to incoming phone number
@@ -515,7 +515,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"From": {"call number"}}.Encode()),
 	}, addr+"/call_greeting")
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>Hi there</Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
@@ -540,7 +540,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		resp, err = inet.DoHTTP(inet.HTTPRequest{
 			Method: http.MethodPost,
 			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
+		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>EMPTY OUTPUT.
 
     repeat again.    
 
@@ -549,7 +549,8 @@ EMPTY OUTPUT.
     repeat again.    
 
 EMPTY OUTPUT.
-over.]]></Say>`) {
+over.
+</Say>`) {
 			t.Fatal(err, string(resp.Body))
 		}
 		// Twilio - check command execution result via phone call and ask output to be spelt phonetically
@@ -566,7 +567,7 @@ capital echo, capital mike, capital papa, capital tango, capital yankee, space, 
 
 capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango.
 over.`
-		sayResp := `<Say><![CDATA[` + phoneticOutput + `]]></Say>`
+		sayResp := "<Say>" + phoneticOutput + "\n</Say>"
 		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), sayResp) {
 			t.Fatal(err, string(resp.Body))
 		}
@@ -574,7 +575,7 @@ over.`
 		resp, err = inet.DoHTTP(inet.HTTPRequest{
 			Method: http.MethodPost,
 			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
+		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>EMPTY OUTPUT.
 
     repeat again.    
 
@@ -583,7 +584,8 @@ EMPTY OUTPUT.
     repeat again.    
 
 EMPTY OUTPUT.
-over.]]></Say>`) {
+over.
+</Say>`) {
 			t.Fatal(err, string(resp.Body))
 		}
 		resp, err = inet.DoHTTP(inet.HTTPRequest{
@@ -603,21 +605,21 @@ over.]]></Say>`) {
 			"From": {"sms number"},
 		}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<![CDATA[01234567890123456789012345678901234]]>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `01234567890123456789012345678901234`) {
 		t.Fatal(err, resp)
 	}
 	resp, err = inet.DoHTTP(inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"From": {"call number"}}.Encode()),
 	}, addr+"/call_greeting")
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[Hi there]]></Say>`) {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>Hi there</Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	if !misc.HostIsWindows() {
 		resp, err = inet.DoHTTP(inet.HTTPRequest{
 			Method: http.MethodPost,
 			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
-		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say><![CDATA[EMPTY OUTPUT.
+		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>EMPTY OUTPUT.
 
     repeat again.    
 
@@ -626,7 +628,8 @@ EMPTY OUTPUT.
     repeat again.    
 
 EMPTY OUTPUT.
-over.]]></Say>`) {
+over.
+</Say>`) {
 			t.Fatal(err, string(resp.Body))
 		}
 	}

@@ -93,7 +93,7 @@ func (hand *HandleTwilioSMSHook) Handle(w http.ResponseWriter, r *http.Request) 
 	}
 	// Generate normal XML response
 	_, _ = w.Write([]byte(fmt.Sprintf(xml.Header+`
-<Response><Message><![CDATA[%s]]></Message></Response>
+<Response><Message>%s</Message></Response>
 `, XMLEscape(ret.CombinedOutput))))
 }
 func (hand *HandleTwilioSMSHook) GetRateLimitFactor() int {
@@ -145,7 +145,7 @@ func (hand *HandleTwilioCallHook) Handle(w http.ResponseWriter, r *http.Request)
 	_, _ = w.Write([]byte(fmt.Sprintf(xml.Header+`
 <Response>
     <Gather action="%s" method="POST" timeout="60" finishOnKey="#" numDigits="1000">
-        <Say><![CDATA[%s]]></Say>
+        <Say>%s</Say>
     </Gather>
 </Response>
 `, hand.CallbackEndpoint, XMLEscape(hand.CallGreeting))))
@@ -218,7 +218,7 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
 	_, _ = w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
-        <Say><![CDATA[%s.
+        <Say>%s.
 
     repeat again.    
 
@@ -227,7 +227,8 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
     repeat again.    
 
 %s.
-over.]]></Say>
+over.
+</Say>
     </Gather>
 </Response>
 `, hand.MyEndpoint, combinedOutput, combinedOutput, combinedOutput)))
