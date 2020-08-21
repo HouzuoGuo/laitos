@@ -15,19 +15,22 @@ func TestLintText_Transform(t *testing.T) {
 		t.Fatal(err, result.CombinedOutput)
 	}
 
+	// Retain original if all linting options are off
 	mixedString := "abc \r\n\t def 123\t456 @#$<>\r\t\n 任意的"
 	result.CombinedOutput = mixedString
 	if err := lint.Transform(result); err != nil || result.CombinedOutput != mixedString {
 		t.Fatal(err, result.CombinedOutput)
 	}
 
-	// Even with all options turned on, linting an empty string should still result in an empty string.
+	// Turn on all linting options
 	lint.TrimSpaces = true
 	lint.CompressToSingleLine = true
-	lint.KeepVisible7BitCharOnly = true
 	lint.CompressSpaces = true
+	lint.KeepVisible7BitCharOnly = true
 	lint.BeginPosition = 2
 	lint.MaxLength = 200
+
+	// Even with all options turned on, linting an empty string should still result in an empty string.
 	result.CombinedOutput = ""
 	if err := lint.Transform(result); err != nil || result.CombinedOutput != "" {
 		t.Fatal(err, result.CombinedOutput)
@@ -42,6 +45,25 @@ func TestLintText_Transform(t *testing.T) {
 	}
 	lint.MaxLength = 10
 	if err := lint.Transform(result); err != nil || result.CombinedOutput != "def 123 45" {
+		t.Fatal(err, result.CombinedOutput)
+	}
+}
+
+func TestLintText_Transform_RetainLineBreaks(t *testing.T) {
+	lint := LintText{}
+	result := &Result{}
+	if err := lint.Transform(result); err != nil || result.CombinedOutput != "" {
+		t.Fatal(err, result.CombinedOutput)
+	}
+
+	mixedString := "abc \r\n\t def 123\t456 @#$<>\r\t\n 任意的"
+	lint.TrimSpaces = true
+	lint.CompressSpaces = true
+	lint.KeepVisible7BitCharOnly = true
+	lint.BeginPosition = 2
+	lint.MaxLength = 200
+	result.CombinedOutput = mixedString
+	if err := lint.Transform(result); err != nil || result.CombinedOutput != "c\ndef 123 456 @#$<>\n???" {
 		t.Fatal(err, result.CombinedOutput)
 	}
 }

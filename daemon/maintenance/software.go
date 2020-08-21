@@ -247,7 +247,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"busybox", "toybox",
 
 		// Network diagnosis and system maintenance utilities. On a typical Linux distribution they use ~300MB of disk space altogether.
-		"7zip", "apache2-utils", "bash", "bind-utils", "binutils", "caca-utils", "ca-certificates-mozilla", "cgroup-tools", "curl", "dateutils", "diffutils",
+		"7zip", "apache2-utils", "bash", "bind-utils", "binutils", "caca-utils", "ca-certificates-mozilla", "cgroup-tools", "curl", "dateutils", "dialog", "diffutils",
 		"dnsutils", "dos2unix", "findutils", "finger", "glibc-locale-source", "gnutls-bin", "gnutls-utils", "hostname", "htop", "iftop", "imlib2", "imlib2-filters",
 		"imlib2-loaders", "iotop", "iputils", "iputils-ping", "iputils-tracepath", "jsonlint", "language-pack-en", "lftp", "libcaca0", "libcaca0-plugins",
 		"libcgroup-tools", "lm-sensors", "locales", "lrzsz", "lsof", "mailutils", "mailx", "minicom", "miscfiles", "moreutils", "mosh", "nc", "netcat", "net-snmp",

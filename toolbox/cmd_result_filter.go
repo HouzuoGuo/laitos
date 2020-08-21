@@ -10,7 +10,8 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 )
 
-var RegexConsecutiveSpaces = regexp.MustCompile("[[:space:]]+") // match consecutive space characters
+// RegexConsecutiveSpaces matches one or more whitespace characters excluding line breaks.
+var RegexConsecutiveSpaces = regexp.MustCompile(`[ \a\f\t\v]+`)
 
 // ResultFilter applies transformations to command execution result, the result is modified in-place.
 type ResultFilter interface {
@@ -38,7 +39,7 @@ type LintText struct {
 
 func (lint *LintText) Transform(result *Result) error {
 	ret := result.CombinedOutput
-	// Trim
+	// Trim spaces from beginning and end of each line, preserve line breaks.
 	if lint.TrimSpaces {
 		var out bytes.Buffer
 		for _, line := range strings.Split(ret, "\n") {
@@ -47,11 +48,11 @@ func (lint *LintText) Transform(result *Result) error {
 		}
 		ret = strings.TrimSpace(out.String())
 	}
-	// Compress lines
+	// Substitute line breaks with a semicolon to compress all lines into a single line.
 	if lint.CompressToSingleLine {
 		ret = strings.Replace(ret, "\n", ";", -1)
 	}
-	// Retain printable chars
+	// Retain only printable ASCII characters
 	if lint.KeepVisible7BitCharOnly {
 		var out bytes.Buffer
 		for _, r := range ret {
@@ -63,7 +64,7 @@ func (lint *LintText) Transform(result *Result) error {
 		}
 		ret = out.String()
 	}
-	// Compress consecutive spaces
+	// Compress consecutive spaces and leave line breaks (if any) in-place
 	if lint.CompressSpaces {
 		ret = RegexConsecutiveSpaces.ReplaceAllString(ret, " ")
 	}
