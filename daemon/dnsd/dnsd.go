@@ -245,13 +245,21 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	// Get ready to construct the new blacklist
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
-	numRoutines := 8
+	// Populate the list faster when getting started
+	numRoutines := 12
+	daemon.blackListMutex.Lock()
+	if len(daemon.blackList) > 0 {
+		// Slow down when updating the blacklist, there is no hurry.
+		numRoutines = 6
+	}
+	daemon.blackList = newBlackList
+	daemon.blackListMutex.Unlock()
 	if misc.HostIsWindows() {
 		/*
 			Windows is very slow to do concurrent DNS lookup, these parallel routines will even trick windows into
 			thinking that there is no Internet anymore. Pretty weird.
 		*/
-		numRoutines = 4
+		numRoutines /= 2
 	}
 	parallelResolve := new(sync.WaitGroup)
 	parallelResolve.Add(numRoutines)
@@ -293,8 +301,8 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	daemon.blackListMutex.Lock()
 	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
-	daemon.logger.Info("UpdateBlackList", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries (took %d minutes)",
-		len(allNames), countResolvedNames, countResolvedIPs, countNonResolvableNames, len(newBlackList), (time.Now().Unix()-beginUnixSec)/60)
+	daemon.logger.Info("UpdateBlackList", "", nil, "successfully resolved %d blocked IPs from %d domains, the process took %d minutes and used %d parallel routines.",
+		countResolvedIPs, len(allNames), (time.Now().Unix()-beginUnixSec)/60, numRoutines)
 }
 
 /*

@@ -22,10 +22,10 @@ var HostsFileURLs = []string{
 	"http://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext",
 	"http://www.malwaredomainlist.com/hostslist/hosts.txt",
 	"http://someonewhocares.org/hosts/hosts",
+	"https://hosts.oisd.nl/light",
 	"https://raw.githubusercontent.com/blocklistproject/Lists/master/ransomware.txt",
 	"https://raw.githubusercontent.com/blocklistproject/Lists/master/scam.txt",
 	"https://raw.githubusercontent.com/blocklistproject/Lists/master/tracking.txt",
-	"https://hosts.oisd.nl/light",
 }
 
 /*
