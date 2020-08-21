@@ -228,6 +228,7 @@ UpdateBlackList downloads the latest blacklist files from PGL and MVPS, resolves
 and stores the latest blacklist names and IP addresses into blacklist map.
 */
 func (daemon *Daemon) UpdateBlackList(maxEntries int) {
+	beginUnixSec := time.Now().Unix()
 	if !atomic.CompareAndSwapInt32(&daemon.blackListUpdating, 0, 1) {
 		daemon.logger.Info("UpdateBlackList", "", nil, "will skip this run because update routine is already ongoing")
 		return
@@ -292,8 +293,8 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	daemon.blackListMutex.Lock()
 	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
-	daemon.logger.Info("UpdateBlackList", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries",
-		len(allNames), countResolvedNames, countResolvedIPs, countNonResolvableNames, len(newBlackList))
+	daemon.logger.Info("UpdateBlackList", "", nil, "out of %d domains, %d are successfully resolved into %d IPs, %d failed, and now blacklist has %d entries (took %d minutes)",
+		len(allNames), countResolvedNames, countResolvedIPs, countNonResolvableNames, len(newBlackList), (time.Now().Unix()-beginUnixSec)/60)
 }
 
 /*
