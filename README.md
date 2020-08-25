@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/doc/cosmetic/20200825-poster.png" alt="poster image" align="right" />
+<img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/doc/cosmetic/20200825-poster.png" alt="poster image" />
 
 # laitos - Empower your personal web server
 
