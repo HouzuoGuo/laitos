@@ -54,10 +54,10 @@ else
   low_bandwidth_mode="${low_bandwidth_mode:-n}"
 fi
 
-probe_timeout_sec=3
+probe_timeout_sec=5
 if [ "$low_bandwidth_mode" == 'y' ]; then
   # Low bandwidth mode (e.g. satellite Internet, phone modem) comes with significantly increased latency as well
-  probe_timeout_sec=10
+  probe_timeout_sec=20
 fi
 
 # Runtime data
@@ -94,7 +94,7 @@ function invoke_app_command {
     # In low bandwidth mode, sacrifice security for much shorter round trip by avoiding TLS handshake.
     endpoint="http://$laitos_host:$port_httpd""$app_cmd_endpoint"
   fi
-  curl --no-progress-meter -X POST --max-time 60 "$endpoint" -F "cmd=$app_cmd_pass""$cmd" &> "$app_cmd_out_file" || true
+  curl --no-progress-meter -X POST --max-time 90 "$endpoint" -F "cmd=$app_cmd_pass""$cmd" &> "$app_cmd_out_file" || true
   cat "$app_cmd_out_file" >> "$last_reqresp_file"
 }
 
