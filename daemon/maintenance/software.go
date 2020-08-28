@@ -140,8 +140,8 @@ func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManage
 		fallthrough
 	case "apt-get":
 		pkgManagerEnv = []string{"DEBIAN_FRONTEND=noninteractive"}
-		pkgInstallArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "install"}
-		sysUpgradeArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "upgrade"}
+		pkgInstallArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-overwrite", "install"}
+		sysUpgradeArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-overwrite", "--with-new-pkgs", "upgrade"}
 	case "zypper":
 		// zypper cannot English and consistency
 		pkgInstallArgs = []string{"--non-interactive", "install", "--recommends", "--auto-agree-with-licenses", "--replacefiles", "--force-resolution"}
