@@ -247,13 +247,12 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	newBlackListMutex := new(sync.Mutex)
 	// Populate the list faster when getting started
 	numRoutines := 12
-	daemon.blackListMutex.Lock()
+	daemon.blackListMutex.RLock()
 	if len(daemon.blackList) > 0 {
-		// Slow down when updating the blacklist, there is no hurry.
+		// Slow down when updating the blacklist, there is no hurry. This helps to reduce DNS resolution load on the server host.
 		numRoutines = 6
 	}
-	daemon.blackList = newBlackList
-	daemon.blackListMutex.Unlock()
+	daemon.blackListMutex.RUnlock()
 	if misc.HostIsWindows() {
 		/*
 			Windows is very slow to do concurrent DNS lookup, these parallel routines will even trick windows into
@@ -301,8 +300,9 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	daemon.blackListMutex.Lock()
 	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
-	daemon.logger.Info("UpdateBlackList", "", nil, "successfully resolved %d blocked IPs from %d domains, the process took %d minutes and used %d parallel routines.",
-		countResolvedIPs, len(allNames), (time.Now().Unix()-beginUnixSec)/60, numRoutines)
+	daemon.logger.Info("UpdateBlackList", "", nil,
+		"successfully resolved %d blocked IPs from %d domains, the process took %d minutes and used %d parallel routines. The blacklist now contains %d entries in total.",
+		countResolvedIPs, len(allNames), (time.Now().Unix()-beginUnixSec)/60, numRoutines, len(newBlackList))
 }
 
 /*
@@ -378,8 +378,6 @@ IsInBlacklist returns true only if the input domain name or IP address is black 
 a sub-domain name, then the function strips the sub-domain portion in order to check it against black list.
 */
 func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
-	daemon.blackListMutex.RLock()
-	defer daemon.blackListMutex.RUnlock()
 	// If the name is exceedingly long, then return true as if the name is black-listed.
 	if len(nameOrIP) > 255 {
 		return true
@@ -406,6 +404,8 @@ func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
 		blackListCandidates = append(blackListCandidates, nameOrIP)
 	}
 	// Check each broken-down variation of domain name against black list
+	daemon.blackListMutex.RLock()
+	defer daemon.blackListMutex.RUnlock()
 	for _, candidate := range blackListCandidates {
 		if _, blacklisted := daemon.blackList[candidate]; blacklisted {
 			return true
