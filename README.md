@@ -5,7 +5,7 @@
 **laitos** software suite offers all you need for hosting a personal website, receiving Emails, blocking ads with a DNS server.
 And for the geeks 🤓 - as a professional geek, you need Internet access whenever and wherever!
 
-Using primitive communication infrastructure such as telephone, SMS, and satellite terminal, laitos offers you Internet features
+Using primitive communication infrastructure such as telephone, SMS, and satellite terminal, laitos offers you Internet access
 such as:
 
 - Browse news, weather, and Twitter.
@@ -18,8 +18,6 @@ such as:
 Find out more from the [comprehensive component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
 
 ## Highlights
-laitos is ...
-
 - **Efficient** - it runs on an economy server with as little as 128MB system memory.
 - **Portable** - it runs on X86, ARM, and all flavours of Linux and Windows.
 - **Independent** - built-in self-healing and automatic maintenance for unmatched reliability.
