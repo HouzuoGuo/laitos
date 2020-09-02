@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-for prog in curl dialog nslookup socat nslookup; do
+for prog in curl dialog nslookup socat; do
   if ! command -v "$prog" &>/dev/null; then
     echo "laitos terminal depends on program $prog, please install it on the computer." >&2
     exit 1

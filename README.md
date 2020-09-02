@@ -2,15 +2,11 @@
 
 # laitos - Top geek's software kit
 
-**laitos** web server suite offers the simplest way to host your personal website, receive Emails, block ads and
-malicious websites with a DNS server, and much more!
+**laitos** software suite offers all you need for hosting a personal website, receiving Emails, blocking ads with a DNS server.
+And for the geeks 🤓 - as a professional geek, you need Internet access whenever and wherever!
 
-_And for geeks 🤓_
-
-As a professional geek, you need Internet access whenever and wherever!
-
-laitos connects to primitive infrastructure such as telephone, SMS, and satellite terminal network to offer reliable
-access to many Internet features, such as:
+Using primitive communication infrastructure such as telephone, SMS, and satellite terminal, laitos offers you Internet features
+such as:
 
 - Browse news, weather, and Twitter.
 - Keep in touch via Email, telephone call, and SMS.
@@ -19,15 +15,15 @@ access to many Internet features, such as:
 - Generate 2nd factor authentication code.
 - ... more apps to explore!
 
+Find out more from the [comprehensive component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
+
 ## Highlights
+laitos is ...
 
-- **Efficient** - consume as little as 15MB of disk and 30MB of memory.
-- **Portable** - run on all flavours of Linux and Windows, both X86 and ARM.
-- **Independent** - reliable stand-alone operation with self healing and automated maintenance.
-- **Hyped by Buzzwords** - certified to run in any container, as well as PaaS, IaaS, \*aaS.
-
-**Did you know?** When you have a nostalgic computer running Windows 95 and Mosaic browser, laitos gives it the modern & rich
-web browsing experience! Explore more in the [comprehensive component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list).
+- **Efficient** - it runs on an economy server with as little as 128MB system memory.
+- **Portable** - it runs on X86, ARM, and all flavours of Linux and Windows.
+- **Independent** - built-in self-healing and automatic maintenance for unmatched reliability.
+- **Hyped by Buzzwords** - certified to run in container/Kubernetes/PaaS/IaaS/FaaS/\*aaS.
 
 ## Get Started
 Download ready-to-use [latest release](https://github.com/HouzuoGuo/laitos/releases), then craft your own server with
@@ -36,7 +32,8 @@ the friendly [get started](https://github.com/HouzuoGuo/laitos/wiki/Get-started)
 ## Support
 Should you encounter any challenge during configuration and deployment of the software, please file an [issue](https://github.com/HouzuoGuo/laitos/issues).
 
-I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gmail.com) and get in touch on [Twitter](https://twitter.com/hzguo).
+I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gmail.com), get in touch on [Twitter](https://twitter.com/hzguo),
+and visit my home page [hz.gl](https://hz.gl).
 
 ## Copyright
 Copyright (C) 2016-2020 Houzuo (Howard) Guo <guohouzuo@gmail.com>
@@ -52,11 +49,5 @@ telephone. The laitos project evolved from the smaller program, restarted from s
 Finland is my favourite country and a good Finnish friend on IRC by the name of "zutt" recommended Finnish word "laitos"
 (meaning institute, apparently) to replace the old name "websh". I do not understand the rationale, but it
 sounds cute enough to name a project.
-
-## Artwork credits
-The Golang mascot "gopher" is designed by [Renee French](http://reneefrench.blogspot.com).
-
-The gopher side portrait is designed by [Takuya Ueda](https://twitter.com/tenntenn), licensed under the "Creative
-CommonsAttribution 3.0" license.
 
 [![CircleCI](https://circleci.com/gh/HouzuoGuo/laitos.svg?style=svg)](https://circleci.com/gh/HouzuoGuo/laitos)
