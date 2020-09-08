@@ -1,13 +1,14 @@
 # Component list
-
-The rich set of components not only covers the basic needs of hosting a personal web server,
-but also provide advanced capabilities to satisfy the geeky nature inside of you!
+The rich set of components not only covers the needs of hosting a personal web server, but also provide advanced
+capabilities to satisfy the geeky nature inside of you!
 
 laitos components go into three categories:
 - Apps - reading news and Emails, make a Tweet, ask about weather, etc.
 - Daemons - web/mail/DNS servers, chat bots, etc. Many daemons offer access to apps, protected with a password PIN.
 - Rich web services - useful web-based utilities hosted by the web server.
 
+Also, check out [laitos terminal](https://github.com/HouzuoGuo/laitos/wiki/Laitos-terminal) for a terminal-UI of
+the apps.
 ## Daemons
 <table>
     <tr>

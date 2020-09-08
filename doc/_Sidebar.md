@@ -2,6 +2,7 @@ __Table of Contents__
 * [Home](https://github.com/HouzuoGuo/laitos/wiki)
 * [Get started](https://github.com/HouzuoGuo/laitos/wiki/Get-started)
 * [Component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list)
+* [laitos terminal](https://github.com/HouzuoGuo/laitos/wiki/Laitos-terminal)
 
 Daemon Components
 * [DNS server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server)

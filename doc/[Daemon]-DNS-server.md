@@ -2,12 +2,14 @@
 The DNS server daemon is a recursive DNS resolver that provides a safer web experience by blocking most of advertisement
 and malicious domains.
 
-Upon start up and twice a day, the blacklists for advertisement and malicious domains are automatically updated from
+At start up and then once a day, the blacklists for advertisement and malicious domains are automatically updated from
 well-known sources:
 - [malwaredomainlist.com](http://www.malwaredomainlist.com)
 - [someonewhocares.org](http://someonewhocares.org/hosts/hosts)
 - [mvps.org](http://winhelp2002.mvps.org)
 - [yoyo.org](http://pgl.yoyo.org)
+- [oisd.nl light hosts list](https://oisd.nl/)
+- [The Block List Project (ransomware/scam/tracking)](https://github.com/blocklistproject/Lists)
 
 Beyond the blacklists, the DNS resolver uses redundant set of secure and trusted public DNS services provided by:
 - [Quad9](https://www.quad9.net)
@@ -128,9 +130,9 @@ Regarding usage:
   Internet.
 
 Regarding configuration:
-- Not all DNS services support TCP for queries. The default forwarders (Quad9, SafeDNS, OpenDNS) support both TCP and
-  UDP very well.
-- By specifying forwarders explicitly, the default forwarders will no longer be used.
+- Not all DNS services support TCP for queries. The default forwarders (CloudFlare, Quad9, SafeDNS, OpenDNS) support both
+  TCP and UDP equally well.
+- If given, the DNS `Forwarders` will override all default forwarders, and the default forwarders will remain inactive.
 
 ## Invoke app commands via DNS queries
 Beside offering an ad-free and safe web experience, the DNS server can also invoke app commands via `TXT` queries, this
