@@ -1,6 +1,7 @@
 package inet
 
 import (
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -40,7 +41,7 @@ func IsAWS() bool {
 		resp, err := DoHTTP(HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			MaxBytes:   64,
-		}, "http://169.254.169.254/2018-09-24/meta-data/ami-id")
+		}, "http://169.254.169.254/2020-10-27/meta-data/ami-id")
 		if err == nil && resp.StatusCode/200 == 1 {
 			isAWS = true
 		}
@@ -213,4 +214,27 @@ func GetPublicIP() string {
 		lastPublicIPTimeStamp = time.Now()
 	}
 	return lastPublicIP
+}
+
+/*
+GetAWSRegion returns the AWS region name specified in program environment "AWS_REGION"; if left unspecified, the function returns
+region name retrieved from EC2 metadata service.
+If the AWS region name cannot be determined, the function will return an empty string.
+*/
+func GetAWSRegion() string {
+	if regionName := os.Getenv("AWS_REGION"); regionName != "" {
+		return regionName
+	}
+	if IsAWS() {
+		resp, err := DoHTTP(HTTPRequest{
+			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
+		}, "http://169.254.169.254/2020-10-27/meta-data/placement/region")
+		if err == nil && resp.StatusCode/200 == 1 {
+			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+				return respBody
+			}
+		}
+	}
+	return ""
 }

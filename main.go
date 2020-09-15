@@ -167,6 +167,8 @@ func main() {
 		DumpGoroutinesOnInterrupt()
 	}
 
+	InstallOptionalLoggerSQSCallback()
+
 	// ========================================================================
 	// Utility routines - maintain encrypted laitos program data, no need to run any daemon.
 	// ========================================================================

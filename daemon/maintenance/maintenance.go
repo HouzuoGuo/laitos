@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/awsinteg"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/inet"
@@ -151,7 +153,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	// Do three checks in parallel - ports, toolbox features, and mail command runner
 	var portsErr, featureErr, mailCmdRunnerErr, httpHandlersErr error
 	waitAllChecks := new(sync.WaitGroup)
-	waitAllChecks.Add(4) // will wait for port checks, feature tests, mail command runner, and HTTP handler tests.
+	waitAllChecks.Add(4) // will wait for port checks, app tests, mail command runner, and HTTP handler tests.
 	go func() {
 		// Port checks - the routine itself also uses concurrency internally
 		portsErr = daemon.runPortsCheck()
@@ -234,9 +236,25 @@ func (daemon *Daemon) Execute() (string, bool) {
 	} else if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
 		daemon.logger.Warning("Execute", "", err, "failed to send notification mail")
 	}
-	// Leave the latest maintenance report in system temporary directory for inspection, overwrite existing report.
+	// Leave the latest maintenance report in system temporary directory for inspection, overwrite existing report if there is any.
 	if err := ioutil.WriteFile(ReportFilePath, result.Bytes(), 0600); err != nil {
 		daemon.logger.Warning("Execute", "", err, "failed to persist latest maintenance report in %s, you may still find the report in Email or laitos program output.", ReportFilePath)
+	}
+	// Upload the latest maintenance report to S3 bucket, named after the date and time of the system wall clock.
+	uploadReportToS3Bucket := os.Getenv("LAITOS_UPLOAD_MAINT_REPORT_TO_S3_BUCKET")
+	if uploadReportToS3Bucket != "" {
+		daemon.logger.Info("Execute", "", nil, "will store a copy of the report in S3 bucket %s", uploadReportToS3Bucket)
+		go func() {
+			s3Client, err := awsinteg.NewS3Client()
+			if err != nil {
+				daemon.logger.Warning("Execute", uploadReportToS3Bucket, err, "failed to initialise S3 client")
+				return
+			}
+			// Spend at most 60 seconds at uploading the report file
+			uploadTimeoutCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			_ = s3Client.Upload(uploadTimeoutCtx, uploadReportToS3Bucket, time.Now().Format(time.RFC3339), bytes.NewReader(result.Bytes()))
+		}()
 	}
 	return lalog.LintString(result.String(), inet.MaxMailBodySize), allOK
 }

@@ -20,8 +20,19 @@ const (
 	MaxLogMessageLen = 2048
 )
 
-var LatestLogs = NewRingBuffer(NumLatestLogEntries)     // Keep latest log entry of all kinds in the buffer
-var LatestWarnings = NewRingBuffer(NumLatestLogEntries) // Keep latest warnings and log entries that come with error in the buffer
+type LogWarningCallbackFunc func(funcName, actorName string, err error, msg string)
+
+var (
+	// LatestLogs are a small number of most recent log entries (warnings and info messages) kept in memory for on-demand inspection.
+	LatestLogs = NewRingBuffer(NumLatestLogEntries)
+	// LatestLogs are a small number of most recent log entries (warnings exclusively) kept in memory for on-demand inspection.
+	LatestWarnings = NewRingBuffer(NumLatestLogEntries)
+	/*
+		LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
+		The function must avoid generating a warning log message of itself, to avoid an infinite recursion.
+	*/
+	GlobalLogWarningCallback LogWarningCallbackFunc = nil
+)
 
 /*
 LoggerIDField is a field of Logger's ComponentID, all fields that make up a ComponentID offer log entry a clue as to
@@ -85,6 +96,9 @@ func (logger *Logger) Warning(functionName, actorName string, err error, templat
 	LatestLogs.Push(msgWithTime)
 	LatestWarnings.Push(msgWithTime)
 	log.Print(msg)
+	if GlobalLogWarningCallback != nil {
+		go GlobalLogWarningCallback(functionName, actorName, err, fmt.Sprintf(template, values...))
+	}
 }
 
 // Print a log message and keep the message in latest log buffer. If there is an error, also keep the message in warnings buffer.

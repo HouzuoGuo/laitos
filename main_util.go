@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	cryptoRand "crypto/rand"
 	"encoding/binary"
+	"encoding/json"
 	pseudoRand "math/rand"
 	_ "net/http/pprof"
 	"os"
@@ -11,9 +13,43 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/awsinteg"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
+
+var (
+	loggerSQSClientInitOnce = new(sync.Once)
+)
+
+/*
+InstallOptionalLoggerSQSCallback installs a global callback function for all laitos loggers to forward a copy of each warning
+log entry to AWS SQS.
+This behaviour is enabled optionally by specifying the queue URL in environment variable LAITOS_SEND_WARNING_LOG_TO_SQS_URL.
+*/
+func InstallOptionalLoggerSQSCallback() {
+	sendWarningLogToSQSURL := os.Getenv("LAITOS_SEND_WARNING_LOG_TO_SQS_URL")
+	if sendWarningLogToSQSURL != "" {
+		logger.Info("InstallOptionalLoggerSQSCallback", "", nil, "installing callback for sending logger warning messages to SQS")
+		loggerSQSClientInitOnce.Do(func() {
+			sqsClient, err := awsinteg.NewSQSClient()
+			if err != nil {
+				lalog.DefaultLogger.Warning("InstallLoggerSQSCallback", "", err, "failed to initialise SQS client")
+				return
+			}
+			// Give SQS a copy of each warning message
+			lalog.GlobalLogWarningCallback = func(funcName, actorName string, err error, msg string) {
+				// By contract, the function body must avoid generating a warning log message to avoid infinite recurison.
+				queueMessage, err := json.Marshal(map[string]interface{}{"func": funcName, "actor": actorName, "err": err, "msg": msg})
+				if err == nil {
+					sendTimeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					_ = sqsClient.SendMessage(sendTimeoutCtx, sendWarningLogToSQSURL, string(queueMessage))
+				}
+			}
+		})
+	}
+}
 
 // DumpGoroutinesOnInterrupt installs an interrupt signal handler that dumps all goroutine traces to standard error.
 func DumpGoroutinesOnInterrupt() {

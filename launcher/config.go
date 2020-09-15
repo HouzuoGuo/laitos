@@ -7,6 +7,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/HouzuoGuo/laitos/awsinteg"
 	"github.com/HouzuoGuo/laitos/daemon/phonehome"
 	"github.com/HouzuoGuo/laitos/daemon/serialport"
 
@@ -173,6 +174,17 @@ func (config *Config) Initialise() error {
 		config.Features = &toolbox.FeatureSet{}
 	}
 
+	// Initialise the optional AWS kinesis firehose client for a stream to get a copy of every report received by message processor
+	firehoseStreamName := os.Getenv("LAITOS_FORWARD_REPORTS_TO_FIREHOSE_STREAM_NAME")
+	var firehoseClient *awsinteg.KinesisHoseClient
+	var err error
+	if firehoseStreamName != "" {
+		config.logger.Info("Initialise", "", nil, "initialising kinesis firehose client for stream \"%s\"", firehoseStreamName)
+		firehoseClient, err = awsinteg.NewKinesisHoseClient()
+		if err != nil {
+			config.logger.Warning("Initialise", "", err, "failed to initialise kinesis firehose client")
+		}
+	}
 	/*
 		Even though MessageProcessor is an app, it has its own command processor just like a daemon.
 		The command processor is initialised from configuration input.
@@ -191,8 +203,10 @@ func (config *Config) Initialise() error {
 			},
 		}
 		config.Features.MessageProcessor = toolbox.MessageProcessor{
-			OwnerName:    "app",
-			CmdProcessor: messageProcessorCommandProcessor,
+			OwnerName:                       "app",
+			CmdProcessor:                    messageProcessorCommandProcessor,
+			ForwardReportsToKinesisFirehose: firehoseClient,
+			KinesisFirehoseStreamName:       firehoseStreamName,
 		}
 	}
 	/*
