@@ -42,7 +42,10 @@ func (limit *RateLimit) Initialise() {
 	}
 }
 
-// Increase counter of the actor by one. If the counter exceeds max limit, return false, otherwise return true.
+/*
+Add increases the current counter by one for the actor name/ID if the max count per time interval has not been exceeded, and returns true.
+Otherwise, the actor's current counter stays until the interval passes, and the function will return false.
+*/
 func (limit *RateLimit) Add(actor string, logIfLimitHit bool) bool {
 	limit.counterMutex.Lock()
 	// Reset all counters if unit of time has past
@@ -54,7 +57,7 @@ func (limit *RateLimit) Add(actor string, logIfLimitHit bool) bool {
 	if count, exists := limit.counter[actor]; exists {
 		if count >= limit.MaxCount {
 			if _, hasLogged := limit.logged[actor]; !hasLogged && logIfLimitHit {
-				limit.Logger.Warning("Add", "RateLimit", nil, "%s exceeded limit of %d hits per %d seconds", actor, limit.MaxCount, limit.UnitSecs)
+				limit.Logger.Info("Add", "RateLimit", nil, "%s exceeded limit of %d hits per %d seconds", actor, limit.MaxCount, limit.UnitSecs)
 				limit.logged[actor] = struct{}{}
 			}
 			limit.counterMutex.Unlock()

@@ -13,7 +13,6 @@ import (
 
 func NewKinesisHoseClient() (*KinesisHoseClient, error) {
 	logger := lalog.Logger{ComponentName: "kinesis"}
-	// The kinesis firehose API client needs to work with an explicit region name, unlike other services such as S3.
 	regionName := inet.GetAWSRegion()
 	logger.Info("NewKinesisHoseClient", "", nil, "initialising using AWS region name \"%s\"", regionName)
 	apiSession, err := session.NewSession(&aws.Config{Region: aws.String(regionName)})

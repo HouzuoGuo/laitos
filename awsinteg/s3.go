@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -12,14 +13,17 @@ import (
 )
 
 func NewS3Client() (*S3Client, error) {
+	logger := lalog.Logger{ComponentName: "s3"}
 	apiSession, err := session.NewSession()
+	regionName := inet.GetAWSRegion()
+	logger.Info("NewS3Client", "", nil, "initialising using AWS region name \"%s\"", regionName)
 	if err != nil {
 		return nil, err
 	}
 	return &S3Client{
 		apiSession: apiSession,
 		uploader:   s3manager.NewUploader(apiSession),
-		logger:     lalog.Logger{ComponentName: "s3"},
+		logger:     logger,
 	}, nil
 }
 

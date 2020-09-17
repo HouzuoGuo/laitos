@@ -13,6 +13,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/awsinteg"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -130,7 +131,7 @@ func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID
 		return SubjectReportResponse{}
 	}
 	// Send kinesis firehose a copy of the report
-	if proc.ForwardReportsToKinesisFirehose != nil && proc.KinesisFirehoseStreamName != "" {
+	if misc.EnableAWSIntegration && proc.ForwardReportsToKinesisFirehose != nil && proc.KinesisFirehoseStreamName != "" {
 		go func() {
 			recordData, err := json.Marshal(request)
 			if err == nil {

@@ -29,7 +29,7 @@ This behaviour is enabled optionally by specifying the queue URL in environment 
 */
 func InstallOptionalLoggerSQSCallback() {
 	sendWarningLogToSQSURL := os.Getenv("LAITOS_SEND_WARNING_LOG_TO_SQS_URL")
-	if sendWarningLogToSQSURL != "" {
+	if misc.EnableAWSIntegration && sendWarningLogToSQSURL != "" {
 		logger.Info("InstallOptionalLoggerSQSCallback", "", nil, "installing callback for sending logger warning messages to SQS")
 		loggerSQSClientInitOnce.Do(func() {
 			sqsClient, err := awsinteg.NewSQSClient()
