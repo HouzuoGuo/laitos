@@ -22,6 +22,24 @@ var (
 	loggerSQSClientInitOnce = new(sync.Once)
 )
 
+// LogWarningCallbackQueueMessageBody contains details of a warning log entry, ready to be serialised into JSON for sending as an SQS message.
+type LogWarningCallbackQueueMessageBody struct {
+	UnixNanoSec  int64  `json:"unix_nano_sec"`
+	FunctionName string `json:"function_name"`
+	ActorName    string `json:"actor_name"`
+	Error        error  `json:"error"`
+	Message      string `json:"message"`
+}
+
+// GetJSON returns the message body serialised into JSON.
+func (messageBody LogWarningCallbackQueueMessageBody) GetJSON() []byte {
+	serialised, err := json.Marshal(messageBody)
+	if err != nil {
+		return []byte{}
+	}
+	return serialised
+}
+
 /*
 InstallOptionalLoggerSQSCallback installs a global callback function for all laitos loggers to forward a copy of each warning
 log entry to AWS SQS.
@@ -40,12 +58,12 @@ func InstallOptionalLoggerSQSCallback() {
 			// Give SQS a copy of each warning message
 			lalog.GlobalLogWarningCallback = func(funcName, actorName string, err error, msg string) {
 				// By contract, the function body must avoid generating a warning log message to avoid infinite recurison.
-				queueMessage, err := json.Marshal(map[string]interface{}{"func": funcName, "actor": actorName, "err": err, "msg": msg})
-				if err == nil {
-					sendTimeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-					defer cancel()
-					_ = sqsClient.SendMessage(sendTimeoutCtx, sendWarningLogToSQSURL, string(queueMessage))
-				}
+				sendTimeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_ = sqsClient.SendMessage(
+					sendTimeoutCtx,
+					sendWarningLogToSQSURL,
+					string(LogWarningCallbackQueueMessageBody{UnixNanoSec: time.Now().UnixNano(), FunctionName: funcName, ActorName: actorName, Error: err, Message: msg}.GetJSON()))
 			}
 		})
 	}
