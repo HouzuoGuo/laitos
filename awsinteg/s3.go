@@ -14,9 +14,9 @@ import (
 
 func NewS3Client() (*S3Client, error) {
 	logger := lalog.Logger{ComponentName: "s3"}
-	apiSession, err := session.NewSession()
 	regionName := inet.GetAWSRegion()
 	logger.Info("NewS3Client", "", nil, "initialising using AWS region name \"%s\"", regionName)
+	apiSession, err := session.NewSession(&aws.Config{Region: aws.String(regionName)})
 	if err != nil {
 		return nil, err
 	}
