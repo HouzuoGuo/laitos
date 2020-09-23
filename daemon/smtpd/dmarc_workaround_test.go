@@ -45,10 +45,6 @@ func TestIsDmarcPolicyEnforcing(t *testing.T) {
 	if IsDmarcPolicyEnforcing("distrowatch.com") {
 		t.Fatal("distrowatch")
 	}
-	// Test discovery of non-enforcing DMARC (github.com uses p=none)
-	if IsDmarcPolicyEnforcing("github.com") {
-		t.Fatal("github")
-	}
 	// Test discovery of organisational domain DMARC
 	if !IsDmarcPolicyEnforcing("emails.ifttt.com") {
 		t.Fatal("emails.ifttt")
@@ -84,14 +80,13 @@ func TestGetFromAddressWithDmarcWorkaround(t *testing.T) {
 	if addr := GetFromAddressWithDmarcWorkaround("user@123.emails.ifttt.com", 123); addr != "user@123.emails.ifttt-laitos-nodmarc-123.com" {
 		t.Fatal(addr)
 	}
-	// DMARC non-enforcing domains
+	// Not enforcing DMARC or no DMARC information is available
 	if addr := GetFromAddressWithDmarcWorkaround("user@www.b737.org.uk", 123); addr != "user@www.b737.org.uk" {
 		t.Fatal(addr)
 	}
-	if addr := GetFromAddressWithDmarcWorkaround("user@github.com", 123); addr != "user@github.com" {
+	if addr := GetFromAddressWithDmarcWorkaround("user@arstechnica.com", 123); addr != "user@arstechnica.com" {
 		t.Fatal(addr)
 	}
-	// Non-existence DMARC
 	if addr := GetFromAddressWithDmarcWorkaround("user@distrowatch.com", 123); addr != "user@distrowatch.com" {
 		t.Fatal(addr)
 	}
