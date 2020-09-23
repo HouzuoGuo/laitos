@@ -20,7 +20,7 @@ const (
 	MaxLogMessageLen = 2048
 )
 
-type LogWarningCallbackFunc func(funcName, actorName string, err error, msg string)
+type LogWarningCallbackFunc func(componentName, componentID, funcName, actorName string, err error, msg string)
 
 var (
 	// LatestLogs are a small number of most recent log entries (warnings and info messages) kept in memory for on-demand inspection.
@@ -49,14 +49,9 @@ type Logger struct {
 	ComponentID   []LoggerIDField // ComponentID comprises key-value pairs that give log entry a clue as to its origin.
 }
 
-// Format a log message and return, but do not print it.
-func (logger *Logger) Format(functionName, actorName string, err error, template string, values ...interface{}) string {
-	// Message is going to look like this:
-	// ComponentName[IDKey1-IDVal1;IDKey2-IDVal2].FunctionName(actorName): Error "no such file" - failed to start component
+// getComponentIDs returns a string consisting of the logger's component ID fields. If there are none, it returns an empty string.
+func (logger *Logger) getComponentIDs() string {
 	var msg bytes.Buffer
-	if logger.ComponentName != "" {
-		msg.WriteString(logger.ComponentName)
-	}
 	if logger.ComponentID != nil && len(logger.ComponentID) > 0 {
 		msg.WriteRune('[')
 		for i, field := range logger.ComponentID {
@@ -67,6 +62,18 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 		}
 		msg.WriteRune(']')
 	}
+	return msg.String()
+}
+
+// Format a log message and return, but do not print it.
+func (logger *Logger) Format(functionName, actorName string, err error, template string, values ...interface{}) string {
+	// Message is going to look like this:
+	// ComponentName[IDKey1-IDVal1;IDKey2-IDVal2].FunctionName(actorName): Error "no such file" - failed to start component
+	var msg bytes.Buffer
+	if logger.ComponentName != "" {
+		msg.WriteString(logger.ComponentName)
+	}
+	msg.WriteString(logger.getComponentIDs())
 	if functionName != "" {
 		if msg.Len() > 0 {
 			msg.WriteRune('.')
@@ -97,7 +104,7 @@ func (logger *Logger) Warning(functionName, actorName string, err error, templat
 	LatestWarnings.Push(msgWithTime)
 	log.Print(msg)
 	if GlobalLogWarningCallback != nil {
-		go GlobalLogWarningCallback(functionName, actorName, err, fmt.Sprintf(template, values...))
+		go GlobalLogWarningCallback(logger.ComponentName, logger.getComponentIDs(), functionName, actorName, err, fmt.Sprintf(template, values...))
 	}
 }
 

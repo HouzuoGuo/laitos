@@ -24,11 +24,14 @@ var (
 
 // LogWarningCallbackQueueMessageBody contains details of a warning log entry, ready to be serialised into JSON for sending as an SQS message.
 type LogWarningCallbackQueueMessageBody struct {
-	UnixNanoSec  int64  `json:"unix_nano_sec"`
-	FunctionName string `json:"function_name"`
-	ActorName    string `json:"actor_name"`
-	Error        error  `json:"error"`
-	Message      string `json:"message"`
+	UnixNanoSec   int64  `json:"unix_nano_sec"`
+	UnixSec       int64  `json:"unix_sec"`
+	ComponentName string `json:"component_name"`
+	ComponentID   string `json:"component_id"`
+	FunctionName  string `json:"function_name"`
+	ActorName     string `json:"actor_name"`
+	Error         error  `json:"error"`
+	Message       string `json:"message"`
 }
 
 // GetJSON returns the message body serialised into JSON.
@@ -56,14 +59,21 @@ func InstallOptionalLoggerSQSCallback() {
 				return
 			}
 			// Give SQS a copy of each warning message
-			lalog.GlobalLogWarningCallback = func(funcName, actorName string, err error, msg string) {
+			lalog.GlobalLogWarningCallback = func(componentName, componentID, funcName, actorName string, err error, msg string) {
 				// By contract, the function body must avoid generating a warning log message to avoid infinite recurison.
 				sendTimeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
-				_ = sqsClient.SendMessage(
-					sendTimeoutCtx,
-					sendWarningLogToSQSURL,
-					string(LogWarningCallbackQueueMessageBody{UnixNanoSec: time.Now().UnixNano(), FunctionName: funcName, ActorName: actorName, Error: err, Message: msg}.GetJSON()))
+				logMessageRecord := LogWarningCallbackQueueMessageBody{
+					UnixNanoSec:   time.Now().UnixNano(),
+					UnixSec:       time.Now().Unix(),
+					ComponentName: componentName,
+					ComponentID:   componentID,
+					FunctionName:  funcName,
+					ActorName:     actorName,
+					Error:         err,
+					Message:       msg,
+				}
+				_ = sqsClient.SendMessage(sendTimeoutCtx, sendWarningLogToSQSURL, string(logMessageRecord.GetJSON()))
 			}
 		})
 	}
