@@ -97,7 +97,7 @@ func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, query
 	respLen = make([]byte, 0)
 	respBody = make([]byte, 0)
 	if !daemon.checkAllowClientIP(clientIP) {
-		daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, nil, "client IP is not allowed to query")
+		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "client IP is not allowed to query")
 		return
 	}
 	domainName := ExtractDomainName(queryBody)

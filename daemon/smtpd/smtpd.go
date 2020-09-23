@@ -178,7 +178,7 @@ func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
 	// Run feature command from mail body
 	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
 		if err := daemon.CommandRunner.Process(clientIP, bodyBytes); err != nil {
-			daemon.logger.Warning("ProcessMail", fromAddr, err, "failed to process toolbox command from mail body")
+			daemon.logger.Info("ProcessMail", fromAddr, nil, "failed to process toolbox command from mail body - %v", err)
 		}
 	}
 }

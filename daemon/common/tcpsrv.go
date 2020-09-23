@@ -134,12 +134,10 @@ func (srv *TCPServer) handleConnection(clientIP string, client *net.TCPConn) {
 	srv.logger.Info("handleConnection", clientIP, nil, "connection is accepted")
 	// Turn on keep-alive for OS to detect and remove dead clients
 	if err := client.SetKeepAlive(true); err != nil {
-		srv.logger.Warning("handleConnection", clientIP, err, "failed to turn on keep alive, terminating the connection.")
-		return
+		srv.logger.Warning("handleConnection", clientIP, err, "failed to turn on keep alive")
 	}
 	if err := client.SetKeepAlivePeriod(ServerDefaultIOTimeoutSec / 3); err != nil {
-		srv.logger.Warning("handleConnection", clientIP, err, "failed to turn on keep alive, terminating the connection.")
-		return
+		srv.logger.Warning("handleConnection", clientIP, err, "failed to turn on keep alive")
 	}
 	// Apply the default IO timeout to prevent a potentially malfunctioning connection handler from hanging
 	if err := client.SetReadDeadline(time.Now().Add(ServerDefaultIOTimeoutSec * time.Second)); err != nil {

@@ -69,13 +69,13 @@ TriggerEmergencyKill wipes as much data as possible from all storage attached to
 This is a very dangerous operation!
 */
 func TriggerEmergencyKill() {
-	logger.Warning("TriggerEmergencyKill", "", nil, "computer storage will be destroyed ASAP and then this program will crash")
+	logger.Warning("TriggerEmergencyKill", "", nil, "computer storage will be destroyed ASAP and then this program will then crash")
 	// Do not kill immediately. Give caller a short 10 seconds window to send a final notification Email if it wishes.
 	go func() {
+		time.Sleep(10 * time.Second)
 		filesToKill := getFilesToKill()
 		dirsToKill := getDirsToKill()
 		disksToKill := getDisksToKill()
-		time.Sleep(10 * time.Second)
 		// Begin overwriting files to destroy them
 		go func() {
 			// Destroy files in parallel

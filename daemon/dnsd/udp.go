@@ -102,7 +102,7 @@ therefore this function must not log the input packet content in any way.
 func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
 	respBody = make([]byte, 0)
 	if !daemon.checkAllowClientIP(clientIP) {
-		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, nil, "client IP is not allowed to query")
+		daemon.logger.Info("handleUDPRecursiveQuery", clientIP, nil, "client IP is not allowed to query")
 		return
 	}
 	// Forward the query to a randomly chosen recursive resolver and return its response
