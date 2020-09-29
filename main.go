@@ -168,8 +168,6 @@ func main() {
 		DumpGoroutinesOnInterrupt()
 	}
 
-	InstallOptionalLoggerSQSCallback()
-
 	// ========================================================================
 	// Utility routines - maintain encrypted laitos program data, no need to run any daemon.
 	// ========================================================================
@@ -212,55 +210,56 @@ func main() {
 		if the server is not relevant/involved in user's deployment, the user may simply ignore its program flags and
 		launch laitos daemons right away.
 		Be ware that supervisor is always turned on by default.
-		Here come the preparation for both supervisor and daemons:
+		Here comes the preparation for both supervisor and daemons:
 	*/
-	// Read configuration JSON file
-	if misc.ConfigFilePath == "" {
-		logger.Abort("main", "", nil, "please provide a configuration file (-config)")
-		return
-	}
-	var err error
-	misc.ConfigFilePath, err = filepath.Abs(misc.ConfigFilePath)
-	if err != nil {
-		logger.Abort("main", "", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
-		return
-	}
-	// If config file is encrypted, read its password from standard input.
-	configBytes, isEncrypted, err := misc.IsEncrypted(misc.ConfigFilePath)
-	if err != nil {
-		logger.Abort("main", "", err, "failed to read configuration file \"%s\"", misc.ConfigFilePath)
-		return
-	}
-	if isEncrypted {
-		logger.Info("main", "", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
-		go func() {
-			// Collect program data decryption password from STDIN
-			pwdReader := bufio.NewReader(os.Stdin)
-			pwdFromStdin, err := pwdReader.ReadString('\n')
-			if err == nil {
-				misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(pwdFromStdin)
-			} else {
-				logger.Warning("main", "", err, "failed to read decryption password from STDIN")
-			}
-		}()
-		// AWS lambda handler may also supply this password
-		pwd := <-misc.ProgramDataDecryptionPasswordInput
-		misc.ProgramDataDecryptionPassword = pwd
-		if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.ProgramDataDecryptionPassword); err != nil {
-			logger.Abort("main", "", err, "failed to decrypt config file")
+	// Read unencrypted configuration data from environment variable, or possibly encrypted configuration from JSON file.
+	configBytes := []byte(strings.TrimSpace(os.Getenv("LAITOS_CONFIG")))
+	if len(configBytes) == 0 {
+		// Proceed to read the config file
+		if misc.ConfigFilePath == "" {
+			logger.Abort("main", "", nil, "please provide a configuration file (-config)")
 			return
 		}
+		var err error
+		misc.ConfigFilePath, err = filepath.Abs(misc.ConfigFilePath)
+		if err != nil {
+			logger.Abort("main", "", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
+			return
+		}
+		// If config file is encrypted, read its password from standard input.
+		var isEncrypted bool
+		configBytes, isEncrypted, err = misc.IsEncrypted(misc.ConfigFilePath)
+		if err != nil {
+			logger.Abort("main", "", err, "failed to read configuration file \"%s\"", misc.ConfigFilePath)
+			return
+		}
+		if isEncrypted {
+			logger.Info("main", "", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
+			go func() {
+				// Collect program data decryption password from STDIN
+				pwdReader := bufio.NewReader(os.Stdin)
+				pwdFromStdin, err := pwdReader.ReadString('\n')
+				if err == nil {
+					misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(pwdFromStdin)
+				} else {
+					logger.Warning("main", "", err, "failed to read decryption password from STDIN")
+				}
+			}()
+			// AWS lambda handler may also supply this password
+			pwd := <-misc.ProgramDataDecryptionPasswordInput
+			misc.ProgramDataDecryptionPassword = pwd
+			if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.ProgramDataDecryptionPassword); err != nil {
+				logger.Abort("main", "", err, "failed to decrypt config file")
+				return
+			}
+		}
+	} else {
+		logger.Info("main", "", nil, "reading %d bytes of JSON configuration from environment variable LAITOS_CONFIG", len(configBytes))
 	}
 
 	var config launcher.Config
-	/*
-		Certain features (such as browser-in-browser and line oriented browser) rely on utilities in order to
-		initialise, therefore prepare the non-essential utilities (which will prepare phantomJS among others) before
-		deserialising and initialising configuration.
-	*/
-	CopyNonEssentialUtilitiesInBackground()
 	if err := config.DeserialiseFromJSON(configBytes); err != nil {
-		logger.Abort("main", "", err, "failed to deserialise/initialise config file \"%s\"", misc.ConfigFilePath)
+		logger.Abort("main", "", err, "failed to deserialise/initialise program configuration")
 		return
 	}
 	// Figure out what daemons are to be started
@@ -278,7 +277,7 @@ func main() {
 			}
 		}
 		if !found {
-			logger.Abort("main", "", err, "unknown daemon name \"%s\"", daemonName)
+			logger.Abort("main", "", nil, "unrecognised daemon name \"%s\"", daemonName)
 		}
 	}
 
@@ -312,6 +311,8 @@ func main() {
 	if disableConflicts {
 		DisableConflicts()
 	}
+	CopyNonEssentialUtilitiesInBackground()
+	InstallOptionalLoggerSQSCallback()
 
 	for _, daemonName := range daemonNames {
 		// Daemons are started asynchronously and the order does not matter
