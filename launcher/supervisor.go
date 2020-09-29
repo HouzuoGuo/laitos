@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	LambdaFlagName     = "awslambda"  // LambdaFlagName is the CLI boolean flag that tells main function to start lambda handler.
 	ConfigFlagName     = "config"     // ConfigFlagName is the CLI string flag that tells a path to configuration file JSON
 	SupervisorFlagName = "supervisor" // SupervisorFlagName is the CLI boolean flag that determines whether supervisor should run
 	DaemonsFlagName    = "daemons"    // DaemonsFlagName is the CLI string flag of daemon names (comma separated) to launch
@@ -306,7 +307,7 @@ func (sup *Supervisor) GetLaunchParameters(nthAttempt int) (cliFlags []string, d
 			will not be altered by the advanced start option such as -gomaxprocs.
 		*/
 		cliFlags = RemoveFromFlags(func(f string) bool {
-			return !strings.HasPrefix(f, "-"+ConfigFlagName)
+			return !strings.HasPrefix(f, "-"+ConfigFlagName) && !strings.HasPrefix(f, "-"+LambdaFlagName)
 		}, cliFlags)
 	}
 	if nthAttempt > 1 && nthAttempt < len(sup.DaemonNames)+1 {
