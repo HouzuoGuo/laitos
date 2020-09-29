@@ -23,7 +23,7 @@ const (
 		DefaultLinuxDistributionURL is the download URL of PuppyLinux, recommended for use with remote virtual machine controls.
 		PuppyLinux is lightweight yet functional, it has been thoroughly tested with the remote virtual machine control feature.
 	*/
-	DefaultLinuxDistributionURL = "http://distro.ibiblio.org/puppylinux/puppy-bionic/bionicpup64/bionicpup64-8.0-uefi.iso"
+	DefaultLinuxDistributionURL = "http://distro.ibiblio.org/puppylinux/puppy-fossa/fossapup64-9.5.iso"
 
 	// HandleVirtualMachinePage is the web template of the virtual machine remote control.
 	HandleVirtualMachinePage = `<html>
