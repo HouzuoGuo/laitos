@@ -2,6 +2,7 @@ package awsinteg
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
@@ -13,8 +14,10 @@ import (
 
 func NewSQSClient() (*SQSClient, error) {
 	logger := lalog.Logger{ComponentName: "sqs"}
-	// The SQS API client needs to work with an explicit region name, unlike other services such as S3.
 	regionName := inet.GetAWSRegion()
+	if regionName == "" {
+		return nil, fmt.Errorf("NewSQSClient: unable to determine AWS region, is it set in environment variable AWS_REGION?")
+	}
 	logger.Info("NewSQSClient", "", nil, "initialising using AWS region name \"%s\"", regionName)
 	apiSession, err := session.NewSession(&aws.Config{Region: aws.String(regionName)})
 	if err != nil {

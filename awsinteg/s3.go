@@ -2,6 +2,7 @@ package awsinteg
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 func NewS3Client() (*S3Client, error) {
 	logger := lalog.Logger{ComponentName: "s3"}
 	regionName := inet.GetAWSRegion()
+	if regionName == "" {
+		return nil, fmt.Errorf("NewS3Client: unable to determine AWS region, is it set in environment variable AWS_REGION?")
+	}
 	logger.Info("NewS3Client", "", nil, "initialising using AWS region name \"%s\"", regionName)
 	apiSession, err := session.NewSession(&aws.Config{Region: aws.String(regionName)})
 	if err != nil {

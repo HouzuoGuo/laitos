@@ -2,6 +2,7 @@ package awsinteg
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
@@ -14,6 +15,9 @@ import (
 func NewKinesisHoseClient() (*KinesisHoseClient, error) {
 	logger := lalog.Logger{ComponentName: "kinesis"}
 	regionName := inet.GetAWSRegion()
+	if regionName == "" {
+		return nil, fmt.Errorf("NewKinesisHoseClient: unable to determine AWS region, is it set in environment variable AWS_REGION?")
+	}
 	logger.Info("NewKinesisHoseClient", "", nil, "initialising using AWS region name \"%s\"", regionName)
 	apiSession, err := session.NewSession(&aws.Config{Region: aws.String(regionName)})
 	if err != nil {
