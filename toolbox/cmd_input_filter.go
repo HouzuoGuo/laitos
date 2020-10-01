@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 )
@@ -17,20 +18,53 @@ type CommandFilter interface {
 	Transform(Command) (Command, error)
 }
 
-/*
-LastTOTP and LastTOTPCommandContent track the command executed and successfully authenticated via TOTP instead of password PIN entry.
-A successfully authenticated TOTP may only be used to execute a single command - one or more times while the TOTP remains valid.
-*/
-var LastTOTP, LastTOTPCommandContent string
+// TOTPWithCommand contains a TOTP (6+6=12 digits) and a toolbox command that is authenticated to execute with that TOTP.
+type TOTPWithCommand struct {
+	TOTP           string
+	ToolboxCommand string
+}
 
 /*
-Match prefix PIN (or pre-defined shortcuts) against lines among input command. Return the matched line trimmed
-and without PIN prefix, or expanded shortcut if found.
-To successfully expend shortcut, the shortcut must occupy the entire line, without extra prefix or suffix.
-Return error if neither PIN nor pre-defined shortcuts matched any line of input command.
+lastTOTPCommandContent is a mapping between a password and the most recent toolbox command executed and authenticated via TOTP derived from that password.
+The state helps to prevent an eavesdropper from reusing an intercepted good TOTP for a malicious command.
+*/
+var lastTOTPCommandContent = map[string]TOTPWithCommand{}
+var lastTOTPCommandContentMutex = new(sync.Mutex)
+
+/*
+setLastTOTPCommand determiens whether the toolbox command may proceed to execute using the TOTP that has been proven valid.
+The function returns true only if the TOTP is being used to authenticate the toolbox command for the first time, or, if
+the identical toolbox command was executed quite recently using that TOTP.
+If the TOTP is being used a second time to authenticate a different toolbox command, then the function will return false
+without memorising the new toolbox command.
+*/
+func canExecuteCommandUsingTOTP(commandContent, totp, password string) bool {
+	lastTOTPCommandContentMutex.Lock()
+	defer lastTOTPCommandContentMutex.Unlock()
+	if totpWithCommand, exists := lastTOTPCommandContent[password]; exists {
+		if totpWithCommand.TOTP == totp {
+			// It is OK to reuse the TOTP to authenticate the same toolbox command
+			return totpWithCommand.ToolboxCommand == commandContent
+		} else {
+			// It is always OK to use a new TOTP authenticate any toolbox command
+			lastTOTPCommandContent[password] = TOTPWithCommand{TOTP: totp, ToolboxCommand: commandContent}
+			return true
+		}
+	} else {
+		// The pasword is being used with TOTP for the first time, the toolbox command may proceed.
+		lastTOTPCommandContent[password] = TOTPWithCommand{TOTP: totp, ToolboxCommand: commandContent}
+		return true
+	}
+}
+
+/*
+PINAndShortcuts looks for:
+- Any of the recognised password PIN found at the beginning of any of the input lines.
+- Any of the recognised shortcut strings that matches the entirety of any of the input lines.
+The filter's Transform function will return an error if nothing is found.
 */
 type PINAndShortcuts struct {
-	PIN       string            `json:"PIN"`
+	Passwords []string          `json:"Passwords"`
 	Shortcuts map[string]string `json:"Shortcuts"`
 }
 
@@ -48,19 +82,19 @@ The TOTP number set is calculated this way:
 2. List 2 = the previous, current, and upcoming TOTP 2FA codes based on the password PIN string reversed.
 3. For each string from list 1, concatenate it with each string from list 2, and return the concatenation results in a set.
 */
-func (pin *PINAndShortcuts) getTOTP() (ret map[string]bool) {
+func getTOTP(password string) (ret map[string]bool) {
 	ret = map[string]bool{}
-	if pin.PIN == "" {
+	if password == "" {
 		return
 	}
 	// Calculate TOTP using password PIN - list 1
-	prev1, current1, next1, err := GetTwoFACodes(pin.PIN)
+	prev1, current1, next1, err := GetTwoFACodes(password)
 	if err != nil {
 		lalog.DefaultLogger.Info("getTOTP", "", err, "failed to calculate TOTP")
 		return
 	}
 	// Reverse the password PIN
-	reversed := []rune(pin.PIN)
+	reversed := []rune(password)
 	for i, j := 0, len(reversed)-1; i < j; i, j = i+1, j-1 {
 		reversed[i], reversed[j] = reversed[j], reversed[i]
 	}
@@ -85,11 +119,9 @@ func (pin *PINAndShortcuts) getTOTP() (ret map[string]bool) {
 }
 
 func (pin *PINAndShortcuts) Transform(cmd Command) (Command, error) {
-	if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
-		return Command{}, errors.New("PINAndShortcut must use a password PIN, shortcut(s), or both.")
+	if len(pin.Passwords) == 0 && len(pin.Shortcuts) == 0 {
+		return Command{}, errors.New("PINAndShortcut must define security password(s), shortcut(s), or both.")
 	}
-	// Calculate password-derived TOTP codes that can be used in place of password PIN
-	totpCodes := pin.getTOTP()
 
 	// Among the input lines, look for a shortcut match, password PIN match, or TOTP code match, and leave command alone for further processing.
 	for _, line := range cmd.Lines() {
@@ -98,30 +130,30 @@ func (pin *PINAndShortcuts) Transform(cmd Command) (Command, error) {
 		if pin.Shortcuts != nil {
 			if shortcut, exists := pin.Shortcuts[line]; exists {
 				ret := cmd
-				// Toolbox command comes from the shortcut's configuration
+				// The shortcut's corresponding toolbox command is defined in the filter configuration
 				ret.Content = shortcut
 				return ret, nil
 			}
 		}
 		// Look for a password PIN match
-		if pin.PIN != "" {
-			if len(line) > len(pin.PIN) && subtle.ConstantTimeCompare([]byte(line[:len(pin.PIN)]), []byte(pin.PIN)) == 1 {
+		for _, password := range pin.Passwords {
+			// Calculate password-derived TOTP codes that can be used in place of password PIN
+			totpCodes := getTOTP(password)
+			if len(line) > len(password) && subtle.ConstantTimeCompare([]byte(line[:len(password)]), []byte(password)) == 1 {
 				ret := cmd
 				// Remove matched password from the input, leave the app command in-place.
-				ret.Content = line[len(pin.PIN):]
+				ret.Content = line[len(password):]
 				return ret, nil
 			}
 			// Look for a TOTP code match. The code is made of two TOTP numbers with six digits each.
 			if len(line) > 12 {
 				totpInput := line[:12]
 				if totpCodes[totpInput] {
-					// Prevent a TOTP from executing more than one commands in short succession
-					if totpInput == LastTOTP && cmd.Content != LastTOTPCommandContent {
+					// Determine whether the valid TOTP may execute this toolbox command
+					if !canExecuteCommandUsingTOTP(cmd.Content, totpInput, password) {
 						return cmd, ErrTOTPAlreadyUsed
 					}
 					ret := cmd
-					LastTOTP = totpInput
-					LastTOTPCommandContent = cmd.Content
 					// Remove matched TOTP from the input, leave the toolbox command in-place.
 					ret.Content = line[12:]
 					return ret, nil

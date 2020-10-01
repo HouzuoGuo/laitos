@@ -17,7 +17,7 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 	}
 	// Prepare all kinds of command bridges
 	commandBridges := []CommandFilter{
-		&PINAndShortcuts{PIN: "mypin"},
+		&PINAndShortcuts{Passwords: []string{"mypin", "myaltpin"}},
 		&TranslateSequences{Sequences: [][]string{{"alpha", "beta"}}},
 	}
 	// Prepare all kinds of result bridges
@@ -57,8 +57,15 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 		t.Fatalf("%+v", result)
 	}
 
-	// Run a successful command - be aware of the word substitution conducted by command filter
+	// Run a valid command - be aware of the word substitution conducted by command filter
 	cmd = Command{TimeoutSec: 5, Content: "mypin.secho alpha"}
+	result = proc.Process(cmd, true)
+	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 5, Content: ".secho beta"}) ||
+		result.Error != nil || !strings.Contains(result.Output, "beta") || result.CombinedOutput != "be" {
+		t.Fatalf("%+v", result)
+	}
+	// Run the same command using the alternative & valid password PIN
+	cmd = Command{TimeoutSec: 5, Content: "myaltpin.secho alpha"}
 	result = proc.Process(cmd, true)
 	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 5, Content: ".secho beta"}) ||
 		result.Error != nil || !strings.Contains(result.Output, "beta") || result.CombinedOutput != "be" {
@@ -180,7 +187,7 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 		t.Fatal(errs)
 	}
 	// PIN bridge has short PIN
-	proc.CommandFilters = []CommandFilter{&PINAndShortcuts{PIN: "aaaaaa"}}
+	proc.CommandFilters = []CommandFilter{&PINAndShortcuts{Passwords: []string{"goodpassword", "short"}}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 2 {
 		t.Fatal(errs)
 	}
@@ -194,7 +201,7 @@ func TestCommandProcessorIsSaneForInternet(t *testing.T) {
 		t.Fatal(errs)
 	}
 	// Good PIN bridge
-	proc.CommandFilters = []CommandFilter{&PINAndShortcuts{PIN: "very-long-pin"}}
+	proc.CommandFilters = []CommandFilter{&PINAndShortcuts{Passwords: []string{"very-long-pin"}}}
 	if errs := proc.IsSaneForInternet(); len(errs) != 1 {
 		t.Fatal(errs)
 	}

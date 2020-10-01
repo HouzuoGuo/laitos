@@ -110,7 +110,7 @@ func (proc *CommandProcessor) IsEmpty() bool {
 	}
 	for _, cmdFilter := range proc.CommandFilters {
 		// An empty processor does not have a PIN
-		if pinFilter, ok := cmdFilter.(*PINAndShortcuts); ok && pinFilter.PIN == "" {
+		if pinFilter, ok := cmdFilter.(*PINAndShortcuts); ok && len(pinFilter.Passwords) == 0 {
 			return true
 		}
 	}
@@ -138,11 +138,14 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 		seenPIN := false
 		for _, cmdBridge := range proc.CommandFilters {
 			if pin, yes := cmdBridge.(*PINAndShortcuts); yes {
-				if pin.PIN == "" && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
+				if len(pin.Passwords) == 0 && (pin.Shortcuts == nil || len(pin.Shortcuts) == 0) {
 					errs = append(errs, errors.New(ErrBadProcessorConfig+"Defined in PINAndShortcuts there has to be password PIN, command shortcuts, or both."))
 				}
-				if pin.PIN != "" && len(pin.PIN) < 7 {
-					errs = append(errs, errors.New(ErrBadProcessorConfig+"Password PIN must be at least 7 characters long"))
+				for _, password := range pin.Passwords {
+					if len(password) < 7 {
+						errs = append(errs, errors.New(ErrBadProcessorConfig+"Each password must be at least 7 characters long"))
+						break
+					}
 				}
 				seenPIN = true
 				break
@@ -329,7 +332,7 @@ func GetTestCommandProcessor() *CommandProcessor {
 	}
 	// Prepare realistic command bridges
 	commandBridges := []CommandFilter{
-		&PINAndShortcuts{PIN: TestCommandProcessorPIN},
+		&PINAndShortcuts{Passwords: []string{TestCommandProcessorPIN}},
 		&TranslateSequences{Sequences: [][]string{{"alpha", "beta"}}},
 	}
 	// Prepare realistic result bridges
@@ -358,7 +361,7 @@ func GetEmptyCommandProcessor() *CommandProcessor {
 	return &CommandProcessor{
 		Features: features,
 		CommandFilters: []CommandFilter{
-			&PINAndShortcuts{PIN: hex.EncodeToString(randPIN)},
+			&PINAndShortcuts{Passwords: []string{hex.EncodeToString(randPIN)}},
 		},
 		ResultFilters: []ResultFilter{
 			&LintText{MaxLength: 35},
@@ -379,7 +382,7 @@ func GetInsaneCommandProcessor() *CommandProcessor {
 	return &CommandProcessor{
 		Features: features,
 		CommandFilters: []CommandFilter{
-			&PINAndShortcuts{PIN: "short"},
+			&PINAndShortcuts{Passwords: []string{"short"}},
 		},
 		ResultFilters: []ResultFilter{
 			&LintText{MaxLength: 10},

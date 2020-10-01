@@ -189,7 +189,7 @@ func (config *Config) Initialise() error {
 		Even though MessageProcessor is an app, it has its own command processor just like a daemon.
 		The command processor is initialised from configuration input.
 	*/
-	if config.MessageProcessorFilters.PINAndShortcuts.PIN != "" {
+	if len(config.MessageProcessorFilters.PINAndShortcuts.Passwords) != 0 {
 		messageProcessorCommandProcessor := &toolbox.CommandProcessor{
 			Features: config.Features,
 			CommandFilters: []toolbox.CommandFilter{

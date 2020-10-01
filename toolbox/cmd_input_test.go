@@ -5,15 +5,35 @@ import (
 	"testing"
 )
 
+func TestCanExecuteCommandUsingTOTP(t *testing.T) {
+	if !canExecuteCommandUsingTOTP("first-command", "123", "mypassword") {
+		t.Fatal("should have returned true")
+	}
+	if !canExecuteCommandUsingTOTP("first-command", "123", "mypassword") {
+		t.Fatal("should have returned true")
+	}
+	if canExecuteCommandUsingTOTP("second-command", "123", "mypassword") {
+		t.Fatal("should have returned false")
+	}
+	if !canExecuteCommandUsingTOTP("third-command", "456", "mypassword") {
+		t.Fatal("should have returned true")
+	}
+
+	if !canExecuteCommandUsingTOTP("second-command", "123", "myaltpassword") {
+		t.Fatal("should have returned true")
+	}
+	if !canExecuteCommandUsingTOTP("second-command", "456", "myaltpassword") {
+		t.Fatal("should have returned true")
+	}
+}
+
 func TestGetTOTP(t *testing.T) {
-	// Empty PIN results in no TOTP codes returned
-	pin := PINAndShortcuts{}
-	if codes := pin.getTOTP(); len(codes) != 0 {
+	// No TOTP code can be calculated from an empty password
+	if codes := getTOTP(""); len(codes) != 0 {
 		t.Fatal(codes)
 	}
 	// Validate code length
-	pin.PIN = "abcdefg"
-	codes := pin.getTOTP()
+	codes := getTOTP("abcdefg")
 	if len(codes) != 9 {
 		t.Fatal(codes)
 	}
@@ -54,7 +74,7 @@ func TestPINAndShortcuts_Transform(t *testing.T) {
 		t.Fatal(out, err)
 	}
 	// Match PIN
-	pin.PIN = "mypin"
+	pin.Passwords = []string{"mypin"}
 	if out, err := pin.Transform(Command{Content: "this is not a matching pin"}); err != ErrPINAndShortcutNotFound || out.Content != "this is not a matching pin" {
 		t.Fatal(out, err)
 	}

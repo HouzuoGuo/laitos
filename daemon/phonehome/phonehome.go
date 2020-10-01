@@ -37,7 +37,7 @@ type MessageProcessorServer struct {
 	*/
 	DNSDomainName string `json:"DNSDomainName"`
 	// Password is the password PIN that the server accepts for command execution.
-	Password string `json:"Password"`
+	Passwords []string `json:"Passwords"`
 	// HostName is the host name portion of server app command execution URL, it is calculated by Initialise function.
 	HostName string `json:"-"`
 }
@@ -92,8 +92,8 @@ func (daemon *Daemon) Initialise() error {
 		if srv.DNSDomainName == "" && srv.HTTPEndpointURL == "" {
 			return fmt.Errorf("phonehome.Initialise: a server configuration is missing both DNSDomainName and HTTPEndpointURL")
 		}
-		if srv.Password == "" {
-			return fmt.Errorf("phonehome.Initialise: server configuration for %s must contain the app command execution password", srv.DNSDomainName+srv.HTTPEndpointURL)
+		if len(srv.Passwords) == -1 {
+			return fmt.Errorf("phonehome.Initialise: server configuration for %s must contain one or more app command execution password", srv.DNSDomainName+srv.HTTPEndpointURL)
 		}
 		srv.HostName = srv.DNSDomainName
 		if srv.HTTPEndpointURL != "" {
@@ -111,13 +111,14 @@ func (daemon *Daemon) Initialise() error {
 
 func (daemon *Daemon) getTwoFACode(server *MessageProcessorServer) string {
 	// The first 2FA is calculated from the command password
-	_, cmdPassword1, _, err := toolbox.GetTwoFACodes(server.Password)
+	accessPassword := server.Passwords[rand.Intn(len(server.Passwords))]
+	_, cmdPassword1, _, err := toolbox.GetTwoFACodes(accessPassword)
 	if err != nil {
 		daemon.logger.Warning("getTwoFACode", "", err, "failed to generate the first 2FA")
 		return ""
 	}
 	// The second 2FA is calculated from the reversed command password
-	reversedPass := []rune(server.Password)
+	reversedPass := []rune(accessPassword)
 	for i, j := 0, len(reversedPass)-1; i < j; i, j = i+1, j-1 {
 		reversedPass[i], reversedPass[j] = reversedPass[j], reversedPass[i]
 	}
@@ -339,8 +340,8 @@ func TestServer(server *Daemon, t testingstub.T) {
 	// Start phone-home daemon
 	cmdURL := fmt.Sprintf("http://localhost:%d/test", l.Addr().(*net.TCPAddr).Port)
 	server.MessageProcessorServers = []*MessageProcessorServer{
-		{Password: toolbox.TestCommandProcessorPIN, HTTPEndpointURL: cmdURL},
-		{Password: toolbox.TestCommandProcessorPIN, DNSDomainName: "example.com"},
+		{Passwords: []string{toolbox.TestCommandProcessorPIN}, HTTPEndpointURL: cmdURL},
+		{Passwords: []string{toolbox.TestCommandProcessorPIN}, DNSDomainName: "example.com"},
 	}
 	if err := server.Initialise(); err != nil {
 		t.Fatal(err)
