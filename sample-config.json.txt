@@ -19,7 +19,7 @@
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "samplepin",
+      "Passwords": ["samplepin"],
       "Shortcuts": {
         "info": ".einfo",
         "lock": ".elock",
@@ -96,7 +96,7 @@
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "samplepin",
+      "Passwords": ["samplepin"],
       "Shortcuts": {
         "info": ".einfo",
         "lock": ".elock",
@@ -213,7 +213,7 @@
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "samplepin",
+      "Passwords": ["samplepin"],
       "Shortcuts": {
         "info": ".einfo",
         "lock": ".elock",
@@ -245,7 +245,7 @@
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "samplepin",
+      "Passwords": ["samplepin"],
       "Shortcuts": {
         "info": ".einfo",
         "lock": ".elock",
@@ -273,7 +273,7 @@
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "verysecret",
+      "Passwords": ["samplepin"],
       "Shortcuts": {
         "serialshortcut": ".secho serialshortcut"
       }
@@ -320,7 +320,7 @@
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "samplepin",
+      "Passwords": ["samplepin"],
       "Shortcuts": {
         "info": ".einfo",
         "lock": ".elock",

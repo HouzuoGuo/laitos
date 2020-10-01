@@ -48,7 +48,7 @@ var sampleConfigJSON = `
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "verysecret",
+      "Passwords": ["verysecret"],
       "Shortcuts": {
         "dnsshortcut": ".secho dnsshortcut"
       }
@@ -85,7 +85,7 @@ var sampleConfigJSON = `
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "verysecret",
+      "Passwords": ["verysecret"],
       "Shortcuts": {
         "httpshortcut": ".secho httpshortcut"
       }
@@ -187,7 +187,7 @@ var sampleConfigJSON = `
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "verysecret",
+      "Passwords": ["verysecret"],
       "Shortcuts": {
         "mailshortcut": ".secho mailshortcut"
       }
@@ -233,7 +233,7 @@ var sampleConfigJSON = `
 		"MessageProcessorServers": [
 			{
 				"HTTPEndpointURL": "dummy",
-				"Password": "dummy"
+				"Passwords": ["dummy"]
 			}
 		],
 		"ReportIntervalSec": 1
@@ -250,7 +250,7 @@ var sampleConfigJSON = `
 			]
 		},
 		"PINAndShortcuts": {
-			"PIN": "verysecret",
+			"Passwords": ["verysecret"],
 			"Shortcuts": {
 				"plainsocketshortcut": ".secho plainsockethortcut"
 			}
@@ -274,7 +274,7 @@ var sampleConfigJSON = `
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "verysecret",
+      "Passwords": ["verysecret"],
       "Shortcuts": {
         "plainsocketshortcut": ".secho plainsockethortcut"
       }
@@ -309,7 +309,7 @@ var sampleConfigJSON = `
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "verysecret",
+      "Passwords": ["verysecret"],
       "Shortcuts": {
         "serialshortcut": ".secho serialshortcut"
       }
@@ -362,7 +362,7 @@ var sampleConfigJSON = `
       ]
     },
     "PINAndShortcuts": {
-      "PIN": "verysecret",
+      "Passwords": ["verysecret"],
       "Shortcuts": {
         "telegramshortcut": ".secho telegramshortcut"
       }
