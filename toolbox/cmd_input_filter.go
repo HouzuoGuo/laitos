@@ -138,7 +138,6 @@ func (pin *PINAndShortcuts) Transform(cmd Command) (Command, error) {
 		// Look for a password PIN match
 		for _, password := range pin.Passwords {
 			// Calculate password-derived TOTP codes that can be used in place of password PIN
-			totpCodes := getTOTP(password)
 			if len(line) > len(password) && subtle.ConstantTimeCompare([]byte(line[:len(password)]), []byte(password)) == 1 {
 				ret := cmd
 				// Remove matched password from the input, leave the app command in-place.
@@ -147,6 +146,7 @@ func (pin *PINAndShortcuts) Transform(cmd Command) (Command, error) {
 			}
 			// Look for a TOTP code match. The code is made of two TOTP numbers with six digits each.
 			if len(line) > 12 {
+				totpCodes := getTOTP(password)
 				totpInput := line[:12]
 				if totpCodes[totpInput] {
 					// Determine whether the valid TOTP may execute this toolbox command
