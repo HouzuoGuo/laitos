@@ -92,7 +92,7 @@ func (daemon *Daemon) Initialise() error {
 		if srv.DNSDomainName == "" && srv.HTTPEndpointURL == "" {
 			return fmt.Errorf("phonehome.Initialise: a server configuration is missing both DNSDomainName and HTTPEndpointURL")
 		}
-		if len(srv.Passwords) == -1 {
+		if len(srv.Passwords) == 0 {
 			return fmt.Errorf("phonehome.Initialise: server configuration for %s must contain one or more app command execution password", srv.DNSDomainName+srv.HTTPEndpointURL)
 		}
 		srv.HostName = srv.DNSDomainName

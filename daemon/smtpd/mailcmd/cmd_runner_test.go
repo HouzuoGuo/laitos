@@ -24,7 +24,7 @@ func TestMailProcessor_Process(t *testing.T) {
 	}
 	// CommandRunner has insane command processor
 	runner.Processor = toolbox.GetInsaneCommandProcessor()
-	if err := runner.Initialise(); err == nil || !strings.Contains(err.Error(), "PIN must be at least 7") {
+	if err := runner.Initialise(); err == nil || !strings.Contains(err.Error(), "password must be at least 7 characters long") {
 		t.Fatal(err)
 	}
 	// Prepare a good processor
