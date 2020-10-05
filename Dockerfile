@@ -7,3 +7,7 @@ RUN apt update && apt upgrade -q -y -f -m -o Dpkg::Options::=--force-confold -o 
 
 COPY laitos /laitos
 ENTRYPOINT ["/laitos"]
+
+# A gentle start - run laitos in a container and start the HTTP server:
+# docker run -it --rm -p 12345:80 --env 'LAITOS_CONFIG={"HTTPFilters": {"PINAndShortcuts": {"Passwords": ["abcdefgh"]},"LintText": {"MaxLength": 1000}},"HTTPHandlers": {"CommandFormEndpoint": "/cmd"}}' hzgl/laitos:latest -daemons insecurehttpd
+# Then you may visit the web server at "http://ContainerHost:12345/cmd", and enter an app command such as "abcdefg.s ls -l /".
