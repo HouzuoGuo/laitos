@@ -57,11 +57,10 @@ func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrict
 		}
 		// Check client IP against rate limit
 		remoteIP := handler.GetRealClientIP(r)
+		responseRecorder := &middlewareResponseRecorder{
+			ResponseWriter: w,
+		}
 		if rateLimit.Add(remoteIP, true) {
-			responseRecorder := &middlewareResponseRecorder{
-				ResponseWriter: w,
-				statusCode:     http.StatusOK, // the default HTTP response status code is 200
-			}
 			next(responseRecorder, r)
 			// Always close the request body
 			if r.Body != nil {
