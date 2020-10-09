@@ -59,6 +59,7 @@ func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrict
 		remoteIP := handler.GetRealClientIP(r)
 		responseRecorder := &middlewareResponseRecorder{
 			ResponseWriter: w,
+			statusCode:     http.StatusOK, // the default status code written by a response writer is 200 OK
 		}
 		if rateLimit.Add(remoteIP, true) {
 			next(responseRecorder, r)
