@@ -34,7 +34,7 @@ const (
 	RateLimitIntervalSec            = 1  // Rate limit is calculated at 1 second interval
 	IOTimeoutSec                    = 60 // IO timeout for both read and write operations
 
-	// MaxRequestBodyBytes is the maximum size of request the HTTP server will process (1MB).
+	// MaxRequestBodyBytes is the maximum size (in bytes) of a request body that HTTP server will process for a request.
 	MaxRequestBodyBytes = 1024 * 1024
 )
 
@@ -94,41 +94,6 @@ func (daemon *Daemon) GetHandlerByFactoryType(match handler.Handler) string {
 		}
 	}
 	return ""
-}
-
-// RateLimitMiddleware acts against unusually large request body, rate limited clients, and global lock-down.
-func (daemon *Daemon) Middleware(rateLimit *misc.RateLimit, restrictedRequestSize bool, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if restrictedRequestSize {
-			r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
-		}
-		// Put query duration (including IO time) into statistics
-		beginTimeNano := time.Now().UnixNano()
-		if misc.EmergencyLockDown {
-			/*
-				An error response usually should carry status 5xx in this case, but the intention of
-				emergency stop is to disable the program rather than crashing it and relaunching it.
-				If an external trigger such as load balancer health check knocks on HTTP endpoint and relaunches
-				the program after consecutive HTTP failures, it would defeat the intention of emergency stop.
-				Hence the status code here is OK.
-			*/
-			_, _ = w.Write([]byte(misc.ErrEmergencyLockDown.Error()))
-			misc.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-			return
-		}
-		// Check client IP against rate limit
-		remoteIP := handler.GetRealClientIP(r)
-		if rateLimit.Add(remoteIP, true) {
-			daemon.logger.Info("Handler", remoteIP, nil, "%s %s", r.Method, r.URL.Path)
-			next(w, r)
-			if r.Body != nil {
-				_ = r.Body.Close()
-			}
-		} else {
-			http.Error(w, "", http.StatusTooManyRequests)
-		}
-		misc.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
-	}
 }
 
 /*
@@ -196,7 +161,7 @@ func (daemon *Daemon) Initialise(urlRoutePrefixKey string) error {
 				Logger:   daemon.logger,
 			}
 			daemon.AllRateLimits[urlLocation] = rl
-			daemon.mux.HandleFunc(urlLocation, daemon.Middleware(rl, true, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
+			daemon.mux.HandleFunc(urlLocation, daemon.DecorateWithMiddleware(rl, true, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
 		}
 	}
 	// Collect specialised handlers
@@ -213,7 +178,7 @@ func (daemon *Daemon) Initialise(urlRoutePrefixKey string) error {
 		daemon.AllRateLimits[urlLocation] = rl
 		// With the exception of file upload handler, all handlers will be subject to a limited request size.
 		_, unrestrictedRequestSize := hand.(*handler.HandleFileUpload)
-		daemon.mux.HandleFunc(urlLocation, daemon.Middleware(rl, !unrestrictedRequestSize, hand.Handle))
+		daemon.mux.HandleFunc(urlLocation, daemon.DecorateWithMiddleware(rl, !unrestrictedRequestSize, hand.Handle))
 	}
 	// Initialise all rate limits
 	for _, limit := range daemon.AllRateLimits {
