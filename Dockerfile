@@ -9,5 +9,6 @@ COPY laitos /laitos
 ENTRYPOINT ["/laitos"]
 
 # A gentle start - run laitos in a container and start the HTTP server:
-# docker run -it --rm -p 12345:80 --env 'LAITOS_CONFIG={"HTTPFilters": {"PINAndShortcuts": {"Passwords": ["abcdefgh"]},"LintText": {"MaxLength": 1000}},"HTTPHandlers": {"CommandFormEndpoint": "/cmd"}}' hzgl/laitos:latest -daemons insecurehttpd
-# Then you may visit the web server at "http://ContainerHost:12345/cmd", and enter an app command such as "abcdefg.s ls -l /".
+# 1. Start the container: docker run -it --rm -p 12345:80 --env 'LAITOS_CONFIG={"HTTPFilters": {"PINAndShortcuts": {"Passwords": ["abcdefgh"]},"LintText": {"MaxLength": 1000}},"HTTPHandlers": {"AppCommandEndpoint": "/cmd"}}' hzgl/laitos:latest -daemons insecurehttpd
+# 2. In browser window, navigate to "http://server-ip:80/cmd?cmd=abcdefgh.s date", the example command calls for shell app ".s" to print out the system date and time.
+# 3. The browser page will display the app command result on the page.
