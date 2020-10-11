@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
 type middlewareResponseRecorder struct {
@@ -26,23 +28,24 @@ func (rec *middlewareResponseRecorder) Write(b []byte) (int, error) {
 }
 
 /*
-DecorateWithMiddleware returns an HTTP middleware function that performs the following tasks:
+DecorateWithMiddleware returns an HTTP middleware handler that performs the following tasks:
 - Limit the maximum size of HTTP request body to be processed.
 - If emergency lock down is in effect, respond to client without invoking the actual handler function.
 - Check client IP against rate limit.
 - Log and record the duration of the request.
+- Integrate with AWS x-ray.
 */
-func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrictedRequestSize bool, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Lmit the maximum size of HTTP request body to be processed
-		if restrictedRequestSize {
-			r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
-		}
+func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrictedRequestSize bool, next http.HandlerFunc) http.Handler {
+	decoratedHandler := func(w http.ResponseWriter, r *http.Request) {
 		// Record the duration of request handling in stats
 		beginTimeNano := time.Now().UnixNano()
 		defer func() {
 			misc.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 		}()
+		// Lmit the maximum size of HTTP request body to be processed
+		if restrictedRequestSize {
+			r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
+		}
 		if misc.EmergencyLockDown {
 			/*
 				An error response usually should carry status 5xx in this case, but the intention of
@@ -62,7 +65,7 @@ func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrict
 			statusCode:     http.StatusOK, // the default status code written by a response writer is 200 OK
 		}
 		if rateLimit.Add(remoteIP, true) {
-			next(responseRecorder, r)
+			next.ServeHTTP(responseRecorder, r)
 			// Always close the request body
 			if r.Body != nil {
 				_ = r.Body.Close()
@@ -70,8 +73,13 @@ func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrict
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
 		}
-		daemon.logger.Info("Handler", remoteIP, nil, "User-Agent \"%s\", requested \"%s %s %s\", response code %d, %d bytes, took %d milliseconds",
-			r.Header.Get("User-Agent"), r.Method, r.URL.EscapedPath(), r.Proto,
-			responseRecorder.statusCode, responseRecorder.responseBodySize, (time.Now().UnixNano()-beginTimeNano)/1000000)
+		daemon.logger.Info("Handler", remoteIP, nil, "User-Agent \"%s\" referred by \"%s\", requested \"%s %s %s\", responded with code %d and %d bytes in %dus",
+			r.Header.Get("User-Agent"), r.Header.Get("Referer"), r.Method, r.URL.EscapedPath(), r.Proto,
+			responseRecorder.statusCode, responseRecorder.responseBodySize, (time.Now().UnixNano()-beginTimeNano)/1000)
 	}
+	// Integrate the decorated handler with AWS x-ray
+	if misc.EnableAWSIntegration && inet.IsAWS() {
+		return xray.Handler(xray.NewDynamicSegmentNamer("LaitosHTTPD", "*"), http.HandlerFunc(decoratedHandler))
+	}
+	return http.HandlerFunc(decoratedHandler)
 }

@@ -124,7 +124,7 @@ func (proc *MessageProcessor) GetAllOutgoingCommands() map[string]string {
 StoreReports stores the most recent report from a subject and evicts older report automatically.
 If the report carries an app command, then the command will run in the background.
 */
-func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID, daemonName string) SubjectReportResponse {
+func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectReportRequest, clientID, daemonName string) SubjectReportResponse {
 	request.SubjectHostName = strings.TrimSpace(strings.ToLower(request.SubjectHostName))
 	if request.SubjectHostName == "" {
 		// Empty host name does not make a valid report
@@ -171,7 +171,7 @@ func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID
 	outgoingCommandForSubject := proc.OutgoingAppCommands[request.SubjectHostName]
 	// Release the lock for report handling is now completed. The app command (if requested) will run without holding the lock.
 	proc.mutex.Unlock()
-	cmdResponse := proc.processCommandRequest(request, clientID, daemonName)
+	cmdResponse := proc.processCommandRequest(ctx, request, clientID, daemonName)
 	if outgoingCommandForSubject == "" {
 		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "store report from daemon %s", daemonName)
 	} else {
@@ -189,7 +189,7 @@ func (proc *MessageProcessor) StoreReport(request SubjectReportRequest, clientID
 processCommandRequest runs the app command presented in the request, waits for it to complete and returns the result.
 If the same app command or an empty command request comes in, the previous result (if ready and available) will be returned.
 */
-func (proc *MessageProcessor) processCommandRequest(request SubjectReportRequest, clientID, daemonName string) (resp AppCommandResponse) {
+func (proc *MessageProcessor) processCommandRequest(ctx context.Context, request SubjectReportRequest, clientID, daemonName string) (resp AppCommandResponse) {
 	if proc.CmdProcessor == nil {
 		return
 	}
@@ -249,7 +249,7 @@ func (proc *MessageProcessor) processCommandRequest(request SubjectReportRequest
 		proc.mutex.Unlock()
 		// Run the app command and then memorise the result
 		startTimeSec := time.Now().Unix()
-		result := proc.CmdProcessor.Process(cmd, true)
+		result := proc.CmdProcessor.Process(ctx, cmd, true)
 		durationSec := time.Now().Unix() - startTimeSec
 		proc.mutex.Lock()
 		proc.IncomingAppCommands[request.SubjectHostName] = &IncomingAppCommand{
@@ -409,7 +409,7 @@ func (proc *MessageProcessor) Trigger() Trigger {
 	return StoreAndForwardMessageProcessorTrigger
 }
 
-func (proc *MessageProcessor) Execute(cmd Command) *Result {
+func (proc *MessageProcessor) Execute(ctx context.Context, cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}
@@ -429,7 +429,7 @@ func (proc *MessageProcessor) Execute(cmd Command) *Result {
 		There is no point in honoring the incoming command's timeout configuration, as the result
 		is memorised for unlimited retrieval according to rentention timeout.
 	*/
-	resp := proc.StoreReport(incomingReport, cmd.ClientID, cmd.DaemonName)
+	resp := proc.StoreReport(ctx, incomingReport, cmd.ClientID, cmd.DaemonName)
 	// The response is JSON instead of a compacted string
 	respBytes, err := json.Marshal(resp)
 	if err != nil {

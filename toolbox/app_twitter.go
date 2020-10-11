@@ -2,13 +2,15 @@ package toolbox
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/inet"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 const (
@@ -42,7 +44,7 @@ func (twi *Twitter) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make an inexpensive API call to test API credentials
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		TimeoutSec: SelfTestTimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			return twi.reqSigner.SetRequestAuthHeader(req)
@@ -72,16 +74,16 @@ func (twi *Twitter) Trigger() Trigger {
 	return ".t"
 }
 
-func (twi *Twitter) Execute(cmd Command) (ret *Result) {
+func (twi *Twitter) Execute(ctx context.Context, cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
 		ret = errResult
 		return
 	}
 
 	if cmd.FindAndRemovePrefix(TwitterGetFeeds) {
-		ret = twi.GetFeeds(cmd)
+		ret = twi.GetFeeds(ctx, cmd)
 	} else if cmd.FindAndRemovePrefix(TwitterPostTweet) {
-		ret = twi.Tweet(cmd)
+		ret = twi.Tweet(ctx, cmd)
 	} else {
 		ret = &Result{Error: ErrBadTwitterParam}
 	}
@@ -89,7 +91,7 @@ func (twi *Twitter) Execute(cmd Command) (ret *Result) {
 }
 
 // Retrieve tweets from timeline.
-func (twi *Twitter) GetFeeds(cmd Command) *Result {
+func (twi *Twitter) GetFeeds(ctx context.Context, cmd Command) *Result {
 	// Find two numeric parameters among the content
 	var skip, count int
 	params := RegexTwoNumbers.FindStringSubmatch(cmd.Content)
@@ -124,7 +126,7 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 		}
 	}
 	// Execute the API request
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			return twi.reqSigner.SetRequestAuthHeader(req)
@@ -146,13 +148,13 @@ func (twi *Twitter) GetFeeds(cmd Command) *Result {
 }
 
 // Post a new tweet to timeline.
-func (twi *Twitter) Tweet(cmd Command) *Result {
+func (twi *Twitter) Tweet(ctx context.Context, cmd Command) *Result {
 	tweet := cmd.Content
 	if tweet == "" {
 		return &Result{Error: ErrBadTwitterParam}
 	}
 
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		Method:     http.MethodPost,
 		RequestFunc: func(req *http.Request) error {

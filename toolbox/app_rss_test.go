@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"testing"
 )
 
@@ -56,7 +57,7 @@ func TestDeserialiseRSSItems(t *testing.T) {
 }
 
 func TestDownloadRSSFeeds(t *testing.T) {
-	feeds, err := DownloadRSSFeeds(10, "http://feeds.bbci.co.uk/news/rss.xml")
+	feeds, err := DownloadRSSFeeds(context.Background(), 10, "http://feeds.bbci.co.uk/news/rss.xml")
 	if err != nil || len(feeds) < 10 {
 		t.Fatalf("%+v %+v", err, feeds)
 	}
@@ -77,22 +78,22 @@ func TestRSS_Execute(t *testing.T) {
 	}
 	// The broken URL may not hinder other sources from providing their response
 	// Retrieve 10 latest feeds (I don't suppose the built-in sources will send more than 5KB per feed..)
-	if ret := rss.Execute(Command{TimeoutSec: 30, Content: ""}); ret.Error != nil ||
+	if ret := rss.Execute(context.Background(), Command{TimeoutSec: 30, Content: ""}); ret.Error != nil ||
 		len(ret.Output) < 100 || len(ret.Output) > 50*1024 {
 		t.Fatal(ret)
 	}
 	// Bad number - still retrieve 10 latest feeds
-	if ret := rss.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "a, b"}); ret.Error != nil ||
+	if ret := rss.Execute(context.Background(), Command{TimeoutSec: 30, Content: TwitterGetFeeds + "a, b"}); ret.Error != nil ||
 		len(ret.Output) < 100 || len(ret.Output) > 50*1024 {
 		t.Fatal(ret)
 	}
 	// Retrieve 5 feeds after skipping the latest 3 feeds
-	if ret := rss.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "3, 5"}); ret.Error != nil ||
+	if ret := rss.Execute(context.Background(), Command{TimeoutSec: 30, Content: TwitterGetFeeds + "3, 5"}); ret.Error != nil ||
 		len(ret.Output) < 100 || len(ret.Output) > 50*1024 {
 		t.Fatal(ret)
 	}
 	// Retrieve plenty of feeds
-	if ret := rss.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "3, 5000"}); ret.Error != nil ||
+	if ret := rss.Execute(context.Background(), Command{TimeoutSec: 30, Content: TwitterGetFeeds + "3, 5000"}); ret.Error != nil ||
 		len(ret.Output) < 100 {
 		t.Fatal(ret)
 	}

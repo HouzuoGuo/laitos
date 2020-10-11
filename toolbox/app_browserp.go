@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -69,7 +70,7 @@ func (bro *BrowserPhantomJS) Trigger() Trigger {
 	return ".bp"
 }
 
-func (bro *BrowserPhantomJS) Execute(cmd Command) (ret *Result) {
+func (bro *BrowserPhantomJS) Execute(ctx context.Context, cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}

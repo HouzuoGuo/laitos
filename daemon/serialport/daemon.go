@@ -1,6 +1,7 @@
 package serialport
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -186,7 +187,7 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 			}
 			// Execute the toolbox comamnd
 			daemon.logger.Info("converseWithDevice", devPath, nil, "received %d characters", len(cmd))
-			result := daemon.Processor.Process(toolbox.Command{
+			result := daemon.Processor.Process(context.Background(), toolbox.Command{
 				DaemonName: "serialport",
 				ClientID:   devPath,
 				Content:    cmd,

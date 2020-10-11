@@ -161,7 +161,7 @@ func (daemon *Daemon) Initialise(urlRoutePrefixKey string) error {
 				Logger:   daemon.logger,
 			}
 			daemon.AllRateLimits[urlLocation] = rl
-			daemon.mux.HandleFunc(urlLocation, daemon.DecorateWithMiddleware(rl, true, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
+			daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(rl, true, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
 		}
 	}
 	// Collect specialised handlers
@@ -178,7 +178,7 @@ func (daemon *Daemon) Initialise(urlRoutePrefixKey string) error {
 		daemon.AllRateLimits[urlLocation] = rl
 		// With the exception of file upload handler, all handlers will be subject to a limited request size.
 		_, unrestrictedRequestSize := hand.(*handler.HandleFileUpload)
-		daemon.mux.HandleFunc(urlLocation, daemon.DecorateWithMiddleware(rl, !unrestrictedRequestSize, hand.Handle))
+		daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(rl, !unrestrictedRequestSize, hand.Handle))
 	}
 	// Initialise all rate limits
 	for _, limit := range daemon.AllRateLimits {
@@ -286,20 +286,20 @@ func (daemon *Daemon) StopTLS() {
 func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
 	// System information
-	resp, err := inet.DoHTTP(inet.HTTPRequest{}, addr+"/info")
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/info")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Command Form
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/cmd_form")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost}, addr+"/cmd_form")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{Method: http.MethodPost}, addr+"/cmd_form")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"cmd": {"verysecret.secho cmd_form_test"}}.Encode()),
 	}, addr+"/cmd_form")
@@ -307,7 +307,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// File upload - home page
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/upload")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/upload")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -332,7 +332,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	if err = fileUploadRequestWriter.Close(); err != nil {
 		t.Fatal(err)
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method:      http.MethodPost,
 		ContentType: fileUploadRequestWriter.FormDataContentType(),
 		Body:        fileUploadRequestBody,
@@ -351,7 +351,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 			downloadFileName = line[strings.IndexRune(line, ':')+1 : strings.LastIndexByte(line, '<')]
 		}
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method:      http.MethodPost,
 		ContentType: "application/x-www-form-urlencoded",
 		Body:        strings.NewReader(url.Values{"submit": []string{"Download"}, "download": []string{downloadFileName}}.Encode()),
@@ -361,26 +361,26 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	}
 
 	// Gitlab handle
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/gitlab")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/gitlab")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Enter path to browse") {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// HTML file
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/html")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/html")
 	expected := "this is index 127.0.0.1 " + time.Now().Format(time.RFC3339)
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != expected {
 		t.Fatal(err, string(resp.Body), expected, resp)
 	}
 	// MailMe
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/mail_me")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost}, addr+"/mail_me")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{Method: http.MethodPost}, addr+"/mail_me")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"msg": {"又给你发了一个邮件"}}.Encode()),
 	}, addr+"/mail_me")
@@ -389,7 +389,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Microsoft bot
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/microsoft_bot")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/microsoft_bot")
 	if err != nil || resp.StatusCode != http.StatusBadRequest {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -398,31 +398,31 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	if microsoftBotDummyChatRequest, err = json.Marshal(microsoftBotDummyChat); err != nil {
 		t.Fatal(err)
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Body: bytes.NewReader(microsoftBotDummyChatRequest)}, addr+"/microsoft_bot")
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Recurring commands - setup page
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/recurring_cmds")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/recurring_cmds")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "submit") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Recurring commands - retrieve results
 	time.Sleep(time.Duration(httpd.HandlerCollection["/recurring_cmds"].(*handler.HandleRecurringCommands).RecurringCommands["channel2"].IntervalSec+1) * time.Second) // give timer commands a moment to trigger
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/recurring_cmds?retrieve=channel2")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/recurring_cmds?retrieve=channel2")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "channel2") {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Proxy (visit https://github.com)
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/proxy?u=https%%3A%%2F%%2Fgithub.com")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/proxy?u=https%%3A%%2F%%2Fgithub.com")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "github") || !strings.Contains(string(resp.Body), "laitos_rewrite_url") {
 		t.Fatal(err, resp.StatusCode, string(resp.Body))
 	}
 
 	// TTN HTTP hook (payload is 10 empty bytes + letters "ABC")
 	ttnUplinkPayload := base64.StdEncoding.EncodeToString([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 66, 67})
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(fmt.Sprintf(`{"app_id": "test_app", "dev_id": "test_dev", "hardware_serial": "ttn-tx", "payload_raw": "%s"}`, ttnUplinkPayload)),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTheThingsNetworkHTTPIntegration{}))
@@ -434,7 +434,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	}
 
 	// Twilio - exchange SMS with bad PIN
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Body": {"incorrect PIN"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
@@ -442,7 +442,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - exchange SMS, the extra spaces around prefix and PIN do not matter.
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
@@ -450,7 +450,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - prevent SMS spam according to incoming phone number
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body: strings.NewReader(url.Values{
 			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
@@ -460,7 +460,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `01234567890123456789012345678901234`) {
 		t.Fatal(err, resp)
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body: strings.NewReader(url.Values{
 			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
@@ -471,19 +471,19 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, resp, string(resp.Body))
 	}
 	// Twilio - check phone call greeting
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/call_greeting")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/call_greeting")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>Hi there</Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - prevent call spam according to incoming phone number
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"From": {"call number"}}.Encode()),
 	}, addr+"/call_greeting")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>Hi there</Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"From": {"call number"}}.Encode()),
 	}, addr+"/call_greeting")
@@ -491,7 +491,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Twilio - check phone call response to DTMF
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"Digits": {"0000000"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
@@ -502,7 +502,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	dtmfVerySecretDotSTrue := "88833777999777733222777338014207777087778833"
 	if !misc.HostIsWindows() {
 		// Twilio - check command execution result via phone call
-		resp, err = inet.DoHTTP(inet.HTTPRequest{
+		resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 			Method: http.MethodPost,
 			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>EMPTY OUTPUT.
@@ -519,7 +519,7 @@ over.
 			t.Fatal(err, string(resp.Body))
 		}
 		// Twilio - check command execution result via phone call and ask output to be spelt phonetically
-		resp, err = inet.DoHTTP(inet.HTTPRequest{
+		resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 			Method: http.MethodPost,
 			Body:   strings.NewReader(url.Values{"Digits": {handler.TwilioPhoneticSpellingMagic + dtmfVerySecretDotSTrue}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 		phoneticOutput := `capital echo, capital mike, capital papa, capital tango, capital yankee, space, capital oscar, capital uniform, capital tango, capital papa, capital uniform, capital tango.
@@ -537,7 +537,7 @@ over.`
 			t.Fatal(err, string(resp.Body))
 		}
 		// Twilio - prevent DTMF command spam according to incoming phone number
-		resp, err = inet.DoHTTP(inet.HTTPRequest{
+		resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 			Method: http.MethodPost,
 			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>EMPTY OUTPUT.
@@ -553,7 +553,7 @@ over.
 </Say>`) {
 			t.Fatal(err, string(resp.Body))
 		}
-		resp, err = inet.DoHTTP(inet.HTTPRequest{
+		resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 			Method: http.MethodPost,
 			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>You are rate limited.</Say><Hangup/>`) {
@@ -563,7 +563,7 @@ over.
 
 	// Wait for phone number rate limit to expire for SMS, call, and DTMF command, then redo the tests
 	time.Sleep((handler.TwilioPhoneNumberRateLimitIntervalSec + 1) * time.Second)
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body: strings.NewReader(url.Values{
 			"Body": {"verysecret .s echo 0123456789012345678901234567890123456789"},
@@ -573,7 +573,7 @@ over.
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `01234567890123456789012345678901234`) {
 		t.Fatal(err, resp)
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"From": {"call number"}}.Encode()),
 	}, addr+"/call_greeting")
@@ -581,7 +581,7 @@ over.
 		t.Fatal(err, string(resp.Body))
 	}
 	if !misc.HostIsWindows() {
-		resp, err = inet.DoHTTP(inet.HTTPRequest{
+		resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 			Method: http.MethodPost,
 			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))
 		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>EMPTY OUTPUT.
@@ -600,7 +600,7 @@ over.
 	}
 
 	// Test app command execution endpoint
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"cmd": {toolbox.TestCommandProcessorPIN + ".s echo hi"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleAppCommand{}))
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "hi" {
@@ -608,15 +608,15 @@ over.
 	}
 
 	// Test reports endpoint
-	httpd.Processor.Features.MessageProcessor.StoreReport(toolbox.SubjectReportRequest{
+	httpd.Processor.Features.MessageProcessor.StoreReport(context.Background(), toolbox.SubjectReportRequest{
 		SubjectHostName: "subject-host-name",
 	}, "client-ip1", "client-daemon1")
-	httpd.Processor.Features.MessageProcessor.StoreReport(toolbox.SubjectReportRequest{
+	httpd.Processor.Features.MessageProcessor.StoreReport(context.Background(), toolbox.SubjectReportRequest{
 		SubjectHostName: "subject-host-name",
 	}, "client-ip2", "client-daemon2")
 	// Retrieve TTN report + two host reports from the latest to oldest
 	var reports []toolbox.SubjectReport
-	resp, err = inet.DoHTTP(inet.HTTPRequest{Method: http.MethodPost}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{Method: http.MethodPost}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -626,7 +626,7 @@ over.
 	if len(reports) != 3 || reports[0].SubjectClientID != "client-ip2" || reports[1].SubjectClientID != "client-ip1" || reports[2].SubjectClientID != "ttn-tx" {
 		t.Fatalf("%+v", reports)
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"n": {"1"}, "host": {"subject-host-name"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
@@ -640,7 +640,7 @@ over.
 		t.Fatalf("%+v", reports)
 	}
 	// Assign subject a command to run
-	resp, err = inet.DoHTTP(inet.HTTPRequest{
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(url.Values{"tohost": {"subject-host-name"}, "cmd": {"test123"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
@@ -682,34 +682,34 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 	addr := fmt.Sprintf("http://%s:%d", httpd.Address, httpd.Port)
 
 	// Directory handle
-	resp, err := inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir")
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
 <a href="a.html">a.html</a>
 </pre>
 ` {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir/a.html")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir/a.html")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/dir")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/dir")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
 <a href="a.html">a.html</a>
 </pre>
 ` {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/dir/a.html")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/dir/a.html")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Non-existent path in directory
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir/doesnotexist.html")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir/doesnotexist.html")
 	if err != nil || resp.StatusCode != http.StatusNotFound {
 		t.Fatal(err, string(resp.Body), resp)
 	}
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/doesnotexist")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/doesnotexist")
 	// Non-existent path, but go is quite stupid that it produces response of /
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body), resp)
@@ -718,7 +718,7 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 	time.Sleep(RateLimitIntervalSec * time.Second)
 	success := 0
 	for i := 0; i < httpd.PerIPLimit*DirectoryHandlerRateLimitFactor*2; i++ {
-		resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir/a.html")
+		resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir/a.html")
 		if err == nil && resp.StatusCode == http.StatusOK {
 			success++
 		}
@@ -729,7 +729,7 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 	// Wait out rate limit (leave 3 seconds buffer for pending requests to complete)
 	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
 	// Visit page again after rate limit resets
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, addr+"/my/dir")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
 <a href="a.html">a.html</a>
 </pre>

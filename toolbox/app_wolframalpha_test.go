@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -36,17 +37,17 @@ func TestWolframAlpha_Execute(t *testing.T) {
 	if err := TestWolframAlpha.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if ret := TestWolframAlpha.Execute(Command{TimeoutSec: 30, Content: "  "}); ret.Error == nil || ret.Error != ErrEmptyCommand {
+	if ret := TestWolframAlpha.Execute(context.Background(), Command{TimeoutSec: 30, Content: "  "}); ret.Error == nil || ret.Error != ErrEmptyCommand {
 		t.Fatal(ret)
 	}
-	if ret := TestWolframAlpha.Execute(Command{TimeoutSec: 30, Content: "pi"}); ret.Error != nil || len(ret.ResetCombinedText()) < 100 {
+	if ret := TestWolframAlpha.Execute(context.Background(), Command{TimeoutSec: 30, Content: "pi"}); ret.Error != nil || len(ret.ResetCombinedText()) < 100 {
 		t.Fatal(ret.Error, ret.ResetCombinedText())
 	} else {
 		t.Log(ret.CombinedOutput)
 	}
 	// The timeout must be strictly obeyed
 	start := time.Now().Unix()
-	if ret := TestWolframAlpha.Execute(Command{TimeoutSec: 5, Content: "weather in Helsinki"}); ret.Error != nil || len(ret.ResetCombinedText()) < 5 {
+	if ret := TestWolframAlpha.Execute(context.Background(), Command{TimeoutSec: 5, Content: "weather in Helsinki"}); ret.Error != nil || len(ret.ResetCombinedText()) < 5 {
 		t.Fatal(ret.Error, ret.ResetCombinedText())
 	} else {
 		t.Log(ret.CombinedOutput)

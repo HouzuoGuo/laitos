@@ -10,7 +10,9 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
 func NewS3Client() (*S3Client, error) {
@@ -24,9 +26,11 @@ func NewS3Client() (*S3Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	s3Inst := s3.New(apiSession)
+	xray.AWS(s3Inst.Client)
 	return &S3Client{
 		apiSession: apiSession,
-		uploader:   s3manager.NewUploader(apiSession),
+		uploader:   s3manager.NewUploaderWithClient(s3Inst),
 		logger:     logger,
 	}, nil
 }

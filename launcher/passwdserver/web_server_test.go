@@ -1,6 +1,7 @@
 package passwdserver
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -36,19 +37,19 @@ func TestWebServer(t *testing.T) {
 	}()
 	// Expect server to start within a second
 	time.Sleep(1 * time.Second)
-	resp, err := inet.DoHTTP(inet.HTTPRequest{}, "http://localhost:54396")
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, "http://localhost:54396")
 	// Access any URL but the correct URL will return empty body
 	if err != nil || string(resp.Body) != "" {
 		t.Fatal(err, string(resp.Body))
 	}
 	// Access the correct URL for password unlock page
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, "http://localhost:54396/test-url")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, "http://localhost:54396/test-url")
 	if err != nil || !strings.Contains(string(resp.Body), "Clock") || !strings.Contains(string(resp.Body), "Enter password") {
 		t.Fatal(string(resp.Body))
 	}
 	// Pretend that unlock attempt has been made successfully, the client shall get an OK prompt upon next visit.
 	ws.alreadyUnlocked = true
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, "http://localhost:54396/test-url")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, "http://localhost:54396/test-url")
 	if err != nil || string(resp.Body) != "OK" {
 		t.Fatal(string(resp.Body))
 	}

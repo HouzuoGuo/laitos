@@ -1,6 +1,7 @@
 package httpd
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -38,7 +39,7 @@ func TestHTTPD_WithURLPrefix(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	// Test directory listing route
 	serverURLPrefix := fmt.Sprintf("http://localhost:%d/test-prefix/abc", daemon.Port)
-	resp, err := inet.DoHTTP(inet.HTTPRequest{}, serverURLPrefix+"/my/dir")
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, serverURLPrefix+"/my/dir")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
 <a href="a.html">a.html</a>
 </pre>
@@ -46,12 +47,12 @@ func TestHTTPD_WithURLPrefix(t *testing.T) {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Test file route
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, serverURLPrefix+"/")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, serverURLPrefix+"/")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "this is index") {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	// Test info handler function route
-	resp, err = inet.DoHTTP(inet.HTTPRequest{}, serverURLPrefix+"/info")
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, serverURLPrefix+"/info")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "Stack traces:") {
 		t.Fatal(err, string(resp.Body), resp)
 	}

@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -58,7 +59,7 @@ func (email *SendMail) Trigger() Trigger {
 	return ".m"
 }
 
-func (email *SendMail) Execute(cmd Command) *Result {
+func (email *SendMail) Execute(ctx context.Context, cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}

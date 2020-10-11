@@ -3,6 +3,7 @@ package toolbox
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -443,7 +444,7 @@ func (imap *IMAPAccounts) ReadMessage(cmd Command) *Result {
 	}
 }
 
-func (imap *IMAPAccounts) Execute(cmd Command) (ret *Result) {
+func (imap *IMAPAccounts) Execute(ctx context.Context, cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}

@@ -28,12 +28,19 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/hzgl"
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/lambda"
 	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
+	"github.com/aws/aws-xray-sdk-go/awsplugins/beanstalk"
+	"github.com/aws/aws-xray-sdk-go/awsplugins/ec2"
+	"github.com/aws/aws-xray-sdk-go/awsplugins/ecs"
+	"github.com/aws/aws-xray-sdk-go/strategy/ctxmissing"
+	"github.com/aws/aws-xray-sdk-go/xray"
+	"github.com/aws/aws-xray-sdk-go/xraylog"
 )
 
 const (
@@ -196,6 +203,7 @@ func main() {
 		// Unfortunately without encrypting program config file it is impossible to set LAITOS_HTTP_URL_ROUTE_PREFIX
 		handler := &lambda.Handler{}
 		go handler.StartAndBlock()
+		// Proceed to launch the daemons, including the HTTP web server that lambda handler forwards incoming requess to.
 	}
 
 	// ========================================================================
@@ -297,10 +305,20 @@ func main() {
 		supervisor.Start()
 		return
 	}
+	// From this point and onward, the code enjoys the supervision and safety provided by the supervisor.
+	if misc.EnableAWSIntegration && inet.IsAWS() {
+		os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
+		beanstalk.Init()
+		ecs.Init()
+		ec2.Init()
+		_ = xray.Configure(xray.Config{ContextMissingStrategy: ctxmissing.NewDefaultLogErrorStrategy()})
+		xray.SetLogger(xraylog.NewDefaultLogger(os.Stderr, xraylog.LogLevelWarn))
+	}
 
 	// ========================================================================
 	// Daemon routine - launch all daemons at once.
 	// ========================================================================
+
 	// Prepare environmental changes
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)

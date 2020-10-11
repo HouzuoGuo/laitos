@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -89,7 +90,7 @@ func (cmds *RecurringCommands) runAllCommands() {
 	if cmds.PreConfiguredCommands != nil {
 		for _, cmd := range cmds.PreConfiguredCommands {
 			// Skip result filters that may send notifications or manipulate result in other means
-			cmds.results.Push(cmds.CommandProcessor.Process(toolbox.Command{
+			cmds.results.Push(cmds.CommandProcessor.Process(context.TODO(), toolbox.Command{
 				DaemonName: "RecurringCommands",
 				TimeoutSec: TimerCommandTimeoutSec,
 				Content:    cmd,
@@ -104,7 +105,7 @@ func (cmds *RecurringCommands) runAllCommands() {
 	// Run transient commands one after another
 	for _, cmd := range transientCommands {
 		// Skip result filters that may send notifications or manipulate result in other means
-		cmds.results.Push(cmds.CommandProcessor.Process(toolbox.Command{
+		cmds.results.Push(cmds.CommandProcessor.Process(context.TODO(), toolbox.Command{
 			DaemonName: "RecurringCommands",
 			TimeoutSec: TimerCommandTimeoutSec,
 			Content:    cmd,

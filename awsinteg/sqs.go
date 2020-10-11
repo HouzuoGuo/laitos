@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
 func NewSQSClient() (*SQSClient, error) {
@@ -23,9 +24,11 @@ func NewSQSClient() (*SQSClient, error) {
 	if err != nil {
 		return nil, err
 	}
+	sqsInst := sqs.New(apiSession)
+	xray.AWS(sqsInst.Client)
 	return &SQSClient{
 		apiSession: apiSession,
-		client:     sqs.New(apiSession),
+		client:     sqsInst,
 		logger:     logger,
 	}, nil
 }

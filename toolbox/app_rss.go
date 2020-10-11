@@ -2,6 +2,7 @@ package toolbox
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -48,7 +49,7 @@ func (rss *RSS) IsConfigured() bool {
 
 func (rss *RSS) SelfTest() error {
 	// Let user know the malfunctioned URLS
-	_, err := DownloadRSSFeeds(RSSDownloadTimeoutSec, rss.Sources...)
+	_, err := DownloadRSSFeeds(context.Background(), RSSDownloadTimeoutSec, rss.Sources...)
 	if err != nil {
 		return fmt.Errorf("RSS.SelfTest: failed to download feeds - %v", err)
 	}
@@ -68,7 +69,7 @@ func (rss *RSS) Trigger() Trigger {
 	return ".r"
 }
 
-func (rss *RSS) Execute(cmd Command) *Result {
+func (rss *RSS) Execute(ctx context.Context, cmd Command) *Result {
 	// Input command looks like: skip# count#, find the two numeric parameters among the content
 	var skip, count int
 	params := RegexTwoNumbers.FindStringSubmatch(cmd.Content)
@@ -87,7 +88,7 @@ func (rss *RSS) Execute(cmd Command) *Result {
 	if count == 0 {
 		count = 10
 	}
-	sortedItems, _ := DownloadRSSFeeds(cmd.TimeoutSec, rss.Sources...)
+	sortedItems, _ := DownloadRSSFeeds(ctx, cmd.TimeoutSec, rss.Sources...)
 	if len(sortedItems) == 0 {
 		return &Result{Error: errors.New("all RSS sources failed to respond or gave no response")}
 	}
@@ -179,7 +180,7 @@ func DeserialiseRSSItems(input []byte) (items []RSSItem, err error) {
 }
 
 // DownloadRSSFeeds downloads RSS feed items from multiple URLs, then orders them from latest to oldest.
-func DownloadRSSFeeds(timeoutSec int, xmlURLs ...string) (items []RSSItem, err error) {
+func DownloadRSSFeeds(ctx context.Context, timeoutSec int, xmlURLs ...string) (items []RSSItem, err error) {
 	// Memorise errors for each URL
 	errs := make(map[string]error)
 	items = make([]RSSItem, 0, 10)
@@ -191,7 +192,7 @@ func DownloadRSSFeeds(timeoutSec int, xmlURLs ...string) (items []RSSItem, err e
 		go func(aURL string) {
 			defer wait.Done()
 			// Download feeds XML and deserialise
-			resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: timeoutSec}, strings.Replace(aURL, "%", "%%", -1))
+			resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{TimeoutSec: timeoutSec}, strings.Replace(aURL, "%", "%%", -1))
 			resultMutex.Lock()
 			defer resultMutex.Unlock()
 			if err == nil {

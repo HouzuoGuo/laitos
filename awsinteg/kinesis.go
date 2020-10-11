@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/firehose"
+	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
 func NewKinesisHoseClient() (*KinesisHoseClient, error) {
@@ -23,11 +24,12 @@ func NewKinesisHoseClient() (*KinesisHoseClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	firehose.New(apiSession)
+	firehoseInst := firehose.New(apiSession)
+	xray.AWS(firehoseInst.Client)
 	return &KinesisHoseClient{
 		apiSession: apiSession,
 		logger:     logger,
-		client:     firehose.New(apiSession),
+		client:     firehoseInst,
 	}, nil
 }
 

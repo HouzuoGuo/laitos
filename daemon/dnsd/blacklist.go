@@ -1,6 +1,7 @@
 package dnsd
 
 import (
+	"context"
 	"strings"
 	"sync"
 
@@ -83,7 +84,7 @@ func DownloadAllBlacklists(logger lalog.Logger) []string {
 	lists := make([][]string, len(HostsFileURLs))
 	for i, url := range HostsFileURLs {
 		go func(i int, url string) {
-			resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: BlackListDownloadTimeoutSec}, url)
+			resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{TimeoutSec: BlackListDownloadTimeoutSec}, url)
 			if err == nil {
 				names := ExtractNamesFromHostsContent(string(resp.Body))
 				logger.Info("DownloadAllBlacklists", url, err, "downloaded %d names, please obey the license in which the list author publishes the data.", len(names))

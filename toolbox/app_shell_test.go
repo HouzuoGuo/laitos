@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -26,7 +27,7 @@ func TestShell_WindowsExecute(t *testing.T) {
 	}
 
 	// Execute empty command
-	ret := sh.Execute(Command{TimeoutSec: 1, Content: "      "})
+	ret := sh.Execute(context.Background(), Command{TimeoutSec: 1, Content: "      "})
 	if ret.Error != ErrEmptyCommand ||
 		ret.ErrText() != ErrEmptyCommand.Error() ||
 		ret.Output != "" ||
@@ -35,7 +36,7 @@ func TestShell_WindowsExecute(t *testing.T) {
 	}
 
 	// Execute a successful command
-	ret = sh.Execute(Command{TimeoutSec: 3, Content: `echo '"abc"'`})
+	ret = sh.Execute(context.Background(), Command{TimeoutSec: 3, Content: `echo '"abc"'`})
 	if ret.Error != nil ||
 		ret.ErrText() != "" ||
 		strings.TrimSpace(ret.Output) != `"abc"` ||
@@ -44,7 +45,7 @@ func TestShell_WindowsExecute(t *testing.T) {
 	}
 
 	// Execute a failing command
-	ret = sh.Execute(Command{TimeoutSec: 3, Content: `does-not-exist`})
+	ret = sh.Execute(context.Background(), Command{TimeoutSec: 3, Content: `does-not-exist`})
 	if ret.Error == nil ||
 		ret.ErrText() != "exit status 1" ||
 		!strings.Contains(ret.Output, "CommandNotFoundException") ||
@@ -69,7 +70,7 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 	}
 
 	// Execute empty command
-	ret := sh.Execute(Command{TimeoutSec: 1, Content: "      "})
+	ret := sh.Execute(context.Background(), Command{TimeoutSec: 1, Content: "      "})
 	if ret.Error != ErrEmptyCommand ||
 		ret.ErrText() != ErrEmptyCommand.Error() ||
 		ret.Output != "" ||
@@ -78,7 +79,7 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 	}
 
 	// Execute a successful command
-	ret = sh.Execute(Command{TimeoutSec: 1, Content: `echo -n '"abc"' > /proc/self/fd/2`})
+	ret = sh.Execute(context.Background(), Command{TimeoutSec: 1, Content: `echo -n '"abc"' > /proc/self/fd/2`})
 	if ret.Error != nil ||
 		ret.ErrText() != "" ||
 		ret.Output != `"abc"` ||
@@ -87,7 +88,7 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 	}
 
 	// Execute a failing command
-	ret = sh.Execute(Command{TimeoutSec: 1, Content: `echo -e 'a\nb' && false # this is a comment`})
+	ret = sh.Execute(context.Background(), Command{TimeoutSec: 1, Content: `echo -e 'a\nb' && false # this is a comment`})
 	if ret.Error == nil ||
 		ret.ErrText() != "exit status 1" ||
 		ret.Output != "a\nb\n" ||
@@ -102,7 +103,7 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 	}
 	defer os.Remove(tmpFile.Name())
 	start := time.Now().Unix()
-	ret = sh.Execute(Command{TimeoutSec: 2, Content: `echo -n abc && sleep 5 && rm ` + tmpFile.Name()})
+	ret = sh.Execute(context.Background(), Command{TimeoutSec: 2, Content: `echo -n abc && sleep 5 && rm ` + tmpFile.Name()})
 	if !strings.Contains(ret.Error.Error(), "time limit") ||
 		ret.Output != "abc" ||
 		!strings.Contains(ret.ResetCombinedText(), "time limit") || !strings.Contains(ret.ResetCombinedText(), CombinedTextSeparator+"abc") {

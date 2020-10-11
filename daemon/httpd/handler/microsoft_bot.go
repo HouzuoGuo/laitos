@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -72,7 +73,7 @@ func (hand *HandleMicrosoftBot) Initialise(logger lalog.Logger, cmdProc *toolbox
 }
 
 // RetrieveJWT asks Microsoft for a new JWT for bot API calls.
-func (hand *HandleMicrosoftBot) RetrieveJWT() (MicrosoftBotJwt, error) {
+func (hand *HandleMicrosoftBot) RetrieveJWT(ctx context.Context) (MicrosoftBotJwt, error) {
 	hand.latestJwtMutex.Lock()
 	defer hand.latestJwtMutex.Unlock()
 	if hand.latestJWT.AccessToken != "" && time.Now().Before(hand.latestJWT.ExpiresAt) {
@@ -80,7 +81,7 @@ func (hand *HandleMicrosoftBot) RetrieveJWT() (MicrosoftBotJwt, error) {
 	}
 
 	hand.logger.Info("HandleMicrosoftBot.RetrieveJWT", "", nil, "attempting to renew JWT")
-	httpResp, err := inet.DoHTTP(inet.HTTPRequest{
+	httpResp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
 		Method:      http.MethodPost,
 		ContentType: "application/x-www-form-urlencoded",
 		TimeoutSec:  MicrosoftBotAPITimeoutSec,
@@ -157,7 +158,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// In the background, process the chat message and formulate a response.
-	go func() {
+	go func(r *http.Request) {
 		convID := incoming.Conversation.ID
 		if convID == "" {
 			hand.logger.Warning("HandleMicrosoftBot", "", nil, "ignore conversation with empty ID")
@@ -174,7 +175,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		latestJWT, err := hand.RetrieveJWT()
+		latestJWT, err := hand.RetrieveJWT(r.Context())
 		if err != nil {
 			hand.logger.Warning("HandleMicrosoftBot", incoming.Conversation.ID, err, "cannot reply due to JWT retrieval error")
 			return
@@ -192,7 +193,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Process feature command from incoming chat text
-		result := hand.cmdProc.Process(toolbox.Command{
+		result := hand.cmdProc.Process(r.Context(), toolbox.Command{
 			DaemonName: "httpd",
 			ClientID:   convID,
 			TimeoutSec: MicrosoftBotCommandTimeoutSec,
@@ -214,7 +215,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Send away the reply
-		resp, err := inet.DoHTTP(inet.HTTPRequest{
+		resp, err := inet.DoHTTP(r.Context(), inet.HTTPRequest{
 			Method:      http.MethodPost,
 			ContentType: "application/json",
 			TimeoutSec:  MicrosoftBotAPITimeoutSec,
@@ -229,7 +230,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 			hand.logger.Warning("HandleMicrosoftBot", "", err, "failed to send chat reply due to HTTP error")
 			return
 		}
-	}()
+	}(r)
 }
 
 func (hand *HandleMicrosoftBot) GetRateLimitFactor() int {
@@ -237,7 +238,7 @@ func (hand *HandleMicrosoftBot) GetRateLimitFactor() int {
 }
 
 func (hand *HandleMicrosoftBot) SelfTest() error {
-	if _, err := hand.RetrieveJWT(); err != nil {
+	if _, err := hand.RetrieveJWT(context.Background()); err != nil {
 		return fmt.Errorf("HandleMicrosoftBot encountered error: %v", err)
 	}
 	return nil

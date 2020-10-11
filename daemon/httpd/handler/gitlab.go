@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -66,7 +67,7 @@ type GitlabTreeObject struct {
 Call gitlab API to find out what directories and files are located under that path.
 Directory names come with suffix forward-slash.
 */
-func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string, maxEntries int) (dirs []string, fileNameID map[string]string, err error) {
+func (lab *HandleGitlabBrowser) ListGitObjects(ctx context.Context, projectID string, paths string, maxEntries int) (dirs []string, fileNameID map[string]string, err error) {
 	/*
 		If there is a leading slash when browsing a directory, the result will definitely be empty. The user most likely
 		wants to browse the directory's file list, therefore get rid of the leading slash.
@@ -77,7 +78,7 @@ func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string, m
 	}
 	dirs = make([]string, 0, 8)
 	fileNameID = make(map[string]string)
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
 	}, "https://gitlab.com/api/v4/projects/%s/repository/tree?ref=master&recursive=false&per_page=%s&path=%s", projectID, maxEntries, paths)
@@ -102,9 +103,9 @@ func (lab *HandleGitlabBrowser) ListGitObjects(projectID string, paths string, m
 }
 
 // Call gitlab API to download a file form git project.
-func (lab *HandleGitlabBrowser) DownloadGitBlob(clientIP, projectID string, paths string, fileName string) (content []byte, err error) {
+func (lab *HandleGitlabBrowser) DownloadGitBlob(ctx context.Context, clientIP, projectID string, paths string, fileName string) (content []byte, err error) {
 	// Download blob up to 256MB in size
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
 		Header:     map[string][]string{"PRIVATE-TOKEN": {lab.PrivateToken}},
 		TimeoutSec: GitlabAPITimeoutSec,
 		MaxBytes:   256 * 1048576,
@@ -140,7 +141,7 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 			return
 		}
-		dirs, fileNames, err := lab.ListGitObjects(projectID, browsePath, GitlabMaxObjects)
+		dirs, fileNames, err := lab.ListGitObjects(r.Context(), projectID, browsePath, GitlabMaxObjects)
 		if err != nil {
 			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Error: "+err.Error())))
 			return
@@ -165,7 +166,7 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 			return
 		}
-		content, err := lab.DownloadGitBlob(GetRealClientIP(r), projectID, browsePath, fileName)
+		content, err := lab.DownloadGitBlob(r.Context(), GetRealClientIP(r), projectID, browsePath, fileName)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/html")
 			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Error: "+err.Error())))
@@ -187,7 +188,7 @@ func (_ *HandleGitlabBrowser) GetRateLimitFactor() int {
 func (lab *HandleGitlabBrowser) SelfTest() error {
 	errs := make([]error, 0)
 	for shortcut, projectID := range lab.Projects {
-		if _, _, err := lab.ListGitObjects(projectID, "/", 3); err != nil {
+		if _, _, err := lab.ListGitObjects(context.Background(), projectID, "/", 3); err != nil {
 			errs = append(errs, fmt.Errorf("project %s(%s) - %v", shortcut, projectID, err))
 		}
 	}

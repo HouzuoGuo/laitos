@@ -8,6 +8,7 @@ package plainsocket
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -101,7 +102,7 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 			continue
 		}
 		// Process line of command and respond
-		result := daemon.Processor.Process(toolbox.Command{
+		result := daemon.Processor.Process(context.TODO(), toolbox.Command{
 			DaemonName: "plainsocket",
 			ClientID:   ip,
 			Content:    string(line),
@@ -149,7 +150,7 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 			continue
 		}
 		// Process line of command and respond
-		result := daemon.Processor.Process(toolbox.Command{
+		result := daemon.Processor.Process(context.TODO(), toolbox.Command{
 			DaemonName: "plainsocket",
 			ClientID:   ip,
 			Content:    string(line),

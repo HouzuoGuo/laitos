@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -48,19 +49,19 @@ func TestTwoFACodeGenerator_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Bad parameter
-	if ret := codegen.Execute(Command{TimeoutSec: 10, Content: "haha"}); ret.Error != ErrBadTwoFAParam {
+	if ret := codegen.Execute(context.Background(), Command{TimeoutSec: 10, Content: "haha"}); ret.Error != ErrBadTwoFAParam {
 		t.Fatal("did not error")
 	}
 	// Specify non-existent account
-	if ret := codegen.Execute(Command{TimeoutSec: 10, Content: "5512 does not exist"}); !strings.HasPrefix(ret.Error.Error(), "Cannot find the account") {
+	if ret := codegen.Execute(context.Background(), Command{TimeoutSec: 10, Content: "5512 does not exist"}); !strings.HasPrefix(ret.Error.Error(), "Cannot find the account") {
 		t.Fatal(ret)
 	}
 	// Specify bad key
-	if ret := codegen.Execute(Command{TimeoutSec: 10, Content: "beef test"}); !strings.HasPrefix(ret.Error.Error(), "Cannot find the account") {
+	if ret := codegen.Execute(context.Background(), Command{TimeoutSec: 10, Content: "beef test"}); !strings.HasPrefix(ret.Error.Error(), "Cannot find the account") {
 		t.Fatal(ret)
 	}
 	// Get codes using good parameters
-	if ret := codegen.Execute(Command{TimeoutSec: 10, Content: "5512 test acc"}); ret.Error != nil || !strings.HasPrefix(ret.Output, "test account: ") {
+	if ret := codegen.Execute(context.Background(), Command{TimeoutSec: 10, Content: "5512 test acc"}); ret.Error != nil || !strings.HasPrefix(ret.Output, "test account: ") {
 		t.Fatal(ret)
 	}
 }

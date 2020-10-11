@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -20,10 +21,10 @@ func TestSendMail_Execute(t *testing.T) {
 	if err := TestSendMail.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if ret := TestSendMail.Execute(Command{TimeoutSec: 10, Content: "wrong"}); ret.Error != ErrBadSendMailParam {
+	if ret := TestSendMail.Execute(context.Background(), Command{TimeoutSec: 10, Content: "wrong"}); ret.Error != ErrBadSendMailParam {
 		t.Fatal(ret)
 	}
-	if ret := TestSendMail.Execute(Command{TimeoutSec: 10, Content: `guohouzuo@gmail.com "laitos send mail test" this is laitos send mail test`}); ret.Error != nil || ret.Output != "29" {
+	if ret := TestSendMail.Execute(context.Background(), Command{TimeoutSec: 10, Content: `guohouzuo@gmail.com "laitos send mail test" this is laitos send mail test`}); ret.Error != nil || ret.Output != "29" {
 		t.Fatal(ret)
 	}
 }
@@ -58,7 +59,7 @@ func TestSendMail_SendSOS(t *testing.T) {
 		},
 	}
 
-	result := sendMail.Execute(Command{TimeoutSec: 10, Content: `sos@sos "laitos software test email title" laitos software test email body`})
+	result := sendMail.Execute(context.Background(), Command{TimeoutSec: 10, Content: `sos@sos "laitos software test email title" laitos software test email body`})
 	if result.Error != nil || result.Output != "Sending SOS" || result.ErrText() != "" {
 		t.Fatal(result.Error, result.Output, result.ErrText())
 	}

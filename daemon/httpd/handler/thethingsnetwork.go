@@ -169,7 +169,7 @@ Received by %d gateways, first gateway (ID %s) is located at %f, %f (%fm), RSSI 
 		// There is an app command carried in the payload, ask store&forward message processor to execute it.
 		report.CommandRequest.Command = strings.TrimSpace(string(bytes.TrimLeft(bytes.TrimRight(payloadBytes[10:], "\x00"), "\x00")))
 	}
-	cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(report, msg.DeviceEUISerial, "httpd")
+	cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, msg.DeviceEUISerial, "httpd")
 	/*
 		Assume that LoRAWAN transmitter operates at SF8/125kHz (or better), at which the maximum payload size is 133 bytes across all regions.
 		Among the payload, TTN uses "at least 13 bytes" for its own overhead.
@@ -185,7 +185,7 @@ Received by %d gateways, first gateway (ID %s) is located at %f, %f (%fm), RSSI 
 	}
 	// Reply with app command execution result
 	if len(report.CommandRequest.Command) > 10 {
-		downlinkResp, err := inet.DoHTTP(inet.HTTPRequest{
+		downlinkResp, err := inet.DoHTTP(r.Context(), inet.HTTPRequest{
 			Method:      http.MethodPost,
 			ContentType: "application/json",
 			Body: strings.NewReader(DownlinkMessage{

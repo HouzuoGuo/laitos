@@ -1,6 +1,7 @@
 package dnsd
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"testing"
@@ -22,13 +23,13 @@ func TestLatestCommands(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		go func() {
 			// Execute the same command in short succession should result in the same output
-			result := rec.Execute(testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; date")
+			result := rec.Execute(context.Background(), testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; date")
 			oldResult = result // data race is OK
 			if result == nil || result.CombinedOutput == "" {
 				panic(result)
 			}
 			for i := 0; i < 3; i++ {
-				moreResult := rec.Execute(testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; date")
+				moreResult := rec.Execute(context.Background(), testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; date")
 				if moreResult == nil || moreResult.CombinedOutput != result.CombinedOutput {
 					panic(moreResult)
 				}
@@ -38,7 +39,7 @@ func TestLatestCommands(t *testing.T) {
 		}()
 	}
 	go func() {
-		result := rec.Execute(testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; echo hi")
+		result := rec.Execute(context.Background(), testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; echo hi")
 		if result == nil || strings.TrimSpace(result.CombinedOutput) != "hi" {
 			panic(result)
 		}
@@ -55,7 +56,7 @@ func TestLatestCommands(t *testing.T) {
 
 	// Wait until TTL expires, date command must not return the same content.
 	time.Sleep((TextCommandReplyTTL + 1) * time.Second)
-	result := rec.Execute(testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; date")
+	result := rec.Execute(context.Background(), testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; date")
 	if result == nil || result.CombinedOutput == "" || result.CombinedOutput == oldResult.CombinedOutput {
 		t.Fatal(result)
 	}

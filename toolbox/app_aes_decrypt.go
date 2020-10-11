@@ -2,6 +2,7 @@ package toolbox
 
 import (
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/hex"
@@ -109,7 +110,7 @@ func (crypt *AESDecrypt) Trigger() Trigger {
 	return AESDecryptTrigger
 }
 
-func (crypt *AESDecrypt) Execute(cmd Command) (ret *Result) {
+func (crypt *AESDecrypt) Execute(ctx context.Context, cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}

@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -42,7 +43,7 @@ func (sh *Shell) Trigger() Trigger {
 	return ".s"
 }
 
-func (sh *Shell) Execute(cmd Command) *Result {
+func (sh *Shell) Execute(ctx context.Context, cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}

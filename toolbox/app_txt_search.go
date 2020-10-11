@@ -3,6 +3,7 @@ package toolbox
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -49,7 +50,7 @@ func (txt *TextSearch) Trigger() Trigger {
 	return TextSearchTrigger
 }
 
-func (txt *TextSearch) Execute(cmd Command) (ret *Result) {
+func (txt *TextSearch) Execute(ctx context.Context, cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}

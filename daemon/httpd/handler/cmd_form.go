@@ -51,7 +51,7 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 		if cmd := r.FormValue("cmd"); cmd == "" {
 			_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
 		} else {
-			result := form.cmdProc.Process(toolbox.Command{
+			result := form.cmdProc.Process(r.Context(), toolbox.Command{
 				DaemonName: "httpd",
 				ClientID:   GetRealClientIP(r),
 				Content:    cmd,

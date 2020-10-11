@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -59,7 +60,7 @@ func (bro *BrowserSlimerJS) Trigger() Trigger {
 	return ".bs"
 }
 
-func (bro *BrowserSlimerJS) Execute(cmd Command) (ret *Result) {
+func (bro *BrowserSlimerJS) Execute(ctx context.Context, cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}

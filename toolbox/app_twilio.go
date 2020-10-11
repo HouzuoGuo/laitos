@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -40,7 +41,7 @@ func (twi *Twilio) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Validate API credentials with a simple API call
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		TimeoutSec: SelfTestTimeoutSec,
 		RequestFunc: func(req *http.Request) error {
 			req.SetBasicAuth(twi.AccountSID, twi.AuthToken)
@@ -64,7 +65,7 @@ func (twi *Twilio) Trigger() Trigger {
 	return ".p"
 }
 
-func (twi *Twilio) Execute(cmd Command) (ret *Result) {
+func (twi *Twilio) Execute(ctx context.Context, cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}
@@ -100,7 +101,7 @@ repeat again.
 %s.
 over.`, message, message, message))},
 	}
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(formParams.Encode()),
@@ -129,7 +130,7 @@ func (twi *Twilio) SendSMS(cmd Command) *Result {
 		"To":   {toNumber},
 		"Body": {message},
 	}
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		Method:     http.MethodPost,
 		Body:       strings.NewReader(formParams.Encode()),

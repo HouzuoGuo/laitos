@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -25,7 +26,7 @@ type Benchmark struct {
 }
 
 /*
-RunBenchmarkAndProfiler starts benchmark immediately and continually reports progress via logger. The function kicks off
+RunBenchmarkAndProfiler starts benchmark immediately and continuously reports progress via logger. The function kicks off
 more goroutines for benchmarking individual daemons, and therefore does not block caller.
 
 Benchmark cases usually uses randomly generated data and do not expect a normal response. Therefore, they serve well as
@@ -94,7 +95,7 @@ func (bench *Benchmark) reportRatePerSecond(loop func(func()), name string, logg
 	})
 }
 
-// BenchmarkDNSDaemon continually sends DNS queries via both TCP and UDP in a sequential manner.
+// BenchmarkDNSDaemon continuously sends DNS queries via both TCP and UDP in a sequential manner.
 func (bench *Benchmark) BenchmarkDNSDaemon() {
 	var doUDP bool
 
@@ -153,7 +154,7 @@ func (bench *Benchmark) BenchmarkDNSDaemon() {
 	}, "BenchmarkDNSDaemon", bench.Logger)
 }
 
-// BenchmarkHTTPDaemonn continually sends HTTP requests in a sequential manner.
+// BenchmarkHTTPDaemonn continuously sends HTTP requests in a sequential manner.
 func (bench *Benchmark) BenchmarkHTTPDaemon() {
 	allRoutes := make([]string, 0, 32)
 	for installedRoute := range bench.Config.GetHTTPD().AllRateLimits {
@@ -175,12 +176,12 @@ func (bench *Benchmark) BenchmarkHTTPDaemon() {
 				bench.Logger.Panic("BenchmarkHTTPDaemon", "", err, "failed to acquire random bytes")
 				return
 			}
-			_, _ = inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3, Body: bytes.NewReader(buf)}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
+			_, _ = inet.DoHTTP(context.Background(), inet.HTTPRequest{TimeoutSec: 3, Body: bytes.NewReader(buf)}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
 		}
 	}, "BenchmarkHTTPDaemon", bench.Logger)
 }
 
-// BenchmarkHTTPDaemonn continually sends HTTPS requests in a sequential manner.
+// BenchmarkHTTPDaemonn continuously sends HTTPS requests in a sequential manner.
 func (bench *Benchmark) BenchmarkHTTPSDaemon() {
 	allRoutes := make([]string, 0, 32)
 	for installedRoute := range bench.Config.GetHTTPD().AllRateLimits {
@@ -197,13 +198,13 @@ func (bench *Benchmark) BenchmarkHTTPSDaemon() {
 				return
 			}
 			trigger()
-			_, _ = inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
+			_, _ = inet.DoHTTP(context.Background(), inet.HTTPRequest{TimeoutSec: 3}, fmt.Sprintf(urlTemplate, allRoutes[rand.Intn(len(allRoutes))]))
 		}
 	}, "BenchmarkHTTPSDaemon", bench.Logger)
 
 }
 
-// BenchmarkPlainSocketDaemon continually sends toolbox commands via both TCP and UDP in a sequential manner.
+// BenchmarkPlainSocketDaemon continuously sends toolbox commands via both TCP and UDP in a sequential manner.
 func (bench *Benchmark) BenchmarkPlainSocketDaemon() {
 	var doUDP bool
 
@@ -321,7 +322,7 @@ func (bench *Benchmark) BenchmarkSimpleIPSvcDaemon() {
 	}, "BenchmarkSimpleIPSvcDaemon", bench.Logger)
 }
 
-// BenchmarkSMTPDaemon continually sends emails in a sequential manner.
+// BenchmarkSMTPDaemon continuously sends emails in a sequential manner.
 func (bench *Benchmark) BenchmarkSMTPDaemon() {
 	port := bench.Config.GetMailDaemon().Port
 	bench.reportRatePerSecond(func(trigger func()) {
@@ -343,7 +344,7 @@ func (bench *Benchmark) BenchmarkSMTPDaemon() {
 
 }
 
-// BenchmarkSockDaemon continually sends packets via both TCP and UDP in a sequential manner.
+// BenchmarkSockDaemon continuously sends packets via both TCP and UDP in a sequential manner.
 func (bench *Benchmark) BenchmarkSockDaemon() {
 	var doUDP bool
 
@@ -353,7 +354,6 @@ func (bench *Benchmark) BenchmarkSockDaemon() {
 		return
 	}
 	tcpPort := bench.Config.GetSockDaemon().TCPPorts[0]
-
 	rand.Seed(time.Now().UnixNano())
 
 	bench.reportRatePerSecond(func(trigger func()) {

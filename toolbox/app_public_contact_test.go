@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -22,10 +23,10 @@ func TestContactSAR_Execute(t *testing.T) {
 	}
 
 	fullOutput := strings.Join(sar.textRecords, "\n")
-	if ret := sar.Execute(Command{Content: ""}); ret.Output != fullOutput {
+	if ret := sar.Execute(context.Background(), Command{Content: ""}); ret.Output != fullOutput {
 		t.Fatal(ret)
 	}
-	if ret := sar.Execute(Command{Content: "this-does-not-exist"}); ret.Output != fullOutput {
+	if ret := sar.Execute(context.Background(), Command{Content: "this-does-not-exist"}); ret.Output != fullOutput {
 		t.Fatal(ret)
 	}
 
@@ -33,11 +34,11 @@ func TestContactSAR_Execute(t *testing.T) {
 cn mcc +861065293298 cnmcc@mail.eastnet.com.cn
 jp mcc +81335919000 op@kaiho.mlit.go.jp
 `
-	if ret := sar.Execute(Command{Content: "MCC"}); ret.Output != mccOutput {
+	if ret := sar.Execute(context.Background(), Command{Content: "MCC"}); ret.Output != mccOutput {
 		t.Fatal(ret)
 	}
 
-	if ret := sar.Execute(Command{Content: "MCC-and-something-extra"}); ret.Output != mccOutput {
+	if ret := sar.Execute(context.Background(), Command{Content: "MCC-and-something-extra"}); ret.Output != mccOutput {
 		t.Fatal(ret)
 	}
 }

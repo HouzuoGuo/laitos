@@ -1,6 +1,7 @@
 package phonehome
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -132,7 +133,7 @@ func (daemon *Daemon) getTwoFACode(server *MessageProcessorServer) string {
 
 func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostName bool) string {
 	// Ask local message processor for a pending app command request and/or app command response
-	cmdExchange := daemon.LocalMessageProcessor.StoreReport(toolbox.SubjectReportRequest{SubjectHostName: serverHostName}, serverHostName, "phonehome")
+	cmdExchange := daemon.LocalMessageProcessor.StoreReport(context.Background(), toolbox.SubjectReportRequest{SubjectHostName: serverHostName}, serverHostName, "phonehome")
 	// Craft the report for this server
 	hostname, _ := os.Hostname()
 	if shortenMyHostName && len(hostname) > 16 {
@@ -203,7 +204,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			} else if srv.HTTPEndpointURL != "" {
 				// Send the latest report via HTTP client
 				reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, false)
-				resp, err := inet.DoHTTP(inet.HTTPRequest{
+				resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 					TimeoutSec: 15,
 					MaxBytes:   16 * 1024,
 					Method:     http.MethodPost,
@@ -221,7 +222,7 @@ func (daemon *Daemon) StartAndBlock() error {
 				daemon.logger.Info("StartAndBlock", srv.DNSDomainName+srv.HTTPEndpointURL, nil, "failed to deserialise JSON report response - %s", string(reportResponseJSON))
 				continue
 			}
-			daemon.LocalMessageProcessor.StoreReport(toolbox.SubjectReportRequest{
+			daemon.LocalMessageProcessor.StoreReport(context.TODO(), toolbox.SubjectReportRequest{
 				SubjectHostName: srv.HostName,
 				ServerTime:      time.Time{},
 				CommandRequest:  reportResponse.CommandRequest,
@@ -252,7 +253,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 			if muxNumRequests == 0 {
 				// The first request is expected to be a regular report
 				reqCmd := r.FormValue("cmd")
-				result := muxMessageProcessor.Execute(toolbox.Command{
+				result := muxMessageProcessor.Execute(context.Background(), toolbox.Command{
 					Content:    reqCmd[strings.Index(reqCmd, ".0m")+3:],
 					TimeoutSec: 2,
 					ClientID:   r.RemoteAddr,
@@ -293,7 +294,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 			} else if muxNumRequests == 1 {
 				// The second request is a report that carries the app execution result from the app command.
 				reqCmd := r.FormValue("cmd")
-				result := muxMessageProcessor.Execute(toolbox.Command{
+				result := muxMessageProcessor.Execute(context.Background(), toolbox.Command{
 					Content:    reqCmd[strings.Index(reqCmd, ".0m")+3:],
 					TimeoutSec: 2,
 					ClientID:   r.RemoteAddr,

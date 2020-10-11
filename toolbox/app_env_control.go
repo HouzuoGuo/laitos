@@ -2,6 +2,7 @@ package toolbox
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -39,7 +40,7 @@ func (info *EnvControl) Trigger() Trigger {
 	return ".e"
 }
 
-func (info *EnvControl) Execute(cmd Command) *Result {
+func (info *EnvControl) Execute(ctx context.Context, cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}

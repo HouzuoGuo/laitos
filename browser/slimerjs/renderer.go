@@ -1,6 +1,7 @@
 package slimerjs
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -661,7 +662,7 @@ func (instance *Instance) Start() error {
 	*/
 	var serverIsReady bool
 	for i := 0; i < 20; i++ {
-		resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 3}, "http://localhost:%s/info", instance.Port)
+		resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{TimeoutSec: 3}, "http://localhost:%s/info", instance.Port)
 		if err == nil && resp.Non2xxToError() == nil {
 			serverIsReady = true
 			break
@@ -695,7 +696,7 @@ func (instance *Instance) SendRequest(actionName string, params map[string]inter
 	// The web server PhantomJS comes with is implemented in Javascript and does not properly handle URL encoding
 	fixSpaceForBody := strings.Replace(body.Encode(), "+", "%20", -1)
 
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(fixSpaceForBody),
 	}, fmt.Sprintf("http://localhost:%d/%s", instance.Port, actionName))

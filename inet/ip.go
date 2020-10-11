@@ -1,6 +1,8 @@
 package inet
 
 import (
+	"context"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -38,12 +40,32 @@ var (
 // IsAWS returns true only if the program is running on Amazon Web Service.
 func IsAWS() bool {
 	isAWSOnce.Do(func() {
-		resp, err := DoHTTP(HTTPRequest{
-			TimeoutSec: HTTPPublicIPTimeoutSec,
-			MaxBytes:   64,
-		}, "http://169.254.169.254/2020-10-27/meta-data/ami-id")
-		if err == nil && resp.StatusCode/200 == 1 {
+		confirmationChan := make(chan bool, 2)
+		// Maybe running on EC2 - look for EC2 metadata service
+		go func() {
+			resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
+				TimeoutSec: HTTPPublicIPTimeoutSec,
+				MaxBytes:   64,
+			}, "http://169.254.169.254/latest/meta-data")
+			if err == nil && resp.StatusCode/200 == 1 {
+				confirmationChan <- true
+			}
+		}()
+		// Maybe running in an ECS container - look for contaienr metadata service
+		go func() {
+			resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
+				TimeoutSec: HTTPPublicIPTimeoutSec,
+				MaxBytes:   64,
+			}, "http://169.254.170.2/v2/metadata")
+			if err == nil && resp.StatusCode/200 == 1 {
+				confirmationChan <- true
+			}
+		}()
+		select {
+		case <-confirmationChan:
 			isAWS = true
+		case <-time.After(HTTPPublicIPTimeoutSec * time.Second):
+			isAWS = false
 		}
 	})
 	return isAWS
@@ -52,7 +74,7 @@ func IsAWS() bool {
 // IsGCE returns true only if the program is running on Google compute engine (or Google cloud platform, same thing).
 func IsGCE() bool {
 	isGCEOnce.Do(func() {
-		resp, err := DoHTTP(HTTPRequest{
+		resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			MaxBytes:   64,
 			Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
@@ -72,7 +94,7 @@ func IsAzure() bool {
 			As of 2019-05-23, the metadata API version "2018-10-01" is the only version supported across all regions,
 			including Government, China, and Germany.
 		*/
-		resp, err := DoHTTP(HTTPRequest{
+		resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			/*
 				Be aware that successful detection of Azure public cloud relies on
@@ -93,7 +115,7 @@ func IsAzure() bool {
 // IsAlibaba returns true only if the program is running on Alibaba cloud.
 func IsAlibaba() bool {
 	isAlibabaOnce.Do(func() {
-		resp, err := DoHTTP(HTTPRequest{
+		resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			MaxBytes:   64,
 		}, "http://100.100.100.200/latest/meta-data/zone-id")
@@ -120,7 +142,7 @@ func getPublicIP() string {
 	// GCE internal
 	go func() {
 		if IsGCE() {
-			resp, err := DoHTTP(HTTPRequest{
+			resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
 				TimeoutSec: HTTPPublicIPTimeoutSec,
 				MaxBytes:   64,
 				Header:     map[string][]string{"Metadata-Flavor": {"Google"}},
@@ -135,7 +157,7 @@ func getPublicIP() string {
 	// AWS internal
 	go func() {
 		if IsAWS() {
-			resp, err := DoHTTP(HTTPRequest{
+			resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
 				TimeoutSec: HTTPPublicIPTimeoutSec,
 				MaxBytes:   64,
 			}, "http://169.254.169.254/2018-03-28/meta-data/public-ipv4")
@@ -149,7 +171,7 @@ func getPublicIP() string {
 	// Azure internal
 	go func() {
 		if IsAzure() {
-			resp, err := DoHTTP(HTTPRequest{
+			resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
 				TimeoutSec: HTTPPublicIPTimeoutSec,
 				MaxBytes:   64,
 				Header:     map[string][]string{"Metadata": {"true"}},
@@ -163,7 +185,7 @@ func getPublicIP() string {
 	}()
 	// AWS public
 	go func() {
-		resp, err := DoHTTP(HTTPRequest{
+		resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			MaxBytes:   64,
 		}, "http://checkip.amazonaws.com")
@@ -175,7 +197,7 @@ func getPublicIP() string {
 	}()
 	// ipfy.org
 	go func() {
-		resp, err := DoHTTP(HTTPRequest{
+		resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			MaxBytes:   64,
 		}, "https://api.ipify.org")
@@ -226,7 +248,7 @@ func GetAWSRegion() string {
 		return regionName
 	}
 	if IsAWS() {
-		resp, err := DoHTTP(HTTPRequest{
+		resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			MaxBytes:   64,
 		}, "http://169.254.169.254/2020-10-27/meta-data/placement/region")

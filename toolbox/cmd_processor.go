@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -182,7 +183,7 @@ filters to the execution result and return.
 A special content prefix called "PLT prefix" alters filter settings to temporarily override timeout and max.length
 settings, and it may optionally discard a number of characters from the beginning.
 */
-func (proc *CommandProcessor) Process(cmd Command, runResultFilters bool) (ret *Result) {
+func (proc *CommandProcessor) Process(ctx context.Context, cmd Command, runResultFilters bool) (ret *Result) {
 	proc.initialiseOnce()
 	// Refuse to execute a command if global lock down has been triggered
 	if misc.EmergencyLockDown {
@@ -293,7 +294,7 @@ func (proc *CommandProcessor) Process(cmd Command, runResultFilters bool) (ret *
 	defer func() {
 		proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientID), nil, "completed \"%s\" (ok? %v post-process reslt? %v)", logCommandContent, ret.Error == nil, runResultFilters)
 	}()
-	ret = matchedFeature.Execute(cmd)
+	ret = matchedFeature.Execute(ctx, cmd)
 result:
 	// Command in the result structure is mainly used for logging purpose
 	ret.Command = cmd

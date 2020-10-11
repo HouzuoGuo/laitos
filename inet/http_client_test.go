@@ -1,6 +1,7 @@
 package inet
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -89,7 +90,7 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 
 	// Expect first request to fail in all three attempts
 	serverURL := fmt.Sprintf("http://localhost:%d/endpoint", listener.Addr().(*net.TCPAddr).Port)
-	resp, err := DoHTTP(HTTPRequest{}, serverURL)
+	resp, err := DoHTTP(context.Background(), HTTPRequest{}, serverURL)
 	if err != nil || string(resp.Body) != "hihi\n" || resp.StatusCode != 402 {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}
@@ -98,7 +99,7 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 	}
 
 	// Expect the next request to succeed in three attempts
-	resp, err = DoHTTP(HTTPRequest{}, serverURL)
+	resp, err = DoHTTP(context.Background(), HTTPRequest{}, serverURL)
 	if err != nil || string(resp.Body) != "response from faulty server" || resp.StatusCode != 201 {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}
@@ -130,7 +131,7 @@ func TestDoHTTPGoodServer(t *testing.T) {
 
 	// Expect to make exactly one request against the good HTTP server
 	serverURL := fmt.Sprintf("http://localhost:%d/endpoint", listener.Addr().(*net.TCPAddr).Port)
-	resp, err := DoHTTP(HTTPRequest{}, serverURL)
+	resp, err := DoHTTP(context.Background(), HTTPRequest{}, serverURL)
 	if err != nil || string(resp.Body) != "response from ok server" || resp.StatusCode != 202 {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}
@@ -140,7 +141,7 @@ func TestDoHTTPGoodServer(t *testing.T) {
 }
 
 func TestDoHTTPPublicServer(t *testing.T) {
-	resp, err := DoHTTP(HTTPRequest{
+	resp, err := DoHTTP(context.Background(), HTTPRequest{
 		TimeoutSec: 30,
 	}, "https://this-name-does-not-exist-aewifnvjnjfdfdozoio.rich")
 	if err == nil {
@@ -150,7 +151,7 @@ func TestDoHTTPPublicServer(t *testing.T) {
 		t.Fatal("did not error")
 	}
 
-	resp, err = DoHTTP(HTTPRequest{
+	resp, err = DoHTTP(context.Background(), HTTPRequest{
 		TimeoutSec: 30,
 	}, "https://github.com")
 	if err != nil {

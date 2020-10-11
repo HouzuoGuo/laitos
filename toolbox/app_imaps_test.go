@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -76,10 +77,10 @@ func TestIMAPAccountsPublicServer(t *testing.T) {
 	if err := accounts.SelfTest(); err == nil {
 		t.Fatal("did not perform login test")
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "test 1, 2"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
+	if ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxList + "test 1, 2"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "test 1"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
+	if ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxRead + "test 1"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
 		t.Fatal(ret)
 	}
 }
@@ -95,40 +96,40 @@ func TestIMAPAccounts_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Nothing to do
-	ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"})
+	ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"})
 	if ret.Error != ErrBadMailboxParam {
 		t.Fatal(ret)
 	}
 	// Bad parameters
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList}); ret.Error != ErrBadMailboxParam {
+	if ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxList}); ret.Error != ErrBadMailboxParam {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 1, b"}); ret.Error != ErrBadMailboxParam {
+	if ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxList + "a 1, b"}); ret.Error != ErrBadMailboxParam {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead}); ret.Error != ErrBadMailboxParam {
+	if ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxRead}); ret.Error != ErrBadMailboxParam {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "a b"}); ret.Error != ErrBadMailboxParam {
+	if ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxRead + "a b"}); ret.Error != ErrBadMailboxParam {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "does_not_exist 1, 2"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
+	if ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxList + "does_not_exist 1, 2"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "does_not_exist 1"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
+	if ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxRead + "does_not_exist 1"}); !strings.Contains(ret.Error.Error(), "find mailbox") {
 		t.Fatal(ret)
 	}
-	if ret := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 100000000, 100"}); !strings.Contains(ret.Error.Error(), "skip must be") {
+	if ret := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxList + "a 100000000, 100"}); !strings.Contains(ret.Error.Error(), "skip must be") {
 		t.Fatal(ret)
 	}
 	// List latest messages
-	ret = TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxList + "a 15, 10"})
+	ret = TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxList + "a 15, 10"})
 	t.Log("List", ret.Output)
 	if ret.Error != nil || len(ret.Output) < 100 || len(ret.Output) > 2000 {
 		t.Fatal(ret)
 	}
 	// Read one message
-	ret2 := TestIMAPAccounts.Execute(Command{TimeoutSec: 30, Content: MailboxRead + "a 5"})
+	ret2 := TestIMAPAccounts.Execute(context.Background(), Command{TimeoutSec: 30, Content: MailboxRead + "a 5"})
 	t.Log("Read", ret2.Output)
 	if ret2.Error != nil || len(ret2.Output) < 1 {
 		t.Fatal(ret)

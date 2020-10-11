@@ -2,6 +2,7 @@ package lambda
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -67,7 +68,7 @@ details, sends it to laitos web server, and eventually responds to the lambda in
 web server response.
 */
 func (hand *Handler) getAndProcessLambdaInvocation(lambdaAPIHostNamePort string, webServerPort int) error {
-	nextInvocResp, err := inet.DoHTTP(inet.HTTPRequest{Method: http.MethodGet}, fmt.Sprintf("http://%s/2018-06-01/runtime/invocation/next", lambdaAPIHostNamePort))
+	nextInvocResp, err := inet.DoHTTP(context.TODO(), inet.HTTPRequest{Method: http.MethodGet}, fmt.Sprintf("http://%s/2018-06-01/runtime/invocation/next", lambdaAPIHostNamePort))
 	if err != nil {
 		return err
 	}
@@ -85,6 +86,7 @@ func (hand *Handler) getAndProcessLambdaInvocation(lambdaAPIHostNamePort string,
 	hand.logger.Info("processLambdaInvocation", lambdaAPIHostNamePort, nil,
 		"responding to request ID %s with %d bytes: %s", awsRequestID, len(invocResult), string(invocResult))
 	invokResultResp, err := inet.DoHTTP(
+		context.TODO(),
 		inet.HTTPRequest{Method: http.MethodPost, ContentType: "application/json", Body: bytes.NewReader(invocResult)},
 		fmt.Sprintf("http://%s/2018-06-01/runtime/invocation/%s/response", lambdaAPIHostNamePort, awsRequestID))
 	if err != nil {
@@ -144,7 +146,7 @@ func (hand *Handler) decodeAndHandleHTTPRequest(awsRequestID string, invocationJ
 	}
 	hand.logger.Info("decodeAndHandleHTTPRequest", awsRequestID, err, "%s %s with %d bytes of request body", reqParams.Method, reqURL, len(reqBody))
 	// Send the request forth to laitos web server
-	resp, err := inet.DoHTTP(reqParams, strings.Replace(reqURL, "%", "%%", -1))
+	resp, err := inet.DoHTTP(context.TODO(), reqParams, strings.Replace(reqURL, "%", "%%", -1))
 	if err != nil {
 		hand.logger.Warning("decodeAndHandleHTTPRequest", awsRequestID, err, "failed to reach laitos web server")
 		return

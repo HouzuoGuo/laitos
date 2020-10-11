@@ -2,6 +2,7 @@ package toolbox
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base32"
@@ -108,7 +109,7 @@ func (codegen *TwoFACodeGenerator) Trigger() Trigger {
 	return TwoFATrigger
 }
 
-func (codegen *TwoFACodeGenerator) Execute(cmd Command) (ret *Result) {
+func (codegen *TwoFACodeGenerator) Execute(ctx context.Context, cmd Command) (ret *Result) {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}

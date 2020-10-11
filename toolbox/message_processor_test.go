@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"os"
@@ -26,7 +27,7 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 	}
 
 	// Store one report and retrieve
-	proc.StoreReport(SubjectReportRequest{
+	proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectIP:       "subject-ip1",
 		SubjectHostName: "subject-host-NAME1", // all incoming subject host names are converted to lower case
 		SubjectPlatform: "subject-platform",
@@ -47,7 +48,7 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 
 	// Store a report for another subject and retrieve
 	time.Sleep(1100 * time.Millisecond)
-	proc.StoreReport(SubjectReportRequest{
+	proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectIP:       "subject-ip2",
 		SubjectHostName: "subject-host-NAME2",
 		SubjectPlatform: "subject-platform",
@@ -67,7 +68,7 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 
 	// Store a second report for the first subject and retrieve
 	time.Sleep(1100 * time.Millisecond)
-	proc.StoreReport(SubjectReportRequest{
+	proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectIP:       "subject-ip1",
 		SubjectHostName: "subject-host-name1",
 		SubjectPlatform: "new-subject-platform",
@@ -93,7 +94,7 @@ func TestMessageProcessor_EvictOldReports(t *testing.T) {
 	}
 	// Evict older reports (10 of them) from memory
 	for i := 0; i < proc.MaxReportsPerHostName+10; i++ {
-		proc.StoreReport(SubjectReportRequest{
+		proc.StoreReport(context.Background(), SubjectReportRequest{
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name1",
 			SubjectPlatform: "new-subject-platform",
@@ -119,7 +120,7 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Store a report
-	proc.StoreReport(SubjectReportRequest{
+	proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectIP:       "1",
 		SubjectHostName: "subject-host-name1",
 		SubjectPlatform: "new-subject-platform",
@@ -129,7 +130,7 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 
 	// Store thousands of reports for an active subject, which triggers clean up in the meanwhile.
 	for i := 0; i < proc.MaxReportsPerHostName+10; i++ {
-		proc.StoreReport(SubjectReportRequest{
+		proc.StoreReport(context.Background(), SubjectReportRequest{
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name2",
 			SubjectPlatform: "new-subject-platform",
@@ -152,7 +153,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 
 	cmd := TestCommandProcessorPIN + ".s echo 123"
 	proc.SetOutgoingCommand("subject-host-NAME1", "test cmd")
-	resp := proc.StoreReport(SubjectReportRequest{
+	resp := proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
@@ -166,7 +167,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 	}
 
 	proc.SetOutgoingCommand("subject-host-NAME1", "test cmd2")
-	resp = proc.StoreReport(SubjectReportRequest{
+	resp = proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
@@ -176,7 +177,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 	}
 
 	proc.SetOutgoingCommand("subject-host-NAME1", "")
-	resp = proc.StoreReport(SubjectReportRequest{
+	resp = proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
@@ -193,7 +194,7 @@ func TestMessageProcessor_processCommandRequest_QuickCommand(t *testing.T) {
 	}
 	// Store a report that carries a command with incorrect password
 	cmd := "BadPass .s echo 123"
-	resp := proc.StoreReport(SubjectReportRequest{
+	resp := proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
@@ -203,7 +204,7 @@ func TestMessageProcessor_processCommandRequest_QuickCommand(t *testing.T) {
 	}
 	// Store a report that carries a quick command
 	cmd = TestCommandProcessorPIN + ".s echo 123"
-	resp = proc.StoreReport(SubjectReportRequest{
+	resp = proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
@@ -220,7 +221,7 @@ func TestMessageProcessor_processCommandRequest_RecursiveCommand(t *testing.T) {
 	}
 	// Store a report that carries a recursive command, which shall be met with an error response.
 	cmd := TestCommandProcessorPIN + `.0m  {  "something JSON`
-	resp := proc.StoreReport(SubjectReportRequest{
+	resp := proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
@@ -246,7 +247,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 	defer os.Remove(fileName)
 	cmd := TestCommandProcessorPIN + ".s sleep 3; touch " + fileName + "; echo done"
 	go func() {
-		resp := proc.StoreReport(SubjectReportRequest{
+		resp := proc.StoreReport(context.Background(), SubjectReportRequest{
 			SubjectHostName: "subject-host-name1",
 			CommandRequest:  AppCommandRequest{Command: cmd},
 		}, "ip", "daemon")
@@ -257,7 +258,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 	}()
 	// Retrieve result of that outstanding command - duration -1 indicates the command execution is still ongoing
 	time.Sleep(1 * time.Second)
-	resp := proc.StoreReport(SubjectReportRequest{
+	resp := proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
@@ -270,7 +271,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 	}
 	// Retrieve result of that outstanding command - without repeating the same command in the request
 	time.Sleep(1 * time.Second)
-	resp = proc.StoreReport(SubjectReportRequest{
+	resp = proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 	}, "ip", "daemon")
 	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != -1 ||
@@ -282,7 +283,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 	}
 	// Retrieve result of the completed command
 	time.Sleep(2 * time.Second)
-	resp = proc.StoreReport(SubjectReportRequest{
+	resp = proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 	}, "ip", "daemon")
 	if resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
@@ -298,7 +299,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 	}
 	for i := 0; i < 5; i++ {
 		time.Sleep(1 * time.Second)
-		resp = proc.StoreReport(SubjectReportRequest{
+		resp = proc.StoreReport(context.Background(), SubjectReportRequest{
 			SubjectHostName: "subject-host-name1",
 		}, "ip", "daemon")
 		if resp.CommandResponse.Command != cmd || (resp.CommandResponse.RunDurationSec < 3 && resp.CommandResponse.RunDurationSec > 4) ||
@@ -325,7 +326,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 	_ = os.Remove(fileName1)
 	defer os.Remove(fileName1)
 	go func() {
-		resp := proc.StoreReport(SubjectReportRequest{
+		resp := proc.StoreReport(context.Background(), SubjectReportRequest{
 			SubjectHostName: "subject-host-name1",
 			CommandRequest:  AppCommandRequest{Command: cmd1},
 		}, "ip", "daemon")
@@ -336,7 +337,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 	}()
 	// Retrieve result of that outstanding command - duration -1 indicates the command execution is still ongoing
 	time.Sleep(1 * time.Second)
-	resp := proc.StoreReport(SubjectReportRequest{
+	resp := proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 	}, "ip", "daemon")
 	if resp.CommandResponse.Command != cmd1 || resp.CommandResponse.RunDurationSec != -1 ||
@@ -353,7 +354,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 	_ = os.Remove(fileName2)
 	defer os.Remove(fileName2)
 	go func() {
-		resp := proc.StoreReport(SubjectReportRequest{
+		resp := proc.StoreReport(context.Background(), SubjectReportRequest{
 			SubjectHostName: "subject-host-name1",
 			CommandRequest:  AppCommandRequest{Command: cmd2},
 		}, "ip", "daemon")
@@ -365,7 +366,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 
 	// Retrieve result of the second outstanding command
 	time.Sleep(1 * time.Second)
-	resp = proc.StoreReport(SubjectReportRequest{
+	resp = proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd2},
 	}, "ip", "daemon")
@@ -387,7 +388,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 	}
 
 	// Retrieve the output from second command
-	resp = proc.StoreReport(SubjectReportRequest{
+	resp = proc.StoreReport(context.Background(), SubjectReportRequest{
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd2},
 	}, "ip", "daemon")
@@ -438,7 +439,7 @@ func TestMessageProcessor_App(t *testing.T) {
 	}
 
 	// Send it to app for execution
-	result := proc.Execute(Command{
+	result := proc.Execute(context.Background(), Command{
 		ClientID:   "subject-ip",
 		DaemonName: "command-daemon-name",
 		Content:    report.SerialiseCompact(),

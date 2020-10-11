@@ -1,6 +1,7 @@
 package phantomjs
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -587,8 +588,7 @@ func (instance *Instance) SendRequest(actionName string, params map[string]inter
 	}
 	// The web server PhantomJS comes with is implemented in Javascript and does not properly handle URL encoding
 	fixSpaceForBody := strings.Replace(body.Encode(), "+", "%20", -1)
-
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
 		Body:   strings.NewReader(fixSpaceForBody),
 	}, fmt.Sprintf("http://127.0.0.1:%d/%s", instance.Port, actionName))

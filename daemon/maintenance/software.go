@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -54,7 +55,7 @@ func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 		return
 	}
 	// Install docker's GPG key
-	resp, err := inet.DoHTTP(inet.HTTPRequest{}, "https://download.docker.com/linux/debian/gpg")
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, "https://download.docker.com/linux/debian/gpg")
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to download docker GPG key - %v", err)
 		return

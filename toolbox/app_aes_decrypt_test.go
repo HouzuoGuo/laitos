@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -46,20 +47,20 @@ func TestAESDecrypt_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Decrypt but parameters aren't given
-	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: "haha hoho"}); ret.Error != ErrBadAESDecryptParam {
+	if ret := decrypt.Execute(context.Background(), Command{TimeoutSec: 10, Content: "haha hoho"}); ret.Error != ErrBadAESDecryptParam {
 		t.Fatal("did not error")
 	}
 	// Decrypt unregistered file
-	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: "charlie 0000 0000"}); !strings.HasPrefix(ret.Error.Error(), "cannot find") {
+	if ret := decrypt.Execute(context.Background(), Command{TimeoutSec: 10, Content: "charlie 0000 0000"}); !strings.HasPrefix(ret.Error.Error(), "cannot find") {
 		t.Fatal(ret)
 	}
 	// Decrypt file using bad key
 	// (The key accidentally decrypts into Re0b, so don't use them to test content search)
-	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: TestAESDecryptFileAlphaName + " 0000 i"}); ret.Error != nil || ret.Output != "0 " {
+	if ret := decrypt.Execute(context.Background(), Command{TimeoutSec: 10, Content: TestAESDecryptFileAlphaName + " 0000 i"}); ret.Error != nil || ret.Output != "0 " {
 		t.Fatal(ret)
 	}
 	// Decrypt file using good key
-	if ret := decrypt.Execute(Command{TimeoutSec: 10, Content: TestAESDecryptFileBetaName + " 44a4 a"}); ret.Error != nil || ret.Output != "1 abc" {
+	if ret := decrypt.Execute(context.Background(), Command{TimeoutSec: 10, Content: TestAESDecryptFileBetaName + " 44a4 a"}); ret.Error != nil || ret.Output != "1 abc" {
 		t.Fatal(ret)
 	}
 }

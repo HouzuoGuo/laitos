@@ -2,6 +2,7 @@
 package toolbox
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -57,11 +58,11 @@ type Trigger string // Trigger is a prefix string that is matched against comman
 
 // Represent a useful feature that is capable of execution and provide execution result as feedback.
 type Feature interface {
-	IsConfigured() bool      // Return true only if configuration is present, this is called prior to Initialise().
-	SelfTest() error         // Validate and test configuration. It may work only after Initialise() succeeds.
-	Initialise() error       // Prepare internal states.
-	Trigger() Trigger        // Return a prefix string that is matched against command input to trigger a feature, each feature has a unique trigger.
-	Execute(Command) *Result // Execute the command with trigger prefix removed, and return execution result.
+	IsConfigured() bool                       // Return true only if configuration is present, this is called prior to Initialise().
+	SelfTest() error                          // Validate and test configuration. It may work only after Initialise() succeeds.
+	Initialise() error                        // Prepare internal states.
+	Trigger() Trigger                         // Return a prefix string that is matched against command input to trigger a feature, each feature has a unique trigger.
+	Execute(context.Context, Command) *Result // Execute the command with trigger prefix removed, and return execution result.
 }
 
 // Feature's execution result that includes human readable output and error (if any).

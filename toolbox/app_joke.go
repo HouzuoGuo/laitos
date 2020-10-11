@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -20,7 +21,7 @@ func (joke *Joke) IsConfigured() bool {
 
 // SelfTest tries to grab a joke text, and returns an error only if it fails in doing so.
 func (joke *Joke) SelfTest() error {
-	result := joke.Execute(Command{})
+	result := joke.Execute(context.Background(), Command{})
 	return result.Error
 }
 
@@ -38,11 +39,11 @@ func (joke *Joke) Trigger() Trigger {
 Execute takes timeout from input command and uses it when retrieving joke text. It retrieves exactly one joke text from
 a randomly chosen source. It retries up to 5 times in case a source does not respond.
 */
-func (joke *Joke) Execute(cmd Command) *Result {
+func (joke *Joke) Execute(ctx context.Context, cmd Command) *Result {
 	// Make at most 5 attempts at getting a joke
 	for i := 0; i < 5; i++ {
 		src := jokeSources[int(time.Now().UnixNano())%len(jokeSources)]
-		text, err := src(cmd.TimeoutSec)
+		text, err := src(ctx, cmd.TimeoutSec)
 		if err == nil {
 			return &Result{Output: text}
 		}
@@ -51,11 +52,11 @@ func (joke *Joke) Execute(cmd Command) *Result {
 }
 
 // jokeSources contains functions for retrieving different kinds of jokes
-var jokeSources = []func(int) (string, error){getChuckNorrisJoke, getDadJoke}
+var jokeSources = []func(context.Context, int) (string, error){getChuckNorrisJoke, getDadJoke}
 
 // getChuckNorrisJoke grabs a chuck norris joke from chucknorris.io and returns the joke text.
-func getChuckNorrisJoke(timeoutSec int) (string, error) {
-	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: timeoutSec}, "https://api.chucknorris.io/jokes/random")
+func getChuckNorrisJoke(ctx context.Context, timeoutSec int) (string, error) {
+	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{TimeoutSec: timeoutSec}, "https://api.chucknorris.io/jokes/random")
 	if err != nil {
 		return "", err
 	}
@@ -73,8 +74,8 @@ func getChuckNorrisJoke(timeoutSec int) (string, error) {
 }
 
 // getDadJoke grabs a dad joke from icanhazdadjoke.com and returns the joke text.
-func getDadJoke(timeoutSec int) (string, error) {
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+func getDadJoke(ctx context.Context, timeoutSec int) (string, error) {
+	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
 		TimeoutSec: timeoutSec,
 		Header: map[string][]string{
 			"User-Agent": {"laitos (https://github.com/HouzuoGuo/laitos)"},

@@ -2,6 +2,7 @@ package toolbox
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -26,7 +27,7 @@ func (wa *WolframAlpha) SelfTest() error {
 		return ErrIncompleteConfig
 	}
 	// Make a test query to verify AppID and response data structure
-	resp, err := wa.Query(SelfTestTimeoutSec, "pi")
+	resp, err := wa.Query(context.Background(), SelfTestTimeoutSec, "pi")
 	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return fmt.Errorf("WolframAlpha.SelfTest: query result error - %v", errResult.Error)
 	}
@@ -55,7 +56,7 @@ func AtLeast(i, atLeast int) int {
 }
 
 // Call WolframAlpha API to run a query. Return HTTP status, response, and error if any.
-func (wa *WolframAlpha) Query(timeoutSec int, query string) (resp inet.HTTPResponse, err error) {
+func (wa *WolframAlpha) Query(ctx context.Context, timeoutSec int, query string) (resp inet.HTTPResponse, err error) {
 	// The following ratios are inspired by default timeout settings from WolframAlpha API
 	scanTimeout := AtLeast(timeoutSec*3/20, 2)
 	podTimeout := AtLeast(timeoutSec*4/20, 2)
@@ -64,18 +65,19 @@ func (wa *WolframAlpha) Query(timeoutSec int, query string) (resp inet.HTTPRespo
 	// Leave 2 seconds of buffer time for transmitting the feature response back to user
 	totalTimeout := AtLeast(timeoutSec-2, 2)
 	resp, err = inet.DoHTTP(
+		ctx,
 		inet.HTTPRequest{TimeoutSec: timeoutSec},
 		"https://api.wolframalpha.com/v2/query?appid=%s&input=%s&format=plaintext&scantimeout=%s&podtimeout=%s&formattimeout=%s&parsetimeout=%s&totaltimeout=%s&reinterpret=true&translation=true&ignorecase=true",
 		wa.AppID, query, scanTimeout, podTimeout, formatTimeout, parseTimeout, totalTimeout)
 	return
 }
 
-func (wa *WolframAlpha) Execute(cmd Command) *Result {
+func (wa *WolframAlpha) Execute(ctx context.Context, cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}
 
-	resp, err := wa.Query(cmd.TimeoutSec, cmd.Content)
+	resp, err := wa.Query(ctx, cmd.TimeoutSec, cmd.Content)
 	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return errResult
 	} else if text, err := wa.ExtractResponse(resp.Body); err != nil {

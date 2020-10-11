@@ -1,14 +1,16 @@
 package mailcmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"github.com/HouzuoGuo/laitos/browser/phantomjs"
-	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/browser/phantomjs"
+	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 const UndocumentedHTTPTimeoutSec = 30
@@ -32,7 +34,7 @@ func (und *Undocumented1) SelfTest() error {
 	if !und.IsConfigured() {
 		return toolbox.ErrIncompleteConfig
 	}
-	resp, err := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: toolbox.SelfTestTimeoutSec}, und.URL)
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{TimeoutSec: toolbox.SelfTestTimeoutSec}, und.URL)
 	// Only consider IO error and 404 response to be actual errors. Other status codes most likely result from incomplete request.
 	if err != nil {
 		return err
@@ -56,7 +58,7 @@ func (und *Undocumented1) SendMessage(message string) error {
 		message = message[:160]
 	}
 
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		TimeoutSec: UndocumentedHTTPTimeoutSec,
 		Method:     http.MethodPost,
 		Body: strings.NewReader(url.Values{

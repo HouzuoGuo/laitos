@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -34,7 +35,7 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 
 	// Try mismatching PIN so that command bridge return early
 	cmd := Command{TimeoutSec: 5, Content: "badpin.secho alpha"}
-	result := proc.Process(cmd, true)
+	result := proc.Process(context.Background(), cmd, true)
 	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 5, Content: ""}) ||
 		result.Error != ErrPINAndShortcutNotFound || result.Output != "" ||
 		result.CombinedOutput != ErrPINAndShortcutNotFound.Error()[0:2] {
@@ -43,7 +44,7 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 
 	// Run a failing command - be aware of the word substitution conducted by command filter
 	cmd = Command{TimeoutSec: 5, Content: "mypin.secho alpha; does-not-exist"}
-	result = proc.Process(cmd, true)
+	result = proc.Process(context.Background(), cmd, true)
 	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 5, Content: ".secho beta; does-not-exist"}) ||
 		result.Error == nil || !strings.Contains(result.Output, "beta") || result.CombinedOutput != result.Error.Error()[0:2] {
 		t.Fatalf("%+v", result)
@@ -51,7 +52,7 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 
 	// Run a command that does not trigger a configured feature
 	cmd = Command{TimeoutSec: 5, Content: "mypin.tz"}
-	result = proc.Process(cmd, true)
+	result = proc.Process(context.Background(), cmd, true)
 	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 5, Content: ".tz"}) ||
 		result.Error != ErrBadPrefix || result.Output != "" || result.CombinedOutput != ErrBadPrefix.Error()[0:2] {
 		t.Fatalf("%+v", result)
@@ -59,21 +60,21 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 
 	// Run a valid command - be aware of the word substitution conducted by command filter
 	cmd = Command{TimeoutSec: 5, Content: "mypin.secho alpha"}
-	result = proc.Process(cmd, true)
+	result = proc.Process(context.Background(), cmd, true)
 	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 5, Content: ".secho beta"}) ||
 		result.Error != nil || !strings.Contains(result.Output, "beta") || result.CombinedOutput != "be" {
 		t.Fatalf("%+v", result)
 	}
 	// Run the same command using the alternative & valid password PIN
 	cmd = Command{TimeoutSec: 5, Content: "myaltpin.secho alpha"}
-	result = proc.Process(cmd, true)
+	result = proc.Process(context.Background(), cmd, true)
 	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 5, Content: ".secho beta"}) ||
 		result.Error != nil || !strings.Contains(result.Output, "beta") || result.CombinedOutput != "be" {
 		t.Fatalf("%+v", result)
 	}
 	// Test the tolerance to extra spaces in feature prefix matcher
 	cmd = Command{TimeoutSec: 5, Content: " mypin .s echo alpha "}
-	result = proc.Process(cmd, true)
+	result = proc.Process(context.Background(), cmd, true)
 	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 5, Content: ".s echo beta"}) ||
 		result.Error != nil || !strings.Contains(result.Output, "beta") || result.CombinedOutput != "be" {
 		t.Fatalf("%+v", result)
@@ -81,14 +82,14 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 
 	// Override PLT but PLT parameter values are not given
 	cmd = Command{TimeoutSec: 5, Content: "mypin  .plt   sadf asdf "}
-	result = proc.Process(cmd, true)
+	result = proc.Process(context.Background(), cmd, true)
 	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 5, Content: ""}) ||
 		result.Error != ErrBadPLT || result.Output != "" || result.CombinedOutput != ErrBadPLT.Error()[0:2] {
 		t.Fatalf("%v | %v | %v |%+v", result.Error, result.Output, result.CombinedOutput, result.Command)
 	}
 	// Override PLT using good PLT parameter values
 	cmd = Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 4  .s  sleep 2 ; echo 0123456789 "}
-	result = proc.Process(cmd, true)
+	result = proc.Process(context.Background(), cmd, true)
 	if !reflect.DeepEqual(result.Command, Command{TimeoutSec: 4, Content: "  .s  sleep 2 ; echo 0123456789"}) ||
 		result.Error != nil || !strings.Contains(result.Output, "0123456789") || result.CombinedOutput != "23456" {
 		t.Fatalf("%v | %v | %v | %+v", result.Error, result.Output, result.CombinedOutput, result.Command)
@@ -97,7 +98,7 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 	// Trigger emergency lock down and try
 	misc.TriggerEmergencyLockDown()
 	cmd = Command{TimeoutSec: 1, Content: "mypin  .plt  2, 5. 3  .s  sleep 2 ;  echo 0123456789 "}
-	if result := proc.Process(cmd, true); result.Error != misc.ErrEmergencyLockDown {
+	if result := proc.Process(context.Background(), cmd, true); result.Error != misc.ErrEmergencyLockDown {
 		t.Fatal(result)
 	}
 	misc.EmergencyLockDown = false
@@ -106,7 +107,7 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 func TestCommandProcessor_LengthLimit(t *testing.T) {
 	proc := GetTestCommandProcessor()
 
-	result := proc.Process(Command{Content: TestCommandProcessorPIN + ".s " + strings.Repeat("a", MaxCmdLength)}, true)
+	result := proc.Process(context.Background(), Command{Content: TestCommandProcessorPIN + ".s " + strings.Repeat("a", MaxCmdLength)}, true)
 	if result.Error != ErrCommandTooLong {
 		t.Fatalf("%+v", result)
 	}
@@ -120,7 +121,7 @@ func TestCommandProcessor_RateLimit(t *testing.T) {
 	succeeded := 0
 	failed := 0
 	for i := 0; i < 30; i++ {
-		if result := proc.Process(Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error == nil {
+		if result := proc.Process(context.Background(), Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error == nil {
 			succeeded++
 		} else if result.Error == ErrRateLimitExceeded {
 			failed++
@@ -132,13 +133,13 @@ func TestCommandProcessor_RateLimit(t *testing.T) {
 
 	// Wait for rate limit to expire and retry
 	time.Sleep(2 * time.Second)
-	if result := proc.Process(Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error != nil {
+	if result := proc.Process(context.Background(), Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error != nil {
 		t.Fatal(result.Error)
 	}
 
 	// Use the default hard upper limit with a new command processor
 	proc = GetTestCommandProcessor()
-	if result := proc.Process(Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error != nil {
+	if result := proc.Process(context.Background(), Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error != nil {
 		t.Fatal(result.Error)
 	}
 	if proc.MaxCmdPerSec != MaxCmdPerSecHardLimit {
@@ -228,7 +229,7 @@ func TestGetTestCommandProcessor(t *testing.T) {
 		t.Fatal(testErr)
 	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
 		t.Fatal(saneErrs)
-	} else if result := proc.Process(Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error != nil {
+	} else if result := proc.Process(context.Background(), Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error != nil {
 		t.Fatal(result.Error)
 	}
 }
@@ -242,8 +243,8 @@ func TestConcealedLogMessages(t *testing.T) {
 	if err := proc.Features.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	proc.Process(Command{Content: "verysecret .a does not matter", TimeoutSec: 10}, true)
-	proc.Process(Command{Content: "verysecret .2 does not matter", TimeoutSec: 10}, true)
+	proc.Process(context.Background(), Command{Content: "verysecret .a does not matter", TimeoutSec: 10}, true)
+	proc.Process(context.Background(), Command{Content: "verysecret .2 does not matter", TimeoutSec: 10}, true)
 	t.Log("Please observe <hidden due to AESDecryptTrigger or TwoFATrigger> from log output, otherwise consider this test is failed")
 }
 
@@ -253,7 +254,7 @@ func TestGetEmptyCommandProcessor(t *testing.T) {
 		t.Fatal(testErr)
 	} else if saneErrs := proc.IsSaneForInternet(); len(saneErrs) > 0 {
 		t.Fatal(saneErrs)
-	} else if result := proc.Process(Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error == nil {
+	} else if result := proc.Process(context.Background(), Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error == nil {
 		t.Fatal("did not error")
 	}
 }

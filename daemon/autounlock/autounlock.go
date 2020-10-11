@@ -1,6 +1,7 @@
 package autounlock
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -76,13 +77,13 @@ func (daemon *Daemon) StartAndBlock() error {
 		for aURL, passwd := range daemon.URLAndPassword {
 			parsedURL, parseErr := url.Parse(aURL)
 			if parseErr == nil {
-				probeResp, probeErr := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: 10}, strings.Replace(aURL, "%", "%%", -1))
+				probeResp, probeErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{TimeoutSec: 10}, strings.Replace(aURL, "%", "%%", -1))
 				if probeErr == nil && probeResp.StatusCode/200 == 1 && probeResp.Header.Get("Content-Location") == ContentLocationMagic {
 					// The URL is responding successfully and is indeed a password input web server
 					begin := time.Now().UnixNano()
 					daemon.logger.Warning("StartAndBlock", "", nil, "trying to unlock data on domain %s", parsedURL.Host)
 					// Use form submission to input password
-					submitResp, submitErr := inet.DoHTTP(inet.HTTPRequest{
+					submitResp, submitErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 						// While unlocking is going on, the system is often freshly booted and quite busy, hence giving it plenty of time to respond.
 						TimeoutSec:  30,
 						Method:      http.MethodPost,

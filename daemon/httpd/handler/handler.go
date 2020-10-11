@@ -15,7 +15,7 @@ type Handler interface {
 	// Initialise prepares internal handler states and optionally memorises the logger and command processor instance.
 	Initialise(lalog.Logger, *toolbox.CommandProcessor) error
 
-	// GetHandler is the HTTP handler implementation that uses handler internal states to serve API requests.
+	// Handle is the HTTP handler implementation that uses handler internal states to serve API requests.
 	Handle(http.ResponseWriter, *http.Request)
 
 	// GetRateLimitFactor returns how expensive the handler is to execute on a scale from 1 (most expensive) to infinity (least expensive).

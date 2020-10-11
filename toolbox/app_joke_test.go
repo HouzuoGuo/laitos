@@ -1,13 +1,16 @@
 package toolbox
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestJokeSources(t *testing.T) {
-	text, err := getDadJoke(10)
+	text, err := getDadJoke(context.Background(), 10)
 	if err != nil || text == "" {
 		t.Fatal(err)
 	}
-	text, err = getChuckNorrisJoke(10)
+	text, err = getChuckNorrisJoke(context.Background(), 10)
 	if err != nil || text == "" {
 		t.Fatal(err)
 	}
@@ -25,7 +28,7 @@ func TestJoke(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if result := joke.Execute(Command{TimeoutSec: 10}); result.Error != nil || len(result.Output) < 30 {
+	if result := joke.Execute(context.Background(), Command{TimeoutSec: 10}); result.Error != nil || len(result.Output) < 30 {
 		t.Fatal(result)
 	} else {
 		t.Log(result)

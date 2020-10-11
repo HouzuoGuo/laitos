@@ -2,6 +2,7 @@ package toolbox
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -108,7 +109,7 @@ func (cs *PublicContact) Trigger() Trigger {
 	return ".c"
 }
 
-func (cs *PublicContact) Execute(cmd Command) *Result {
+func (cs *PublicContact) Execute(ctx context.Context, cmd Command) *Result {
 	// Return all entries if there is no search term, therefore do not return the error.
 	if err := cmd.Trim(); err != nil {
 		return &Result{Error: nil, Output: strings.Join(cs.textRecords, "\n")}

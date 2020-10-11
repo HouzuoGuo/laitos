@@ -1,6 +1,7 @@
 package telegrambot
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -112,7 +113,7 @@ func (bot *Daemon) Initialise() error {
 
 // Send a text reply to the telegram chat.
 func (bot *Daemon) ReplyTo(chatID int64, text string) error {
-	resp, err := inet.DoHTTP(inet.HTTPRequest{
+	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method:     http.MethodPost,
 		TimeoutSec: APICallTimeoutSec,
 		Body: strings.NewReader(url.Values{
@@ -127,7 +128,7 @@ func (bot *Daemon) ReplyTo(chatID int64, text string) error {
 }
 
 // Process incoming chat messages and reply command results to chat initiators.
-func (bot *Daemon) ProcessMessages(updates APIUpdates) {
+func (bot *Daemon) ProcessMessages(ctx context.Context, updates APIUpdates) {
 	for _, ding := range updates.Updates {
 		// Put processing duration (including API time) into statistics
 		beginTimeNano := time.Now().UnixNano()
@@ -162,7 +163,7 @@ func (bot *Daemon) ProcessMessages(updates APIUpdates) {
 		}
 		// Find and run command in background
 		go func(ding APIUpdate, beginTimeNano int64) {
-			result := bot.Processor.Process(toolbox.Command{
+			result := bot.Processor.Process(ctx, toolbox.Command{
 				DaemonName: "telegrambot",
 				ClientID:   ding.Message.Chat.UserName,
 				TimeoutSec: CommandTimeoutSec,
@@ -183,7 +184,7 @@ func (bot *Daemon) StartAndBlock() error {
 		IO error or unexpected HTTP response status. As of 2017-11-26, status 404 is the only indication of incorrect
 		authorization token for now.
 	*/
-	testResp, testErr := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
+	testResp, testErr := inet.DoHTTP(context.TODO(), inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
 		"https://api.telegram.org/bot%s/getMe", bot.AuthorizationToken)
 	if testErr == nil && testResp.StatusCode == http.StatusNotFound {
 		return errors.New("telegrambot.StartAndBlock: test call failed due to HTTP 404, is the AuthorizationToken correct?")
@@ -203,7 +204,7 @@ func (bot *Daemon) StartAndBlock() error {
 			lastIdle = time.Now().Unix()
 		}
 		// Poll for new messages
-		updatesResp, updatesErr := inet.DoHTTP(inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
+		updatesResp, updatesErr := inet.DoHTTP(context.TODO(), inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
 			"https://api.telegram.org/bot%s/getUpdates?offset=%s", bot.AuthorizationToken, bot.messageOffset)
 		if updatesErr == nil {
 			updatesErr = updatesResp.Non2xxToError()
@@ -235,7 +236,7 @@ func (bot *Daemon) StartAndBlock() error {
 		// Process new messages
 		if len(newMessages.Updates) > 0 {
 			lastIdle = time.Now().Unix()
-			bot.ProcessMessages(newMessages)
+			bot.ProcessMessages(context.TODO(), newMessages)
 		}
 	sleepAndContinue:
 		randSleepSec := PollIntervalSecMin + rand.Intn(PollIntervalSecMax-PollIntervalSecMin)

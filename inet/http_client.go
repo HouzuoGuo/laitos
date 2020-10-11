@@ -1,7 +1,7 @@
 package inet
 
 import (
-	"crypto/tls"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
 // Define properties for an HTTP request for DoHTTP function.
@@ -20,7 +21,6 @@ type HTTPRequest struct {
 	ContentType string                    // Content type header (default to "application/x-www-form-urlencoded")
 	Body        io.Reader                 // HTTPRequest body (default to nil)
 	RequestFunc func(*http.Request) error // Manipulate the HTTP request at will (default to nil)
-	InsecureTLS bool                      // InsecureTLS may be turned on to ignore all TLS verification errors from an HTTPS client connection
 	MaxBytes    int                       // MaxBytes is the maximum number of bytes of response body to read (default to 4MB)
 	MaxRetry    int                       // MaxRetry is the maximum number of attempts to make the same request in case of an IO error, 4xx, or 5xx response (default to 3).
 }
@@ -82,8 +82,8 @@ func (resp *HTTPResponse) GetBodyUpTo(nBytes int) []byte {
 	return ret
 }
 
-// Generic function for sending an HTTP request. Placeholders in URL template must be "%s".
-func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (resp HTTPResponse, err error) {
+// doHTTPRequestUsingClient makes an HTTP request via the input HTTP client.Placeholders in the URL template must always use %s.
+func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (resp HTTPResponse, err error) {
 	reqParam.FillBlanks()
 	// Encode values in URL path
 	encodedURLValues := make([]interface{}, len(urlValues))
@@ -91,7 +91,7 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 		encodedURLValues[i] = url.QueryEscape(fmt.Sprint(val))
 	}
 	fullURL := fmt.Sprintf(urlTemplate, encodedURLValues...)
-	req, err := http.NewRequest(reqParam.Method, fullURL, reqParam.Body)
+	req, err := http.NewRequestWithContext(ctx, reqParam.Method, fullURL, reqParam.Body)
 	if err != nil {
 		return
 	}
@@ -110,15 +110,8 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 			req.Header.Set("Content-Type", contentType)
 		}
 	}
-	// Construct HTTP client and optionally disable TLS strict verification
-	client := &http.Client{
-		Timeout:   time.Duration(reqParam.TimeoutSec) * time.Second,
-		Transport: &http.Transport{},
-	}
+	client.Timeout = time.Duration(reqParam.TimeoutSec) * time.Second
 	defer client.CloseIdleConnections()
-	if reqParam.InsecureTLS {
-		client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
 	// Send the request away, and retry in case of error.
 	for retry := 0; retry < reqParam.MaxRetry; retry++ {
 		var httpResp *http.Response
@@ -141,4 +134,13 @@ func DoHTTP(reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) 
 		time.Sleep(1 * time.Second)
 	}
 	return
+}
+
+// DoHTTP makes an HTTP request and returns its HTTP response. Placeholders in the URL template must always use %s.
+func DoHTTP(ctx context.Context, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (resp HTTPResponse, err error) {
+	client := &http.Client{}
+	if misc.EnableAWSIntegration && IsAWS() {
+		client = xray.Client(client)
+	}
+	return doHTTPRequestUsingClient(ctx, client, reqParam, urlTemplate, urlValues...)
 }

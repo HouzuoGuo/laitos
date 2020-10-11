@@ -1,6 +1,7 @@
 package dnsd
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -40,7 +41,7 @@ then the function waits until result is ready from the ongoing execution and ret
 executed recently, the function will return the past execution result; otherwise, the command execution begins right
 away.
 */
-func (rec *LatestCommands) Execute(cmdProcessor *toolbox.CommandProcessor, clientIP, cmdInput string) (result *toolbox.Result) {
+func (rec *LatestCommands) Execute(ctx context.Context, cmdProcessor *toolbox.CommandProcessor, clientIP, cmdInput string) (result *toolbox.Result) {
 	// Purge old result
 	rec.purgeAfterTTL()
 	// If execution of the command is ongoing, or has recently completed.
@@ -70,7 +71,7 @@ execute:
 	rec.latestResult[cmdInput] = nil
 	rec.mutex.Unlock()
 	// Execute the command and leave the lock available for another command that runs in parallel
-	result = cmdProcessor.Process(toolbox.Command{
+	result = cmdProcessor.Process(ctx, toolbox.Command{
 		ClientID:   clientIP,
 		DaemonName: "dnsd",
 		TimeoutSec: TextCommandReplyTTL - 1,

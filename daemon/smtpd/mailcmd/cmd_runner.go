@@ -1,6 +1,7 @@
 package mailcmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -124,7 +125,7 @@ func (runner *CommandRunner) Process(clientIP string, mailContent []byte, replyA
 		}
 		runner.logger.Info("Process", prop.FromAddress, nil, "process message of type %s, subject \"%s\"", prop.ContentType, prop.Subject)
 		// By contract, PIN processor finds command among input lines.
-		result := runner.Processor.Process(toolbox.Command{
+		result := runner.Processor.Process(context.TODO(), toolbox.Command{
 			DaemonName: "smtpd",
 			ClientID:   clientIP,
 			Content:    string(body),

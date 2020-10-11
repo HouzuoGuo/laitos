@@ -116,7 +116,7 @@ func (hand *HandleAppCommand) Handle(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	result := hand.cmdProc.Process(toolbox.Command{
+	result := hand.cmdProc.Process(r.Context(), toolbox.Command{
 		DaemonName: "httpd",
 		ClientID:   GetRealClientIP(r),
 		Content:    cmd,

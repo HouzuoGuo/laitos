@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"context"
 	"strconv"
 	"testing"
 )
@@ -16,31 +17,31 @@ func TestTwitter_Execute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Nothing to do
-	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"}); ret.Error != ErrBadTwitterParam {
+	if ret := TestTwitter.Execute(context.Background(), Command{TimeoutSec: 30, Content: "!@$!@%#%#$@%"}); ret.Error != ErrBadTwitterParam {
 		t.Fatal(ret)
 	}
 	// Retrieve 10 latest tweets
-	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds}); ret.Error != nil ||
+	if ret := TestTwitter.Execute(context.Background(), Command{TimeoutSec: 30, Content: TwitterGetFeeds}); ret.Error != nil ||
 		len(ret.Output) < 50 || len(ret.Output) > 1000 {
 		t.Fatal(ret)
 	}
 	// Bad number - still retrieve 10 latest tweets
-	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "a, b"}); ret.Error != nil ||
+	if ret := TestTwitter.Execute(context.Background(), Command{TimeoutSec: 30, Content: TwitterGetFeeds + "a, b"}); ret.Error != nil ||
 		len(ret.Output) < 50 || len(ret.Output) > 1000 {
 		t.Fatal(ret)
 	}
 	// Retrieve 5 tweets after skipping the latest three tweets
-	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterGetFeeds + "3, 5"}); ret.Error != nil ||
+	if ret := TestTwitter.Execute(context.Background(), Command{TimeoutSec: 30, Content: TwitterGetFeeds + "3, 5"}); ret.Error != nil ||
 		len(ret.Output) < 50 || len(ret.Output) > 1000 {
 		t.Fatal(ret)
 	}
 	// Posting an empty tweet should result in error
-	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterPostTweet + "  "}); ret.Error != ErrBadTwitterParam {
+	if ret := TestTwitter.Execute(context.Background(), Command{TimeoutSec: 30, Content: TwitterPostTweet + "  "}); ret.Error != ErrBadTwitterParam {
 		t.Fatal(ret)
 	}
 	// Post a good tweet
 	tweet := "laitos twitter test pls ignore"
-	if ret := TestTwitter.Execute(Command{TimeoutSec: 30, Content: TwitterPostTweet + tweet}); ret.Error != nil ||
+	if ret := TestTwitter.Execute(context.Background(), Command{TimeoutSec: 30, Content: TwitterPostTweet + tweet}); ret.Error != nil ||
 		ret.Output != strconv.Itoa(len(tweet)) {
 		t.Fatal(ret)
 	}
