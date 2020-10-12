@@ -31,8 +31,8 @@ import (
 const (
 	/*
 		EnvironmentURLRoutePrefixKey is the key of environment variable that provides the optional URL prefix expected to
-		show up in every request processed by web server - for both TLS and non-TLS web servers. Upon receiving a request, the
-		web server will automatically strip the prefix from incoming request URL before matching a handler (e.g. /stageDev/my/route -> /my-route).
+		show up in every request processed by web server - TLS and non-TLS. The web server will automatically strip the
+		prefix from incoming request URL before matching a handler (e.g. /stageDev/my/route -> /my-route).
 		This helps with deploying the web server behind a proxy or API gateway.
 		The environment variable value must begin with a forward slash and must not end with a forward slash.
 	*/

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -75,6 +76,9 @@ func TestLambdaHandler(t *testing.T) {
 	}
 	// Check environment variables
 	if s := os.Getenv("PORT"); s != strconv.Itoa(UpstreamWebServerPort) {
+		t.Fatal(s)
+	}
+	if s := os.Getenv(launcher.EnvironmentURLRoutePrefixKey); s != "/"+invocationInput.RequestContext.Stage {
 		t.Fatal(s)
 	}
 	// Check data decryption password
