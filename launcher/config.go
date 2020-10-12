@@ -31,9 +31,9 @@ import (
 const (
 	/*
 		EnvironmentURLRoutePrefixKey is the key of environment variable that provides the optional URL prefix expected to
-		show up in every request processed by web server - TLS and non-TLS. The web server will automatically strip the
-		prefix from incoming request URL before matching a handler (e.g. /stageDev/my/route -> /my-route).
-		This helps with deploying the web server behind a proxy or API gateway.
+		show up in every request processed by web server - for both TLS and non-TLS web servers. Upon receiving a request,
+		the web server will automatically strip the prefix from incoming request URL before matching a handler
+		(e.g. /stageDev/my/route -> /my-route). This helps with deploying the web server behind a proxy or API gateway.
 		The environment variable value must begin with a forward slash and must not end with a forward slash.
 	*/
 	EnvironmentURLRoutePrefixKey = "LAITOS_HTTP_URL_ROUTE_PREFIX"
@@ -386,7 +386,6 @@ func (config *Config) GetMaintenance() *maintenance.Daemon {
 // Construct an HTTP daemon from configuration and return.
 func (config *Config) GetHTTPD() *httpd.Daemon {
 	config.httpDaemonInit.Do(func() {
-		urlPrefix := os.Getenv(EnvironmentURLRoutePrefixKey)
 		// Assemble command processor from features and filters
 		config.HTTPDaemon.Processor = &toolbox.CommandProcessor{
 			Features: config.Features,
@@ -424,7 +423,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			// Image handler needs to operate on browser handler's browser instances
 			browserImageHandler := &handler.HandleBrowserPhantomJSImage{}
 			browserHandler := config.HTTPHandlers.BrowserPhantomJSEndpointConfig
-			imageEndpoint := urlPrefix + "/" + hex.EncodeToString(randBytes)
+			imageEndpoint := "/phantomjs-screenshot-" + hex.EncodeToString(randBytes)
 			handlers[imageEndpoint] = browserImageHandler
 			// Browser handler needs to use image handler's path
 			browserHandler.ImageEndpoint = imageEndpoint
@@ -442,7 +441,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			// Image handler needs to operate on browser handler's browser instances
 			browserImageHandler := &handler.HandleBrowserSlimerJSImage{}
 			browserHandler := config.HTTPHandlers.BrowserSlimerJSEndpointConfig
-			imageEndpoint := urlPrefix + "/" + hex.EncodeToString(randBytes)
+			imageEndpoint := "/slimmerjs-screenshot-" + hex.EncodeToString(randBytes)
 			handlers[imageEndpoint] = browserImageHandler
 			// Browser handler needs to use image handler's path
 			browserHandler.ImageEndpoint = imageEndpoint
@@ -461,7 +460,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			// The screenshot endpoint
 			vmScreenshotHandler := &handler.HandleVirtualMachineScreenshot{}
 			vmHandler := config.HTTPHandlers.VirtualMachineEndpointConfig
-			screenshotEndpoint := urlPrefix + "/vm-screenshot-" + hex.EncodeToString(randBytes)
+			screenshotEndpoint := "/vm-screenshot-" + hex.EncodeToString(randBytes)
 			handlers[screenshotEndpoint] = vmScreenshotHandler
 			// The VM control endpoint is given the screenshot endpoint location and instance
 			vmHandler.ScreenshotEndpoint = screenshotEndpoint
@@ -525,7 +524,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
 				return
 			}
-			callbackEndpoint := urlPrefix + "/" + hex.EncodeToString(randBytes)
+			callbackEndpoint := "/twilio-callback-" + hex.EncodeToString(randBytes)
 			// The greeting handler will use the callback endpoint to handle command
 			config.HTTPHandlers.TwilioCallEndpointConfig.CallbackEndpoint = callbackEndpoint
 			callEndpointConfig := config.HTTPHandlers.TwilioCallEndpointConfig
@@ -541,6 +540,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			handlers[config.HTTPHandlers.ReportsRetrievalEndpoint] = &handler.HandleReportsRetrieval{}
 		}
 		config.HTTPDaemon.HandlerCollection = handlers
+		urlPrefix := os.Getenv(EnvironmentURLRoutePrefixKey)
 		if err := config.HTTPDaemon.Initialise(urlPrefix); err != nil {
 			config.logger.Abort("GetHTTPD", "", err, "the daemon failed to initialise")
 			return
