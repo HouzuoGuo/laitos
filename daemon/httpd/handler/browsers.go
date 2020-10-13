@@ -15,11 +15,13 @@ import (
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowserSlimerJS struct {
-	ImageEndpoint string             `json:"-"`
-	Browsers      slimerjs.Instances `json:"Browsers"`
+	ImageEndpoint              string             `json:"-"`
+	Browsers                   slimerjs.Instances `json:"Browsers"`
+	stripURLPrefixFromResponse string
 }
 
-func (remoteBrowser *HandleBrowserSlimerJS) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
+func (remoteBrowser *HandleBrowserSlimerJS) Initialise(_ lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+	remoteBrowser.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return remoteBrowser.Browsers.Initialise()
 }
 
@@ -59,7 +61,7 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 			http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 			return
 		}
-		_, _ = w.Write(RenderControlPage(
+		_, _ = w.Write(RenderControlPage(remoteBrowser.stripURLPrefixFromResponse,
 			"Empty Browser", r.RequestURI,
 			index, instance.Tag,
 			nil, instance.GetDebugOutput(),
@@ -78,7 +80,7 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 				http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 				return
 			}
-			_, _ = w.Write(RenderControlPage(
+			_, _ = w.Write(RenderControlPage(remoteBrowser.stripURLPrefixFromResponse,
 				"Empty Browser", r.RequestURI,
 				index, instance.Tag,
 				nil, instance.GetDebugOutput(),
@@ -123,7 +125,7 @@ func (remoteBrowser *HandleBrowserSlimerJS) Handle(w http.ResponseWriter, r *htt
 		if actionErr == nil {
 			actionErr = pageInfoErr
 		}
-		_, _ = w.Write(RenderControlPage(
+		_, _ = w.Write(RenderControlPage(remoteBrowser.stripURLPrefixFromResponse,
 			pageInfo.Title, r.RequestURI,
 			index, instance.Tag,
 			actionErr, instance.GetDebugOutput(),
@@ -147,7 +149,7 @@ type HandleBrowserSlimerJSImage struct {
 	Browsers *slimerjs.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
-func (_ *HandleBrowserSlimerJSImage) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
+func (_ *HandleBrowserSlimerJSImage) Initialise(lalog.Logger, *toolbox.CommandProcessor, string) error {
 	return nil
 }
 

@@ -52,19 +52,21 @@ var fileUploadCleanUpStartOnce = new(sync.Once)
 
 // HandleFileUploadPage let visitors upload temporary files for retrieval within 24 hours
 type HandleFileUpload struct {
-	logger lalog.Logger
+	logger                     lalog.Logger
+	stripURLPrefixFromResponse string
 }
 
 // Initialise prepares handler logger.
-func (upload *HandleFileUpload) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
+func (upload *HandleFileUpload) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	upload.logger = logger
+	upload.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
 
 // render renders the file upload page in HTML
 func (upload *HandleFileUpload) render(w http.ResponseWriter, r *http.Request, message string) {
 	w.Header().Set("Content-Type", "text/html")
-	_, _ = w.Write([]byte(fmt.Sprintf(HandleFileUploadPage, r.RequestURI, message)))
+	_, _ = w.Write([]byte(fmt.Sprintf(HandleFileUploadPage, strings.TrimPrefix(r.RequestURI, upload.stripURLPrefixFromResponse), message)))
 }
 
 // periodicallyDeleteExpiredFiles deletes expired files at regular interval. This function never returns.
@@ -169,7 +171,7 @@ func (upload *HandleFileUpload) Handle(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, fh.Name())
 	default:
 		w.Header().Set("Content-Type", "text/html")
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleFileUploadPage, r.RequestURI, "")))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleFileUploadPage, strings.TrimPrefix(r.RequestURI, upload.stripURLPrefixFromResponse), "")))
 	}
 }
 

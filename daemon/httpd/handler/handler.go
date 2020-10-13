@@ -13,7 +13,7 @@ import (
 // An HTTP handler function factory.
 type Handler interface {
 	// Initialise prepares internal handler states and optionally memorises the logger and command processor instance.
-	Initialise(lalog.Logger, *toolbox.CommandProcessor) error
+	Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error
 
 	// Handle is the HTTP handler implementation that uses handler internal states to serve API requests.
 	Handle(http.ResponseWriter, *http.Request)

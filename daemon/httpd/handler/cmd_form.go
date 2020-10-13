@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"strings"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -28,10 +29,11 @@ const HTTPClienAppCommandTimeout = 59
 
 // Run feature commands in a simple web form.
 type HandleCommandForm struct {
-	cmdProc *toolbox.CommandProcessor
+	cmdProc                    *toolbox.CommandProcessor
+	stripURLPrefixFromResponse string
 }
 
-func (form *HandleCommandForm) Initialise(_ lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
+func (form *HandleCommandForm) Initialise(_ lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	if cmdProc == nil {
 		return errors.New("HandleCommandForm.Initialise: command processor must not be nil")
 	}
@@ -39,6 +41,7 @@ func (form *HandleCommandForm) Initialise(_ lalog.Logger, cmdProc *toolbox.Comma
 		return fmt.Errorf("HandleCommandForm.Initialise: %+v", errs)
 	}
 	form.cmdProc = cmdProc
+	form.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
 
@@ -46,10 +49,10 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	NoCache(w)
 	if r.Method == http.MethodGet {
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), "")))
 	} else if r.Method == http.MethodPost {
 		if cmd := r.FormValue("cmd"); cmd == "" {
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, "")))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), "")))
 		} else {
 			result := form.cmdProc.Process(r.Context(), toolbox.Command{
 				DaemonName: "httpd",
@@ -57,7 +60,7 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 				Content:    cmd,
 				TimeoutSec: HTTPClienAppCommandTimeout,
 			}, true)
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, r.RequestURI, html.EscapeString(result.CombinedOutput))))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), html.EscapeString(result.CombinedOutput))))
 		}
 	}
 }

@@ -47,11 +47,13 @@ type HandleGitlabBrowser struct {
 	Recipients   []string          `json:"Recipients"`   // Recipients of notification emails
 	MailClient   inet.MailClient   `json:"-"`            // MTA that delivers file download notification email
 
-	logger lalog.Logger
+	stripURLPrefixFromResponse string
+	logger                     lalog.Logger
 }
 
-func (lab *HandleGitlabBrowser) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
+func (lab *HandleGitlabBrowser) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	lab.logger = logger
+	lab.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
 
@@ -138,12 +140,12 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		projectID, found := lab.Projects[shortcutName]
 		if !found {
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 			return
 		}
 		dirs, fileNames, err := lab.ListGitObjects(r.Context(), projectID, browsePath, GitlabMaxObjects)
 		if err != nil {
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Error: "+err.Error())))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Error: "+err.Error())))
 			return
 		}
 		// Directory names are already sorted
@@ -158,18 +160,18 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 		for _, fileName := range sortedFiles {
 			contentList += fmt.Sprintf("%s\n", fileName)
 		}
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, contentList)))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, contentList)))
 	case "Download":
 		projectID, found := lab.Projects[shortcutName]
 		if !found {
 			w.Header().Set("Content-Type", "text/html")
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 			return
 		}
 		content, err := lab.DownloadGitBlob(r.Context(), GetRealClientIP(r), projectID, browsePath, fileName)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/html")
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Error: "+err.Error())))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Error: "+err.Error())))
 			return
 		}
 		w.Header().Set("Content-Type", "application/octet-stream")
@@ -177,7 +179,7 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(content)
 	default:
 		w.Header().Set("Content-Type", "text/html")
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, r.RequestURI, shortcutName, browsePath, fileName, "Enter path to browse or blob ID to download")))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Enter path to browse or blob ID to download")))
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -38,11 +39,12 @@ HandleRecurringCommands is an HTML form for user to manipulate recurring command
 commands and pushing text message directly into result.
 */
 type HandleRecurringCommands struct {
-	RecurringCommands map[string]*common.RecurringCommands `json:"RecurringCommands"` // are mappings between arbitrary ID string and associated command timer.
-	logger            lalog.Logger
+	RecurringCommands          map[string]*common.RecurringCommands `json:"RecurringCommands"` // are mappings between arbitrary ID string and associated command timer.
+	logger                     lalog.Logger
+	stripURLPrefixFromResponse string
 }
 
-func (notif *HandleRecurringCommands) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
+func (notif *HandleRecurringCommands) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	notif.logger = logger
 	if notif.RecurringCommands == nil || len(notif.RecurringCommands) == 0 {
 		return fmt.Errorf("HandleRecurringCommands: there must be at least one recurring command channel in configuration")
@@ -55,6 +57,7 @@ func (notif *HandleRecurringCommands) Initialise(logger lalog.Logger, cmdProc *t
 		go timer.Start()
 		// Because handlers do not have tear-down function, there is no way to stop them. Consider fixing this in the future?
 	}
+	notif.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
 
@@ -111,7 +114,7 @@ func (notif *HandleRecurringCommands) Handle(w http.ResponseWriter, r *http.Requ
 
 		}
 		w.Header().Set("Content-Type", "text/html")
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleRecurringCommandsSetupPage, r.RequestURI, channel, newCommand, textToStore, conclusion)))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleRecurringCommandsSetupPage, strings.TrimPrefix(r.RequestURI, notif.stripURLPrefixFromResponse), channel, newCommand, textToStore, conclusion)))
 	} else {
 
 		// Retrieve results in JSON format

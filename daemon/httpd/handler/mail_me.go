@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -44,14 +45,16 @@ type HandleMailMe struct {
 	Recipients []string        `json:"Recipients"` // Recipients of these mail messages
 	MailClient inet.MailClient `json:"-"`
 
-	logger lalog.Logger
+	stripURLPrefixFromResponse string
+	logger                     lalog.Logger
 }
 
-func (mm *HandleMailMe) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
+func (mm *HandleMailMe) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	mm.logger = logger
 	if mm.Recipients == nil || len(mm.Recipients) == 0 || !mm.MailClient.IsConfigured() {
 		return errors.New("HandleMailMe.Initialise: recipient list is empty or mailer is not configured")
 	}
+	mm.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
 
@@ -60,11 +63,11 @@ func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
 	if r.Method == http.MethodGet {
 		// Render the page
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, "")))
+		_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), "")))
 	} else if r.Method == http.MethodPost {
 		// Retrieve message and deliver it
 		if msg := r.FormValue("msg"); msg == "" {
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, "")))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), "")))
 		} else {
 			prompt := "出问题了，发不出去。"
 			if err := mm.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
@@ -72,7 +75,7 @@ func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 			} else {
 				mm.logger.Warning("HandleMailMe", r.RemoteAddr, err, "failed to deliver mail")
 			}
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, r.RequestURI, prompt)))
+			_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), prompt)))
 		}
 	}
 }

@@ -138,17 +138,19 @@ type HandleWebProxy struct {
 	*/
 	OwnEndpoint string `json:"-"`
 
-	logger lalog.Logger
+	stripURLPrefixFromResponse string
+	logger                     lalog.Logger
 }
 
 var ProxyRemoveRequestHeaders = []string{"Host", "Content-Length", "Accept-Encoding", "Content-Security-Policy", "Set-Cookie"}
 var ProxyRemoveResponseHeaders = []string{"Host", "Content-Length", "Transfer-Encoding", "Content-Security-Policy", "Set-Cookie"}
 
-func (xy *HandleWebProxy) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
+func (xy *HandleWebProxy) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	xy.logger = logger
 	if xy.OwnEndpoint == "" {
 		return errors.New("HandleWebProxy.Initialise: MyEndpoint must not be empty")
 	}
+	xy.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
 
@@ -160,7 +162,7 @@ func (xy *HandleWebProxy) Handle(w http.ResponseWriter, r *http.Request) {
 	} else {
 		proxySchemeHost = "https://" + proxySchemeHost
 	}
-	proxyHandlePath := proxySchemeHost + xy.OwnEndpoint
+	proxyHandlePath := proxySchemeHost + strings.TrimPrefix(xy.OwnEndpoint, xy.stripURLPrefixFromResponse)
 	// Figure out where user wants to go
 	browseURL := r.FormValue("u")
 	if browseURL == "" {

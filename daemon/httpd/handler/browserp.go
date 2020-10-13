@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/browser/phantomjs"
@@ -89,16 +90,18 @@ const (
 
 // Render web page in a server-side javascript-capable browser, and respond with rendered page image.
 type HandleBrowserPhantomJS struct {
-	ImageEndpoint string              `json:"-"`
-	Browsers      phantomjs.Instances `json:"Browsers"`
+	ImageEndpoint              string              `json:"-"`
+	Browsers                   phantomjs.Instances `json:"Browsers"`
+	stripURLPrefixFromResponse string
 }
 
-func (remoteBrowser *HandleBrowserPhantomJS) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
+func (remoteBrowser *HandleBrowserPhantomJS) Initialise(_ lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+	remoteBrowser.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return remoteBrowser.Browsers.Initialise()
 }
 
 // RenderControlPage returns string text of the web page that offers remote browser controls.
-func RenderControlPage(title, requestURL string,
+func RenderControlPage(stripURLPrefixFromResponse, title, requestURI string,
 	instanceIndex int, instanceTag string,
 	lastErr error, debugOut string,
 	viewWidth, viewHeight int, userAgent string,
@@ -113,7 +116,7 @@ func RenderControlPage(title, requestURL string,
 		errStr = lastErr.Error()
 	}
 	return []byte(fmt.Sprintf(HandleBrowserPage,
-		title, requestURL,
+		title, strings.TrimPrefix(requestURI, stripURLPrefixFromResponse),
 		instanceIndex, instanceTag,
 		errStr, debugOut,
 		strconv.Itoa(viewWidth), strconv.Itoa(viewHeight), userAgent,
@@ -121,7 +124,7 @@ func RenderControlPage(title, requestURL string,
 		pageUrl,
 		strconv.Itoa(pointerX), strconv.Itoa(pointerY),
 		typeText,
-		browserImageEndpoint, instanceIndex, instanceTag, time.Now().UnixNano()))
+		strings.TrimPrefix(browserImageEndpoint, stripURLPrefixFromResponse), instanceIndex, instanceTag, time.Now().UnixNano()))
 }
 
 func (remoteBrowser *HandleBrowserPhantomJS) parseSubmission(r *http.Request) (instanceIndex int, instanceTag string,
@@ -160,7 +163,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 			http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 			return
 		}
-		_, _ = w.Write(RenderControlPage(
+		_, _ = w.Write(RenderControlPage(remoteBrowser.stripURLPrefixFromResponse,
 			"Empty Browser", r.RequestURI,
 			index, instance.Tag,
 			nil, instance.GetDebugOutput(),
@@ -179,7 +182,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 				http.Error(w, fmt.Sprintf("Failed to acquire browser instance: %v", err), http.StatusInternalServerError)
 				return
 			}
-			_, _ = w.Write(RenderControlPage(
+			_, _ = w.Write(RenderControlPage(remoteBrowser.stripURLPrefixFromResponse,
 				"Empty Browser", r.RequestURI,
 				index, instance.Tag,
 				nil, instance.GetDebugOutput(),
@@ -224,7 +227,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *ht
 		if actionErr == nil {
 			actionErr = pageInfoErr
 		}
-		_, _ = w.Write(RenderControlPage(
+		_, _ = w.Write(RenderControlPage(remoteBrowser.stripURLPrefixFromResponse,
 			pageInfo.Title, r.RequestURI,
 			index, instance.Tag,
 			actionErr, instance.GetDebugOutput(),
@@ -248,7 +251,7 @@ type HandleBrowserPhantomJSImage struct {
 	Browsers *phantomjs.Instances `json:"-"` // Reference to browser instances constructed in HandleBrowser handler
 }
 
-func (_ *HandleBrowserPhantomJSImage) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
+func (_ *HandleBrowserPhantomJSImage) Initialise(lalog.Logger, *toolbox.CommandProcessor, string) error {
 	return nil
 }
 

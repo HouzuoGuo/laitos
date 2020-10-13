@@ -73,7 +73,7 @@ type HandleTheThingsNetworkHTTPIntegration struct {
 	logger  lalog.Logger
 }
 
-func (hand *HandleTheThingsNetworkHTTPIntegration) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
+func (hand *HandleTheThingsNetworkHTTPIntegration) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
 	if cmdProc == nil {
 		return errors.New("HandleTheThingsNetworkHTTPIntegration.Initialise: command processor must not be nil")
 	}

@@ -58,7 +58,7 @@ type HandleMicrosoftBot struct {
 	cmdProc *toolbox.CommandProcessor
 }
 
-func (hand *HandleMicrosoftBot) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
+func (hand *HandleMicrosoftBot) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	hand.latestJwtMutex = new(sync.Mutex)

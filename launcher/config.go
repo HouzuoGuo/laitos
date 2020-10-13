@@ -29,14 +29,26 @@ import (
 )
 
 const (
+
 	/*
-		EnvironmentURLRoutePrefixKey is the key of environment variable that provides the optional URL prefix expected to
-		show up in every request processed by web server - for both TLS and non-TLS web servers. Upon receiving a request,
-		the web server will automatically strip the prefix from incoming request URL before matching a handler
-		(e.g. /stageDev/my/route -> /my-route). This helps with deploying the web server behind a proxy or API gateway.
-		The environment variable value must begin with a forward slash and must not end with a forward slash.
+		EnvironmentStripURLPrefixFromRequest is an environemnt variable name, the value of which is an optional prefix string that is expected
+		to be present in request URLs.
+		If used, HTTP server will install all of its handlers at URL location according to the server configuration, but with the prefix
+		URL string added to each of them.
+		This often helps when some kind of API gateway (e.g. AWS API gateway) proxies visitors' requests and places a prefix string in
+		each request.
+		For example: a homepage's domain is served by a CDN, the CDN forwards visitors' requests to a backend ("origin") and in doing
+		so automatically adds a URL prefix "/stageLive" because the backend expects such prefix. In this case, the stripURLPrefixFromRequest
+		shall be "/stageLive".
 	*/
-	EnvironmentURLRoutePrefixKey = "LAITOS_HTTP_URL_ROUTE_PREFIX"
+	EnvironmentStripURLPrefixFromRequest = "LAITOS_STRIP_URL_PREFIX_FROM_REQUEST"
+
+	/*
+		   EnvironmentStripURLPrefixFromResponse is an environment variable name, the value of which is is an optional prefix string that will
+			 be stirpped from rendered HTML pages, such as links on pages and form action URLs, this is usually used in conjunction with
+			 EnvironmentStripURLPrefixFromRequest.
+	*/
+	EnvironmentStripURLPrefixFromResponse = "LAITOS_STRIP_URL_PREFIX_FROM_RESPONSE"
 )
 
 /*
@@ -386,6 +398,8 @@ func (config *Config) GetMaintenance() *maintenance.Daemon {
 // Construct an HTTP daemon from configuration and return.
 func (config *Config) GetHTTPD() *httpd.Daemon {
 	config.httpDaemonInit.Do(func() {
+		stripURLPrefixFromRequest := os.Getenv(EnvironmentStripURLPrefixFromRequest)
+		stripURLPrefixFromResponse := os.Getenv(EnvironmentStripURLPrefixFromResponse)
 		// Assemble command processor from features and filters
 		config.HTTPDaemon.Processor = &toolbox.CommandProcessor{
 			Features: config.Features,
@@ -423,7 +437,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			// Image handler needs to operate on browser handler's browser instances
 			browserImageHandler := &handler.HandleBrowserPhantomJSImage{}
 			browserHandler := config.HTTPHandlers.BrowserPhantomJSEndpointConfig
-			imageEndpoint := "/phantomjs-screenshot-" + hex.EncodeToString(randBytes)
+			imageEndpoint := stripURLPrefixFromRequest + "/phantomjs-screenshot-" + hex.EncodeToString(randBytes)
 			handlers[imageEndpoint] = browserImageHandler
 			// Browser handler needs to use image handler's path
 			browserHandler.ImageEndpoint = imageEndpoint
@@ -441,7 +455,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			// Image handler needs to operate on browser handler's browser instances
 			browserImageHandler := &handler.HandleBrowserSlimerJSImage{}
 			browserHandler := config.HTTPHandlers.BrowserSlimerJSEndpointConfig
-			imageEndpoint := "/slimmerjs-screenshot-" + hex.EncodeToString(randBytes)
+			imageEndpoint := stripURLPrefixFromRequest + "/slimmerjs-screenshot-" + hex.EncodeToString(randBytes)
 			handlers[imageEndpoint] = browserImageHandler
 			// Browser handler needs to use image handler's path
 			browserHandler.ImageEndpoint = imageEndpoint
@@ -460,7 +474,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			// The screenshot endpoint
 			vmScreenshotHandler := &handler.HandleVirtualMachineScreenshot{}
 			vmHandler := config.HTTPHandlers.VirtualMachineEndpointConfig
-			screenshotEndpoint := "/vm-screenshot-" + hex.EncodeToString(randBytes)
+			screenshotEndpoint := stripURLPrefixFromRequest + "/vm-screenshot-" + hex.EncodeToString(randBytes)
 			handlers[screenshotEndpoint] = vmScreenshotHandler
 			// The VM control endpoint is given the screenshot endpoint location and instance
 			vmHandler.ScreenshotEndpoint = screenshotEndpoint
@@ -524,7 +538,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
 				return
 			}
-			callbackEndpoint := "/twilio-callback-" + hex.EncodeToString(randBytes)
+			callbackEndpoint := stripURLPrefixFromRequest + "/twilio-callback-" + hex.EncodeToString(randBytes)
 			// The greeting handler will use the callback endpoint to handle command
 			config.HTTPHandlers.TwilioCallEndpointConfig.CallbackEndpoint = callbackEndpoint
 			callEndpointConfig := config.HTTPHandlers.TwilioCallEndpointConfig
@@ -540,8 +554,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			handlers[config.HTTPHandlers.ReportsRetrievalEndpoint] = &handler.HandleReportsRetrieval{}
 		}
 		config.HTTPDaemon.HandlerCollection = handlers
-		urlPrefix := os.Getenv(EnvironmentURLRoutePrefixKey)
-		if err := config.HTTPDaemon.Initialise(urlPrefix); err != nil {
+		if err := config.HTTPDaemon.Initialise(stripURLPrefixFromRequest, stripURLPrefixFromResponse); err != nil {
 			config.logger.Abort("GetHTTPD", "", err, "the daemon failed to initialise")
 			return
 		}

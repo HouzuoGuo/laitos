@@ -47,7 +47,7 @@ type HandleTwilioSMSHook struct {
 	cmdProc *toolbox.CommandProcessor
 }
 
-func (hand *HandleTwilioSMSHook) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
+func (hand *HandleTwilioSMSHook) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	// Allow maximum of 1 SMS to be received every 5 seconds, per phone number.
@@ -108,12 +108,13 @@ type HandleTwilioCallHook struct {
 	CallGreeting     string `json:"CallGreeting"` // a message to speak upon picking up a call
 	CallbackEndpoint string `json:"-"`            // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
 
-	senderRateLimit *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
-	logger          lalog.Logger
-	cmdProc         *toolbox.CommandProcessor
+	senderRateLimit            *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
+	logger                     lalog.Logger
+	stripURLPrefixFromResponse string
+	cmdProc                    *toolbox.CommandProcessor
 }
 
-func (hand *HandleTwilioCallHook) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
+func (hand *HandleTwilioCallHook) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	if hand.CallGreeting == "" || hand.CallbackEndpoint == "" {
 		return errors.New("HandleTwilioCallHook.Initialise: greeting and callback endpoint must not be empty")
 	}
@@ -126,6 +127,7 @@ func (hand *HandleTwilioCallHook) Initialise(logger lalog.Logger, cmdProc *toolb
 		Logger:   logger,
 	}
 	hand.senderRateLimit.Initialise()
+	hand.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
 
@@ -148,7 +150,7 @@ func (hand *HandleTwilioCallHook) Handle(w http.ResponseWriter, r *http.Request)
         <Say>%s</Say>
     </Gather>
 </Response>
-`, hand.CallbackEndpoint, XMLEscape(hand.CallGreeting))))
+`, strings.TrimPrefix(hand.CallbackEndpoint, hand.stripURLPrefixFromResponse), XMLEscape(hand.CallGreeting))))
 }
 func (hand *HandleTwilioCallHook) GetRateLimitFactor() int {
 	return TwilioAPIRateLimitFactor
@@ -161,12 +163,13 @@ func (_ *HandleTwilioCallHook) SelfTest() error {
 type HandleTwilioCallCallback struct {
 	MyEndpoint string `json:"-"` // URL endpoint to the callback itself, including prefix /.
 
-	senderRateLimit *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
-	logger          lalog.Logger
-	cmdProc         *toolbox.CommandProcessor
+	senderRateLimit            *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
+	logger                     lalog.Logger
+	stripURLPrefixFromResponse string
+	cmdProc                    *toolbox.CommandProcessor
 }
 
-func (hand *HandleTwilioCallCallback) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor) error {
+func (hand *HandleTwilioCallCallback) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	if hand.MyEndpoint == "" {
 		return errors.New("HandleTwilioCallCallback.Initialise: MyEndpoint must not be empty")
 	}
@@ -179,6 +182,7 @@ func (hand *HandleTwilioCallCallback) Initialise(logger lalog.Logger, cmdProc *t
 		Logger:   logger,
 	}
 	hand.senderRateLimit.Initialise()
+	hand.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
 
@@ -231,7 +235,7 @@ over.
 </Say>
     </Gather>
 </Response>
-`, hand.MyEndpoint, combinedOutput, combinedOutput, combinedOutput)))
+`, strings.TrimPrefix(hand.MyEndpoint, hand.stripURLPrefixFromResponse), combinedOutput, combinedOutput, combinedOutput)))
 }
 
 func (hand *HandleTwilioCallCallback) GetRateLimitFactor() int {

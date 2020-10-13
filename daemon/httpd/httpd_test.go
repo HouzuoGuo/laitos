@@ -27,7 +27,7 @@ func TestHTTPD_WithURLPrefix(t *testing.T) {
 		},
 	}
 	daemon.HandlerCollection["/info"] = &handler.HandleSystemInfo{FeaturesToCheck: daemon.Processor.Features}
-	if err := daemon.Initialise("/test-prefix/abc"); err != nil {
+	if err := daemon.Initialise("/test-prefix/abc", ""); err != nil {
 		t.Fatalf("%+v", err)
 	}
 	// Expect server to startup within two seconds
@@ -71,12 +71,12 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	}
 	// Must not initialise if command processor is not sane
 	daemon.Processor = toolbox.GetInsaneCommandProcessor()
-	if err := daemon.Initialise(""); err == nil || !strings.Contains(err.Error(), toolbox.ErrBadProcessorConfig) {
+	if err := daemon.Initialise("", ""); err == nil || !strings.Contains(err.Error(), toolbox.ErrBadProcessorConfig) {
 		t.Fatal("did not error due to insane CommandProcessor")
 	}
 	daemon.Processor = toolbox.GetTestCommandProcessor()
 	// Test default settings
-	if err := daemon.Initialise(""); err != nil {
+	if err := daemon.Initialise("", ""); err != nil {
 		t.Fatal(err)
 	}
 	if daemon.PerIPLimit != 12 || daemon.Port != 80 || daemon.Address != "0.0.0.0" {
@@ -86,7 +86,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.Address = "127.0.0.1"
 	daemon.Port = 43250
 	daemon.PerIPLimit = 10 // limit must be high enough to tolerate consecutive API endpoint tests
-	if err := daemon.Initialise(""); err != nil {
+	if err := daemon.Initialise("", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -131,7 +131,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	daemon.HandlerCollection["/cmd"] = &handler.HandleAppCommand{}
 	daemon.HandlerCollection["/reports"] = &handler.HandleReportsRetrieval{}
 
-	if err := daemon.Initialise(""); err != nil {
+	if err := daemon.Initialise("", ""); err != nil {
 		t.Fatal(err)
 	}
 	for route := range daemon.AllRateLimits {

@@ -78,7 +78,10 @@ func TestLambdaHandler(t *testing.T) {
 	if s := os.Getenv("PORT"); s != strconv.Itoa(UpstreamWebServerPort) {
 		t.Fatal(s)
 	}
-	if s := os.Getenv(launcher.EnvironmentURLRoutePrefixKey); s != "/"+invocationInput.RequestContext.Stage {
+	if s := os.Getenv(launcher.EnvironmentStripURLPrefixFromRequest); s != "/"+invocationInput.RequestContext.Stage {
+		t.Fatal(s)
+	}
+	if s := os.Getenv(launcher.EnvironmentStripURLPrefixFromResponse); s != "/"+invocationInput.RequestContext.Stage {
 		t.Fatal(s)
 	}
 	// Check data decryption password

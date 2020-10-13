@@ -17,7 +17,7 @@ type HandleSystemInfo struct {
 	logger             lalog.Logger
 }
 
-func (info *HandleSystemInfo) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
+func (info *HandleSystemInfo) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, _ string) error {
 	info.logger = logger
 	return nil
 }

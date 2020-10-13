@@ -99,12 +99,19 @@ func (daemon *Daemon) GetHandlerByFactoryType(match handler.Handler) string {
 /*
 Initialise validates daemon configuration and initialises internal states.
 
-urlLocationPrefix is an optional prefix string that may be present in request URL. If used, the prefix must begin with a
-forward slash and must not end with a forward slash. This often helps when some kind of API gateway (e.g. AWS API gateway)
-proxies visitors' requests and places a prefix string in each request (e.g. "/stageLive").
-The URL locations defined in configuration will always be handled regardless of whether the prefix is used.
+stripURLPrefixFromRequest is an optional prefix string that is expected to be present in request URLs.
+If used, HTTP server will install all of its handlers at URL location according to the server configuration, but with the prefix
+URL string added to each of them.
+This often helps when some kind of API gateway (e.g. AWS API gateway) proxies visitors' requests and places a prefix string in
+each request.
+For example: a homepage's domain is served by a CDN, the CDN forwards visitors' requests to a backend ("origin") and in doing
+so automatically adds a URL prefix "/stageLive" because the backend expects such prefix. In this case, the stripURLPrefixFromRequest
+shall be "/stageLive".
+
+stripURLPrefixFromResponse is an optional prefix string that will be stirpped from rendered HTML pages, such as links on pages and
+form action URLs, this is usually used in conjunction with stripURLPrefixFromRequest.
 */
-func (daemon *Daemon) Initialise(urlLocationPrefix string) error {
+func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefixFromResponse string) error {
 	if daemon.Address == "" {
 		daemon.Address = "0.0.0.0"
 	}
@@ -136,56 +143,45 @@ func (daemon *Daemon) Initialise(urlLocationPrefix string) error {
 	// Install handlers with rate-limiting middleware
 	daemon.mux = new(http.ServeMux)
 	daemon.AllRateLimits = map[string]*misc.RateLimit{}
-	/*
-		If the optional URL location prefix is in-use, then the HTTP server will handle requests that use the prefix as well as
-		those not using the prefix, thus binding two URL locations to each handler function.
-	*/
-	handlerURLPrefixes := []string{""}
-	if urlLocationPrefix != "" {
-		daemon.logger.Info("Initialise", "", nil, "the URL route prefix string is \"%s\"", urlLocationPrefix)
-		handlerURLPrefixes = append(handlerURLPrefixes, urlLocationPrefix)
-	}
-	for _, handlerURLPrefix := range handlerURLPrefixes {
-		// Install directory handlers
-		if daemon.ServeDirectories != nil {
-			for urlLocation, dirPath := range daemon.ServeDirectories {
-				if urlLocation == "" || dirPath == "" {
-					continue
-				}
-				if urlLocation[0] != '/' {
-					urlLocation = "/" + urlLocation
-				}
-				if urlLocation[len(urlLocation)-1] != '/' {
-					urlLocation += "/"
-				}
-				urlLocation = handlerURLPrefix + urlLocation
-				rl := &misc.RateLimit{
-					UnitSecs: RateLimitIntervalSec,
-					MaxCount: DirectoryHandlerRateLimitFactor * daemon.PerIPLimit,
-					Logger:   daemon.logger,
-				}
-				daemon.AllRateLimits[urlLocation] = rl
-				daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(rl, true, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
-				daemon.logger.Info("Initialise", "", nil, "installed directory listing handler at location %s", urlLocation)
+	// Install directory handlers
+	if daemon.ServeDirectories != nil {
+		for urlLocation, dirPath := range daemon.ServeDirectories {
+			if urlLocation == "" || dirPath == "" {
+				continue
 			}
-		}
-		// Install web service handlers
-		for urlLocation, hand := range daemon.HandlerCollection {
-			if err := hand.Initialise(daemon.logger, daemon.Processor); err != nil {
-				return err
+			if urlLocation[0] != '/' {
+				urlLocation = "/" + urlLocation
 			}
+			if urlLocation[len(urlLocation)-1] != '/' {
+				urlLocation += "/"
+			}
+			urlLocation = stripURLPrefixFromRequest + urlLocation
 			rl := &misc.RateLimit{
 				UnitSecs: RateLimitIntervalSec,
-				MaxCount: hand.GetRateLimitFactor() * daemon.PerIPLimit,
+				MaxCount: DirectoryHandlerRateLimitFactor * daemon.PerIPLimit,
 				Logger:   daemon.logger,
 			}
-			urlLocation = handlerURLPrefix + urlLocation
 			daemon.AllRateLimits[urlLocation] = rl
-			// With the exception of file upload handler, all handlers will be subject to a limited request size.
-			_, unrestrictedRequestSize := hand.(*handler.HandleFileUpload)
-			daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(rl, !unrestrictedRequestSize, hand.Handle))
-			daemon.logger.Info("Initialise", "", nil, "installed web service at location %s", urlLocation)
+			daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(rl, true, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
+			daemon.logger.Info("Initialise", "", nil, "installed directory listing handler at location %s", urlLocation)
 		}
+	}
+	// Install web service handlers
+	for urlLocation, hand := range daemon.HandlerCollection {
+		if err := hand.Initialise(daemon.logger, daemon.Processor, stripURLPrefixFromResponse); err != nil {
+			return err
+		}
+		rl := &misc.RateLimit{
+			UnitSecs: RateLimitIntervalSec,
+			MaxCount: hand.GetRateLimitFactor() * daemon.PerIPLimit,
+			Logger:   daemon.logger,
+		}
+		urlLocation = stripURLPrefixFromRequest + urlLocation
+		daemon.AllRateLimits[urlLocation] = rl
+		// With the exception of file upload handler, all handlers will be subject to a limited request size.
+		_, unrestrictedRequestSize := hand.(*handler.HandleFileUpload)
+		daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(rl, !unrestrictedRequestSize, hand.Handle))
+		daemon.logger.Info("Initialise", "", nil, "installed web service at location %s", urlLocation)
 	}
 	// Initialise all rate limits
 	for _, limit := range daemon.AllRateLimits {

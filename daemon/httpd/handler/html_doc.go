@@ -27,7 +27,7 @@ type HandleHTMLDocument struct {
 	contentString string // contentString is the HTML document file's content in string
 }
 
-func (doc *HandleHTMLDocument) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
+func (doc *HandleHTMLDocument) Initialise(lalog.Logger, *toolbox.CommandProcessor, string) error {
 	var err error
 	if doc.contentBytes, err = ioutil.ReadFile(doc.HTMLFilePath); err != nil {
 		return fmt.Errorf("HandleHTMLDocument.Initialise: failed to open HTML file at %s - %v", doc.HTMLFilePath, err)

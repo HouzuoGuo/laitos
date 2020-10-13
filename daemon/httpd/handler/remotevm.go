@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -86,15 +87,16 @@ const (
 
 // HandleVirtualMachine is an HTTP handler that offers remote virtual machine controls, excluding the screenshot itself.
 type HandleVirtualMachine struct {
-	LocalUtilityPortNumber    int                             `json:"LocalUtilityPortNumber"`
-	ScreenshotEndpoint        string                          `json:"-"`
-	ScreenshotHandlerInstance *HandleVirtualMachineScreenshot `json:"-"`
-	VM                        *remotevm.VM                    `json:"-"`
-	logger                    lalog.Logger
+	LocalUtilityPortNumber     int                             `json:"LocalUtilityPortNumber"`
+	ScreenshotEndpoint         string                          `json:"-"`
+	ScreenshotHandlerInstance  *HandleVirtualMachineScreenshot `json:"-"`
+	VM                         *remotevm.VM                    `json:"-"`
+	stripURLPrefixFromResponse string
+	logger                     lalog.Logger
 }
 
 // Initialise internal state of the HTTP handler.
-func (handler *HandleVirtualMachine) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor) error {
+func (handler *HandleVirtualMachine) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	handler.logger = logger
 	// Calculate the number of CPUs and amount of memory to be granted to virtual machine
 	// Give the virtual machine half of the system CPUs
@@ -119,6 +121,7 @@ func (handler *HandleVirtualMachine) Initialise(logger lalog.Logger, _ *toolbox.
 	}
 	// Screenshots are taken from the same VM
 	handler.ScreenshotHandlerInstance.VM = handler.VM
+	handler.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
 
@@ -136,7 +139,7 @@ func (handler *HandleVirtualMachine) renderRemoteVMPage(requestURL string, err e
 		isoURL,
 		pointerX, pointerY,
 		pressKeys,
-		handler.ScreenshotEndpoint, time.Now().UnixNano()))
+		strings.TrimPrefix(handler.ScreenshotEndpoint, handler.stripURLPrefixFromResponse), time.Now().UnixNano()))
 }
 
 // parseSubmission reads form action (button) and form text fields input.
@@ -165,7 +168,7 @@ func (handler *HandleVirtualMachine) Handle(w http.ResponseWriter, r *http.Reque
 	NoCache(w)
 	if r.Method == http.MethodGet {
 		// Display the web page. Suggest user to download the default Linux distribution.
-		_, _ = w.Write(handler.renderRemoteVMPage(r.RequestURI, nil, DefaultLinuxDistributionURL, 0, 0, ""))
+		_, _ = w.Write(handler.renderRemoteVMPage(strings.TrimPrefix(r.RequestURI, handler.stripURLPrefixFromResponse), nil, DefaultLinuxDistributionURL, 0, 0, ""))
 	} else if r.Method == http.MethodPost {
 		// Handle buttons
 		button, isoURL, pointerX, pointerY, pressKeys := handler.parseSubmission(r)
@@ -242,7 +245,7 @@ func (handler *HandleVirtualMachine) Handle(w http.ResponseWriter, r *http.Reque
 		default:
 			actionErr = fmt.Errorf("Unknown button action: %s", button)
 		}
-		_, _ = w.Write(handler.renderRemoteVMPage(r.RequestURI, actionErr, isoURL, pointerX, pointerY, pressKeys))
+		_, _ = w.Write(handler.renderRemoteVMPage(strings.TrimPrefix(r.RequestURI, handler.stripURLPrefixFromResponse), actionErr, isoURL, pointerX, pointerY, pressKeys))
 	}
 }
 
@@ -262,7 +265,7 @@ type HandleVirtualMachineScreenshot struct {
 }
 
 // Initialise is not applicable to this HTTP handler, as its internal
-func (_ *HandleVirtualMachineScreenshot) Initialise(lalog.Logger, *toolbox.CommandProcessor) error {
+func (_ *HandleVirtualMachineScreenshot) Initialise(lalog.Logger, *toolbox.CommandProcessor, string) error {
 	// Initialised by HandleVirtualMachine.Initialise
 	return nil
 }
