@@ -398,8 +398,6 @@ func (config *Config) GetMaintenance() *maintenance.Daemon {
 // Construct an HTTP daemon from configuration and return.
 func (config *Config) GetHTTPD() *httpd.Daemon {
 	config.httpDaemonInit.Do(func() {
-		stripURLPrefixFromRequest := os.Getenv(EnvironmentStripURLPrefixFromRequest)
-		stripURLPrefixFromResponse := os.Getenv(EnvironmentStripURLPrefixFromResponse)
 		// Assemble command processor from features and filters
 		config.HTTPDaemon.Processor = &toolbox.CommandProcessor{
 			Features: config.Features,
@@ -437,7 +435,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			// Image handler needs to operate on browser handler's browser instances
 			browserImageHandler := &handler.HandleBrowserPhantomJSImage{}
 			browserHandler := config.HTTPHandlers.BrowserPhantomJSEndpointConfig
-			imageEndpoint := stripURLPrefixFromRequest + "/phantomjs-screenshot-" + hex.EncodeToString(randBytes)
+			imageEndpoint := "/phantomjs-screenshot-" + hex.EncodeToString(randBytes)
 			handlers[imageEndpoint] = browserImageHandler
 			// Browser handler needs to use image handler's path
 			browserHandler.ImageEndpoint = imageEndpoint
@@ -455,7 +453,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			// Image handler needs to operate on browser handler's browser instances
 			browserImageHandler := &handler.HandleBrowserSlimerJSImage{}
 			browserHandler := config.HTTPHandlers.BrowserSlimerJSEndpointConfig
-			imageEndpoint := stripURLPrefixFromRequest + "/slimmerjs-screenshot-" + hex.EncodeToString(randBytes)
+			imageEndpoint := "/slimmerjs-screenshot-" + hex.EncodeToString(randBytes)
 			handlers[imageEndpoint] = browserImageHandler
 			// Browser handler needs to use image handler's path
 			browserHandler.ImageEndpoint = imageEndpoint
@@ -474,7 +472,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			// The screenshot endpoint
 			vmScreenshotHandler := &handler.HandleVirtualMachineScreenshot{}
 			vmHandler := config.HTTPHandlers.VirtualMachineEndpointConfig
-			screenshotEndpoint := stripURLPrefixFromRequest + "/vm-screenshot-" + hex.EncodeToString(randBytes)
+			screenshotEndpoint := "/vm-screenshot-" + hex.EncodeToString(randBytes)
 			handlers[screenshotEndpoint] = vmScreenshotHandler
 			// The VM control endpoint is given the screenshot endpoint location and instance
 			vmHandler.ScreenshotEndpoint = screenshotEndpoint
@@ -538,7 +536,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
 				return
 			}
-			callbackEndpoint := stripURLPrefixFromRequest + "/twilio-callback-" + hex.EncodeToString(randBytes)
+			callbackEndpoint := "/twilio-callback-" + hex.EncodeToString(randBytes)
 			// The greeting handler will use the callback endpoint to handle command
 			config.HTTPHandlers.TwilioCallEndpointConfig.CallbackEndpoint = callbackEndpoint
 			callEndpointConfig := config.HTTPHandlers.TwilioCallEndpointConfig
@@ -554,6 +552,8 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			handlers[config.HTTPHandlers.ReportsRetrievalEndpoint] = &handler.HandleReportsRetrieval{}
 		}
 		config.HTTPDaemon.HandlerCollection = handlers
+		stripURLPrefixFromRequest := os.Getenv(EnvironmentStripURLPrefixFromRequest)
+		stripURLPrefixFromResponse := os.Getenv(EnvironmentStripURLPrefixFromResponse)
 		config.logger.Info("GetHTTPD", "", nil, "will strip \"%s\" from requested URLs and strip \"%s\" from HTML response", stripURLPrefixFromRequest, stripURLPrefixFromResponse)
 		if err := config.HTTPDaemon.Initialise(stripURLPrefixFromRequest, stripURLPrefixFromResponse); err != nil {
 			config.logger.Abort("GetHTTPD", "", err, "the daemon failed to initialise")
