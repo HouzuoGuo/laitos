@@ -554,6 +554,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			handlers[config.HTTPHandlers.ReportsRetrievalEndpoint] = &handler.HandleReportsRetrieval{}
 		}
 		config.HTTPDaemon.HandlerCollection = handlers
+		config.logger.Info("GetHTTPD", "", nil, "will strip \"%s\" from requested URLs and strip \"%s\" from HTML response", stripURLPrefixFromRequest, stripURLPrefixFromResponse)
 		if err := config.HTTPDaemon.Initialise(stripURLPrefixFromRequest, stripURLPrefixFromResponse); err != nil {
 			config.logger.Abort("GetHTTPD", "", err, "the daemon failed to initialise")
 			return
