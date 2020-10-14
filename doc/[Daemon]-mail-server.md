@@ -127,7 +127,7 @@ Here is an example:
 
     "MailFilters": {
         "PINAndShortcuts": {
-            "PIN": "VerySecretPassword",
+            "Passwords": ["VerySecretPassword"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",

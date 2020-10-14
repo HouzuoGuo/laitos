@@ -4,7 +4,7 @@ capabilities to satisfy the geeky nature inside of you!
 
 laitos components go into three categories:
 - Apps - reading news and Emails, make a Tweet, ask about weather, etc.
-- Daemons - web/mail/DNS servers, chat bots, etc. Many daemons offer access to apps, protected with a password PIN.
+- Daemons - web/mail/DNS servers, chat bots, etc. Many daemons offer access to apps, protected with a password.
 - Rich web services - useful web-based utilities hosted by the web server.
 
 Also, check out [laitos terminal](https://github.com/HouzuoGuo/laitos/wiki/Laitos-terminal) for a terminal-UI of

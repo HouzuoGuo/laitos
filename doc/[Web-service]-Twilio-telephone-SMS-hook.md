@@ -47,7 +47,7 @@ Here is an example:
 
     "HTTPFilters": {
         "PINAndShortcuts": {
-            "PIN": "verysecretpassword",
+            "Passwords": ["verysecretpassword"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
@@ -95,10 +95,10 @@ The service is hosted by web server, therefore remember to [run web server](http
 
    For an example, the laitos server address may be `https://my-laitos-server.com/very-secret-twilio-sms-service`
 
-Then, in an SMS, enter password PIN and app command and send the text to your Twilio phone number. Wait several
+Then, in an SMS, enter password and app command and send the text to your Twilio phone number. Wait several
 seconds and the command result will arrive in an SMS reply.
 
-In order to enter app command via telephone call, use the number pad to dial password PIN and app command, completed with a
+In order to enter app command via telephone call, use the number pad to dial password and app command, completed with a
 pound '#' sign, then wait for command execution and then a spoken response. The number pad input works in this way:
 - The number pad is able to enter nearly all Latin letters, common symbols, and numbers.
 - A character is entered via either a single digit or a sequence of digits.
@@ -123,15 +123,15 @@ Here are the digit sequences for entering letters, symbols, and numbers:
 8 - t      88 - u     888 – v    9 - w      99 - x     999 - y    9999 – z
 </pre>
 
-If you wish the output to be spelt phonetically rather than spoken, input number sequence `0123` before PIN and command
+If you wish the output to be spelt phonetically rather than spoken, input number sequence `0123` before and command
 input. This technique is very useful for copying sophisticated command output such as those from operating system shell
 commands.
 
 ## Tips
-Telephone and mobile networks are prone to eavesdropping attacks that can reveal your password PIN and app command responses
-to potential attackers. Consider using [one-time password in place of password PIN](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password-pin).
+Telephone and mobile networks are prone to eavesdropping attacks that can reveal your password and app command responses
+to potential attackers. Consider using [one-time password in place of password](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password).
 
-The web service does not respond if an SMS sender fails to use the correct password PIN. All SMS and calls are logged for
+The web service does not respond if an SMS sender fails to use the correct password. All SMS and calls are logged for
 inspection on Twilio console.
 
 Regarding laitos configuration:

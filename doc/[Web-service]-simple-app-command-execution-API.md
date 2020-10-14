@@ -38,4 +38,4 @@ The web service accepts app command from both form submission (`-F`) and query p
 is subjected to the text linting rules defined in laitos configuration `HTTPFilters`.
 
 ## Tips
-- Make the URL location secure and hard to guess, it helps to secure this web service beyond password PIN protection!
+- Make the URL location secure and hard to guess, it helps to secure this web service beyond password protection!

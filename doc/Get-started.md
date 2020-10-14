@@ -13,7 +13,7 @@ laitos is an all-in-one solution and does not depend on third party library.
 ## Prepare configuration
 laitos components go into three categories:
 - Apps - reading news and Emails, make a Tweet, ask about weather, etc.
-- Daemons - web/mail/DNS servers, chat bots, etc. Many daemons offer access to apps, protected with a password PIN.
+- Daemons - web/mail/DNS servers, chat bots, etc. Many daemons offer access to apps, protected with a password.
 - Rich web services - useful web-based utilities hosted by the web server.
 
 Follow the links in [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list) to craft your very own

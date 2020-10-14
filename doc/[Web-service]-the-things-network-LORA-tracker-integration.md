@@ -71,7 +71,7 @@ Here is an example setup:
 
     "HTTPFilters": {
         "PINAndShortcuts": {
-            "PIN": "verysecretpassword",
+            "Passwords": ["verysecretpassword"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
@@ -117,7 +117,7 @@ If you wish to send app commands from LoRa IoT devices to your laitos server, mo
 devices in this way:
 
 1. Leave the transmission of TTN mapper-compatible location payload intact.
-2. Write additional program logic to append app command, completed with password PIN, to the transmitted payload. The original
+2. Write additional program logic to append app command, completed with password, to the transmitted payload. The original
    TTN mapper program transmits location data in exactly 10 bytes, so the app command should start at the 11th byte.
 3. In TTN applications console, leave the decoder program intact - the present decoder program continues to successfully decode 
    location data, the bytes added to payload do not interfere with the decoder.

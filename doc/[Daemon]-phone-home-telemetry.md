@@ -56,10 +56,10 @@ The `MessageProcessorServers` array contains details of your laitos server that 
     <td>Either this or HTTPEndpointURL must be present in this configuration object.</td>
 </tr>
 <tr>
-    <td>Password</td>
-    <td>string</td>
+    <td>Passwords</td>
+    <td>array of string</td>
     <td>
-      The password PIN expected by your laitos web server or laitos DNS server for executing app commands.
+      Any one (or more) passwords accepted by your laitos web and DNS servers for authorising app command execution.
       <br />
       Telemetry records are sent by executing app commands on laitos server.
     </td>
@@ -83,17 +83,17 @@ Here is a complete example:
         "MessageProcessorServers": [
             {
                 "HTTPEndpointURL": "https://laitos-server-example.com/very-secret-app-command-endpoint"
-                "Password": "MyHTTPFiltersPasswordPIN"
+                "Passwords": ["MyHTTPFiltersPasswordPIN"]
             },
             {
                 "DNSDomainName": "laitos-server-example.com"
-                "Password": "MyDNSFiltersPasswordPIN"
+                "Passwords": ["MyDNSFiltersPasswordPIN"]
             }
         ]
     },
     "PhoneHomeFilters": {
         "PINAndShortcuts": {
-            "PIN": "PhoneHomePasswordPIN",
+            "Passwords": ["PhoneHomePassword"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
@@ -166,7 +166,7 @@ your laitos server to remotely control this computer. If this optional feature i
 (`PhoneHomeFilters`), then use the same web service [read telemetry records](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records)
 to store an app command:
 
-    curl 'https://laitos-server.example.com/very-secret-telemetry-retrieval?tohost=SubjectHostName&cmd=PhoneHomePasswordPIN.s+echo+abc'
+    curl 'https://laitos-server.example.com/very-secret-telemetry-retrieval?tohost=SubjectHostName&cmd=PhoneHomePassword.s+echo+abc'
 
 When this daemon sends the next telemetry record, it will pick up the memorised app command and execute it; then when it
 sends a telemetry record again, that record will include the app command along with its execution result. Use the same web
@@ -176,7 +176,7 @@ service to read telemetry records along with app command execution result.
 - The daemon never transmits the password PIN over network , instead, it translates the password PIN into a disposable,
   one-time-password with every telemetry record. This is especially helpful when sending telemetry over DNS, as DNS protocol
   does not use encryption. Read more about this command processor mechanism in
-  [Use one-time-password in place of password PIN](https://github.com/HouzuoGuo/laitos/wiki/Command-processor)
+  [Use one-time-password in place of password](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password).
 - If the daemon sends telemetry records to your laitos DNS server, then the telemetry record will appear truncated to the
   DNS server, due to DNS protocol limitation, it does not have enough room for a complete telemetry record.
 - In a telemetry record, the host name is always truncated to 16 characters maximum, and changed to lower case. Both of your

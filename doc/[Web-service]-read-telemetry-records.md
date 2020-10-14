@@ -52,11 +52,11 @@ parameter `?host=SubjectHostName`, the name is not case sensitive:
 
 ### Execute an app command on a monitored subject
 To store an app command for a monitored subject to execute when it contacts this laitos server next time, use the parameter
-`tohost=SubjectHostName` in combination with `cmd=`, keep in mind that the complete app command must include the password PIN of
+`tohost=SubjectHostName` in combination with `cmd=`, keep in mind that the complete app command must include the password of
 the that monitored subject, which is often the [phone home telemetry daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-phone-home-telemetry).
 This example tells `SubjectHostName` to execute `.s echo abc` when it sends the next telemetry record:
 
-    curl 'https://laitos-server.example.com/very-secret-telemetry-retrieval?tohost=SubjectHostName&cmd=PhoneHomePasswordPIN.s+echo+abc'
+    curl 'https://laitos-server.example.com/very-secret-telemetry-retrieval?tohost=SubjectHostName&cmd=PhoneHomePassword.s+echo+abc'
 
 Behind the scene:
 
@@ -65,7 +65,7 @@ Behind the scene:
 2. The monitored subject (phone home telemetry daemon) sends the latest telemetry record by constructing a command for app
    [phone home telemetry handler](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler). The laitos server
    app stores the latest record, and in the response, tells monitored subject to run that pending app command.
-3. The monitored subject receives the pending app command in the response, validates the password PIN, and executes the app command.
+3. The monitored subject receives the pending app command in the response, validates the password, and executes the app command.
 4. After the app command completes execution, the monitored subject will send the next telemetry record with the execution result.
 
 Both the monitored subject and laitos server retain the pending app command and execution result for just over half an hour, to

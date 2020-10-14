@@ -36,7 +36,7 @@ usage for monitoring, or the latest list of mails in inbox.
     <td>PreConfiguredCommands</td>
     <td>array of strings</td>
     <td>
-        App commands (with PIN/shortcut/PLT special directive) that will run at regular interval.
+        Password and app commands (or shortcuts ) that will run at regular interval.
         <br/>
         Leave empty if you do not plan for any command to run automatically, you can still add transient commands using
         the HTML form.

@@ -31,7 +31,7 @@ The form is hosted by web server, therefore remember to [run web server](https:/
 ## Usage
 In a web browser, navigate to `CommandFormEndpoint` of laitos web server.
 
-Enter password PIN and app command into the text box, click "Exec" button and observe the app response.
+Enter password and app command into the text box, click "Exec" button and observe the app response.
 
 ## Tips
-- Make the URL location secure and hard to guess, it helps to secure this web service beyond password PIN protection!
+- Make the URL location secure and hard to guess, it helps to secure this web service beyond password protection!

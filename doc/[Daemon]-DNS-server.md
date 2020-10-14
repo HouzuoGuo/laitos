@@ -151,7 +151,7 @@ to construct configuration for JSON key `DNSFilters`, for example:
     },
     "DNSFilters": {
         "PINAndShortcuts": {
-            "PIN": "mypassword",
+            "Passwords": ["mypassword"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",

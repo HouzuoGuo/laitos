@@ -66,7 +66,7 @@ The service is hosted by web server, therefore remember to [run web server](http
 Visit [My bots](https://dev.botframework.com/bots), and then click bot name to enter "Connect to channels" page. From
 there, click a channel name such as "Skype" to add bot into Skype contacts.
 
-Initiate a chat with bot and enter password PIN followed by app command, a short while later the command result will
+Initiate a chat with bot and enter password followed by app command, a short while later the command result will
 arrive in a chat reply.
 
 ## Tips

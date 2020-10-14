@@ -65,7 +65,7 @@ may optionally include an app command that they would like this server to run. I
 
     "`MessageProcessorFilters`": {
         "PINAndShortcuts": {
-            "PIN": "MessageProcessorFiltersPasswordPIN",
+            "Passwords": ["MessageProcessorFiltersPassword"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
@@ -107,8 +107,8 @@ of telemetry information sender (the monitored subject), A field without informa
 Here are the 9 fields:
 
 1. Host name.
-2. An app command that the monitored subject would like laitos server to run (e.g. `MessageProcessorFiltersPasswordPIN .s echo 123`).
-3. The app command that the laitos server previously asked the monitored subject to run (e.g. `PhoneHomePasswordPIN.s echo 456`).
+2. An app command that the monitored subject would like laitos server to run (e.g. `MessageProcessorFiltersPassword .s echo 123`).
+3. The app command that the laitos server previously asked the monitored subject to run (e.g. `PhoneHomePassword.s echo 456`).
 4. Monitored subject's response in response to the command from 3rd field (e.g. `456`).
 5. Platform name - `GOOS-GOARCH` (e.g. `linux-amd64`).
 6. Comment - program status, system load and memory usage, etc. This comment text is identical to the output of `.e info` from
@@ -125,13 +125,13 @@ The app response comes in a JSON string:
 <pre>
 {
     "CommandRequest": {
-        "Command": "PhoneHomePasswordPIN.s echo 456"                # laitos server would like monitored subject to run this app command
+        "Command": "PhoneHomePassword.s echo 456"                # laitos server would like monitored subject to run this app command
     },
     "CommandResponse": {
-        "Command": "MessageProcessorFiltersPasswordPIN.s echo 123", # monitored subject previously asked laitos server to run this app command
-        "ReceivedAt": 1234567,                                      # unix timestamp at which laitos server received the app command
-        "Result": "123",                                            # app command execution result
-        "RunDurationSec": 3                                         # the duration it took for the app command to execute
+        "Command": "MessageProcessorFiltersPassword.s echo 123", # monitored subject previously asked laitos server to run this app command
+        "ReceivedAt": 1234567,                                   # unix timestamp at which laitos server received the app command
+        "Result": "123",                                         # app command execution result
+        "RunDurationSec": 3                                      # the duration it took for the app command to execute
     }
 }
 </pre>

@@ -37,7 +37,7 @@ Here is a complete example:
     },
     "SerialPortFilters": {
         "PINAndShortcuts": {
-            "PIN": "verysecretpassword",
+            "Passwords": ["verysecretpassword"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",

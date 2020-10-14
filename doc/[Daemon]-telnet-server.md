@@ -54,7 +54,7 @@ Here is a minimal setup example:
     },
     "PlainSocketFilters": {
         "PINAndShortcuts": {
-            "PIN": "VerySecretPassword",
+            "Passwords": ["VerySecretPassword"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
@@ -106,7 +106,7 @@ And type app commands similar to the TCP example.
 
 ## Tips
 - The plain text daemon helps to invoke app commands in the unlikely event of losing access to all other daemons.
-  The primitive nature of the protocol opens up possibility of eavesdropping, consider using [one-time password in place of password PIN](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password-pin).
+  The primitive nature of the protocol opens up possibility of eavesdropping, consider using [one-time password in place of password](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password).
 - The size of app command and command response are limited to roughly 1200 characters each when using UDP.
 - When using Telnet client program on Linux and Unix, the client program displays (echos) the keyboard input automatically.
   However on Windows the Telnet program does not display input automatically, to work around it, type `Ctrl+]` after establishing

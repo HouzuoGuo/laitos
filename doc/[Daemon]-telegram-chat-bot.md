@@ -47,7 +47,7 @@ Here is an example setup:
     },
     "TelegramFilters": {
         "PINAndShortcuts": {
-            "PIN": "VerySecretPassword",
+            "Passwords": ["VerySecretPassword"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
@@ -84,7 +84,7 @@ Tell laitos to run chat bot daemon in the command line:
 On Telegram Messenger application, find your newly created chat bot via the in-app Search function, then send app
 command in a chat message. Wait a short moment, and the command response will be sent back to you via the same chat.
 
-Remember to put password PIN in front of the app command.
+Remember to put password in front of the app command.
 
 ## Tips
 - The chat bot server will not process messages that arrived before the server started, which means, you cannot leave a

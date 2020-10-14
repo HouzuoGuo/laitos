@@ -17,14 +17,14 @@ The following daemon components are capable of executing app commands:
 During app command invocation, the following actions take place:
 1. The user enters a command, for example, by using the "invoke app command" web service form, or by sending an app command
    in an Email addressed to laitos mail server. (e.g. `mypass .e info`)
-2. laitos validates the password PIN from the input command to match configuration from `PINAndShortcuts`, or if the input
-   is a shortcut, laitos expands the shortcut into full command without looking for a password PIN.
-3. laitos walks the app command (not the password PIN) through `TranslateSequences` mechanism that replaces sequence of
-   characters by a different sequence.
+2. laitos validates the password from the input command to match configuration from `PINAndShortcuts`, or if the input is a
+   shortcut, laitos expands the shortcut into full command without looking for a password.
+3. laitos walks the app command (excluding the password portion) through `TranslateSequences` mechanism that replaces sequence
+   of characters by a different sequence.
 4. laitos identifies the app (e.g. `.e` for program control) and gives the app remainder of the command input for parameters.
 5. The app routine runs and produces plain text response.
-6. laitos walks the text response through `LintText` mechanism that compacts and tidies up the text if needed. As a special
-   case, if the app produces an empty response, the actual app response will change to `EMPTY OUTPUT`.
+6. laitos walks the text response through `LintText` mechanism that compacts and tidies up the text if needed. As a special case,
+   if the app produces an empty response, the actual app response will change to `EMPTY OUTPUT`.
 7. laitos informs the user about the app response via on-screen display, message reply, or other means.
 8. In background, laitos sends notification Emails with the app command and text response to a list of optional recipients.
 
@@ -40,10 +40,10 @@ Mandatory `PINAndShortcuts` - define access password and shortcut command entrie
     <th>Meaning</th>
 </tr>
 <tr>
-    <td>PIN</td>
-    <td>string</td>
+    <td>Passwords</td>
+    <td>array of strings</td>
     <td>
-        Access to apps is granted by matching this password PIN at the very beginning of command input.
+        Put any of these passwords at the very beginning of app command input to gain access to apps.
         <br/>
         See "Usage" for more information.
     </td>
@@ -51,7 +51,7 @@ Mandatory `PINAndShortcuts` - define access password and shortcut command entrie
 <tr>
     <td>Shortcuts</td>
     <td>{"shortcut1":"command1"...}</td>
-    <td>Without using password PIN input, these shortcuts are directly translated into the commands and executed.</td>
+    <td>Without using password input, these shortcuts are directly translated into the commands and executed.</td>
 </tr>
 </table>
 
@@ -148,7 +148,7 @@ and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-
 
     "HTTPFilters": {
         "PINAndShortcuts": {
-            "PIN": "VerySecretPassword",
+            "Passwords": ["VerySecretPassword", "SecretPasswordPineapple"],
             "Shortcuts": {
                 "watsup": ".eruntime",
                 "EmergencyStop": ".estop",
@@ -178,13 +178,15 @@ and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-
 
 In the example:
 - For SMS, `LintText` compacts result and limits length to 160 characters.
-- `PINAndShortcuts` uses a strong password for app command access, and defines three shortcuts - each translates into a command without having to enter the password.
-- Certain old mobile phones cannot enter the pipe character `|` in an SMS, `TranslateSequences` helps those phones to enter a pipe character via combo `#/` instead.
+- `PINAndShortcuts` defines two passwords, both of which will authorise app commands to execute; it also defines three shortcuts - each
+  translates into a command without having to enter the password.
+- Certain old mobile phones cannot enter the pipe character `|` in an SMS, `TranslateSequences` helps those phones to enter a pipe character
+  via combo `#/` instead.
 
 ## Usage
 App command looks like:
 
-    PasswordPIN .app_identifier parameter1 parameter2 parameter3 ...
+    Password .app_identifier parameter1 parameter2 parameter3 ...
 
 Where:
 - `.app_identifier` is a short text string that identifies the app to invoke. Pay attention to the mandatory leading `.` dot.
@@ -208,27 +210,32 @@ Here are the comprehensive list of `.app_identifier` identifiers:
 - `.t` - [Read and post tweets](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-Twitter)
 - `.w` - [WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-WolframAlpha)
 
-### Use one-time-password in place of password PIN
-If you become concerned of eavesdroppers that might maliciously intercept the password PIN, consider using one-time-password in place of password PIN in an
-app command input. Follow these steps:
+### Use one-time-password in place of password
+If you become concerned of eavesdroppers that might maliciously intercept the password, consider using one-time-password in place of
+password in an app command input, this technique can be used with any of the passwords defined in `PINAndShortcuts` follow these steps:
 
-1. Download and install a two factor authentication code generator, such as [Authy](https://authy.com/) app.
-2. In the app, create a new time-based account, name it "LaitosOTP1", and instead of scanning a QR code, manually enter the password PIN for the secret.
-3. In the app, create another time-based account, name it "LaitosOTP2", and instead of scanning a QR code, manually enter the reversed password PIN for the secret.
+1. Ensure that the password defined in `PINAndShortcuts` contains only lowercase letters, otherwise OTP will not work.
+2. Download and install a two factor authentication code generator, such as [Authy](https://authy.com/) app.
+3. In the app, create a new time-based account, name it "LaitosOTP1", and instead of scanning a QR code, manually enter the password
+   for the secret.
+4. In the app, create another time-based account, name it "LaitosOTP2", and instead of scanning a QR code, manually enter the reversed
+   password for the secret.
 
-Back to laitos, enter an app command this way: `LaitosOTP1LaitosOTP2 .app_identifier ...`. Each OTP has 6 digits, put the two OTPs together with no space in between.
-Should a malicious eavesdropper intercept the communication, the eavesdropper will not be able to recover your password PIN.
+Back to laitos, enter an app command this way: `LaitosOTP1LaitosOTP2 .app_identifier ...`. Each OTP has 6 digits, put the two OTPs
+together with no space in between. Should a malicious eavesdropper intercept the communication, the eavesdropper will not be able to
+recover your password from the OTPs.
 
-Enforced by laitos server, an OTP combo may only be used with one app command until the OTP expires, for example, if that OTP 1 is `123123` and OTP 2 is `789789`:
+Enforced by laitos server, a combination of two OTPs may only be used with one app command until the OTPs expire, for example, if that
+OTP 1 is `123123` and OTP 2 is `789789`:
 - User may repeatedly execute app command `123123789789 .s echo hello` arbitrary number of times via any daemon.
-- User may not execute command `123123789789 .s echo hello` and then `123123789789 .s echo hoho`, the first command will succeed but laitos will refuse to execute
-  the second "hoho" command by saying "the TOTP has already been used with a different command".
+- User may not execute command `123123789789 .s echo hello` and then `123123789789 .s echo hi`, the first command will succeed but laitos
+  will refuse to execute the second "echo hi" command by saying "the TOTP has already been used with a different command".
 
 ### Override output length and timeout restriction
 Prepend the lower case string "plt" and three parameters to an app command, to position (skip) first N characters from the command output,
 override the output length restriction, and/or override the command execution timeout:
 
-    .plt <SKIP> <MAX LENGTH> <TIMEOUT SECONDS> PasswordPIN .app_identifier parameter1 parameter 2 parameter 3 ...
+    .plt <SKIP> <MAX LENGTH> <TIMEOUT SECONDS> Password .app_identifier parameter1 parameter 2 parameter 3 ...
 
 Where:
 - `<SKIP>` is the number of characters to discard from beginning of the result output.
@@ -260,16 +267,16 @@ And we will get the desirable result:
     10 me@example.com Test subject 10
 
 ## Tips
-Regarding password PIN:
+Regarding password:
 - It must be at least 7 characters long.
 - Do not use space character in the password, or it might not be validated successfully during a command invocation.
 - Use a strong password that is hard to guess.
-- All daemons capable of invoking app commands offer rate limit mechanism to reduce impact of brute-force password guessing.
-  Pay special attention to the rate limit settings in individual daemon configuration.
-- For prevention of brute-force guessing of password PIN via DDoS, each laitos daemon will execute a maximum of 1000 commands
-  per second, regardless of their rate limit configuration.
-- Incorrect password PIN entry does not result in an Email notification, however,
-  the attempts are logged in warnings and can be inspected via [environment inspection](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-inspect-and-control-server-environment)
+- All daemons capable of invoking app commands offer rate limit mechanism to reduce impact of brute-force password guessing. Pay special
+  attention to the rate limit settings in individual daemon configuration.
+- For prevention of brute-force guessing of password via DDoS, each laitos daemon will execute a maximum of 1000 commands per second, regardless
+  of their rate limit configuration.
+- Incorrect password PIN entry does not result in an Email notification, however, the attempts are logged in warnings and can be inspected via
+  [environment inspection](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-inspect-and-control-server-environment)
   or [program health report](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report).
 
 Regarding app command invocation via SMS/telephone:
