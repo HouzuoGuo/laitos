@@ -1,81 +1,62 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -Eeuo pipefail
 
-for prog in curl dialog nslookup socat; do
-  if ! command -v "$prog" &>/dev/null; then
-    echo "laitos terminal depends on program $prog, please install it on the computer." >&2
-    exit 1
-  fi
-done
+export PS4='#${BASH_SOURCE}:${LINENO} [${SHLVL},${BASH_SUBSHELL},$?]: '
 
 # Application constants
-snmp_oid_laitos_ip=1.3.6.1.4.1.52535.121.100
-caption_online='✅Online'
-caption_offline='➖Unreachable'
-caption_unknown='❔Undetermined'
-conf_file="$(readlink -f ~/.laitos-terminal-config.txt)"
-self_exe="$0"
-
-# Application configuration
-set -a
-# shellcheck source=/dev/null
-if [ -r "$conf_file" ]; then
-  source "$conf_file"
-fi
-set +a
-laitos_host="${laitos_host:-}"
-
-if [ "$laitos_host" ]; then
-  # Ensure that all configuration variables are defined even though some may be empty
-  port_plainsocket="${port_plainsocket:-}"
-  port_dnsd="${port_dnsd:-}"
-  port_smtpd="${port_smtpd:-}"
-  port_snmpd="${port_snmpd:-}"
-  port_httpd="${port_httpd:-}"
-  port_httpsd="${port_httpsd:-}"
-  port_qotd="${port_qotd:-}"
-  snmp_community_string="${snmp_community_string:-}"
-  app_cmd_pass="${app_cmd_pass:-}"
-  app_cmd_endpoint="${app_cmd_endpoint:-}"
-  low_bandwidth_mode="${low_bandwidth_mode:-}"
-else
-  # User has not configured the terminal yet, use the default value to give them a good hint of how the values look.
-  port_plainsocket="${port_plainsocket:-23}"
-  port_dnsd="${port_dnsd:-53}"
-  port_smtpd="${port_smtpd:-25}"
-  port_snmpd="${port_snmpd:-161}"
-  port_httpd="${port_httpd:-80}"
-  port_httpsd="${port_httpsd:-443}"
-  port_qotd="${port_qotd:-17}"
-  snmp_community_string="${snmp_community_string:-}"
-  app_cmd_pass="${app_cmd_pass:-PasswordPIN}"
-  app_cmd_endpoint="${app_cmd_endpoint:-/very-secret-app-command-endpoint}"
-  low_bandwidth_mode="${low_bandwidth_mode:-n}"
-fi
-
-probe_timeout_sec=5
-if [ "$low_bandwidth_mode" == 'y' ]; then
-  # Low bandwidth mode (e.g. satellite Internet, phone modem) comes with significantly increased latency as well
-  probe_timeout_sec=20
-fi
+declare -r snmp_oid_laitos_ip=1.3.6.1.4.1.52535.121.100
+declare -r caption_online='✅Online'
+declare -r caption_offline='➖Unreachable'
+declare -r caption_unknown='❔Undetermined'
+declare -r conf_file="$HOME/.laitos-terminal-config.txt"
+declare -r self_exe="$0"
+declare -r -a daemon_names=('HTTP server' 'HTTPS server' 'DNS server' 'Mail server' 'Telnet server' 'SNMP server' 'QOTD')
+declare -r -A main_menu_key_labels=(
+  ['config']='💾 Configure laitos server address and more'
+  ['email']='📮 Read and send Emails'
+  ['phone']='📠 Make calls and send SMS'
+  ['tweet']='🐦 Read and post tweets'
+  ['info']='🌐 Get the latest news / weather / facts'
+  ['book']='📝 2FA code / password book / text search'
+  ['cmd']='💻 Run commands and inspect server status'
+)
 
 # Runtime data
 connection_report_file="$(mktemp -p /tmp laitos-terminal-connection-report-XXXXX)"
 last_reqresp_file="$(mktemp -p /tmp laitos-terminal-last-reqresp-XXXXX)"
 app_cmd_out_file="$(mktemp -p /tmp laitos-terminal-app-cmd-output-XXXXX)"
 form_submission_file="$(mktemp -p /tmp laitos-terminal-form-submission-XXXXX)"
+declare -A daemon_connection_status
+for daemon_name in "${daemon_names[@]}"; do
+  daemon_connection_status["$daemon_name"]="$caption_unknown"
+done
+
+# Application configuration read from and persisted into a text file
+laitos_host="${laitos_host:-}"
+port_plainsocket="${port_plainsocket:-}"
+port_dnsd="${port_dnsd:-}"
+port_smtpd="${port_smtpd:-}"
+port_snmpd="${port_snmpd:-}"
+port_httpd="${port_httpd:-}"
+port_httpsd="${port_httpsd:-}"
+port_qotd="${port_qotd:-}"
+snmp_community_string="${snmp_community_string:-}"
+app_cmd_pass="${app_cmd_pass:-}"
+app_cmd_endpoint="${app_cmd_endpoint:-}"
+low_bandwidth_mode="${low_bandwidth_mode:-}"
 
 # Clean up after temporary files and background jobs on exit
-function clean_up_before_exit {
+clean_up_before_exit() {
   rm -f "$connection_report_file" "$last_reqresp_file" "$app_cmd_out_file" "$form_submission_file" || true
   readarray -t bg_jobs < <(jobs -p)
-  if [ "${#bg_jobs}" -gt 0 ]; then
+  if [ "${#bg_jobs[@]}" -gt 0 ]; then
     kill "${bg_jobs[@]}" &>/dev/null || true
   fi
 }
-function on_exit {
+on_exit() {
   clean_up_before_exit
+  # The temrinal program is not expected to exit using the exit code of external command "dialog"
   exit 0
 }
 trap on_exit EXIT INT TERM
@@ -83,7 +64,7 @@ trap on_exit EXIT INT TERM
 ################################################################################
 # Communicate with laitos server
 ################################################################################
-function invoke_app_command {
+invoke_app_command() {
   # cmd is the laitos app command without leading password PIN
   local cmd
   cmd="$1"
@@ -101,28 +82,12 @@ function invoke_app_command {
 ################################################################################
 # Background connection status reporting
 ################################################################################
-declare -a daemon_names
-daemon_names+=('HTTP server')
-daemon_names+=('HTTPS server')
-daemon_names+=('DNS server')
-daemon_names+=('Mail server')
-daemon_names+=('Telnet server')
-daemon_names+=('SNMP server')
-daemon_names+=('QOTD')
-
-declare -A daemon_connection_status
-for daemon_name in "${daemon_names[@]}"; do
-  daemon_connection_status["$daemon_name"]="$caption_unknown"
-done
-
-function loop_get_latest_reqresp {
+loop_get_latest_reqresp() {
   truncate -s 0 "$last_reqresp_file"
   printf 'Use the App Menu to get started' >> "$last_reqresp_file"
 }
 
-loop_get_latest_reqresp &
-
-function write_conn_status_file {
+write_conn_status_file() {
   truncate -s 0 "$connection_report_file"
   for daemon_name in "${daemon_names[@]}"; do
     printf '%-20s %s\n' "$daemon_name" "${daemon_connection_status[$daemon_name]}" >> "$connection_report_file"
@@ -130,7 +95,7 @@ function write_conn_status_file {
   echo -en "\nTested at: $(date --rfc-3339=seconds)" >> "$connection_report_file"
 }
 
-function loop_get_latest_conn_status {
+loop_get_latest_conn_status() {
   while true; do
     if [ "$laitos_host" ]; then
       timeout "$probe_timeout_sec" socat /dev/null "TCP:$laitos_host:$port_httpd" &>/dev/null && port_status=$caption_online || port_status=$caption_offline
@@ -167,12 +132,10 @@ function loop_get_latest_conn_status {
   done
 }
 
-loop_get_latest_conn_status &
-
 ################################################################################
 # Dialog - application configuration
 ################################################################################
-function dialog_config {
+dialog_config() {
   dialog \
     --backtitle 'Laitos Terminal' \
     --keep-window --begin 2 2 --title "Connection - $laitos_host" --tailboxbg "$connection_report_file" 12 45 \
@@ -225,7 +188,7 @@ EOF
 ################################################################################
 # Dialog - app commands and related
 ################################################################################
-function dialog_app_command_in_progress {
+dialog_app_command_in_progress() {
   local bandwidth_mode
   bandwidth_mode=''
   if [ "$low_bandwidth_mode" ]; then
@@ -237,7 +200,7 @@ function dialog_app_command_in_progress {
     --begin 2 50 --title "Running app command $bandwidth_mode" --infobox "Please wait, this may take couple of seconds." 10 45 || true
 }
 
-function dialog_app_command_done {
+dialog_app_command_done() {
   dialog \
     --backtitle 'Laitos Terminal' \
     --keep-window --begin 2 2 --title "Connection - $laitos_host" --tailboxbg "$connection_report_file" 12 45 \
@@ -245,7 +208,7 @@ function dialog_app_command_done {
     --and-widget --keep-window --begin 2 50 --title 'Command result (scroll with Left/Right/Up/Down)' --textbox "$app_cmd_out_file" 21 70 || true
 }
 
-function dialog_simple_info_box {
+dialog_simple_info_box() {
   local info_box_txt
   info_box_txt="$1"
   dialog \
@@ -257,7 +220,7 @@ function dialog_simple_info_box {
 ################################################################################
 # Dialog - read and send Emails
 ################################################################################
-function dialog_email {
+dialog_email() {
   dialog \
     --backtitle 'Laitos Terminal' \
     --keep-window --begin 2 2 --title "Connection - $laitos_host" --tailboxbg "$connection_report_file" 12 45 \
@@ -293,21 +256,21 @@ function dialog_email {
     # Figure out which function user would like to use
     if [ "$list_acct_nick" ]; then
       invoke_app_command ".il $list_acct_nick $list_skip_count $list_get_count" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$read_acct_nick" ]; then
       invoke_app_command ".ir $read_acct_nick $read_num" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$send_to_addr" ]; then
       invoke_app_command ".m $send_to_addr \"$send_subject\" $send_content"
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
@@ -322,7 +285,7 @@ function dialog_email {
 ################################################################################
 # Dialog - make calls and send SMS
 ################################################################################
-function dialog_phone {
+dialog_phone() {
   dialog \
     --backtitle 'Laitos Terminal' \
     --keep-window --begin 2 2 --title "Connection - $laitos_host" --tailboxbg "$connection_report_file" 12 45 \
@@ -347,14 +310,14 @@ function dialog_phone {
     # Figure out which function user would like to use
     if [ "$dial_number" ]; then
       invoke_app_command ".pc $dial_number $speak_message" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$send_to_number" ]; then
       invoke_app_command ".pt $send_to_number $text_message" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
@@ -369,7 +332,7 @@ function dialog_phone {
 ################################################################################
 # Dialog - read and post tweets
 ################################################################################
-function dialog_tweet {
+dialog_tweet() {
   dialog \
     --backtitle 'Laitos Terminal' \
     --keep-window --begin 2 2 --title "Connection - $laitos_host" --tailboxbg "$connection_report_file" 12 45 \
@@ -393,14 +356,14 @@ function dialog_tweet {
     # The read tweet fields use default values, hence check posting of new tweet first.
     if [ "$tweet_content" ]; then
       invoke_app_command ".tp $tweet_content" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$read_n_tweets" ]; then
       invoke_app_command ".tg $skip_n_tweets $read_n_tweets" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
@@ -415,7 +378,7 @@ function dialog_tweet {
 ################################################################################
 # Dialog - get the latest news / weather / facts
 ################################################################################
-function dialog_info {
+dialog_info() {
   dialog \
     --backtitle 'Laitos Terminal' \
     --keep-window --begin 2 2 --title "Connection - $laitos_host" --tailboxbg "$connection_report_file" 12 45 \
@@ -439,14 +402,14 @@ function dialog_info {
     # The read news fields use default values, hence check WolframApha inquiry first.
     if [ "$wolframalpha_query" ]; then
       invoke_app_command ".w $wolframalpha_query" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$read_n_feeds" ]; then
       invoke_app_command ".r $skip_n_feeds $read_n_feeds" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
@@ -461,7 +424,7 @@ function dialog_info {
 ################################################################################
 # Dialog - 2FA code / password book / text search
 ################################################################################
-function dialog_book {
+dialog_book() {
   dialog \
     --backtitle 'Laitos Terminal' \
     --keep-window --begin 2 2 --title "Connection - $laitos_host" --tailboxbg "$connection_report_file" 12 45 \
@@ -495,21 +458,21 @@ function dialog_book {
     # Figure out which function user would like to use
     if [ "$twofa_search" ]; then
       invoke_app_command ".2 $twofa_decrypt_key $twofa_search" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$enc_search" ]; then
       invoke_app_command ".a $enc_shortcut $enc_decrypt_key $enc_search" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$plain_search" ]; then
       invoke_app_command ".g $plain_shortcut $plain_search" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
@@ -524,7 +487,7 @@ function dialog_book {
 ################################################################################
 # Dialog - run commands and inspect server status
 ################################################################################
-function dialog_cmd {
+dialog_cmd() {
   dialog \
     --backtitle 'Laitos Terminal' \
     --keep-window --begin 2 2 --title "Connection - $laitos_host" --tailboxbg "$connection_report_file" 12 45 \
@@ -551,35 +514,35 @@ function dialog_cmd {
     # The "get latest info" field uses default value, hence check app command input first.
     if [ "$run_app_cmd" ]; then
       invoke_app_command "$run_app_cmd" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$select_get_info" ]; then
       invoke_app_command ".einfo" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$select_get_log" ]; then
       invoke_app_command ".elog" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$select_get_warn" ]; then
       invoke_app_command ".ewarn" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
       dialog_app_command_done
     elif [ "$select_emer_lock" ]; then
       invoke_app_command ".elock" &
-      bg_pid=$!
+      local bg_pid=$!
       while kill -0 "$bg_pid"; do
         dialog_app_command_in_progress
       done
@@ -590,19 +553,11 @@ function dialog_cmd {
     fi
   fi
 }
+
 ################################################################################
 # Main menu
 ################################################################################
-declare -A main_menu_key_labels
-main_menu_key_labels['config']='💾 Configure laitos server address and more'
-main_menu_key_labels['email']='📮 Read and send Emails'
-main_menu_key_labels['phone']='📠 Make calls and send SMS'
-main_menu_key_labels['tweet']='🐦 Read and post tweets'
-main_menu_key_labels['info']='🌐 Get the latest news / weather / facts'
-main_menu_key_labels['book']='📝 2FA code / password book / text search'
-main_menu_key_labels['cmd']='💻 Run commands and inspect server status'
-
-function dialog_main_menu {
+dialog_main_menu() {
   while true; do
     exec 5>&1
     main_menu_choice=$(
@@ -648,8 +603,55 @@ function dialog_main_menu {
       "${main_menu_key_labels['cmd']}")
         dialog_cmd
         ;;
+      *)
+        echo "unexpected menu choice \"$main_menu_choice\", this is a programming error." >&2
+        exit 1
+        ;;
     esac
   done
 }
 
-dialog_main_menu
+main() {
+  for prog in curl dialog nslookup socat; do
+    if ! command -v "$prog" &>/dev/null; then
+      echo "laitos terminal depends on program $prog, please install it on the computer." >&2
+      exit 1
+    fi
+  done
+
+  # Read configuration file
+  set -a
+  if [ -r "$conf_file" ]; then
+    # shellcheck source=/dev/null
+    source "$conf_file"
+  fi
+  set +a
+
+  if [ ! "$laitos_host" ]; then
+    # User has not configured the terminal yet, use the default value to give them a good hint of how the values look.
+    port_plainsocket="${port_plainsocket:-23}"
+    port_dnsd="${port_dnsd:-53}"
+    port_smtpd="${port_smtpd:-25}"
+    port_snmpd="${port_snmpd:-161}"
+    port_httpd="${port_httpd:-80}"
+    port_httpsd="${port_httpsd:-443}"
+    port_qotd="${port_qotd:-17}"
+    snmp_community_string="${snmp_community_string:-}"
+    app_cmd_pass="${app_cmd_pass:-PasswordPIN}"
+    app_cmd_endpoint="${app_cmd_endpoint:-/very-secret-app-command-endpoint}"
+    low_bandwidth_mode="${low_bandwidth_mode:-n}"
+  fi
+
+  probe_timeout_sec=5
+  if [ "$low_bandwidth_mode" == 'y' ]; then
+    # Low bandwidth mode (e.g. satellite Internet, phone modem) comes with significantly increased latency as well
+    probe_timeout_sec=20
+  fi
+
+  loop_get_latest_reqresp &
+  loop_get_latest_conn_status &
+  # The main menu takes over from this point and onward
+  dialog_main_menu
+}
+
+main "${@:-}"
