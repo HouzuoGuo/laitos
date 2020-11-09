@@ -19,7 +19,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
 )
 
@@ -32,7 +31,7 @@ to slimerjs in docker container.
 var SecureTempFileDirectory string
 
 func init() {
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		SecureTempFileDirectory = `C:\Temp\` // there is not a good candidate for a more secure location on windows
 	} else {
 		SecureTempFileDirectory = "/root/laitos-slimerjs-tmp/"
@@ -555,7 +554,7 @@ func (instance *Instance) Start() error {
 		return fmt.Errorf("slimerjs.Instance.Start: failed to create temporary directory - %v", err)
 	}
 	listenAddr := "0.0.0.0" // for docker to expose later
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		listenAddr = "127.0.0.1" // for native process
 	}
 	instance.containerName = fmt.Sprintf("laitos-slimerjs-%d", time.Now().UnixNano())
@@ -575,7 +574,7 @@ func (instance *Instance) Start() error {
 	if err := os.MkdirAll(instance.RenderImageDir, 0700); err != nil {
 		return err
 	}
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		// Determine the drive that contains laitos windows supplements
 		var supplementsDir string
 		for _, drive := range []string{`C:\`, `D:\`, `E:\`, `F:\`} {
@@ -786,7 +785,7 @@ func (instance *Instance) Kill() {
 		}
 		// Kill SlimerJS container
 		instance.logger.Info("Kill", "", nil, "killing container %s", instance.containerName)
-		if out, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "docker", "kill", instance.containerName); err != nil {
+		if out, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "docker", "kill", instance.containerName); err != nil {
 			instance.logger.Warning("Kill", "", nil, "failed to kill container - %v %s", err, out)
 		}
 		instance.containerName = ""

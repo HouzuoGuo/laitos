@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 // Execute shell commands with a timeout limit.
@@ -23,7 +23,7 @@ func (sh *Shell) SelfTest() error {
 		return errors.New("Shell.SelfTest: OS is not compatible")
 	}
 	// The timeout for testing shell is gracious enough to allow disk to spin up from sleep
-	if _, err := misc.InvokeShell(misc.CommonOSCmdTimeoutSec, sh.InterpreterPath, "echo test"); err != nil {
+	if _, err := platform.InvokeShell(platform.CommonOSCmdTimeoutSec, sh.InterpreterPath, "echo test"); err != nil {
 		return fmt.Errorf("Shell.SelfTest: interpreter \"%s\" is not working - %v", sh.InterpreterPath, err)
 	}
 	return nil
@@ -31,7 +31,7 @@ func (sh *Shell) SelfTest() error {
 
 func (sh *Shell) Initialise() error {
 	if sh.InterpreterPath == "" {
-		sh.InterpreterPath = misc.GetDefaultShellInterpreter()
+		sh.InterpreterPath = platform.GetDefaultShellInterpreter()
 	}
 	if sh.InterpreterPath == "" {
 		return errors.New("Shell.Initialise: failed to find a working shell interpreter")
@@ -47,6 +47,6 @@ func (sh *Shell) Execute(ctx context.Context, cmd Command) *Result {
 	if errResult := cmd.Trim(); errResult != nil {
 		return errResult
 	}
-	procOut, procErr := misc.InvokeShell(cmd.TimeoutSec, sh.InterpreterPath, cmd.Content)
+	procOut, procErr := platform.InvokeShell(cmd.TimeoutSec, sh.InterpreterPath, cmd.Content)
 	return &Result{Error: procErr, Output: procOut}
 }

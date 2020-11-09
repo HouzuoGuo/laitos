@@ -16,6 +16,7 @@ import (
 	"github.com/HouzuoGuo/laitos/awsinteg"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 var (
@@ -126,7 +127,7 @@ toolbox features and daemons, and then continues in background at regular interv
 func CopyNonEssentialUtilitiesInBackground() {
 	go func() {
 		for {
-			misc.CopyNonEssentialUtilities(logger)
+			platform.CopyNonEssentialUtilities(logger)
 			logger.Info("PrepareUtilitiesAndInBackground", "", nil, "successfully copied non-essential utility programs")
 			time.Sleep(1 * time.Hour)
 		}
@@ -135,7 +136,7 @@ func CopyNonEssentialUtilitiesInBackground() {
 
 // DisableConflicts prevents system daemons from conflicting with laitos, this is usually done by disabling them.
 func DisableConflicts() {
-	if !misc.HostIsWindows() && os.Getuid() != 0 {
+	if !platform.HostIsWindows() && os.Getuid() != 0 {
 		// Sorry, I do not know how to detect administrator privilege on Windows.
 		logger.Abort("DisableConflicts", "", nil, "you must run laitos as root user if you wish to automatically disable system conflicts")
 	}
@@ -147,13 +148,13 @@ func DisableConflicts() {
 	for _, name := range list {
 		go func(name string) {
 			defer waitGroup.Done()
-			if misc.DisableStopDaemon(name) {
+			if platform.DisableStopDaemon(name) {
 				logger.Info("DisableConflicts", name, nil, "the daemon has been successfully stopped and disabled")
 			}
 		}(name)
 	}
 	waitGroup.Wait()
-	logger.Info("DisableConflicts", "systemd-resolved", nil, "%s", misc.DisableInterferingResolved())
+	logger.Info("DisableConflicts", "systemd-resolved", nil, "%s", platform.DisableInterferingResolved())
 }
 
 /*

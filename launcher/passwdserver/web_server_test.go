@@ -11,13 +11,6 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 )
 
-func TestGetSysInfoText(t *testing.T) {
-	txt := GetSysInfoText()
-	if !strings.Contains(txt, "Clock") || len(txt) < 30 {
-		t.Fatal(txt)
-	}
-}
-
 func TestWebServer(t *testing.T) {
 	emptyTmpFile, err := ioutil.TempFile("", "laitos-encarchive-TestWebServer")
 	if err != nil {

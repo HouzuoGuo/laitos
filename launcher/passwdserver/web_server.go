@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -60,26 +59,6 @@ const (
 	`
 )
 
-// GetSysInfoText returns system information in human-readable text that is to be displayed on the password web page.
-func GetSysInfoText() string {
-	usedMem, totalMem := misc.GetSystemMemoryUsageKB()
-	usedRoot, freeRoot, totalRoot := platform.GetRootDiskUsageKB()
-	return fmt.Sprintf(`
-Clock: %s
-Sys/prog uptime: %s / %s
-Total/used/prog mem: %d / %d / %d MB
-Total/used/free rootfs: %d / %d / %d MB
-Sys load: %s
-Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
-`,
-		time.Now().String(),
-		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
-		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
-		totalRoot/1024, usedRoot/1024, freeRoot/1024,
-		misc.GetSystemLoad(),
-		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine())
-}
-
 /*
 WebServer runs an HTTP (not HTTPS) server that serves a single web page at a pre-designated URL, the page then allows a
 visitor to enter a correct password to decrypt program data and configuration, and finally launches a supervisor along
@@ -121,22 +100,22 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		key := strings.TrimSpace(r.FormValue(PasswordInputName))
 		decryptedConfig, err := misc.Decrypt(misc.ConfigFilePath, key)
 		if err != nil {
-			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, err.Error())))
+			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetSysSummary(), r.RequestURI, err.Error())))
 			return
 		}
 		if decryptedConfig[0] != '{' {
-			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "wrong key or malformed config file")))
+			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetSysSummary(), r.RequestURI, "wrong key or malformed config file")))
 			return
 		}
 		// Success!
-		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "success")))
+		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetSysSummary(), r.RequestURI, "success")))
 		ws.alreadyUnlocked = true
 		// A short moment later, the function will launch laitos supervisor along with daemons.
 		go ws.LaunchMainProgram(strings.TrimSpace(r.FormValue("password")))
 		return
 	default:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
-		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, GetSysInfoText(), r.RequestURI, "")))
+		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetSysSummary(), r.RequestURI, "")))
 		return
 	}
 }

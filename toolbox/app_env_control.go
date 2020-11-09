@@ -71,7 +71,7 @@ func (info *EnvControl) Execute(ctx context.Context, cmd Command) *Result {
 
 // Return runtime information (uptime, CPUs, goroutines, memory usage) in a multi-line text.
 func GetRuntimeInfo() string {
-	usedMem, totalMem := misc.GetSystemMemoryUsageKB()
+	usedMem, totalMem := platform.GetSystemMemoryUsageKB()
 	usedRoot, freeRoot, totalRoot := platform.GetRootDiskUsageKB()
 	return fmt.Sprintf(`IP: %s
 Clock: %s
@@ -84,10 +84,10 @@ Program flags: %v
 `,
 		inet.GetPublicIP(),
 		time.Now().String(),
-		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
-		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
+		time.Duration(platform.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
+		totalMem/1024, usedMem/1024, platform.GetProgramMemoryUsageKB()/1024,
 		totalRoot/1024, usedRoot/1024, freeRoot/1024,
-		misc.GetSystemLoad(),
+		platform.GetSystemLoad(),
 		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
 		os.Args[1:])
 }
@@ -129,7 +129,7 @@ func TuneLinux() string {
 	if runtime.GOOS != "linux" {
 		return "TuneLinux has nothing to do, system is not Linux."
 	}
-	_, memSizeKB := misc.GetSystemMemoryUsageKB()
+	_, memSizeKB := platform.GetSystemMemoryUsageKB()
 	// The following settings have little influence on system resources
 	assignment := map[string]string{
 		// Optimise system security
@@ -197,7 +197,7 @@ func TuneLinux() string {
 	// Apply the optimal and return human-readable tuning result
 	var ret bytes.Buffer
 	for key, val := range assignment {
-		old, err := misc.SetSysctl(key, val)
+		old, err := platform.SetSysctl(key, val)
 		if err == nil {
 			if old != val {
 				ret.WriteString(fmt.Sprintf("%s: %v -> %v\n", key, old, val))
@@ -207,7 +207,7 @@ func TuneLinux() string {
 		}
 	}
 	for key, val := range atLeast {
-		old, err := misc.IncreaseSysctlInt(key, val)
+		old, err := platform.IncreaseSysctlInt(key, val)
 		if err == nil {
 			if old < val {
 				ret.WriteString(fmt.Sprintf("%s: %v -> %v\n", key, old, val))

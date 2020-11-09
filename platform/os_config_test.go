@@ -1,4 +1,4 @@
-package misc
+package platform
 
 import (
 	"os"
@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/platform"
 )
 
 func TestGetProgramMemUsageKB(t *testing.T) {
@@ -77,20 +76,6 @@ func TestGetSysctl(t *testing.T) {
 	}
 }
 
-func TestInvokeShell(t *testing.T) {
-	if HostIsWindows() {
-		out, err := InvokeShell(3, "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "echo $env:windir")
-		if err != nil || !strings.Contains(strings.ToLower(out), "windows") {
-			t.Fatal(err, out)
-		}
-	} else {
-		out, err := InvokeShell(1, "/bin/sh", "echo $PATH")
-		if err != nil || out != platform.CommonPATH+"\n" {
-			t.Fatal(err, out)
-		}
-	}
-}
-
 func TestCopyNonEssentialUtilities(t *testing.T) {
 	CopyNonEssentialUtilities(lalog.Logger{})
 	if HostIsWindows() {
@@ -98,7 +83,7 @@ func TestCopyNonEssentialUtilities(t *testing.T) {
 		return
 	}
 	for _, utilName := range []string{"busybox", "toybox", "phantomjs"} {
-		if _, err := os.Stat(filepath.Join(platform.UtilityDir, utilName)); err != nil {
+		if _, err := os.Stat(filepath.Join(UtilityDir, utilName)); err != nil {
 			t.Fatal("cannot find program "+utilName, err)
 		}
 	}
@@ -139,4 +124,13 @@ func TestSwapOff(t *testing.T) {
 func TestSetTimeZone(t *testing.T) {
 	// just make sure it does not panic
 	t.Log(SetTimeZone("UTC"))
+}
+
+func TestGetSysSummary(t *testing.T) {
+	txt := GetSysSummary()
+	// Look for the first (host name) and last (environment variable) in the returned text
+	hostName, _ := os.Hostname()
+	if !strings.Contains(txt, hostName) || !strings.Contains(txt, os.Environ()[0]) {
+		t.Fatal(txt)
+	}
 }

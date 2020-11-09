@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
 )
 
@@ -63,7 +62,7 @@ PrepareDocker starts docker daemon, ensures that docker keeps running, and pulls
 routine requires root privilege to run and is tailored for a Linux container host.
 */
 func PrepareDocker(logger lalog.Logger) {
-	if !misc.EnableStartDaemon("docker") {
+	if !platform.EnableStartDaemon("docker") {
 		logger.Info("PrepareDocker", "", nil, "failed to enable/start docker daemon")
 		// Nevertheless, move on, hoping that docker is actually functional.
 	}
@@ -72,10 +71,10 @@ func PrepareDocker(logger lalog.Logger) {
 	out, err := platform.InvokeProgram(nil, 1800, "docker", "pull", SlimerJSImageTag)
 	logger.Info("PrepareDocker", "", nil, "image pulling result: %v - %s", err, out)
 	// Turn on ip forwarding so that docker containers will have access to the Internet
-	out, err = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "sysctl", "-w", "net.ipv4.ip_forward=1")
+	out, err = platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "sysctl", "-w", "net.ipv4.ip_forward=1")
 	logger.Info("PrepareDocker", "", nil, "enable ip forwarding result: %v - %s", err, out)
 	// Disable selinux as it interferes with docker directory mapping
-	out, err = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "setenforce", "0")
+	out, err = platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "setenforce", "0")
 	logger.Info("PrepareDocker", "", nil, "disable selinux result: %v - %s", err, out)
 	err = ioutil.WriteFile("/etc/selinux/config", []byte("SELINUX=disabled\nSELINUXTYPE=minimum\n"), 0600)
 	logger.Info("PrepareDocker", "", nil, "disable selinux via config result: %v", err)
@@ -89,7 +88,7 @@ func (instances *Instances) Acquire() (index int, browser *Instance, err error) 
 		that causes the PrepareDocker routine to run twice, This inconvenience should have been addressed in the
 		supervisor intiialisation process, but for now, sacrifice a bit of user convenience for workaroundability.
 	*/
-	if !misc.HostIsWindows() {
+	if !platform.HostIsWindows() {
 		prepareDockerOnce.Do(func() {
 			go func() {
 				// Start this background routine in an infinite loop to keep docker running and image available
@@ -156,7 +155,7 @@ func (instances *Instances) KillAll() {
 			instance.Kill()
 		}
 	}
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		err := exec.Command(`C:\Windows\system32\taskkill.exe`, "/F", "/T", "/IM", SlimerJSLauncherExePath).Run()
 		instances.logger.Info("KillAll", "", err, "attempted via taskkill")
 	}

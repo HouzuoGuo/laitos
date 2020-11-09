@@ -9,15 +9,15 @@ import (
 
 	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 func TestInteractiveBrowser(t *testing.T) {
-	if !misc.HostIsWindows() && os.Getuid() != 0 {
+	if !platform.HostIsWindows() && os.Getuid() != 0 {
 		t.Skip("this test involves docker daemon operation, it requires root privilege.")
 	}
 	// CircleCI container cannot operate docker daemon
-	misc.SkipTestIfCI(t)
+	platform.SkipTestIfCI(t)
 
 	renderOutput, err := ioutil.TempDir("", "laitos-TestInteractiveBrowser-browsers-render")
 	if err != nil {
@@ -86,11 +86,11 @@ func TestInteractiveBrowser(t *testing.T) {
 }
 
 func TestLineOrientedBrowser(t *testing.T) {
-	if !misc.HostIsWindows() && os.Getuid() != 0 {
+	if !platform.HostIsWindows() && os.Getuid() != 0 {
 		t.Skip("this test involves docker daemon operation, it requires root privilege.")
 	}
 	// CircleCI container cannot operate docker daemon
-	misc.SkipTestIfCI(t)
+	platform.SkipTestIfCI(t)
 	renderOutput, err := ioutil.TempDir("", "laitos-TestInteractiveBrowser-browsers-render")
 	if err != nil {
 		t.Fatal(err)

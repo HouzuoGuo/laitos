@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/HouzuoGuo/laitos/inet"
-	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
 )
 
@@ -41,7 +40,7 @@ available, which causes docker to be missing even after system maintenance routi
 will correct itself when system maintenance routine runs a second time.
 */
 func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		daemon.logPrintStageStep(out, "skipped on windows: prepare docker repository for debian system")
 		return
 	}
@@ -65,21 +64,21 @@ func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 		daemon.logPrintStageStep(out, "failed to store docker GPG key - %v", err)
 		return
 	}
-	aptOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "apt-key", "add", gpgKeyFile)
+	aptOut, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "apt-key", "add", gpgKeyFile)
 	daemon.logPrintStageStep(out, "install docker GPG key - %v %s", err, aptOut)
 	// Add docker community edition repository
-	lsbOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "lsb_release", "-cs")
+	lsbOut, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "lsb_release", "-cs")
 	daemon.logPrintStageStep(out, "determine release name - %v %s", err, lsbOut)
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to determine release name")
 		return
 	}
-	aptOut, err = platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(lsbOut)))
+	aptOut, err = platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(lsbOut)))
 	daemon.logPrintStageStep(out, "enable docker repository - %v %s", err, aptOut)
 }
 
 func (daemon *Daemon) prepareDockerRepositoryForAWSLinux(out *bytes.Buffer) {
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		daemon.logPrintStageStep(out, "skipped on windows: prepare docker repository for AWS Linux system")
 		return
 	}
@@ -92,7 +91,7 @@ func (daemon *Daemon) prepareDockerRepositoryForAWSLinux(out *bytes.Buffer) {
 		daemon.logPrintStageStep(out, "system is not an Amazon Linux, skip rest of the stage.")
 		return
 	}
-	installOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "/usr/bin/amazon-linux-extras", "install", "-y", "docker")
+	installOut, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "/usr/bin/amazon-linux-extras", "install", "-y", "docker")
 	if strings.Contains(installOut, "already installed") && err == nil {
 		daemon.logPrintStageStep(out, "install docker via extras - ok")
 	} else {
@@ -105,7 +104,7 @@ getSystemPackageManager returns executable path and name of package manager avai
 environment variables and command arguments used to invoke them.
 */
 func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManagerEnv, pkgInstallArgs, sysUpgradeArgs []string) {
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		// Chocolatey is the only package manager supported on Windows
 		pkgManagerPath = `C:\ProgramData\chocolatey\bin\choco.exe`
 		pkgManagerName = "choco"
@@ -162,14 +161,14 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 	}
 
 	// Prepare package manager
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		daemon.logPrintStageStep(out, "install windows features")
-		shellOut, err := misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShell-ISE, Windows-Defender, TFTP-Client, Telnet-Client, Server-Media-Foundation, GPMC, NET-Framework-45-Core, WebDAV-Redirector`)
+		shellOut, err := platform.InvokeShell(3600, platform.PowerShellInterpreterPath, `Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShell-ISE, Windows-Defender, TFTP-Client, Telnet-Client, Server-Media-Foundation, GPMC, NET-Framework-45-Core, WebDAV-Redirector`)
 		if err != nil {
 			daemon.logPrintStageStep(out, "failed to install windows features: %v - %s", err, shellOut)
 		}
 		daemon.logPrintStageStep(out, "install/upgrade chocolatey")
-		shellOut, err = misc.InvokeShell(3600, misc.PowerShellInterpreterPath, `Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))`)
+		shellOut, err = platform.InvokeShell(3600, platform.PowerShellInterpreterPath, `Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))`)
 		if err != nil {
 			daemon.logPrintStageStep(out, "failed to install/upgrade chocolatey: %v - %s", err, shellOut)
 		}

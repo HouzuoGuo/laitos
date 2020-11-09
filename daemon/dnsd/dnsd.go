@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
+	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 
@@ -253,7 +254,7 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 		numRoutines = 6
 	}
 	daemon.blackListMutex.RUnlock()
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		/*
 			Windows is very slow to do concurrent DNS lookup, these parallel routines will even trick windows into
 			thinking that there is no Internet anymore. Pretty weird.
@@ -494,7 +495,7 @@ testResolveNameAndBlackList is a common test case that tests name resolution of 
 list domain names.
 */
 func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		/*
 			As of 2019-08, net.Resolver does not use custom dialer on Windows due to:
 			- https://github.com/golang/go/issues/33621 (net: Resolver does not appear to use its dialer function on Windows)

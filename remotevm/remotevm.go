@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
 )
 
@@ -536,7 +535,7 @@ func findEmulatorExecutable() string {
 		}
 	}
 	// Look for regular QEMU among installed program files on Windows
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		winQEMUPath := fmt.Sprintf(`C:\Program Files\qemu\%s.exe`, QEMUExecutableName)
 		if _, err := os.Stat(winQEMUPath); err == nil {
 			return winQEMUPath

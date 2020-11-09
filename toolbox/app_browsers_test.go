@@ -10,7 +10,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/browser/slimerjs"
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 func TestBrowserSlimerJS_Execute(t *testing.T) {
@@ -18,7 +18,7 @@ func TestBrowserSlimerJS_Execute(t *testing.T) {
 		t.Skip("this test involves docker daemon operation, it requires root privilege.")
 	}
 	// CircleCI container cannot operate docker daemon
-	misc.SkipTestIfCI(t)
+	platform.SkipTestIfCI(t)
 	// Prepare docker operation for SlimerJS
 	slimerjs.PrepareDocker(lalog.Logger{})
 	bro := BrowserSlimerJS{}

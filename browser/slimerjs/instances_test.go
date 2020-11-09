@@ -7,15 +7,15 @@ import (
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 func TestBrowserInstances(t *testing.T) {
-	if !misc.HostIsWindows() && os.Getuid() != 0 {
+	if !platform.HostIsWindows() && os.Getuid() != 0 {
 		t.Skip("this test involves docker daemon operation, it requires root privilege.")
 	}
 	// CircleCI container does not have the dependencies for running PhantomJS
-	misc.SkipTestIfCI(t)
+	platform.SkipTestIfCI(t)
 	instances := Instances{}
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "BasePortNumber") {
 		t.Fatal(err)
@@ -41,7 +41,7 @@ func TestBrowserInstances(t *testing.T) {
 	if i0 != 0 || b0.Tag == "" || err != nil {
 		t.Fatal(i0, b0, err)
 	}
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		// FIXME: can SlimerJS run more than one instance at a time on Windows? The second Acquire() fails.
 		fmt.Println("FIXME: can SlimerJS run more than one instance at a time on Windows? The second Acquire() fails.")
 		return

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 func TestMessageProcessor_StoreReport(t *testing.T) {
@@ -240,7 +240,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The slow command test uses "touch" shell command that is not compatible with Windows
-	misc.SkipIfWindows(t)
+	platform.SkipIfWindows(t)
 	// Store a report that carries a slow command
 	fileName := "/tmp/laitos-storenforward-slow-command"
 	_ = os.Remove(fileName)
@@ -318,7 +318,7 @@ func TestMessageProcessor_processCommandRequest_SlowAlternatingCommand(t *testin
 		t.Fatal(err)
 	}
 	// The slow command test uses "touch" shell command that is not compatible with Windows
-	misc.SkipIfWindows(t)
+	platform.SkipIfWindows(t)
 
 	// The first slow command ultimately creates a new file
 	fileName1 := "/tmp/laitos-storenforward-slow-alternating-command1"

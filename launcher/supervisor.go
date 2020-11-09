@@ -12,6 +12,7 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 const (
@@ -178,7 +179,7 @@ func (sup *Supervisor) notifyFailure(cliFlags []string, launchErr error) {
 	}
 
 	publicIP := inet.GetPublicIP()
-	usedMem, totalMem := misc.GetSystemMemoryUsageKB()
+	usedMem, totalMem := platform.GetSystemMemoryUsageKB()
 
 	subject := inet.OutgoingMailSubjectKeyword + "-supervisor has detected a failure on " + publicIP
 	body := fmt.Sprintf(`
@@ -197,9 +198,9 @@ Latest stderr: %s
 `, launchErr,
 		cliFlags,
 		time.Now().String(),
-		time.Duration(misc.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
-		totalMem/1024, usedMem/1024, misc.GetProgramMemoryUsageKB()/1024,
-		misc.GetSystemLoad(),
+		time.Duration(platform.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
+		totalMem/1024, usedMem/1024, platform.GetProgramMemoryUsageKB()/1024,
+		platform.GetSystemLoad(),
 		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
 		string(sup.mainStdout.Retrieve(false)),
 		string(sup.mainStderr.Retrieve(false)))

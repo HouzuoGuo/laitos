@@ -20,6 +20,7 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -346,15 +347,15 @@ func (daemon *Daemon) SystemMaintenance() string {
 	daemon.RunPreMaintenanceScript(out)
 
 	// System maintenance
-	if daemon.TuneLinux && !misc.HostIsWindows() {
+	if daemon.TuneLinux && !platform.HostIsWindows() {
 		daemon.logPrintStage(out, "tune linux kernel: %s", toolbox.TuneLinux())
 	}
 	if daemon.SetTimeZone != "" {
 		daemon.logPrintStage(out, "set system time zone to %s", daemon.SetTimeZone)
-		if misc.HostIsWindows() {
+		if platform.HostIsWindows() {
 			daemon.logPrintStage(out, "skipped on windows: set system time zone")
 		} else {
-			if err := misc.SetTimeZone(daemon.SetTimeZone); err != nil {
+			if err := platform.SetTimeZone(daemon.SetTimeZone); err != nil {
 				daemon.logPrintStageStep(out, "failed to set time zone: %v", err)
 			}
 		}
@@ -372,7 +373,7 @@ func (daemon *Daemon) SystemMaintenance() string {
 		Hence, right here the utility programs are copied once again.
 	*/
 	daemon.logPrintStage(out, "re-copy non-essential laitos utilities")
-	misc.CopyNonEssentialUtilities(daemon.logger)
+	platform.CopyNonEssentialUtilities(daemon.logger)
 
 	// Software maintenance
 	daemon.InstallSoftware(out)

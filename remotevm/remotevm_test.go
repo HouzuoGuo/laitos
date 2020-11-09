@@ -5,12 +5,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 func TestVMInteractions(t *testing.T) {
 	// CircleCI doesn't have QEMU
-	misc.SkipTestIfCI(t)
+	platform.SkipTestIfCI(t)
 
 	tmpFile, err := ioutil.TempFile("", "laitos-test-vm-interactions-iso")
 	if err != nil {

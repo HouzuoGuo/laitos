@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 func TestBenchmark(t *testing.T) {
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		// FIXME: fix this test case for Windows
 		t.Skip("FIXME: enable this test case for Windows")
 	}

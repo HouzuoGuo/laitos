@@ -1,4 +1,4 @@
-package misc
+package platform
 
 import (
 	"fmt"
@@ -11,21 +11,42 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/platform"
+	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
-var RegexVmRss = regexp.MustCompile(`VmRSS:\s*(\d+)\s*kB`)               // Parse VmRss value from /proc/*/status line
-var RegexMemAvailable = regexp.MustCompile(`MemAvailable:\s*(\d+)\s*kB`) // Parse MemAvailable value from /proc/meminfo
-var RegexMemTotal = regexp.MustCompile(`MemTotal:\s*(\d+)\s*kB`)         // Parse MemTotal value from /proc/meminfo
-var RegexMemFree = regexp.MustCompile(`MemFree:\s*(\d+)\s*kB`)           // Parse MemFree value from /proc/meminfo
-var RegexTotalUptimeSec = regexp.MustCompile(`(\d+).*`)                  // Parse uptime seconds from /proc/meminfo
-
 const (
+	/*
+	   UtilityDir is an element of PATH that points to a directory where laitos bundled utility programs are stored. The
+	   utility programs are not essential to most of laitos operations, however they come in handy in certain scenarios:
+	   - statically linked "busybox" (maintenance daemon uses it to synchronise system clock)
+	   - statically linked "toybox" (its rich set of utilities help with shell usage)
+	   - dynamically linked "phantomjs" (used by text interactive web browser feature and browser-in-browser HTTP handler)
+	*/
+	UtilityDir = "/tmp/laitos-util"
+
+	/*
+	   CommonPATH is a PATH environment variable value that includes most common executable locations across Unix and Linux.
+	   Be aware that, when laitos launches external programs they usually should inherit all of the environment variables from
+	   parent process, which may include PATH. However, as an exception, AWS ElasticBeanstalk launches programs via a
+	   "supervisord" that resets PATH variable to deliberately exclude sbin directories, therefore, it is often useful to use
+	   this hard coded PATH value to launch programs.
+	*/
+	CommonPATH = UtilityDir + ":/bin:/sbin:/usr/bin:/usr/sbin:/usr/libexec:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin"
+
 	// CommonOSCmdTimeoutSec is the number of seconds to tolerate for running a wide range of system management utilities.
 	CommonOSCmdTimeoutSec = 30
+)
+
+var (
+	RegexVmRss          = regexp.MustCompile(`VmRSS:\s*(\d+)\s*kB`)        // Parse VmRss value from /proc/*/status line
+	RegexMemAvailable   = regexp.MustCompile(`MemAvailable:\s*(\d+)\s*kB`) // Parse MemAvailable value from /proc/meminfo
+	RegexMemTotal       = regexp.MustCompile(`MemTotal:\s*(\d+)\s*kB`)     // Parse MemTotal value from /proc/meminfo
+	RegexMemFree        = regexp.MustCompile(`MemFree:\s*(\d+)\s*kB`)      // Parse MemFree value from /proc/meminfo
+	RegexTotalUptimeSec = regexp.MustCompile(`(\d+).*`)                    // Parse uptime seconds from /proc/meminfo
 )
 
 // Use regex to parse input string, and return an integer parsed from specified capture group, or 0 if there is no match/no integer.
@@ -98,10 +119,10 @@ func CopyNonEssentialUtilities(progress lalog.Logger) {
 		progress.Info("PrepareUtilities", "", nil, "will not do anything on Windows")
 		return
 	}
-	progress.Info("PrepareUtilities", "", nil, "going to reset program environment PATH and copy non-essential utility programs to "+platform.UtilityDir)
-	os.Setenv("PATH", platform.CommonPATH)
-	if err := os.MkdirAll(platform.UtilityDir, 0755); err != nil {
-		progress.Warning("PrepareUtilities", "", err, "failed to create directory %s", platform.UtilityDir)
+	progress.Info("PrepareUtilities", "", nil, "going to reset program environment PATH and copy non-essential utility programs to "+UtilityDir)
+	os.Setenv("PATH", CommonPATH)
+	if err := os.MkdirAll(UtilityDir, 0755); err != nil {
+		progress.Warning("PrepareUtilities", "", err, "failed to create directory %s", UtilityDir)
 		return
 	}
 	srcDestName := []string{
@@ -132,7 +153,7 @@ func CopyNonEssentialUtilities(progress lalog.Logger) {
 				continue
 			}
 			defer from.Close()
-			destPath := filepath.Join(platform.UtilityDir, destName)
+			destPath := filepath.Join(UtilityDir, destName)
 			to, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
 			if err != nil {
 				//progress.Info("PrepareUtilities", destName, err, "failed to open destPath %s ", destPath)
@@ -169,16 +190,6 @@ func GetDefaultShellInterpreter() string {
 		}
 	}
 	return ""
-}
-
-/*
-InvokeShell launches an external shell process with time constraints to run a piece of shell code. The code is fed into
-shell command parameter "-c", which happens to be universally accepted by Unix shells and Windows Powershell.
-Returns shell stdout+stderr output combined and error if there is any. The maximum acount of output is capped to
-MaxExternalProgramOutputBytes.
-*/
-func InvokeShell(timeoutSec int, interpreter string, content string) (out string, err error) {
-	return platform.InvokeProgram(nil, timeoutSec, interpreter, "-c", content)
 }
 
 // GetSysctlStr returns string value of a sysctl parameter corresponding to the input key.
@@ -263,7 +274,7 @@ empty map if the names cannot be retrieved.
 func GetLocalUserNames() (ret map[string]bool) {
 	ret = make(map[string]bool)
 	if HostIsWindows() {
-		out, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\System32\Wbem\WMIC.exe`, "useraccount", "get", "name")
+		out, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\System32\Wbem\WMIC.exe`, "useraccount", "get", "name")
 		if err != nil {
 			return
 		}
@@ -294,27 +305,27 @@ func GetLocalUserNames() (ret map[string]bool) {
 func BlockUserLogin(userName string) (ok bool, out string) {
 	ok = true
 	if HostIsWindows() {
-		progOut, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\net.exe`, "user", userName, "/active:no")
+		progOut, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\net.exe`, "user", userName, "/active:no")
 		if err != nil {
 			ok = false
 			out += fmt.Sprintf("net user failed: %v - %s\n", err, strings.TrimSpace(progOut))
 		}
 	} else {
 		// Some systems use chsh while some others use chmod
-		progOut, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chsh", "-s", "/bin/false", userName)
+		progOut, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "chsh", "-s", "/bin/false", userName)
 		if err != nil {
-			usermodOut, usermodErr := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "usermod", "-s", "/bin/false", userName)
+			usermodOut, usermodErr := InvokeProgram(nil, CommonOSCmdTimeoutSec, "usermod", "-s", "/bin/false", userName)
 			if usermodErr != nil {
 				ok = false
 				out += fmt.Sprintf("chsh failed (%v - %s) and then usermod shell failed as well: %v - %s\n", err, strings.TrimSpace(progOut), usermodErr, strings.TrimSpace(usermodOut))
 			}
 		}
-		progOut, err = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "passwd", "-l", userName)
+		progOut, err = InvokeProgram(nil, CommonOSCmdTimeoutSec, "passwd", "-l", userName)
 		if err != nil {
 			ok = false
 			out += fmt.Sprintf("passwd failed: %v - %s\n", err, strings.TrimSpace(progOut))
 		}
-		progOut, err = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "usermod", "--expiredate", "1", userName)
+		progOut, err = InvokeProgram(nil, CommonOSCmdTimeoutSec, "usermod", "--expiredate", "1", userName)
 		if err != nil {
 			ok = false
 			out += fmt.Sprintf("usermod expiry failed: %v - %s\n", err, strings.TrimSpace(progOut))
@@ -327,7 +338,7 @@ func BlockUserLogin(userName string) (ok bool, out string) {
 func DisableStopDaemon(daemonNameNoSuffix string) (ok bool) {
 	if HostIsWindows() {
 		// "net stop" conveniently stops dependencies as well
-		if out, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\net.exe`, "stop", "/yes", daemonNameNoSuffix); err == nil || strings.Contains(strings.ToLower(out), "is not started") {
+		if out, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\net.exe`, "stop", "/yes", daemonNameNoSuffix); err == nil || strings.Contains(strings.ToLower(out), "is not started") {
 			ok = true
 		}
 		/*
@@ -335,26 +346,26 @@ func DisableStopDaemon(daemonNameNoSuffix string) (ok bool) {
 			"The specified service does not exist as an installed service."
 			The response is actually saying there is denied access and it cannot determine the state of the service.
 		*/
-		if out, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\sc.exe`, "stop", daemonNameNoSuffix); err == nil || strings.Contains(strings.ToLower(out), "has not been started") {
+		if out, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\sc.exe`, "stop", daemonNameNoSuffix); err == nil || strings.Contains(strings.ToLower(out), "has not been started") {
 			ok = true
 		}
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\sc.exe`, "config", daemonNameNoSuffix, "start=", "disabled"); err == nil {
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\sc.exe`, "config", daemonNameNoSuffix, "start=", "disabled"); err == nil {
 			ok = true
 		}
 	} else {
 		// Some hosting providers still have not used systemd yet, such as the OS on Elastic Beanstalk.
-		_, _ = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "/etc/init.d/"+daemonNameNoSuffix, "stop")
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chkconfig", " --level", "0123456", daemonNameNoSuffix, "off"); err == nil {
+		_, _ = InvokeProgram(nil, CommonOSCmdTimeoutSec, "/etc/init.d/"+daemonNameNoSuffix, "stop")
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "chkconfig", " --level", "0123456", daemonNameNoSuffix, "off"); err == nil {
 			ok = true
 		}
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chmod", "0000", "/etc/init.d/"+daemonNameNoSuffix); err == nil {
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "chmod", "0000", "/etc/init.d/"+daemonNameNoSuffix); err == nil {
 			ok = true
 		}
-		_, _ = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "stop", daemonNameNoSuffix+".service")
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "disable", daemonNameNoSuffix+".service"); err == nil {
+		_, _ = InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "stop", daemonNameNoSuffix+".service")
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "disable", daemonNameNoSuffix+".service"); err == nil {
 			ok = true
 		}
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "mask", daemonNameNoSuffix+".service"); err == nil {
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "mask", daemonNameNoSuffix+".service"); err == nil {
 			ok = true
 		}
 	}
@@ -364,26 +375,26 @@ func DisableStopDaemon(daemonNameNoSuffix string) (ok bool) {
 // EnableStartDaemon enables and starts a system service.
 func EnableStartDaemon(daemonNameNoSuffix string) (ok bool) {
 	if HostIsWindows() {
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\sc.exe`, "config", daemonNameNoSuffix, "start=", "auto"); err == nil {
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\sc.exe`, "config", daemonNameNoSuffix, "start=", "auto"); err == nil {
 			ok = true
 		}
-		if out, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\sc.exe`, "start", daemonNameNoSuffix); err == nil || strings.Contains(strings.ToLower(out), "already running") {
+		if out, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, `C:\Windows\system32\sc.exe`, "start", daemonNameNoSuffix); err == nil || strings.Contains(strings.ToLower(out), "already running") {
 			ok = true
 		}
 	} else {
 		// Some hosting providers still have not used systemd yet, such as the OS on Elastic Beanstalk.
-		_, _ = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chmod", "0755", "/etc/init.d/"+daemonNameNoSuffix)
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "chkconfig", " --level", "345", daemonNameNoSuffix, "on"); err == nil {
+		_, _ = InvokeProgram(nil, CommonOSCmdTimeoutSec, "chmod", "0755", "/etc/init.d/"+daemonNameNoSuffix)
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "chkconfig", " --level", "345", daemonNameNoSuffix, "on"); err == nil {
 			ok = true
 		}
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "/etc/init.d/"+daemonNameNoSuffix, "start"); err == nil {
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "/etc/init.d/"+daemonNameNoSuffix, "start"); err == nil {
 			ok = true
 		}
-		_, _ = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "unmask", daemonNameNoSuffix+".service")
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "enable", daemonNameNoSuffix+".service"); err == nil {
+		_, _ = InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "unmask", daemonNameNoSuffix+".service")
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "enable", daemonNameNoSuffix+".service"); err == nil {
 			ok = true
 		}
-		if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "start", daemonNameNoSuffix+".service"); err == nil {
+		if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "start", daemonNameNoSuffix+".service"); err == nil {
 			ok = true
 		}
 	}
@@ -395,7 +406,7 @@ DisableInterferingResolved disables systemd-resolved service to prevent it from 
 Otherwise, systemd-resolved daemon listens on 127.0.0.53:53 and prevents laitos DNS server from listening on all network interfaces (0.0.0.0).
 */
 func DisableInterferingResolved() (out string) {
-	if _, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "is-active", "systemd-resolved"); err != nil {
+	if _, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "is-active", "systemd-resolved"); err != nil {
 		return "will not change name resolution settings as systemd-resolved is not active"
 	}
 	// Read the configuration file, it may have already been overwritten by systemd-resolved.
@@ -410,7 +421,7 @@ func DisableInterferingResolved() (out string) {
 		}
 	}
 	// Stop systemd-resolved but do not disable it, it still helps to collect uplink DNS server configuration next boot.
-	_, err = platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "stop", "systemd-resolved.service")
+	_, err = InvokeProgram(nil, CommonOSCmdTimeoutSec, "systemctl", "stop", "systemd-resolved.service")
 	if err != nil {
 		out += "failed to stop systemd-resolved.service\n"
 	}
@@ -447,7 +458,7 @@ nameserver 1.1.1.2
 // SwapOff turns off all swap files and partitions for improved system confidentiality.
 func SwapOff() error {
 	// Wait quite a while to ensure that caller gets an accurate result return value.
-	out, err := platform.InvokeProgram(nil, CommonOSCmdTimeoutSec, "swapoff", "-a")
+	out, err := InvokeProgram(nil, CommonOSCmdTimeoutSec, "swapoff", "-a")
 	if err != nil {
 		return fmt.Errorf("SwapOff: %v - %s", err, out)
 	}
@@ -465,4 +476,31 @@ func SetTimeZone(zone string) error {
 		return fmt.Errorf("failed to make localtime symlink: %v", err)
 	}
 	return nil
+}
+
+// GetSysSummary returns a formatted, human-readable text that describes program and system status.
+func GetSysSummary() string {
+	usedMem, totalMem := GetSystemMemoryUsageKB()
+	usedRoot, freeRoot, totalRoot := GetRootDiskUsageKB()
+	hostName, _ := os.Hostname()
+	return fmt.Sprintf(`
+Host name: %s
+Clock: %s
+Sys/prog uptime: %s / %s
+Total/used/prog mem: %d / %d / %d MB
+Total/used/free rootfs: %d / %d / %d MB
+Sys load: %s
+Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
+Program flags: %v
+Program environment: %v
+`,
+		hostName,
+		time.Now().String(),
+		time.Duration(GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
+		totalMem/1024, usedMem/1024, GetProgramMemoryUsageKB()/1024,
+		totalRoot/1024, usedRoot/1024, freeRoot/1024,
+		GetSystemLoad(),
+		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
+		os.Args[1:],
+		strings.Join(os.Environ(), "\n"))
 }

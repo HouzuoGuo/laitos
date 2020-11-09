@@ -25,6 +25,7 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -503,7 +504,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	}
 	//                         v  e r  y  s   e c  r  e t .   s    tr  u e
 	dtmfVerySecretDotSTrue := "88833777999777733222777338014207777087778833"
-	if !misc.HostIsWindows() {
+	if !platform.HostIsWindows() {
 		// Twilio - check command execution result via phone call
 		resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 			Method: http.MethodPost,
@@ -583,7 +584,7 @@ over.
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), `<Say>Hi there</Say>`) {
 		t.Fatal(err, string(resp.Body))
 	}
-	if !misc.HostIsWindows() {
+	if !platform.HostIsWindows() {
 		resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 			Method: http.MethodPost,
 			Body:   strings.NewReader(url.Values{"Digits": {dtmfVerySecretDotSTrue}, "From": {"dtmf number"}}.Encode())}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioCallCallback{}))

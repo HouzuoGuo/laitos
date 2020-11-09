@@ -63,16 +63,3 @@ func TestGetFilesToKill(t *testing.T) {
 		t.Fatal(toKill)
 	}
 }
-
-func TestGetDisksToKill(t *testing.T) {
-	if HostIsCircleCI() || HostIsWSL() || HostIsWindows() {
-		// just make sure it does not crash
-		getDisksToKill()
-		return
-	}
-	toKill := getDisksToKill()
-	fmt.Println(toKill)
-	if len(toKill) < 1 {
-		t.Fatal(toKill)
-	}
-}

@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 func TestShell_WindowsExecute(t *testing.T) {
-	if !misc.HostIsWindows() {
+	if !platform.HostIsWindows() {
 		t.Skip("this test is only applicable on Windows")
 	}
 	sh := Shell{}
@@ -55,7 +55,7 @@ func TestShell_WindowsExecute(t *testing.T) {
 }
 
 func TestShell_NonWindowsExecute(t *testing.T) {
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		t.Skip("this test is skipped on Windows")
 	}
 	sh := Shell{}

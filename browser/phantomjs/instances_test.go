@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 func TestBrowserInstances(t *testing.T) {
@@ -14,9 +14,9 @@ func TestBrowserInstances(t *testing.T) {
 		t.Skip("Because the built-in PhantomJS executable only works in linux/amd64, your system cannot run this test.")
 	}
 	// Preparation copies PhantomJS executable into a utilities directory and adds it to program $PATH.
-	misc.CopyNonEssentialUtilities(lalog.Logger{})
+	platform.CopyNonEssentialUtilities(lalog.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
-	misc.SkipTestIfCI(t)
+	platform.SkipTestIfCI(t)
 	instances := Instances{}
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "BasePortNumber") {
 		t.Fatal(err)

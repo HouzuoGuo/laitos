@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
 )
 
@@ -38,7 +37,7 @@ func (daemon *Daemon) CleanUpFiles(out *bytes.Buffer) {
 			return nil
 		})
 	}
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		/*
 			Use Windows Disk Cleanup to do a more thorough round of clean up. The Windows program is not very well
 			suited for headless operation, modes such as "/SAGERUN" and "/VERYLOWDISK" have to spawn a window, and in
@@ -54,7 +53,7 @@ func (daemon *Daemon) CleanUpFiles(out *bytes.Buffer) {
 
 // DefragmentAllDisks defragments all disks on Windows. This routine does nothing on Linux.
 func (daemon *Daemon) DefragmentAllDisks(out *bytes.Buffer) {
-	if !misc.HostIsWindows() {
+	if !platform.HostIsWindows() {
 		daemon.logPrintStage(out, "skipped on non-windows: defragment disks")
 		return
 	}
@@ -78,7 +77,7 @@ func (daemon *Daemon) DefragmentAllDisks(out *bytes.Buffer) {
 // TrimSSDDisk executes SSD TRIM operation on C:\ drive (Windows) or all drives
 func (daemon *Daemon) TrimAllSSDs(out *bytes.Buffer) {
 	daemon.logPrintStage(out, "trim SSD disks")
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		/*
 			According to Windows command help, the following command defragments all drives:
 			C:\Windows\system32\Defrag.exe /C /L

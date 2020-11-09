@@ -22,7 +22,7 @@ const (
 // SynchroniseSystemClock uses three different tools to immediately synchronise system clock via NTP servers.
 func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
 	daemon.logPrintStage(out, "synchronise clock")
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		result, err := platform.InvokeProgram(nil, 120, `C:\Windows\system32\w32tm.exe`, "/config", `/manualpeerlist:"0.pool.ntp.org sg.pool.ntp.org us.pool.ntp.org fi.pool.ntp.org"`, "/syncfromflags:manual", "/reliable:yes", "/update")
 		daemon.logPrintStageStep(out, "w32tm config: %v - %s", err, strings.TrimSpace(result))
 		result, err = platform.InvokeProgram(nil, 120, `C:\Windows\system32\w32tm.exe`, "/resync", "/force")
@@ -62,7 +62,7 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 	if daemon.DisableStopServices != nil {
 		sort.Strings(daemon.DisableStopServices)
 		for _, name := range daemon.DisableStopServices {
-			if misc.DisableStopDaemon(name) {
+			if platform.DisableStopDaemon(name) {
 				daemon.logPrintStageStep(out, "disable&stop %s: OK", name)
 			} else {
 				daemon.logPrintStageStep(out, "disable&stop %s: failed or service does not exist", name)
@@ -72,7 +72,7 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 	if daemon.EnableStartServices != nil {
 		sort.Strings(daemon.EnableStartServices)
 		for _, name := range daemon.EnableStartServices {
-			if misc.EnableStartDaemon(name) {
+			if platform.EnableStartDaemon(name) {
 				daemon.logPrintStageStep(out, "enable&start %s: OK", name)
 			} else {
 				daemon.logPrintStageStep(out, "enable&start %s: failed or service does not exist", name)
@@ -92,12 +92,12 @@ func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 	for _, name := range daemon.BlockSystemLoginExcept {
 		exceptionMap[strings.ToLower(name)] = true
 	}
-	for userName := range misc.GetLocalUserNames() {
+	for userName := range platform.GetLocalUserNames() {
 		if exceptionMap[strings.ToLower(userName)] {
 			daemon.logPrintStageStep(out, "not going to touch excluded user %s", userName)
 			continue
 		}
-		if ok, blockOut := misc.BlockUserLogin(userName); ok {
+		if ok, blockOut := platform.BlockUserLogin(userName); ok {
 			daemon.logPrintStageStep(out, "blocked user %s", userName)
 		} else {
 			daemon.logPrintStageStep(out, "failed to block user %s - %v", userName, blockOut)
@@ -107,7 +107,7 @@ func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 
 // MaintainWindowsIntegrity uses DISM and SFC utilities to maintain Windows system integrity and runs Windows Update.
 func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
-	if !misc.HostIsWindows() {
+	if !platform.HostIsWindows() {
 		return
 	}
 	daemon.logPrintStage(out, "maintain windows system integrity")
@@ -203,7 +203,7 @@ Next
 
 // MaintainSwapFile creates and activates a swap file for Linux system, or turns swap off depending on configuration input.
 func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		daemon.logPrintStage(out, "skipped on windows: maintain swap file")
 		return
 	}
@@ -213,7 +213,7 @@ func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
 	daemon.logPrintStage(out, "create/turn on swap file "+SwapFilePath)
 	if daemon.SwapFileSizeMB < 0 {
 		daemon.logPrintStageStep(out, "turn off swap")
-		if err := misc.SwapOff(); err != nil {
+		if err := platform.SwapOff(); err != nil {
 			daemon.logPrintStageStep(out, "failed to turn off swap: %v", err)
 		}
 		return
@@ -258,11 +258,11 @@ func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
 			return
 		}
 		// Format the swap file
-		if progOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "mkswap", SwapFilePath); err != nil {
+		if progOut, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "mkswap", SwapFilePath); err != nil {
 			daemon.logPrintStageStep(out, "failed to format swap file - %v - %s", err, progOut)
 		}
 		// Turn on the swap file
-		progOut, err := platform.InvokeProgram(nil, misc.CommonOSCmdTimeoutSec, "swapon", SwapFilePath)
+		progOut, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "swapon", SwapFilePath)
 		if err != nil {
 			daemon.logPrintStageStep(out, "failed to turn on swap file - %v - %s", err, progOut)
 		}
@@ -287,7 +287,7 @@ func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
 	if !daemon.DoEnhanceFileSecurity {
 		return
 	}
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		daemon.logPrintStage(out, "skipped on windows: enhance file security")
 		return
 	}
@@ -386,13 +386,13 @@ func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
 func (daemon *Daemon) RunPreMaintenanceScript(out *bytes.Buffer) {
 	var scriptOut string
 	var err error
-	if daemon.PreScriptUnix != "" && !misc.HostIsWindows() {
+	if daemon.PreScriptUnix != "" && !platform.HostIsWindows() {
 		daemon.logPrintStage(out, "run pre-maintenance script (unix-like)")
-		scriptOut, err = misc.InvokeShell(10*600, misc.GetDefaultShellInterpreter(), daemon.PreScriptUnix)
+		scriptOut, err = platform.InvokeShell(10*600, platform.GetDefaultShellInterpreter(), daemon.PreScriptUnix)
 	}
-	if daemon.PreScriptWindows != "" && misc.HostIsWindows() {
+	if daemon.PreScriptWindows != "" && platform.HostIsWindows() {
 		daemon.logPrintStage(out, "run pre-maintenance script (windows)")
-		scriptOut, err = misc.InvokeShell(10*600, misc.GetDefaultShellInterpreter(), daemon.PreScriptWindows)
+		scriptOut, err = platform.InvokeShell(10*600, platform.GetDefaultShellInterpreter(), daemon.PreScriptWindows)
 	}
 	daemon.logPrintStage(out, "script result: %s - %v", scriptOut, err)
 }

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 )
 
 /*
@@ -57,7 +57,7 @@ func (instances *Instances) Initialise() error {
 
 // TestPhantomJSExecutable returns an error only if there is a problem with using the PhantomJS executable.
 func (instances *Instances) TestPhantomJSExecutable() error {
-	if misc.HostIsWindows() {
+	if platform.HostIsWindows() {
 		/*
 			PhantomJS won't work on Windows, this hacky attempt silences its initialisation error so that configuration
 			made for Linux hosts will run unmodified on Windows.

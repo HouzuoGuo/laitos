@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/HouzuoGuo/laitos/remotevm"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -103,7 +103,7 @@ func (handler *HandleVirtualMachine) Initialise(logger lalog.Logger, _ *toolbox.
 	numCPUs := (runtime.NumCPU() + 1) / 2
 	// Give each CPU 384MB of memory, or in total up to 25% of system main memory to work with.
 	memSizeMB := numCPUs * 384
-	if _, totalKB := misc.GetSystemMemoryUsageKB(); totalKB > 0 {
+	if _, totalKB := platform.GetSystemMemoryUsageKB(); totalKB > 0 {
 		if quarterOfMainMB := totalKB / 1024 / 4; quarterOfMainMB > memSizeMB {
 			memSizeMB = quarterOfMainMB
 		}
