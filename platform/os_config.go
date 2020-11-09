@@ -484,8 +484,7 @@ func GetSysSummary(withPublicIP bool) string {
 	usedMem, totalMem := GetSystemMemoryUsageKB()
 	usedRoot, freeRoot, totalRoot := GetRootDiskUsageKB()
 	hostName, _ := os.Hostname()
-	summary := fmt.Sprintf(`
-Host name: %s
+	summary := fmt.Sprintf(`Host name: %s
 Clock: %s
 Sys/prog uptime: %s / %s
 Total/used/prog mem: %d / %d / %d MB
@@ -506,7 +505,7 @@ Program environment: %v
 		strings.Join(os.Environ(), "\n"))
 
 	if withPublicIP {
-		return inet.GetPublicIP() + "\n" + summary
+		return "IP: " + inet.GetPublicIP() + "\n" + summary
 	}
 	return summary
 }

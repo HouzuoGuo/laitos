@@ -197,6 +197,17 @@ func (config *Config) Initialise() error {
 			config.logger.Warning("Initialise", "", err, "failed to initialise kinesis firehose client")
 		}
 	}
+	// Initialise the optional AWS SNS client for a topic to get a copy of every report received by message processor
+	snsTopicARN := os.Getenv("LAITOS_FORWARD_REPORTS_TO_SNS_TOPIC_ARN")
+	var snsClient *awsinteg.SNSClient
+	if snsTopicARN != "" {
+		config.logger.Info("Initialise", "", nil, "initialising SNS client for topic ARN \"%s\"", snsTopicARN)
+		snsClient, err = awsinteg.NewSNSClient()
+		if err != nil {
+			config.logger.Warning("Initialise", "", err, "failed to initialise SNS client")
+		}
+	}
+
 	/*
 		Even though MessageProcessor is an app, it has its own command processor just like a daemon.
 		The command processor is initialised from configuration input.
@@ -219,6 +230,8 @@ func (config *Config) Initialise() error {
 			CmdProcessor:                    messageProcessorCommandProcessor,
 			ForwardReportsToKinesisFirehose: firehoseClient,
 			KinesisFirehoseStreamName:       firehoseStreamName,
+			ForwardReportsToSNS:             snsClient,
+			SNSTopicARN:                     snsTopicARN,
 		}
 	}
 	/*

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/awsinteg"
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
@@ -90,6 +91,10 @@ type MessageProcessor struct {
 	ForwardReportsToKinesisFirehose *awsinteg.KinesisHoseClient `json:"-"`
 	// KinesisFirehoseStreamName is an optional name of kinesis firehose stream that will get a copy of every subject report.
 	KinesisFirehoseStreamName string `json:"-"`
+	// ForwardReportsToSNS is an optional SNS client that will get a copy of every subject report.
+	ForwardReportsToSNS *awsinteg.SNSClient `json:"-"`
+	// SNSTopicARN is an optional ARN (Amazon Resource Name) of an SNS topic that will get a copy of every subject report.
+	SNSTopicARN string `json:"-"`
 
 	// totalReports is the total number of reports received thus far.
 	totalReports int
@@ -131,15 +136,27 @@ func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectRe
 		return SubjectReportResponse{}
 	}
 	// Send kinesis firehose a copy of the report
-	if misc.EnableAWSIntegration && proc.ForwardReportsToKinesisFirehose != nil && proc.KinesisFirehoseStreamName != "" {
-		go func() {
-			recordData, err := json.Marshal(request)
-			if err == nil {
-				putTimeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				_ = proc.ForwardReportsToKinesisFirehose.PutRecord(putTimeoutCtx, proc.KinesisFirehoseStreamName, recordData)
-			}
-		}()
+	if misc.EnableAWSIntegration && inet.IsAWS() {
+		if proc.ForwardReportsToKinesisFirehose != nil && proc.KinesisFirehoseStreamName != "" {
+			go func() {
+				recordData, err := json.Marshal(request)
+				if err == nil {
+					putTimeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					_ = proc.ForwardReportsToKinesisFirehose.PutRecord(putTimeoutCtx, proc.KinesisFirehoseStreamName, recordData)
+				}
+			}()
+		}
+		if proc.ForwardReportsToSNS != nil && proc.SNSTopicARN != "" {
+			go func() {
+				recordData, err := json.Marshal(request)
+				if err == nil {
+					publishTimeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					_ = proc.ForwardReportsToSNS.Publish(publishTimeoutCtx, proc.SNSTopicARN, string(recordData))
+				}
+			}()
+		}
 	}
 	proc.mutex.Lock()
 	reports := proc.SubjectReports[request.SubjectHostName]

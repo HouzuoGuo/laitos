@@ -243,7 +243,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	}
 	// Upload the latest maintenance report to S3 bucket, named after the date and time of the system wall clock.
 	uploadReportToS3Bucket := os.Getenv("LAITOS_UPLOAD_MAINT_REPORT_TO_S3_BUCKET")
-	if misc.EnableAWSIntegration && uploadReportToS3Bucket != "" {
+	if misc.EnableAWSIntegration && inet.IsAWS() && uploadReportToS3Bucket != "" {
 		daemon.logger.Info("Execute", "", nil, "will store a copy of the report in S3 bucket %s", uploadReportToS3Bucket)
 		go func() {
 			s3Client, err := awsinteg.NewS3Client()

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/awsinteg"
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
@@ -51,7 +52,7 @@ This behaviour is enabled optionally by specifying the queue URL in environment 
 */
 func InstallOptionalLoggerSQSCallback() {
 	sendWarningLogToSQSURL := os.Getenv("LAITOS_SEND_WARNING_LOG_TO_SQS_URL")
-	if misc.EnableAWSIntegration && sendWarningLogToSQSURL != "" {
+	if misc.EnableAWSIntegration && inet.IsAWS() && sendWarningLogToSQSURL != "" {
 		logger.Info("InstallOptionalLoggerSQSCallback", "", nil, "installing callback for sending logger warning messages to SQS")
 		loggerSQSClientInitOnce.Do(func() {
 			sqsClient, err := awsinteg.NewSQSClient()
