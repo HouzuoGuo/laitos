@@ -251,10 +251,9 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"dnsutils", "dos2unix", "findutils", "finger", "glibc-locale-source", "gnutls-bin", "gnutls-utils", "hostname", "htop", "iftop", "imlib2", "imlib2-filters",
 		"imlib2-loaders", "iotop", "iputils", "iputils-ping", "iputils-tracepath", "jsonlint", "language-pack-en", "lftp", "libcaca0", "libcaca0-plugins",
 		"libcgroup-tools", "lm-sensors", "locales", "lrzsz", "lsof", "mailutils", "mailx", "minicom", "miscfiles", "moreutils", "mosh", "nc", "netcat", "net-snmp",
-		"net-snmp-utils", "net-tools", "nicstat", "nmap", "nmon", "nping", "p7zip", "patchutils", "pciutils", "perf", "procps", "psmisc", "rsync", "screen",
-		"sensors", "shadow", "snmp", "socat", "strace", "sudo", "sysinternals", "tcpdump", "tcptraceroute", "telnet", "tmux", "tracepath", "traceroute", "tree",
-		"tshark", "unar", "uniutils", "unzip", "usbutils", "util-linux", "util-linux-locales", "util-linux-user", "vim", "wbritish", "wbritish-huge", "wget",
-		"whois", "wiggle", "yamllint", "zip",
+		"net-snmp-utils", "net-tools", "nfs-common", "nicstat", "nmap", "nmon", "nping", "p7zip", "patchutils", "pciutils", "perf", "procps", "psmisc", "rsync", "screen",
+		"sensors", "shadow", "snmp", "socat", "strace", "sudo", "sysinternals", "sysstat", "tcpdump", "tcptraceroute", "telnet", "tmux", "tracepath", "traceroute", "tree",
+		"tshark", "unar", "uniutils", "unzip", "usbutils", "util-linux", "util-linux-locales", "util-linux-user", "vim", "wbritish", "wget", "whois", "wiggle", "yamllint", "zip",
 	}
 	pkgs = append(pkgs, daemon.InstallPackages...)
 	sort.Strings(pkgs)
