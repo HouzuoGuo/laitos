@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -178,30 +177,22 @@ func (sup *Supervisor) notifyFailure(cliFlags []string, launchErr error) {
 		return
 	}
 
-	publicIP := inet.GetPublicIP()
-	usedMem, totalMem := platform.GetSystemMemoryUsageKB()
-
-	subject := inet.OutgoingMailSubjectKeyword + "-supervisor has detected a failure on " + publicIP
+	hostName, _ := os.Hostname()
+	subject := inet.OutgoingMailSubjectKeyword + "-supervisor has detected a failure on " + hostName
 	body := fmt.Sprintf(`
 Failure: %v
-CLI flags: %v
 
-Clock: %s
-Sys/prog uptime: %s / %s
-Total/used/prog mem: %d / %d / %d MB
-Sys load: %s
-Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
+CLI flags used to launch laitos main program: %v
+
+Supervisor process and  system information summary: %s
 
 Latest stdout: %s
 
 Latest stderr: %s
-`, launchErr,
+`,
+		launchErr,
 		cliFlags,
-		time.Now().String(),
-		time.Duration(platform.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
-		totalMem/1024, usedMem/1024, platform.GetProgramMemoryUsageKB()/1024,
-		platform.GetSystemLoad(),
-		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
+		platform.GetSysSummary(false),
 		string(sup.mainStdout.Retrieve(false)),
 		string(sup.mainStderr.Retrieve(false)))
 	/*

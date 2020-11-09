@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 )
 
@@ -127,10 +128,9 @@ func TestSetTimeZone(t *testing.T) {
 }
 
 func TestGetSysSummary(t *testing.T) {
-	txt := GetSysSummary()
-	// Look for the first (host name) and last (environment variable) in the returned text
+	txt := GetSysSummary(true)
 	hostName, _ := os.Hostname()
-	if !strings.Contains(txt, hostName) || !strings.Contains(txt, os.Environ()[0]) {
+	if !strings.Contains(txt, inet.GetPublicIP()) || !strings.Contains(txt, hostName) || !strings.Contains(txt, os.Environ()[0]) {
 		t.Fatal(txt)
 	}
 }

@@ -5,14 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"runtime"
 	"runtime/pprof"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
@@ -55,7 +52,7 @@ func (info *EnvControl) Execute(ctx context.Context, cmd Command) *Result {
 		misc.TriggerEmergencyKill()
 		return &Result{Output: "OK - EmergencyKill"}
 	case "info":
-		return &Result{Output: GetRuntimeInfo()}
+		return &Result{Output: platform.GetSysSummary(true)}
 	case "log":
 		return &Result{Output: GetLatestLog()}
 	case "warn":
@@ -67,29 +64,6 @@ func (info *EnvControl) Execute(ctx context.Context, cmd Command) *Result {
 	default:
 		return &Result{Error: ErrBadEnvInfoChoice}
 	}
-}
-
-// Return runtime information (uptime, CPUs, goroutines, memory usage) in a multi-line text.
-func GetRuntimeInfo() string {
-	usedMem, totalMem := platform.GetSystemMemoryUsageKB()
-	usedRoot, freeRoot, totalRoot := platform.GetRootDiskUsageKB()
-	return fmt.Sprintf(`IP: %s
-Clock: %s
-Sys/prog uptime: %s / %s
-Total/used/prog mem: %d / %d / %d MB
-Total/used/free rootfs: %d / %d / %d MB
-Sys load: %s
-Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
-Program flags: %v
-`,
-		inet.GetPublicIP(),
-		time.Now().String(),
-		time.Duration(platform.GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
-		totalMem/1024, usedMem/1024, platform.GetProgramMemoryUsageKB()/1024,
-		totalRoot/1024, usedRoot/1024, freeRoot/1024,
-		platform.GetSystemLoad(),
-		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
-		os.Args[1:])
 }
 
 // Return latest log entry of all kinds in a multi-line text, one log entry per line. Latest log entry comes first.

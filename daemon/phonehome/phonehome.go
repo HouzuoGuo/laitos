@@ -17,6 +17,7 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -144,7 +145,7 @@ func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostNam
 		SubjectIP:       inet.GetPublicIP(),
 		SubjectHostName: strings.ToLower(hostname),
 		SubjectPlatform: fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
-		SubjectComment:  toolbox.GetRuntimeInfo(),
+		SubjectComment:  platform.GetSysSummary(true),
 		CommandRequest:  cmdExchange.CommandRequest,
 		CommandResponse: cmdExchange.CommandResponse,
 	}

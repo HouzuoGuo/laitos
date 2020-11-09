@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
@@ -478,12 +479,12 @@ func SetTimeZone(zone string) error {
 	return nil
 }
 
-// GetSysSummary returns a formatted, human-readable text that describes program and system status.
-func GetSysSummary() string {
+// GetSysSummary returns a formatted human-readable text that describes key OS resource usage status and program environment.
+func GetSysSummary(withPublicIP bool) string {
 	usedMem, totalMem := GetSystemMemoryUsageKB()
 	usedRoot, freeRoot, totalRoot := GetRootDiskUsageKB()
 	hostName, _ := os.Hostname()
-	return fmt.Sprintf(`
+	summary := fmt.Sprintf(`
 Host name: %s
 Clock: %s
 Sys/prog uptime: %s / %s
@@ -503,4 +504,9 @@ Program environment: %v
 		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
 		os.Args[1:],
 		strings.Join(os.Environ(), "\n"))
+
+	if withPublicIP {
+		return inet.GetPublicIP() + "\n" + summary
+	}
+	return summary
 }
