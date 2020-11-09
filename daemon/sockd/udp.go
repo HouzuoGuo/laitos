@@ -237,16 +237,16 @@ func (conn *UDPCipherConnection) WriteRand(dest net.Addr) {
 	randBuf := make([]byte, RandNum(4, 50, 600))
 	_, err := rand.Read(randBuf)
 	if err != nil {
-		conn.logger.Warning("WriteRand", dest.String(), err, "failed to get random bytes")
+		conn.logger.Info("WriteRand", dest.String(), nil, "failed to get random bytes - %v", err)
 		return
 	}
 	if err := conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-		conn.logger.Warning("WriteRand", dest.String(), err, "failed to write random bytes")
+		conn.logger.Info("WriteRand", dest.String(), nil, "failed to write random bytes - %v", err)
 
 		return
 	}
 	if _, err := conn.WriteTo(randBuf, dest); err != nil && !strings.Contains(err.Error(), "closed") {
-		conn.logger.Warning("WriteRand", dest.String(), err, "failed to write random bytes")
+		conn.logger.Info("WriteRand", dest.String(), nil, "failed to write random bytes - %v", err)
 		return
 	}
 }
@@ -258,7 +258,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 	}()
 
 	if len(packet) < 3 {
-		logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+		logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 		server.WriteRand(clientAddr)
 		return
 	}
@@ -272,7 +272,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 	case AddressTypeIPv4:
 		packetLen = UDPIPv4PacketLength
 		if len(packet) < packetLen {
-			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
 		}
@@ -280,7 +280,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 	case AddressTypeIPv6:
 		packetLen = UDPIPv6PacketLength
 		if len(packet) < packetLen {
-			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
 		}
@@ -288,13 +288,13 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 	case AddressTypeDM:
 		packetLen = int(packet[DMAddrLengthIndex]) + DMHeaderLength
 		if len(packet) < packetLen {
-			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
+			logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "incoming packet is abnormally small")
 			server.WriteRand(clientAddr)
 			return
 		}
 		dest := string(packet[DMAddrHeaderLength : DMAddrHeaderLength+int(packet[DMAddrLengthIndex])])
 		if strings.ContainsRune(dest, 0) {
-			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve destination that contains NULL byte")
+			logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "will not serve destination that contains NULL byte")
 			return
 		}
 		destIP = net.ParseIP(dest)
@@ -308,12 +308,12 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 		}
 		resolveDestIP, err := net.ResolveIPAddr("ip", dest)
 		if err != nil {
-			logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to resolve domain name \"%s\"", dest)
+			logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to resolve domain name \"%s\"", dest)
 			return
 		}
 		destIP = resolveDestIP.IP
 	default:
-		logger.Warning("HandleUDPConnection", clientAddr.IP.String(), nil, "unknown mask type %d", maskedType)
+		logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "unknown mask type %d", maskedType)
 		server.WriteRand(clientAddr)
 		return
 	}
@@ -342,7 +342,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 
 	udpClient, found, err := daemon.udpTable.Get(clientAddr.String())
 	if err != nil || udpClient == nil {
-		logger.Warning("HandleUDPConnection", clientAddr.IP.String(), err, "failed to retrieve connection from table")
+		logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to retrieve connection from table - %v", err)
 		return
 	}
 	if !found {
@@ -354,7 +354,7 @@ func (daemon *UDPDaemon) HandleUDPConnection(logger lalog.Logger, server *UDPCip
 	logger.MaybeMinorError(udpClient.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)))
 	_, err = udpClient.WriteTo(packet[packetLen:n], destAddr)
 	if err != nil {
-		logger.Warning("HandleUDPConnection", clientAddr.IP.String(), err, "failed to respond to client")
+		logger.Info("HandleUDPConnection", clientAddr.IP.String(), nil, "failed to respond to client - %v", err)
 		if conn := daemon.udpTable.Delete(clientAddr.String()); conn != nil {
 			conn.Close()
 		}

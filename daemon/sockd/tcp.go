@@ -254,12 +254,12 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	remoteAddr := conn.RemoteAddr().String()
 	destIP, destNoPort, destWithPort, err := conn.ParseRequest()
 	if err != nil {
-		conn.logger.Warning("HandleTCPConnection", remoteAddr, err, "failed to get destination address")
+		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "failed to get destination address - %v", err)
 		conn.WriteRandAndClose()
 		return
 	}
 	if strings.ContainsRune(destWithPort, 0) {
-		conn.logger.Warning("HandleTCPConnection", remoteAddr, nil, "will not serve invalid destination address with 0 in it")
+		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve invalid destination address with 0 in it")
 		conn.WriteRandAndClose()
 		return
 	}
@@ -275,7 +275,7 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 	}
 	dest, err := net.DialTimeout("tcp", destWithPort, IOTimeoutSec*time.Second)
 	if err != nil {
-		conn.logger.Warning("HandleTCPConnection", remoteAddr, err, "failed to connect to destination \"%s\"", destWithPort)
+		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "failed to connect to destination \"%s\" - %v", destWithPort, err)
 		_ = conn.Close()
 		return
 	}
