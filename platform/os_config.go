@@ -481,9 +481,23 @@ func SetTimeZone(zone string) error {
 
 // GetSysSummary returns a formatted human-readable text that describes key OS resource usage status and program environment.
 func GetSysSummary(withPublicIP bool) string {
+	// System resource usage
 	usedMem, totalMem := GetSystemMemoryUsageKB()
 	usedRoot, freeRoot, totalRoot := GetRootDiskUsageKB()
+	// Network info
 	hostName, _ := os.Hostname()
+	// Program environment and runtime info
+	exeAbsPath, _ := os.Executable()
+	workingDir, _ := os.Getwd()
+	dirEntries, _ := ioutil.ReadDir(workingDir)
+	dirEntryNames := make([]string, 0)
+	for _, entry := range dirEntries {
+		if entry.IsDir() {
+			dirEntryNames = append(dirEntryNames, entry.Name()+"/")
+		} else {
+			dirEntryNames = append(dirEntryNames, entry.Name())
+		}
+	}
 	summary := fmt.Sprintf(`Host name: %s
 Clock: %s
 Sys/prog uptime: %s / %s
@@ -491,7 +505,13 @@ Total/used/prog mem: %d / %d / %d MB
 Total/used/free rootfs: %d / %d / %d MB
 Sys load: %s
 Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
-Program flags: %v
+
+Program PID/PPID: %d / %d
+Program UID/EUID/GID/EGID: %d / %d / %d / %d
+Program executable path: %s
+Program CLI flags: %v
+Program working directory: %s
+Working directory content: %v
 Program environment: %v
 `,
 		hostName,
@@ -501,7 +521,13 @@ Program environment: %v
 		totalRoot/1024, usedRoot/1024, freeRoot/1024,
 		GetSystemLoad(),
 		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
+
+		os.Getpid(), os.Getppid(),
+		os.Getuid(), os.Geteuid(), os.Getgid(), os.Getegid(),
+		exeAbsPath,
 		os.Args[1:],
+		workingDir,
+		dirEntryNames,
 		strings.Join(os.Environ(), "\n"))
 
 	if withPublicIP {
