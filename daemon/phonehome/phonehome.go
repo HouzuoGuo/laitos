@@ -314,7 +314,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					report1 := (*reports)[1]
 					if report1.SubjectClientID == "" || report1.DaemonName == "" || report1.OriginalRequest.SubjectHostName == "" ||
-						!strings.Contains(report1.OriginalRequest.SubjectComment, "Clock:") || !strings.Contains(report1.OriginalRequest.SubjectComment, "Program flags:") ||
+						!strings.Contains(report1.OriginalRequest.SubjectComment, "Clock:") || !strings.Contains(report1.OriginalRequest.SubjectComment, "Program CLI flags:") ||
 						report1.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" ||
 						report1.OriginalRequest.CommandResponse.Command != toolbox.TestCommandProcessorPIN+".s echo 2client" ||
 						report1.OriginalRequest.CommandResponse.Result != "2client" || report1.OriginalRequest.CommandResponse.RunDurationSec < 0 {
