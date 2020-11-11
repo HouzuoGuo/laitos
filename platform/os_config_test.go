@@ -128,7 +128,7 @@ func TestSetTimeZone(t *testing.T) {
 }
 
 func TestGetSysSummary(t *testing.T) {
-	txt := GetSysSummary(true)
+	txt := GetProgramStatusSummary(true)
 	hostName, _ := os.Hostname()
 	if !strings.Contains(txt, inet.GetPublicIP()) || !strings.Contains(txt, hostName) || !strings.Contains(txt, os.Environ()[0]) {
 		t.Fatal(txt)

@@ -192,7 +192,7 @@ Latest stderr: %s
 `,
 		launchErr,
 		cliFlags,
-		platform.GetSysSummary(false),
+		platform.GetProgramStatusSummary(false),
 		string(sup.mainStdout.Retrieve(false)),
 		string(sup.mainStderr.Retrieve(false)))
 	/*

@@ -52,7 +52,7 @@ func (info *EnvControl) Execute(ctx context.Context, cmd Command) *Result {
 		misc.TriggerEmergencyKill()
 		return &Result{Output: "OK - EmergencyKill"}
 	case "info":
-		return &Result{Output: platform.GetSysSummary(true)}
+		return &Result{Output: platform.GetProgramStatusSummary(true)}
 	case "log":
 		return &Result{Output: GetLatestLog()}
 	case "warn":

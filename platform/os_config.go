@@ -479,8 +479,8 @@ func SetTimeZone(zone string) error {
 	return nil
 }
 
-// GetSysSummary returns a formatted human-readable text that describes key OS resource usage status and program environment.
-func GetSysSummary(withPublicIP bool) string {
+// GetProgramStatusSummary returns a formatted human-readable text that describes key OS resource usage status and program environment.
+func GetProgramStatusSummary(withPublicIP bool) string {
 	// System resource usage
 	usedMem, totalMem := GetSystemMemoryUsageKB()
 	usedRoot, freeRoot, totalRoot := GetRootDiskUsageKB()

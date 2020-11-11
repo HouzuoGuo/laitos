@@ -192,7 +192,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 	} else {
 		result.WriteString("There are errors!!!\n")
 	}
-	result.WriteString(platform.GetSysSummary(true))
+	result.WriteString(platform.GetProgramStatusSummary(true))
 	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
 	result.WriteString(misc.GetLatestStats())
 	if portsErr == nil {

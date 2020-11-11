@@ -145,7 +145,7 @@ func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostNam
 		SubjectIP:       inet.GetPublicIP(),
 		SubjectHostName: strings.ToLower(hostname),
 		SubjectPlatform: fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
-		SubjectComment:  platform.GetSysSummary(true),
+		SubjectComment:  platform.GetProgramStatusSummary(true),
 		CommandRequest:  cmdExchange.CommandRequest,
 		CommandResponse: cmdExchange.CommandResponse,
 	}
@@ -274,7 +274,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 					// Verify the collected report details
 					report0 := (*reports)[0]
 					if report0.SubjectClientID == "" || report0.DaemonName == "" || report0.OriginalRequest.SubjectHostName == "" ||
-						!strings.Contains(report0.OriginalRequest.SubjectComment, "IP:") || !strings.Contains(report0.OriginalRequest.SubjectComment, "Program flags:") ||
+						!strings.Contains(report0.OriginalRequest.SubjectComment, "IP:") || !strings.Contains(report0.OriginalRequest.SubjectComment, "Program CLI flags:") ||
 						report0.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" {
 						t.Fatalf("1st request, unexpected memorised report: %+v", report0)
 					}

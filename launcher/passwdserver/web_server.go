@@ -100,22 +100,22 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		key := strings.TrimSpace(r.FormValue(PasswordInputName))
 		decryptedConfig, err := misc.Decrypt(misc.ConfigFilePath, key)
 		if err != nil {
-			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetSysSummary(false), r.RequestURI, err.Error())))
+			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetProgramStatusSummary(false), r.RequestURI, err.Error())))
 			return
 		}
 		if decryptedConfig[0] != '{' {
-			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetSysSummary(false), r.RequestURI, "wrong key or malformed config file")))
+			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetProgramStatusSummary(false), r.RequestURI, "wrong key or malformed config file")))
 			return
 		}
 		// Success!
-		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetSysSummary(false), r.RequestURI, "success")))
+		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetProgramStatusSummary(false), r.RequestURI, "success")))
 		ws.alreadyUnlocked = true
 		// A short moment later, the function will launch laitos supervisor along with daemons.
 		go ws.LaunchMainProgram(strings.TrimSpace(r.FormValue("password")))
 		return
 	default:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
-		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetSysSummary(false), r.RequestURI, "")))
+		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetProgramStatusSummary(false), r.RequestURI, "")))
 		return
 	}
 }
