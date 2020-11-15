@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -45,6 +46,10 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		time.Now().Unix()-reports[0].OriginalRequest.ServerTime.Unix() > 3 {
 		t.Fatalf("%+v", reports)
 	}
+	// Verify subject report count
+	if count := proc.GetSubjectReportCount(); !reflect.DeepEqual(count, map[string]int{"subject-host-name1": 1}) {
+		t.Fatalf("%+v", count)
+	}
 
 	// Store a report for another subject and retrieve
 	time.Sleep(1100 * time.Millisecond)
@@ -65,6 +70,10 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 	} else if reports[0].OriginalRequest.SubjectIP != "subject-ip2" {
 		t.Fatalf("%+v", reports)
 	}
+	// Verify subject report count
+	if count := proc.GetSubjectReportCount(); !reflect.DeepEqual(count, map[string]int{"subject-host-name1": 1, "subject-host-name2": 1}) {
+		t.Fatalf("%+v", count)
+	}
 
 	// Store a second report for the first subject and retrieve
 	time.Sleep(1100 * time.Millisecond)
@@ -84,6 +93,10 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		t.Fatalf("%+v", reports)
 	} else if reports[0].OriginalRequest.SubjectPlatform != "new-subject-platform" || reports[1].OriginalRequest.SubjectPlatform != "subject-platform" {
 		t.Fatalf("%+v", reports)
+	}
+	// Verify subject report count
+	if count := proc.GetSubjectReportCount(); !reflect.DeepEqual(count, map[string]int{"subject-host-name1": 2, "subject-host-name2": 1}) {
+		t.Fatalf("%+v", count)
 	}
 }
 

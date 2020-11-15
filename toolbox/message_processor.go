@@ -22,15 +22,15 @@ const (
 		ReportIntervalSec is the recommended interval at which subjects are to send their reports to a daemon.
 		This is only a recommendation - subjects may freely exceed or relax the interval as they see fit.
 	*/
-	ReportIntervalSec = 5 * 60
+	ReportIntervalSec = 10 * 60
 	/*
 		AppCommandResponseRetentionSec is the maximum duration to retain an app command execution result per host. During the retention period the result
 		will be available for retrieval After the retention period the result will be available for retrieval one last time, and then removed from memory.
 		The command execution timeout shares the same number.
 	*/
 	CommandResponseRetentionSec = ReportIntervalSec * 10
-	// SubjectExpirySecond is the number of seconds after which if a subject is not heard from again it will be removed.
-	SubjectExpirySecond = 72 * 3600
+	// SubjectExpirySecond is the number of seconds after which clean-up routine will remove a subject and its reports if it has not been heard since.
+	SubjectExpirySecond = 48 * 3600
 	/*
 		StoreAndForwardMessageProcessorTrigger is the toolbox app command invocation prefix for the store&forward message processor.
 		"mp" would have been more suitable, however "m" letter is already taken by send-mail app.
@@ -368,6 +368,17 @@ func (proc *MessageProcessor) GetLatestReports(maxLimit int) (ret []SubjectRepor
 		return ret[i].OriginalRequest.ServerTime.After(ret[j].OriginalRequest.ServerTime)
 	})
 	return
+}
+
+// GetSubjectReportCount returns the count of reports held in memory, collected from each subject.
+func (proc *MessageProcessor) GetSubjectReportCount() (ret map[string]int) {
+	proc.mutex.Lock()
+	defer proc.mutex.Unlock()
+	ret = make(map[string]int)
+	for subject, reports := range proc.SubjectReports {
+		ret[subject] = len(*reports)
+	}
+	return ret
 }
 
 /*

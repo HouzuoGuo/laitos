@@ -33,22 +33,23 @@ func (hand *HandleReportsRetrieval) Initialise(_ lalog.Logger, cmdProc *toolbox.
 func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
 
-	// endpoint/..?tohost=abc&cmd=xxxxxx
-	toHost := r.FormValue("tohost")
+	host := r.FormValue("host")
 	outgoingAppCmd := r.FormValue("cmd")
 	clearOutgoingCmd := r.FormValue("clear")
-	if toHost != "" {
+
+	// Save / update / clear commands directed at a subject
+	if outgoingAppCmd != "" || clearOutgoingCmd != "" {
 		w.Header().Set("Content-Type", "text/plain")
 		if clearOutgoingCmd == "" {
-			// Store a new outgoing command (?tohost=abc&cmd=xxxxx)
+			// Store/update an outgoing command directed at a subject identified by its host name (/endpoint?tohost=abc&cmd=xxxxx)
 			if outgoingAppCmd != "" {
-				hand.cmdProc.Features.MessageProcessor.SetOutgoingCommand(toHost, outgoingAppCmd)
-				_, _ = w.Write([]byte(fmt.Sprintf("The next reply made in response to %s's report will carry an app command %d characters long.\r\n", toHost, len(outgoingAppCmd))))
+				hand.cmdProc.Features.MessageProcessor.SetOutgoingCommand(host, outgoingAppCmd)
+				_, _ = w.Write([]byte(fmt.Sprintf("The next reply made in response to %s's report will carry an app command %d characters long.\r\n", host, len(outgoingAppCmd))))
 			}
 		} else {
-			// Clear outgoing command for a host (?tohost=abc&clear=x)
-			hand.cmdProc.Features.MessageProcessor.SetOutgoingCommand(toHost, "")
-			_, _ = w.Write([]byte(fmt.Sprintf("Cleared outgoing command for host %s.\r\n", toHost)))
+			// Clear an outgoing command directed at a subject identified by its host name (/endpoint?tohost=abc&clear=x)
+			hand.cmdProc.Features.MessageProcessor.SetOutgoingCommand(host, "")
+			_, _ = w.Write([]byte(fmt.Sprintf("Cleared outgoing command for host %s.\r\n", host)))
 		}
 		_, _ = w.Write([]byte("All outgoing commands:\r\n"))
 		for host, cmd := range hand.cmdProc.Features.MessageProcessor.GetAllOutgoingCommands() {
@@ -57,28 +58,32 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Browse subjects and retrieve their reports
 	w.Header().Set("Content-Type", "application/json")
-	// endpoint/...?n=123&host=abc
-	host := r.FormValue("host")
+	jsonWriter := json.NewEncoder(w)
+	jsonWriter.SetIndent("", "  ")
 	limitStr := r.FormValue("n")
 	limitNum, _ := strconv.Atoi(limitStr)
 	if limitNum < 1 {
-		// The default maximum number of reports to retrieve is 1000
-		limitNum = 1000
-	}
-	jsonWriter := json.NewEncoder(w)
-	jsonWriter.SetIndent("", "  ")
-	if host == "" {
-		// Get the latest reports across all hosts
+		// Take a look at all subjects and count how many of their reports are currently stored in memory
+		hand.cmdProc.Features.MessageProcessor.GetSubjectReportCount()
 		w.WriteHeader(http.StatusOK)
-		if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetLatestReports(limitNum)); err != nil {
+		if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetSubjectReportCount()); err != nil {
 			lalog.DefaultLogger.Warning("HandleReportsRetrieval", r.Host, err, "failed to serialise JSON response")
 		}
 	} else {
-		// Get the latest reports from a particular host
-		w.WriteHeader(http.StatusOK)
-		if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetLatestReportsFromSubject(host, limitNum)); err != nil {
-			lalog.DefaultLogger.Warning("HandleReportsRetrieval", r.Host, err, "failed to serialise JSON response")
+		if host == "" {
+			// Get the latest reports across all hosts
+			w.WriteHeader(http.StatusOK)
+			if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetLatestReports(limitNum)); err != nil {
+				lalog.DefaultLogger.Warning("HandleReportsRetrieval", r.Host, err, "failed to serialise JSON response")
+			}
+		} else {
+			// Get the latest reports from a particular host
+			w.WriteHeader(http.StatusOK)
+			if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetLatestReportsFromSubject(host, limitNum)); err != nil {
+				lalog.DefaultLogger.Warning("HandleReportsRetrieval", r.Host, err, "failed to serialise JSON response")
+			}
 		}
 	}
 }

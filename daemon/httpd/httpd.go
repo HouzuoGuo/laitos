@@ -428,12 +428,12 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	ttnUplinkPayload := base64.StdEncoding.EncodeToString([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 66, 67})
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
-		Body:   strings.NewReader(fmt.Sprintf(`{"app_id": "test_app", "dev_id": "test_dev", "hardware_serial": "ttn-tx", "payload_raw": "%s"}`, ttnUplinkPayload)),
+		Body:   strings.NewReader(fmt.Sprintf(`{"app_id": "test_app", "dev_id": "test_ttn_dev", "hardware_serial": "ttn-tx", "payload_raw": "%s"}`, ttnUplinkPayload)),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTheThingsNetworkHTTPIntegration{}))
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body))
 	}
-	if reports := httpd.Processor.Features.MessageProcessor.GetLatestReportsFromSubject("test_dev", 1000); len(reports) != 1 {
+	if reports := httpd.Processor.Features.MessageProcessor.GetLatestReportsFromSubject("test_ttn_dev", 1000); len(reports) != 1 {
 		t.Fatalf("%+v", reports)
 	}
 
@@ -618,9 +618,21 @@ over.
 	httpd.Processor.Features.MessageProcessor.StoreReport(context.Background(), toolbox.SubjectReportRequest{
 		SubjectHostName: "subject-host-name",
 	}, "client-ip2", "client-daemon2")
+	// Retrieve subjects and count of their reports - two reports from the same host, and one report coming from TTN.
+	var subjectCount map[string]int
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{Method: http.MethodPost}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatal(err, string(resp.Body))
+	}
+	if err := json.Unmarshal(resp.Body, &subjectCount); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(subjectCount, map[string]int{"subject-host-name": 2, "test_ttn_dev": 1}) {
+		t.Fatalf("%+v", subjectCount)
+	}
 	// Retrieve TTN report + two host reports from the latest to oldest
 	var reports []toolbox.SubjectReport
-	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{Method: http.MethodPost}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
+	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{Method: http.MethodPost}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{})+"?n=100")
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatal(err, string(resp.Body))
 	}
@@ -646,7 +658,7 @@ over.
 	// Assign subject a command to run
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{"tohost": {"subject-host-name"}, "cmd": {"test123"}}.Encode()),
+		Body:   strings.NewReader(url.Values{"host": {"subject-host-name"}, "cmd": {"test123"}}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleReportsRetrieval{}))
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "will carry an app command") {
 		t.Fatal(err, string(resp.Body))
