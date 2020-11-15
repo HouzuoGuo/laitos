@@ -7,54 +7,45 @@ import (
 )
 
 func TestRemoveFromFlags(t *testing.T) {
-	// Remove flag and value in middle
-	flags := []string{"-aaa", "123", "-bbb", "ccc", "-ddd"}
-	ret := RemoveFromFlags(func(s string) bool {
-		return strings.HasPrefix(s, "-a")
-	}, flags)
-	if !reflect.DeepEqual(ret, []string{"-bbb", "ccc", "-ddd"}) {
-		t.Fatal(ret)
-	}
+	t.Run("remove bare flags", func(t *testing.T) {
+		flags := []string{"front", "-aa=11", "middle", "-bb", "22", "tail"}
+		if ret := RemoveFromFlags(func(s string) bool {
+			return s == "front" || s == "middle" || s == "tail"
+		}, flags); !reflect.DeepEqual(ret, []string{"-aa=11", "-bb", "22"}) {
+			t.Fatal(ret)
+		}
+	})
 
-	// Remove flag and value at end
-	flags = []string{"-aaa", "123", "-bbb", "-ccc", "ddd"}
-	ret = RemoveFromFlags(func(s string) bool {
-		return strings.HasPrefix(s, "-c")
-	}, flags)
-	if !reflect.DeepEqual(ret, []string{"-aaa", "123", "-bbb"}) {
-		t.Fatal(ret)
-	}
+	t.Run("remove -key=val flags", func(t *testing.T) {
+		flags := []string{"-front=1", "aa", "-middle=2", "-bb", "22", "-tail=3"}
+		if ret := RemoveFromFlags(func(s string) bool {
+			return strings.HasPrefix(s, "-front") || strings.HasPrefix(s, "-middle") || strings.HasPrefix(s, "-tail")
+		}, flags); !reflect.DeepEqual(ret, []string{"aa", "-bb", "22"}) {
+			t.Fatal(ret)
+		}
+	})
 
-	// Remove flag=value in middle
-	flags = []string{"-aaa", "-bbb=123", "ccc", "-ddd"}
-	ret = RemoveFromFlags(func(s string) bool {
-		return strings.HasPrefix(s, "-b")
-	}, flags)
-	if !reflect.DeepEqual(ret, []string{"-aaa", "ccc", "-ddd"}) {
-		t.Fatal(ret)
-	}
+	t.Run("remove -key val flags", func(t *testing.T) {
+		flags := []string{"-front", "1", "aa", "-middle", "2", "-bb", "22", "-tail", "3"}
+		if ret := RemoveFromFlags(func(s string) bool {
+			return strings.HasPrefix(s, "-front") || strings.HasPrefix(s, "-middle") || strings.HasPrefix(s, "-tail")
+		}, flags); !reflect.DeepEqual(ret, []string{"aa", "-bb", "22"}) {
+			t.Fatal(ret)
+		}
+	})
 
-	// Remove flag=value at end
-	flags = []string{"-aaa", "-bbb", "-ccc", "-ddd=123"}
-	ret = RemoveFromFlags(func(s string) bool {
-		return strings.HasPrefix(s, "-d")
-	}, flags)
-	if !reflect.DeepEqual(ret, []string{"-aaa", "-bbb", "-ccc"}) {
-		t.Fatal(ret)
-	}
-
-	// Remove non-existent flag
-	flags = []string{"-aaa", "-bbb", "-ccc", "-ddd=123"}
-	ret = RemoveFromFlags(func(s string) bool {
-		return strings.HasPrefix(s, "-doesnotexist")
-	}, flags)
-	if !reflect.DeepEqual(ret, []string{"-aaa", "-bbb", "-ccc", "-ddd=123"}) {
-		t.Fatal(ret)
-	}
+	t.Run("remove empty val flags", func(t *testing.T) {
+		flags := []string{"", "-front", "1", "aa", "", "-middle", "2", "-bb", "22", "-tail", "3", ""}
+		if ret := RemoveFromFlags(func(s string) bool {
+			return strings.HasPrefix(s, "-front") || strings.HasPrefix(s, "-middle") || strings.HasPrefix(s, "-tail")
+		}, flags); !reflect.DeepEqual(ret, []string{"aa", "-bb", "22"}) {
+			t.Fatal(ret)
+		}
+	})
 }
 
 func TestSupervisor_GetLaunchParameters(t *testing.T) {
-	originalCLIFlags := []string{"-awslambda", "-awsinteg", "-debug=false", "-benchmark=true", "-disableconflicts", "-tunesystem", "-swapoff", "-gomaxprocs", "16", "-config", "config.json", "-daemons", "httpd,maintenance,smtpd,telegram"}
+	originalCLIFlags := []string{"-awslambda", "-awsinteg", "-debug=false", "-disableconflicts", "-tunesystem", "-swapoff", "-gomaxprocs", "16", "-config", "config.json", "-daemons", "httpd,maintenance,smtpd,telegram", "-profhttpport=15899"}
 	originalDaemonList := []string{"httpd", "maintenance", "smtpd", "telegram"}
 	sup := &Supervisor{CLIFlags: originalCLIFlags, DaemonNames: originalDaemonList}
 	sup.initialise()
@@ -71,7 +62,7 @@ func TestSupervisor_GetLaunchParameters(t *testing.T) {
 
 	// The first (0th) attempt should launch main program pretty much same set of parameters
 	flags, daemons := sup.GetLaunchParameters(0)
-	if !reflect.DeepEqual(flags, []string{"-awslambda", "-awsinteg", "-debug=false", "-benchmark=true", "-disableconflicts", "-tunesystem", "-swapoff", "-gomaxprocs", "16", "-config", "config.json", "-supervisor=false", "-daemons", "httpd,maintenance,smtpd,telegram"}) {
+	if !reflect.DeepEqual(flags, []string{"-awslambda", "-awsinteg", "-debug=false", "-disableconflicts", "-tunesystem", "-swapoff", "-gomaxprocs", "16", "-config", "config.json", "-profhttpport=15899", "-supervisor=false", "-daemons", "httpd,maintenance,smtpd,telegram"}) {
 		t.Fatal(flags)
 	}
 	if !reflect.DeepEqual(daemons, originalDaemonList) {

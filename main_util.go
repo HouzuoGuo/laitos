@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	pseudoRand "math/rand"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	runtimePprof "runtime/pprof"

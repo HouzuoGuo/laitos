@@ -19,6 +19,9 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -43,11 +46,11 @@ import (
 	"github.com/aws/aws-xray-sdk-go/xraylog"
 )
 
-const (
-	ProfilerHTTPPort = 19151 // ProfilerHTTPPort is to be listened by net/http/pprof HTTP server when benchmark is turned on
+var (
+	// pprofHTTPPort is the localhost port to listen on for serving pprof profiling data over HTTP.
+	pprofHTTPPort int
+	logger        = lalog.Logger{ComponentName: "main", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 )
-
-var logger = lalog.Logger{ComponentName: "main", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 
 /*
 DecryptFile is a distinct routine of laitos main program, it reads password from standard input and uses it to decrypt the
@@ -120,9 +123,9 @@ main runs one of several distinct routines according to the presented combinatio
 
 - Maintain encrypted program data files: -datautil=encrypt|decrypt
 
-- Launch a simple web server to collect program data decryption password, and proceeds to launch laitos with supervisor:
+- Launch a simple web server to let user enter program data decryption password, and then proceeds to launch laitos with supervisor:
   -pwdserver -pwdserverport=12345 -pwdserverurl=/my-password-input-page
-	This routine is useful only if some program data files have been encrypted.
+	This routine is useful when some program data files such as configuration JSON or TLS certificate key are encrypted.
 
 - Launch an AWS Lambda handler that proxies HTTP requests to laitos web server: -awslambda=true
 	This routine handles the requests in an independent goroutine, it is compatible with supervisor but incompatible with "-pwdserver".
@@ -141,7 +144,7 @@ func main() {
 	hzgl.HZGL()
 	// Process command line flags
 	var daemonList string
-	var disableConflicts, debug, benchmark, awsLambda bool
+	var disableConflicts, debug, awsLambda bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (autounlock, dnsd, httpd, insecurehttpd, maintenance, plainsocket, serialport, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
@@ -149,7 +152,7 @@ func main() {
 	flag.BoolVar(&awsLambda, launcher.LambdaFlagName, false, "(Optional) run AWS Lambda handler to proxy HTTP requests to laitos web server")
 	flag.BoolVar(&misc.EnableAWSIntegration, "awsinteg", false, "(Optional) activate AWS integration feature if their configuration has been given in environment variable")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
-	flag.BoolVar(&benchmark, "benchmark", false, fmt.Sprintf("(Optional) continuously run benchmark routines on active daemons while exposing net/http/pprof on port %d", ProfilerHTTPPort))
+	flag.IntVar(&pprofHTTPPort, "profhttpport", pprofHTTPPort, "(Optional) serve program profiling data (pprof) over HTTP on this port at localhost")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
 	// Data unlocker (password input server) flags
 	var pwdServer bool
@@ -273,6 +276,7 @@ func main() {
 	// Figure out what daemons are to be started
 	daemonNames := regexp.MustCompile(`\w+`).FindAllString(daemonList, -1)
 	if len(daemonNames) == 0 {
+		time.Sleep(1000 * time.Second)
 		logger.Abort("main", "", nil, "please provide comma-separated list of daemon services to start (-daemons).")
 		return
 	}
@@ -371,17 +375,19 @@ func main() {
 		}
 	}
 
-	if benchmark {
-		// Wait a short while for daemons to settle, then run benchmark in the background.
-		logger.Info("main", "", nil, "benchmark is about to commence in 60 seconds")
-		time.Sleep(60 * time.Second)
-		bench := launcher.Benchmark{
-			Config:      &config,
-			DaemonNames: daemonNames,
-			Logger:      logger,
-			HTTPPort:    ProfilerHTTPPort,
+	// Start an HTTP server on localhost to serve program profiling data
+	if pprofHTTPPort > 0 {
+		// Expose the entire selection of profiling profiles identical to the ones installed by pprof standard library package
+		pprofMux := http.NewServeMux()
+		pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
+		pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		logger.Info("main", "pprof", nil, "serving program profiling data over HTTP server on port %d", pprofHTTPPort)
+		if err := http.ListenAndServe(net.JoinHostPort("localhost", strconv.Itoa(pprofHTTPPort)), pprofMux); err != nil {
+			logger.Warning("main", "pprof", err, "failed to start HTTP server for program profiling data")
 		}
-		go bench.RunBenchmarkAndProfiler()
 	}
 
 	// Daemons are already started in background goroutines, the main function now waits indefinitely.

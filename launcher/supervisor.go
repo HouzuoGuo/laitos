@@ -66,7 +66,8 @@ The supervisor will not shed the last remaining daemon, which is the auto-unlock
 this list. The auto-unlocking daemon provides memorised password to unlock data and configuration of other healthy
 instances of laitos program on the LAN or Internet.
 
-If program continues to crash rapidly and repeatedly,
+If the program continues to crash repeatedly after all rounds of shedding, then the fault may not reside in any of the shed
+daemons, and all daemons will be re-enabled, the user will have to make diagnosis manually.
 */
 var ShedOrder = []string{
 	MaintenanceName,                       // 1
@@ -78,32 +79,34 @@ var ShedOrder = []string{
 }
 
 /*
-RemoveFromFlags removes CLI flag from input flags base on a condition function (true to remove). The input flags must
-not contain the leading executable path.
+RemoveFromFlags removes CLI flag from input flags, eligibility for removal is determined by the input function.
+The flags must not contain the executable path in its first element.
 */
-func RemoveFromFlags(condition func(string) bool, flags []string) (ret []string) {
+func RemoveFromFlags(deleteFun func(string) bool, flags []string) (ret []string) {
 	ret = make([]string, 0, len(flags))
-	var connectNext, deleted bool
+	var hasStandaloneFlagValue, flagIsDeleted bool
 	for _, str := range flags {
 		if strings.HasPrefix(str, "-") {
-			connectNext = true
-			if condition(str) {
-				if strings.Contains(str, "=") {
-					connectNext = false
-				}
-				deleted = true
+			// This is either a -flag=val or -flag val
+			hasStandaloneFlagValue = !strings.Contains(str, "=")
+			if deleteFun(str) {
+				flagIsDeleted = true
 			} else {
 				ret = append(ret, str)
-				deleted = false
+				flagIsDeleted = false
 			}
-		} else if !deleted && connectNext || deleted && !connectNext {
-			/*
-				For keeping this flag, the two conditions are:
-				- Previous flag was not deleted, and its value is the current flag: "-flag value"
-				- Previous flag was deleted along with its value: "-flag=123 this_value", therefore this value is not
-				  related to the deleted flag and shall be kept.
-			*/
-			ret = append(ret, str)
+		} else {
+			if hasStandaloneFlagValue {
+				if !flagIsDeleted {
+					// Retain the value of ["-flag", "value"], the value can be an empty string.
+					ret = append(ret, str)
+				}
+				hasStandaloneFlagValue = false
+				flagIsDeleted = false
+			} else if strings.TrimSpace(str) != "" && !deleteFun(str) {
+				// Retain if the deleteFun function agrees and it is not an empty string
+				ret = append(ret, str)
+			}
 		}
 	}
 	return
@@ -295,7 +298,7 @@ func (sup *Supervisor) GetLaunchParameters(nthAttempt int) (cliFlags []string, d
 	}
 	if nthAttempt >= 1 {
 		/*
-			The second attempt removes all but essential program flag (-config), this means system environment
+			The second attempt removes all but essential program flag (-config, -awslambda), this means system environment
 			will not be altered by the advanced start option such as -gomaxprocs.
 		*/
 		cliFlags = RemoveFromFlags(func(f string) bool {
