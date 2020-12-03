@@ -144,15 +144,16 @@ var sampleConfigJSON = `
         }
       }
     },
-		"TheThingsNetworkEndpoint": "/ttn",
+    "TheThingsNetworkEndpoint": "/ttn",
     "TwilioCallEndpoint": "/call_greeting",
     "TwilioCallEndpointConfig": {
       "CallGreeting": "Hi there"
     },
     "TwilioSMSEndpoint": "/sms",
     "WebProxyEndpoint": "/proxy",
-		"AppCommandEndpoint": "/cmd",
-		"ReportsRetrievalEndpoint": "/reports"
+    "AppCommandEndpoint": "/cmd",
+    "ReportsRetrievalEndpoint": "/reports",
+    "ProcessExplorerEndpoint": "/procexp"
   },
   "MailClient": {
     "MTAHost": "127.0.0.1",

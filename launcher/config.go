@@ -111,6 +111,7 @@ type HTTPHandlers struct {
 
 	AppCommandEndpoint       string `json:"AppCommandEndpoint"`
 	ReportsRetrievalEndpoint string `json:"ReportsRetrievalEndpoint"`
+	ProcessExplorerEndpoint  string `json:"ProcessExplorerEndpoint"`
 }
 
 // The structure is JSON-compatible and capable of setting up all features and front-end services.
@@ -563,6 +564,9 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		}
 		if config.HTTPHandlers.ReportsRetrievalEndpoint != "" {
 			handlers[config.HTTPHandlers.ReportsRetrievalEndpoint] = &handler.HandleReportsRetrieval{}
+		}
+		if config.HTTPHandlers.ProcessExplorerEndpoint != "" {
+			handlers[config.HTTPHandlers.ProcessExplorerEndpoint] = &handler.HandleProcessExplorer{}
 		}
 		config.HTTPDaemon.HandlerCollection = handlers
 		stripURLPrefixFromRequest := os.Getenv(EnvironmentStripURLPrefixFromRequest)
