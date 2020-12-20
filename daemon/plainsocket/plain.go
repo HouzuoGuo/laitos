@@ -88,7 +88,7 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 		line, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				logger.Warning("HandleTCPConnection", ip, err, "failed to read from client")
+				logger.Info("HandleTCPConnection", ip, nil, "failed to read from client - %v", err)
 			}
 			return
 		}

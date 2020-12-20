@@ -30,7 +30,7 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	queryLenInteger := int(queryLen[0])*256 + int(queryLen[1])
 	// Read query packet
 	if queryLenInteger > MaxPacketSize || queryLenInteger < MinNameQuerySize {
-		logger.Warning("handleTCPQuery", ip, nil, "invalid query length from client")
+		logger.Info("handleTCPQuery", ip, nil, "invalid query length from client")
 		return
 	}
 	queryBody := make([]byte, queryLenInteger)

@@ -82,7 +82,7 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, clientIP string, clie
 	// Parse the input packet
 	packet := snmp.Packet{}
 	if err := packet.ReadFrom(reader); err != nil {
-		logger.Warning("HandleUDPClient", clientIP, err, "failed to parse request packet")
+		logger.Info("HandleUDPClient", clientIP, nil, "failed to parse request packet - %v", err)
 		return
 	}
 	// Validate community name i.e. password
