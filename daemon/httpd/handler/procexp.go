@@ -47,7 +47,7 @@ func (explorer *HandleProcessExplorer) Handle(w http.ResponseWriter, r *http.Req
 		// Respond with the latest process status
 		pid, _ := strconv.Atoi(pidStr)
 		// By contract, the function will retrieve the own process' status if the input PID is 0.
-		status, err := procexp.GetProcStatus(pid)
+		status, err := procexp.GetProcAndTaskStatus(pid)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to read process status - %v", err), http.StatusInternalServerError)
 			return

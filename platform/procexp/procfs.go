@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	regexStatusKeyValue  = regexp.MustCompile(`^\s*(\w+)\s*:\s*(.*)`)
+	regexColonKeyValue   = regexp.MustCompile(`^\s*(\w+)\s*:\s*(.*)`)
 	regexSchedstatFields = regexp.MustCompile(`^\s*(\d+)\s+(\d+)\s+(\d+).*`)
 	// PID, executable base name (up to 16 characters long), state, and 35 more fields.
 	// See https://man7.org/linux/man-pages/man5/procfs.5.html for the complete list of fields.
@@ -28,25 +28,40 @@ var (
 	getClockTicksPerSecondOnce     = new(sync.Once)
 )
 
-// ProcessStatus describes the general status and resource usage information about a process.
+// SchedulerStats describes the resource usage of a process task from scheduler's perspective.
+type SchedulerStats struct {
+	// From schedstat
+	NumRunSec  float64
+	NumWaitSec float64
+	// From sched
+	NumVoluntarySwitches   int
+	NumInvoluntarySwitches int
+}
+
+// ProcessStats describes overall resource usage of a process across all of its tasks.
+type ProcessStats struct {
+	State                        string
+	StartedAtUptimeSec           int
+	VirtualMemSizeBytes          int
+	ResidentSetMemSizeBytes      int
+	NumUserModeSecInclChildren   float64
+	NumKernelModeSecInclChildren float64
+}
+
+// ProcessStatus describes the identity and privileges of a process or a process task.
 type ProcessStatus struct {
-	Name                  string
-	Umask                 string
-	State                 string
-	ThreadGroupID         int
-	ProcessID             int
-	ParentPID             int
-	ProcessGroupID        int
-	StartedAtUptimeSec    int
-	ProcessPrivilege      ProcessPrivilege
-	ProcessMemUsage       ProcessMemUsage
-	ProcessCPUUsage       ProcessCPUUsage
-	ProcessSchedulerStats ProcessSchedulerStats
+	Name             string
+	Umask            string
+	ParentPID        int
+	ThreadGroupID    int
+	ProcessID        int
+	ProcessGroupID   int
+	SessionID        int
+	ProcessPrivilege ProcessPrivilege
 }
 
 // ProcessPrivilege describes the the UID and GID under which a process runs.
 type ProcessPrivilege struct {
-	// status
 	RealUID      int
 	EffectiveUID int
 	RealGID      int
@@ -63,14 +78,6 @@ type ProcessMemUsage struct {
 type ProcessCPUUsage struct {
 	NumUserModeSecInclChildren float64
 	NumSysModeSecInclChildren  float64
-}
-
-// ProcessSchedulerStats describes the scheduler's statistics about a process.
-type ProcessSchedulerStats struct {
-	NumVoluntaryCtxSwitches    int
-	NumNonVoluntaryCtxSwitches int
-	NumRunSec                  float64
-	NumWaitSec                 float64
 }
 
 // atoiOr0 returns the integer converted from the input string, or 0 if the input string does not represent a valid integer.
@@ -129,53 +136,62 @@ func getClockTicksPerSecond() int {
 	return sysconfClockTick
 }
 
-func getProcStatus(statusContent, schedstatContent, statContent string) ProcessStatus {
+func getSchedStats(schedstatContent, schedContent string) (ret SchedulerStats) {
+	// Collect fields of strings from /proc/XXXX.../schedstat
+	// According to https://lkml.org/lkml/2019/7/24/906, the first field of "schedstat" means
+	// "sum of all time spent running by tasks on this processor (in nanoseconds, or jiffies prior to 2.6.23)"
+	// and the second field means "sum of all time spent waiting to run by tasks on this processor (in nanoseconds, or jiffies prior to 2.6.23)".
+	schedstatFields := regexSchedstatFields.FindStringSubmatch(strings.TrimSpace(schedstatContent))
+	ret.NumRunSec = float64(atoiOr0(strSliceElemOrEmpty(schedstatFields, 1))) / 1000000000
+	ret.NumWaitSec = float64(atoiOr0(strSliceElemOrEmpty(schedstatFields, 2))) / 1000000000
+
+	// Collect key-value pairs from /proc/XXXX.../sched
+	schedKeyValue := make(map[string]string)
+	for _, line := range strings.Split(schedContent, "\n") {
+		submatches := regexColonKeyValue.FindStringSubmatch(strings.TrimSpace(line))
+		if len(submatches) > 2 {
+			schedKeyValue[submatches[1]] = submatches[2]
+		}
+	}
+	ret.NumVoluntarySwitches = atoiOr0(schedKeyValue["nr_voluntary_switches"])
+	ret.NumInvoluntarySwitches = atoiOr0(schedKeyValue["nr_involuntary_switches"])
+	return
+}
+
+func getStats(content string) (ret ProcessStats) {
+	statFields := regexStatFields.FindStringSubmatch(strings.TrimSpace(content))
+	ret.State = strSliceElemOrEmpty(statFields, 3)
+	ret.StartedAtUptimeSec = atoiOr0(strSliceElemOrEmpty(statFields, 22)) / getClockTicksPerSecond()
+	ret.VirtualMemSizeBytes = atoiOr0(strSliceElemOrEmpty(statFields, 23))
+	ret.ResidentSetMemSizeBytes = atoiOr0(strSliceElemOrEmpty(statFields, 24)) * os.Getpagesize()
+	ret.NumUserModeSecInclChildren = float64(atoiOr0(strSliceElemOrEmpty(statFields, 14))+atoiOr0(strSliceElemOrEmpty(statFields, 16))) / float64(getClockTicksPerSecond())
+	ret.NumKernelModeSecInclChildren = float64(atoiOr0(strSliceElemOrEmpty(statFields, 15))+atoiOr0(strSliceElemOrEmpty(statFields, 17))) / float64(getClockTicksPerSecond())
+	return
+}
+
+func getStatus(content string) (ret ProcessStatus) {
 	// Collect key-value pairs from /proc/XXXX/status
 	statusKeyValue := make(map[string]string)
-	for _, line := range strings.Split(statusContent, "\n") {
-		submatches := regexStatusKeyValue.FindStringSubmatch(line)
+	for _, line := range strings.Split(content, "\n") {
+		submatches := regexColonKeyValue.FindStringSubmatch(strings.TrimSpace(line))
 		if len(submatches) > 2 {
 			statusKeyValue[submatches[1]] = submatches[2]
 		}
 	}
-	// Collect fields of strings from /proc/XXXX/schedstat
-	schedstatFields := regexSchedstatFields.FindStringSubmatch(schedstatContent)
-	// Collect fields of various data types from /proc/XXXX/stat
-	statFields := regexStatFields.FindStringSubmatch(statContent)
-	// Put the information together
 	uids := getDACIDsFromProcfs(statusKeyValue["Uid"])
 	gids := getDACIDsFromProcfs(statusKeyValue["Gid"])
-	return ProcessStatus{
-		Name:               statusKeyValue["Name"],
-		State:              strSliceElemOrEmpty(statFields, 3),
-		Umask:              statusKeyValue["Umask"],
-		ThreadGroupID:      atoiOr0(statusKeyValue["Tgid"]),
-		ProcessID:          atoiOr0(statusKeyValue["Pid"]),
-		ParentPID:          atoiOr0(statusKeyValue["PPid"]),
-		ProcessGroupID:     atoiOr0(strSliceElemOrEmpty(statFields, 5)),
-		StartedAtUptimeSec: atoiOr0(strSliceElemOrEmpty(statFields, 22)) / getClockTicksPerSecond(),
-		ProcessPrivilege: ProcessPrivilege{
-			RealUID:      uids[0],
-			EffectiveUID: uids[1],
-			RealGID:      gids[0],
-			EffectiveGID: gids[1],
-		},
-		ProcessMemUsage: ProcessMemUsage{
-			VirtualMemSizeBytes:     atoiOr0(strSliceElemOrEmpty(statFields, 23)),
-			ResidentSetMemSizeBytes: atoiOr0(strSliceElemOrEmpty(statFields, 24)) * os.Getpagesize(),
-		},
-		ProcessCPUUsage: ProcessCPUUsage{
-			NumUserModeSecInclChildren: float64(atoiOr0(strSliceElemOrEmpty(statFields, 14))+atoiOr0(strSliceElemOrEmpty(statFields, 16))) / float64(getClockTicksPerSecond()),
-			NumSysModeSecInclChildren:  float64(atoiOr0(strSliceElemOrEmpty(statFields, 15))+atoiOr0(strSliceElemOrEmpty(statFields, 17))) / float64(getClockTicksPerSecond()),
-		},
-		ProcessSchedulerStats: ProcessSchedulerStats{
-			NumVoluntaryCtxSwitches:    atoiOr0(statusKeyValue["voluntary_ctxt_switches"]),
-			NumNonVoluntaryCtxSwitches: atoiOr0(statusKeyValue["nonvoluntary_ctxt_switches"]),
-			// According to https://lkml.org/lkml/2019/7/24/906, the first field of "schedstat" means
-			// "sum of all time spent running by tasks on this processor (in nanoseconds, or jiffies prior to 2.6.23)"
-			// and the second field means "sum of all time spent waiting to run by tasks on this processor (in nanoseconds, or jiffies prior to 2.6.23)".
-			NumRunSec:  float64(atoiOr0(strSliceElemOrEmpty(schedstatFields, 1))) / 1000000000,
-			NumWaitSec: float64(atoiOr0(strSliceElemOrEmpty(schedstatFields, 2))) / 1000000000,
-		},
+	ret.Name = statusKeyValue["Name"]
+	ret.Umask = statusKeyValue["Umask"]
+	ret.ParentPID = atoiOr0(statusKeyValue["PPid"])
+	ret.ThreadGroupID = atoiOr0(statusKeyValue["NStgid"])
+	ret.ProcessID = atoiOr0(statusKeyValue["NSpid"])
+	ret.ProcessGroupID = atoiOr0(statusKeyValue["NSpgid"])
+	ret.SessionID = atoiOr0(statusKeyValue["NSsid"])
+	ret.ProcessPrivilege = ProcessPrivilege{
+		RealUID:      uids[0],
+		EffectiveUID: uids[1],
+		RealGID:      gids[0],
+		EffectiveGID: gids[1],
 	}
+	return
 }

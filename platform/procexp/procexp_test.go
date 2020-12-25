@@ -3,6 +3,7 @@ package procexp
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"sort"
 	"testing"
@@ -14,27 +15,67 @@ import (
 func TestGetProcIDs(t *testing.T) {
 	if platform.HostIsWindows() {
 		t.Skip("this test will not run on windows")
+		return
 	}
 	allProcIDs := GetProcIDs()
-	selfProcStatus, err := GetProcStatus(0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	var mustFindPIDs = []struct {
 		pid int
-	}{{1}, {selfProcStatus.ProcessID}}
+	}{{1}, {os.Getpid()}}
 	for _, findPID := range mustFindPIDs {
 		t.Run(fmt.Sprintf("find PID %d", findPID.pid), func(t *testing.T) {
 			if foundAt := sort.SearchInts(allProcIDs, findPID.pid); allProcIDs[foundAt] != findPID.pid {
-				t.Fatal(allProcIDs)
+				t.Fatal(findPID, allProcIDs)
 			}
 		})
 	}
 }
 
-func TestGetProcStatusByPID(t *testing.T) {
+func TestGetProcTaskIDs(t *testing.T) {
 	if platform.HostIsWindows() {
 		t.Skip("this test will not run on windows")
+		return
+	}
+	// The program's main thread (task ID == program PID) must show up
+	allTaskIDs := GetProcTaskIDs(os.Getpid())
+	if foundAt := sort.SearchInts(allTaskIDs, os.Getpid()); allTaskIDs[foundAt] != os.Getpid() {
+		t.Fatal(allTaskIDs)
+	}
+	// Get this process' own task IDs
+	allTaskIDs = GetProcTaskIDs(0)
+	if foundAt := sort.SearchInts(allTaskIDs, os.Getpid()); allTaskIDs[foundAt] != os.Getpid() {
+		t.Fatal(allTaskIDs)
+	}
+}
+
+func TestGetTaskStatus_WaitChannel(t *testing.T) {
+	if platform.HostIsWindows() {
+		t.Skip("this test will not run on windows")
+		return
+	}
+	cmd := exec.Command("/bin/cat")
+	cmd.Stdout = ioutil.Discard
+	cmd.Stderr = ioutil.Discard
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	}()
+	time.Sleep(1 * time.Second)
+	// By now kernel should see that sleep command is sleeping nicely
+	status := GetTaskStatus(cmd.Process.Pid, cmd.Process.Pid)
+	// On the stack there shall be at very least syscall entry, architecture-dependent sleep function, and a common sleep function.
+	if status.ID != cmd.Process.Pid || status.WaitChannelName == "" {
+		t.Fatalf("%+v", status)
+	}
+	// The stack file can only be read by root, hence it's not part of this test yet.
+}
+
+func TestGetTaskStatus_SchedulerStats(t *testing.T) {
+	if platform.HostIsWindows() {
+		t.Skip("this test will not run on windows")
+		return
 	}
 	cmd := exec.Command("/usr/bin/yes")
 	cmd.Stdout = ioutil.Discard
@@ -48,16 +89,46 @@ func TestGetProcStatusByPID(t *testing.T) {
 	}()
 	// It takes couple of seconds for the process to use up some CPU time
 	time.Sleep(8 * time.Second)
-	status, err := GetProcStatus(cmd.Process.Pid)
+	status := GetTaskStatus(cmd.Process.Pid, cmd.Process.Pid)
+	if status.SchedulerStats.NumVoluntarySwitches == 0 || status.SchedulerStats.NumInvoluntarySwitches == 0 || status.SchedulerStats.NumRunSec == 0 {
+		t.Fatalf("%+v", status)
+	}
+}
+
+func TestGetProcAndTaskStatus(t *testing.T) {
+	if platform.HostIsWindows() {
+		t.Skip("this test will not run on windows")
+		return
+	}
+	cmd := exec.Command("/usr/bin/yes")
+	cmd.Stdout = ioutil.Discard
+	cmd.Stderr = ioutil.Discard
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	}()
+	// It takes couple of seconds for the process to use up some CPU time
+	time.Sleep(8 * time.Second)
+	status, err := GetProcAndTaskStatus(cmd.Process.Pid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("\nStatus: %+v\n", status)
-	if status.Name != "yes" || (status.State != "R" && status.State != "S") || status.ThreadGroupID == 0 || status.StartedAtUptimeSec == 0 ||
-		status.ProcessPrivilege.EffectiveUID == 0 || status.ProcessPrivilege.EffectiveGID == 0 ||
-		status.ProcessMemUsage.VirtualMemSizeBytes == 0 || status.ProcessMemUsage.ResidentSetMemSizeBytes == 0 ||
-		status.ProcessCPUUsage.NumUserModeSecInclChildren+status.ProcessCPUUsage.NumSysModeSecInclChildren == 0 ||
-		status.ProcessSchedulerStats.NumVoluntaryCtxSwitches == 0 || status.ProcessSchedulerStats.NumNonVoluntaryCtxSwitches == 0 || status.ProcessSchedulerStats.NumRunSec == 0 {
-		t.Fatalf("\n%+v\n", status)
+	if status.Stats.NumUserModeSecInclChildren+status.Stats.NumKernelModeSecInclChildren < 2 ||
+		status.Stats.ResidentSetMemSizeBytes < 100 || status.Stats.VirtualMemSizeBytes < 100 ||
+		status.Stats.State == "" || status.Status.Name != "yes" ||
+		len(status.Tasks) < 1 {
+		t.Fatalf("%+v", status)
+	}
+	mainTask := status.Tasks[cmd.Process.Pid]
+	if mainTask.ID != cmd.Process.Pid || mainTask.SchedulerStats.NumRunSec < 2 || mainTask.SchedulerStats.NumWaitSec < 0.001 ||
+		mainTask.SchedulerStats.NumVoluntarySwitches < 1 || mainTask.SchedulerStats.NumInvoluntarySwitches < 1 {
+		t.Fatalf("%+v", status)
+	}
+	if status.SchedulerStatsSum.NumRunSec < 2 || status.SchedulerStatsSum.NumWaitSec < 0.001 ||
+		status.SchedulerStatsSum.NumVoluntarySwitches < 1 || status.SchedulerStatsSum.NumInvoluntarySwitches < 1 {
+		t.Fatalf("%+v", status)
 	}
 }

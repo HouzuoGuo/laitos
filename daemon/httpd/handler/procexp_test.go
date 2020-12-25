@@ -55,11 +55,11 @@ func TestHandleProcessExplorer_Handle(t *testing.T) {
 		if w.Result().StatusCode != http.StatusOK {
 			t.Fatalf("%+v", w.Result())
 		}
-		var status procexp.ProcessStatus
+		var status procexp.ProcessAndTasks
 		if err := json.Unmarshal(body, &status); err != nil {
 			t.Fatal(err)
 		}
-		if status.ProcessID != os.Getpid() {
+		if status.Status.ProcessID != os.Getpid() {
 			t.Fatalf("%+v", status)
 		}
 	})
@@ -74,11 +74,11 @@ func TestHandleProcessExplorer_Handle(t *testing.T) {
 		if w.Result().StatusCode != http.StatusOK {
 			t.Fatalf("%+v", w.Result())
 		}
-		var status procexp.ProcessStatus
+		var status procexp.ProcessAndTasks
 		if err := json.Unmarshal(body, &status); err != nil {
 			t.Fatal(err)
 		}
-		if status.ProcessID != 1 {
+		if status.Status.ProcessID != 1 {
 			t.Fatalf("%+v", status)
 		}
 	})
