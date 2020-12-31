@@ -136,8 +136,14 @@ func CopyNonEssentialUtilities(progress lalog.Logger) {
 		"phantomjs-2.1.1-x86_64", "phantomjs",
 		"phantomjs", "phantomjs",
 	}
-	// The GOPATH directory is useful for developing test cases, and CWD is useful for running deployed laitos.
-	findInPaths := []string{filepath.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/linux"), "./"}
+	findInPaths := []string{
+		// For developing using go module
+		"../extra/linux",
+		// For developing using GOPATH, assuming that laitos is the only entry underneath GOPATH.
+		filepath.Join(os.Getenv("GOPATH"), "/src/github.com/HouzuoGuo/laitos/extra/linux"),
+		// For running laitos in directory where config files, data files, and these supplementary programs reside.
+		"./",
+	}
 	for i := 0; i < len(srcDestName); i += 2 {
 		srcName := srcDestName[i]
 		destName := srcDestName[i+1]
@@ -491,7 +497,10 @@ func GetProgramStatusSummary(withPublicIP bool) string {
 	workingDir, _ := os.Getwd()
 	dirEntries, _ := ioutil.ReadDir(workingDir)
 	dirEntryNames := make([]string, 0)
-	for _, entry := range dirEntries {
+	for i, entry := range dirEntries {
+		if i > 50 {
+			break
+		}
 		if entry.IsDir() {
 			dirEntryNames = append(dirEntryNames, entry.Name()+"/")
 		} else {
@@ -511,7 +520,7 @@ Program UID/EUID/GID/EGID: %d / %d / %d / %d
 Program executable path: %s
 Program CLI flags: %v
 Program working directory: %s
-Working directory content: %v
+Working directory content (max. 50 names): %v
 Program environment: %v
 `,
 		hostName,
