@@ -498,7 +498,7 @@ func GetProgramStatusSummary(withPublicIP bool) string {
 	dirEntries, _ := ioutil.ReadDir(workingDir)
 	dirEntryNames := make([]string, 0)
 	for i, entry := range dirEntries {
-		if i > 50 {
+		if i > 100 {
 			break
 		}
 		if entry.IsDir() {
@@ -506,6 +506,10 @@ func GetProgramStatusSummary(withPublicIP bool) string {
 		} else {
 			dirEntryNames = append(dirEntryNames, entry.Name())
 		}
+	}
+	envVars := os.Environ()
+	if len(envVars) > 100 {
+		envVars = envVars[:100]
 	}
 	summary := fmt.Sprintf(`Host name: %s
 Clock: %s
@@ -520,8 +524,8 @@ Program UID/EUID/GID/EGID: %d / %d / %d / %d
 Program executable path: %s
 Program CLI flags: %v
 Program working directory: %s
-Working directory content (max. 50 names): %v
-Program environment: %v
+Working directory content (max. 100 names): %v
+Program environment (max. 100 entries): %v
 `,
 		hostName,
 		time.Now().String(),
@@ -537,7 +541,7 @@ Program environment: %v
 		os.Args[1:],
 		workingDir,
 		dirEntryNames,
-		strings.Join(os.Environ(), "\n"))
+		strings.Join(envVars, "\n"))
 
 	if withPublicIP {
 		return "IP: " + inet.GetPublicIP() + "\n" + summary

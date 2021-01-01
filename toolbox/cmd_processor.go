@@ -31,7 +31,7 @@ const (
 	// MaxCmdPerSecHardLimit is the hard uppper limit of the approximate maximum number of commands a command processor will process in a second.
 	MaxCmdPerSecHardLimit = 1000
 	// MaxCmdLength is the maximum length of a single command (including password PIN and other prefixes) that the command processor will accept.
-	MaxCmdLength = 1024 * 1024
+	MaxCmdLength = 16 * 1024
 )
 
 // ErrBadPrefix is a command execution error triggered if the command does not contain a valid toolbox feature trigger.

@@ -66,6 +66,31 @@ type SubjectReportRequest struct {
 	CommandResponse AppCommandResponse
 }
 
+// Lint truncates attributes of the request to ensure that none of the attributes are exceedingly long.
+func (req *SubjectReportRequest) Lint() {
+	if len(req.SubjectIP) > 64 {
+		// The text representation of An IPv6 address may use up to ~40 characters
+		req.SubjectIP = req.SubjectIP[:64]
+	}
+	if len(req.SubjectHostName) > 256 {
+		// A DNS name may be up to 254 characters long
+		req.SubjectHostName = req.SubjectHostName[:256]
+	}
+	if len(req.SubjectPlatform) > 128 {
+		req.SubjectPlatform = req.SubjectPlatform[:128]
+	}
+	if len(req.SubjectComment) > 4*1024 {
+		// Allow up to 4KB of free form text to appear in the comment
+		req.SubjectComment = req.SubjectComment[:4*1024]
+	}
+	if len(req.CommandRequest.Command) > MaxCmdLength {
+		req.CommandRequest.Command = req.CommandRequest.Command[:MaxCmdLength]
+	}
+	if len(req.CommandResponse.Command) > MaxCmdLength {
+		req.CommandResponse.Command = req.CommandResponse.Command[:MaxCmdLength]
+	}
+}
+
 /*
 SerialiseCompact serialises the request into a compact string.
 The fields carried by the serialised string rank from most important to least important.

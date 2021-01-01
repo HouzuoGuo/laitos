@@ -130,11 +130,14 @@ StoreReports stores the most recent report from a subject and evicts older repor
 If the report carries an app command, then the command will run in the background.
 */
 func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectReportRequest, clientID, daemonName string) SubjectReportResponse {
-	request.SubjectHostName = strings.TrimSpace(strings.ToLower(request.SubjectHostName))
 	if request.SubjectHostName == "" {
-		// Empty host name does not make a valid report
+		// All reports must have a host name, or object name.
 		return SubjectReportResponse{}
 	}
+	// Ensure that the request attributes are not exceedingly long
+	request.Lint()
+	// Host name (DNS name) is not case sensitive
+	request.SubjectHostName = strings.TrimSpace(strings.ToLower(request.SubjectHostName))
 	// Send kinesis firehose a copy of the report
 	if misc.EnableAWSIntegration && inet.IsAWS() {
 		if proc.ForwardReportsToKinesisFirehose != nil && proc.KinesisFirehoseStreamName != "" {

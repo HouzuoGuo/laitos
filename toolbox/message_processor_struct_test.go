@@ -2,9 +2,40 @@ package toolbox
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestSubjectReportRequest_Lint(t *testing.T) {
+	req := SubjectReportRequest{
+		SubjectIP:       strings.Repeat("I", 1000),
+		SubjectHostName: strings.Repeat("H", 1000),
+		SubjectPlatform: strings.Repeat("P", 1000),
+		SubjectComment:  strings.Repeat("C", 10000),
+		CommandRequest:  AppCommandRequest{Command: strings.Repeat("R", MaxCmdLength+100)},
+		CommandResponse: AppCommandResponse{Command: strings.Repeat("W", MaxCmdLength+100)},
+	}
+	req.Lint()
+	if req.SubjectIP != strings.Repeat("I", 64) {
+		t.Fatal(req.SubjectIP)
+	}
+	if req.SubjectHostName != strings.Repeat("H", 256) {
+		t.Fatal(req.SubjectHostName)
+	}
+	if req.SubjectPlatform != strings.Repeat("P", 128) {
+		t.Fatal(req.SubjectPlatform)
+	}
+	if req.SubjectComment != strings.Repeat("C", 4*1024) {
+		t.Fatal(req.SubjectComment)
+	}
+	if req.CommandRequest.Command != strings.Repeat("R", MaxCmdLength) {
+		t.Fatal(req.CommandRequest.Command)
+	}
+	if req.CommandResponse.Command != strings.Repeat("W", MaxCmdLength) {
+		t.Fatal(req.CommandResponse.Command)
+	}
+}
 
 func TestSubjectReportRequest_SerialiseCompact(t *testing.T) {
 	req := SubjectReportRequest{
