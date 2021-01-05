@@ -165,7 +165,7 @@ func (bot *Daemon) ProcessMessages(ctx context.Context, updates APIUpdates) {
 		go func(ding APIUpdate, beginTimeNano int64) {
 			result := bot.Processor.Process(ctx, toolbox.Command{
 				DaemonName: "telegrambot",
-				ClientID:   ding.Message.Chat.UserName,
+				ClientTag:  ding.Message.Chat.UserName,
 				TimeoutSec: CommandTimeoutSec,
 				Content:    ding.Message.Text,
 			}, true)

@@ -195,7 +195,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 		// Process feature command from incoming chat text
 		result := hand.cmdProc.Process(r.Context(), toolbox.Command{
 			DaemonName: "httpd",
-			ClientID:   convID,
+			ClientTag:  convID,
 			TimeoutSec: MicrosoftBotCommandTimeoutSec,
 			Content:    incoming.Text,
 		}, true)

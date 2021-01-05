@@ -21,8 +21,9 @@ var (
 
 // Command is a text representing app command input, collected by a daemon.
 type Command struct {
-	// ClientID identifies the origin/client of the command input to the receiving daemon, such as an IP address, this is used for logging.
-	ClientID string
+	// ClientTag is the name (or identity) of the origin/actor that made this command input (e.g. caller's phone number or client IP).
+	// By convention, if the report came from IP network, then the client tag should be the client IP address.
+	ClientTag string
 	// DaemonName is the name of daemon that received this command, this is used for logging.
 	DaemonName string
 	// TimeoutSec is what the daemon thinks the timeout of command execution shall be.

@@ -79,7 +79,7 @@ func (hand *HandleTwilioSMSHook) Handle(w http.ResponseWriter, r *http.Request) 
 	// SMS message is in "Body" parameter
 	ret := hand.cmdProc.Process(r.Context(), toolbox.Command{
 		DaemonName: "httpd",
-		ClientID:   phoneNumber,
+		ClientTag:  phoneNumber,
 		TimeoutSec: TwilioHandlerTimeoutSec,
 		Content:    r.FormValue("Body"),
 	}, true)
@@ -209,7 +209,7 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
 	// Run the toolbox command
 	ret := hand.cmdProc.Process(r.Context(), toolbox.Command{
 		DaemonName: "httpd",
-		ClientID:   phoneNumber,
+		ClientTag:  phoneNumber,
 		TimeoutSec: TwilioHandlerTimeoutSec,
 		Content:    toolbox.DTMFDecode(dtmfInput),
 	}, true)

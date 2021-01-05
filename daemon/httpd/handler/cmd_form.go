@@ -56,7 +56,7 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 		} else {
 			result := form.cmdProc.Process(r.Context(), toolbox.Command{
 				DaemonName: "httpd",
-				ClientID:   GetRealClientIP(r),
+				ClientTag:  GetRealClientIP(r),
 				Content:    cmd,
 				TimeoutSec: HTTPClienAppCommandTimeout,
 			}, true)

@@ -72,7 +72,7 @@ execute:
 	rec.mutex.Unlock()
 	// Execute the command and leave the lock available for another command that runs in parallel
 	result = cmdProcessor.Process(ctx, toolbox.Command{
-		ClientID:   clientIP,
+		ClientTag:  clientIP,
 		DaemonName: "dnsd",
 		TimeoutSec: TextCommandReplyTTL - 1,
 		Content:    cmdInput,

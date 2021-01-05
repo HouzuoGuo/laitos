@@ -126,10 +126,8 @@ func (daemon *Daemon) Initialise() error {
 		daemon.Address = "0.0.0.0"
 	}
 	if daemon.UDPPort < 1 && daemon.TCPPort < 1 {
-		/*
-			If any port is left at 0, the DNS daemon will not listen for that protocol. But if both are at 0, then
-			by default listen for both protocols.
-		*/
+		// If either port number is 0, then the DNS daemon will not serve that protocol.
+		// If both port numbers are 0, then by default the daemon will serve both TCP and UDP clients.
 		daemon.TCPPort = 53
 		daemon.UDPPort = 53
 	}
@@ -202,7 +200,7 @@ func (daemon *Daemon) allowMyPublicIP() {
 	daemon.logger.Info("allowMyPublicIP", "", nil, "the computer may send DNS queries to its public IP address %s", daemon.myPublicIP)
 }
 
-// checkAllowClientIP returns true only if the input IP address is among the allowed addresses.
+// checkAllowClientIP returns true only if the input client IP address is allowed to query this DNS server.
 func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
 	if clientIP == "" || len(clientIP) > 64 {
 		return false
@@ -213,7 +211,12 @@ func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
 	}
 	// At regular time interval, make sure that the latest public IP is allowed to query.
 	daemon.allowMyPublicIP()
-
+	// Another fast track - subjects that are monitored (periodically phoning home) are allowed to query the DNS server.
+	// By convention, subject reports transmitted over IP network will have their client IP address recorded in report's client tag attribute.
+	if daemon.Processor.Features.MessageProcessor.HasClientTag(clientIP) {
+		return true
+	}
+	// Allow the client to query if the IP address matches any of the allowed address prefixes
 	daemon.allowQueryMutex.Lock()
 	defer daemon.allowQueryMutex.Unlock()
 	for _, prefix := range daemon.AllowQueryIPPrefixes {

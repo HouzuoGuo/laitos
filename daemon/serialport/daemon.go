@@ -189,7 +189,7 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 			daemon.logger.Info("converseWithDevice", devPath, nil, "received %d characters", len(cmd))
 			result := daemon.Processor.Process(context.Background(), toolbox.Command{
 				DaemonName: "serialport",
-				ClientID:   devPath,
+				ClientTag:  devPath,
 				Content:    cmd,
 				TimeoutSec: CommandTimeoutSec,
 			}, true)

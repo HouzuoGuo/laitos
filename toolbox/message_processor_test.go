@@ -3,6 +3,7 @@ package toolbox
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"reflect"
@@ -38,6 +39,8 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		t.Fatalf("%+v", reports)
 	} else if reports[0].OriginalRequest.SubjectIP != "subject-ip1" {
 		t.Fatalf("%+v", reports)
+	} else if !proc.HasClientTag("ip") {
+		t.Fatal("tag went missing")
 	}
 	// Verify the time keeping aspect of the report as well
 	if reports := proc.GetLatestReportsFromSubject("subject-host-name1", 1000); len(reports) != 1 {
@@ -57,13 +60,15 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 		SubjectIP:       "subject-ip2",
 		SubjectHostName: "subject-host-NAME2",
 		SubjectPlatform: "subject-platform",
-	}, "ip", "daemon")
+	}, "ip2", "daemon")
 
 	// Keep in mind that reports are retrieved from latest to oldest
 	if reports := proc.GetLatestReports(1000); len(reports) != 2 {
 		t.Fatalf("%+v", reports)
 	} else if reports[0].OriginalRequest.SubjectIP != "subject-ip2" || reports[1].OriginalRequest.SubjectIP != "subject-ip1" {
 		t.Fatalf("%+v", reports)
+	} else if !proc.HasClientTag("ip2") {
+		t.Fatal("tag went missing")
 	}
 	if reports := proc.GetLatestReportsFromSubject("subject-host-name2", 1000); len(reports) != 1 {
 		t.Fatalf("%+v", reports)
@@ -88,6 +93,8 @@ func TestMessageProcessor_StoreReport(t *testing.T) {
 	} else if reports[0].OriginalRequest.SubjectIP != "subject-ip1" || reports[1].OriginalRequest.SubjectIP != "subject-ip2" || reports[2].OriginalRequest.SubjectIP != "subject-ip1" ||
 		reports[0].OriginalRequest.SubjectPlatform != "new-subject-platform" || reports[2].OriginalRequest.SubjectPlatform != "subject-platform" {
 		t.Fatalf("%+v", reports)
+	} else if !proc.HasClientTag("ip") || !proc.HasClientTag("ip2") {
+		t.Fatal("tag went missing")
 	}
 	if reports := proc.GetLatestReportsFromSubject("subject-host-name1", 1000); len(reports) != 2 {
 		t.Fatalf("%+v", reports)
@@ -111,7 +118,7 @@ func TestMessageProcessor_EvictOldReports(t *testing.T) {
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name1",
 			SubjectPlatform: "new-subject-platform",
-		}, "ip", "daemon")
+		}, fmt.Sprintf("tag-%d", i), "daemon")
 	}
 
 	if reports := proc.GetLatestReports(2 * proc.MaxReportsPerHostName); len(reports) != proc.MaxReportsPerHostName {
@@ -132,14 +139,17 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 	if err := proc.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// Store a report
+	// Store a report that will be manipulated into expiry
 	proc.StoreReport(context.Background(), SubjectReportRequest{
-		SubjectIP:       "1",
-		SubjectHostName: "subject-host-name1",
-		SubjectPlatform: "new-subject-platform",
-	}, "ip", "daemon")
+		SubjectIP:       "expiring-ip",
+		SubjectHostName: "expiring-host-name",
+		SubjectPlatform: "expiring-platform",
+	}, "expiring-tag", "daemon")
+	// Record an incoming command and an outgoing command for the expiring subject
+	proc.SetOutgoingCommand("expiring-host-name", "expiring-cmd")
+	proc.IncomingAppCommands["expiring-host-name"] = &IncomingAppCommand{}
 	// Change the timestamp of the report to make it expire
-	(*proc.SubjectReports["subject-host-name1"])[0].OriginalRequest.ServerTime = time.Now().Add(-(SubjectExpirySecond + 1) * time.Second)
+	(*proc.SubjectReports["expiring-host-name"])[0].OriginalRequest.ServerTime = time.Now().Add(-(SubjectExpirySecond + 1) * time.Second)
 
 	// Store thousands of reports for an active subject, which triggers clean up in the meanwhile.
 	for i := 0; i < proc.MaxReportsPerHostName+10; i++ {
@@ -147,14 +157,29 @@ func TestMessageProcessor_EvictExpiredReports(t *testing.T) {
 			SubjectIP:       strconv.Itoa(i),
 			SubjectHostName: "subject-host-name2",
 			SubjectPlatform: "new-subject-platform",
-		}, "ip", "daemon")
+		}, fmt.Sprintf("not-expiring-%d", i), "daemon")
+	}
+	proc.SetOutgoingCommand("subject-host-name2", "test")
+	proc.IncomingAppCommands["subject-host-name2"] = &IncomingAppCommand{}
+
+	if reports := proc.GetLatestReportsFromSubject("expiring-host-name", 1000); len(reports) != 0 {
+		t.Fatal(len(reports))
+	} else if proc.HasClientTag("expiring-tag") {
+		t.Fatal("did not clean up expired tag")
+	} else if !proc.HasClientTag(fmt.Sprintf("not-expiring-%d", proc.MaxReportsPerHostName+10-1)) {
+		t.Fatal("tag that belonged to a regular export disappeared")
 	}
 
-	if reports := proc.GetLatestReportsFromSubject("subject-host-name1", 1000); len(reports) != 0 {
-		t.Fatal(len(reports))
-	}
-	if len(proc.IncomingAppCommands) != 0 {
+	if _, exists := proc.IncomingAppCommands["expiring-host-name"]; exists {
 		t.Fatalf("%+v", proc.IncomingAppCommands)
+	} else if _, exists := proc.IncomingAppCommands["subject-host-name2"]; !exists {
+		t.Fatalf("%+v", proc.IncomingAppCommands)
+	}
+
+	if _, exists := proc.OutgoingAppCommands["expiring-host-name"]; exists {
+		t.Fatalf("%+v", proc.OutgoingAppCommands)
+	} else if _, exists := proc.OutgoingAppCommands["subject-host-name2"]; !exists {
+		t.Fatalf("%+v", proc.OutgoingAppCommands)
 	}
 }
 
@@ -453,7 +478,7 @@ func TestMessageProcessor_App(t *testing.T) {
 
 	// Send it to app for execution
 	result := proc.Execute(context.Background(), Command{
-		ClientID:   "subject-ip",
+		ClientTag:  "subject-ip",
 		DaemonName: "command-daemon-name",
 		Content:    report.SerialiseCompact(),
 	})
@@ -480,7 +505,7 @@ func TestMessageProcessor_App(t *testing.T) {
 	if time.Now().Unix()-report0.OriginalRequest.ServerTime.Unix() > 3 {
 		t.Fatalf("%+v", report0)
 	}
-	if report0.DaemonName != "command-daemon-name" || report0.SubjectClientID != "subject-ip" ||
+	if report0.DaemonName != "command-daemon-name" || report0.SubjectClientTag != "subject-ip" ||
 		report0.OriginalRequest.SubjectIP != report.SubjectIP ||
 		report0.OriginalRequest.SubjectHostName != report.SubjectHostName ||
 		report0.OriginalRequest.SubjectPlatform != report.SubjectPlatform ||

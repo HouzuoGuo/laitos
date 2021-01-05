@@ -123,7 +123,7 @@ func (hand *HandleAppCommand) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	result := hand.cmdProc.Process(r.Context(), toolbox.Command{
 		DaemonName: "httpd",
-		ClientID:   GetRealClientIP(r),
+		ClientTag:  GetRealClientIP(r),
 		Content:    cmd,
 		TimeoutSec: HTTPClienAppCommandTimeout,
 	}, true)

@@ -290,9 +290,9 @@ func (proc *CommandProcessor) Process(ctx context.Context, cmd Command, runResul
 		goto result
 	}
 	// Run the feature
-	proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientID), nil, "running \"%s\" (post-process result? %v)", logCommandContent, runResultFilters)
+	proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientTag), nil, "running \"%s\" (post-process result? %v)", logCommandContent, runResultFilters)
 	defer func() {
-		proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientID), nil, "completed \"%s\" (ok? %v post-process reslt? %v)", logCommandContent, ret.Error == nil, runResultFilters)
+		proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientTag), nil, "completed \"%s\" (ok? %v post-process reslt? %v)", logCommandContent, ret.Error == nil, runResultFilters)
 	}()
 	ret = matchedFeature.Execute(ctx, cmd)
 result:
@@ -362,11 +362,10 @@ func GetEmptyCommandProcessor() *CommandProcessor {
 	return &CommandProcessor{
 		Features: features,
 		CommandFilters: []CommandFilter{
-			&PINAndShortcuts{Passwords: []string{hex.EncodeToString(randPIN)}},
+			&PINAndShortcuts{Passwords: []string{strconv.FormatInt(time.Now().UnixNano(), 10) + hex.EncodeToString(randPIN)}},
 		},
 		ResultFilters: []ResultFilter{
 			&LintText{MaxLength: 35},
-			&SayEmptyOutput{},
 		},
 	}
 }
@@ -387,7 +386,6 @@ func GetInsaneCommandProcessor() *CommandProcessor {
 		},
 		ResultFilters: []ResultFilter{
 			&LintText{MaxLength: 10},
-			&SayEmptyOutput{},
 		},
 	}
 }

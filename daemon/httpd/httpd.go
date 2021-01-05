@@ -639,7 +639,7 @@ over.
 	if err := json.Unmarshal(resp.Body, &reports); err != nil {
 		t.Fatal(err)
 	}
-	if len(reports) != 3 || reports[0].SubjectClientID != "client-ip2" || reports[1].SubjectClientID != "client-ip1" || reports[2].SubjectClientID != "ttn-tx" {
+	if len(reports) != 3 || reports[0].SubjectClientTag != "client-ip2" || reports[1].SubjectClientTag != "client-ip1" || reports[2].SubjectClientTag != "ttn-tx" {
 		t.Fatalf("%+v", reports)
 	}
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
@@ -652,7 +652,7 @@ over.
 	if err := json.Unmarshal(resp.Body, &reports); err != nil {
 		t.Fatal(err)
 	}
-	if len(reports) != 1 || reports[0].SubjectClientID != "client-ip2" {
+	if len(reports) != 1 || reports[0].SubjectClientTag != "client-ip2" {
 		t.Fatalf("%+v", reports)
 	}
 	// Assign subject a command to run

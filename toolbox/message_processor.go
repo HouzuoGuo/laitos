@@ -47,9 +47,12 @@ additional subject information collected by the message processor.
 */
 type SubjectReport struct {
 	OriginalRequest SubjectReportRequest // OriginalRequest is the agent's report received by the message processor.
-	SubjectClientID string               // SubjectClientID is the subject's ID as observed by server daemon, by convention it is an IP address.
-	ServerTime      time.Time            // ServerClock is the system time of this computer upon receiving the report.
-	DaemonName      string               // DaemonName is the name of server daemon that received this report.
+
+	// SubjectClientTag is the name or identity of the subject as observed by the server daemon (e.g. caller's phone number or client IP).
+	// By convention, if the report was collected by the daemon over IP network, then the client tag should be the client IP address.
+	SubjectClientTag string
+	ServerTime       time.Time // ServerClock is the system time of this computer upon receiving the report.
+	DaemonName       string    // DaemonName is the name of server daemon that received this report.
 }
 
 /*
@@ -68,8 +71,11 @@ MessageProcessor collects subject reports and relays outstanding app command req
 It also implements the usual toolbox app interface so that monitored subjects can reach it via app-compatible daemons to send their reports.
 */
 type MessageProcessor struct {
-	// SubjectReports is a map of subject's self-reported host name and its most recent reports, sorted from earliest to latest.
+	// SubjectReports is a map of subject's self-reported host name and its most recent reports. The reports are sorted from earliest to latest.
 	SubjectReports map[string]*[]SubjectReport `json:"-"`
+	// SubjectClientTags is a set of all subject tags collected from the subjects kept in memory.
+	// By convention, reports collected over IP network will use the client IP addresses as tag content.
+	SubjectClientTags map[string]struct{} `json:"-"`
 	// IncomingAppCommands is a map of subject's self reported host name and an app command the subject would like the message processor to run.
 	IncomingAppCommands map[string]*IncomingAppCommand `json:"-"`
 	/*
@@ -128,8 +134,9 @@ func (proc *MessageProcessor) GetAllOutgoingCommands() map[string]string {
 /*
 StoreReports stores the most recent report from a subject and evicts older report automatically.
 If the report carries an app command, then the command will run in the background.
+By convention, if the daemon collected this report over IP network, then the client tag should be the client IP address.
 */
-func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectReportRequest, clientID, daemonName string) SubjectReportResponse {
+func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectReportRequest, clientTag, daemonName string) SubjectReportResponse {
 	if request.SubjectHostName == "" {
 		// All reports must have a host name, or object name.
 		return SubjectReportResponse{}
@@ -171,10 +178,10 @@ func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectRe
 	// Note down server's time in the original request
 	request.ServerTime = time.Now()
 	newReport := SubjectReport{
-		OriginalRequest: request,
-		SubjectClientID: clientID,
-		ServerTime:      request.ServerTime,
-		DaemonName:      daemonName,
+		OriginalRequest:  request,
+		SubjectClientTag: clientTag,
+		ServerTime:       request.ServerTime,
+		DaemonName:       daemonName,
 	}
 	// Discard the oldest report
 	if len(*reports) == proc.MaxReportsPerHostName {
@@ -183,6 +190,8 @@ func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectRe
 	// Append the latest report
 	*reports = append(*reports, newReport)
 	proc.SubjectReports[request.SubjectHostName] = reports
+	// Put the subject ID into set
+	proc.SubjectClientTags[clientTag] = struct{}{}
 	// Scan and remove expired subjects every couple of thousands of reports
 	proc.totalReports++
 	if proc.totalReports%proc.MaxReportsPerHostName == 0 {
@@ -191,11 +200,11 @@ func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectRe
 	outgoingCommandForSubject := proc.OutgoingAppCommands[request.SubjectHostName]
 	// Release the lock for report handling is now completed. The app command (if requested) will run without holding the lock.
 	proc.mutex.Unlock()
-	cmdResponse := proc.processCommandRequest(ctx, request, clientID, daemonName)
+	cmdResponse := proc.processCommandRequest(ctx, request, clientTag, daemonName)
 	if outgoingCommandForSubject == "" {
-		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "store report from daemon %s", daemonName)
+		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from daemon %s", daemonName)
 	} else {
-		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil, "store report from daemon %s, replying with a pending app command.", daemonName)
+		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from daemon %s, replying with a pending app command.", daemonName)
 	}
 	return SubjectReportResponse{
 		CommandRequest: AppCommandRequest{
@@ -209,7 +218,7 @@ func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectRe
 processCommandRequest runs the app command presented in the request, waits for it to complete and returns the result.
 If the same app command or an empty command request comes in, the previous result (if ready and available) will be returned.
 */
-func (proc *MessageProcessor) processCommandRequest(ctx context.Context, request SubjectReportRequest, clientID, daemonName string) (resp AppCommandResponse) {
+func (proc *MessageProcessor) processCommandRequest(ctx context.Context, request SubjectReportRequest, clientTag, daemonName string) (resp AppCommandResponse) {
 	if proc.CmdProcessor == nil {
 		return
 	}
@@ -223,7 +232,7 @@ func (proc *MessageProcessor) processCommandRequest(ctx context.Context, request
 	if appCmd == "" || exists && prevCmd.Request.CommandRequest.Command == appCmd {
 		// The subject does not make a command request or has made the identical request. Retrieve previously requested command result if there is any.
 		if exists {
-			proc.logger.Info("processCommandRequest", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil,
+			proc.logger.Info("processCommandRequest", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil,
 				"retrieve result from app command submitted at %s and completed in %d seconds", prevCmd.Request.ServerTime, prevCmd.RunDurationSec)
 			if prevCmd.Request.ServerTime.Before(time.Now().Add(-CommandResponseRetentionSec * time.Second)) {
 				// Erase the result from memory beyond the retention period
@@ -249,13 +258,13 @@ func (proc *MessageProcessor) processCommandRequest(ctx context.Context, request
 				ReceivedAt: request.ServerTime,
 				Result:     "error: will not run a recursive store&forward command",
 			}
-			proc.logger.Warning("processCommandRequest", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), nil,
+			proc.logger.Warning("processCommandRequest", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil,
 				"will not run a recursive store&forward command - %s", appCmd)
 			return
 		}
 		cmd := Command{
 			DaemonName: daemonName,
-			ClientID:   clientID,
+			ClientTag:  clientTag,
 			Content:    appCmd,
 			TimeoutSec: CommandResponseRetentionSec,
 		}
@@ -285,7 +294,7 @@ func (proc *MessageProcessor) processCommandRequest(ctx context.Context, request
 			Result:         result.CombinedOutput,
 			RunDurationSec: int(durationSec),
 		}
-		proc.logger.Info("processCommandRequest", fmt.Sprintf("%s-%s", request.SubjectHostName, clientID), result.Error, "command completed in %d seconds", durationSec)
+		proc.logger.Info("processCommandRequest", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), result.Error, "command completed in %d seconds", durationSec)
 	}
 	return
 }
@@ -384,6 +393,14 @@ func (proc *MessageProcessor) GetSubjectReportCount() (ret map[string]int) {
 	return ret
 }
 
+// HasClientTag returns true only if the specified client tag belongs to any of the monitoried subjects currently kept in memory.
+func (proc *MessageProcessor) HasClientTag(tag string) bool {
+	proc.mutex.Lock()
+	defer proc.mutex.Unlock()
+	_, exists := proc.SubjectClientTags[tag]
+	return exists
+}
+
 /*
 removeExpiredSubjects is an internal function that looks at the most recent report made by each subject and removes subjects that have not
 made any report for a long time. The internal function assumes that its caller is holding the mutex.
@@ -394,6 +411,10 @@ func (proc *MessageProcessor) removeExpiredSubjects() {
 		latestReport := (*reports)[len(*reports)-1]
 		if latestReport.OriginalRequest.ServerTime.Before(time.Now().Add(-SubjectExpirySecond * time.Second)) {
 			subjectsToRemove[subject] = latestReport
+			// Remove all client tags collected from this monitored subject
+			for _, report := range *reports {
+				delete(proc.SubjectClientTags, report.SubjectClientTag)
+			}
 		}
 	}
 	for subject, lastReport := range subjectsToRemove {
@@ -421,6 +442,7 @@ func (proc *MessageProcessor) Initialise() error {
 		proc.MaxReportsPerHostName = 3 * 24 * 3600 / ReportIntervalSec
 	}
 	proc.SubjectReports = make(map[string]*[]SubjectReport)
+	proc.SubjectClientTags = make(map[string]struct{})
 	proc.IncomingAppCommands = make(map[string]*IncomingAppCommand)
 	proc.OutgoingAppCommands = make(map[string]string)
 	proc.mutex = new(sync.Mutex)
@@ -447,7 +469,7 @@ func (proc *MessageProcessor) Execute(ctx context.Context, cmd Command) *Result 
 	// Subject report arrives as a compacted string
 	var incomingReport SubjectReportRequest
 	if err := incomingReport.DeserialiseFromCompact(cmd.Content); err == ErrSubjectReportTruncated {
-		proc.logger.Info("Execute", cmd.ClientID, nil, "the subject report request was truncated")
+		proc.logger.Info("Execute", cmd.ClientTag, nil, "the subject report request was truncated")
 		// It is OK to continue with a truncated report
 	} else if err != nil {
 		return &Result{Error: fmt.Errorf("failed to decode subject report: %w", err)}
@@ -455,12 +477,11 @@ func (proc *MessageProcessor) Execute(ctx context.Context, cmd Command) *Result 
 		return &Result{Error: errors.New("the report does not have a host name")}
 	}
 	/*
-		Store the subject report, the client ID is an IP address by convention.
 		If the report carries an app command, it will be processed by this app's own command processor.
 		There is no point in honoring the incoming command's timeout configuration, as the result
 		is memorised for unlimited retrieval according to rentention timeout.
 	*/
-	resp := proc.StoreReport(ctx, incomingReport, cmd.ClientID, cmd.DaemonName)
+	resp := proc.StoreReport(ctx, incomingReport, cmd.ClientTag, cmd.DaemonName)
 	// The response is JSON instead of a compacted string
 	respBytes, err := json.Marshal(resp)
 	if err != nil {

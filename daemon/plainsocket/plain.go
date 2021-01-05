@@ -104,7 +104,7 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 		// Process line of command and respond
 		result := daemon.Processor.Process(context.TODO(), toolbox.Command{
 			DaemonName: "plainsocket",
-			ClientID:   ip,
+			ClientTag:  ip,
 			Content:    string(line),
 			TimeoutSec: CommandTimeoutSec,
 		}, true)
@@ -152,7 +152,7 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 		// Process line of command and respond
 		result := daemon.Processor.Process(context.TODO(), toolbox.Command{
 			DaemonName: "plainsocket",
-			ClientID:   ip,
+			ClientTag:  ip,
 			Content:    string(line),
 			TimeoutSec: CommandTimeoutSec,
 		}, true)

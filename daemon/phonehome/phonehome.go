@@ -257,7 +257,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 				result := muxMessageProcessor.Execute(context.Background(), toolbox.Command{
 					Content:    reqCmd[strings.Index(reqCmd, ".0m")+3:],
 					TimeoutSec: 2,
-					ClientID:   r.RemoteAddr,
+					ClientTag:  r.RemoteAddr,
 					DaemonName: "httpd",
 				})
 				t.Log("1st req:", reqCmd)
@@ -273,7 +273,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					// Verify the collected report details
 					report0 := (*reports)[0]
-					if report0.SubjectClientID == "" || report0.DaemonName == "" || report0.OriginalRequest.SubjectHostName == "" ||
+					if report0.SubjectClientTag == "" || report0.DaemonName == "" || report0.OriginalRequest.SubjectHostName == "" ||
 						!strings.Contains(report0.OriginalRequest.SubjectComment, "IP:") || !strings.Contains(report0.OriginalRequest.SubjectComment, "Program CLI flags:") ||
 						report0.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" {
 						t.Fatalf("1st request, unexpected memorised report: %+v", report0)
@@ -298,7 +298,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 				result := muxMessageProcessor.Execute(context.Background(), toolbox.Command{
 					Content:    reqCmd[strings.Index(reqCmd, ".0m")+3:],
 					TimeoutSec: 2,
-					ClientID:   r.RemoteAddr,
+					ClientTag:  r.RemoteAddr,
 					DaemonName: "httpd",
 				})
 				t.Log("2nd req:", reqCmd)
@@ -313,7 +313,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 				}
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					report1 := (*reports)[1]
-					if report1.SubjectClientID == "" || report1.DaemonName == "" || report1.OriginalRequest.SubjectHostName == "" ||
+					if report1.SubjectClientTag == "" || report1.DaemonName == "" || report1.OriginalRequest.SubjectHostName == "" ||
 						!strings.Contains(report1.OriginalRequest.SubjectComment, "Clock:") || !strings.Contains(report1.OriginalRequest.SubjectComment, "Program CLI flags:") ||
 						report1.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" ||
 						report1.OriginalRequest.CommandResponse.Command != toolbox.TestCommandProcessorPIN+".s echo 2client" ||
@@ -370,7 +370,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 	// Check server response from the 2nd request
 	lastReport := localReports[0]
 	t.Logf("phonehome latest report: %+v", lastReport)
-	if lastReport.SubjectClientID != "localhost" || time.Now().Unix()-lastReport.ServerTime.Unix() > 10 || lastReport.DaemonName != "phonehome" ||
+	if lastReport.SubjectClientTag != "localhost" || time.Now().Unix()-lastReport.ServerTime.Unix() > 10 || lastReport.DaemonName != "phonehome" ||
 		lastReport.OriginalRequest.CommandRequest.Command != "" ||
 		lastReport.OriginalRequest.CommandResponse.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" ||
 		lastReport.OriginalRequest.CommandResponse.RunDurationSec < 0 ||

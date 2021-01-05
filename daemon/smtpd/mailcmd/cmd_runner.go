@@ -127,7 +127,7 @@ func (runner *CommandRunner) Process(clientIP string, mailContent []byte, replyA
 		// By contract, PIN processor finds command among input lines.
 		result := runner.Processor.Process(context.TODO(), toolbox.Command{
 			DaemonName: "smtpd",
-			ClientID:   clientIP,
+			ClientTag:  clientIP,
 			Content:    string(body),
 			TimeoutSec: CommandTimeoutSec,
 		}, true)
