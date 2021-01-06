@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	RateLimitIntervalSec        = 1         // Rate limit is calculated at 1 second interval
+	RateLimitIntervalSec        = 1         // RateLimitIntervalSec is the interval (seconds) at which rate limit is measured and applied to DNS clients.
 	ForwarderTimeoutSec         = 1 * 2     // ForwarderTimeoutSec is the IO timeout for a round trip interaction with forwarders
 	ClientTimeoutSec            = 30 * 2    // AnswerTimeoutSec is the IO timeout for a round trip interaction with DNS clients
 	MaxPacketSize               = 9038      // Maximum acceptable UDP packet size
