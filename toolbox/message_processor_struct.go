@@ -48,13 +48,13 @@ SubjectReportRequest is a subject's (remote's) system description and status rep
 processor (local).
 */
 type SubjectReportRequest struct {
-	// SubjectIP is the public IP address of the computer. This may not be identical to the client IP observed by server.
-	SubjectIP string
-	// SubjectHostName is the host name of the computer.
+	// SubjectHostName is the self-reported host name of the subject's computer. Message processor uses the name to uniquely identify the monitored subject.
 	SubjectHostName string
-	// SubjectPlatform is the OS and CPU architecture of the computer (GOOS/GOARCH).
+	// SubjectIP is the subject's self-reported public IP address.
+	SubjectIP string
+	// SubjectPlatform is the OS and CPU architecture of the subject's computer (GOOS/GOARCH).
 	SubjectPlatform string
-	// SubjectComment is a free from text the subject chooses to include in this report.
+	// SubjectComment is a free from text the subject voluntarily includes in this report.
 	SubjectComment string
 
 	// ServerTime is overwritten by server upon receiving the request, it is not supplied by a subject, and only used by the server internally.
