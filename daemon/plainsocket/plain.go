@@ -168,6 +168,7 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 
 // StartAndBLock starts both TCP and UDP listeners. You may call this function only after having called Initialise().
 func (daemon *Daemon) StartAndBlock() error {
+	defer daemon.Stop()
 	numListeners := 0
 	errChan := make(chan error, 2)
 	if daemon.TCPPort != 0 {

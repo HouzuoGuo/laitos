@@ -83,6 +83,7 @@ StartAndBlock starts TCP listener to process client connections and blocks until
 Call this function after having initialised the TCP server.
 */
 func (srv *TCPServer) StartAndBlock() error {
+	defer srv.Stop()
 	srv.mutex.Lock()
 	if srv.listener != nil {
 		srv.mutex.Unlock()

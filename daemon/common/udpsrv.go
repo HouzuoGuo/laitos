@@ -82,6 +82,7 @@ StartAndBlock starts UDP listener to process clients and blocks until the server
 Call this function after having initialised the UDP server.
 */
 func (srv *UDPServer) StartAndBlock() error {
+	defer srv.Stop()
 	srv.mutex.Lock()
 	if srv.udpServer != nil {
 		srv.mutex.Unlock()

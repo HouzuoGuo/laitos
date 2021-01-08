@@ -12,6 +12,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
@@ -60,8 +61,9 @@ type Daemon struct {
 	// cmdProcessor runs app commands coming in from a store&forward message processor server.
 	Processor *toolbox.CommandProcessor `json:"-"`
 
-	runLoop bool
-	logger  lalog.Logger
+	loopIsRunning int32     // Value is 1 only when daemon loop is running
+	stop          chan bool // Signal maintenance loop to stop
+	logger        lalog.Logger
 }
 
 // Initialise validates the daemon configuration and initalises internal states.
@@ -107,6 +109,7 @@ func (daemon *Daemon) Initialise() error {
 			srv.HostName = u.Hostname()
 		}
 	}
+	daemon.stop = make(chan bool)
 	daemon.logger = lalog.Logger{ComponentName: "phonehome"}
 	return nil
 }
@@ -154,9 +157,6 @@ func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostNam
 
 // StartAndBlock starts the periodic reports and blocks caller until the daemon is stopped.
 func (daemon *Daemon) StartAndBlock() error {
-	defer func() {
-		daemon.runLoop = false
-	}()
 	/*
 		Instead of sending numerous reports in a row and then wait for a longer duration, send one report at a time and
 		wait a shorter duration. This helps to reduce server load and overall offers more reliability.
@@ -168,12 +168,12 @@ func (daemon *Daemon) StartAndBlock() error {
 	}
 	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d servers and pausing %d seconds between each",
 		len(daemon.MessageProcessorServers), intervalSecBetweenReports)
-	daemon.runLoop = true
 	for {
 		if misc.EmergencyLockDown {
-			daemon.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
+			atomic.StoreInt32(&daemon.loopIsRunning, 0)
 			return misc.ErrEmergencyLockDown
 		}
+		atomic.StoreInt32(&daemon.loopIsRunning, 1)
 		/*
 			Shuffle the destination URLs that reports are sent to.
 			Reports are sent using 2FA authentication rather than the regular password authentication, if destinations
@@ -187,10 +187,13 @@ func (daemon *Daemon) StartAndBlock() error {
 		rand.Shuffle(len(srvIndexes), func(i, j int) { srvIndexes[i], srvIndexes[j] = srvIndexes[j], srvIndexes[i] })
 
 		for _, i := range srvIndexes {
-			if !daemon.runLoop {
+			select {
+			case <-daemon.stop:
+				atomic.StoreInt32(&daemon.loopIsRunning, 0)
 				return nil
+			case <-time.After(time.Duration(intervalSecBetweenReports) * time.Second):
+				// Move on to phone home
 			}
-			time.Sleep(time.Duration(intervalSecBetweenReports) * time.Second)
 			srv := daemon.MessageProcessorServers[i]
 			var reportResponseJSON []byte
 			if srv.DNSDomainName != "" {
@@ -236,7 +239,9 @@ func (daemon *Daemon) StartAndBlock() error {
 
 // Stop the daemon.
 func (daemon *Daemon) Stop() {
-	daemon.runLoop = false
+	if atomic.CompareAndSwapInt32(&daemon.loopIsRunning, 1, 0) {
+		daemon.stop <- true
+	}
 }
 
 // TestServer implements test cases for the phone-home daemon.

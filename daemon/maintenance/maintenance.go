@@ -311,7 +311,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	}
 }
 
-// Stop previously started health check loop.
+// Stop the daemon.
 func (daemon *Daemon) Stop() {
 	if atomic.CompareAndSwapInt32(&daemon.loopIsRunning, 1, 0) {
 		daemon.stop <- true

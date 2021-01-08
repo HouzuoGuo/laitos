@@ -106,7 +106,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			atomic.StoreInt32(&daemon.loopIsRunning, 0)
 			return nil
 		case <-time.After(time.Duration(daemon.IntervalSec) * time.Second):
-			// Just waiting for the interval
+			// Move on after waiting the interval
 		}
 	}
 }

@@ -161,6 +161,7 @@ func (daemon *Daemon) Initialise() error {
 }
 
 func (daemon *Daemon) StartAndBlock() error {
+	defer daemon.Stop()
 	wg := new(sync.WaitGroup)
 
 	if daemon.TCPPorts != nil {
@@ -179,11 +180,10 @@ func (daemon *Daemon) StartAndBlock() error {
 			wg.Add(1)
 			daemon.tcpDaemons = append(daemon.tcpDaemons, tcpDaemon)
 			go func(tcpDaemon *TCPDaemon) {
+				defer wg.Done()
 				if tcpErr := tcpDaemon.StartAndBlock(); tcpErr != nil {
 					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("TCP-%d", tcpDaemon.TCPPort), tcpErr, "failed to start TCP daemon")
-					daemon.Stop()
 				}
-				wg.Done()
 			}(tcpDaemon)
 		}
 	}
@@ -203,11 +203,10 @@ func (daemon *Daemon) StartAndBlock() error {
 			wg.Add(1)
 			daemon.udpDaemons = append(daemon.udpDaemons, udpDaemon)
 			go func(udpDaemon *UDPDaemon) {
+				defer wg.Done()
 				if udpErr := udpDaemon.StartAndBlock(); udpErr != nil {
 					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("UDP-%d", udpDaemon.UDPPort), udpErr, "failed to start UDP daemon")
-					daemon.Stop()
 				}
-				wg.Done()
 			}(udpDaemon)
 		}
 	}
@@ -215,12 +214,21 @@ func (daemon *Daemon) StartAndBlock() error {
 	return nil
 }
 
+// Stop terminates all TCP and UDP servers.
 func (daemon *Daemon) Stop() {
-	for _, tcpDaemon := range daemon.tcpDaemons {
-		tcpDaemon.Stop()
+	if daemon.tcpDaemons != nil {
+		for _, tcpDaemon := range daemon.tcpDaemons {
+			if tcpDaemon != nil {
+				tcpDaemon.Stop()
+			}
+		}
 	}
-	for _, udpDaemon := range daemon.udpDaemons {
-		udpDaemon.Stop()
+	if daemon.udpDaemons != nil {
+		for _, udpDaemon := range daemon.udpDaemons {
+			if udpDaemon != nil {
+				udpDaemon.Stop()
+			}
+		}
 	}
 	daemon.tcpDaemons = make([]*TCPDaemon, 0)
 	daemon.udpDaemons = make([]*UDPDaemon, 0)

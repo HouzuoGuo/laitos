@@ -97,10 +97,6 @@ forwardToRecursiveResolver:
 func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
 	respLen = make([]byte, 0)
 	respBody = make([]byte, 0)
-	if !daemon.checkAllowClientIP(clientIP) {
-		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "client IP is not allowed to query")
-		return
-	}
 	domainName := ExtractDomainName(queryBody)
 	if domainName == "" {
 		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle non-name query")

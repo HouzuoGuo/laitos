@@ -48,6 +48,7 @@ import (
 
 var (
 	// pprofHTTPPort is the localhost port to listen on for serving pprof profiling data over HTTP.
+	// The port number must differ from those used with regular HTTP and HTTPS servers.
 	pprofHTTPPort int
 	logger        = lalog.Logger{ComponentName: "main", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 )

@@ -82,9 +82,11 @@ func (daemon *Daemon) Initialise() error {
 
 // StartAndBlock starts all TCP and UDP servers to serve network clients. You may call this function only after having called Initialise().
 func (daemon *Daemon) StartAndBlock() error {
+	defer daemon.Stop()
 	// There are 3 TCP servers and 3 UDP servers
 	wg := new(sync.WaitGroup)
 	for _, port := range []int{daemon.ActiveUsersPort, daemon.DayTimePort, daemon.QOTDPort} {
+		// There is one TCP server and one UDP server per daemon
 		wg.Add(2)
 		daemon.logger.Info("StartAndBlock", "", nil, "going to listen on TCP and UDP port %d", port)
 		// Start TCP listener on the port
@@ -98,11 +100,10 @@ func (daemon *Daemon) StartAndBlock() error {
 		tcpServer.Initialise()
 		daemon.tcpServers[port] = tcpServer
 		go func() {
+			defer wg.Done()
 			if err := tcpServer.StartAndBlock(); err != nil {
 				daemon.logger.Warning("StartAndBlock", "", err, "failed to start a TCP server")
-				daemon.Stop()
 			}
-			wg.Done()
 		}()
 
 		// Start UDP server on the port
@@ -116,11 +117,10 @@ func (daemon *Daemon) StartAndBlock() error {
 		udpServer.Initialise()
 		daemon.udpServers[port] = udpServer
 		go func(port int) {
+			defer wg.Done()
 			if err := udpServer.StartAndBlock(); err != nil {
 				daemon.logger.Warning("StartAndBlock", "", err, "failed to start a UDP server")
-				daemon.Stop()
 			}
-			wg.Done()
 		}(port)
 	}
 	// Wait for servers to stop
@@ -131,21 +131,21 @@ func (daemon *Daemon) StartAndBlock() error {
 // Stop terminates all TCP and UDP servers.
 func (daemon *Daemon) Stop() {
 	if daemon.tcpServers != nil {
-		for _, server := range daemon.tcpServers {
-			if server == nil {
-				continue
+		for _, tcpDaemon := range daemon.tcpServers {
+			if tcpDaemon != nil {
+				tcpDaemon.Stop()
 			}
-			server.Stop()
 		}
 	}
 	if daemon.udpServers != nil {
-		for _, server := range daemon.udpServers {
-			if server == nil {
-				continue
+		for _, udpDaemon := range daemon.udpServers {
+			if udpDaemon != nil {
+				udpDaemon.Stop()
 			}
-			server.Stop()
 		}
 	}
+	daemon.tcpServers = make(map[int]*common.TCPServer)
+	daemon.udpServers = make(map[int]*common.UDPServer)
 }
 
 // responseActiveUsers returns configured active system user names in response to a sysstat service client.

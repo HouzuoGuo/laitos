@@ -50,7 +50,7 @@ processor (local).
 type SubjectReportRequest struct {
 	// SubjectHostName is the self-reported host name of the subject's computer. Message processor uses the name to uniquely identify the monitored subject.
 	SubjectHostName string
-	// SubjectIP is the subject's self-reported public IP address.
+	// SubjectIP is the subject's self-reported public IP address. It may potentially differ from the client IP observed by the server daemon receiving this report.
 	SubjectIP string
 	// SubjectPlatform is the OS and CPU architecture of the subject's computer (GOOS/GOARCH).
 	SubjectPlatform string
