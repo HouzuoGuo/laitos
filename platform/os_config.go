@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -43,12 +44,77 @@ const (
 )
 
 var (
-	RegexVmRss          = regexp.MustCompile(`VmRSS:\s*(\d+)\s*kB`)        // Parse VmRss value from /proc/*/status line
+	RegexVMRss          = regexp.MustCompile(`VmRSS:\s*(\d+)\s*kB`)        // Parse VmRss value from /proc/*/status line
 	RegexMemAvailable   = regexp.MustCompile(`MemAvailable:\s*(\d+)\s*kB`) // Parse MemAvailable value from /proc/meminfo
 	RegexMemTotal       = regexp.MustCompile(`MemTotal:\s*(\d+)\s*kB`)     // Parse MemTotal value from /proc/meminfo
 	RegexMemFree        = regexp.MustCompile(`MemFree:\s*(\d+)\s*kB`)      // Parse MemFree value from /proc/meminfo
 	RegexTotalUptimeSec = regexp.MustCompile(`(\d+).*`)                    // Parse uptime seconds from /proc/meminfo
 )
+
+// ProgramStatusSummary describes the system resource usage and process environment of this instance of laitos program running live.
+type ProgramStatusSummary struct {
+	PublicIP, HostName                         string
+	ClockTime                                  time.Time
+	SysUptime, ProgramUptime                   time.Duration
+	SysTotalMemMB, SysUsedMemMB, ProgUsedMemMB int
+	DiskUsedMB, DiskFreeMB, DiskCapMB          int
+	SysLoad                                    string
+	NumCPU, NumGoMaxProcs, NumGoroutines       int
+	PID, PPID, UID, EUID, GID, EGID            int
+	ExePath                                    string
+	CLIFlags                                   []string
+	WorkingDirPath                             string
+	WorkingDirContent                          []string
+	EnvironmentVars                            []string
+}
+
+// DeserialiseFromJSON deserialises JSON properties from the input JSON object into this summary item.
+// The primary use of this function is in test cases.
+func (summary *ProgramStatusSummary) DeserialiseFromJSON(jsonObj interface{}) error {
+	jsonDoc, err := json.Marshal(jsonObj)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(jsonDoc, summary)
+}
+
+func (summary ProgramStatusSummary) String() string {
+	ret := fmt.Sprintf(`Host name: %s
+Clock: %s
+Sys/prog uptime: %s / %s
+Total/used/prog mem: %d / %d / %d MB
+Total/used/free rootfs: %d / %d / %d MB
+Sys load: %s
+Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
+
+Program PID/PPID: %d / %d
+Program UID/EUID/GID/EGID: %d / %d / %d / %d
+Program executable path: %s
+Program CLI flags: %v
+Program working directory: %s
+Working directory content (max. 100 names): %v
+Program environment (max. 100 entries): %v
+`,
+		summary.HostName,
+		summary.ClockTime,
+		summary.SysUptime, summary.ProgramUptime,
+		summary.SysTotalMemMB, summary.SysUsedMemMB, summary.ProgUsedMemMB,
+		summary.DiskCapMB, summary.DiskUsedMB, summary.DiskFreeMB,
+		summary.SysLoad,
+		summary.NumCPU, summary.NumGoMaxProcs, summary.NumGoroutines,
+
+		summary.PID, summary.PPID,
+		summary.UID, summary.EUID, summary.GID, summary.EGID,
+		summary.ExePath,
+		summary.CLIFlags,
+		summary.WorkingDirPath,
+		summary.WorkingDirContent,
+		summary.EnvironmentVars)
+	if summary.PublicIP != "" {
+		return "IP: " + summary.PublicIP + "\n" + ret
+	}
+	return ret
+}
 
 // Use regex to parse input string, and return an integer parsed from specified capture group, or 0 if there is no match/no integer.
 func FindNumInRegexGroup(numRegex *regexp.Regexp, input string, groupNum int) int {
@@ -69,7 +135,7 @@ func GetProgramMemoryUsageKB() int {
 	if err != nil {
 		return 0
 	}
-	return FindNumInRegexGroup(RegexVmRss, string(statusContent), 1)
+	return FindNumInRegexGroup(RegexVMRss, string(statusContent), 1)
 }
 
 // Return operating system memory usage. Return 0 if the memory usage cannot be determined.
@@ -185,14 +251,13 @@ const PowerShellInterpreterPath = `C:\Windows\System32\WindowsPowerShell\v1.0\po
 func GetDefaultShellInterpreter() string {
 	if HostIsWindows() {
 		return PowerShellInterpreterPath
-	} else {
-		// Find a Unix-style shell interpreter with a preference to use bash
-		for _, shellName := range []string{"bash", "dash", "zsh", "ksh", "ash", "tcsh", "csh", "sh"} {
-			for _, pathPrefix := range []string{"/bin", "/usr/bin", "/usr/local/bin", "/opt/bin"} {
-				shellPath := filepath.Join(pathPrefix, shellName)
-				if _, err := os.Stat(shellPath); err == nil {
-					return shellPath
-				}
+	}
+	// Find a Unix-style shell interpreter with a preference to use bash
+	for _, shellName := range []string{"bash", "dash", "zsh", "ksh", "ash", "tcsh", "csh", "sh"} {
+		for _, pathPrefix := range []string{"/bin", "/usr/bin", "/usr/local/bin", "/opt/bin"} {
+			shellPath := filepath.Join(pathPrefix, shellName)
+			if _, err := os.Stat(shellPath); err == nil {
+				return shellPath
 			}
 		}
 	}
@@ -486,7 +551,7 @@ func SetTimeZone(zone string) error {
 }
 
 // GetProgramStatusSummary returns a formatted human-readable text that describes key OS resource usage status and program environment.
-func GetProgramStatusSummary(withPublicIP bool) string {
+func GetProgramStatusSummary(withPublicIP bool) ProgramStatusSummary {
 	// System resource usage
 	usedMem, totalMem := GetSystemMemoryUsageKB()
 	usedRoot, freeRoot, totalRoot := GetRootDiskUsageKB()
@@ -511,40 +576,36 @@ func GetProgramStatusSummary(withPublicIP bool) string {
 	if len(envVars) > 100 {
 		envVars = envVars[:100]
 	}
-	summary := fmt.Sprintf(`Host name: %s
-Clock: %s
-Sys/prog uptime: %s / %s
-Total/used/prog mem: %d / %d / %d MB
-Total/used/free rootfs: %d / %d / %d MB
-Sys load: %s
-Num CPU/GOMAXPROCS/goroutines: %d / %d / %d
 
-Program PID/PPID: %d / %d
-Program UID/EUID/GID/EGID: %d / %d / %d / %d
-Program executable path: %s
-Program CLI flags: %v
-Program working directory: %s
-Working directory content (max. 100 names): %v
-Program environment (max. 100 entries): %v
-`,
-		hostName,
-		time.Now().String(),
-		time.Duration(GetSystemUptimeSec()*int(time.Second)).String(), time.Since(misc.StartupTime).String(),
-		totalMem/1024, usedMem/1024, GetProgramMemoryUsageKB()/1024,
-		totalRoot/1024, usedRoot/1024, freeRoot/1024,
-		GetSystemLoad(),
-		runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine(),
-
-		os.Getpid(), os.Getppid(),
-		os.Getuid(), os.Geteuid(), os.Getgid(), os.Getegid(),
-		exeAbsPath,
-		os.Args[1:],
-		workingDir,
-		dirEntryNames,
-		strings.Join(envVars, "\n"))
-
+	summary := ProgramStatusSummary{
+		HostName:          hostName,
+		ClockTime:         time.Now(),
+		SysUptime:         time.Duration(GetSystemUptimeSec() * int(time.Second)),
+		ProgramUptime:     time.Since(misc.StartupTime),
+		SysTotalMemMB:     totalMem / 1024,
+		SysUsedMemMB:      usedMem / 1024,
+		ProgUsedMemMB:     GetProgramMemoryUsageKB() / 1024,
+		SysLoad:           GetSystemLoad(),
+		DiskUsedMB:        usedRoot / 1024,
+		DiskFreeMB:        freeRoot / 1024,
+		DiskCapMB:         totalRoot / 1024,
+		NumCPU:            runtime.NumCPU(),
+		NumGoMaxProcs:     runtime.GOMAXPROCS(0),
+		NumGoroutines:     runtime.NumGoroutine(),
+		PID:               os.Getpid(),
+		PPID:              os.Getppid(),
+		UID:               os.Getuid(),
+		EUID:              os.Geteuid(),
+		GID:               os.Getgid(),
+		EGID:              os.Getegid(),
+		ExePath:           exeAbsPath,
+		CLIFlags:          os.Args[1:],
+		WorkingDirPath:    workingDir,
+		WorkingDirContent: dirEntryNames,
+		EnvironmentVars:   envVars,
+	}
 	if withPublicIP {
-		return "IP: " + inet.GetPublicIP() + "\n" + summary
+		summary.PublicIP = inet.GetPublicIP()
 	}
 	return summary
 }

@@ -63,6 +63,27 @@ type UplinkMessage struct {
 	DownlinkURL      string                `json:"downlink_url"`
 }
 
+// ReceptionComment describes a reception of TTN packet/message, the description describes the transmitter and gateway, and will be
+// stored by store&forward message processor in-memory.
+type ReceptionComment struct {
+	DeviceID                            string
+	UplinkSequenceNum                   int
+	UplinkPort                          int
+	Latitude, Longitude, Altitude, HDOP float64
+	Frequency                           float64
+	Modulation                          string
+	SpreadingFactorBandwidth            string
+	CodingRate                          string
+	NumGateway                          int
+	GatewayID                           string
+	GWLatitude, GWLongitude, GWAltitude float64
+	RSSI                                float64
+	SNR                                 float64
+	PayloadLen                          int
+	Channel                             int
+	TimeAtReception                     string
+}
+
 /*
 HandleTheThingsNetworkHTTPIntegration collects an uplink message from TheThingsNetwork HTTP integration endpoint,
 if the message carries an app command, the command will be executed by store&forward command processor, and the result
@@ -131,20 +152,34 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 		msg.DeviceID, msg.Counter, msg.Port, msg.Metadata.Latitude, msg.Metadata.Longitude,
 		msg.TTNMapperPayload.Latitude, msg.TTNMapperPayload.Longitude,
 		firstGW.ID, firstGW.Latitude, firstGW.Longitude, len(payloadBytes))
+
+	comment := ReceptionComment{
+		DeviceID:                 msg.DeviceID,
+		UplinkSequenceNum:        msg.Counter,
+		UplinkPort:               msg.Port,
+		Latitude:                 msg.TTNMapperPayload.Latitude,
+		Longitude:                msg.TTNMapperPayload.Longitude,
+		Altitude:                 msg.TTNMapperPayload.Altitude,
+		HDOP:                     msg.TTNMapperPayload.HDOP,
+		Frequency:                msg.Metadata.Frequency,
+		Modulation:               msg.Metadata.Modulation,
+		SpreadingFactorBandwidth: msg.Metadata.SpreadingFactorBandwidth,
+		CodingRate:               msg.Metadata.CodingRate,
+		NumGateway:               len(msg.Metadata.Gateways),
+		GatewayID:                firstGW.ID,
+		GWLatitude:               firstGW.Latitude,
+		GWLongitude:              firstGW.Longitude,
+		GWAltitude:               firstGW.Altitude,
+		RSSI:                     firstGW.RSSI,
+		SNR:                      firstGW.SNR,
+		Channel:                  firstGW.Channel,
+		TimeAtReception:          firstGW.Time,
+	}
 	report := toolbox.SubjectReportRequest{
 		SubjectIP:       msg.DeviceEUISerial,
 		SubjectHostName: msg.DeviceID,
 		SubjectPlatform: msg.AppID,
-		SubjectComment: fmt.Sprintf(
-			`Transmitter (ID %s) sent packet #%d on port %d, located at %f, %f %fm (TTN Mapper %f, %f %fm HDOP %f)
-Frequency %f, modulation %s, SF/BW %s, bit rate %f, coding rate %s.
-Received by %d gateways, first gateway (ID %s) is located at %f, %f (%fm), RSSI %f, SNR %f, channel %d, received at %v.`,
-			msg.DeviceID, msg.Counter, msg.Port,
-			msg.Metadata.Latitude, msg.Metadata.Longitude, msg.Metadata.Altitude,
-			msg.TTNMapperPayload.Latitude, msg.TTNMapperPayload.Longitude, msg.TTNMapperPayload.Altitude, msg.TTNMapperPayload.HDOP,
-			msg.Metadata.Frequency, msg.Metadata.Modulation, msg.Metadata.SpreadingFactorBandwidth, msg.Metadata.BitRate, msg.Metadata.CodingRate,
-			len(msg.Metadata.Gateways), firstGW.ID, firstGW.Latitude, firstGW.Longitude, firstGW.Altitude, firstGW.RSSI, firstGW.SNR, firstGW.Channel, firstGW.Time,
-		),
+		SubjectComment:  comment,
 	}
 	/*
 		The first 10 bytes are decoded like this:

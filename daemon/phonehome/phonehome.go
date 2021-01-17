@@ -278,8 +278,12 @@ func TestServer(server *Daemon, t testingstub.T) {
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					// Verify the collected report details
 					report0 := (*reports)[0]
+					var comment platform.ProgramStatusSummary
+					if err := comment.DeserialiseFromJSON(report0.OriginalRequest.SubjectComment); err != nil {
+						t.Fatal(err)
+					}
 					if report0.SubjectClientTag == "" || report0.DaemonName == "" || report0.OriginalRequest.SubjectHostName == "" ||
-						!strings.Contains(report0.OriginalRequest.SubjectComment, "IP:") || !strings.Contains(report0.OriginalRequest.SubjectComment, "Program CLI flags:") ||
+						comment.PID == 0 || comment.HostName == "" ||
 						report0.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" {
 						t.Fatalf("1st request, unexpected memorised report: %+v", report0)
 					}
@@ -318,8 +322,12 @@ func TestServer(server *Daemon, t testingstub.T) {
 				}
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					report1 := (*reports)[1]
+					var comment platform.ProgramStatusSummary
+					if err := comment.DeserialiseFromJSON(report1.OriginalRequest.SubjectComment); err != nil {
+						t.Fatal(err)
+					}
 					if report1.SubjectClientTag == "" || report1.DaemonName == "" || report1.OriginalRequest.SubjectHostName == "" ||
-						!strings.Contains(report1.OriginalRequest.SubjectComment, "Clock:") || !strings.Contains(report1.OriginalRequest.SubjectComment, "Program CLI flags:") ||
+						comment.PID == 0 || comment.HostName == "" ||
 						report1.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" ||
 						report1.OriginalRequest.CommandResponse.Command != toolbox.TestCommandProcessorPIN+".s echo 2client" ||
 						report1.OriginalRequest.CommandResponse.Result != "2client" || report1.OriginalRequest.CommandResponse.RunDurationSec < 0 {

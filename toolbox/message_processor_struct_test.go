@@ -8,6 +8,7 @@ import (
 )
 
 func TestSubjectReportRequest_Lint(t *testing.T) {
+	// Lint a request with a text comment
 	req := SubjectReportRequest{
 		SubjectIP:       strings.Repeat("I", 1000),
 		SubjectHostName: strings.Repeat("H", 1000),
@@ -34,6 +35,20 @@ func TestSubjectReportRequest_Lint(t *testing.T) {
 	}
 	if req.CommandResponse.Command != strings.Repeat("W", MaxCmdLength) {
 		t.Fatal(req.CommandResponse.Command)
+	}
+
+	// Lint a request with a JSON object as comment
+	req = SubjectReportRequest{
+		SubjectIP:       strings.Repeat("I", 1000),
+		SubjectHostName: strings.Repeat("H", 1000),
+		SubjectPlatform: strings.Repeat("P", 1000),
+		SubjectComment:  map[string]interface{}{"key": "value"},
+		CommandRequest:  AppCommandRequest{Command: strings.Repeat("R", MaxCmdLength+100)},
+		CommandResponse: AppCommandResponse{Command: strings.Repeat("W", MaxCmdLength+100)},
+	}
+	req.Lint()
+	if !reflect.DeepEqual(req.SubjectComment, map[string]interface{}{"key": "value"}) {
+		t.Fatal(req.SubjectComment)
 	}
 }
 

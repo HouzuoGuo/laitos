@@ -182,6 +182,7 @@ func (sup *Supervisor) notifyFailure(cliFlags []string, launchErr error) {
 
 	hostName, _ := os.Hostname()
 	subject := inet.OutgoingMailSubjectKeyword + "-supervisor has detected a failure on " + hostName
+	summary := platform.GetProgramStatusSummary(false)
 	body := fmt.Sprintf(`
 Failure: %v
 
@@ -195,7 +196,7 @@ Latest stderr: %s
 `,
 		launchErr,
 		cliFlags,
-		platform.GetProgramStatusSummary(false),
+		summary.String(),
 		string(sup.mainStdout.Retrieve(false)),
 		string(sup.mainStderr.Retrieve(false)))
 	/*

@@ -1,6 +1,7 @@
 package toolbox
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -8,17 +9,18 @@ import (
 	"time"
 )
 
-/*
-SubjectReportSerialisedFieldSeparator is a separator character, ASCII Unit Separator, used to compact a subject report request into a
-single string.
-*/
-const SubjectReportSerialisedFieldSeparator = '\x1f'
+const (
+	// SubjectReportSerialisedFieldSeparator is a separator character, ASCII Unit Separator, used to compact a subject report request into a single string.
+	SubjectReportSerialisedFieldSeparator = '\x1f'
 
-/*
-SubjectReportSerialisedLineSeparator is a separator character, ASCII Record Separator, used in between lines of a compacted subject report
-request.
-*/
-const SubjectReportSerialisedLineSeparator = '\x1e'
+	// SubjectReportSerialisedLineSeparator is a separator character, ASCII Record Separator, used in between lines of a compacted subject report request.
+	SubjectReportSerialisedLineSeparator = '\x1e'
+
+	// MaxSubjectCommentStringLen is the maximum length of a comment coming in from a subject report request.
+	// If a comment exceeds this length, then it will be truncated to the length before it is stored in memory.
+	// Should truncation occurr, the truncated comment will be stored as a string, instead of a deserialised JSON object.
+	MaxSubjectCommentStringLen = 4 * 1024
+)
 
 /*
 AppCommandRequest describes an app command that message processor (local) would like monitored subject (remote to run).
@@ -54,8 +56,8 @@ type SubjectReportRequest struct {
 	SubjectIP string
 	// SubjectPlatform is the OS and CPU architecture of the subject's computer (GOOS/GOARCH).
 	SubjectPlatform string
-	// SubjectComment is a free from text the subject voluntarily includes in this report.
-	SubjectComment string
+	// SubjectComment is a free from JSON object/string the subject voluntarily includes in this report.
+	SubjectComment interface{}
 
 	// ServerTime is overwritten by server upon receiving the request, it is not supplied by a subject, and only used by the server internally.
 	ServerTime time.Time `json:"-"`
@@ -79,9 +81,12 @@ func (req *SubjectReportRequest) Lint() {
 	if len(req.SubjectPlatform) > 128 {
 		req.SubjectPlatform = req.SubjectPlatform[:128]
 	}
-	if len(req.SubjectComment) > 4*1024 {
-		// Allow up to 4KB of free form text to appear in the comment
-		req.SubjectComment = req.SubjectComment[:4*1024]
+	// The size of the comment attribute is not checked if it is a JSON object
+	if commentStr, isStr := req.SubjectComment.(string); isStr {
+		if len(commentStr) > MaxSubjectCommentStringLen {
+			// Allow up to 4KB of free form text to appear in the comment
+			req.SubjectComment = commentStr[:MaxSubjectCommentStringLen]
+		}
 	}
 	if len(req.CommandRequest.Command) > MaxCmdLength {
 		req.CommandRequest.Command = req.CommandRequest.Command[:MaxCmdLength]
@@ -96,6 +101,14 @@ SerialiseCompact serialises the request into a compact string.
 The fields carried by the serialised string rank from most important to least important.
 */
 func (req *SubjectReportRequest) SerialiseCompact() string {
+	var serialisedComment string
+	if commentStr, isStr := req.SubjectComment.(string); isStr {
+		serialisedComment = commentStr
+	} else {
+		if commentJSON, err := json.Marshal(req.SubjectComment); err == nil {
+			serialisedComment = string(commentJSON)
+		}
+	}
 	return fmt.Sprintf("%s%c%s%c%s%c%s%c%s%c%s%c%s%c%d%c%d",
 		// Ordered from most important to least important
 		req.SubjectHostName,
@@ -109,7 +122,7 @@ func (req *SubjectReportRequest) SerialiseCompact() string {
 
 		req.SubjectPlatform,
 		SubjectReportSerialisedFieldSeparator,
-		strings.ReplaceAll(req.SubjectComment, "\n", fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator)),
+		strings.ReplaceAll(serialisedComment, "\n", fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator)),
 		SubjectReportSerialisedFieldSeparator,
 		req.SubjectIP,
 		SubjectReportSerialisedFieldSeparator,
@@ -120,44 +133,57 @@ func (req *SubjectReportRequest) SerialiseCompact() string {
 	)
 }
 
+// ErrSubjectReportTruncated is returned when a subject report has been truncated during its transport, therefore not all of the fields were decoded successfully.
+// See also "DeserialiseFromCompact".
 var ErrSubjectReportTruncated = errors.New("the subject report request or response appears to have been truncated")
 
 /*
-DeserialiseFromCompact deserialises the report request from the compact input string.
-If the input string is incomplete or truncated, the function will try to decode as much information as possible while returning ErrSubjectReportRequestTruncated.
+DeserialiseFromCompact deserialises the report request from the compact input string. If the input string is incomplete or truncated during its transport,
+the function will try to decode as much information as possible while returning ErrSubjectReportRequestTruncated.
 */
 func (req *SubjectReportRequest) DeserialiseFromCompact(in string) error {
-	components := strings.Split(in, fmt.Sprintf("%c", SubjectReportSerialisedFieldSeparator))
-	if len(components) > 0 {
-		req.SubjectHostName = components[0]
+	attributes := strings.Split(in, fmt.Sprintf("%c", SubjectReportSerialisedFieldSeparator))
+	if len(attributes) > 0 {
+		req.SubjectHostName = attributes[0]
 	}
-	if len(components) > 1 {
-		req.CommandRequest.Command = components[1]
+	if len(attributes) > 1 {
+		req.CommandRequest.Command = attributes[1]
 	}
-	if len(components) > 2 {
-		req.CommandResponse.Command = components[2]
+	if len(attributes) > 2 {
+		req.CommandResponse.Command = attributes[2]
 	}
-	if len(components) > 3 {
-		req.CommandResponse.Result = strings.ReplaceAll(components[3], fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator), "\n")
+	if len(attributes) > 3 {
+		req.CommandResponse.Result = strings.ReplaceAll(attributes[3], fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator), "\n")
 	}
-	if len(components) > 4 {
-		req.SubjectPlatform = components[4]
+	if len(attributes) > 4 {
+		req.SubjectPlatform = attributes[4]
 	}
-	if len(components) > 5 {
-		req.SubjectComment = strings.ReplaceAll(components[5], fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator), "\n")
+	if len(attributes) > 5 {
+		commentAttribute := strings.ReplaceAll(attributes[5], fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator), "\n")
+		req.SubjectComment = commentAttribute
+		if len(commentAttribute) > MaxSubjectCommentStringLen {
+			// Truncate the oversize comment, do not attempt to decode it into a JSON object.
+			req.SubjectComment = commentAttribute[:MaxSubjectCommentStringLen]
+		} else {
+			// Allow up to 4KB of free form text to be decoded into a JSON object
+			var commentJSON map[string]interface{}
+			if err := json.Unmarshal([]byte(commentAttribute), &commentJSON); err == nil {
+				req.SubjectComment = commentJSON
+			}
+		}
 	}
-	if len(components) > 6 {
-		req.SubjectIP = components[6]
+	if len(attributes) > 6 {
+		req.SubjectIP = attributes[6]
 	}
-	if len(components) > 7 {
-		unixTimeSec, _ := strconv.Atoi(components[7])
+	if len(attributes) > 7 {
+		unixTimeSec, _ := strconv.Atoi(attributes[7])
 		req.CommandResponse.ReceivedAt = time.Unix(int64(unixTimeSec), 0)
 	}
-	if len(components) > 8 {
-		durationSec, _ := strconv.Atoi(components[8])
+	if len(attributes) > 8 {
+		durationSec, _ := strconv.Atoi(attributes[8])
 		req.CommandResponse.RunDurationSec = durationSec
 	}
-	if len(components) != 9 {
+	if len(attributes) != 9 {
 		return ErrSubjectReportTruncated
 	}
 	if req.SubjectHostName == "" {

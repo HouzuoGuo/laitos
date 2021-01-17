@@ -29,7 +29,8 @@ func (info *HandleSystemInfo) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
 	var result bytes.Buffer
 	// Latest runtime info
-	result.WriteString(platform.GetProgramStatusSummary(true))
+	summary := platform.GetProgramStatusSummary(true)
+	result.WriteString(summary.String())
 	// Latest stats
 	result.WriteString("\nDaemon stats - low/avg/high/total seconds and (count):\n")
 	result.WriteString(misc.GetLatestStats())

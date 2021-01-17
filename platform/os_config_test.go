@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -128,9 +129,14 @@ func TestSetTimeZone(t *testing.T) {
 }
 
 func TestGetSysSummary(t *testing.T) {
-	txt := GetProgramStatusSummary(true)
+	summary := GetProgramStatusSummary(true)
 	hostName, _ := os.Hostname()
-	if !strings.Contains(txt, inet.GetPublicIP()) || !strings.Contains(txt, hostName) || !strings.Contains(txt, os.Environ()[0]) {
-		t.Fatal(txt)
+	if summary.HostName != hostName ||
+		summary.PublicIP != inet.GetPublicIP() ||
+		summary.PID == 0 || summary.PPID == 0 ||
+		summary.ExePath == "" || summary.WorkingDirPath == "" ||
+		time.Since(summary.ClockTime).Seconds() > 3 {
+		t.Fatalf("%+v", summary)
 	}
+	t.Logf("%s", summary)
 }

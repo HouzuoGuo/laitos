@@ -91,31 +91,31 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("OK"))
 		return
 	}
+	summary := platform.GetProgramStatusSummary(false)
 	switch r.Method {
 	case http.MethodPost:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
-
 		var err error
 		// Try decrypting program configuration JSON file using the input password
 		key := strings.TrimSpace(r.FormValue(PasswordInputName))
 		decryptedConfig, err := misc.Decrypt(misc.ConfigFilePath, key)
 		if err != nil {
-			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetProgramStatusSummary(false), r.RequestURI, err.Error())))
+			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, err.Error())))
 			return
 		}
 		if decryptedConfig[0] != '{' {
-			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetProgramStatusSummary(false), r.RequestURI, "wrong key or malformed config file")))
+			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, "wrong key or malformed config file")))
 			return
 		}
 		// Success!
-		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetProgramStatusSummary(false), r.RequestURI, "success")))
+		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, "success")))
 		ws.alreadyUnlocked = true
 		// A short moment later, the function will launch laitos supervisor along with daemons.
 		go ws.LaunchMainProgram(strings.TrimSpace(r.FormValue("password")))
 		return
 	default:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
-		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, platform.GetProgramStatusSummary(false), r.RequestURI, "")))
+		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, "")))
 		return
 	}
 }

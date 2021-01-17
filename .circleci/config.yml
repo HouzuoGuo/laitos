@@ -7,6 +7,6 @@ jobs:
     parallelism: 1
     steps:
       - checkout
-      - run: env CGO_ENABLED=0 go build -a
       - run: env CGO_ENABLED=0 go vet ./...
+      - run: env CGO_ENABLED=0 go build -a
       - run: env CGO_ENABLED=0 go test -count=1 -v -cover ./...
