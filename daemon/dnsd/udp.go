@@ -113,6 +113,9 @@ func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte)
 		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to dial forwarder's address")
 		return
 	}
+	defer func() {
+		daemon.logger.MaybeMinorError(forwarderConn.Close())
+	}()
 	daemon.logger.MaybeMinorError(forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
 	if _, err := forwarderConn.Write(queryBody); err != nil {
 		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to write to forwarder")
