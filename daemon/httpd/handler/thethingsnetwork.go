@@ -79,7 +79,6 @@ type ReceptionComment struct {
 	GWLatitude, GWLongitude, GWAltitude float64
 	RSSI                                float64
 	SNR                                 float64
-	PayloadLen                          int
 	Channel                             int
 	TimeAtReception                     string
 }
