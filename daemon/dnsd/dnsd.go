@@ -59,8 +59,8 @@ var DefaultForwarders = []string{
 	"208.67.222.222:53",
 	"208.67.220.220:53",
 	// AdGuard DNS (https://adguard.com/en/adguard-dns/overview.html)
-	"176.103.130.130:53",
-	"176.103.130.131:53",
+	"94.140.14.14:53",
+	"94.140.15.15:53",
 	// SafeDNS (https://www.safedns.com/en/setup-on-dsl-wi-fi-routers/)
 	"195.46.39.39:53",
 	"195.46.39.40:53",
