@@ -116,7 +116,7 @@ type DownlinkMessage struct {
 func (msg DownlinkMessage) ToJSONString() string {
 	b, err := json.Marshal(msg)
 	if err != nil {
-		lalog.DefaultLogger.Warning("DownlinkMessage.ToJSONString", "", err, "failed to marshal message")
+		lalog.DefaultLogger.Warning("DownlinkMessage.ToJSONString", msg.DeviceID, err, "failed to marshal message")
 		return ""
 	}
 	return string(b)

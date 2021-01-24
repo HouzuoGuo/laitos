@@ -18,19 +18,28 @@ const (
 	NumLatestLogEntries = 128
 	// MaxLogMessageLen is the maximum length memorised for each of the latest log entries.
 	MaxLogMessageLen = 2048
+	truncatedLabel   = "...(truncated)..."
 )
 
 type LogWarningCallbackFunc func(componentName, componentID, funcName, actorName string, err error, msg string)
 
 var (
-	// LatestLogs are a small number of most recent log entries (warnings and info messages) kept in memory for on-demand inspection.
+	// LatestWarnings are a small number of the most recent log messages (warnings and info messages ) kept in memory for retrieval and inspection.
 	LatestLogs = NewRingBuffer(NumLatestLogEntries)
-	// LatestLogs are a small number of most recent log entries (warnings exclusively) kept in memory for on-demand inspection.
+
+	// LatestWarnings are a small number of the most recent warning log messages kept in memory for retrieval and inspection.
 	LatestWarnings = NewRingBuffer(NumLatestLogEntries)
-	/*
-		LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
-		The function must avoid generating a warning log message of itself, to avoid an infinite recursion.
-	*/
+
+	// LatestWarningActors are a small number of actors that have recently generated warning messages.
+	// The LRU buffer helps to gain a more comprehensive picture of the actors that have resulted in warning log messages by
+	// working as a conditional filter, so that only the first instance of warning from an actor (identified by component name + function name +
+	// actor name) will be added to the in-memory warning log buffer. The subsequent warning messages of that actor will be excluded from the
+	// warning buffer. The actor will get another chance to show up in the warning buffer when it eventually becomes stale and is subsequently
+	// evicted by this LRU buffer.
+	LatestWarningActors = NewLeastRecentlyUsedBuffer(NumLatestLogEntries)
+
+	// LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
+	// The function must avoid generating a warning log message of itself, to avoid an infinite recursion.
 	GlobalLogWarningCallback LogWarningCallbackFunc = nil
 )
 
@@ -100,11 +109,17 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 func (logger *Logger) Warning(functionName, actorName string, err error, template string, values ...interface{}) {
 	msg := logger.Format(functionName, actorName, err, template, values...)
 	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
-	LatestLogs.Push(msgWithTime)
-	LatestWarnings.Push(msgWithTime)
 	log.Print(msg)
-	if GlobalLogWarningCallback != nil {
-		go GlobalLogWarningCallback(logger.ComponentName, logger.getComponentIDs(), functionName, actorName, err, fmt.Sprintf(template, values...))
+	// All warning messages to to the latest logs buffer
+	LatestLogs.Push(msgWithTime)
+	// As determined by the LRU buffer, only the first instance of warning from this actor (identified by component name + function name +
+	// actor name) will be added to the in-memory warning log buffer, this helps to gain a more comprehensive picture of actors behind latest
+	// warning messages by suppressing the noisest actors.
+	if alreadyPresent, _ := LatestWarningActors.Add(functionName + actorName); !alreadyPresent {
+		LatestWarnings.Push(msgWithTime)
+		if GlobalLogWarningCallback != nil {
+			go GlobalLogWarningCallback(logger.ComponentName, logger.getComponentIDs(), functionName, actorName, err, fmt.Sprintf(template, values...))
+		}
 	}
 }
 
@@ -140,8 +155,6 @@ func (logger *Logger) MaybeMinorError(err error) {
 
 // DefaultLogger must be used when it is not possible to acquire a reference to a more dedicated logger.
 var DefaultLogger = &Logger{ComponentName: "default", ComponentID: []LoggerIDField{{"PID", os.Getpid()}}}
-
-const truncatedLabel = "...(truncated)..."
 
 /*
 TruncateString returns the input string as-is if it is less or equal to the desired length. Otherwise, it removes text

@@ -88,38 +88,47 @@ func TestLogger_Printf(t *testing.T) {
 
 func TestLogger_Warningf(t *testing.T) {
 	logger := Logger{}
-	logger.Warning("", "", nil, "")
-	logger.Warning("", "", nil, "")
+	// The first warning originated from Adam went into in-memory warning buffer
+	logger.Warning("TestLogger_Warningf", "adam", nil, "")
+	// The second warning also originated from Adam, therefore it still gets printed though it is excluded from the buffer.
+	logger.Warning("TestLogger_Warningf", "adam", nil, "")
 
 	var countLog, countWarn int
-	LatestLogs.IterateReverse(func(_ string) bool {
-		countLog++
+	LatestLogs.IterateReverse(func(msg string) bool {
+		if strings.Contains(msg, "TestLogger_Warningf") {
+			countLog++
+		}
 		return true
 	})
-	LatestWarnings.IterateReverse(func(_ string) bool {
-		countWarn++
+	LatestWarnings.IterateReverse(func(msg string) bool {
+		if strings.Contains(msg, "TestLogger_Warningf") {
+			countWarn++
+		}
 		return true
 	})
-	// Depending on the test case execution order, the count may be higher if Info test has already run.
-	if countLog < 2 || countWarn < 2 {
+	if countLog != 2 || countWarn != 1 {
 		t.Fatal(countLog, countWarn)
 	}
 
-	logger.Warning("", "", errors.New(""), "")
-	logger.Warning("", "", errors.New(""), "")
+	// Both warnings will end up in the in-memory warning buffer
+	logger.Warning("TestLogger_Warningf", "eve", errors.New(""), "")
+	logger.Warning("TestLogger_Warningf-anotherfunc", "adam", errors.New(""), "")
 
 	countWarn = 0
 	countLog = 0
-	LatestLogs.IterateReverse(func(_ string) bool {
-		countLog++
+	LatestLogs.IterateReverse(func(msg string) bool {
+		if strings.Contains(msg, "TestLogger_Warningf") {
+			countLog++
+		}
 		return true
 	})
-	LatestWarnings.IterateReverse(func(_ string) bool {
-		countWarn++
+	LatestWarnings.IterateReverse(func(msg string) bool {
+		if strings.Contains(msg, "TestLogger_Warningf") {
+			countWarn++
+		}
 		return true
 	})
-	// Depending on the test case execution order, the count may be higher if Info test has already run.
-	if countLog < 4 || countWarn < 4 {
+	if countLog != 4 || countWarn != 3 {
 		t.Fatal(countLog, countWarn)
 	}
 }

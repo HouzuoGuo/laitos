@@ -99,12 +99,12 @@ func (daemon *Daemon) StartAndBlock() error {
 		}
 		tcpServer.Initialise()
 		daemon.tcpServers[port] = tcpServer
-		go func() {
+		go func(tcpServer *common.TCPServer) {
 			defer wg.Done()
 			if err := tcpServer.StartAndBlock(); err != nil {
-				daemon.logger.Warning("StartAndBlock", "", err, "failed to start a TCP server")
+				daemon.logger.Warning("StartAndBlock", strconv.Itoa(tcpServer.ListenPort), err, "failed to start a TCP server")
 			}
-		}()
+		}(tcpServer)
 
 		// Start UDP server on the port
 		udpServer := &common.UDPServer{
@@ -116,12 +116,12 @@ func (daemon *Daemon) StartAndBlock() error {
 		}
 		udpServer.Initialise()
 		daemon.udpServers[port] = udpServer
-		go func(port int) {
+		go func(udpServer *common.UDPServer) {
 			defer wg.Done()
 			if err := udpServer.StartAndBlock(); err != nil {
-				daemon.logger.Warning("StartAndBlock", "", err, "failed to start a UDP server")
+				daemon.logger.Warning("StartAndBlock", strconv.Itoa(udpServer.ListenPort), err, "failed to start a UDP server")
 			}
-		}(port)
+		}(udpServer)
 	}
 	// Wait for servers to stop
 	wg.Wait()

@@ -94,15 +94,15 @@ func (hand *HandleMicrosoftBot) RetrieveJWT(ctx context.Context) (MicrosoftBotJw
 	}, "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token")
 
 	if err != nil {
-		hand.logger.Warning("HandleMicrosoftBot.RetrieveJWT", "", err, "failed due to IO error")
+		hand.logger.Warning("HandleMicrosoftBot.RetrieveJWT", hand.ClientAppID, err, "failed due to IO error")
 		return MicrosoftBotJwt{}, err
 	}
 	if err = httpResp.Non2xxToError(); err != nil {
-		hand.logger.Warning("HandleMicrosoftBot.RetrieveJWT", "", err, "failed due to HTTP error")
+		hand.logger.Warning("HandleMicrosoftBot.RetrieveJWT", hand.ClientAppID, err, "failed due to HTTP error")
 		return MicrosoftBotJwt{}, err
 	}
 	if err = json.Unmarshal(httpResp.Body, &hand.latestJWT); err != nil {
-		hand.logger.Warning("HandleMicrosoftBot.RetrieveJWT", "", err, "failed to deserialise JWT")
+		hand.logger.Warning("HandleMicrosoftBot.RetrieveJWT", hand.ClientAppID, err, "failed to deserialise JWT")
 		return MicrosoftBotJwt{}, err
 	}
 	// Exact time of expiry is simply time now + validity in seconds (ExpiresIn). Leave a second of buffer just in case.
@@ -161,7 +161,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 	go func(r *http.Request) {
 		convID := incoming.Conversation.ID
 		if convID == "" {
-			hand.logger.Warning("HandleMicrosoftBot", "", nil, "ignore conversation with empty ID")
+			hand.logger.Warning("HandleMicrosoftBot", hand.ClientAppID, nil, "ignore conversation with empty ID")
 			return
 		}
 
@@ -184,11 +184,11 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 		// Only process an incoming message if it arrived after server started up
 		messageTime, err := time.ParseInLocation("2006-01-02T15:04:05.999999999Z", incoming.Timestamp, time.UTC)
 		if err != nil {
-			hand.logger.Warning("HandleMicrosoftBot", "", err, "failed to parse timestamp \"%s\" from incoming message", incoming.Timestamp)
+			hand.logger.Warning("HandleMicrosoftBot", convID, err, "failed to parse timestamp \"%s\" from incoming message", incoming.Timestamp)
 			return
 		}
 		if !messageTime.After(misc.StartupTime.UTC()) {
-			hand.logger.Warning("HandleMicrosoftBot", "", err, "ignoring message from \"%s\" that arrived before server started up", incoming.ServiceURL)
+			hand.logger.Warning("HandleMicrosoftBot", convID, err, "ignoring message from \"%s\" that arrived before server started up", incoming.ServiceURL)
 			return
 		}
 
@@ -211,7 +211,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 		reply.Text = result.CombinedOutput
 		replyBody, err := json.Marshal(reply)
 		if err != nil {
-			hand.logger.Warning("HandleMicrosoftBot", "", err, "failed to serialise chat reply")
+			hand.logger.Warning("HandleMicrosoftBot", convID, err, "failed to serialise chat reply")
 			return
 		}
 		// Send away the reply
@@ -223,11 +223,11 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 			Body:        bytes.NewReader(replyBody),
 		}, incoming.ServiceURL+"/v3/conversations/%s/activities/%s", incoming.Conversation.ID, incoming.ID)
 		if err != nil {
-			hand.logger.Warning("HandleMicrosoftBot", "", err, "failed to send chat reply due to IO error")
+			hand.logger.Warning("HandleMicrosoftBot", convID, err, "failed to send chat reply due to IO error")
 			return
 		}
 		if err = resp.Non2xxToError(); err != nil {
-			hand.logger.Warning("HandleMicrosoftBot", "", err, "failed to send chat reply due to HTTP error")
+			hand.logger.Warning("HandleMicrosoftBot", convID, err, "failed to send chat reply due to HTTP error")
 			return
 		}
 	}(r)

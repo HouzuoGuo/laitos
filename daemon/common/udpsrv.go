@@ -102,7 +102,7 @@ func (srv *UDPServer) StartAndBlock() error {
 	packet := make([]byte, MaxUDPPacketSize)
 	for {
 		if misc.EmergencyLockDown {
-			srv.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
+			srv.logger.Warning("StartAndBlock", srv.AppName, misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		packetLen, clientAddr, err := srv.udpServer.ReadFromUDP(packet)
@@ -165,7 +165,7 @@ func (srv *UDPServer) Stop() {
 	defer srv.mutex.Unlock()
 	if srv.udpServer != nil {
 		if err := srv.udpServer.Close(); err != nil {
-			srv.logger.Warning("Stop", "", err, "failed to stop UDP server listener")
+			srv.logger.Warning("Stop", srv.AppName, err, "failed to stop UDP server listener")
 		}
 		srv.udpServer = nil
 	}

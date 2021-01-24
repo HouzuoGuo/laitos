@@ -650,7 +650,7 @@ func (instance *Instance) Start() error {
 	go func() {
 		select {
 		case err := <-processErrChan:
-			instance.logger.Warning("Start", "", err, "SlimerJS process has quit")
+			instance.logger.Warning("Start", instance.Tag, err, "SlimerJS process has quit")
 		case <-time.After(time.Duration(instance.AutoKillTimeoutSec) * time.Second):
 		}
 		instance.Kill()
@@ -778,24 +778,24 @@ func (instance *Instance) Kill() {
 	if jsProcCmd := instance.jsProcCmd; jsProcCmd != nil {
 		// Kill the docker client
 		if proc := jsProcCmd.Process; proc != nil {
-			instance.logger.Info("Kill", "", nil, "killing process PID %d", proc.Pid)
+			instance.logger.Info("Kill", instance.Tag, nil, "killing process PID %d", proc.Pid)
 			if !platform.KillProcess(proc) {
-				instance.logger.Warning("Kill", "", nil, "failed to kill process")
+				instance.logger.Warning("Kill", instance.Tag, nil, "failed to kill process")
 			}
 		}
 		// Kill SlimerJS container
-		instance.logger.Info("Kill", "", nil, "killing container %s", instance.containerName)
+		instance.logger.Info("Kill", instance.Tag, nil, "killing container %s", instance.containerName)
 		if out, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "docker", "kill", instance.containerName); err != nil {
-			instance.logger.Warning("Kill", "", nil, "failed to kill container - %v %s", err, out)
+			instance.logger.Warning("Kill", instance.Tag, nil, "failed to kill container - %v %s", err, out)
 		}
 		instance.containerName = ""
 		// Clean up after temporary files and directories
 		if err := os.RemoveAll(instance.RenderImageDir); err != nil && !os.IsNotExist(err) {
-			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImageDir)
+			instance.logger.Warning("Kill", instance.Tag, err, "failed to delete rendered web page at \"%s\"", instance.RenderImageDir)
 		}
 		if serverJSFile := instance.serverJSFile; serverJSFile != nil {
 			if err := os.Remove(serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
-				instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", serverJSFile.Name())
+				instance.logger.Warning("Kill", instance.Tag, err, "failed to delete temporary javascript code \"%s\"", serverJSFile.Name())
 			}
 		}
 	}

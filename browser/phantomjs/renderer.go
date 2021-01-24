@@ -665,17 +665,17 @@ func (instance *Instance) RenderPage() error {
 func (instance *Instance) Kill() {
 	if jsProcCmd := instance.jsProcCmd; jsProcCmd != nil {
 		if proc := jsProcCmd.Process; proc != nil {
-			instance.logger.Info("Kill", "", nil, "killing process PID %d", proc.Pid)
+			instance.logger.Info("Kill", instance.Tag, nil, "killing process PID %d", proc.Pid)
 			if !platform.KillProcess(proc) {
-				instance.logger.Warning("Kill", "", nil, "failed to kill process")
+				instance.logger.Warning("Kill", instance.Tag, nil, "failed to kill process")
 			}
 		}
 		if err := os.Remove(instance.RenderImagePath); err != nil && !os.IsNotExist(err) {
-			instance.logger.Warning("Kill", "", err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
+			instance.logger.Warning("Kill", instance.Tag, err, "failed to delete rendered web page at \"%s\"", instance.RenderImagePath)
 		}
 		if serverJSFile := instance.serverJSFile; serverJSFile != nil {
 			if err := os.Remove(serverJSFile.Name()); err != nil && !os.IsNotExist(err) {
-				instance.logger.Warning("Kill", "", err, "failed to delete temporary javascript code \"%s\"", serverJSFile.Name())
+				instance.logger.Warning("Kill", instance.Tag, err, "failed to delete temporary javascript code \"%s\"", serverJSFile.Name())
 			}
 		}
 	}

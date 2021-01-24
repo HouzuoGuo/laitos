@@ -270,7 +270,7 @@ func (daemon *Daemon) StopNoTLS() {
 		constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 		defer cancel()
 		if err := server.Shutdown(constraints); err != nil {
-			daemon.logger.Warning("StopNoTLS", "", err, "failed to shutdown")
+			daemon.logger.Warning("StopNoTLS", daemon.Address, err, "failed to shutdown")
 		}
 	}
 }
@@ -281,7 +281,7 @@ func (daemon *Daemon) StopTLS() {
 		constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 		defer cancel()
 		if err := server.Shutdown(constraints); err != nil {
-			daemon.logger.Warning("StopTLS", "", err, "failed to shutdown")
+			daemon.logger.Warning("StopTLS", daemon.Address, err, "failed to shutdown")
 		}
 	}
 }

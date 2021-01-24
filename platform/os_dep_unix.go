@@ -150,11 +150,11 @@ func LockMemory() {
 			memory used by go runtime from occupying too much main memory.
 			See https://github.com/golang/go/issues/28114 for more background information.
 		*/
-		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE | 0x4); err != nil {
-			logger.Warning("LockMemory", "", err, "failed to lock memory")
-			return
+		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE | 0x4); err == nil {
+			logger.Warning("LockMemory", "", nil, "program has been locked into memory for safety reasons")
+		} else {
+			logger.Warning("LockMemory", "mlockall", err, "failed to lock memory")
 		}
-		logger.Warning("LockMemory", "", nil, "program has been locked into memory for safety reasons")
 	} else {
 		logger.Warning("LockMemory", "", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information may leak onto disk.")
 	}

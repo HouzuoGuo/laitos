@@ -229,24 +229,24 @@ func main() {
 	if len(configBytes) == 0 {
 		// Proceed to read the config file
 		if misc.ConfigFilePath == "" {
-			logger.Abort("main", "", nil, "please provide a configuration file (-config)")
+			logger.Abort("main", "config", nil, "please provide a configuration file (-config)")
 			return
 		}
 		var err error
 		misc.ConfigFilePath, err = filepath.Abs(misc.ConfigFilePath)
 		if err != nil {
-			logger.Abort("main", "", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
+			logger.Abort("main", "config", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
 			return
 		}
 		// If config file is encrypted, read its password from standard input.
 		var isEncrypted bool
 		configBytes, isEncrypted, err = misc.IsEncrypted(misc.ConfigFilePath)
 		if err != nil {
-			logger.Abort("main", "", err, "failed to read configuration file \"%s\"", misc.ConfigFilePath)
+			logger.Abort("main", "config", err, "failed to read configuration file \"%s\"", misc.ConfigFilePath)
 			return
 		}
 		if isEncrypted {
-			logger.Info("main", "", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
+			logger.Info("main", "config", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
 			go func() {
 				// Collect program data decryption password from STDIN
 				pwdReader := bufio.NewReader(os.Stdin)
@@ -254,14 +254,14 @@ func main() {
 				if err == nil {
 					misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(pwdFromStdin)
 				} else {
-					logger.Warning("main", "", err, "failed to read decryption password from STDIN")
+					logger.Warning("main", "config", err, "failed to read decryption password from STDIN")
 				}
 			}()
 			// AWS lambda handler may also supply this password
 			pwd := <-misc.ProgramDataDecryptionPasswordInput
 			misc.ProgramDataDecryptionPassword = pwd
 			if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.ProgramDataDecryptionPassword); err != nil {
-				logger.Abort("main", "", err, "failed to decrypt config file")
+				logger.Abort("main", "config", err, "failed to decrypt config file")
 				return
 			}
 		}
@@ -327,9 +327,9 @@ func main() {
 	// Prepare environmental changes
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
-		logger.Warning("main", "", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
+		logger.Warning("main", "gomaxprocs", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
 	} else {
-		logger.Warning("main", "", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
+		logger.Warning("main", "gomaxprocs", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
 	}
 	if disableConflicts {
 		DisableConflicts()

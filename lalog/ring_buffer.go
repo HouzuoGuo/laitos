@@ -4,14 +4,15 @@ import (
 	"sync/atomic"
 )
 
-// Implement a ring buffer of strings, tailored to store latest log entries.
+// RingBuffer is a rudimentary implementation of a fixed-size circular buffer.
+// All buffered elements are strings.
 type RingBuffer struct {
 	size    int64
 	counter int64
 	buf     []string
 }
 
-// NewRingBuffer initialises a new string ring buffer by pre-allocating its internals.
+// NewRingBuffer returns an initialised ring buffer.
 func NewRingBuffer(size int64) *RingBuffer {
 	if size < 1 {
 		panic("NewRingBuffer: size must be greater than 0")

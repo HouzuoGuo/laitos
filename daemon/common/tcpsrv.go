@@ -98,7 +98,7 @@ func (srv *TCPServer) StartAndBlock() error {
 	}
 	for {
 		if misc.EmergencyLockDown {
-			srv.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
+			srv.logger.Warning("StartAndBlock", srv.AppName, misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		client, err := srv.listener.Accept()
@@ -158,9 +158,9 @@ func (srv *TCPServer) Stop() {
 	defer srv.mutex.Unlock()
 	if srv.listener != nil {
 		if err := srv.listener.Close(); err != nil {
-			srv.logger.Warning("Stop", "", err, "failed to stop TCP server listener")
+			srv.logger.Warning("Stop", srv.AppName, err, "failed to stop TCP server listener")
 		}
 		srv.listener = nil
 	}
-	srv.logger.Info("Stop", "", nil, "TCP server has shut down successfully")
+	srv.logger.Info("Stop", srv.AppName, nil, "TCP server has shut down successfully")
 }
