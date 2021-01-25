@@ -156,6 +156,18 @@ func (daemon *Daemon) Initialise() error {
 // Unconditionally forward the mail to forward addresses, then process feature commands if they are found.
 func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
 	bodyBytes := []byte(mailBody)
+	// Run feature command from mail body
+	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
+		if err := daemon.CommandRunner.Process(clientIP, bodyBytes); err != nil {
+			daemon.logger.Info("ProcessMail", fromAddr, nil, "failed to process toolbox command from mail body - %v", err)
+		}
+	}
+	// Check sender IP against blacklist, do not foward to recipients if it is likely spam.
+	if IsClientIPBlacklisted(clientIP) {
+		daemon.logger.Warning("ProcessMail", clientIP, nil, "not going to forward to recipients because the client IP was blacklisted for bad reputation. The mail was from \"%s\", content: %s",
+			fromAddr, mailBody)
+		return
+	}
 	// Determine whether the sender enforces DMARC policy
 	fromAddrWithoutDmarc := GetFromAddressWithDmarcWorkaround(fromAddr, rand.Intn(100000))
 	if fromAddrWithoutDmarc != fromAddr {
@@ -174,12 +186,6 @@ func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
 	// Offer the processed mail to test case
 	if daemon.processMailTestCaseFunc != nil {
 		daemon.processMailTestCaseFunc(fromAddr, string(bodyBytes))
-	}
-	// Run feature command from mail body
-	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
-		if err := daemon.CommandRunner.Process(clientIP, bodyBytes); err != nil {
-			daemon.logger.Info("ProcessMail", fromAddr, nil, "failed to process toolbox command from mail body - %v", err)
-		}
 	}
 }
 
