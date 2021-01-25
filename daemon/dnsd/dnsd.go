@@ -61,9 +61,7 @@ var DefaultForwarders = []string{
 	// AdGuard DNS (https://adguard.com/en/adguard-dns/overview.html)
 	"94.140.14.14:53",
 	"94.140.15.15:53",
-	// SafeDNS (https://www.safedns.com/en/setup-on-dsl-wi-fi-routers/)
-	"195.46.39.39:53",
-	"195.46.39.40:53",
+	// Do not use SafeDNS (www.safedns.com) as it has severe reliability issue as of 2021-01-25.
 	// Do not use Neustar (also known as "ultradns" and "dnsadvantage") as it often redirects users to their search home page,
 	// sometimes maliciously (e.g. facebook -> search).
 	// Do not use Comodo SecureDNS because it has severe reliability issue as of 2018-03-30.
