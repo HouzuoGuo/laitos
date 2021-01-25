@@ -42,31 +42,42 @@ const (
 	ToolboxCommandPrefix = '_'
 )
 
-/*
-DefaultForwarders is a list of well tested, public, recursive DNS resolvers that must support both TCP and UDP for queries.
-When DNS daemon's forwarders are left unspecified, it will use these default forwarders.
-Operators of the DNS resolvers below claim to offer enhanced cyber security to some degree.
-Having more addresses in the list helps to improve DNS server reliability, as each client query is handled by a random forwarder.
-*/
-var DefaultForwarders = []string{
-	// Quad9 (https://www.quad9.net/)
-	"9.9.9.9:53",
-	"149.112.112.112:53",
-	// CloudFlare with malware prevention (https://blog.cloudflare.com/introducing-1-1-1-1-for-families/)
-	"1.1.1.2:53",
-	"1.0.0.2:53",
-	// OpenDNS (https://www.opendns.com/setupguide/)
-	"208.67.222.222:53",
-	"208.67.220.220:53",
-	// AdGuard DNS (https://adguard.com/en/adguard-dns/overview.html)
-	"94.140.14.14:53",
-	"94.140.15.15:53",
-	// Do not use SafeDNS (www.safedns.com) as it has severe reliability issue as of 2021-01-25.
-	// Do not use Neustar (also known as "ultradns" and "dnsadvantage") as it often redirects users to their search home page,
-	// sometimes maliciously (e.g. facebook -> search).
-	// Do not use Comodo SecureDNS because it has severe reliability issue as of 2018-03-30.
-	// Norton ConnectSafe was shut down in November 2018.
-}
+var (
+	// blacklistResolver is the public recursive DNS resolver used for resolving IPs of blacklisted domains.
+	// The resolver must provide genuine answers without discrimination, and preferrably offer very low latency.
+	// In a simple experiment, the CloudFlare public DNS resolver appears to offer the lowest latency.
+	blacklistResolver = &net.Resolver{
+		PreferGo:     true,
+		StrictErrors: true,
+		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
+			return net.Dial("udp", "1.1.1.1:53")
+		},
+	}
+
+	// DefaultForwarders is a list of well tested, public, recursive DNS resolvers that must support both TCP and UDP for queries.
+	// When DNS daemon's forwarders are left unspecified, it will use these default forwarders.
+	// Operators of the DNS resolvers below claim to offer enhanced cyber security to some degree.
+	// Having more addresses in the list helps to improve DNS server reliability, as each client query is handled by a random forwarder.
+	DefaultForwarders = []string{
+		// Quad9 (https://www.quad9.net/)
+		"9.9.9.9:53",
+		"149.112.112.112:53",
+		// CloudFlare with malware prevention (https://blog.cloudflare.com/introducing-1-1-1-1-for-families/)
+		"1.1.1.2:53",
+		"1.0.0.2:53",
+		// OpenDNS (https://www.opendns.com/setupguide/)
+		"208.67.222.222:53",
+		"208.67.220.220:53",
+		// AdGuard DNS (https://adguard.com/en/adguard-dns/overview.html)
+		"94.140.14.14:53",
+		"94.140.15.15:53",
+		// Do not use SafeDNS (www.safedns.com) as it has severe reliability issue as of 2021-01-25.
+		// Do not use Neustar (also known as "ultradns" and "dnsadvantage") as it often redirects users to their search home page,
+		// sometimes maliciously (e.g. facebook -> search).
+		// Do not use Comodo SecureDNS because it has severe reliability issue as of 2018-03-30.
+		// Norton ConnectSafe was shut down in November 2018.
+	}
+)
 
 // A query to forward to DNS forwarder via DNS.
 type UDPQuery struct {
@@ -266,6 +277,7 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	parallelResolve.Add(numRoutines)
 	// Collect some nice counter data just for show
 	var countResolvedNames, countNonResolvableNames, countResolvedIPs, countResolutionAttempts int64
+	// Use a well known public recursive DNS resolver, otherwise the DNS resolver of the LAN may be already blocking ads, leading
 	for i := 0; i < numRoutines; i++ {
 		go func(i int) {
 			defer parallelResolve.Done()
@@ -281,7 +293,10 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 				if strings.ContainsRune(name, 0) {
 					continue
 				}
-				ips, err := net.LookupIP(name)
+				// Give each blacklisted name maximum of a second to resolve
+				timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+				ips, err := blacklistResolver.LookupIPAddr(timeoutCtx, name)
+				timeoutCancel()
 				newBlackListMutex.Lock()
 				newBlackList[name] = struct{}{}
 				if err == nil {

@@ -1,9 +1,11 @@
 package dnsd
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 )
@@ -40,5 +42,17 @@ func TestExtractNamesFromHostsContent(t *testing.T) {
 	names := ExtractNamesFromHostsContent(sample)
 	if !reflect.DeepEqual(names, []string{"t.co", "01234.com", "56789.com"}) {
 		t.Fatal(names)
+	}
+}
+
+func TestBlacklistResolver(t *testing.T) {
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+	defer cancel()
+	addrs, err := blacklistResolver.LookupIPAddr(timeoutCtx, "github.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(addrs) < 1 {
+		t.Fatal(addrs)
 	}
 }
