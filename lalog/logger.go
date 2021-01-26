@@ -36,7 +36,7 @@ var (
 	// actor name) will be added to the in-memory warning log buffer. The subsequent warning messages of that actor will be excluded from the
 	// warning buffer. The actor will get another chance to show up in the warning buffer when it eventually becomes stale and is subsequently
 	// evicted by this LRU buffer.
-	LatestWarningActors = NewLeastRecentlyUsedBuffer(NumLatestLogEntries)
+	LatestWarningActors = NewLeastRecentlyUsedBuffer(NumLatestLogEntries / 4)
 
 	// LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
 	// The function must avoid generating a warning log message of itself, to avoid an infinite recursion.
@@ -125,13 +125,14 @@ func (logger *Logger) Warning(functionName, actorName string, err error, templat
 
 // Print a log message and keep the message in latest log buffer. If there is an error, also keep the message in warnings buffer.
 func (logger *Logger) Info(functionName, actorName string, err error, template string, values ...interface{}) {
+	// If the log message comes with an error, upgrade it to a warning.
+	if err != nil {
+		logger.Warning(functionName, actorName, err, template, values...)
+		return
+	}
 	msg := logger.Format(functionName, actorName, err, template, values...)
 	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
 	LatestLogs.Push(msgWithTime)
-	if err != nil {
-		// If the log message comes with an error, upgrade the severity level to warning, so place it into recent warnings.
-		LatestWarnings.Push(msgWithTime)
-	}
 	log.Print(msg)
 }
 

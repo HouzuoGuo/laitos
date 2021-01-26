@@ -50,33 +50,41 @@ func TestLogger_Panicf(t *testing.T) {
 
 func TestLogger_Printf(t *testing.T) {
 	logger := Logger{}
-	logger.Info("", "", nil, "")
-	logger.Info("", "", nil, "")
+	logger.Info("TestLogger_Printf", "adam", nil, "alpha")
+	logger.Info("TestLogger_Printf", "adam", nil, "beta")
 
 	var countLog, countWarn int
-	LatestLogs.IterateReverse(func(_ string) bool {
-		countLog++
+	LatestLogs.IterateReverse(func(msg string) bool {
+		if strings.Contains(msg, "TestLogger_Printf") {
+			countLog++
+		}
 		return true
 	})
-	LatestWarnings.IterateReverse(func(_ string) bool {
-		countWarn++
+	LatestWarnings.IterateReverse(func(msg string) bool {
+		if strings.Contains(msg, "TestLogger_Printf") {
+			countWarn++
+		}
 		return true
 	})
 	if countLog != 2 {
 		t.Fatal(countLog, countWarn)
 	}
 
-	logger.Info("", "", errors.New(""), "")
-	logger.Info("", "", errors.New(""), "")
+	logger.Info("TestLogger_Printf", "eve", errors.New(""), "")
+	logger.Info("TestLogger_Printf-anotherfunc", "adam", errors.New(""), "")
 
 	countLog = 0
 	countWarn = 0
-	LatestLogs.IterateReverse(func(_ string) bool {
-		countLog++
+	LatestLogs.IterateReverse(func(msg string) bool {
+		if strings.Contains(msg, "TestLogger_Printf") {
+			countLog++
+		}
 		return true
 	})
-	LatestWarnings.IterateReverse(func(_ string) bool {
-		countWarn++
+	LatestWarnings.IterateReverse(func(msg string) bool {
+		if strings.Contains(msg, "TestLogger_Printf") {
+			countWarn++
+		}
 		return true
 	})
 	// Depending on the test case execution order, the count may be higher if Warning test has already run.

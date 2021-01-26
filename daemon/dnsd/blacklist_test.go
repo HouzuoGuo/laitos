@@ -45,10 +45,10 @@ func TestExtractNamesFromHostsContent(t *testing.T) {
 	}
 }
 
-func TestBlacklistResolver(t *testing.T) {
+func TestNeutralRecursiveResolver(t *testing.T) {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
 	defer cancel()
-	addrs, err := blacklistResolver.LookupIPAddr(timeoutCtx, "github.com")
+	addrs, err := NeutralRecursiveResolver.LookupIPAddr(timeoutCtx, "github.com")
 	if err != nil {
 		t.Fatal(err)
 	}
