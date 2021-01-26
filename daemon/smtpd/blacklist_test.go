@@ -1,6 +1,9 @@
 package smtpd
 
-import "testing"
+import (
+	"net"
+	"testing"
+)
 
 func TestGetBlacklistLookupName(t *testing.T) {
 	if toLookup, err := GetBlacklistLookupName("1.2.3.4", "example.com"); err != nil || toLookup != "4.3.2.1.example.com" {
@@ -14,12 +17,40 @@ func TestGetBlacklistLookupName(t *testing.T) {
 	}
 }
 
-func TestIsClientBlacklisted(t *testing.T) {
-	if IsClientIPBlacklisted("not-a-valid-ipv4-addr") {
-		t.Fatal("should not have blacklisted")
+func TestIsIPBlacklistIndication(t *testing.T) {
+	var tests = []struct {
+		ip       string
+		expected bool
+	}{
+		{"127.0.0.0", true},
+		{"127.0.0.1", true},
+		{"127.0.1.0", true},
+		{"127.1.0.1", false},
+		{"127.254.254.254", false},
+		{"1.1.1.1", false},
+		{"192.168.0.1", false},
 	}
-	if IsClientIPBlacklisted("1.1.1.1") {
-		t.Fatal("should not have blacklisted")
+	for _, test := range tests {
+		if IsIPBlacklistIndication(net.ParseIP(test.ip)) != test.expected {
+			t.Fatalf("return value for %s should have been %v", test.ip, test.expected)
+		}
+	}
+}
+
+func TestIsClientBlacklisted(t *testing.T) {
+	var tests = []struct {
+		ip       string
+		expected bool
+	}{
+		{"127.254.254.254", false},
+		{"1.1.1.1", false},
+		{"192.168.0.1", false},
+		{"not-a-valid-ipv4-addr", false},
+	}
+	for _, test := range tests {
+		if IsSuspectIPBlacklisted(test.ip) != test.expected {
+			t.Fatalf("return value for %s should have been %v", test.ip, test.expected)
+		}
 	}
 	// Is there an IP guaranteed to be blocked for sending spam?!
 }

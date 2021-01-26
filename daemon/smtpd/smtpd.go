@@ -163,7 +163,7 @@ func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
 		}
 	}
 	// Check sender IP against blacklist, do not foward to recipients if it is likely spam.
-	if IsClientIPBlacklisted(clientIP) {
+	if IsSuspectIPBlacklisted(clientIP) {
 		daemon.logger.Warning("ProcessMail", clientIP, nil, "not going to forward to recipients because the client IP was blacklisted for bad reputation. The mail was from \"%s\", content: %s",
 			fromAddr, mailBody)
 		return

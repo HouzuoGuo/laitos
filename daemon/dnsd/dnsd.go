@@ -43,10 +43,9 @@ const (
 )
 
 var (
-	// blacklistResolver is the public recursive DNS resolver used for resolving IPs of blacklisted domains.
-	// The resolver must provide genuine answers without discrimination, and preferrably offer very low latency.
-	// In a simple experiment, the CloudFlare public DNS resolver appears to offer the lowest latency.
-	blacklistResolver = &net.Resolver{
+	// NeutralRecursiveResolver is a public recursive DNS resolver that provides genuine answers without discrimination, and offers
+	// very low latency. The CloudFlare public DNS resolver appears to offer the lowest latency.
+	NeutralRecursiveResolver = &net.Resolver{
 		PreferGo:     true,
 		StrictErrors: true,
 		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
@@ -295,7 +294,7 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 				}
 				// Give each blacklisted name maximum of a second to resolve
 				timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
-				ips, err := blacklistResolver.LookupIPAddr(timeoutCtx, name)
+				ips, err := NeutralRecursiveResolver.LookupIPAddr(timeoutCtx, name)
 				timeoutCancel()
 				newBlackListMutex.Lock()
 				newBlackList[name] = struct{}{}
