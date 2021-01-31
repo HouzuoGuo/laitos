@@ -24,6 +24,7 @@ func TestIsIPBlacklistIndication(t *testing.T) {
 	}{
 		{"127.0.0.0", true},
 		{"127.0.0.1", true},
+		{"127.0.0.8", true},
 		{"127.0.1.0", true},
 		{"127.1.0.1", false},
 		{"127.254.254.254", false},

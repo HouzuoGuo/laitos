@@ -289,7 +289,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	var stoppedNormally bool
 	go func() {
 		if err := smtpd.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		stoppedNormally = true
 	}()
@@ -309,8 +309,8 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
 	}
-	// Due to unknown circumstance, netSMTP.SendMail often returns successfully before SMTP server has completely processed the mail.
-	time.Sleep(1 * time.Second)
+	// Due to unknown reason, netSMTP.SendMail always returns prematurely before it has completed the conversation with SMTP server.
+	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
 	if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, []byte(testMessage), []byte(lastEmailBody))
@@ -323,7 +323,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	if err := netSMTP.SendMail(addr, nil, "MsgFrom@microsoft.com", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
 	if !strings.HasPrefix(lastEmailFrom, "MsgFrom@microsoft-laitos-nodmarc-") || !strings.HasSuffix(lastEmailFrom, ".com") ||
 		!strings.Contains(lastEmailBody, "From: "+lastEmailFrom) || !strings.Contains(lastEmailBody, "Subject: text subject\n\ntest body") {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
@@ -337,7 +337,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@not-my-domain"}, []byte(testMessage)); !strings.Contains(err.Error(), "Bad address") {
 		t.Fatal(err)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
 	if lastEmailFrom != "" || lastEmailBody != "" {
 		t.Fatal(lastEmailFrom, lastEmailBody)
 	}
@@ -349,7 +349,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
 	if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatal(lastEmailFrom, lastEmailBody)
