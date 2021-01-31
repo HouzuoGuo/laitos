@@ -71,6 +71,7 @@ const (
 	<p>
 		Keyboard:
 		<input type="submit" name="action" value="Press Simultaneously"/>
+		<input type="submit" name="action" value="Press One By One"/>
 		Codes: <input type="text" name="press_keys" value="%s" size="50"/> (e.g. ctrl shift s)
 	</p>
 	<p>
@@ -240,7 +241,12 @@ func (handler *HandleVirtualMachine) Handle(w http.ResponseWriter, r *http.Reque
 		case "Press Simultaneously":
 			keys := regexp.MustCompile(`[a-zA-Z0-9_]+`).FindAllString(pressKeys, -1)
 			if len(keys) > 0 {
-				actionErr = handler.VM.ClickKeyboard(keys...)
+				actionErr = handler.VM.PressKeysSimultaneously(keys...)
+			}
+		case "Press One By One":
+			keys := regexp.MustCompile(`[a-zA-Z0-9_]+`).FindAllString(pressKeys, -1)
+			if len(keys) > 0 {
+				actionErr = handler.VM.PressKeysOneByOne(keys...)
 			}
 		default:
 			actionErr = fmt.Errorf("Unknown button action: %s", button)

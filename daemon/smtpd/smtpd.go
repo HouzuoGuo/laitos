@@ -313,7 +313,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
 	if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
-		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, []byte(testMessage), []byte(lastEmailBody))
+		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, testMessage, lastEmailBody)
 	}
 
 	// Send a mail with a From address of a DMARC-enforcing domain

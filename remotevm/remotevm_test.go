@@ -64,7 +64,11 @@ func TestVMInteractions(t *testing.T) {
 		}
 		t.Log(vm.GetDebugOutput())
 		// Press key combo
-		if err := vm.ClickKeyboard("ctrl", "alt", "f2"); err != nil {
+		if err := vm.PressKeysSimultaneously("ctrl", "alt", "f2"); err != nil {
+			t.Fatal(err)
+		}
+		// Press keys individually
+		if err := vm.PressKeysOneByOne("a", "b", "c"); err != nil {
 			t.Fatal(err)
 		}
 		t.Log(vm.GetDebugOutput())

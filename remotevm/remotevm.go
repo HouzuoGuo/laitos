@@ -344,7 +344,7 @@ func (vm *VM) MoveMouse(x, y int) error {
 }
 
 /*
-ClickKeyboard pushes and releases the keys given in the input sequence all at once.
+PressKeysSimultaneously pushes and releases the keys given in the input sequence all at once.
 Keys are identified by "QCode", which is a string that indicates key's name.
 E.g. in order to type the @ symbol, first configure the OS running inside VM to use the
 US keyboard layout, and then send codes ["shift", "2"].
@@ -352,7 +352,7 @@ US keyboard layout, and then send codes ["shift", "2"].
 QEMU developers have made it very challenging to find the comprehensive list of QCodes,
 but a partial list can be found at: https://en.wikibooks.org/wiki/QEMU/Monitor#sendkey_keys
 */
-func (vm *VM) ClickKeyboard(qKeyCodes ...string) error {
+func (vm *VM) PressKeysSimultaneously(qKeyCodes ...string) error {
 	keys := make([]interface{}, len(qKeyCodes))
 	for i, code := range qKeyCodes {
 		keys[i] = map[string]interface{}{
@@ -368,6 +368,29 @@ func (vm *VM) ClickKeyboard(qKeyCodes ...string) error {
 	})
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// PressKeysOneByOne pushes and releases the keys given in the input sequence, one key at a time.
+func (vm *VM) PressKeysOneByOne(qKeyCodes ...string) error {
+	for _, code := range qKeyCodes {
+		_, err := vm.executeQMP(map[string]interface{}{
+			"execute": "send-key",
+			"arguments": map[string]interface{}{
+				"keys": []interface{}{
+					map[string]interface{}{
+						"type": "qcode",
+						"data": code,
+					},
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+		// About 300 characters per minute or 60 words per minute
+		time.Sleep(200 * time.Millisecond)
 	}
 	return nil
 }
