@@ -151,7 +151,7 @@ func main() {
 	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (autounlock, dnsd, httpd, insecurehttpd, maintenance, plainsocket, serialport, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&awsLambda, launcher.LambdaFlagName, false, "(Optional) run AWS Lambda handler to proxy HTTP requests to laitos web server")
-	flag.BoolVar(&misc.EnableAWSIntegration, "awsinteg", false, "(Optional) activate AWS integration feature if their configuration has been given in environment variable")
+	flag.BoolVar(&misc.EnableAWSIntegration, "awsinteg", false, "(Optional) activate all points of integration with various AWS services such as sending warning log entries to SQS")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&pprofHTTPPort, "profhttpport", pprofHTTPPort, "(Optional) serve program profiling data (pprof) over HTTP on this port at localhost")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
@@ -311,12 +311,14 @@ func main() {
 		return
 	}
 	// From this point and onward, the code enjoys the supervision and safety provided by the supervisor.
+
 	if misc.EnableAWSIntegration && inet.IsAWS() {
+		// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
 		os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
 		beanstalk.Init()
 		ecs.Init()
 		ec2.Init()
-		_ = xray.Configure(xray.Config{ContextMissingStrategy: ctxmissing.NewDefaultLogErrorStrategy()})
+		_ = xray.Configure(xray.Config{ContextMissingStrategy: ctxmissing.NewDefaultIgnoreErrorStrategy()})
 		xray.SetLogger(xraylog.NewDefaultLogger(os.Stderr, xraylog.LogLevelWarn))
 	}
 
@@ -335,7 +337,7 @@ func main() {
 		DisableConflicts()
 	}
 	CopyNonEssentialUtilitiesInBackground()
-	InstallOptionalLoggerSQSCallback()
+	InstallOptionalLoggerSQSCallback(config.AWSIntegration.SendWarningLogToSQSURL)
 
 	for _, daemonName := range daemonNames {
 		// Daemons are started asynchronously and the order does not matter

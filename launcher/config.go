@@ -114,7 +114,23 @@ type HTTPHandlers struct {
 	ProcessExplorerEndpoint  string `json:"ProcessExplorerEndpoint"`
 }
 
-// The structure is JSON-compatible and capable of setting up all features and front-end services.
+// AWSIntegration contains configuration properties for global behaviours (e.g. logger) of laitos program to integrate with AWS
+// services such as SQS.
+type AWSIntegration struct {
+	// SendWarningLogToSQSURL is the URL of SQS queue that will receive a copy of each warning log entry.
+	// The queue will however ignore the warning log entries generated repeatedly by the same actor.
+	SendWarningLogToSQSURL string `json:"SendWarningLogToSQSURL"`
+	// ForwardMessageProcessorReportsToFirehoseStreamName is the name of kinesis firestream that will receive a copy of each
+	// subject report as they arrive.
+	ForwardMessageProcessorReportsToFirehoseStreamName string `json:"ForwardMessageProcessorReportsToFirehoseStreamName"`
+	// ForwardMessageProcessorReportsToSNSTopicARN is the ARN of SNS topic that will receive a copy of each subject report as they
+	// arrive.
+	ForwardMessageProcessorReportsToSNSTopicARN string `json:"ForwardMessageProcessorReportsToSNSTopicARN"`
+}
+
+// Config is an aggregated structure of configuration properties that include daemon settings, mail settings, cloud integration
+// settings, app settings, and so on.
+// The entry point of laitos program deserialises this structure from a (often) hand-crafted configuration file written in JSON.
 type Config struct {
 	/*
 		Features consist of all app instances, shared by all daemons and command runners. Avoid duplicating this
@@ -164,6 +180,9 @@ type Config struct {
 
 	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
 
+	// AWSIntegration are settings for integrating with various AWS services, such as S3 and SQS.
+	AWSIntegration AWSIntegration `json:"AWSIntegration"`
+
 	logger                lalog.Logger // logger handles log output from configuration serialisation and initialisation routines.
 	maintenanceInit       *sync.Once
 	dnsDaemonInit         *sync.Once
@@ -188,21 +207,19 @@ func (config *Config) Initialise() error {
 	}
 
 	// Initialise the optional AWS kinesis firehose client for a stream to get a copy of every report received by message processor
-	firehoseStreamName := os.Getenv("LAITOS_FORWARD_REPORTS_TO_FIREHOSE_STREAM_NAME")
 	var firehoseClient *awsinteg.KinesisHoseClient
 	var err error
-	if firehoseStreamName != "" {
-		config.logger.Info("Initialise", "", nil, "initialising kinesis firehose client for stream \"%s\"", firehoseStreamName)
+	if streamName := config.AWSIntegration.ForwardMessageProcessorReportsToFirehoseStreamName; streamName != "" {
+		config.logger.Info("Initialise", "", nil, "initialising kinesis firehose client for stream \"%s\"", streamName)
 		firehoseClient, err = awsinteg.NewKinesisHoseClient()
 		if err != nil {
 			config.logger.Warning("Initialise", "", err, "failed to initialise kinesis firehose client")
 		}
 	}
 	// Initialise the optional AWS SNS client for a topic to get a copy of every report received by message processor
-	snsTopicARN := os.Getenv("LAITOS_FORWARD_REPORTS_TO_SNS_TOPIC_ARN")
 	var snsClient *awsinteg.SNSClient
-	if snsTopicARN != "" {
-		config.logger.Info("Initialise", "", nil, "initialising SNS client for topic ARN \"%s\"", snsTopicARN)
+	if arn := config.AWSIntegration.ForwardMessageProcessorReportsToSNSTopicARN; arn != "" {
+		config.logger.Info("Initialise", "", nil, "initialising SNS client for topic ARN \"%s\"", arn)
 		snsClient, err = awsinteg.NewSNSClient()
 		if err != nil {
 			config.logger.Warning("Initialise", "", err, "failed to initialise SNS client")
@@ -230,9 +247,9 @@ func (config *Config) Initialise() error {
 			OwnerName:                       "app",
 			CmdProcessor:                    messageProcessorCommandProcessor,
 			ForwardReportsToKinesisFirehose: firehoseClient,
-			KinesisFirehoseStreamName:       firehoseStreamName,
+			KinesisFirehoseStreamName:       config.AWSIntegration.ForwardMessageProcessorReportsToFirehoseStreamName,
 			ForwardReportsToSNS:             snsClient,
-			SNSTopicARN:                     snsTopicARN,
+			SNSTopicARN:                     config.AWSIntegration.ForwardMessageProcessorReportsToSNSTopicARN,
 		}
 	}
 	/*

@@ -85,7 +85,7 @@ func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrict
 			responseRecorder.statusCode, responseRecorder.responseBodySize,
 			(time.Now().UnixNano()-beginTimeNano)/1000, (time.Now().UnixNano()-responseRecorder.timestampAtWriteCall.UnixNano())/1000)
 	}
-	// Integrate the decorated handler with AWS x-ray
+	// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
 	if misc.EnableAWSIntegration && inet.IsAWS() {
 		return xray.Handler(xray.NewDynamicSegmentNamer("LaitosHTTPD", "*"), http.HandlerFunc(decoratedHandler))
 	}

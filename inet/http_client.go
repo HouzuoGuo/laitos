@@ -139,6 +139,7 @@ func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam
 // DoHTTP makes an HTTP request and returns its HTTP response. Placeholders in the URL template must always use %s.
 func DoHTTP(ctx context.Context, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (resp HTTPResponse, err error) {
 	client := &http.Client{}
+	// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
 	if misc.EnableAWSIntegration && IsAWS() {
 		client = xray.Client(client)
 	}

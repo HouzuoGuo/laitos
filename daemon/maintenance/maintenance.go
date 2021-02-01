@@ -98,6 +98,9 @@ type Daemon struct {
 	MailCmdRunnerToTest *mailcmd.CommandRunner  `json:"-"`          // MailCmdRunnerToTest is mail command runner to be tested during health check.
 	HTTPHandlersToCheck httpd.HandlerCollection `json:"-"`          // HTTPHandlersToCheck are the URL handlers of an HTTP daemon to be tested during health check.
 
+	// UploadReportToS3Bucket is the name of S3 bucket into which the maintenance daemon shall upload its summary reports.
+	UploadReportToS3Bucket string `json:"UploadReportToS3Bucket"`
+
 	lastStepTimestamp int64     // lastStepTimestamp is the unix timestamp at which the last maintenance stage or a stage stap took place
 	loopIsRunning     int32     // Value is 1 only when maintenance loop is running
 	stop              chan bool // Signal maintenance loop to stop
@@ -242,20 +245,19 @@ func (daemon *Daemon) Execute() (string, bool) {
 	if err := ioutil.WriteFile(ReportFilePath, result.Bytes(), 0600); err != nil {
 		daemon.logger.Warning("Execute", "", err, "failed to persist latest maintenance report in %s, you may still find the report in Email or laitos program output.", ReportFilePath)
 	}
-	// Upload the latest maintenance report to S3 bucket, named after the date and time of the system wall clock.
-	uploadReportToS3Bucket := os.Getenv("LAITOS_UPLOAD_MAINT_REPORT_TO_S3_BUCKET")
-	if misc.EnableAWSIntegration && inet.IsAWS() && uploadReportToS3Bucket != "" {
-		daemon.logger.Info("Execute", "", nil, "will store a copy of the report in S3 bucket %s", uploadReportToS3Bucket)
+	if misc.EnableAWSIntegration {
+		// Upload the latest maintenance report to S3 bucket, named the object after the date and time of the system wall clock.
 		go func() {
+			daemon.logger.Info("Execute", "", nil, "will store a copy of the report in S3 bucket %s", daemon.UploadReportToS3Bucket)
 			s3Client, err := awsinteg.NewS3Client()
 			if err != nil {
-				daemon.logger.Warning("Execute", uploadReportToS3Bucket, err, "failed to initialise S3 client")
+				daemon.logger.Warning("Execute", daemon.UploadReportToS3Bucket, err, "failed to initialise S3 client")
 				return
 			}
 			// Spend at most 60 seconds at uploading the report file
 			uploadTimeoutCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
-			_ = s3Client.Upload(uploadTimeoutCtx, uploadReportToS3Bucket, time.Now().Format(time.RFC3339), bytes.NewReader(result.Bytes()))
+			_ = s3Client.Upload(uploadTimeoutCtx, daemon.UploadReportToS3Bucket, time.Now().Format(time.RFC3339), bytes.NewReader(result.Bytes()))
 		}()
 	}
 	return lalog.LintString(result.String(), inet.MaxMailBodySize), allOK

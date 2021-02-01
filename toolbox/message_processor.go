@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/awsinteg"
-	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
@@ -146,7 +145,7 @@ func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectRe
 	// Host name (DNS name) is not case sensitive
 	request.SubjectHostName = strings.TrimSpace(strings.ToLower(request.SubjectHostName))
 	// Send kinesis firehose a copy of the report
-	if misc.EnableAWSIntegration && inet.IsAWS() {
+	if misc.EnableAWSIntegration {
 		if proc.ForwardReportsToKinesisFirehose != nil && proc.KinesisFirehoseStreamName != "" {
 			go func() {
 				recordData, err := json.Marshal(request)

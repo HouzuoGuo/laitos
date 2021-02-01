@@ -15,11 +15,9 @@ var (
 	StartupTime = time.Now()
 	// ConfigFilePath is the absolute path to JSON configuration file that was used to launch this program.
 	ConfigFilePath string
-	/*
-		EnableAWSIntegration is a global flag that enables AWS integration features (such as sending warning log to SQS) to activate
-		if their configuration has been given in environment variables.
-		If the flag is false, then none of the AWS integration features will be activated.
-	*/
+
+	// EnableAWSIntegration is a global flag that determines whether to integrate with various AWS services for the normal operation of laitos,
+	// an example of such integration feature is to send incoming store&forward message to kinesis firehose.
 	EnableAWSIntegration bool
 	// EmergencyLockDown is a flag checked by features and daemons, they should stop functioning or refuse to serve when the flag is true.
 	EmergencyLockDown bool

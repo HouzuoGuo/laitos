@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/awsinteg"
-	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
@@ -49,9 +48,8 @@ InstallOptionalLoggerSQSCallback installs a global callback function for all lai
 log entry to AWS SQS.
 This behaviour is enabled optionally by specifying the queue URL in environment variable LAITOS_SEND_WARNING_LOG_TO_SQS_URL.
 */
-func InstallOptionalLoggerSQSCallback() {
-	sendWarningLogToSQSURL := os.Getenv("LAITOS_SEND_WARNING_LOG_TO_SQS_URL")
-	if misc.EnableAWSIntegration && inet.IsAWS() && sendWarningLogToSQSURL != "" {
+func InstallOptionalLoggerSQSCallback(sqsURL string) {
+	if misc.EnableAWSIntegration && sqsURL != "" {
 		logger.Info("InstallOptionalLoggerSQSCallback", "", nil, "installing callback for sending logger warning messages to SQS")
 		loggerSQSClientInitOnce.Do(func() {
 			sqsClient, err := awsinteg.NewSQSClient()
@@ -74,7 +72,7 @@ func InstallOptionalLoggerSQSCallback() {
 					Error:         err,
 					Message:       msg,
 				}
-				_ = sqsClient.SendMessage(sendTimeoutCtx, sendWarningLogToSQSURL, string(logMessageRecord.GetJSON()))
+				_ = sqsClient.SendMessage(sendTimeoutCtx, sqsURL, string(logMessageRecord.GetJSON()))
 			}
 		})
 	}
