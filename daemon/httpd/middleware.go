@@ -10,18 +10,25 @@ import (
 	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
-type middlewareResponseRecorder struct {
+// HTTPResponseRecorder is an http.ResponseWriter that helps an HTTP handler middleware to inspect the HTTP status code and size of response.
+type HTTPResponseRecorder struct {
 	http.ResponseWriter
-	statusCode       int
-	responseBodySize int
+	statusCode           int
+	responseBodySize     int
+	timestampAtWriteCall time.Time
 }
 
-func (rec *middlewareResponseRecorder) WriteHeader(statusCode int) {
+// WriteHeader memorises the status code in the recorder and then invokes the underlying ResponseWriter using the same status code.
+func (rec *HTTPResponseRecorder) WriteHeader(statusCode int) {
 	rec.statusCode = statusCode
 	rec.ResponseWriter.WriteHeader(statusCode)
 }
 
-func (rec *middlewareResponseRecorder) Write(b []byte) (int, error) {
+// Write memorises the time-to-1st-byte and accumulated size of the response, and then invokes the underlying ResponseWriter using the same data buffer.
+func (rec *HTTPResponseRecorder) Write(b []byte) (int, error) {
+	if rec.timestampAtWriteCall.IsZero() {
+		rec.timestampAtWriteCall = time.Now()
+	}
 	size, err := rec.ResponseWriter.Write(b)
 	rec.responseBodySize += size
 	return size, err
@@ -60,7 +67,7 @@ func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrict
 		}
 		// Check client IP against rate limit
 		remoteIP := handler.GetRealClientIP(r)
-		responseRecorder := &middlewareResponseRecorder{
+		responseRecorder := &HTTPResponseRecorder{
 			ResponseWriter: w,
 			statusCode:     http.StatusOK, // the default status code written by a response writer is 200 OK
 		}
@@ -73,9 +80,10 @@ func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrict
 		} else {
 			http.Error(w, "", http.StatusTooManyRequests)
 		}
-		daemon.logger.Info("Handler", remoteIP, nil, "User-Agent \"%s\" referred by \"%s\", requested \"%s %s %s\", responded with code %d and %d bytes in %dus",
+		daemon.logger.Info("Handler", remoteIP, nil, "User-Agent \"%s\" referred by \"%s\", requested \"%s %s %s\", responded with code %d and %d bytes in %dus (time to 1st byte %dus)",
 			r.Header.Get("User-Agent"), r.Header.Get("Referer"), r.Method, r.URL.EscapedPath(), r.Proto,
-			responseRecorder.statusCode, responseRecorder.responseBodySize, (time.Now().UnixNano()-beginTimeNano)/1000)
+			responseRecorder.statusCode, responseRecorder.responseBodySize,
+			(time.Now().UnixNano()-beginTimeNano)/1000, (time.Now().UnixNano()-responseRecorder.timestampAtWriteCall.UnixNano())/1000)
 	}
 	// Integrate the decorated handler with AWS x-ray
 	if misc.EnableAWSIntegration && inet.IsAWS() {
