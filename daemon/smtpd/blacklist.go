@@ -83,15 +83,15 @@ func IsIPBlacklistIndication(ip net.IP) bool {
 }
 
 // IsSuspectIPBlacklisted looks up the suspect IP from all sources of spam blacklists. If the suspect IP is blacklisted by any
-// of the spam blacklists, then the function will return true. If the suspect IP is not blacklisted or due to network error
-// the blacklist status cannot be determined, then the function will return false.
-func IsSuspectIPBlacklisted(suspectIP string) bool {
+// of the spam blacklists, then the function will return the domain name of the DNSBL. If the suspect IP is not blacklisted or
+// due to network error the blacklist status cannot be determined, then the function will return an empty string.
+func IsSuspectIPBlacklisted(suspectIP string) string {
 	// Wait for negative result from all look-up servers
 	resultsAllIn := make(chan struct{})
 	resultsWaitGroup := new(sync.WaitGroup)
 	resultsWaitGroup.Add(len(SpamBlacklistLookupServers))
 	// Collect individual lookup result within a second
-	lookupResult := make(chan bool, len(SpamBlacklistLookupServers))
+	lookupResult := make(chan string, len(SpamBlacklistLookupServers))
 	timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), DNSBlackListQueryTimeoutSec*time.Second)
 	defer timeoutCancel()
 	for _, lookupDomain := range SpamBlacklistLookupServers {
@@ -100,7 +100,7 @@ func IsSuspectIPBlacklisted(suspectIP string) bool {
 			lookupName, err := GetBlacklistLookupName(suspectIP, lookupDomain)
 			if err != nil {
 				// Cannot possibly blacklist an invalid suspect IP
-				lookupResult <- false
+				lookupResult <- ""
 				return
 			}
 			// Validate the result to make sure it is a valid response to a DNS-based blacklist query
@@ -108,7 +108,8 @@ func IsSuspectIPBlacklisted(suspectIP string) bool {
 			if err == nil {
 				for _, ip := range ips {
 					if IsIPBlacklistIndication(ip.IP) {
-						lookupResult <- true
+						lookupResult <- lookupDomain
+						return
 					}
 				}
 			}
@@ -122,12 +123,12 @@ func IsSuspectIPBlacklisted(suspectIP string) bool {
 	select {
 	case <-resultsAllIn:
 		// All lookup servers came back with negative result
-		return false
+		return ""
 	case <-timeoutCtx.Done():
 		// None of the servers reached so far came back positive before timeout
-		return false
+		return ""
 	case ret := <-lookupResult:
-		// Positive or malformed/invalid suspect IP
+		// The domain name of DNSBL that responded with a positive indication, or empty string for invalid suspect IP.
 		return ret
 	}
 }

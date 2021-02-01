@@ -40,13 +40,12 @@ func TestIsIPBlacklistIndication(t *testing.T) {
 
 func TestIsClientBlacklisted(t *testing.T) {
 	var tests = []struct {
-		ip       string
-		expected bool
+		ip, expected string
 	}{
-		{"127.254.254.254", false},
-		{"1.1.1.1", false},
-		{"192.168.0.1", false},
-		{"not-a-valid-ipv4-addr", false},
+		{"127.254.254.254", ""},
+		{"1.1.1.1", ""},
+		{"192.168.0.1", ""},
+		{"not-a-valid-ipv4-addr", ""},
 	}
 	for _, test := range tests {
 		if IsSuspectIPBlacklisted(test.ip) != test.expected {
