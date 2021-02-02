@@ -16,9 +16,12 @@ var (
 	// ConfigFilePath is the absolute path to JSON configuration file that was used to launch this program.
 	ConfigFilePath string
 
-	// EnableAWSIntegration is a global flag that determines whether to integrate with various AWS services for the normal operation of laitos,
+	// EnableAWSIntegration is a program-global flag that determines whether to integrate with various AWS services for the normal operation of laitos,
 	// an example of such integration feature is to send incoming store&forward message to kinesis firehose.
 	EnableAWSIntegration bool
+	// EnablePrometheusIntegration is a program-global flag that determines whether to enable integration with prometheus by collecting and
+	// serving metrics readings.
+	EnablePrometheusIntegration bool
 	// EmergencyLockDown is a flag checked by features and daemons, they should stop functioning or refuse to serve when the flag is true.
 	EmergencyLockDown bool
 	// ErrEmergencyLockDown is returned by some daemons to inform user that lock-down is in effect.

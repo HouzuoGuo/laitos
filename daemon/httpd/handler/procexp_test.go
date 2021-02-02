@@ -9,11 +9,15 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/platform/procexp"
 )
 
 func TestHandleProcessExplorer_SelfTest(t *testing.T) {
 	handler := &HandleProcessExplorer{}
+	if err := handler.Initialise(lalog.Logger{}, nil, ""); err != nil {
+		t.Fatal(err)
+	}
 	if err := handler.SelfTest(); err != nil {
 		t.Fatal(err)
 	}

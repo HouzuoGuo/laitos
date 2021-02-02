@@ -8,6 +8,7 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/aws/aws-xray-sdk-go/xray"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // HTTPResponseRecorder is an http.ResponseWriter that helps an HTTP handler middleware to inspect the HTTP status code and size of response.
@@ -34,56 +35,67 @@ func (rec *HTTPResponseRecorder) Write(b []byte) (int, error) {
 	return size, err
 }
 
-/*
-DecorateWithMiddleware returns an HTTP middleware handler that performs the following tasks:
-- Limit the maximum size of HTTP request body to be processed.
-- If emergency lock down is in effect, respond to client without invoking the actual handler function.
-- Check client IP against rate limit.
-- Log and record the duration of the request.
-- Integrate with AWS x-ray.
-*/
-func (daemon *Daemon) DecorateWithMiddleware(rateLimit *misc.RateLimit, restrictedRequestSize bool, next http.HandlerFunc) http.Handler {
+// DecorateWithMiddleware offers these additional features to the input handler function:
+// - If emergency lock down is in effect, respond to client without invoking the actual handler function.
+// - Check client IP against rate limit.
+// - Limit the maximum size of HTTP request body to be processed.
+// - Log and record the duration of the request.
+// - Record stats in prometheus histogram.
+// - Integrate with AWS x-ray.
+func (daemon *Daemon) DecorateWithMiddleware(handlerTypeLabel, handlerLocationLabel string, rateLimit *misc.RateLimit, restrictedRequestSize bool, next http.HandlerFunc,
+	durationHistogram, timeToFirstByteHistogram, responseSizeHistogram *prometheus.HistogramVec) http.Handler {
+	promLabels := prometheus.Labels{PrometheusHandlerTypeLabel: handlerTypeLabel, PrometheusHandlerLocationLabel: handlerLocationLabel}
+	var durationObs, timeToFirstByteObs, responseSizeObs prometheus.Observer
+	if misc.EnablePrometheusIntegration {
+		durationObs = durationHistogram.With(promLabels)
+		timeToFirstByteObs = timeToFirstByteHistogram.With(promLabels)
+		responseSizeObs = responseSizeHistogram.With(promLabels)
+	}
 	decoratedHandler := func(w http.ResponseWriter, r *http.Request) {
 		// Record the duration of request handling in stats
-		beginTimeNano := time.Now().UnixNano()
+		beginTime := time.Now()
 		defer func() {
-			misc.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
+			misc.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTime.UnixNano()))
 		}()
-		// Lmit the maximum size of HTTP request body to be processed
-		if restrictedRequestSize {
-			r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
-		}
+		// Shortcut - program-wide emergency lock-down
 		if misc.EmergencyLockDown {
 			/*
 				An error response usually should carry status 5xx in this case, but the intention of
 				emergency stop is to disable the program rather than crashing it and relaunching it.
-				If an external trigger such as load balancer health check knocks on HTTP endpoint and relaunches
+				If an external trigger such as load balancer health check knocks on HTTP endpoint and restarts
 				the program after consecutive HTTP failures, it would defeat the intention of emergency stop.
 				Hence the status code here is OK.
 			*/
 			_, _ = w.Write([]byte(misc.ErrEmergencyLockDown.Error()))
-			misc.HTTPDStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 			return
 		}
-		// Check client IP against rate limit
+		// Shortcut - rate limit check
 		remoteIP := handler.GetRealClientIP(r)
+		if !rateLimit.Add(remoteIP, true) {
+			http.Error(w, "", http.StatusTooManyRequests)
+			return
+		}
 		responseRecorder := &HTTPResponseRecorder{
 			ResponseWriter: w,
 			statusCode:     http.StatusOK, // the default status code written by a response writer is 200 OK
 		}
-		if rateLimit.Add(remoteIP, true) {
-			next.ServeHTTP(responseRecorder, r)
-			// Always close the request body
-			if r.Body != nil {
-				_ = r.Body.Close()
-			}
-		} else {
-			http.Error(w, "", http.StatusTooManyRequests)
+		if restrictedRequestSize {
+			// Lmit the maximum size of HTTP request body to be processed
+			r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
 		}
-		daemon.logger.Info("Handler", remoteIP, nil, "User-Agent \"%s\" referred by \"%s\", requested \"%s %s %s\", responded with code %d and %d bytes in %dus (time to 1st byte %dus)",
+		next.ServeHTTP(responseRecorder, r)
+		handlerDuration := time.Since(beginTime)
+		timeToFirstByteDuration := time.Since(beginTime)
+		daemon.logger.Info("decoratedHandler", remoteIP, nil, "User-Agent \"%s\" referred by \"%s\", requested \"%s %s %s\", responded with code %d and %d bytes in %dus (time to 1st byte %dus)",
 			r.Header.Get("User-Agent"), r.Header.Get("Referer"), r.Method, r.URL.EscapedPath(), r.Proto,
 			responseRecorder.statusCode, responseRecorder.responseBodySize,
-			(time.Now().UnixNano()-beginTimeNano)/1000, (time.Now().UnixNano()-responseRecorder.timestampAtWriteCall.UnixNano())/1000)
+			handlerDuration.Microseconds(), timeToFirstByteDuration.Microseconds())
+		// Give the observations of HTTP routine processing stats to prometheus
+		if misc.EnablePrometheusIntegration {
+			durationObs.Observe(handlerDuration.Seconds())
+			timeToFirstByteObs.Observe(timeToFirstByteDuration.Seconds())
+			responseSizeObs.Observe(float64(responseRecorder.responseBodySize))
+		}
 	}
 	// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
 	if misc.EnableAWSIntegration && inet.IsAWS() {

@@ -112,6 +112,8 @@ type HTTPHandlers struct {
 	AppCommandEndpoint       string `json:"AppCommandEndpoint"`
 	ReportsRetrievalEndpoint string `json:"ReportsRetrievalEndpoint"`
 	ProcessExplorerEndpoint  string `json:"ProcessExplorerEndpoint"`
+
+	PrometheusMetricsEndpoint string `json:"PrometheusMetricsEndpoint"`
 }
 
 // AWSIntegration contains configuration properties for global behaviours (e.g. logger) of laitos program to integrate with AWS
@@ -584,6 +586,9 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		}
 		if config.HTTPHandlers.ProcessExplorerEndpoint != "" {
 			handlers[config.HTTPHandlers.ProcessExplorerEndpoint] = &handler.HandleProcessExplorer{}
+		}
+		if config.HTTPHandlers.PrometheusMetricsEndpoint != "" {
+			handlers[config.HTTPHandlers.PrometheusMetricsEndpoint] = &handler.HandlePrometheus{}
 		}
 		config.HTTPDaemon.HandlerCollection = handlers
 		stripURLPrefixFromRequest := os.Getenv(EnvironmentStripURLPrefixFromRequest)

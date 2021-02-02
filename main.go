@@ -152,6 +152,7 @@ func main() {
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&awsLambda, launcher.LambdaFlagName, false, "(Optional) run AWS Lambda handler to proxy HTTP requests to laitos web server")
 	flag.BoolVar(&misc.EnableAWSIntegration, "awsinteg", false, "(Optional) activate all points of integration with various AWS services such as sending warning log entries to SQS")
+	flag.BoolVar(&misc.EnablePrometheusIntegration, "prominteg", false, "(Optional) activate all points of integration with Prometheus such as collecting performance metrics and serving them over HTTP")
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&pprofHTTPPort, "profhttpport", pprofHTTPPort, "(Optional) serve program profiling data (pprof) over HTTP on this port at localhost")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")

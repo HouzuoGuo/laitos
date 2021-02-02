@@ -28,6 +28,7 @@ import (
 	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -37,6 +38,11 @@ const (
 
 	// MaxRequestBodyBytes is the maximum size (in bytes) of a request body that HTTP server will process for a request.
 	MaxRequestBodyBytes = 1024 * 1024
+
+	// PrometheusHandlerTypeLabel is the name of data label given to prometheus observers, the label data shall be the symbol name of the HTTP handler's type.
+	PrometheusHandlerTypeLabel = "handler_type"
+	// PrometheusHandlerLocationLabel is the name of data label given to prometheus observers, the label data shall be the URL location at which HTTP handler is installed.
+	PrometheusHandlerLocationLabel = "url_location"
 )
 
 // HandlerCollection is a mapping between URL and implementation of handlers. It does not contain directory handlers.
@@ -141,9 +147,40 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 	if (daemon.TLSCertPath != "" || daemon.TLSKeyPath != "") && (daemon.TLSCertPath == "" || daemon.TLSKeyPath == "") {
 		return errors.New("httpd.Initialise: missing TLS certificate or key path")
 	}
+
 	// Install handlers with rate-limiting middleware
 	daemon.mux = new(http.ServeMux)
 	daemon.AllRateLimits = map[string]*misc.RateLimit{}
+
+	// Prometheus histograms that use a label to tell the HTTP handler associated with the histogram metrics
+	var handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram *prometheus.HistogramVec
+	if misc.EnablePrometheusIntegration {
+		metricsLabelNames := []string{PrometheusHandlerTypeLabel, PrometheusHandlerLocationLabel}
+		handlerDurationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "laitos_httpd_handler_duration_seconds",
+			Help: "The run-duration of HTTP handler function in seconds",
+			// 1, 50, 100, 200, 500ms, and 1 second
+			Buckets: []float64{0.001, 0.05, 0.1, 0.2, 0.5, 1},
+		}, metricsLabelNames)
+		responseTimeToFirstByteHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "laitos_httpd_response_time_to_first_byte_seconds",
+			Help: "The time-to-first-byte of HTTP handler function in seconds",
+			// 1, 50, 100, 200, 500ms, and 1 second
+			Buckets: []float64{0.001, 0.05, 0.1, 0.2, 0.5, 1},
+		}, metricsLabelNames)
+		responseSizeHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "laitos_httpd_response_size_bytes",
+			Help: "The size of response produced by HTTP handler function in bytes",
+			// 100, 500 bytes, 1KB, 8KB, 64KB, 512KB
+			Buckets: []float64{100, 500, 1024, 1024 * 8, 1024 * 64, 1024 * 512},
+		}, metricsLabelNames)
+		for _, histogram := range []*prometheus.HistogramVec{handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram} {
+			if err := prometheus.Register(histogram); err != nil {
+				daemon.logger.Warning("Initialise", "", err, "failed to register prometheus metrics collectors")
+			}
+		}
+	}
+
 	// Install directory handlers
 	if daemon.ServeDirectories != nil {
 		for urlLocation, dirPath := range daemon.ServeDirectories {
@@ -163,10 +200,13 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 				Logger:   daemon.logger,
 			}
 			daemon.AllRateLimits[urlLocation] = rl
-			daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(rl, true, http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))
-			daemon.logger.Info("Initialise", "", nil, "installed directory listing handler at location %s", urlLocation)
+			daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware("FileServer", urlLocation, rl, true,
+				http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc),
+				handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram))
+			daemon.logger.Info("Initialise", "", nil, "installed directory listing handler at location \"%s\"", urlLocation)
 		}
 	}
+
 	// Install web service handlers
 	for urlLocation, hand := range daemon.HandlerCollection {
 		if err := hand.Initialise(daemon.logger, daemon.Processor, stripURLPrefixFromResponse); err != nil {
@@ -181,9 +221,12 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 		daemon.AllRateLimits[urlLocation] = rl
 		// With the exception of file upload handler, all handlers will be subject to a limited request size.
 		_, unrestrictedRequestSize := hand.(*handler.HandleFileUpload)
-		daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(rl, !unrestrictedRequestSize, hand.Handle))
-		daemon.logger.Info("Initialise", "", nil, "installed web service at location %s", urlLocation)
+		handlerTypeName := reflect.TypeOf(hand).String()
+		daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(handlerTypeName, urlLocation, rl, !unrestrictedRequestSize, hand.Handle,
+			handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram))
+		daemon.logger.Info("Initialise", "", nil, "installed web service \"%s\" at location \"%s\"", handlerTypeName, urlLocation)
 	}
+
 	// Initialise all rate limits
 	for _, limit := range daemon.AllRateLimits {
 		limit.Initialise()
@@ -691,6 +734,8 @@ func PrepareForTestHTTPD(t testingstub.T) {
 		Unfortunately due to the difficulty in making preparations for concurrent tests on multiple HTTP daemons, there
 		won't be automated clean up for these files.
 	*/
+	// Globally enable prometheus integration so to ensure that initialisation and metrics recording code will run during the test
+	misc.EnablePrometheusIntegration = true
 }
 
 // Run unit test on HTTP daemon. See TestHTTPD_StartAndBlock for daemon setup.
@@ -703,7 +748,7 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 <a href="a.html">a.html</a>
 </pre>
 ` {
-		t.Fatal(err, string(resp.Body), resp)
+		t.Fatalf("%v\n%s\n%v", err, string(resp.Body), resp)
 	}
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir/a.html")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
