@@ -298,6 +298,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	}()
 	// Run maintenance routine at regular interval
 	go func() {
+		firstRunDelay := time.After(2 * time.Minute)
 		daemon.logger.Info("StartAndBlock", "", nil, "the maintenance routines will run in 2 minutes, and then every ~%d hours", daemon.IntervalSec/3600)
 		for {
 			if misc.EmergencyLockDown {
@@ -306,7 +307,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			select {
 			case <-daemon.runContext.Done():
 				return
-			case <-time.After(2 * time.Minute):
+			case <-firstRunDelay:
 				// The first run does not have to wait for the interval to pass
 				daemon.Execute()
 			case <-maintenanceRoutineTicker.C:
