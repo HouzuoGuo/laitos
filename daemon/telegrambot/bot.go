@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
@@ -80,8 +79,8 @@ type Daemon struct {
 
 	messageOffset int64           // Process chat messages arrived after this point
 	userRateLimit *misc.RateLimit // Prevent user from flooding bot with new messages
-	loopIsRunning int32           // Value is 1 only when message loop is running
-	stop          chan bool       // Signal message loop to stop
+	runContext    context.Context
+	runCancelFunc context.CancelFunc
 	logger        lalog.Logger
 }
 
@@ -107,7 +106,6 @@ func (bot *Daemon) Initialise() error {
 		Logger:   bot.logger,
 	}
 	bot.userRateLimit.Initialise()
-	bot.stop = make(chan bool)
 	return nil
 }
 
@@ -179,6 +177,7 @@ func (bot *Daemon) ProcessMessages(ctx context.Context, updates APIUpdates) {
 
 // Immediately begin processing incoming chat messages. Block caller indefinitely.
 func (bot *Daemon) StartAndBlock() error {
+	bot.runContext, bot.runCancelFunc = context.WithCancel(context.Background())
 	/*
 		Make a test API call to verify the correctness of authorization token. This test call must not return in case of
 		IO error or unexpected HTTP response status. As of 2017-11-26, status 404 is the only indication of incorrect
@@ -193,11 +192,9 @@ func (bot *Daemon) StartAndBlock() error {
 	lastIdle := time.Now().Unix()
 	for {
 		if misc.EmergencyLockDown {
-			atomic.StoreInt32(&bot.loopIsRunning, 0)
 			bot.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
-		atomic.StoreInt32(&bot.loopIsRunning, 1)
 		// Log a message if the loop has not processed messages for a while
 		if time.Now().Unix()-lastIdle > 1800 {
 			bot.logger.Info("Loop", "", nil, "has been idle for %d seconds", 1800)
@@ -241,8 +238,7 @@ func (bot *Daemon) StartAndBlock() error {
 	sleepAndContinue:
 		randSleepSec := PollIntervalSecMin + rand.Intn(PollIntervalSecMax-PollIntervalSecMin)
 		select {
-		case <-bot.stop:
-			atomic.StoreInt32(&bot.loopIsRunning, 0)
+		case <-bot.runContext.Done():
 			return nil
 		case <-time.After(time.Duration(randSleepSec) * time.Second):
 		}
@@ -251,9 +247,7 @@ func (bot *Daemon) StartAndBlock() error {
 
 // Stop previously started message handling loop.
 func (bot *Daemon) Stop() {
-	if atomic.CompareAndSwapInt32(&bot.loopIsRunning, 1, 0) {
-		bot.stop <- true
-	}
+	bot.runCancelFunc()
 }
 
 // Run unit tests on telegram bot. See TestSMTPD_StartAndBlock for bot setup.
