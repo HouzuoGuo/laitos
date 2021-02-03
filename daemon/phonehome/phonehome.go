@@ -12,7 +12,6 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
@@ -61,8 +60,8 @@ type Daemon struct {
 	// cmdProcessor runs app commands coming in from a store&forward message processor server.
 	Processor *toolbox.CommandProcessor `json:"-"`
 
-	loopIsRunning int32     // Value is 1 only when daemon loop is running
-	stop          chan bool // Signal maintenance loop to stop
+	runContext    context.Context
+	runCancelFunc context.CancelFunc
 	logger        lalog.Logger
 }
 
@@ -109,7 +108,6 @@ func (daemon *Daemon) Initialise() error {
 			srv.HostName = u.Hostname()
 		}
 	}
-	daemon.stop = make(chan bool)
 	daemon.logger = lalog.Logger{ComponentName: "phonehome"}
 	return nil
 }
@@ -157,6 +155,7 @@ func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostNam
 
 // StartAndBlock starts the periodic reports and blocks caller until the daemon is stopped.
 func (daemon *Daemon) StartAndBlock() error {
+	daemon.runContext, daemon.runCancelFunc = context.WithCancel(context.Background())
 	/*
 		Instead of sending numerous reports in a row and then wait for a longer duration, send one report at a time and
 		wait a shorter duration. This helps to reduce server load and overall offers more reliability.
@@ -170,10 +169,8 @@ func (daemon *Daemon) StartAndBlock() error {
 		len(daemon.MessageProcessorServers), intervalSecBetweenReports)
 	for {
 		if misc.EmergencyLockDown {
-			atomic.StoreInt32(&daemon.loopIsRunning, 0)
 			return misc.ErrEmergencyLockDown
 		}
-		atomic.StoreInt32(&daemon.loopIsRunning, 1)
 		/*
 			Shuffle the destination URLs that reports are sent to.
 			Reports are sent using 2FA authentication rather than the regular password authentication, if destinations
@@ -188,8 +185,7 @@ func (daemon *Daemon) StartAndBlock() error {
 
 		for _, i := range srvIndexes {
 			select {
-			case <-daemon.stop:
-				atomic.StoreInt32(&daemon.loopIsRunning, 0)
+			case <-daemon.runContext.Done():
 				return nil
 			case <-time.After(time.Duration(intervalSecBetweenReports) * time.Second):
 				// Move on to phone home
@@ -239,9 +235,7 @@ func (daemon *Daemon) StartAndBlock() error {
 
 // Stop the daemon.
 func (daemon *Daemon) Stop() {
-	if atomic.CompareAndSwapInt32(&daemon.loopIsRunning, 1, 0) {
-		daemon.stop <- true
-	}
+	daemon.runCancelFunc()
 }
 
 // TestServer implements test cases for the phone-home daemon.
