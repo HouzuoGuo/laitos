@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/awsinteg"
@@ -38,6 +37,9 @@ const (
 	InitialDelaySec = 180
 	// MaxMessageLength is the maximum length of each message entry coming from output of a maintenance action.
 	MaxMessageLength = 1024
+	// PrometheusProcessMetricsInterval is the interval at which the latest process performance measurements are
+	// collected and then given to prometheus metrics.
+	PrometheusProcessMetricsInterval = 10 * time.Second
 )
 
 // ReportFilePath is the absolute file path to the text report from latest maintenance run.
@@ -86,6 +88,8 @@ type Daemon struct {
 	SwapFileSizeMB int `json:"SwapFileSizeMB"`
 	// SetTimeZone changes system time zone to the specified value (such as "UTC").
 	SetTimeZone string `json:"SetTimeZone"`
+	// ProvidePerformanceMetricsToPrometheus determines whether the maintenance daemon will provide program performance metrics to prometheus at regular interval.
+	RegisterPrometheusMetrics bool `json:"RegisterPrometheusMetrics"`
 
 	/*
 		IntervalSec determines the rate of execution of maintenance routine. This is not a sleep duration. The constant
@@ -101,10 +105,11 @@ type Daemon struct {
 	// UploadReportToS3Bucket is the name of S3 bucket into which the maintenance daemon shall upload its summary reports.
 	UploadReportToS3Bucket string `json:"UploadReportToS3Bucket"`
 
-	lastStepTimestamp int64     // lastStepTimestamp is the unix timestamp at which the last maintenance stage or a stage stap took place
-	loopIsRunning     int32     // Value is 1 only when maintenance loop is running
-	stop              chan bool // Signal maintenance loop to stop
-	logger            lalog.Logger
+	processExplorerMetrics *ProcessExplorerMetrics
+	lastStepTimestamp      int64 // lastStepTimestamp is the unix timestamp at which the last maintenance stage or a stage stap took place
+	runContext             context.Context
+	runCancelFunc          context.CancelFunc
+	logger                 lalog.Logger
 }
 
 // runPortsCheck knocks on TCP ports that are to be checked in parallel, it returns an error if any of the ports fails to connect.
@@ -267,10 +272,15 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.IntervalSec < 1 {
 		daemon.IntervalSec = MinimumIntervalSec // quite reasonable to run maintenance daily
 	} else if daemon.IntervalSec < MinimumIntervalSec {
-		return fmt.Errorf("maintenance.StartAndBlock: IntervalSec must be at or above %d", MinimumIntervalSec)
+		return fmt.Errorf("maintenance.Initialise: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
-	daemon.stop = make(chan bool)
 	daemon.logger = lalog.Logger{ComponentName: "maintenance", ComponentID: []lalog.LoggerIDField{{Key: "Intv", Value: daemon.IntervalSec}}}
+	if daemon.RegisterPrometheusMetrics && misc.EnablePrometheusIntegration {
+		daemon.processExplorerMetrics = NewProcessExplorerMetrics()
+		if err := daemon.processExplorerMetrics.RegisterGlobally(); err != nil {
+			daemon.logger.Warning("Initialise", "prometheus", err, "failed to register metrics with prometheus")
+		}
+	}
 	return nil
 }
 
@@ -279,46 +289,61 @@ You may call this function only after having called Initialise()!
 Start health check loop and block caller until Stop function is called.
 */
 func (daemon *Daemon) StartAndBlock() error {
-	firstTime := true
-	daemon.logger.Info("StartAndBlock", "", nil, "the first run will soon begin in %d seconds, and then run every ~%d hours afterwards.",
-		InitialDelaySec, daemon.IntervalSec/3600)
-	// Maintenance is run for the very first time soon (2 minutes) after starting up
-	nextRunAt := time.Now().Add(InitialDelaySec * time.Second)
-	for {
-		if misc.EmergencyLockDown {
-			atomic.StoreInt32(&daemon.loopIsRunning, 0)
-			return misc.ErrEmergencyLockDown
-		}
-		atomic.StoreInt32(&daemon.loopIsRunning, 1)
-		if firstTime {
-			select {
-			case <-daemon.stop:
-				atomic.StoreInt32(&daemon.loopIsRunning, 0)
-				return nil
-			case <-time.After(time.Until(nextRunAt)):
-				nextRunAt = nextRunAt.Add(time.Duration(daemon.IntervalSec) * time.Second)
-				daemon.Execute()
+	daemon.runContext, daemon.runCancelFunc = context.WithCancel(context.Background())
+	maintenanceRoutineTicker := time.NewTicker(time.Duration(daemon.IntervalSec) * time.Second)
+	processMetricsRefreshTicker := time.NewTicker(PrometheusProcessMetricsInterval)
+	defer func() {
+		processMetricsRefreshTicker.Stop()
+		maintenanceRoutineTicker.Stop()
+	}()
+	// Run maintenance routine at regular interval
+	go func() {
+		daemon.logger.Info("StartAndBlock", "", nil, "the maintenance routines will run in 2 minutes, and then every ~%d hours", daemon.IntervalSec/3600)
+		for {
+			if misc.EmergencyLockDown {
+				return
 			}
-			firstTime = false
-		} else {
-			// Afterwards, try to maintain a steady rate of execution.
 			select {
-			case <-daemon.stop:
-				atomic.StoreInt32(&daemon.loopIsRunning, 0)
-				return nil
-			case <-time.After(time.Until(nextRunAt)):
-				nextRunAt = nextRunAt.Add(time.Duration(daemon.IntervalSec) * time.Second)
+			case <-daemon.runContext.Done():
+				return
+			case <-time.After(2 * time.Minute):
+				// The first run does not have to wait for the interval to pass
+				daemon.Execute()
+			case <-maintenanceRoutineTicker.C:
 				daemon.Execute()
 			}
 		}
+	}()
+	// Collect latest performance measurements at regular interval
+	if daemon.processExplorerMetrics != nil {
+		daemon.logger.Info("StartAndBlock", "prometheus", nil, "will regularly take program performance measurements and give them to prometheus metrics.")
+		go func() {
+			for {
+				if misc.EmergencyLockDown {
+					return
+				}
+				select {
+				case <-daemon.runContext.Done():
+					return
+				case <-processMetricsRefreshTicker.C:
+					if daemon.processExplorerMetrics != nil {
+						if err := daemon.processExplorerMetrics.Refresh(); err != nil {
+							daemon.logger.Warning("StartAndBlock", "prometheus", err, "failed to collect the latest process performance measurements")
+						}
+					}
+				}
+			}
+		}()
 	}
+	// Wait for daemon to stop
+	<-daemon.runContext.Done()
+	daemon.logger.Info("StartAndBlock", "", nil, "stopped on request")
+	return nil
 }
 
 // Stop the daemon.
 func (daemon *Daemon) Stop() {
-	if atomic.CompareAndSwapInt32(&daemon.loopIsRunning, 1, 0) {
-		daemon.stop <- true
-	}
+	daemon.runCancelFunc()
 }
 
 // logPrintStage reports the start/finish of a maintenance stage to the output buffer and program log.
