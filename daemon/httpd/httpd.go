@@ -157,22 +157,19 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 	if misc.EnablePrometheusIntegration {
 		metricsLabelNames := []string{PrometheusHandlerTypeLabel, PrometheusHandlerLocationLabel}
 		handlerDurationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name: "laitos_httpd_handler_duration_seconds",
-			Help: "The run-duration of HTTP handler function in seconds",
-			// 1, 50, 100, 200, 500ms, and 1 second
-			Buckets: []float64{0.001, 0.05, 0.1, 0.2, 0.5, 1},
+			Name:    "laitos_httpd_handler_duration_seconds",
+			Help:    "The run-duration of HTTP handler function in seconds",
+			Buckets: []float64{0.08, 0.16, 0.24, 0.32, 0.4, 0.48, 0.56, 0.64, 0.72, 0.8, 0.88, 0.96},
 		}, metricsLabelNames)
 		responseTimeToFirstByteHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name: "laitos_httpd_response_time_to_first_byte_seconds",
-			Help: "The time-to-first-byte of HTTP handler function in seconds",
-			// 1, 50, 100, 200, 500ms, and 1 second
-			Buckets: []float64{0.001, 0.05, 0.1, 0.2, 0.5, 1},
+			Name:    "laitos_httpd_response_time_to_first_byte_seconds",
+			Help:    "The time-to-first-byte of HTTP handler function in seconds",
+			Buckets: []float64{0.08, 0.16, 0.24, 0.32, 0.4, 0.48, 0.56, 0.64, 0.72, 0.8, 0.88, 0.96},
 		}, metricsLabelNames)
 		responseSizeHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name: "laitos_httpd_response_size_bytes",
-			Help: "The size of response produced by HTTP handler function in bytes",
-			// 100, 500 bytes, 1KB, 8KB, 64KB, 512KB
-			Buckets: []float64{100, 500, 1024, 1024 * 8, 1024 * 64, 1024 * 512},
+			Name:    "laitos_httpd_response_size_bytes",
+			Help:    "The size of response produced by HTTP handler function in bytes",
+			Buckets: []float64{64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072},
 		}, metricsLabelNames)
 		for _, histogram := range []*prometheus.HistogramVec{handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram} {
 			if err := prometheus.Register(histogram); err != nil {
