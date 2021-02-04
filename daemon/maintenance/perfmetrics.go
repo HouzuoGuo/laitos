@@ -34,7 +34,7 @@ func NewProcessExplorerMetrics() *ProcessExplorerMetrics {
 	metricsLabelNames := []string{PrometheusProcessIDLabel}
 	return &ProcessExplorerMetrics{
 		numUserModeSecInclChildren:   prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_proc_num_user_mode_sec_incl_children"}, metricsLabelNames),
-		numKernelModeSecInclChildren: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_proc_num_kernal_mode_sec_incl_children"}, metricsLabelNames),
+		numKernelModeSecInclChildren: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_proc_num_kernel_mode_sec_incl_children"}, metricsLabelNames),
 		numRunSec:                    prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_proc_num_run_sec"}, metricsLabelNames),
 		numWaitSec:                   prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_proc_num_wait_sec"}, metricsLabelNames),
 		numVoluntarySwitches:         prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_proc_num_voluntary_switches"}, metricsLabelNames),
