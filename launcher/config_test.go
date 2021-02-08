@@ -4,16 +4,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
+	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
+	"github.com/HouzuoGuo/laitos/daemon/passwdrpc"
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
 	"github.com/HouzuoGuo/laitos/daemon/serialport"
+	"github.com/HouzuoGuo/laitos/daemon/simpleipsvcd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
-
-	"github.com/HouzuoGuo/laitos/daemon/autounlock"
-	"github.com/HouzuoGuo/laitos/daemon/httpd"
-	"github.com/HouzuoGuo/laitos/daemon/simpleipsvcd"
 	"github.com/HouzuoGuo/laitos/daemon/snmpd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
@@ -230,6 +230,10 @@ var sampleConfigJSON = `
     ],
     "TuneLinux": true
   },
+  "PasswordRPCDaemon": {
+    "Address": "0.0.0.0",
+    "Port": 18378
+  },
 	"PhoneHomeDaemon": {
 		"MessageProcessorServers": [
 			{
@@ -421,4 +425,6 @@ func TestConfig(t *testing.T) {
 	telegrambot.TestTelegramBot(config.GetTelegramBot(), t)
 
 	autounlock.TestAutoUnlock(config.GetAutoUnlock(), t)
+
+	passwdrpc.TestPasswdRPCDaemon(config.GetPasswdRPCDaemon(), t)
 }

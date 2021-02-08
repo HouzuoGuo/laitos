@@ -27,19 +27,20 @@ var (
 	// ErrEmergencyLockDown is returned by some daemons to inform user that lock-down is in effect.
 	ErrEmergencyLockDown = errors.New("LOCKED DOWN")
 
-	/*
-		ProgramDataDecryptionPassword is the password string used to decrypt program data that was previously encrypted by
-		laitos' "datautil" encryption routine, protecting files such as configuration file, TLS certificate key.
-		The main function and various daemons find the decryption password from this variable.
-		The password is collected by the main function from STDIN or ProgramDataDecryptionPasswordInput, preserved in memory
-		so that supervisor can re-use the password input in case that main process crashes.
-	*/
+	// ProgramDataDecryptionPassword is the password string used to decrypt program data that was previously encrypted by
+	// laitos' "datautil" encryption routine, protecting files such as configuration file and TLS certificate key.
+	// The main function will collect this password from the channel of ProgramDataDecryptionPasswordInput.
+	// The password will then be used for initialising daemons, starting them, etc.
+	// In addition, when the supervisor recovers main program from an incidental crash, the supervisor will feed this password
+	// to the standard input of the restarted main program.
 	ProgramDataDecryptionPassword string
-	/*
-		ProgramDataDecryptionPasswordInput is used by AWS lambda handler to feed data decryption password from API gateway's
-		stage variable when the first request arrives via lambda.
-	*/
-	ProgramDataDecryptionPasswordInput = make(chan string)
+
+	// ProgramDataDecryptionPasswordInput is a synchronous channel that accepts a password string for decryption of program config and data.
+	// It can be fed by a number of potential sources, such as standard input, AWS lambda handler, etc.
+	// The main function will receive the supplied password and store it in ProgramDataDecryptionPassword string variable for further use.
+	// Normally, only one source will send a password to this channel, but over here the channel is defined as a buffered to be on the defensive
+	// side of programming mistakes.
+	ProgramDataDecryptionPasswordInput = make(chan string, 10)
 
 	// logger is used by some of the miscellaneous actions affecting laitos process globally.
 	logger = lalog.Logger{ComponentName: "misc", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}

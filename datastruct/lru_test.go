@@ -17,7 +17,7 @@ func TestLeastRecentlyUsedBuffer(t *testing.T) {
 			t.Fatal("element went missing", i)
 		}
 	}
-	if len(lru.lastUsed) != 3 {
+	if lru.Len() != 3 {
 		t.Fatalf("unexpected buffer elements: %+v", lru.lastUsed)
 	}
 
@@ -31,7 +31,7 @@ func TestLeastRecentlyUsedBuffer(t *testing.T) {
 			t.Fatal("element went missing", i)
 		}
 	}
-	if len(lru.lastUsed) != 3 {
+	if lru.Len() != 3 {
 		t.Fatalf("unexpected buffer elements: %+v", lru.lastUsed)
 	}
 
@@ -46,7 +46,7 @@ func TestLeastRecentlyUsedBuffer(t *testing.T) {
 			t.Fatal("element went missing", i)
 		}
 	}
-	if len(lru.lastUsed) != 3 {
+	if lru.Len() != 3 {
 		t.Fatalf("unexpected buffer elements: %+v", lru.lastUsed)
 	}
 
@@ -68,6 +68,20 @@ func TestLeastRecentlyUsedBuffer(t *testing.T) {
 	for _, addAndEvict := range evictions[len(evictions)-lru.maxCapacity:] {
 		if !lru.Contains(addAndEvict.add) {
 			t.Fatal("element went missing", addAndEvict.add)
+		}
+	}
+}
+
+func TestLeastRecentlyUsedBuffer_Remove(t *testing.T) {
+	lru := NewLeastRecentlyUsedBuffer(3)
+	for i := 0; i < 3; i++ {
+		lru.Add(strconv.Itoa(i))
+		if lru.Len() != 1 {
+			t.Fatalf("unexpected length %d", lru.Len())
+		}
+		lru.Remove(strconv.Itoa(i))
+		if lru.Len() != 0 {
+			t.Fatalf("unexpected length %d", lru.Len())
 		}
 	}
 }

@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -146,6 +148,11 @@ func (hand *Handler) decodeAndHandleHTTPRequest(awsRequestID string, invocationJ
 		reqURL += "?" + input.MultiValueQueryStringParameters.Encode()
 	}
 	hand.logger.Info("decodeAndHandleHTTPRequest", awsRequestID, err, "%s %s with %d bytes of request body", reqParams.Method, reqURL, len(reqBody))
+	// Wait for HTTP server to start
+	if !misc.ProbePort(20*time.Second, "localhost", webServerPort) {
+		hand.logger.Warning("decodeAndHandleHTTPRequest", awsRequestID, nil, "the web server failed to start in time")
+		return nil, errors.New("the web server failed to start in time")
+	}
 	// Send the request forth to laitos web server
 	resp, err := inet.DoHTTP(context.TODO(), reqParams, strings.Replace(reqURL, "%", "%%", -1))
 	if err != nil {

@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/passwdrpc"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/netboundfileenc"
 )
 
 func TestReseedPseudoRandAndInBackground(t *testing.T) {
@@ -75,5 +80,30 @@ func TestAutoRestartDuringLockDown(t *testing.T) {
 	time.Sleep(15 * time.Second)
 	if !returnedFromRestart {
 		t.Fatal("did not return")
+	}
+}
+
+func TestGetUnlockingPassword(t *testing.T) {
+	daemon := &passwdrpc.Daemon{
+		Address:          "0.0.0.0",
+		Port:             8972,
+		PasswordRegister: netboundfileenc.NewPasswordRegister(10, 10, lalog.DefaultLogger),
+	}
+	go func() {
+		if err := daemon.StartAndBlock(); err != nil {
+			panic(err)
+		}
+	}()
+	if !misc.ProbePort(1*time.Second, "127.0.0.1", daemon.Port) {
+		t.Fatal("daemon did not start on time")
+	}
+	password := getUnlockingPassword(context.Background(), false, *lalog.DefaultLogger, "test-challenge-str", net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)))
+	if password != "" {
+		t.Fatal("should not have got a password at this point")
+	}
+	daemon.PasswordRegister.FulfilIntent("test-challenge-str", "good-password")
+	password = getUnlockingPassword(context.Background(), false, *lalog.DefaultLogger, "test-challenge-str", net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)))
+	if password != "good-password" {
+		t.Fatalf("did not get the password: %s", password)
 	}
 }

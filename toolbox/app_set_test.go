@@ -25,28 +25,36 @@ func TestFeatureSet_InitSelfTest(t *testing.T) {
 	if err := apps.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(apps.LookupByTrigger) != 6 ||
-		apps.LookupByTrigger[".0m"] == nil || // store&forward command processor
-		apps.LookupByTrigger[".c"] == nil || // public contacts
-		apps.LookupByTrigger[".e"] == nil || // environment control
-		apps.LookupByTrigger[".j"] == nil || // joke
-		apps.LookupByTrigger[".r"] == nil || // RSS reader
-		apps.LookupByTrigger[".s"] == nil { // shell
+	enabledByDefaultApps := []Trigger{
+		StoreAndForwardMessageProcessorTrigger,
+		".c",   // public contacts lookup
+		".e",   // program and environment control
+		".j",   // get a joke
+		".nbe", // network bound file encryption
+		".r",   // RSS news reader
+		".s",   // shell
+	}
+	if len(apps.LookupByTrigger) != len(enabledByDefaultApps) {
 		t.Fatal(apps.LookupByTrigger)
+	}
+	for _, triggerStr := range enabledByDefaultApps {
+		if _, exists := apps.LookupByTrigger[triggerStr]; !exists {
+			t.Fatalf("app %s is missing", triggerStr)
+		}
 	}
 	// Validate self-test result from AES encrypted text search and 2FA code generator in addition to the apps above
 	apps = FeatureSet{AESDecrypt: GetTestAESDecrypt(), TwoFACodeGenerator: GetTestTwoFACodeGenerator()}
 	if err := apps.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	// 6 always-available apps + 2 newly configured features (AES + 2FA)
-	if len(apps.LookupByTrigger) != 8 {
+	// Always-available apps + 2 newly configured features (AES + 2FA)
+	if len(apps.LookupByTrigger) != len(enabledByDefaultApps)+2 {
 		t.Fatal(apps.LookupByTrigger)
 	}
 	if err := apps.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if triggers := apps.GetTriggers(); !reflect.DeepEqual(triggers, []string{".0m", ".2", ".a", ".c", ".e", ".j", ".r", ".s"}) {
+	if triggers := apps.GetTriggers(); !reflect.DeepEqual(triggers, []string{".0m", ".2", ".a", ".c", ".e", ".j", ".nbe", ".r", ".s"}) {
 		t.Fatal(triggers)
 	}
 }

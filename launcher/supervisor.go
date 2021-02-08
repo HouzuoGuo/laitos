@@ -34,6 +34,7 @@ const (
 	TelegramName         = "telegram"
 	AutoUnlockName       = "autounlock"
 	PhoneHomeName        = "phonehome"
+	PasswdRPCName        = "passwdrpc"
 
 	/*
 		FailureThresholdSec determines the maximum failure interval for supervisor to tolerate before taking action to shed
@@ -50,13 +51,14 @@ const (
 var AllDaemons = []string{
 	AutoUnlockName, DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, PhoneHomeName,
 	PlainSocketName, SerialPortDaemonName, SimpleIPSvcName, SMTPDName, SNMPDName, SOCKDName, TelegramName,
+	PasswdRPCName,
 }
 
 /*
 ShedOrder is the sequence of daemon names to be taken offline one after another by supervisor, in case of rapid and
 repeated program crash. This mechanism is inspired by design of various aircraft abnormal procedure checklists.
 The sequence is prioritised this way:
-1. System maintenance daemon
+1. System maintenance daemon.
 2. Non-essential services that do not require authentication/authorisation.
 3. Non-essential services that require authentication/authorisation.
 4. Heavy services that use significant amount of resources.
@@ -70,8 +72,8 @@ If the program continues to crash repeatedly after all rounds of shedding, then 
 daemons, and all daemons will be re-enabled, the user will have to make diagnosis manually.
 */
 var ShedOrder = []string{
-	MaintenanceName,                       // 1
-	SerialPortDaemonName, SimpleIPSvcName, // 2
+	MaintenanceName,                                      // 1
+	SerialPortDaemonName, SimpleIPSvcName, PasswdRPCName, // 2
 	SNMPDName, DNSDName, // 3
 	SOCKDName, SMTPDName, HTTPDName, // 4
 	InsecureHTTPDName, PlainSocketName, TelegramName, PhoneHomeName, // 5

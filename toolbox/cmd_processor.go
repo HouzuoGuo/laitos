@@ -277,8 +277,8 @@ func (proc *CommandProcessor) Process(ctx context.Context, cmd Command, runResul
 	for prefix, configuredFeature := range proc.Features.LookupByTrigger {
 		if cmd.FindAndRemovePrefix(string(prefix)) {
 			// Hacky workaround - do not log content of AES decryption commands as they can reveal encryption key
-			if prefix == AESDecryptTrigger || prefix == TwoFATrigger {
-				logCommandContent = "<hidden due to AESDecryptTrigger or TwoFATrigger>"
+			if prefix == AESDecryptTrigger || prefix == TwoFATrigger || prefix == NBETrigger {
+				logCommandContent = "<hidden due to AESDecryptTrigger or TwoFATrigger or NBETrigger>"
 			}
 			matchedFeature = configuredFeature
 			break

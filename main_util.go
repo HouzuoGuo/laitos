@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	cryptoRand "crypto/rand"
+	"crypto/tls"
 	"encoding/binary"
 	"encoding/json"
 	pseudoRand "math/rand"
@@ -15,7 +16,17 @@ import (
 	"github.com/HouzuoGuo/laitos/awsinteg"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/netboundfileenc"
+	"github.com/HouzuoGuo/laitos/netboundfileenc/unlocksvc"
 	"github.com/HouzuoGuo/laitos/platform"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+)
+
+const (
+	// PasswdRPCTimeout is the timeout used by gRPC client when performing operations involving IO, such as creating gRPC connection,
+	// invoking RPC functions, etc.
+	PasswdRPCTimeout = 5 * time.Second
 )
 
 var (
@@ -168,19 +179,89 @@ func AutoRestart(logger lalog.Logger, logActorName string, fun func() error) {
 			logger.Warning("AutoRestart", logActorName, nil, "emergency lock-down has been activated, no further restart is performed.")
 			return
 		}
-		if err := fun(); err == nil {
+		err := fun()
+		if err == nil {
 			logger.Info("AutoRestart", logActorName, nil, "the function has returned successfully, no further restart is required.")
 			return
-		} else {
-			if delaySec == 0 {
-				logger.Warning("AutoRestart", logActorName, err, "restarting immediately")
-			} else {
-				logger.Warning("AutoRestart", logActorName, err, "restarting in %d seconds", delaySec)
-			}
-			time.Sleep(time.Duration(delaySec) * time.Second)
-			if delaySec < 60 {
-				delaySec += 10
-			}
 		}
+		if delaySec == 0 {
+			logger.Warning("AutoRestart", logActorName, err, "restarting immediately")
+		} else {
+			logger.Warning("AutoRestart", logActorName, err, "restarting in %d seconds", delaySec)
+		}
+		time.Sleep(time.Duration(delaySec) * time.Second)
+		if delaySec < 60 {
+			delaySec += 10
+		}
+	}
+}
+
+// getUnlockingPassword uses a gRPC client to contact the gRPC server, registering intent to obtain unlocking password and then attempts to obtain
+// the unlock password immediately.
+// If a password is available and hence obtained, the function will return the password string.
+// If no password is available or an IO error occurs, the function will return an empty string.
+func getUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger, challengeStr, serverAddr string) string {
+	hostName, _ := os.Hostname()
+	dialTimeoutCtx, dialTimeoutCancel := context.WithTimeout(ctx, PasswdRPCTimeout)
+	defer dialTimeoutCancel()
+	clientOpts := []grpc.DialOption{grpc.WithBlock()}
+	if useTLS {
+		clientOpts = append(clientOpts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	} else {
+		clientOpts = append(clientOpts, grpc.WithInsecure())
+	}
+	clientConn, err := grpc.DialContext(dialTimeoutCtx, serverAddr, clientOpts...)
+	if err != nil {
+		logger.Warning("GetUnlockPassword", serverAddr, err, "failed to establish RPC client connection")
+		return ""
+	}
+	client := unlocksvc.NewPasswordUnlockServiceClient(clientConn)
+	invokeTimeoutCtx, invokeTimeoutCancel := context.WithTimeout(ctx, PasswdRPCTimeout)
+	defer invokeTimeoutCancel()
+	_, err = client.PostUnlockIntent(invokeTimeoutCtx, &unlocksvc.PostUnlockIntentRequest{Identification: &unlocksvc.UnlockAttemptIdentification{
+		PID:             uint64(os.Getpid()),
+		RandomChallenge: challengeStr,
+		HostName:        hostName,
+	}})
+	if err != nil {
+		logger.Warning("GetUnlockPassword", serverAddr, err, "failed to invoke RPC PostUnlockIntent")
+		return ""
+	}
+	resp, err := client.GetUnlockPassword(invokeTimeoutCtx, &unlocksvc.GetUnlockPasswordRequest{Identification: &unlocksvc.UnlockAttemptIdentification{
+		PID:             uint64(os.Getpid()),
+		RandomChallenge: challengeStr,
+		HostName:        hostName,
+	}})
+	if err != nil {
+		logger.Warning("GetUnlockPassword", serverAddr, err, "failed to invoke RPC PostUnlockIntent")
+		return ""
+	}
+	if resp.Exists {
+		logger.Info("GetUnlockPassword", serverAddr, nil, "successfully obtained password")
+		return resp.Password
+	}
+	return ""
+}
+
+// GetUnlockingPasswordWithRetry contacts each of the gRPC servers, it registered an intent to obtain unlocking password for laitos program data
+// and config files, and retries until this password is available and subsequently obtained.
+// The function blocks caller until a password has been obtained or the input context is cancelled.
+// The default source of PRNG must be seeded prior to calling this function.
+func GetUnlockingPasswordWithRetry(ctx context.Context, useTLS bool, logger lalog.Logger, serverAddrs ...string) string {
+	challengeStr := netboundfileenc.GetRandomChallenge()
+	for {
+		select {
+		case <-ctx.Done():
+			return ""
+		default:
+			// The context permits the next attempt to be made
+		}
+		serverAddr := serverAddrs[pseudoRand.Intn(len(serverAddrs))]
+		logger.Info("GetUnlockingPasswordWithRetry", serverAddr, nil, "contacting the server over RPC")
+		if password := getUnlockingPassword(ctx, useTLS, logger, challengeStr, serverAddr); password != "" {
+			return password
+		}
+		// Wait for a few seconds before trying the next server
+		time.Sleep(3 * PasswdRPCTimeout)
 	}
 }

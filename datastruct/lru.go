@@ -1,6 +1,7 @@
 package datastruct
 
 import (
+	"fmt"
 	"math"
 	"sync"
 )
@@ -70,4 +71,16 @@ func (lru *LeastRecentlyUsedBuffer) Contains(elem string) bool {
 func (lru *LeastRecentlyUsedBuffer) Remove(elem string) {
 	lru.mutex.Lock()
 	defer lru.mutex.Unlock()
+	delete(lru.lastUsed, elem)
+}
+
+// Len returns the number of elements currently kept in the buffer.
+func (lru *LeastRecentlyUsedBuffer) Len() int {
+	lru.mutex.RLock()
+	defer lru.mutex.RUnlock()
+	return len(lru.lastUsed)
+}
+
+func (lru *LeastRecentlyUsedBuffer) String() string {
+	return fmt.Sprintf("%+v", lru.lastUsed)
 }

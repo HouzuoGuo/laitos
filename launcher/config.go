@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/HouzuoGuo/laitos/awsinteg"
+	"github.com/HouzuoGuo/laitos/daemon/passwdrpc"
 	"github.com/HouzuoGuo/laitos/daemon/phonehome"
 	"github.com/HouzuoGuo/laitos/daemon/serialport"
 
@@ -178,7 +179,8 @@ type Config struct {
 	TelegramBot     *telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
 	TelegramFilters StandardFilters     `json:"TelegramFilters"` // Telegram bot filter configuration
 
-	AutoUnlock *autounlock.Daemon `json:"AutoUnlock"` // AutoUnlock daemon
+	AutoUnlock        *autounlock.Daemon `json:"AutoUnlock"` // AutoUnlock daemon
+	PasswordRPCDaemon *passwdrpc.Daemon  `json:"PasswordRPCDaemon"`
 
 	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
 
@@ -199,11 +201,12 @@ type Config struct {
 	sockDaemonInit        *sync.Once
 	telegramBotInit       *sync.Once
 	autoUnlockInit        *sync.Once
+	passwdrpcDaemonInit   *sync.Once
 }
 
 // Initialise decorates feature configuration and command bridge configuration in preparation for daemon operations.
 func (config *Config) Initialise() error {
-	// An empty FeatureSet can still offer several useful features such as program environment control and public institution contacts.
+	// An empty FeatureSet can still offer several useful features such as program environment control and running shell commands
 	if config.Features == nil {
 		config.Features = &toolbox.FeatureSet{}
 	}
@@ -312,6 +315,10 @@ func (config *Config) Initialise() error {
 	if config.AutoUnlock == nil {
 		config.AutoUnlock = &autounlock.Daemon{}
 	}
+	config.passwdrpcDaemonInit = new(sync.Once)
+	if config.PasswordRPCDaemon == nil {
+		config.PasswordRPCDaemon = &passwdrpc.Daemon{}
+	}
 	// All notification filters share the common mail client
 	config.MessageProcessorFilters.NotifyViaEmail.MailClient = config.MailClient
 	config.DNSFilters.NotifyViaEmail.MailClient = config.MailClient
@@ -325,6 +332,9 @@ func (config *Config) Initialise() error {
 	if err := config.Features.Initialise(); err != nil {
 		return err
 	}
+	// Password RPC daemon shares the embedded gRPC service with the network bound file encryption app
+	config.PasswordRPCDaemon.PasswordRegister = config.Features.NetBoundFileEncryption.PasswordRegister
+
 	config.logger.Info("Initialise", "", nil, "enabled features are - %v", config.Features.GetTriggers())
 	return nil
 }
@@ -741,4 +751,16 @@ func (config *Config) GetAutoUnlock() *autounlock.Daemon {
 		}
 	})
 	return config.AutoUnlock
+}
+
+// GetPasswdRPCDaemon returns the network daemon that allows other laitos program instances to obtain password
+// for unlocking their encrypted config/data files.
+func (config *Config) GetPasswdRPCDaemon() *passwdrpc.Daemon {
+	config.passwdrpcDaemonInit.Do(func() {
+		if err := config.PasswordRPCDaemon.Initialise(); err != nil {
+			config.logger.Abort("GetPasswdRPCDaemon", "", err, "the daemon failed to initialise")
+			return
+		}
+	})
+	return config.PasswordRPCDaemon
 }

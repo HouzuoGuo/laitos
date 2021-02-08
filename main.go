@@ -16,6 +16,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -144,11 +145,11 @@ main runs one of several distinct routines according to the presented combinatio
 func main() {
 	hzgl.HZGL()
 	// Process command line flags
-	var daemonList string
+	var daemonList, passwordUnlockServers string
 	var disableConflicts, debug, awsLambda bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated daemons to start (autounlock, dnsd, httpd, insecurehttpd, maintenance, plainsocket, serialport, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
+	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated list of daemon names to start (autounlock, dnsd, httpd, insecurehttpd, maintenance, passwdrpc, phonehome, plainsocket, serialport, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&awsLambda, launcher.LambdaFlagName, false, "(Optional) run AWS Lambda handler to proxy HTTP requests to laitos web server")
 	flag.BoolVar(&misc.EnableAWSIntegration, "awsinteg", false, "(Optional) activate all points of integration with various AWS services such as sending warning log entries to SQS")
@@ -156,6 +157,7 @@ func main() {
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&pprofHTTPPort, "profhttpport", pprofHTTPPort, "(Optional) serve program profiling data (pprof) over HTTP on this port at localhost")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
+	flag.StringVar(&passwordUnlockServers, "passwordunlockservers", "", "(Optional) comma-separated list of server:port combos that offer password unlocking service (daemon \"passwdrpc\") over gRPC")
 	// Data unlocker (password input server) flags
 	var pwdServer bool
 	var pwdServerPort int
@@ -258,8 +260,19 @@ func main() {
 					logger.Warning("main", "config", err, "failed to read decryption password from STDIN")
 				}
 			}()
-			// AWS lambda handler may also supply this password
+			passwdRPCContext, passwdRPCCancel := context.WithCancel(context.Background())
+			go func() {
+				// Collect program data decryption password from gRPC servers dedicated to this purpose
+				if passwordUnlockServers != "" {
+					serverAddrs := strings.Split(passwordUnlockServers, ",")
+					if password := GetUnlockingPasswordWithRetry(passwdRPCContext, true, logger, serverAddrs...); password != "" {
+						misc.ProgramDataDecryptionPasswordInput <- password
+					}
+				}
+			}()
+			// AWS lambda handler is also able to supply this password
 			pwd := <-misc.ProgramDataDecryptionPasswordInput
+			passwdRPCCancel()
 			misc.ProgramDataDecryptionPassword = pwd
 			if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.ProgramDataDecryptionPassword); err != nil {
 				logger.Abort("main", "config", err, "failed to decrypt config file")
@@ -376,6 +389,8 @@ func main() {
 			go AutoRestart(logger, daemonName, config.GetTelegramBot().StartAndBlock)
 		case launcher.AutoUnlockName:
 			go AutoRestart(logger, daemonName, config.GetAutoUnlock().StartAndBlock)
+		case launcher.PasswdRPCName:
+			go AutoRestart(logger, daemonName, config.GetPasswdRPCDaemon().StartAndBlock)
 		}
 	}
 
