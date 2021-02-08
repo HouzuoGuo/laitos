@@ -1,4 +1,4 @@
-package lalog
+package datastruct
 
 import (
 	"math"
@@ -64,4 +64,10 @@ func (lru *LeastRecentlyUsedBuffer) Contains(elem string) bool {
 	defer lru.mutex.RUnlock()
 	_, exists := lru.lastUsed[elem]
 	return exists
+}
+
+// Remove the elemnt from LRU buffer, freeing up a unit of capacity for more elements.
+func (lru *LeastRecentlyUsedBuffer) Remove(elem string) {
+	lru.mutex.Lock()
+	defer lru.mutex.Unlock()
 }

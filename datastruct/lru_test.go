@@ -1,4 +1,4 @@
-package lalog
+package datastruct
 
 import (
 	"strconv"

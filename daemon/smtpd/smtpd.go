@@ -14,6 +14,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/smtp"
+	"github.com/HouzuoGuo/laitos/datastruct"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -194,7 +195,7 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, client
 	// The status string is only used for logging
 	var completionStatus string
 	// memorise latest conversations for logging purpose
-	latestConv := lalog.NewRingBuffer(4)
+	latestConv := datastruct.NewRingBuffer(4)
 	// fromAddr, mailBody, and toAddrs will be filled as SMTP conversation goes on
 	var fromAddr, mailBody string
 	toAddrs := make([]string, 0, 4)

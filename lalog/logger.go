@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/HouzuoGuo/laitos/datastruct"
 )
 
 const (
@@ -25,10 +27,10 @@ type LogWarningCallbackFunc func(componentName, componentID, funcName, actorName
 
 var (
 	// LatestWarnings are a small number of the most recent log messages (warnings and info messages ) kept in memory for retrieval and inspection.
-	LatestLogs = NewRingBuffer(NumLatestLogEntries)
+	LatestLogs = datastruct.NewRingBuffer(NumLatestLogEntries)
 
 	// LatestWarnings are a small number of the most recent warning log messages kept in memory for retrieval and inspection.
-	LatestWarnings = NewRingBuffer(NumLatestLogEntries)
+	LatestWarnings = datastruct.NewRingBuffer(NumLatestLogEntries)
 
 	// LatestWarningActors are a small number of actors that have recently generated warning messages.
 	// The LRU buffer helps to gain a more comprehensive picture of the actors that have resulted in warning log messages by
@@ -36,7 +38,7 @@ var (
 	// actor name) will be added to the in-memory warning log buffer. The subsequent warning messages of that actor will be excluded from the
 	// warning buffer. The actor will get another chance to show up in the warning buffer when it eventually becomes stale and is subsequently
 	// evicted by this LRU buffer.
-	LatestWarningActors = NewLeastRecentlyUsedBuffer(NumLatestLogEntries / 4)
+	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(NumLatestLogEntries / 4)
 
 	// LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
 	// The function must avoid generating a warning log message of itself, to avoid an infinite recursion.

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/datastruct"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -35,10 +36,10 @@ type RecurringCommands struct {
 		During trigger, these commands are executed after the pre-configured commands.
 	*/
 	transientCommands []string
-	results           *lalog.RingBuffer // results are the most recent command results and test messages to retrieve.
-	mutex             sync.Mutex        // mutex prevents concurrent access to internal structures.
-	running           bool              // running becomes true when command processing loop is running
-	stop              chan struct{}     // stop channel signals Run function to return soon.
+	results           *datastruct.RingBuffer // results are the most recent command results and test messages to retrieve.
+	mutex             sync.Mutex             // mutex prevents concurrent access to internal structures.
+	running           bool                   // running becomes true when command processing loop is running
+	stop              chan struct{}          // stop channel signals Run function to return soon.
 }
 
 // Initialise prepares internal states of a new RecurringCommands.
@@ -52,7 +53,7 @@ func (cmds *RecurringCommands) Initialise() error {
 	if cmds.PreConfiguredCommands == nil {
 		cmds.PreConfiguredCommands = []string{}
 	}
-	cmds.results = lalog.NewRingBuffer(int64(cmds.MaxResults))
+	cmds.results = datastruct.NewRingBuffer(int64(cmds.MaxResults))
 	cmds.transientCommands = make([]string, 0, 10)
 	cmds.stop = make(chan struct{})
 	return nil
