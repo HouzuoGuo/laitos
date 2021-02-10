@@ -253,7 +253,7 @@ func main() {
 			misc.ProgramDataDecryptionPassword = plainTextPassword
 			// Explicitly stop background routines that may be still trying to obtain a decryption password
 			passwdRPCCancel()
-			logger.MaybeMinorError(passwordCollectionServer.Shutdown())
+			passwordCollectionServer.Shutdown()
 			if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.ProgramDataDecryptionPassword); err != nil {
 				logger.Abort("main", "config", err, "failed to decrypt config file")
 				return

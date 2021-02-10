@@ -107,8 +107,8 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		// Success!
 		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, "success")))
 		ws.alreadyUnlocked = true
-		// The web server is of no further use
-		ws.logger.MaybeMinorError(ws.Shutdown())
+		// The web server has no more use
+		ws.Shutdown()
 		misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(r.FormValue("password"))
 		return
 	default:
@@ -124,6 +124,7 @@ func (ws *WebServer) Start() error {
 		ComponentName: "passwdserver",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: ws.Port}},
 	}
+	ws.alreadyUnlocked = false
 	ws.handlerMutex = new(sync.Mutex)
 	mux := http.NewServeMux()
 	// Visitor must visit the pre-configured URL for a meaningful response
@@ -150,8 +151,12 @@ func (ws *WebServer) Start() error {
 }
 
 // Shutdown instructs web server to shut down within several seconds, consequently that Start() function will cease to block.
-func (ws *WebServer) Shutdown() error {
-	shutdownTimeout, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
-	defer cancel()
-	return ws.server.Shutdown(shutdownTimeout)
+func (ws *WebServer) Shutdown() {
+	if ws.server != nil {
+		shutdownTimeout, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+		defer cancel()
+		ws.logger.MaybeMinorError(ws.server.Shutdown(shutdownTimeout))
+	}
+	ws.server = nil
+	return
 }

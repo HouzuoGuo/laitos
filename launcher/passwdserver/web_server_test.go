@@ -20,6 +20,8 @@ func TestWebServer(t *testing.T) {
 		Port: 54396,
 		URL:  "/test-url",
 	}
+	// Shutting down a server not yet started should have no negative effect
+	ws.Shutdown()
 	shutdownChan := make(chan struct{}, 1)
 	go func() {
 		if err := ws.Start(); err != nil {
@@ -42,14 +44,10 @@ func TestWebServer(t *testing.T) {
 		t.Fatal(string(resp.Body))
 	}
 	// Shutdown the server
-	if err := ws.Shutdown(); err != nil {
-		t.Fatal(err)
-	}
+	ws.Shutdown()
 	<-shutdownChan
 	// Repeatedly shutting down the server should have no negative effect
-	if err := ws.Shutdown(); err != nil {
-		t.Fatal(err)
-	}
+	ws.Shutdown()
 }
 
 func TestWebServer_UnlockWithPassword(t *testing.T) {
@@ -72,6 +70,7 @@ func TestWebServer_UnlockWithPassword(t *testing.T) {
 		Port: 44511,
 		URL:  "/test-url",
 	}
+	defer ws.Shutdown()
 	go func() {
 		if err := ws.Start(); err != nil {
 			panic(err)
