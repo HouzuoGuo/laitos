@@ -102,32 +102,9 @@ func EncryptFile(filePath string) {
 }
 
 /*
-StartPasswordWebServer is a distinct routine of laitos main program, it starts a simple web server to accept a password
-input in order to decrypt laitos program data and launch the daemons.
-*/
-func StartPasswordWebServer(port int, url string) {
-	ws := passwdserver.WebServer{
-		Port: port,
-		URL:  url,
-	}
-	/*
-		On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching the new
-		version, which means the web server often runs into port conflicts when its updated version starts up.
-		AutoRestart function helps to restart the server.
-	*/
-	AutoRestart(logger, "StartPasswordWebServer", ws.Start)
-	// Wait indefinitely upon success, because this function is the main function of the web server.
-	select {}
-}
-
-/*
 main runs one of several distinct routines according to the presented combination of command line flags:
 
 - Maintain encrypted program data files: -datautil=encrypt|decrypt
-
-- Launch a simple web server to let user enter program data decryption password, and then proceeds to launch laitos with supervisor:
-  -pwdserver -pwdserverport=12345 -pwdserverurl=/my-password-input-page
-	This routine is useful when some program data files such as configuration JSON or TLS certificate key are encrypted.
 
 - Launch an AWS Lambda handler that proxies HTTP requests to laitos web server: -awslambda=true
 	This routine handles the requests in an independent goroutine, it is compatible with supervisor but incompatible with "-pwdserver".
@@ -210,23 +187,9 @@ func main() {
 		// Unfortunately without encrypting program config file it is impossible to set LAITOS_HTTP_URL_ROUTE_PREFIX
 		handler := &lambda.Handler{}
 		go handler.StartAndBlock()
-		// Proceed to launch the daemons, including the HTTP web server that lambda handler forwards incoming requess to.
+		// Proceed to launch the daemons, including the HTTP web server that lambda handler forwards incoming request to.
 	}
 
-	// ========================================================================
-	// Password input web server - start the web server to accept password input for decrypting program data.
-	// ========================================================================
-	if pwdServer {
-		StartPasswordWebServer(pwdServerPort, pwdServerURL)
-		return
-	}
-	/*
-		If the password web server succeeded in decrypting program data, it will launch laitos daemons under supervisor;
-		if the server is not relevant/involved in user's deployment, the user may simply ignore its program flags and
-		launch laitos daemons right away.
-		Be ware that supervisor is always turned on by default.
-		Here comes the preparation for both supervisor and daemons:
-	*/
 	// Read unencrypted configuration data from environment variable, or possibly encrypted configuration from JSON file.
 	configBytes := []byte(strings.TrimSpace(os.Getenv("LAITOS_CONFIG")))
 	if len(configBytes) == 0 {
@@ -250,11 +213,13 @@ func main() {
 		}
 		if isEncrypted {
 			logger.Info("main", "config", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
+			// There are multiple ways to collect the decryption password
 			go func() {
-				// Collect program data decryption password from STDIN
-				pwdReader := bufio.NewReader(os.Stdin)
-				pwdFromStdin, err := pwdReader.ReadString('\n')
+				// Collect program data decryption password from STDIN, there is not an explicit cancellation for the buffered read.
+				stdinReader := bufio.NewReader(os.Stdin)
+				pwdFromStdin, err := stdinReader.ReadString('\n')
 				if err == nil {
+					logger.Info("main", "config", nil, "got decryption password from stdin")
 					misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(pwdFromStdin)
 				} else {
 					logger.Warning("main", "config", err, "failed to read decryption password from STDIN")
@@ -270,10 +235,25 @@ func main() {
 					}
 				}
 			}()
-			// AWS lambda handler is also able to supply this password
-			pwd := <-misc.ProgramDataDecryptionPasswordInput
+			passwordCollectionServer := passwdserver.WebServer{
+				Port: pwdServerPort,
+				URL:  pwdServerURL,
+			}
+			if pwdServer {
+				// The web server launched here is distinct from the regular HTTP daemon. The sole purpose of the web server
+				// is to present a web page to visitor for them to enter decryption password for program config and data files.
+				// On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching
+				// the new version, which means the web server often runs into port conflicts when its updated version starts
+				// up. AutoRestart function helps to restart the server in such case.
+				go AutoRestart(logger, "pwdserver", passwordCollectionServer.Start)
+			}
+			// In addition to reading from stdin, contacting gRPC servers, and launching a dedicated web server, the AWS lambda integration
+			// is also able to feed this password.
+			plainTextPassword := <-misc.ProgramDataDecryptionPasswordInput
+			misc.ProgramDataDecryptionPassword = plainTextPassword
+			// Explicitly stop background routines that may be still trying to obtain a decryption password
 			passwdRPCCancel()
-			misc.ProgramDataDecryptionPassword = pwd
+			logger.MaybeMinorError(passwordCollectionServer.Shutdown())
 			if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.ProgramDataDecryptionPassword); err != nil {
 				logger.Abort("main", "config", err, "failed to decrypt config file")
 				return

@@ -249,9 +249,11 @@ func getUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger,
 // The default source of PRNG must be seeded prior to calling this function.
 func GetUnlockingPasswordWithRetry(ctx context.Context, useTLS bool, logger lalog.Logger, serverAddrs ...string) string {
 	challengeStr := netboundfileenc.GetRandomChallenge()
+	logger.Info("GetUnlockingPasswordWithRetry", "", nil, "trying to obtain config file decryption password from %d servers via gRPC, using magic challenge \"%s\"", len(serverAddrs), challengeStr)
 	for {
 		select {
 		case <-ctx.Done():
+			logger.Info("GetUnlockingPasswordWithRetry", "", nil, "quit on command")
 			return ""
 		default:
 			// The context permits the next attempt to be made

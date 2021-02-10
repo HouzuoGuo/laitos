@@ -5,15 +5,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
 )
@@ -39,7 +36,7 @@ const (
 		ShutdownTimeout is the maximum number of seconds to wait for completion of pending IO transfers, before shutting
 		down the password input web server.
 	*/
-	ShutdownTimeout = 10 * time.Second
+	ShutdownTimeout = 3 * time.Second
 	// CLIFlag is the command line flag that enables this password input web server to launch.
 	CLIFlag = `pwdserver`
 	// PageHTML is the content of HTML page that asks for a password input.
@@ -110,8 +107,9 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		// Success!
 		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, "success")))
 		ws.alreadyUnlocked = true
-		// A short moment later, the function will launch laitos supervisor along with daemons.
-		go ws.LaunchMainProgram(strings.TrimSpace(r.FormValue("password")))
+		// The web server is of no further use
+		ws.logger.MaybeMinorError(ws.Shutdown())
+		misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(r.FormValue("password"))
 		return
 	default:
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
@@ -141,7 +139,8 @@ func (ws *WebServer) Start() error {
 		ReadTimeout: IOTimeout, ReadHeaderTimeout: IOTimeout,
 		WriteTimeout: IOTimeout, IdleTimeout: IOTimeout,
 	}
-	ws.logger.Info("Start", "", nil, "will listen on TCP port %d", ws.Port)
+	ws.logger.Info("Start", "", nil, "a web server has been started on port %d to collect config file decryption password at \"%s\"",
+		ws.Port, ws.URL)
 	if err := ws.server.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "closed") {
 		ws.logger.Warning("Start", "", err, "failed to listen on TCP port")
 		return err
@@ -155,47 +154,4 @@ func (ws *WebServer) Shutdown() error {
 	shutdownTimeout, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
 	defer cancel()
 	return ws.server.Shutdown(shutdownTimeout)
-}
-
-/*
-LaunchMainProgram shuts down the web server, and forks a process of laitos program itself to launch main program using
-decrypted data from ramdisk.
-If an error occurs, this program will exit abnormally and the function will not return.
-If the forked main program exits normally, the function will return.
-*/
-func (ws *WebServer) LaunchMainProgram(decryptionPassword string) {
-	// Replicate the CLI flagsNoExec that were used to launch this password web server.
-	flagsNoExec := make([]string, len(os.Args))
-	copy(flagsNoExec, os.Args[1:])
-	var cmd *exec.Cmd
-	// Web server will take several seconds to finish with pending IO before shutting down
-	if err := ws.Shutdown(); err != nil {
-		ws.logger.Abort("LaunchMainProgram", "", nil, "failed to shut down web server - %v", err)
-		return
-	}
-	// Determine path to my program
-	executablePath, err := os.Executable()
-	if err != nil {
-		ws.logger.Abort("LaunchMainProgram", "", nil, "failed to determine path to this program executable - %v", err)
-		return
-	}
-	// Remove CLI flags that were used to launch the web server from the flags used to launch laitos main program
-	flagsNoExec = launcher.RemoveFromFlags(func(s string) bool {
-		return strings.HasPrefix(s, "-"+CLIFlag)
-	}, flagsNoExec)
-	ws.logger.Info("LaunchMainProgram", "", nil, "about to launch with CLI flags %v", flagsNoExec)
-	cmd = exec.Command(executablePath, flagsNoExec...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	// Attempt to launch the main program
-	if err := launcher.FeedDecryptionPasswordToStdinAndStart(decryptionPassword, cmd); err != nil {
-		ws.logger.Abort("LaunchMainProgram", "", nil, "failed to start main program - %v", err)
-		return
-	}
-	// Wait forever for the main program
-	if err := cmd.Wait(); err != nil {
-		ws.logger.Abort("LaunchMainProgram", "", nil, "main program has abnormally exited due to - %v", err)
-		return
-	}
-	ws.logger.Info("LaunchMainProgram", "", nil, "main program has exited cleanly")
 }
