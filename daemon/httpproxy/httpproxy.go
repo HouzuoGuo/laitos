@@ -2,6 +2,7 @@ package httpproxy
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -144,6 +145,8 @@ func (daemon *Daemon) StartAndBlock() error {
 		Handler:      daemon.proxyHandler,
 		ReadTimeout:  IOTimeout,
 		WriteTimeout: IOTimeout,
+		// TODO: figure out how to handle an HTTP/2 proxy client and then reenable HTTP/2 support
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 	daemon.logger.Info("StartAndBlock", "", nil, "starting now")
 	if err := daemon.httpServer.ListenAndServe(); err != nil {

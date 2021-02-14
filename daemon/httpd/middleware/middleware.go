@@ -108,11 +108,16 @@ func RecordPrometheusStats(
 			return
 		}
 		beginTime := time.Now()
-		interceptRecorder := &HTTPInterceptRecorder{Hijacker: w.(http.Hijacker)}
 		responseRecorder := &HTTPResponseRecorder{
-			Hijacker:       interceptRecorder,
 			ResponseWriter: w,
 			statusCode:     http.StatusOK, // the default status code written by any response writer is always 200 OK
+		}
+		// Record stats from the hijacked connection only if it is supported by the HTTP protocol.
+		// Notably, HTTP/2 handles multiple request-responses simultaneously and hence it cannot support this operation.
+		var interceptRecorder *HTTPInterceptRecorder
+		if interceptor, ok := w.(http.Hijacker); ok {
+			interceptRecorder = &HTTPInterceptRecorder{Hijacker: interceptor}
+			responseRecorder.Hijacker = interceptRecorder
 		}
 		next(responseRecorder, r)
 		promLabels := prometheus.Labels{
@@ -122,7 +127,7 @@ func RecordPrometheusStats(
 		}
 		durationObs := durationHistogram.With(promLabels)
 		durationObs.Observe(time.Since(beginTime).Seconds())
-		if interceptRecorder.ConnRecorder != nil && !interceptRecorder.ConnRecorder.timestampAtWriteCall.IsZero() {
+		if interceptRecorder != nil && interceptRecorder.ConnRecorder != nil && !interceptRecorder.ConnRecorder.timestampAtWriteCall.IsZero() {
 			timeToFirstByteObs := timeToFirstByteHistogram.With(promLabels)
 			timeToFirstByteObs.Observe(time.Since(interceptRecorder.ConnRecorder.timestampAtWriteCall).Seconds())
 			responseSizeObs := responseSizeHistogram.With(promLabels)
@@ -150,17 +155,22 @@ func RestrictMaxRequestSize(maxRequestBodyBytes int, next http.HandlerFunc) http
 func LogRequestStats(logger lalog.Logger, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		beginTime := time.Now()
-		interceptRecorder := &HTTPInterceptRecorder{Hijacker: w.(http.Hijacker)}
 		responseRecorder := &HTTPResponseRecorder{
-			Hijacker:       interceptRecorder,
 			ResponseWriter: w,
 			statusCode:     http.StatusOK, // the default status code written by any response writer is always 200 OK
+		}
+		// Record stats from the hijacked connection only if it is supported by the HTTP protocol.
+		// Notably, HTTP/2 handles multiple request-responses simultaneously and hence it cannot support this operation.
+		var interceptRecorder *HTTPInterceptRecorder
+		if interceptor, ok := w.(http.Hijacker); ok {
+			interceptRecorder = &HTTPInterceptRecorder{Hijacker: interceptor}
+			responseRecorder.Hijacker = interceptRecorder
 		}
 		next(responseRecorder, r)
 		processingDuration := time.Since(beginTime)
 		var timeToFirstByte time.Duration
 		var totalWritten int
-		if interceptRecorder.ConnRecorder != nil && !interceptRecorder.ConnRecorder.timestampAtWriteCall.IsZero() {
+		if interceptRecorder != nil && interceptRecorder.ConnRecorder != nil && !interceptRecorder.ConnRecorder.timestampAtWriteCall.IsZero() {
 			timeToFirstByte = time.Since(interceptRecorder.ConnRecorder.timestampAtWriteCall)
 			totalWritten = interceptRecorder.ConnRecorder.totalWritten
 		} else if !responseRecorder.timestampAtWriteCall.IsZero() {
