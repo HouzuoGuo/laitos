@@ -778,6 +778,8 @@ func (config *Config) GetPasswdRPCDaemon() *passwdrpc.Daemon {
 // GetHTTPProxyDaemon returns an initialised instance of HTTP proxy daemon.
 func (config *Config) GetHTTPProxyDaemon() *httpproxy.Daemon {
 	config.httpProxyDaemonInit.Do(func() {
+		config.HTTPProxyDaemon.CommandProcessor = toolbox.GetEmptyCommandProcessor()
+		config.HTTPProxyDaemon.CommandProcessor.Features = config.Features
 		if err := config.HTTPProxyDaemon.Initialise(); err != nil {
 			config.logger.Abort("GetHTTPProxyDaemon", "", err, "the daemon failed to initialise")
 			return
