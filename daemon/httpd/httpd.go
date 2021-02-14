@@ -153,37 +153,19 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 	if misc.EnablePrometheusIntegration {
 		metricsLabelNames := []string{middleware.PrometheusHandlerTypeLabel, middleware.PrometheusHandlerLocationLabel, middleware.PrometheusHandlerHostLabel}
 		handlerDurationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name: "laitos_httpd_handler_duration_seconds",
-			Help: "The run-duration of HTTP handler function in seconds",
-			Buckets: []float64{
-				0.025, 0.050, 0.075, 0.1,
-				0.1375, 0.175, 0.2125, 0.25,
-				0.3125, 0.375, 0.4375, 0.5,
-				0.625, 0.75, 0.875, 1,
-				1.25, 1.5, 1.75, 2,
-			},
+			Name:    "laitos_httpd_handler_duration_seconds",
+			Help:    "The run-duration of HTTP handler function in seconds",
+			Buckets: []float64{0.025, 0.050, 0.1, 0.1375, 0.2125, 0.25, 0.375, 0.4375, 0.5, 0.75, 0.875, 1.25, 1.5, 2, 3, 5, 8, 12, 20},
 		}, metricsLabelNames)
 		responseTimeToFirstByteHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name: "laitos_httpd_response_time_to_first_byte_seconds",
-			Help: "The time-to-first-byte of HTTP handler function in seconds",
-			Buckets: []float64{
-				0.025, 0.050, 0.075, 0.1,
-				0.1375, 0.175, 0.2125, 0.25,
-				0.3125, 0.375, 0.4375, 0.5,
-				0.625, 0.75, 0.875, 1,
-				1.25, 1.5, 1.75, 2,
-			},
+			Name:    "laitos_httpd_response_time_to_first_byte_seconds",
+			Help:    "The time-to-first-byte of HTTP handler function in seconds",
+			Buckets: []float64{0.025, 0.050, 0.1, 0.1375, 0.2125, 0.25, 0.375, 0.4375, 0.5, 0.75, 0.875, 1.25, 1.5, 2, 3, 5, 8, 12, 20},
 		}, metricsLabelNames)
 		responseSizeHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name: "laitos_httpd_response_size_bytes",
-			Help: "The size of response produced by HTTP handler function in bytes",
-			Buckets: []float64{
-				8, 16, 64, 128,
-				160, 192, 224, 256,
-				320, 384, 448, 512,
-				640, 768, 896, 1024,
-				1280, 1536, 1792, 2048,
-			},
+			Name:    "laitos_httpd_response_size_bytes",
+			Help:    "The size of response produced by HTTP handler function in bytes",
+			Buckets: []float64{64, 256, 512, 1024, 2048, 4096, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 5242880, 8388608, 12582912, 16777216},
 		}, metricsLabelNames)
 		for _, histogram := range []*prometheus.HistogramVec{handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram} {
 			if err := prometheus.Register(histogram); err != nil {
