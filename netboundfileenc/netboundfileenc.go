@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"sync"
 
 	"github.com/HouzuoGuo/laitos/datastruct"
@@ -36,7 +37,9 @@ func GetRandomChallenge() string {
 func getRPCClientIP(ctx context.Context) string {
 	peerInfo, ok := peer.FromContext(ctx)
 	if ok {
-		return peerInfo.Addr.String()
+		if tcpAddr, ok := peerInfo.Addr.(*net.TCPAddr); ok {
+			return tcpAddr.IP.String()
+		}
 	}
 	return ""
 }
