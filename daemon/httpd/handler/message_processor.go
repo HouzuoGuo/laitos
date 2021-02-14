@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -123,7 +124,7 @@ func (hand *HandleAppCommand) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	result := hand.cmdProc.Process(r.Context(), toolbox.Command{
 		DaemonName: "httpd",
-		ClientTag:  GetRealClientIP(r),
+		ClientTag:  middleware.GetRealClientIP(r),
 		Content:    cmd,
 		TimeoutSec: HTTPClienAppCommandTimeout,
 	}, true)

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/xml"
 	"net/http"
-	"strings"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -38,26 +37,4 @@ func XMLEscape(in string) string {
 // Set response headers to prevent client from caching HTTP request or response.
 func NoCache(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-}
-
-/*
-GetRealClientIP returns the IP of HTTP client that initiated the HTTP request.
-Usually, the return value is identical to IP portion of RemoteAddr, but if there is a proxy server in between,
-such as a load balancer or LAN proxy, the return value will be the client IP address read from header
-"X-Real-Ip" (preferred) or "X-Forwarded-For".
-*/
-func GetRealClientIP(r *http.Request) string {
-	ip := r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')]
-	if strings.HasPrefix(ip, "127.") {
-		if realIP := r.Header["X-Real-Ip"]; len(realIP) > 0 {
-			ip = realIP[0]
-		} else if forwardedFor := r.Header["X-Forwarded-For"]; len(forwardedFor) > 0 {
-			// X-Forwarded-For value looks like "1.1.1.1[, 2.2.2.2, 3.3.3.3 ...]" where the first IP is the client IP
-			split := strings.Split(forwardedFor[0], ",")
-			if len(split) > 0 {
-				ip = split[0]
-			}
-		}
-	}
-	return ip
 }

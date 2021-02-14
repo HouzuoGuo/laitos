@@ -16,50 +16,6 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
-// TweakTCPConnection tweaks the TCP connection settings for improved responsiveness.
-func TweakTCPConnection(conn *net.TCPConn) {
-	_ = conn.SetNoDelay(true)
-	_ = conn.SetKeepAlive(true)
-	_ = conn.SetKeepAlivePeriod(60 * time.Second)
-	_ = conn.SetDeadline(time.Now().Add(time.Duration(IOTimeoutSec * time.Second)))
-	_ = conn.SetLinger(5)
-}
-
-/*
-PipeTCPConnection receives data from the first connection and copies the data into the second connection.
-The function returns after the first connection is closed or other IO error occurs, and before returning
-the function closes the second connection and optionally writes a random amount of data into the supposedly
-already terminated first connection.
-*/
-func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
-	defer func() {
-		_ = toConn.Close()
-	}()
-	buf := make([]byte, MaxPacketSize)
-	for {
-		if misc.EmergencyLockDown {
-			lalog.DefaultLogger.Warning("PipeTCPConnection", "", misc.ErrEmergencyLockDown, "")
-			return
-		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-			return
-		}
-		length, err := fromConn.Read(buf)
-		if length > 0 {
-			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-				return
-			} else if _, err := toConn.Write(buf[:length]); err != nil {
-				return
-			}
-		}
-		if err != nil {
-			if doWriteRand {
-				WriteRand(fromConn)
-			}
-			return
-		}
-	}
-}
-
 type TCPDaemon struct {
 	Address    string `json:"Address"`
 	Password   string `json:"Password"`
@@ -279,8 +235,8 @@ func (conn *TCPCipherConnection) HandleTCPConnection() {
 		_ = conn.Close()
 		return
 	}
-	TweakTCPConnection(conn.Conn.(*net.TCPConn))
-	TweakTCPConnection(dest.(*net.TCPConn))
+	misc.TweakTCPConnection(conn.Conn.(*net.TCPConn), IOTimeoutSec*time.Second)
+	misc.TweakTCPConnection(dest.(*net.TCPConn), IOTimeoutSec*time.Second)
 	go PipeTCPConnection(conn, dest, true)
 	PipeTCPConnection(dest, conn, false)
 }

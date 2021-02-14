@@ -126,7 +126,7 @@ func main() {
 	var disableConflicts, debug, awsLambda bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated list of daemon names to start (autounlock, dnsd, httpd, insecurehttpd, maintenance, passwdrpc, phonehome, plainsocket, serialport, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
+	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated list of daemon names to start (autounlock, dnsd, httpd, httpproxy, insecurehttpd, maintenance, passwdrpc, phonehome, plainsocket, serialport, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
 	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&awsLambda, launcher.LambdaFlagName, false, "(Optional) run AWS Lambda handler to proxy HTTP requests to laitos web server")
 	flag.BoolVar(&misc.EnableAWSIntegration, "awsinteg", false, "(Optional) activate all points of integration with various AWS services such as sending warning log entries to SQS")
@@ -371,6 +371,8 @@ func main() {
 			go AutoRestart(logger, daemonName, config.GetAutoUnlock().StartAndBlock)
 		case launcher.PasswdRPCName:
 			go AutoRestart(logger, daemonName, config.GetPasswdRPCDaemon().StartAndBlock)
+		case launcher.HTTPProxyName:
+			go AutoRestart(logger, daemonName, config.GetHTTPProxyDaemon().StartAndBlock)
 		}
 	}
 

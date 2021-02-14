@@ -35,6 +35,7 @@ const (
 	AutoUnlockName       = "autounlock"
 	PhoneHomeName        = "phonehome"
 	PasswdRPCName        = "passwdrpc"
+	HTTPProxyName        = "httpproxy"
 
 	/*
 		FailureThresholdSec determines the maximum failure interval for supervisor to tolerate before taking action to shed
@@ -51,7 +52,7 @@ const (
 var AllDaemons = []string{
 	AutoUnlockName, DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, PhoneHomeName,
 	PlainSocketName, SerialPortDaemonName, SimpleIPSvcName, SMTPDName, SNMPDName, SOCKDName, TelegramName,
-	PasswdRPCName,
+	PasswdRPCName, HTTPProxyName,
 }
 
 /*
@@ -74,7 +75,7 @@ daemons, and all daemons will be re-enabled, the user will have to make diagnosi
 var ShedOrder = []string{
 	MaintenanceName,                                      // 1
 	SerialPortDaemonName, SimpleIPSvcName, PasswdRPCName, // 2
-	SNMPDName, DNSDName, // 3
+	SNMPDName, HTTPProxyName, DNSDName, // 3
 	SOCKDName, SMTPDName, HTTPDName, // 4
 	InsecureHTTPDName, PlainSocketName, TelegramName, PhoneHomeName, // 5
 	// Never shed - AutoUnlockName

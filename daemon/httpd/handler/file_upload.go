@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -143,7 +144,7 @@ func (upload *HandleFileUpload) Handle(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `failed to close file`, http.StatusInternalServerError)
 			return
 		}
-		upload.logger.Info("HandleFileUpload", GetRealClientIP(r), nil, "successfully saved file \"%s\" as \"%s\"", fileHeader.Filename, tmpFile.Name())
+		upload.logger.Info("HandleFileUpload", middleware.GetRealClientIP(r), nil, "successfully saved file \"%s\" as \"%s\"", fileHeader.Filename, tmpFile.Name())
 		upload.render(w, r, "Uploaded successfully. Your file is available for 24 hours under name: "+tmpFileName)
 		return
 	case "Download":

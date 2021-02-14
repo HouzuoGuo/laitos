@@ -3,7 +3,7 @@ Description=laitos - personal Internet infrastructure
 After=network.target
 
 [Service]
-ExecStart=/root/laitos/laitos -awsinteg -prominteg -disableconflicts -gomaxprocs 8 -config config.json -daemons autounlock,dnsd,httpd,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,serialport,simpleipsvcd,smtpd,snmpd,sockd,telegram
+ExecStart=/root/laitos/laitos -awsinteg -prominteg -disableconflicts -gomaxprocs 8 -config config.json -daemons autounlock,dnsd,httpd,httpproxy,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,serialport,simpleipsvcd,smtpd,snmpd,sockd,telegram
 User=root
 Group=root
 WorkingDirectory=/root/laitos

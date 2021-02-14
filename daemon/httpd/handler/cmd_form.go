@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -56,7 +57,7 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 		} else {
 			result := form.cmdProc.Process(r.Context(), toolbox.Command{
 				DaemonName: "httpd",
-				ClientTag:  GetRealClientIP(r),
+				ClientTag:  middleware.GetRealClientIP(r),
 				Content:    cmd,
 				TimeoutSec: HTTPClienAppCommandTimeout,
 			}, true)

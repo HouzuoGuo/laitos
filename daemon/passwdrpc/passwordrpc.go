@@ -24,7 +24,7 @@ const (
 	TestPort = 18378
 )
 
-// Daemon offers network listener for a gRPC service that allows other laitos program instances to obtain password for unlocking
+// Daemon offers a network listener for a gRPC service that allows other laitos program instances to obtain password for unlocking
 // their encrypted config/data files.
 type Daemon struct {
 	// Address is the IP address to listen on, e.g. 0.0.0.0 to listen on all network interfaces.

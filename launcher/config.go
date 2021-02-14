@@ -8,9 +8,11 @@ import (
 	"sync"
 
 	"github.com/HouzuoGuo/laitos/awsinteg"
+	"github.com/HouzuoGuo/laitos/daemon/httpproxy"
 	"github.com/HouzuoGuo/laitos/daemon/passwdrpc"
 	"github.com/HouzuoGuo/laitos/daemon/phonehome"
 	"github.com/HouzuoGuo/laitos/daemon/serialport"
+	"github.com/HouzuoGuo/laitos/misc"
 
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
@@ -179,8 +181,11 @@ type Config struct {
 	TelegramBot     *telegrambot.Daemon `json:"TelegramBot"`     // Telegram bot configuration
 	TelegramFilters StandardFilters     `json:"TelegramFilters"` // Telegram bot filter configuration
 
-	AutoUnlock        *autounlock.Daemon `json:"AutoUnlock"` // AutoUnlock daemon
-	PasswordRPCDaemon *passwdrpc.Daemon  `json:"PasswordRPCDaemon"`
+	AutoUnlock *autounlock.Daemon `json:"AutoUnlock"` // AutoUnlock daemon
+	// PasswordRPCDaemon offers a network listener for a gRPC service that allows other laitos program instances to obtain password for unlocking their encrypted config/data files.
+	PasswordRPCDaemon *passwdrpc.Daemon `json:"PasswordRPCDaemon"`
+	// HTTPProxyDaemon offers an HTTP proxy capable of handling both HTTP and HTTPS destinations.
+	HTTPProxyDaemon *httpproxy.Daemon `json:"HTTPProxyDaemon"`
 
 	SupervisorNotificationRecipients []string `json:"SupervisorNotificationRecipients"` // Email addresses of supervisor notification recipients
 
@@ -202,6 +207,7 @@ type Config struct {
 	telegramBotInit       *sync.Once
 	autoUnlockInit        *sync.Once
 	passwdrpcDaemonInit   *sync.Once
+	httpProxyDaemonInit   *sync.Once
 }
 
 // Initialise decorates feature configuration and command bridge configuration in preparation for daemon operations.
@@ -214,7 +220,7 @@ func (config *Config) Initialise() error {
 	// Initialise the optional AWS kinesis firehose client for a stream to get a copy of every report received by message processor
 	var firehoseClient *awsinteg.KinesisHoseClient
 	var err error
-	if streamName := config.AWSIntegration.ForwardMessageProcessorReportsToFirehoseStreamName; streamName != "" {
+	if streamName := config.AWSIntegration.ForwardMessageProcessorReportsToFirehoseStreamName; streamName != "" && misc.EnableAWSIntegration {
 		config.logger.Info("Initialise", "", nil, "initialising kinesis firehose client for stream \"%s\"", streamName)
 		firehoseClient, err = awsinteg.NewKinesisHoseClient()
 		if err != nil {
@@ -223,7 +229,7 @@ func (config *Config) Initialise() error {
 	}
 	// Initialise the optional AWS SNS client for a topic to get a copy of every report received by message processor
 	var snsClient *awsinteg.SNSClient
-	if arn := config.AWSIntegration.ForwardMessageProcessorReportsToSNSTopicARN; arn != "" {
+	if arn := config.AWSIntegration.ForwardMessageProcessorReportsToSNSTopicARN; arn != "" && misc.EnableAWSIntegration {
 		config.logger.Info("Initialise", "", nil, "initialising SNS client for topic ARN \"%s\"", arn)
 		snsClient, err = awsinteg.NewSNSClient()
 		if err != nil {
@@ -318,6 +324,10 @@ func (config *Config) Initialise() error {
 	config.passwdrpcDaemonInit = new(sync.Once)
 	if config.PasswordRPCDaemon == nil {
 		config.PasswordRPCDaemon = &passwdrpc.Daemon{}
+	}
+	config.httpProxyDaemonInit = new(sync.Once)
+	if config.HTTPProxyDaemon == nil {
+		config.HTTPProxyDaemon = &httpproxy.Daemon{}
 	}
 	// All notification filters share the common mail client
 	config.MessageProcessorFilters.NotifyViaEmail.MailClient = config.MailClient
@@ -763,4 +773,15 @@ func (config *Config) GetPasswdRPCDaemon() *passwdrpc.Daemon {
 		}
 	})
 	return config.PasswordRPCDaemon
+}
+
+// GetHTTPProxyDaemon returns an initialised instance of HTTP proxy daemon.
+func (config *Config) GetHTTPProxyDaemon() *httpproxy.Daemon {
+	config.httpProxyDaemonInit.Do(func() {
+		if err := config.HTTPProxyDaemon.Initialise(); err != nil {
+			config.logger.Abort("GetHTTPProxyDaemon", "", err, "the daemon failed to initialise")
+			return
+		}
+	})
+	return config.HTTPProxyDaemon
 }

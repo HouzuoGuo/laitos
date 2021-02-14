@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -233,7 +234,7 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 			err = downlinkResp.Non2xxToError()
 		}
 		if err != nil {
-			hand.logger.Warning("HandleTheThingsNetworkHTTPIntegration.Handler", GetRealClientIP(r), err, "failed to send downlink reply message")
+			hand.logger.Warning("HandleTheThingsNetworkHTTPIntegration.Handler", middleware.GetRealClientIP(r), err, "failed to send downlink reply message")
 		}
 	}
 	w.WriteHeader(http.StatusOK)

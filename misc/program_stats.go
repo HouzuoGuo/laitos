@@ -10,6 +10,7 @@ var (
 	DNSDStatsTCP        = NewStats()
 	DNSDStatsUDP        = NewStats()
 	HTTPDStats          = NewStats()
+	HTTPProxyStats      = NewStats()
 	PlainSocketStatsTCP = NewStats()
 	PlainSocketStatsUDP = NewStats()
 	SerialDevicesStats  = NewStats()

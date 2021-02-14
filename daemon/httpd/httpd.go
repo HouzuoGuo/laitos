@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
+	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -38,11 +39,6 @@ const (
 
 	// MaxRequestBodyBytes is the maximum size (in bytes) of a request body that HTTP server will process for a request.
 	MaxRequestBodyBytes = 1024 * 1024
-
-	// PrometheusHandlerTypeLabel is the name of data label given to prometheus observers, the label data shall be the symbol name of the HTTP handler's type.
-	PrometheusHandlerTypeLabel = "handler_type"
-	// PrometheusHandlerLocationLabel is the name of data label given to prometheus observers, the label data shall be the URL location at which HTTP handler is installed.
-	PrometheusHandlerLocationLabel = "url_location"
 )
 
 // HandlerCollection is a mapping between URL and implementation of handlers. It does not contain directory handlers.
@@ -155,21 +151,39 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 	// Prometheus histograms that use a label to tell the HTTP handler associated with the histogram metrics
 	var handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram *prometheus.HistogramVec
 	if misc.EnablePrometheusIntegration {
-		metricsLabelNames := []string{PrometheusHandlerTypeLabel, PrometheusHandlerLocationLabel}
+		metricsLabelNames := []string{middleware.PrometheusHandlerTypeLabel, middleware.PrometheusHandlerLocationLabel, middleware.PrometheusHandlerHostLabel}
 		handlerDurationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name:    "laitos_httpd_handler_duration_seconds",
-			Help:    "The run-duration of HTTP handler function in seconds",
-			Buckets: []float64{0.08, 0.16, 0.24, 0.32, 0.4, 0.48, 0.56, 0.64, 0.72, 0.8, 0.88, 0.96},
+			Name: "laitos_httpd_handler_duration_seconds",
+			Help: "The run-duration of HTTP handler function in seconds",
+			Buckets: []float64{
+				0.025, 0.050, 0.075, 0.1,
+				0.1375, 0.175, 0.2125, 0.25,
+				0.3125, 0.375, 0.4375, 0.5,
+				0.625, 0.75, 0.875, 1,
+				1.25, 1.5, 1.75, 2,
+			},
 		}, metricsLabelNames)
 		responseTimeToFirstByteHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name:    "laitos_httpd_response_time_to_first_byte_seconds",
-			Help:    "The time-to-first-byte of HTTP handler function in seconds",
-			Buckets: []float64{0.08, 0.16, 0.24, 0.32, 0.4, 0.48, 0.56, 0.64, 0.72, 0.8, 0.88, 0.96},
+			Name: "laitos_httpd_response_time_to_first_byte_seconds",
+			Help: "The time-to-first-byte of HTTP handler function in seconds",
+			Buckets: []float64{
+				0.025, 0.050, 0.075, 0.1,
+				0.1375, 0.175, 0.2125, 0.25,
+				0.3125, 0.375, 0.4375, 0.5,
+				0.625, 0.75, 0.875, 1,
+				1.25, 1.5, 1.75, 2,
+			},
 		}, metricsLabelNames)
 		responseSizeHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name:    "laitos_httpd_response_size_bytes",
-			Help:    "The size of response produced by HTTP handler function in bytes",
-			Buckets: []float64{64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072},
+			Name: "laitos_httpd_response_size_bytes",
+			Help: "The size of response produced by HTTP handler function in bytes",
+			Buckets: []float64{
+				8, 16, 64, 128,
+				160, 192, 224, 256,
+				320, 384, 448, 512,
+				640, 768, 896, 1024,
+				1280, 1536, 1792, 2048,
+			},
 		}, metricsLabelNames)
 		for _, histogram := range []*prometheus.HistogramVec{handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram} {
 			if err := prometheus.Register(histogram); err != nil {
@@ -197,9 +211,14 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 				Logger:   daemon.logger,
 			}
 			daemon.AllRateLimits[urlLocation] = rl
-			daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware("FileServer", urlLocation, rl, true,
-				http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc),
-				handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram))
+			decoratedHandlerFunc := middleware.LogRequestStats(daemon.logger,
+				middleware.RecordInternalStats(misc.HTTPDStats,
+					middleware.EmergencyLockdown(
+						middleware.RecordPrometheusStats("FileServer", urlLocation, handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram,
+							middleware.RateLimit(rl,
+								middleware.RestrictMaxRequestSize(MaxRequestBodyBytes,
+									http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))))))
+			daemon.mux.Handle(urlLocation, decoratedHandlerFunc)
 			daemon.logger.Info("Initialise", "", nil, "installed directory listing handler at location \"%s\"", urlLocation)
 		}
 	}
@@ -219,8 +238,17 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 		// With the exception of file upload handler, all handlers will be subject to a limited request size.
 		_, unrestrictedRequestSize := hand.(*handler.HandleFileUpload)
 		handlerTypeName := reflect.TypeOf(hand).String()
-		daemon.mux.Handle(urlLocation, daemon.DecorateWithMiddleware(handlerTypeName, urlLocation, rl, !unrestrictedRequestSize, hand.Handle,
-			handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram))
+		innerMostHandler := hand.Handle
+		if !unrestrictedRequestSize {
+			innerMostHandler = middleware.RestrictMaxRequestSize(MaxRequestBodyBytes, innerMostHandler)
+		}
+		decoratedHandlerFunc := middleware.LogRequestStats(daemon.logger,
+			middleware.RecordInternalStats(misc.HTTPDStats,
+				middleware.EmergencyLockdown(
+					middleware.RecordPrometheusStats(handlerTypeName, urlLocation, handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram,
+						middleware.WithAWSXray(
+							middleware.RateLimit(rl, innerMostHandler))))))
+		daemon.mux.Handle(urlLocation, decoratedHandlerFunc)
 		daemon.logger.Info("Initialise", "", nil, "installed web service \"%s\" at location \"%s\"", handlerTypeName, urlLocation)
 	}
 

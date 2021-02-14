@@ -7,7 +7,44 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
+
+/*
+PipeTCPConnection receives data from the first connection and copies the data into the second connection.
+The function returns after the first connection is closed or other IO error occurs, and before returning
+the function closes the second connection and optionally writes a random amount of data into the supposedly
+already terminated first connection.
+*/
+func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
+	defer func() {
+		_ = toConn.Close()
+	}()
+	// Read and write a small TCP segment at a time to avoid IP fragmentation
+	buf := make([]byte, 1280)
+	for {
+		if misc.EmergencyLockDown {
+			lalog.DefaultLogger.Warning("PipeTCPConnection", "sockd", misc.ErrEmergencyLockDown, "")
+			return
+		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+			return
+		}
+		length, err := fromConn.Read(buf)
+		if length > 0 {
+			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+				return
+			} else if _, err := toConn.Write(buf[:length]); err != nil {
+				return
+			}
+		}
+		if err != nil {
+			if doWriteRand {
+				WriteRand(fromConn)
+			}
+			return
+		}
+	}
+}
 
 // WriteRand writes a random amount of data (up to couple of KB) to the connection.
 func WriteRand(conn net.Conn) (randBytesWritten int) {

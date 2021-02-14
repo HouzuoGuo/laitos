@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -41,7 +42,7 @@ func (doc *HandleHTMLDocument) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	NoCache(w)
 	page := strings.Replace(doc.contentString, HTMLCurrentDateTime, time.Now().Format(time.RFC3339), -1)
-	page = strings.Replace(page, HTMLClientAddress, GetRealClientIP(r), -1)
+	page = strings.Replace(page, HTMLClientAddress, middleware.GetRealClientIP(r), -1)
 	_, _ = w.Write([]byte(page))
 }
 

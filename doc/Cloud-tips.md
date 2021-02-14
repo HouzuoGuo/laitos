@@ -24,7 +24,7 @@ computer boots up. Create a service file `/etc/systemd/system/laitos.service` an
     After=network.target
     
     [Service]
-    ExecStart=/root/laitos/laitos -disableconflicts -gomaxprocs 8 -config config.json -daemons autounlock,dnsd,httpd,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
+    ExecStart=/root/laitos/laitos -disableconflicts -gomaxprocs 8 -config config.json -daemons autounlock,dnsd,httpd,httpproxy,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
     User=root
     Group=root
     WorkingDirectory=/root/laitos
@@ -124,7 +124,7 @@ Here are some tips for using laitos on ElasticBeanstalk:
 
 - `Procfile` tells the command line for starting laitos, the content may look like:
 
-      laitos: ./laitos -awsinteg -prominteg -disableconflicts -gomaxprocs 16 -config config.json -daemons dnsd,httpd,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
+      laitos: ./laitos -awsinteg -prominteg -disableconflicts -gomaxprocs 16 -config config.json -daemons dnsd,httpd,httpproxy,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
 
   Be aware that, paths among the command line must be relative to the top level of application bundle zip file.
 

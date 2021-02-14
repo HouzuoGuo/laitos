@@ -7,6 +7,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
+	"github.com/HouzuoGuo/laitos/daemon/httpproxy"
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
 	"github.com/HouzuoGuo/laitos/daemon/passwdrpc"
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
@@ -17,6 +18,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/snmpd"
 	"github.com/HouzuoGuo/laitos/daemon/sockd"
 	"github.com/HouzuoGuo/laitos/daemon/telegrambot"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 var sampleConfigJSON = `
@@ -70,6 +72,12 @@ var sampleConfigJSON = `
       "/dir": "/tmp/test-laitos-dir",
       "/my/dir": "/tmp/test-laitos-dir"
     }
+  },
+  "HTTPProxyDaemon": {
+    "Address": "127.0.0.1",
+    "PerIPLimit": 10,
+    "Port": 54112,
+    "AllowFromCidrs": ["127.0.0.0/8"]
   },
   "HTTPFilters": {
     "LintText": {
@@ -385,6 +393,8 @@ var sampleConfigJSON = `
 `
 
 func TestConfig(t *testing.T) {
+	misc.EnableAWSIntegration = true
+	misc.EnablePrometheusIntegration = true
 	var config Config
 	if err := config.DeserialiseFromJSON([]byte(sampleConfigJSON)); err != nil {
 		t.Fatal(err)
@@ -427,4 +437,6 @@ func TestConfig(t *testing.T) {
 	autounlock.TestAutoUnlock(config.GetAutoUnlock(), t)
 
 	passwdrpc.TestPasswdRPCDaemon(config.GetPasswdRPCDaemon(), t)
+
+	httpproxy.TestHTTPProxyDaemon(config.GetHTTPProxyDaemon(), t)
 }

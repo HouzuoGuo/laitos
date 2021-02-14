@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -168,7 +169,7 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
 			return
 		}
-		content, err := lab.DownloadGitBlob(r.Context(), GetRealClientIP(r), projectID, browsePath, fileName)
+		content, err := lab.DownloadGitBlob(r.Context(), middleware.GetRealClientIP(r), projectID, browsePath, fileName)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/html")
 			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Error: "+err.Error())))
