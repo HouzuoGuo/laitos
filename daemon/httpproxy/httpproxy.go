@@ -24,8 +24,8 @@ const (
 	DefaultPort = 210
 	// TestPort is used exclusively by test cases to configure daemon under testing.
 	TestPort = 54112
-	// IOTimeout is the IO timeout used for both interacting with proxy client and interacting with proxied destinations.
-	IOTimeout = time.Duration(2 * time.Minute)
+	// IOTimeout is the maximum duration of an entire proxy request. The number took inspiration from the default settings in Squid software.
+	IOTimeout = time.Duration(10 * time.Minute)
 	// MaxRequestBodyBytes is the maximum size accepted for the entire request body of an HTTP proxy request.
 	// The size does not apply to HTTPS proxy request (HTTP CONNECT).
 	MaxRequestBodyBytes = 2 * 1024 * 1024

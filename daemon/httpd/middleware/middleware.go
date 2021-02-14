@@ -178,13 +178,11 @@ func LogRequestStats(logger lalog.Logger, next http.HandlerFunc) http.HandlerFun
 			totalWritten = responseRecorder.totalWritten
 		}
 		if timeToFirstByte == 0 {
-			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "User-Agent \"%s\" referred by \"%s\", requested \"%s %s %s\", responded with code %d and %d bytes in %dus",
-				r.Header.Get("User-Agent"), r.Header.Get("Referer"), r.Method, r.URL.EscapedPath(), r.Proto,
-				responseRecorder.statusCode, totalWritten, processingDuration.Microseconds())
+			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus",
+				r.Method, r.URL.EscapedPath(), r.Proto, r.Host, r.Header.Get("User-Agent"), r.Header.Get("Referer"), responseRecorder.statusCode, totalWritten, processingDuration.Microseconds())
 		} else {
-			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "User-Agent \"%s\" referred by \"%s\", requested \"%s %s %s\", responded with code %d and %d bytes in %dus (time to 1st byte %dus)",
-				r.Header.Get("User-Agent"), r.Header.Get("Referer"), r.Method, r.URL.EscapedPath(), r.Proto,
-				responseRecorder.statusCode, totalWritten, processingDuration.Microseconds(), timeToFirstByte.Microseconds())
+			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus (time to 1st byte %dus)",
+				r.Method, r.URL.EscapedPath(), r.Proto, r.Host, r.Header.Get("User-Agent"), r.Header.Get("Referer"), responseRecorder.statusCode, totalWritten, processingDuration.Microseconds(), timeToFirstByte.Microseconds())
 		}
 	}
 }

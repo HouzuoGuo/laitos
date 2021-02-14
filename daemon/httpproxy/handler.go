@@ -36,6 +36,12 @@ func PipeTCPConnection(logger lalog.Logger, ioTimeout time.Duration, srcConn, ds
 		_ = srcConn.Close()
 		_ = dstConn.Close()
 	}()
+	if err := srcConn.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil {
+		return
+	}
+	if err := dstConn.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil {
+		return
+	}
 	// Read and write a small TCP segment at a time to avoid IP fragmentation
 	buf := make([]byte, 1280)
 	for {
@@ -43,17 +49,12 @@ func PipeTCPConnection(logger lalog.Logger, ioTimeout time.Duration, srcConn, ds
 			logger.Warning("PipeTCPConnection", "httpproxy", misc.ErrEmergencyLockDown, "")
 			return
 		}
-		if err := srcConn.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil {
-			return
-		}
 		length, err := srcConn.Read(buf)
 		if err != nil {
 			return
 		}
 		if length > 0 {
-			if err := dstConn.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil {
-				return
-			} else if _, err := dstConn.Write(buf[:length]); err != nil {
+			if _, err := dstConn.Write(buf[:length]); err != nil {
 				return
 			}
 		}

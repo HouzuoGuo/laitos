@@ -24,7 +24,7 @@ func (rec *HTTPResponseRecorder) WriteHeader(statusCode int) {
 
 // Write memorises the time-to-1st-byte and accumulated size of the response, and then invokes the underlying ResponseWriter using the same data buffer.
 func (rec *HTTPResponseRecorder) Write(b []byte) (int, error) {
-	if rec.timestampAtWriteCall.IsZero() {
+	if rec.timestampAtWriteCall.IsZero() && len(b) > 0 {
 		rec.timestampAtWriteCall = time.Now()
 	}
 	size, err := rec.ResponseWriter.Write(b)
@@ -40,7 +40,7 @@ type ConnRecorder struct {
 }
 
 func (rec *ConnRecorder) Write(b []byte) (n int, err error) {
-	if rec.timestampAtWriteCall.IsZero() {
+	if rec.timestampAtWriteCall.IsZero() && len(b) > 0 {
 		rec.timestampAtWriteCall = time.Now()
 	}
 	size, err := rec.Conn.Write(b)
