@@ -134,15 +134,16 @@ func (ws *WebServer) Start() error {
 	})
 
 	// Start web server
-	ws.server = &http.Server{
+	server := &http.Server{
 		Addr:        net.JoinHostPort("0.0.0.0", strconv.Itoa(ws.Port)),
 		Handler:     mux,
 		ReadTimeout: IOTimeout, ReadHeaderTimeout: IOTimeout,
 		WriteTimeout: IOTimeout, IdleTimeout: IOTimeout,
 	}
+	ws.server = server
 	ws.logger.Info("Start", "", nil, "a web server has been started on port %d to collect config file decryption password at \"%s\"",
 		ws.Port, ws.URL)
-	if err := ws.server.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "closed") {
+	if err := server.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "closed") {
 		ws.logger.Warning("Start", "", err, "failed to listen on TCP port")
 		return err
 	}
@@ -158,5 +159,4 @@ func (ws *WebServer) Shutdown() {
 		ws.logger.MaybeMinorError(ws.server.Shutdown(shutdownTimeout))
 	}
 	ws.server = nil
-	return
 }
