@@ -144,7 +144,7 @@ func (ws *WebServer) Start() error {
 	ws.server = server
 	ws.logger.Info("Start", "", nil, "a web server has been started on port %d to collect config file decryption password at \"%s\"",
 		ws.Port, ws.URL)
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, net.ErrClosed) {
+	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		ws.logger.Warning("Start", "", err, "failed to listen on TCP port")
 		return err
 	}

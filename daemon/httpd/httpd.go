@@ -273,10 +273,7 @@ func (daemon *Daemon) StartAndBlockNoTLS(fallbackPort int) error {
 		WriteTimeout: IOTimeoutSec * time.Second,
 	}
 	daemon.logger.Info("StartAndBlockNoTLS", "", nil, "going to listen for HTTP connections")
-	if err := daemon.serverNoTLS.ListenAndServe(); err != nil {
-		if errors.Is(err, net.ErrClosed) {
-			return nil
-		}
+	if err := daemon.serverNoTLS.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("httpd.StartAndBlockNoTLS: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
 	return nil
@@ -304,10 +301,7 @@ func (daemon *Daemon) StartAndBlockWithTLS() error {
 	}
 	daemon.logger.Info("StartAndBlockWithTLS", "", nil, "going to listen for HTTPS connections")
 
-	if err := daemon.serverWithTLS.ListenAndServeTLS("", ""); err != nil {
-		if errors.Is(err, net.ErrClosed) {
-			return nil
-		}
+	if err := daemon.serverWithTLS.ListenAndServeTLS("", ""); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("httpd.StartAndBlockWithTLS: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
 	return nil

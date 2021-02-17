@@ -384,6 +384,7 @@ func main() {
 		pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 		logger.Info("main", "pprof", nil, "serving program profiling data over HTTP server on port %d", pprofHTTPPort)
 		if err := http.ListenAndServe(net.JoinHostPort("localhost", strconv.Itoa(pprofHTTPPort)), pprofMux); err != nil {
+			// This server is not expected to shutdown
 			logger.Warning("main", "pprof", err, "failed to start HTTP server for program profiling data")
 		}
 	}

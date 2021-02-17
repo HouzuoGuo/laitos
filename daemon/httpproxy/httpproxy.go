@@ -131,10 +131,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 	daemon.logger.Info("StartAndBlock", "", nil, "starting now")
-	if err := daemon.httpServer.ListenAndServe(); err != nil {
-		if errors.Is(err, net.ErrClosed) {
-			return nil
-		}
+	if err := daemon.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("httpproxy.StartAndBlock.: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
 	return nil

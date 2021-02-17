@@ -38,7 +38,7 @@ consider waiting a short while for daemons to settle before running this benchma
 func (bench *Benchmark) RunBenchmarkAndProfiler() {
 	// Expose profiler APIs via HTTP server running on a fixed port number on localhost
 	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf("localhost:%d", bench.HTTPPort), nil); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf("localhost:%d", bench.HTTPPort), nil); err != http.ErrServerClosed {
 			bench.Logger.Abort("RunBenchmarkAndProfiler", "", err, "failed to start profiler HTTP server")
 		}
 	}()

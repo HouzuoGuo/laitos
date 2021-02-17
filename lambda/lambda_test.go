@@ -26,7 +26,7 @@ func TestLambdaHandler(t *testing.T) {
 		_, _ = io.WriteString(w, "b")
 	})
 	go func() {
-		if err := http.ListenAndServe("localhost:60110", nil); err != nil {
+		if err := http.ListenAndServe("localhost:60110", nil); err != http.ErrServerClosed {
 			t.Error(err)
 			return
 		}
