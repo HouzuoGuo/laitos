@@ -1,11 +1,12 @@
 package inet
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -57,14 +58,24 @@ func TestHTTPRequest_FillBlanks(t *testing.T) {
 }
 
 func TestDoHTTPFaultyServer(t *testing.T) {
-	// Create a test server that serves 5 bad responses and HTTP 201 in subsequent responses
 	faultyServerRequestsServed := 0
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	router := http.NewServeMux()
+	requestBodyMatch := []byte("request body match string")
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// The handler serves exactly 5 requests with non-200 response codes
+		reqBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if !bytes.Equal(reqBody, requestBodyMatch) {
+			t.Error("incorrect request body", string(reqBody))
+			return
+		}
 		faultyServerRequestsServed++
 		switch faultyServerRequestsServed {
 		case 1:
@@ -78,8 +89,8 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 		case 5:
 			http.Error(w, "hfhf", http.StatusForbidden)
 		default:
-			// Further responses are HTTP 201
-			w.WriteHeader(201)
+			// All subsequent requests get a 201 response
+			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte("response from faulty server"))
 		}
 	})
@@ -95,7 +106,7 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 
 	// Expect first request to fail in all three attempts
 	serverURL := fmt.Sprintf("http://localhost:%d/endpoint", listener.Addr().(*net.TCPAddr).Port)
-	resp, err := DoHTTP(context.Background(), HTTPRequest{Body: strings.NewReader("request body string")}, serverURL)
+	resp, err := DoHTTP(context.Background(), HTTPRequest{Body: bytes.NewReader(requestBodyMatch)}, serverURL)
 	if err != nil || string(resp.Body) != "hihi\n" || resp.StatusCode != http.StatusPaymentRequired {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}
@@ -104,7 +115,7 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 	}
 
 	// Expect the next request to succeed in three attempts
-	resp, err = DoHTTP(context.Background(), HTTPRequest{}, serverURL)
+	resp, err = DoHTTP(context.Background(), HTTPRequest{Body: bytes.NewReader(requestBodyMatch)}, serverURL)
 	if err != nil || string(resp.Body) != "response from faulty server" || resp.StatusCode != http.StatusCreated {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}

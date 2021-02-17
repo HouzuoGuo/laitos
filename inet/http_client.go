@@ -1,6 +1,7 @@
 package inet
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -86,18 +87,30 @@ func (resp *HTTPResponse) GetBodyUpTo(nBytes int) []byte {
 func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (HTTPResponse, error) {
 	reqParam.FillBlanks()
 	client.Timeout = time.Duration(reqParam.TimeoutSec) * time.Second
+	defer client.CloseIdleConnections()
 	// Encode values in URL path
 	encodedURLValues := make([]interface{}, len(urlValues))
 	for i, val := range urlValues {
 		encodedURLValues[i] = url.QueryEscape(fmt.Sprint(val))
 	}
 	fullURL := fmt.Sprintf(urlTemplate, encodedURLValues...)
-	defer client.CloseIdleConnections()
-	// Send the request away, and retry in case of error.
+	// Retain a copy of request body for retry
+	reqBodyCopy := new(bytes.Buffer)
 	var lastHTTPErr error
 	var lastResponse HTTPResponse
+	// Send the request away, and retry in case of error.
 	for retry := 0; retry < reqParam.MaxRetry; retry++ {
-		req, err := http.NewRequestWithContext(ctx, reqParam.Method, fullURL, reqParam.Body)
+		var reqBodyReader io.Reader
+		if reqParam.Body != nil {
+			if retry == 0 {
+				// Retain a copy of the request body in memory
+				reqBodyReader = io.TeeReader(reqParam.Body, reqBodyCopy)
+			} else {
+				// Use the in-memory copy of request body from now as the original stream has already been drained
+				reqBodyReader = bytes.NewReader(reqBodyCopy.Bytes())
+			}
+		}
+		req, err := http.NewRequestWithContext(ctx, reqParam.Method, fullURL, reqBodyReader)
 		if err != nil {
 			return HTTPResponse{}, err
 		}
