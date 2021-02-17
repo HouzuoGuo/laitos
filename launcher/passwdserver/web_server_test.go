@@ -3,7 +3,6 @@ package passwdserver
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -53,13 +52,13 @@ func TestWebServer(t *testing.T) {
 
 func TestWebServer_UnlockWithPassword(t *testing.T) {
 	// Create an encrypted config file for testing
-	file, err := ioutil.TempFile("", "laitos-TestWebServer")
+	file, err := os.CreateTemp("", "laitos-TestWebServer")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(file.Name())
 	misc.ConfigFilePath = file.Name()
-	if err := ioutil.WriteFile(file.Name(), []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(file.Name(), []byte("{}"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	encPassword := "obtain_password_test"

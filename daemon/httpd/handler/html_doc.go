@@ -2,8 +2,8 @@ package handler
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -30,7 +30,7 @@ type HandleHTMLDocument struct {
 
 func (doc *HandleHTMLDocument) Initialise(lalog.Logger, *toolbox.CommandProcessor, string) error {
 	var err error
-	if doc.contentBytes, err = ioutil.ReadFile(doc.HTMLFilePath); err != nil {
+	if doc.contentBytes, err = os.ReadFile(doc.HTMLFilePath); err != nil {
 		return fmt.Errorf("HandleHTMLDocument.Initialise: failed to open HTML file at %s - %v", doc.HTMLFilePath, err)
 	}
 	doc.contentString = string(doc.contentBytes)

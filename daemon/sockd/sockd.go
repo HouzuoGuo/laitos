@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net"
 	"strconv"
@@ -92,7 +92,7 @@ func TestSockd(sockd *Daemon, t testingstub.T) {
 			t.Fatal(err)
 		} else if n, err := conn.Write(bytes.Repeat([]byte{0}, 1000)); err != nil && n != 10 {
 			t.Fatal(err, n)
-		} else if resp, err := ioutil.ReadAll(conn); err == nil || resp == nil || len(resp) < 10 {
+		} else if resp, err := io.ReadAll(conn); err == nil || resp == nil || len(resp) < 10 {
 			// Server should have closed the connection after having sent the random data
 			t.Fatal(err, resp)
 		}

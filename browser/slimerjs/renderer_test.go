@@ -1,7 +1,6 @@
 package slimerjs
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -19,7 +18,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	// CircleCI container cannot operate docker daemon
 	platform.SkipTestIfCI(t)
 
-	renderOutput, err := ioutil.TempDir("", "laitos-TestInteractiveBrowser-browsers-render")
+	renderOutput, err := os.MkdirTemp("", "laitos-TestInteractiveBrowser-browsers-render")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +90,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 	}
 	// CircleCI container cannot operate docker daemon
 	platform.SkipTestIfCI(t)
-	renderOutput, err := ioutil.TempDir("", "laitos-TestInteractiveBrowser-browsers-render")
+	renderOutput, err := os.MkdirTemp("", "laitos-TestInteractiveBrowser-browsers-render")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,7 @@ package procexp
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"sort"
@@ -53,8 +53,8 @@ func TestGetTaskStatus_WaitChannel(t *testing.T) {
 		return
 	}
 	cmd := exec.Command("/bin/cat")
-	cmd.Stdout = ioutil.Discard
-	cmd.Stderr = ioutil.Discard
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -78,8 +78,8 @@ func TestGetTaskStatus_SchedulerStats(t *testing.T) {
 		return
 	}
 	cmd := exec.Command("/usr/bin/yes")
-	cmd.Stdout = ioutil.Discard
-	cmd.Stderr = ioutil.Discard
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -101,8 +101,8 @@ func TestGetProcAndTaskStatus(t *testing.T) {
 		return
 	}
 	cmd := exec.Command("/usr/bin/yes")
-	cmd.Stdout = ioutil.Discard
-	cmd.Stderr = ioutil.Discard
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}

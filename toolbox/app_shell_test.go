@@ -2,7 +2,6 @@ package toolbox
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -97,7 +96,7 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 	}
 
 	// Execute a timeout command - it should not remove the temp file after timing out
-	tmpFile, err := ioutil.TempFile("", "")
+	tmpFile, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}

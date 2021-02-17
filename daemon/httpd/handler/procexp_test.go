@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -33,7 +33,7 @@ func TestHandleProcessExplorer_Handle(t *testing.T) {
 		}
 		w := httptest.NewRecorder()
 		handler.Handle(w, req)
-		body, _ := ioutil.ReadAll(w.Result().Body)
+		body, _ := io.ReadAll(w.Result().Body)
 		if w.Result().StatusCode != http.StatusOK {
 			t.Fatalf("%+v", w.Result())
 		}
@@ -55,7 +55,7 @@ func TestHandleProcessExplorer_Handle(t *testing.T) {
 		}
 		w := httptest.NewRecorder()
 		handler.Handle(w, req)
-		body, _ := ioutil.ReadAll(w.Result().Body)
+		body, _ := io.ReadAll(w.Result().Body)
 		if w.Result().StatusCode != http.StatusOK {
 			t.Fatalf("%+v", w.Result())
 		}
@@ -74,7 +74,7 @@ func TestHandleProcessExplorer_Handle(t *testing.T) {
 		}
 		w := httptest.NewRecorder()
 		handler.Handle(w, req)
-		body, _ := ioutil.ReadAll(w.Result().Body)
+		body, _ := io.ReadAll(w.Result().Body)
 		if w.Result().StatusCode != http.StatusOK {
 			t.Fatalf("%+v", w.Result())
 		}

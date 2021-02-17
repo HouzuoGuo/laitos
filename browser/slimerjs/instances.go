@@ -3,7 +3,7 @@ package slimerjs
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
@@ -76,7 +76,7 @@ func PrepareDocker(logger lalog.Logger) {
 	// Disable selinux as it interferes with docker directory mapping
 	out, err = platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "setenforce", "0")
 	logger.Info("PrepareDocker", "", nil, "disable selinux result: %v - %s", err, out)
-	err = ioutil.WriteFile("/etc/selinux/config", []byte("SELINUX=disabled\nSELINUXTYPE=minimum\n"), 0600)
+	err = os.WriteFile("/etc/selinux/config", []byte("SELINUX=disabled\nSELINUXTYPE=minimum\n"), 0600)
 	logger.Info("PrepareDocker", "", nil, "disable selinux via config result: %v", err)
 }
 

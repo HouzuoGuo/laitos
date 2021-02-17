@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -727,14 +726,14 @@ func PrepareForTestHTTPD(t testingstub.T) {
 	// Create a temporary file for index
 	_ = os.MkdirAll("/tmp", 1777)
 	indexFile := "/tmp/test-laitos-index.html"
-	if err := ioutil.WriteFile(indexFile, []byte(TestLaitosIndexHTMLContent), 0644); err != nil {
+	if err := os.WriteFile(indexFile, []byte(TestLaitosIndexHTMLContent), 0644); err != nil {
 		panic(err)
 	}
 	htmlDir := "/tmp/test-laitos-dir"
 	if err := os.MkdirAll(htmlDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(htmlDir+"/a.html", []byte("a html"), 0644); err != nil {
+	if err := os.WriteFile(htmlDir+"/a.html", []byte("a html"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	/*

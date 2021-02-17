@@ -4,7 +4,7 @@ package platform
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"syscall"
@@ -51,7 +51,7 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		combinedEnv = append(combinedEnv, envVars...)
 	}
 	// Collect stdout and stderr all together in a single buffer
-	outBuf := lalog.NewByteLogWriter(ioutil.Discard, MaxExternalProgramOutputBytes)
+	outBuf := lalog.NewByteLogWriter(io.Discard, MaxExternalProgramOutputBytes)
 	proc := exec.Command(program, args...)
 	proc.Env = combinedEnv
 	proc.Stdout = outBuf

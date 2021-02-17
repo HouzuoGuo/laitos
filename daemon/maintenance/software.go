@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -45,7 +44,7 @@ func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 		return
 	}
 	daemon.logPrintStageStep(out, "prepare docker repository for debian system")
-	content, err := ioutil.ReadFile("/etc/os-release")
+	content, err := os.ReadFile("/etc/os-release")
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to read os-release, skip rest of the stage.")
 		return
@@ -60,7 +59,7 @@ func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
 		return
 	}
 	gpgKeyFile := "/tmp/laitos-docker-gpg-key"
-	if err := ioutil.WriteFile(gpgKeyFile, resp.Body, 0600); err != nil {
+	if err := os.WriteFile(gpgKeyFile, resp.Body, 0600); err != nil {
 		daemon.logPrintStageStep(out, "failed to store docker GPG key - %v", err)
 		return
 	}
@@ -83,7 +82,7 @@ func (daemon *Daemon) prepareDockerRepositoryForAWSLinux(out *bytes.Buffer) {
 		return
 	}
 	daemon.logPrintStageStep(out, "prepare docker repository for AWS Linux system")
-	content, err := ioutil.ReadFile("/etc/os-release")
+	content, err := os.ReadFile("/etc/os-release")
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to read os-release, skip rest of the stage.")
 		return

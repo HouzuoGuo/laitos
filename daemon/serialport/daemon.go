@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -221,7 +220,7 @@ func (daemon *Daemon) Stop() {
 func TestDaemon(daemon *Daemon, t testingstub.T) {
 	// Instead of emulating a serial device driven by OS driver, the test subject simply uses a text file with a line of command.
 	tmpFileNamePrefix := fmt.Sprintf("laitos-serialport-TestDaemon-%d", time.Now().UnixNano())
-	tmpFile, err := ioutil.TempFile("", tmpFileNamePrefix+"*")
+	tmpFile, err := os.CreateTemp("", tmpFileNamePrefix+"*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +229,7 @@ func TestDaemon(daemon *Daemon, t testingstub.T) {
 	}()
 	// In a toolbox command, write down a valid PIN and a shell command that prints a line of text
 	anticipatedResponse := "test-daemon-response"
-	if err := ioutil.WriteFile(tmpFile.Name(), []byte(fmt.Sprintf("%s .s echo %s\r\n", toolbox.TestCommandProcessorPIN, anticipatedResponse)), 0600); err != nil {
+	if err := os.WriteFile(tmpFile.Name(), []byte(fmt.Sprintf("%s .s echo %s\r\n", toolbox.TestCommandProcessorPIN, anticipatedResponse)), 0600); err != nil {
 		t.Fatal(err)
 	}
 	// Reinitialise daemon to use a pattern to glob the temporary text file
@@ -257,7 +256,7 @@ func TestDaemon(daemon *Daemon, t testingstub.T) {
 	go func() {
 		// Keep watching the file content looking for the anticipated response
 		for i := 0; i < 100; i++ {
-			content, err := ioutil.ReadFile(tmpFile.Name())
+			content, err := os.ReadFile(tmpFile.Name())
 			if err != nil {
 				t.Fatal(err)
 			}

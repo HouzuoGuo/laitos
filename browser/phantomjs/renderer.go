@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -509,7 +509,7 @@ func (instance *Instance) Start() error {
 	// Instance is an internal API, hence its parameters are not validated before use.
 	instance.jsProcMutex = new(sync.Mutex)
 	// Keep latest 512 bytes of standard error and standard output from javascript server
-	instance.jsDebugOutput = lalog.NewByteLogWriter(ioutil.Discard, 512)
+	instance.jsDebugOutput = lalog.NewByteLogWriter(io.Discard, 512)
 	instance.Tag = strconv.FormatInt(atomic.AddInt64(&TagCounter, 1), 10)
 	instance.logger = lalog.Logger{
 		ComponentName: "phantomjs",

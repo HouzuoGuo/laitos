@@ -3,8 +3,8 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/HouzuoGuo/laitos/browser/phantomjs"
@@ -173,7 +173,7 @@ func (remoteBrowserImage *HandleBrowserSlimerJSImage) Handle(w http.ResponseWrit
 		http.Error(w, "Render error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	pngFile, err := ioutil.ReadFile(instance.GetRenderPageFilePath())
+	pngFile, err := os.ReadFile(instance.GetRenderPageFilePath())
 	if err != nil {
 		http.Error(w, "File IO error: "+err.Error(), http.StatusInternalServerError)
 		return
