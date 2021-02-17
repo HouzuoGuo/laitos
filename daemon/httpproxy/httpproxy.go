@@ -3,12 +3,12 @@ package httpproxy
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
@@ -132,7 +132,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	}
 	daemon.logger.Info("StartAndBlock", "", nil, "starting now")
 	if err := daemon.httpServer.ListenAndServe(); err != nil {
-		if strings.Contains(err.Error(), "closed") {
+		if errors.Is(err, net.ErrClosed) {
 			return nil
 		}
 		return fmt.Errorf("httpproxy.StartAndBlock.: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)

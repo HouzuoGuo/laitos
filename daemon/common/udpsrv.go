@@ -1,10 +1,10 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -107,7 +107,7 @@ func (srv *UDPServer) StartAndBlock() error {
 		}
 		packetLen, clientAddr, err := srv.udpServer.ReadFromUDP(packet)
 		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
+			if errors.Is(err, net.ErrClosed) {
 				return nil
 			}
 			return fmt.Errorf("UDPServer.StartAndBlock(%s): failed to read from next client - %v", srv.AppName, err)

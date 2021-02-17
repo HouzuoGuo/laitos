@@ -2,6 +2,7 @@ package passwdserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -143,7 +144,7 @@ func (ws *WebServer) Start() error {
 	ws.server = server
 	ws.logger.Info("Start", "", nil, "a web server has been started on port %d to collect config file decryption password at \"%s\"",
 		ws.Port, ws.URL)
-	if err := server.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "closed") {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, net.ErrClosed) {
 		ws.logger.Warning("Start", "", err, "failed to listen on TCP port")
 		return err
 	}

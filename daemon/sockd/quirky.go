@@ -1,6 +1,7 @@
 package sockd
 
 import (
+	"errors"
 	"math/rand"
 	"net"
 	"strings"
@@ -58,7 +59,7 @@ func WriteRand(conn net.Conn) (randBytesWritten int) {
 		if err := conn.SetWriteDeadline(time.Now().Add(6 * time.Second)); err != nil {
 			break
 		}
-		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
+		if n, err := conn.Write(randBuf); err != nil && !errors.Is(err, net.ErrClosed) && !strings.Contains(err.Error(), "broken") {
 			break
 		} else {
 			randBytesWritten += n
@@ -77,7 +78,7 @@ func ReadWithRetry(conn net.Conn, buf []byte) (n int, err error) {
 		if err = conn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err == nil {
 			if n, err = conn.Read(buf); err == nil {
 				break
-			} else if strings.Contains(err.Error(), "closed") || strings.Contains(err.Error(), "broken") {
+			} else if errors.Is(err, net.ErrClosed) || strings.Contains(err.Error(), "broken") {
 				break
 			} else if n > 0 {
 				// IO error occurred after data is partially read, the data stream is now broken.
@@ -114,7 +115,7 @@ dataTransfer:
 				if writtenBytes, err = conn.Write(buf[bufStart:bufEnd]); err == nil {
 					totalWritten += writtenBytes
 					break
-				} else if strings.Contains(err.Error(), "closed") || strings.Contains(err.Error(), "broken") {
+				} else if errors.Is(err, net.ErrClosed) || strings.Contains(err.Error(), "broken") {
 					break dataTransfer
 				} else if writtenBytes > 0 {
 					// IO error occurred after data is partially written, the data stream is now broken.

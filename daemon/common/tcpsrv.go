@@ -1,10 +1,10 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -103,7 +103,7 @@ func (srv *TCPServer) StartAndBlock() error {
 		}
 		client, err := srv.listener.Accept()
 		if err != nil {
-			if strings.Contains(err.Error(), "closed") {
+			if errors.Is(err, net.ErrClosed) {
 				return nil
 			}
 			return fmt.Errorf("TCPServer.StartAndBlock(%s): failed to accept new connection - %v", srv.AppName, err)
