@@ -2,29 +2,11 @@ package dnsd
 
 import (
 	"bytes"
-	"encoding/hex"
 	"regexp"
 	"strings"
 
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
-
-// Sample queries for composing test cases
-var githubComTCPQuery []byte
-var githubComUDPQuery []byte
-
-func init() {
-	var err error
-	// Prepare two A queries on "github.coM" (note the capital M, hex 4d) for test cases
-	githubComTCPQuery, err = hex.DecodeString("00274cc7012000010000000000010667697468756203636f4d00000100010000291000000000000000")
-	if err != nil {
-		panic(err)
-	}
-	githubComUDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f4d00000100010000291000000000000000")
-	if err != nil {
-		panic(err)
-	}
-}
 
 var StandardResponseNoError = []byte{129, 128} // DNS response packet flag - standard response, no indication of error.
 

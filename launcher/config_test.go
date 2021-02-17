@@ -402,13 +402,15 @@ func TestConfig(t *testing.T) {
 
 	httpd.PrepareForTestHTTPD(t)
 	httpDaemon := config.GetHTTPD()
-	// HTTP daemon is expected to start in two seconds
 	go func() {
 		if err := httpDaemon.StartAndBlockNoTLS(0); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 	}()
-	time.Sleep(2 * time.Second)
+	if !misc.ProbePort(3*time.Second, httpDaemon.Address, httpDaemon.Port) {
+		t.Fatal("server did not start in time")
+	}
 
 	httpd.TestHTTPD(httpDaemon, t)
 	httpd.TestAPIHandlers(httpDaemon, t)

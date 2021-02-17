@@ -3,11 +3,8 @@ package serialport
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
-	"os"
 	"reflect"
 	"testing"
-	"time"
 )
 
 func TestReadUntilDelimiter(t *testing.T) {
@@ -26,25 +23,5 @@ func TestReadUntilDelimiter(t *testing.T) {
 	src = bytes.NewReader([]byte(""))
 	if _, err := readUntilDelimiter(src, '\r', '\n'); err != io.EOF {
 		t.Fatal(err)
-	}
-}
-
-func TestWriteSlowly(t *testing.T) {
-	fh, err := ioutil.TempFile("", "laitos-TestWriteSlowly")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_ = os.Remove(fh.Name())
-	}()
-
-	// Slowly write 5 seconds worth of bytes
-	beginSec := time.Now().Unix()
-	if err := writeSlowly(fh, bytes.Repeat([]byte{0}, 1000/WriteSlowlyIntervalMS*5)); err != nil {
-		t.Fatal(err)
-	}
-	durationSec := time.Now().Unix() - beginSec
-	if durationSec < 4 {
-		t.Fatal(durationSec)
 	}
 }

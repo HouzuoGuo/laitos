@@ -288,18 +288,20 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 		SMTP daemon is expected to start in a few seconds, it may take a short while because
 		the daemon has to figure out its public IP address.
 	*/
-	var stoppedNormally bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := smtpd.StartAndBlock(); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
-		stoppedNormally = true
+		serverStopped <- struct{}{}
 	}()
-	addr := smtpd.Address + ":" + strconv.Itoa(smtpd.Port)
-	// This really should be inet.HTTPPublicIPTimeoutSec * time.Second, but that would be too long.
-	time.Sleep(3 * time.Second)
+	if !misc.ProbePort(1*time.Second, smtpd.Address, smtpd.Port) {
+		t.Fatal("daemon did not start in time")
+	}
 
 	// Send an ordinary mail to the daemon
+	addr := smtpd.Address + ":" + strconv.Itoa(smtpd.Port)
 	var lastEmailFrom, lastEmailBody string
 	smtpd.processMailTestCaseFunc = func(from string, body string) {
 		lastEmailFrom = from
@@ -357,12 +359,8 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 		t.Fatal(lastEmailFrom, lastEmailBody)
 	}
 
-	// Daemon must stop in a second
 	smtpd.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	smtpd.Stop()
 	smtpd.Stop()

@@ -7,15 +7,32 @@ import (
 	"testing"
 )
 
+// Sample queries for composing test cases
+var githubComTCPQuery []byte
+var githubComUDPQuery []byte
+
+func init() {
+	var err error
+	// Prepare two A queries on "github.coM" (note the capital M, hex 4d) for test cases
+	githubComTCPQuery, err = hex.DecodeString("00274cc7012000010000000000010667697468756203636f4d00000100010000291000000000000000")
+	if err != nil {
+		panic(err)
+	}
+	githubComUDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f4d00000100010000291000000000000000")
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestExtractTextQueryName(t *testing.T) {
 	// Prepare two TXT queries on (verysecret.e a) "_88833777999777733222777338014203322244666002.hz.gl"
 	cmdTextTCPQuery, err := hex.DecodeString("0056d21e01200001000000000001335f383838333337373739393937373737333332323237373733333830313432303737373730303333323232343436363630303202687a02676c00001000010000291000000000000000")
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	cmdTextUDPQuery, err := hex.DecodeString("a91701200001000000000001335f383838333337373739393937373737333332323237373733333830313432303737373730303333323232343436363630303202687a02676c00001000010000291000000000000000")
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	/*

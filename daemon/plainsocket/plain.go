@@ -202,15 +202,17 @@ func (daemon *Daemon) Stop() {
 
 // TestServer contains the comprehensive test case for both TCP and UDP servers.
 func TestServer(server *Daemon, t testingstub.T) {
-	// Server should start within two seconds
-	var stoppedNormally bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := server.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
-		stoppedNormally = true
+		serverStopped <- struct{}{}
 	}()
-	time.Sleep(2 * time.Second)
+	if !misc.ProbePort(1*time.Second, server.Address, server.TCPPort) {
+		t.Fatal("server did not start in time")
+	}
 
 	// Prepare for TCP conversations
 	tcpClient, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(server.TCPPort))
@@ -282,10 +284,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 
 	// Daemon should stop within a second
 	server.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	server.Stop()
 	server.Stop()

@@ -29,7 +29,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/HouzuoGuo/laitos/hzgl"
 	"github.com/HouzuoGuo/laitos/inet"
@@ -271,7 +270,6 @@ func main() {
 	// Figure out what daemons are to be started
 	daemonNames := regexp.MustCompile(`\w+`).FindAllString(daemonList, -1)
 	if len(daemonNames) == 0 {
-		time.Sleep(1000 * time.Second)
 		logger.Abort("main", "", nil, "please provide comma-separated list of daemon services to start (-daemons).")
 		return
 	}

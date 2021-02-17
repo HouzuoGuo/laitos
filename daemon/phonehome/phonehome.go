@@ -343,9 +343,13 @@ func TestServer(server *Daemon, t testingstub.T) {
 	srv := http.Server{Addr: "0.0.0.0:0", Handler: mux}
 	go func() {
 		if err := srv.Serve(l); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 	}()
+	if !misc.ProbePort(1*time.Second, "0.0.0.0", l.Addr().(*net.TCPAddr).Port) {
+		t.Fatal("server did not start in time")
+	}
 	// Start phone-home daemon
 	cmdURL := fmt.Sprintf("http://localhost:%d/test", l.Addr().(*net.TCPAddr).Port)
 	server.MessageProcessorServers = []*MessageProcessorServer{
@@ -357,12 +361,13 @@ func TestServer(server *Daemon, t testingstub.T) {
 	}
 	// Prepare an outgoing to be sent to the server by the local message processor
 	server.LocalMessageProcessor.SetOutgoingCommand("localhost", toolbox.TestCommandProcessorPIN+".s echo 2server")
-	var stoppedNormally bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := server.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
-		stoppedNormally = true
+		serverStopped <- struct{}{}
 	}()
 	// The daemon is expected to run at 1 second interval and the web server tests the request/response sequences
 	time.Sleep(5 * time.Second)
@@ -386,10 +391,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 	}
 	// Daemon should stop shortly
 	server.Stop()
-	time.Sleep(2 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	server.Stop()
 	server.Stop()

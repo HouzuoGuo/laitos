@@ -444,15 +444,17 @@ func isTextQuery(queryBody []byte) bool {
 
 // TestServer contains the comprehensive test cases for both TCP and UDP DNS servers.
 func TestServer(dnsd *Daemon, t testingstub.T) {
-	// Server should start within two seconds
-	var stoppedNormally bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := dnsd.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
-		stoppedNormally = true
+		serverStopped <- struct{}{}
 	}()
-	time.Sleep(2 * time.Second)
+	if !misc.ProbePort(2*time.Second, dnsd.Address, dnsd.TCPPort) {
+		t.Fatal("did not start within two seconds")
+	}
 
 	// Send a simple malformed packet and make sure the daemon will not crash
 	tcpClient, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dnsd.TCPPort))
@@ -494,12 +496,8 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 	}
 	testResolveNameAndBlackList(t, dnsd, udpResolver)
 
-	// Daemon must stop in a second
 	dnsd.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	dnsd.Stop()
 	dnsd.Stop()

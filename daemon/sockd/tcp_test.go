@@ -3,7 +3,6 @@ package sockd
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"net"
 	"testing"
 )
@@ -17,10 +16,12 @@ func TestPipeTCPConnection(t *testing.T) {
 	go func() {
 		srv1, err := listener1.Accept()
 		if err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 		if n, err := srv1.Write(bytes.Repeat([]byte{1}, 1048576)); err != nil || n != 1048576 {
-			log.Panic(err, n)
+			t.Errorf("err - %v, n - %d", err, n)
+			return
 		}
 		_ = srv1.Close()
 	}()
@@ -35,7 +36,8 @@ func TestPipeTCPConnection(t *testing.T) {
 	go func() {
 		srv2, err := listener2.Accept()
 		if err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 		buf := make([]byte, 2*1048576)
 		for n, err := int(0), error(nil); err == nil; n, err = srv2.Read(buf) {

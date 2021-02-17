@@ -27,11 +27,13 @@ func TestLambdaHandler(t *testing.T) {
 	})
 	go func() {
 		if err := http.ListenAndServe("localhost:60110", nil); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 	}()
-	// Assume that the demo web server starts in a second
-	time.Sleep(1 * time.Second)
+	if !misc.ProbePort(1*time.Second, "localhost", 60110) {
+		t.Fatal("server did not start in time")
+	}
 
 	// Invoke lambda handler to reach the local web server
 	hand := Handler{}
@@ -46,12 +48,12 @@ func TestLambdaHandler(t *testing.T) {
 			Stage:      "dev",
 		},
 		MultiValueQueryStringParameters: map[string][]string{
-			"i": []string{"1"},
-			"j": []string{"2"},
+			"i": {"1"},
+			"j": {"2"},
 		},
 		MultiValueHeaders: map[string][]string{
-			"X-Head1": []string{"h1"},
-			"X-Head2": []string{"h2"},
+			"X-Head1": {"h1"},
+			"X-Head2": {"h2"},
 		},
 		IsBase64Encoded: true,
 		Body:            "YQ==", // "a"

@@ -167,12 +167,13 @@ func (daemon *Daemon) Stop() {
 // TestSNMPD conducts unit tests on SNMP daemon, see TestSNMPD for daemon setup.
 func TestSNMPD(daemon *Daemon, t testingstub.T) {
 	// Server should start within two seconds
-	var stoppedNormally bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
-		stoppedNormally = true
+		serverStopped <- struct{}{}
 	}()
 	time.Sleep(2 * time.Second)
 
@@ -299,12 +300,8 @@ func TestSNMPD(daemon *Daemon, t testingstub.T) {
 		t.Fatalf("%s\n%#v", string(packetBuf), packetBuf)
 	}
 
-	// Daemon must stop in a second
 	daemon.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	daemon.Stop()
 	daemon.Stop()

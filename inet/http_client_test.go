@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestHTTPRequest_FillBlanks(t *testing.T) {
@@ -82,11 +84,13 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 	})
 	go func() {
 		if err = http.Serve(listener, router); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 	}()
-	// Expect server to be ready in a second
-	time.Sleep(1 * time.Second)
+	if !misc.ProbePort(1*time.Second, "localhost", listener.Addr().(*net.TCPAddr).Port) {
+		t.Fatal("server did not start in time")
+	}
 
 	// Expect first request to fail in all three attempts
 	serverURL := fmt.Sprintf("http://localhost:%d/endpoint", listener.Addr().(*net.TCPAddr).Port)
@@ -123,11 +127,13 @@ func TestDoHTTPGoodServer(t *testing.T) {
 	})
 	go func() {
 		if err := http.Serve(listener, router); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 	}()
-	// Expect server to be ready in a second
-	time.Sleep(1 * time.Second)
+	if !misc.ProbePort(1*time.Second, "localhost", listener.Addr().(*net.TCPAddr).Port) {
+		t.Fatal("server did not start in time")
+	}
 
 	// Expect to make exactly one request against the good HTTP server
 	serverURL := fmt.Sprintf("http://localhost:%d/endpoint", listener.Addr().(*net.TCPAddr).Port)

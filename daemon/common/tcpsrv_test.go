@@ -40,15 +40,17 @@ func TestTCPServer(t *testing.T) {
 	}
 	srv.Initialise()
 
-	// Expect server to start within three seconds
-	var shutdown bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := srv.StartAndBlock(); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
-		shutdown = true
+		serverStopped <- struct{}{}
 	}()
-	time.Sleep(3 * time.Second)
+	if !misc.ProbePort(1*time.Second, srv.ListenAddr, srv.ListenPort) {
+		t.Fatal("server did not start in time")
+	}
 
 	// Connect to the server and expect a hello response
 	client, err := net.Dial("tcp", fmt.Sprintf("%s:%d", srv.ListenAddr, srv.ListenPort))
@@ -66,7 +68,7 @@ func TestTCPServer(t *testing.T) {
 
 	// Wait for connection to close and then check stats counter
 	time.Sleep(ServerRateLimitIntervalSec * 2)
-	if count := srv.App.GetTCPStatsCollector().Count(); count != 1 {
+	if count := srv.App.GetTCPStatsCollector().Count(); count < 2 {
 		t.Fatal(count)
 	}
 
@@ -100,12 +102,8 @@ func TestTCPServer(t *testing.T) {
 		t.Fatal(success)
 	}
 
-	// Server must shut down within three seconds
 	srv.Stop()
-	time.Sleep(3 * time.Second)
-	if !shutdown {
-		t.Fatal("did not shut down")
-	}
+	<-serverStopped
 
 	// It is OK to repeatedly shut down a server
 	srv.Stop()

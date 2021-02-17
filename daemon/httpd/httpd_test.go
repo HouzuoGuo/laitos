@@ -11,6 +11,7 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/handler"
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
@@ -33,10 +34,13 @@ func TestHTTPD_WithURLPrefix(t *testing.T) {
 	// Expect server to startup within two seconds
 	go func() {
 		if err := daemon.StartAndBlockNoTLS(0); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 	}()
-	time.Sleep(2 * time.Second)
+	if !misc.ProbePort(1*time.Second, daemon.Address, daemon.Port) {
+		t.Fatal("server did not start in time")
+	}
 	// Test directory listing route
 	serverURLPrefix := fmt.Sprintf("http://localhost:%d/test-prefix/abc", daemon.Port)
 	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, serverURLPrefix+"/my/dir")
@@ -138,24 +142,22 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		fmt.Println("HTTP server has a route", route)
 	}
 	// Start server and run tests
-	// HTTP daemon is expected to start in two seconds
-	var stoppedNormally bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := daemon.StartAndBlockNoTLS(0); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
-		stoppedNormally = true
+		serverStopped <- struct{}{}
 	}()
-	time.Sleep(2 * time.Second)
+	if !misc.ProbePort(2*time.Second, daemon.Address, daemon.Port) {
+		t.Fatal("server did not start on time")
+	}
 	TestHTTPD(&daemon, t)
 	TestAPIHandlers(&daemon, t)
 
-	// Daemon must stop in a second
 	daemon.StopNoTLS()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	daemon.StopNoTLS()
 	daemon.StopNoTLS()

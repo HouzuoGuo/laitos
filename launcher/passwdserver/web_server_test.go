@@ -25,7 +25,8 @@ func TestWebServer(t *testing.T) {
 	shutdownChan := make(chan struct{}, 1)
 	go func() {
 		if err := ws.Start(); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 		shutdownChan <- struct{}{}
 	}()
@@ -73,7 +74,8 @@ func TestWebServer_UnlockWithPassword(t *testing.T) {
 	defer ws.Shutdown()
 	go func() {
 		if err := ws.Start(); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 	}()
 	if !misc.ProbePort(1*time.Second, "localhost", ws.Port) {

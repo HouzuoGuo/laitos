@@ -469,20 +469,18 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 		t.Fatal(err)
 	}
 	// Maintenance loop should successfully start within two seconds
-	var stoppedNormally bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := check.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
-		stoppedNormally = true
+		serverStopped <- struct{}{}
 	}()
 	time.Sleep(2 * time.Second)
-	// Daemon must stop in a second
+
 	check.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	check.Stop()
 	check.Stop()

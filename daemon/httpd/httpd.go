@@ -522,7 +522,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		}.Encode()),
 	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTwilioSMSHook{}))
 	if err != nil || resp.StatusCode != http.StatusServiceUnavailable || !strings.Contains(string(resp.Body), `rate limit is exceeded by`) {
-		t.Fatal(err, resp, string(resp.Body))
+		t.Fatalf("err? %v\nresp: %+v\nresp body: %s", err, resp, string(resp.Body))
 	}
 	// Twilio - check phone call greeting
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/call_greeting")

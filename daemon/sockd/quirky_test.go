@@ -18,7 +18,8 @@ func TestReadWriteAndWriteRand(t *testing.T) {
 	go func() {
 		client, err := listener.Accept()
 		if err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 		buf := make([]byte, 1048576)
 		for n, err := int(0), error(nil); err == nil; n, err = ReadWithRetry(client, buf) {

@@ -18,6 +18,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
@@ -164,15 +165,17 @@ func (daemon *Daemon) responseQOTD() string {
 }
 
 func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
-	// Server should start within two seconds
-	var stoppedNormally bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
-		stoppedNormally = true
+		serverStopped <- struct{}{}
 	}()
-	time.Sleep(2 * time.Second)
+	if !misc.ProbePort(1*time.Second, daemon.Address, daemon.ActiveUsersPort) {
+		t.Fatal("server did not start on time")
+	}
 
 	// The function returns true only if the response matches expectation from the service
 	testResponseMatch := func(port int, response string) bool {
@@ -222,12 +225,8 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		}
 	}
 
-	// Daemon should stop within a second
 	daemon.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 
 	// Repeatedly stopping the daemon should have no negative consequence
 	daemon.Stop()

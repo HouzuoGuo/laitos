@@ -194,7 +194,7 @@ func (daemon *Daemon) converseWithDevice(devPath string, stopChan chan bool) {
 				TimeoutSec: CommandTimeoutSec,
 			}, true)
 			daemon.logger.Info("converseWithDevice", devPath, nil, "about to transmit %d characters", len(result.CombinedOutput))
-			if err := writeSlowly(devFile, []byte(result.CombinedOutput+"\r\n")); err != nil {
+			if _, err := devFile.Write([]byte(result.CombinedOutput + "\r\n")); err != nil {
 				daemon.logger.Warning("converseWithDevice", devPath, err, "failed to write command response")
 				stopChan <- true
 				return
@@ -243,14 +243,14 @@ func TestDaemon(daemon *Daemon, t testingstub.T) {
 		t.Fatal(err)
 	}
 	// Server should start within two seconds
-	var stoppedNormally bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
-		stoppedNormally = true
+		serverStopped <- struct{}{}
 	}()
-	time.Sleep(2 * time.Second)
 	// Wait for daemon to pick up this newly "connected" serial device file
 	time.Sleep((GlobIntervalSec + 1) * time.Second)
 	successfulContentMatch := make(chan bool, 1)
@@ -278,10 +278,7 @@ func TestDaemon(daemon *Daemon, t testingstub.T) {
 
 	// Daemon should stop within a second
 	daemon.Stop()
-	time.Sleep(1 * time.Second)
-	if !stoppedNormally {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	daemon.Stop()
 	daemon.Stop()

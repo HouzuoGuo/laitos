@@ -43,12 +43,13 @@ func TestUDPServer(t *testing.T) {
 	srv.Initialise()
 
 	// Expect server to start within three seconds
-	var shutdown bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := srv.StartAndBlock(); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
-		shutdown = true
+		serverStopped <- struct{}{}
 	}()
 	time.Sleep(3 * time.Second)
 	if !srv.IsRunning() {
@@ -113,10 +114,7 @@ func TestUDPServer(t *testing.T) {
 
 	// Server must shut down within three seconds
 	srv.Stop()
-	time.Sleep(3 * time.Second)
-	if !shutdown {
-		t.Fatal("did not shut down")
-	}
+	<-serverStopped
 	if srv.IsRunning() {
 		t.Fatal("must not be running anymore")
 	}

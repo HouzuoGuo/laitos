@@ -158,7 +158,8 @@ func TestHTTPProxyDaemon(daemon *Daemon, t testingstub.T) {
 	daemonStopped := make(chan struct{}, 1)
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 		daemonStopped <- struct{}{}
 	}()
@@ -191,4 +192,7 @@ func TestHTTPProxyDaemon(daemon *Daemon, t testingstub.T) {
 	}
 	daemon.Stop()
 	<-daemonStopped
+	// Repeatedly stopping the daemon should have no negative consequences
+	daemon.Stop()
+	daemon.Stop()
 }

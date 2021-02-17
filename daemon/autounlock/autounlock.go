@@ -119,7 +119,7 @@ func (daemon *Daemon) Stop() {
 }
 
 func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
-	var unlocked bool
+	unlockingAction := make(chan struct{}, 1)
 	// Start a web server that behaves somewhat similar to the real password input server
 	pwdMatch := "this is a sample password"
 	pwdURL := "/password-input"
@@ -129,7 +129,7 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 			w.Header().Set("Content-Location", ContentLocationMagic)
 		} else if r.Method == http.MethodPost {
 			if r.FormValue(PasswordInputName) == pwdMatch {
-				unlocked = true
+				unlockingAction <- struct{}{}
 				_, _ = w.Write([]byte("very good!"))
 			}
 		}
@@ -141,11 +141,13 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 	srv := http.Server{Addr: "0.0.0.0:0", Handler: mux}
 	go func() {
 		if err := srv.Serve(l); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 	}()
-	// Expect HTTP server to start in a second
-	time.Sleep(1 * time.Second)
+	if !misc.ProbePort(1*time.Second, "0.0.0.0", l.Addr().(*net.TCPAddr).Port) {
+		t.Fatal("server did not start in time")
+	}
 	// Start the daemon and let it do the unlocking work
 	/*
 		Usually, the daemon configuration is made by the caller of this function, however, in this case it is not
@@ -155,24 +157,17 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	var stopped bool
+	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
 			t.Fatal(err)
 		}
-		stopped = true
+		serverStopped <- struct{}{}
 	}()
 	// Expect the daemon loop to unlock the server in couple of seconds
-	time.Sleep(10 * time.Second)
-	if !unlocked {
-		t.Fatal("did not unlock")
-	}
-	// Expect daemon to stop in a second once it is told to stop
+	<-unlockingAction
 	daemon.Stop()
-	time.Sleep(1 * time.Second)
-	if !stopped {
-		t.Fatal("did not stop")
-	}
+	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	daemon.Stop()
 	daemon.Stop()

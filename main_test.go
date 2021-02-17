@@ -91,7 +91,8 @@ func TestGetUnlockingPassword(t *testing.T) {
 	}
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
-			panic(err)
+			t.Error(err)
+			return
 		}
 	}()
 	if !misc.ProbePort(1*time.Second, "127.0.0.1", daemon.Port) {

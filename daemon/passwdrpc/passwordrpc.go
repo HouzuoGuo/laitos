@@ -142,4 +142,7 @@ func TestPasswdRPCDaemon(daemon *Daemon, t testingstub.T) {
 	}
 	daemon.Stop()
 	<-daemonStopped
+	// Repeatedly stopping the daemon should have no negative consequences
+	daemon.Stop()
+	daemon.Stop()
 }
