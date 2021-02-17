@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,15 +68,15 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 		faultyServerRequestsServed++
 		switch faultyServerRequestsServed {
 		case 1:
-			http.Error(w, "haha", 401)
+			http.Error(w, "haha", http.StatusUnauthorized)
 		case 2:
-			http.Error(w, "hehe", 501)
+			http.Error(w, "hehe", http.StatusNotImplemented)
 		case 3:
-			http.Error(w, "hihi", 402)
+			http.Error(w, "hihi", http.StatusPaymentRequired)
 		case 4:
-			http.Error(w, "hoho", 502)
+			http.Error(w, "hoho", http.StatusBadGateway)
 		case 5:
-			http.Error(w, "hfhf", 403)
+			http.Error(w, "hfhf", http.StatusForbidden)
 		default:
 			// Further responses are HTTP 201
 			w.WriteHeader(201)
@@ -94,8 +95,8 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 
 	// Expect first request to fail in all three attempts
 	serverURL := fmt.Sprintf("http://localhost:%d/endpoint", listener.Addr().(*net.TCPAddr).Port)
-	resp, err := DoHTTP(context.Background(), HTTPRequest{}, serverURL)
-	if err != nil || string(resp.Body) != "hihi\n" || resp.StatusCode != 402 {
+	resp, err := DoHTTP(context.Background(), HTTPRequest{Body: strings.NewReader("request body string")}, serverURL)
+	if err != nil || string(resp.Body) != "hihi\n" || resp.StatusCode != http.StatusPaymentRequired {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}
 	if faultyServerRequestsServed != 3 {
@@ -104,7 +105,7 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 
 	// Expect the next request to succeed in three attempts
 	resp, err = DoHTTP(context.Background(), HTTPRequest{}, serverURL)
-	if err != nil || string(resp.Body) != "response from faulty server" || resp.StatusCode != 201 {
+	if err != nil || string(resp.Body) != "response from faulty server" || resp.StatusCode != http.StatusCreated {
 		t.Fatal(err, string(resp.Body), resp.StatusCode)
 	}
 	if faultyServerRequestsServed != 6 {

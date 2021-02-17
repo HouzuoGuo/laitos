@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
-// Define properties for an HTTP request for DoHTTP function.
+// HTTPRequest defines all of the parameters necessary for making an outgoing HTTP request using the DoHTTP function.
 type HTTPRequest struct {
 	TimeoutSec  int                       // Read timeout for response (default to 30)
 	Method      string                    // HTTP method (default to GET)
@@ -25,7 +25,7 @@ type HTTPRequest struct {
 	MaxRetry    int                       // MaxRetry is the maximum number of attempts to make the same request in case of an IO error, 4xx, or 5xx response (default to 3).
 }
 
-// Set blank attributes to their default value.
+// FillBlanks gives sets the parameters of the HTTP request using sensible default values.
 func (req *HTTPRequest) FillBlanks() {
 	if req.TimeoutSec <= 0 {
 		req.TimeoutSec = 30
@@ -44,14 +44,14 @@ func (req *HTTPRequest) FillBlanks() {
 	}
 }
 
-// HTTP response as read by DoHTTP function.
+// HTTPResponse encapsulates the response code, header, and response body in its entirety.
 type HTTPResponse struct {
 	StatusCode int
 	Header     http.Header
 	Body       []byte
 }
 
-// If HTTP status is not 2xx, return an error. Otherwise return nil.
+// Non2xxToError returns an error only if the HTTP response status is not 2xx.
 func (resp *HTTPResponse) Non2xxToError() error {
 	// Avoid showing the entire HTTP (quite likely HTML) response to end-user
 	compactBody := resp.Body
@@ -83,57 +83,62 @@ func (resp *HTTPResponse) GetBodyUpTo(nBytes int) []byte {
 }
 
 // doHTTPRequestUsingClient makes an HTTP request via the input HTTP client.Placeholders in the URL template must always use %s.
-func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (resp HTTPResponse, err error) {
+func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (HTTPResponse, error) {
 	reqParam.FillBlanks()
+	client.Timeout = time.Duration(reqParam.TimeoutSec) * time.Second
 	// Encode values in URL path
 	encodedURLValues := make([]interface{}, len(urlValues))
 	for i, val := range urlValues {
 		encodedURLValues[i] = url.QueryEscape(fmt.Sprint(val))
 	}
 	fullURL := fmt.Sprintf(urlTemplate, encodedURLValues...)
-	req, err := http.NewRequestWithContext(ctx, reqParam.Method, fullURL, reqParam.Body)
-	if err != nil {
-		return
-	}
-	if reqParam.Header != nil {
-		req.Header = reqParam.Header
-	}
-	// Use the input function to further customise the HTTP request
-	if reqParam.RequestFunc != nil {
-		if err = reqParam.RequestFunc(req); err != nil {
-			return
-		}
-	}
-	req.Header.Set("Content-Type", reqParam.ContentType)
-	if len(reqParam.Header) > 0 {
-		if contentType := reqParam.Header.Get("Content-Type"); contentType != "" {
-			req.Header.Set("Content-Type", contentType)
-		}
-	}
-	client.Timeout = time.Duration(reqParam.TimeoutSec) * time.Second
 	defer client.CloseIdleConnections()
 	// Send the request away, and retry in case of error.
+	var lastHTTPErr error
+	var lastResponse HTTPResponse
 	for retry := 0; retry < reqParam.MaxRetry; retry++ {
+		req, err := http.NewRequestWithContext(ctx, reqParam.Method, fullURL, reqParam.Body)
+		if err != nil {
+			return HTTPResponse{}, err
+		}
+		if reqParam.Header != nil {
+			req.Header = reqParam.Header
+		}
+		// Use the input function to further customise the HTTP request
+		if reqParam.RequestFunc != nil {
+			if err := reqParam.RequestFunc(req); err != nil {
+				return HTTPResponse{}, err
+			}
+		}
+		req.Header.Set("Content-Type", reqParam.ContentType)
+		if len(reqParam.Header) > 0 {
+			if contentType := reqParam.Header.Get("Content-Type"); contentType != "" {
+				req.Header.Set("Content-Type", contentType)
+			}
+		}
 		var httpResp *http.Response
-		httpResp, err = client.Do(req)
-		if err == nil {
-			resp.Body, err = misc.ReadAllUpTo(httpResp.Body, reqParam.MaxBytes)
-			resp.Header = httpResp.Header
-			resp.StatusCode = httpResp.StatusCode
-			httpResp.Body.Close()
-			if err == nil && httpResp.StatusCode/400 != 1 && httpResp.StatusCode/500 != 1 {
+		httpResp, lastHTTPErr = client.Do(req)
+		if lastHTTPErr == nil {
+			lastResponse = HTTPResponse{
+				Header:     httpResp.Header,
+				StatusCode: httpResp.StatusCode,
+			}
+			lastResponse.Body, lastHTTPErr = misc.ReadAllUpTo(httpResp.Body, reqParam.MaxBytes)
+			lalog.DefaultLogger.MaybeMinorError(httpResp.Body.Close())
+			if lastHTTPErr == nil && httpResp.StatusCode/400 != 1 && httpResp.StatusCode/500 != 1 {
 				// Return the response upon success
 				if retry > 0 {
 					// Let operator know that this URL endpoint may not be quite reliable
 					lalog.DefaultLogger.Info("DoHTTP", urlTemplate, nil, "took %d retries to complete this %s request", retry, reqParam.Method)
 				}
-				return
+				return lastResponse, nil
 			}
 		}
 		// Retry in case of IO error, 4xx, and 5xx responses.
 		time.Sleep(1 * time.Second)
 	}
-	return
+	// Having exhausted all attempts, return the status code, body, etc, that belong to the latest response.
+	return lastResponse, lastHTTPErr
 }
 
 // DoHTTP makes an HTTP request and returns its HTTP response. Placeholders in the URL template must always use %s.
