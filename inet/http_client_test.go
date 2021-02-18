@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"testing"
@@ -67,7 +67,7 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 	requestBodyMatch := []byte("request body match string")
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// The handler serves exactly 5 requests with non-200 response codes
-		reqBody, err := io.ReadAll(r.Body)
+		reqBody, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			t.Error(err)
 			return

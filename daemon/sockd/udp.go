@@ -245,7 +245,7 @@ func (conn *UDPCipherConnection) WriteRand(dest net.Addr) {
 
 		return
 	}
-	if _, err := conn.WriteTo(randBuf, dest); err != nil && !errors.Is(err, net.ErrClosed) {
+	if _, err := conn.WriteTo(randBuf, dest); err != nil && !strings.Contains(err.Error(), "closed") {
 		conn.logger.Info("WriteRand", dest.String(), nil, "failed to write random bytes - %v", err)
 		return
 	}

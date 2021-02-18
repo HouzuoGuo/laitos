@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -24,7 +25,7 @@ const (
 
 // EditKeyValue modifies or inserts a key=value pair into the specified file.
 func EditKeyValue(filePath, key, value string) error {
-	content, err := os.ReadFile(filePath)
+	content, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
@@ -45,7 +46,7 @@ func EditKeyValue(filePath, key, value string) error {
 	if !foundKey {
 		newLines = append(newLines, fmt.Sprintf("%s=%s", key, value))
 	}
-	return os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")), 0600)
+	return ioutil.WriteFile(filePath, []byte(strings.Join(newLines, "\n")), 0600)
 }
 
 var (
@@ -66,7 +67,7 @@ func ReadAllUpTo(r io.Reader, upTo int) (ret []byte, err error) {
 		return
 	}
 
-	return io.ReadAll(io.LimitReader(r, int64(upTo)))
+	return ioutil.ReadAll(io.LimitReader(r, int64(upTo)))
 }
 
 /*
@@ -98,7 +99,7 @@ func DecryptIfNecessary(key string, filePaths ...string) (decryptedContent [][]b
 // IsEncrypted returns true only if the input file is encrypted by laitos program.
 func IsEncrypted(filePath string) (content []byte, encrypted bool, err error) {
 	// Read the input data in its entirety
-	content, err = os.ReadFile(filePath)
+	content, err = ioutil.ReadFile(filePath)
 	if err != nil {
 		return
 	}
@@ -158,7 +159,7 @@ func Encrypt(filePath string, key []byte) error {
 // Decrypt decrypts the input file and returns its content. The entire operation is conducted in memory.
 func Decrypt(filePath string, key string) (content []byte, err error) {
 	// Read the input encrypted data in its entirety
-	encryptedContent, err := os.ReadFile(filePath)
+	encryptedContent, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +180,6 @@ func Decrypt(filePath string, key string) (content []byte, err error) {
 	}
 	ctrStream := cipher.NewCTR(keyCipher, iv)
 	cipherReader := &cipher.StreamReader{S: ctrStream, R: bytes.NewReader(encryptedContent[len(EncryptionFileHeader)+EncryptionIVSizeBytes:])}
-	content, err = io.ReadAll(cipherReader)
+	content, err = ioutil.ReadAll(cipherReader)
 	return
 }

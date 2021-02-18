@@ -2,10 +2,8 @@ package lalog
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"strings"
 	"time"
@@ -152,7 +150,7 @@ func (logger *Logger) Panic(functionName, actorName string, err error, template 
 // As a special case, if the error indicates the closure of a network connection, or includes the keyword "broken",
 // then no log message will be written.
 func (logger *Logger) MaybeMinorError(err error) {
-	if err != nil && !errors.Is(err, net.ErrClosed) && !strings.Contains(err.Error(), "broken") {
+	if err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
 		logger.Info("", "", nil, "minor error - %s", err.Error())
 	}
 }

@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -279,7 +280,7 @@ func (_ *HandleVirtualMachineScreenshot) Initialise(lalog.Logger, *toolbox.Comma
 func (handler *HandleVirtualMachineScreenshot) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
 	// Store screenshot picture in a temporary file
-	screenshot, err := os.CreateTemp("", "laitos-handle-vm-screenshot")
+	screenshot, err := ioutil.TempFile("", "laitos-handle-vm-screenshot")
 	if err != nil {
 		http.Error(w, "Failed to create temporary file: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -290,7 +291,7 @@ func (handler *HandleVirtualMachineScreenshot) Handle(w http.ResponseWriter, r *
 		http.Error(w, "Failed to create temporary file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	jpegContent, err := os.ReadFile(screenshot.Name())
+	jpegContent, err := ioutil.ReadFile(screenshot.Name())
 	if err != nil {
 		http.Error(w, "Failed to read screenshot file: "+err.Error(), http.StatusInternalServerError)
 		return

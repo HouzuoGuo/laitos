@@ -2,7 +2,7 @@ package httpproxy
 
 import (
 	"bytes"
-	"io"
+	"io/ioutil"
 	"net"
 	"testing"
 	"time"
@@ -28,7 +28,7 @@ func TestPipeTCPConnection(t *testing.T) {
 			lalog.DefaultLogger.Panic("", "", err, "unexpected length (%d) or err", length)
 		}
 	}()
-	recv, err := io.ReadAll(readFrom)
+	recv, err := ioutil.ReadAll(readFrom)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -246,7 +247,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 		daemon.logger.Warning("Execute", "", err, "failed to send notification mail")
 	}
 	// Leave the latest maintenance report in system temporary directory for inspection, overwrite existing report if there is any.
-	if err := os.WriteFile(ReportFilePath, result.Bytes(), 0600); err != nil {
+	if err := ioutil.WriteFile(ReportFilePath, result.Bytes(), 0600); err != nil {
 		daemon.logger.Warning("Execute", "", err, "failed to persist latest maintenance report in %s, you may still find the report in Email or laitos program output.", ReportFilePath)
 	}
 	if misc.EnableAWSIntegration {
@@ -457,7 +458,7 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 		t.Fatal(result)
 	}
 	// Look for maintenance report in temporary file
-	if content, err := os.ReadFile(ReportFilePath); err != nil {
+	if content, err := ioutil.ReadFile(ReportFilePath); err != nil {
 		t.Fatal(err)
 	} else if !strings.Contains(string(content), "Shell.SelfTest") { // broken shell configuration
 		t.Fatal(string(content))

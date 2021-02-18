@@ -7,7 +7,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
@@ -165,7 +165,7 @@ func collectParameters(req *http.Request, oauthParams map[string]string) (map[st
 			params[key] = value[0]
 		}
 		// reinitialize Body with ReadCloser over the []byte
-		req.Body = io.NopCloser(bytes.NewReader(b))
+		req.Body = ioutil.NopCloser(bytes.NewReader(b))
 	}
 	for key, value := range oauthParams {
 		params[key] = value

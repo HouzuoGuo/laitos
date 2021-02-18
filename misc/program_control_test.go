@@ -2,6 +2,7 @@ package misc
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -17,7 +18,7 @@ func TestTriggerEmergencyLockDown(t *testing.T) {
 }
 
 func TestOverwriteWithZero(t *testing.T) {
-	fh, err := os.CreateTemp("", "laitos-TestOverwriteWithZero")
+	fh, err := ioutil.TempFile("", "laitos-TestOverwriteWithZero")
 	if err != nil {
 		t.Fatal(err)
 	}

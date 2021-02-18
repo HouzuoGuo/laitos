@@ -9,7 +9,7 @@ package simpleipsvcd
 
 import (
 	"bufio"
-	"io"
+	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
@@ -198,7 +198,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		response, err := io.ReadAll(tcpClient)
+		response, err := ioutil.ReadAll(tcpClient)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -42,7 +43,7 @@ func (file *AESEncryptedFile) Initialise() error {
 		return fmt.Errorf("AESEncryptedFile.Initialise: file \"%s\" is missing configuration", file.FilePath)
 	}
 	var err error
-	if file.FileContent, err = os.ReadFile(file.FilePath); err != nil {
+	if file.FileContent, err = ioutil.ReadFile(file.FilePath); err != nil {
 		return fmt.Errorf("AESEncryptedFile.Initialise: failed to read AES encrypted file \"%s\" - %v", file.FilePath, err)
 	}
 	if len(file.FileContent) <= OpensslSaltedContentOffset {
@@ -172,7 +173,7 @@ func GetTestAESDecrypt() AESDecrypt {
 		0xb3, 0x89, 0x59, 0x8c, 0xac, 0x54, 0x27, 0xd1, 0xb3, 0x3c, 0xa1, 0x56, 0xd6, 0x5a, 0x38, 0xe5,
 	}
 	filePath := filepath.Join(os.TempDir(), "laitos-testaesdecrypt")
-	err := os.WriteFile(filePath, sample, 0644)
+	err := ioutil.WriteFile(filePath, sample, 0644)
 	if err != nil {
 		panic(err)
 	}

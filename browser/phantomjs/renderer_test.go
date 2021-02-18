@@ -1,6 +1,7 @@
 package phantomjs
 
 import (
+	"io/ioutil"
 	"os"
 	"runtime"
 	"strings"
@@ -19,7 +20,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	platform.CopyNonEssentialUtilities(lalog.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	platform.SkipTestIfCI(t)
-	renderOutput, err := os.CreateTemp("", "laitos-TestInteractiveBrowser-phantomjs")
+	renderOutput, err := ioutil.TempFile("", "laitos-TestInteractiveBrowser-phantomjs")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +86,7 @@ func TestLineOrientedBrowser(t *testing.T) {
 	platform.CopyNonEssentialUtilities(lalog.Logger{})
 	// CircleCI container does not have the dependencies for running PhantomJS
 	platform.SkipTestIfCI(t)
-	renderOutput, err := os.CreateTemp("", "laitos-TestLineOrientedBrowser-phantomjs")
+	renderOutput, err := ioutil.TempFile("", "laitos-TestLineOrientedBrowser-phantomjs")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package remotevm
 
 import (
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -11,7 +12,7 @@ func TestVMInteractions(t *testing.T) {
 	// CircleCI doesn't have QEMU
 	platform.SkipTestIfCI(t)
 
-	tmpFile, err := os.CreateTemp("", "laitos-test-vm-interactions-iso")
+	tmpFile, err := ioutil.TempFile("", "laitos-test-vm-interactions-iso")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +47,7 @@ func TestVMInteractions(t *testing.T) {
 		t.Fatal("should have prevented repeated start attempts")
 	}
 
-	screenshotFile, err := os.CreateTemp("", "laitos-remotevm-test-screenshot*.jpg")
+	screenshotFile, err := ioutil.TempFile("", "laitos-remotevm-test-screenshot*.jpg")
 	if err != nil {
 		t.Fatal(err)
 	}

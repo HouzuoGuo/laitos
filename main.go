@@ -19,7 +19,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -72,7 +72,7 @@ func DecryptFile(filePath string) {
 		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
 		return
 	}
-	if err := os.WriteFile(filePath, content, 0600); err != nil {
+	if err := ioutil.WriteFile(filePath, content, 0600); err != nil {
 		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
 		return
 	}
@@ -312,7 +312,7 @@ func main() {
 		// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
 		os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
 		_ = xray.Configure(xray.Config{ContextMissingStrategy: ctxmissing.NewDefaultIgnoreErrorStrategy()})
-		xray.SetLogger(xraylog.NewDefaultLogger(io.Discard, xraylog.LogLevelWarn))
+		xray.SetLogger(xraylog.NewDefaultLogger(ioutil.Discard, xraylog.LogLevelWarn))
 		go func() {
 			// These functions of aws lib take their sweet time, don't let them block main's progress. It's OK to miss a couple of traces.
 			beanstalk.Init()

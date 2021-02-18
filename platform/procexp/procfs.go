@@ -2,6 +2,7 @@ package procexp
 
 import (
 	"encoding/binary"
+	"io/ioutil"
 	"os"
 	"regexp"
 	"strconv"
@@ -107,7 +108,7 @@ func getDACIDsFromProcfs(in string) []int {
 func getClockTicksPerSecond() int {
 	getClockTicksPerSecondOnce.Do(func() {
 		// The function body is heavily inspired by github.com/tklauser/go-sysconf
-		auxv, err := os.ReadFile("/proc/self/auxv")
+		auxv, err := ioutil.ReadFile("/proc/self/auxv")
 		if err == nil {
 			bufPos := int(SizeOfUint / 8)
 		loop:
