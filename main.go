@@ -212,41 +212,45 @@ func main() {
 		if isEncrypted {
 			logger.Info("main", "config", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
 			// There are multiple ways to collect the decryption password
-			go func() {
-				// Collect program data decryption password from STDIN, there is not an explicit cancellation for the buffered read.
-				stdinReader := bufio.NewReader(os.Stdin)
-				pwdFromStdin, err := stdinReader.ReadString('\n')
-				if err == nil {
-					logger.Info("main", "config", nil, "got decryption password from stdin")
-					misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(pwdFromStdin)
-				} else {
-					logger.Warning("main", "config", err, "failed to read decryption password from STDIN")
-				}
-			}()
 			passwdRPCContext, passwdRPCCancel := context.WithCancel(context.Background())
-			go func() {
-				// Collect program data decryption password from gRPC servers dedicated to this purpose
-				if passwordUnlockServers != "" {
-					serverAddrs := strings.Split(passwordUnlockServers, ",")
-					if password := GetUnlockingPasswordWithRetry(passwdRPCContext, true, logger, serverAddrs...); password != "" {
-						misc.ProgramDataDecryptionPasswordInput <- password
-					}
-				}
-			}()
 			passwordCollectionServer := passwdserver.WebServer{
 				Port: pwdServerPort,
 				URL:  pwdServerURL,
 			}
-			if pwdServer {
-				// The web server launched here is distinct from the regular HTTP daemon. The sole purpose of the web server
-				// is to present a web page to visitor for them to enter decryption password for program config and data files.
-				// On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching
-				// the new version, which means the web server often runs into port conflicts when its updated version starts
-				// up. AutoRestart function helps to restart the server in such case.
-				go AutoRestart(logger, "pwdserver", passwordCollectionServer.Start)
+			if password := strings.TrimSpace(os.Getenv(misc.EnvironmentDecryptionPassword)); password != "" {
+				logger.Info("main", "config", nil, "got decryption password of %d characters from environment variable %s", len(password), misc.EnvironmentDecryptionPassword)
+				misc.ProgramDataDecryptionPasswordInput <- password
+			} else {
+				go func() {
+					// Collect program data decryption password from STDIN, there is not an explicit cancellation for the buffered read.
+					stdinReader := bufio.NewReader(os.Stdin)
+					pwdFromStdin, err := stdinReader.ReadString('\n')
+					if err == nil {
+						logger.Info("main", "config", nil, "got decryption password from stdin")
+						misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(pwdFromStdin)
+					} else {
+						logger.Warning("main", "config", err, "failed to read decryption password from STDIN")
+					}
+				}()
+				go func() {
+					// Collect program data decryption password from gRPC servers dedicated to this purpose
+					if passwordUnlockServers != "" {
+						serverAddrs := strings.Split(passwordUnlockServers, ",")
+						if password := GetUnlockingPasswordWithRetry(passwdRPCContext, true, logger, serverAddrs...); password != "" {
+							misc.ProgramDataDecryptionPasswordInput <- password
+						}
+					}
+				}()
+				if pwdServer {
+					// The web server launched here is distinct from the regular HTTP daemon. The sole purpose of the web server
+					// is to present a web page to visitor for them to enter decryption password for program config and data files.
+					// On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching
+					// the new version, which means the web server often runs into port conflicts when its updated version starts
+					// up. AutoRestart function helps to restart the server in such case.
+					go AutoRestart(logger, "pwdserver", passwordCollectionServer.Start)
+				}
+				// The AWS lambda handler is also able to retrieve the password from API gateway stage configuration and place it into the channel
 			}
-			// In addition to reading from stdin, contacting gRPC servers, and launching a dedicated web server, the AWS lambda integration
-			// is also able to feed this password.
 			plainTextPassword := <-misc.ProgramDataDecryptionPasswordInput
 			misc.ProgramDataDecryptionPassword = plainTextPassword
 			// Explicitly stop background routines that may be still trying to obtain a decryption password

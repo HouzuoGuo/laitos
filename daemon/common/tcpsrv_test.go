@@ -65,6 +65,9 @@ func TestTCPServer(t *testing.T) {
 	if str != "hello" {
 		t.Fatal(str)
 	}
+	if err := client.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	// Wait for connection to close and then check stats counter
 	time.Sleep(ServerRateLimitIntervalSec * 2)

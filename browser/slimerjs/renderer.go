@@ -595,7 +595,7 @@ func (instance *Instance) Start() error {
 			instance.serverJSFile.Name(),
 		}
 		instance.jsProcCmd = exec.Command(filepath.Join(supplementsDir, "SlimerJS", "slimerjs.bat"), slimerJSArgs...)
-		instance.jsProcCmd.Env = os.Environ() // otherwise Firefox will encounter weird NT errors
+		instance.jsProcCmd.Env = platform.GetRedactedEnviron() // otherwise Firefox will encounter weird NT errors
 		SlimerJSLauncherExePath = supplementsDir + `\FirefoxPortable\App\Firefox64\firefox.exe`
 		instance.jsProcCmd.Env = append(instance.jsProcCmd.Env, `SLIMERJSLAUNCHER=`+SlimerJSLauncherExePath)
 		instance.logger.Info("Start", "", err, "going to run slimerjs.bat with args %v", slimerJSArgs)

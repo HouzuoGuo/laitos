@@ -10,6 +10,12 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 )
 
+const (
+	// EnvironmentDecryptionPassword is a name of environment variable, the value of which supplies decryption password
+	// to laitos program when it is started using encrypted config file (and or data files).
+	EnvironmentDecryptionPassword = "LAITOS_DECRYPTION_PASSWORD"
+)
+
 var (
 	// StartTime is the timestamp captured when this program started.
 	StartupTime = time.Now()

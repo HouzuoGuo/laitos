@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestGetProgramMemUsageKB(t *testing.T) {
@@ -139,4 +141,26 @@ func TestGetSysSummary(t *testing.T) {
 		t.Fatalf("%+v", summary)
 	}
 	t.Logf("%s", summary)
+}
+
+func TestGetRedactedEnviron(t *testing.T) {
+	for _, keyToRedact := range []string{"AWS_SESSION_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", misc.EnvironmentDecryptionPassword} {
+		os.Setenv(keyToRedact, "TestGetRedactedEnviron")
+	}
+	envKeyValue := make(map[string]string)
+	for _, keyValue := range GetRedactedEnviron() {
+		fields := strings.SplitN(keyValue, "=", 2)
+		envKeyValue[fields[0]] = fields[1]
+		fmt.Println(keyValue)
+	}
+	for _, keyToRedact := range []string{"AWS_SESSION_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", misc.EnvironmentDecryptionPassword} {
+		if val := envKeyValue[keyToRedact]; val != "REDACTED" {
+			t.Fatalf("did not redact %s=%s", keyToRedact, val)
+		}
+	}
+	for _, key := range []string{"HOME", "PATH", "PWD"} {
+		if val := envKeyValue[key]; val == "" || val == "REDACTED" {
+			t.Fatalf("ordinary key went missing %s=%s", key, val)
+		}
+	}
 }

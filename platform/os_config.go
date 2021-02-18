@@ -549,6 +549,28 @@ func SetTimeZone(zone string) error {
 	return nil
 }
 
+// GetRedactedEnviron returns the program's environment varibles in "Key=Value" string array similar to those returned
+// by os.Environ. Sensitive environment variables that amy reveal API secrets or passwords will be present, though their
+// values will be string "REDACTED".
+func GetRedactedEnviron() []string {
+	environ := os.Environ()
+	ret := make([]string, 0, len(environ))
+	for _, keyValue := range environ {
+		redacted := false
+		for _, keyToRedact := range []string{"AWS_SESSION_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", misc.EnvironmentDecryptionPassword} {
+			if strings.HasPrefix(keyValue, keyToRedact+"=") {
+				ret = append(ret, keyToRedact+"=REDACTED")
+				redacted = true
+				break
+			}
+		}
+		if !redacted {
+			ret = append(ret, keyValue)
+		}
+	}
+	return ret
+}
+
 // GetProgramStatusSummary returns a formatted human-readable text that describes key OS resource usage status and program environment.
 func GetProgramStatusSummary(withPublicIP bool) ProgramStatusSummary {
 	// System resource usage
@@ -571,7 +593,7 @@ func GetProgramStatusSummary(withPublicIP bool) ProgramStatusSummary {
 			dirEntryNames = append(dirEntryNames, entry.Name())
 		}
 	}
-	envVars := os.Environ()
+	envVars := GetRedactedEnviron()
 	if len(envVars) > 100 {
 		envVars = envVars[:100]
 	}
