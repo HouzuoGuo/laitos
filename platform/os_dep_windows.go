@@ -2,7 +2,7 @@ package platform
 
 import (
 	"errors"
-	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
