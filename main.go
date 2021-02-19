@@ -164,6 +164,7 @@ func main() {
 	logger.Info("main", "", nil, "program is starting, here is a summary of the runtime environment:\n%s", platform.GetProgramStatusSummary(false))
 	// FIXME: TODO: this main function is way too long >:-|
 	if os.Getenv("GAE_ENV") == "standard" {
+		misc.EnablePrometheusIntegration = true
 		// Change working directory to the data directory (if not done yet).
 		// All program config files and data files are expected to reside in the data directory.
 		cwd, err := os.Getwd()
