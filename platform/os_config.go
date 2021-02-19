@@ -558,7 +558,9 @@ func GetRedactedEnviron() []string {
 	ret := make([]string, 0, len(environ))
 	for _, keyValue := range environ {
 		redacted := false
-		for _, keyToRedact := range []string{"AWS_SESSION_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", misc.EnvironmentDecryptionPassword} {
+		for _, keyToRedact := range []string{
+			"AWS_SESSION_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "S2A_ACCESS_TOKEN",
+			misc.EnvironmentDecryptionPassword} {
 			if strings.HasPrefix(keyValue, keyToRedact+"=") {
 				ret = append(ret, keyToRedact+"=REDACTED")
 				redacted = true

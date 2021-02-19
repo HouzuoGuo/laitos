@@ -43,7 +43,7 @@ const (
 	*/
 	FailureThresholdSec = 20 * 60
 	// StartAttemptIntervalSec is the amount of time to wait between supervisor's attempts to start main program.
-	StartAttemptIntervalSec = 10
+	StartAttemptIntervalSec = 30
 	// MemoriseOutputCapacity is the size of laitos main program output to memorise for notification purpose.
 	MemoriseOutputCapacity = 4 * 1024
 )
@@ -254,23 +254,19 @@ func (sup *Supervisor) Start() {
 		mainProgram.Stderr = sup.mainStderr
 		if err := FeedDecryptionPasswordToStdinAndStart(misc.ProgramDataDecryptionPassword, mainProgram); err != nil {
 			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "failed to start main program")
-			time.Sleep(1 * time.Second)
+			// Avoid incidentally overwhelming the user with notification emails
+			time.Sleep(StartAttemptIntervalSec * time.Second)
 			sup.notifyFailure(cliFlags, err)
 			if time.Now().Unix()-lastAttemptTime < FailureThresholdSec {
 				paramChoice++
 			}
-			time.Sleep(StartAttemptIntervalSec * time.Second)
 			continue
 		}
 		lastAttemptTime = time.Now().Unix()
 		if err := mainProgram.Wait(); err != nil {
 			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "main program has crashed")
-			/*
-				Unsure what's going on - the main program crashes, the buffer storing latest stderr content just barely
-				catches the beginning of a panic message and never the full stack trace. The full panic message
-				including stack trace shows up properly in system journal. Let's see if a delay of a second will help.
-			*/
-			time.Sleep(1 * time.Second)
+			// Avoid incidentally overwhelming the user with notification emails
+			time.Sleep(StartAttemptIntervalSec * time.Second)
 			sup.notifyFailure(cliFlags, err)
 			if time.Now().Unix()-lastAttemptTime < FailureThresholdSec {
 				paramChoice++
@@ -278,7 +274,7 @@ func (sup *Supervisor) Start() {
 			time.Sleep(StartAttemptIntervalSec * time.Second)
 			continue
 		}
-		// laitos main program is not supposed to exit, therefore, restart it in the next iteration even if it exits normally.
+		// The main function is not supposed to exit while it is running under supervision. Restart the program in the next iteration of this loop.
 	}
 }
 

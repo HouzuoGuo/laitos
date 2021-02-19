@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -44,6 +45,12 @@ import (
 	"github.com/aws/aws-xray-sdk-go/strategy/ctxmissing"
 	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/aws/aws-xray-sdk-go/xraylog"
+)
+
+const (
+	// AppEngineDataDir is the relative path to a data directory that contains config files and data files required for launching laitos program
+	// on GCP app engine.
+	AppEngineDataDir = "./gcp_appengine_data"
 )
 
 var (
@@ -126,15 +133,21 @@ func main() {
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
 	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated list of daemon names to start (autounlock, dnsd, httpd, httpproxy, insecurehttpd, maintenance, passwdrpc, phonehome, plainsocket, serialport, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
-	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
 	flag.BoolVar(&awsLambda, launcher.LambdaFlagName, false, "(Optional) run AWS Lambda handler to proxy HTTP requests to laitos web server")
+	// Internal supervisor flag
+	var isSupervisor = true
+	flag.BoolVar(&isSupervisor, launcher.SupervisorFlagName, true, "(Internal use only) launch a supervisor process to auto-restart laitos main process in case of crash")
+	// Auxiliary features
+	flag.BoolVar(&disableConflicts, "disableconflicts", false, "(Optional) automatically stop and disable other daemon programs that may cause port usage conflicts")
+	flag.StringVar(&passwordUnlockServers, "passwordunlockservers", "", "(Optional) comma-separated list of server:port combos that offer password unlocking service (daemon \"passwdrpc\") over gRPC")
+	// Optional integration features
 	flag.BoolVar(&misc.EnableAWSIntegration, "awsinteg", false, "(Optional) activate all points of integration with various AWS services such as sending warning log entries to SQS")
 	flag.BoolVar(&misc.EnablePrometheusIntegration, "prominteg", false, "(Optional) activate all points of integration with Prometheus such as collecting performance metrics and serving them over HTTP")
+	// Diagnosis features
 	flag.BoolVar(&debug, "debug", false, "(Optional) print goroutine stack traces upon receiving interrupt signal")
 	flag.IntVar(&pprofHTTPPort, "profhttpport", pprofHTTPPort, "(Optional) serve program profiling data (pprof) over HTTP on this port at localhost")
 	flag.IntVar(&gomaxprocs, "gomaxprocs", 0, "(Optional) set gomaxprocs")
-	flag.StringVar(&passwordUnlockServers, "passwordunlockservers", "", "(Optional) comma-separated list of server:port combos that offer password unlocking service (daemon \"passwdrpc\") over gRPC")
-	// Data unlocker (password input server) flags
+	// Decryption password collector (password input server) flags
 	var pwdServer bool
 	var pwdServerPort int
 	var pwdServerURL string
@@ -145,11 +158,34 @@ func main() {
 	var dataUtil, dataUtilFile string
 	flag.StringVar(&dataUtil, "datautil", "", "(Optional) program data encryption utility: encrypt|decrypt")
 	flag.StringVar(&dataUtilFile, "datautilfile", "", "(Optional) program data encryption utility: encrypt/decrypt file location")
-	// Internal supervisor flag
-	var isSupervisor = true
-	flag.BoolVar(&isSupervisor, launcher.SupervisorFlagName, true, "(Internal use only) launch a supervisor process to auto-restart laitos main process in case of crash")
 
 	flag.Parse()
+
+	logger.Info("main", "", nil, "program is starting, here is a summary of the runtime environment:\n%s", platform.GetProgramStatusSummary(false))
+	// FIXME: TODO: this main function is way too long >:-|
+	if os.Getenv("GAE_ENV") == "standard" {
+		// Change working directory to the data directory (if not done yet).
+		// All program config files and data files are expected to reside in the data directory.
+		cwd, err := os.Getwd()
+		if err != nil {
+			logger.Abort("main", "", err, "failed to determine current working directory")
+		}
+		if path.Base(cwd) != path.Base(AppEngineDataDir) {
+			if err := os.Chdir(AppEngineDataDir); err != nil {
+				logger.Abort("main", "", err, "failed to change directory to %s", AppEngineDataDir)
+				return
+			}
+		}
+		// Read the value of CLI parameter "-daemons" from a text file
+		daemonListContent, err := ioutil.ReadFile("daemonList")
+		if err != nil {
+			logger.Abort("main", "", err, "failed to read daemonList")
+			return
+		}
+		// Find program configuration data (encrypted or otherwise) in "config.json"
+		misc.ConfigFilePath = "config.json"
+		daemonList = string(daemonListContent)
+	}
 
 	// Common diagnosis and security practices
 	platform.LockMemory()
