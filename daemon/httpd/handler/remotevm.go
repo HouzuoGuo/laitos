@@ -103,7 +103,7 @@ func (handler *HandleVirtualMachine) Initialise(logger lalog.Logger, _ *toolbox.
 	// Give the virtual machine half of the system CPUs
 	numCPUs := (runtime.NumCPU() + 1) / 2
 	// Give each CPU 384MB of memory, or in total up to 25% of system main memory to work with.
-	memSizeMB := numCPUs * 384
+	memSizeMB := int64(numCPUs * 384)
 	if _, totalKB := platform.GetSystemMemoryUsageKB(); totalKB > 0 {
 		if quarterOfMainMB := totalKB / 1024 / 4; quarterOfMainMB > memSizeMB {
 			memSizeMB = quarterOfMainMB

@@ -12,7 +12,7 @@ import (
 )
 
 // GetRootDiskUsageKB returns used and total space of the file system mounted on /. Returns 0 if they cannot be determined.
-func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int) {
+func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int64) {
 	return 0, 0, 0
 }
 

@@ -34,9 +34,9 @@ VM launches a virtual machine of lightweight Linux distribution via KVM (preferr
 remote mouse and keyboard control, as well as screenshot capability.
 */
 type VM struct {
-	NumCPU    int // NumCPU is the number of CPU cores allocated to emulator
-	MemSizeMB int // MemSizeMB is the amount of memory allocated to emulator
-	QMPPort   int // QMPPort is the TCP port number used for interacting with emulator
+	NumCPU    int   // NumCPU is the number of CPU cores allocated to emulator
+	MemSizeMB int64 // MemSizeMB is the amount of memory allocated to emulator
+	QMPPort   int   // QMPPort is the TCP port number used for interacting with emulator
 
 	emulatorExecutable  string
 	emulatorCmd         *exec.Cmd
@@ -395,7 +395,7 @@ func (vm *VM) PressKeysOneByOne(qKeyCodes ...string) error {
 	return nil
 }
 
-// HoldButton holds down or releases the left or right mouse button.
+// HoldMouse holds down or releases the left or right mouse button.
 func (vm *VM) HoldMouse(leftButton, holdDown bool) error {
 	button := "left"
 	if !leftButton {

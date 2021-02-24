@@ -42,7 +42,7 @@ a randomly chosen source. It retries up to 5 times in case a source does not res
 func (joke *Joke) Execute(ctx context.Context, cmd Command) *Result {
 	// Make at most 5 attempts at getting a joke
 	for i := 0; i < 5; i++ {
-		src := jokeSources[int(time.Now().UnixNano())%len(jokeSources)]
+		src := jokeSources[int(time.Now().UnixNano()%int64(len(jokeSources)))]
 		text, err := src(ctx, cmd.TimeoutSec)
 		if err == nil {
 			return &Result{Output: text}

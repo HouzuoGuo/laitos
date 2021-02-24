@@ -14,14 +14,14 @@ import (
 )
 
 // GetRootDiskUsageKB returns used and total space of the file system mounted on /. Returns 0 if they cannot be determined.
-func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int) {
+func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int64) {
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs("/", &fs)
 	if err != nil {
 		return
 	}
-	totalKB = int(int64(fs.Blocks) * int64(fs.Bsize) / 1024)
-	freeKB = int(int64(fs.Bfree) * int64(fs.Bsize) / 1024)
+	totalKB = int64(fs.Blocks) * int64(fs.Bsize) / 1024
+	freeKB = int64(fs.Bfree) * int64(fs.Bsize) / 1024
 	usedKB = totalKB - freeKB
 	return
 }

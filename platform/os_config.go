@@ -56,8 +56,8 @@ type ProgramStatusSummary struct {
 	PublicIP, HostName                         string
 	ClockTime                                  time.Time
 	SysUptime, ProgramUptime                   time.Duration
-	SysTotalMemMB, SysUsedMemMB, ProgUsedMemMB int
-	DiskUsedMB, DiskFreeMB, DiskCapMB          int
+	SysTotalMemMB, SysUsedMemMB, ProgUsedMemMB int64
+	DiskUsedMB, DiskFreeMB, DiskCapMB          int64
 	SysLoad                                    string
 	NumCPU, NumGoMaxProcs, NumGoroutines       int
 	PID, PPID, UID, EUID, GID, EGID            int
@@ -116,13 +116,14 @@ Program environment (max. 100 entries): %v
 	return ret
 }
 
-// Use regex to parse input string, and return an integer parsed from specified capture group, or 0 if there is no match/no integer.
-func FindNumInRegexGroup(numRegex *regexp.Regexp, input string, groupNum int) int {
+// FindNumInRegexGroup uses the input regex to parse the string and then parses the decimal integer (up to 64-bit in size) specified in the
+// group number. A gentle reminder - the entire match is at group number 0, and the first captured regex group is at number 1.
+func FindNumInRegexGroup(numRegex *regexp.Regexp, input string, groupNum int) int64 {
 	match := numRegex.FindStringSubmatch(input)
 	if match == nil || len(match) <= groupNum {
 		return 0
 	}
-	val, err := strconv.Atoi(match[groupNum])
+	val, err := strconv.ParseInt(match[groupNum], 10, 64)
 	if err == nil {
 		return val
 	}
@@ -130,7 +131,7 @@ func FindNumInRegexGroup(numRegex *regexp.Regexp, input string, groupNum int) in
 }
 
 // Return RSS memory usage of this process. Return 0 if the memory usage cannot be determined.
-func GetProgramMemoryUsageKB() int {
+func GetProgramMemoryUsageKB() int64 {
 	statusContent, err := ioutil.ReadFile("/proc/self/status")
 	if err != nil {
 		return 0
@@ -139,7 +140,7 @@ func GetProgramMemoryUsageKB() int {
 }
 
 // Return operating system memory usage. Return 0 if the memory usage cannot be determined.
-func GetSystemMemoryUsageKB() (usedKB int, totalKB int) {
+func GetSystemMemoryUsageKB() (usedKB, totalKB int64) {
 	infoContent, err := ioutil.ReadFile("/proc/meminfo")
 	if err != nil {
 		return 0, 0
@@ -164,7 +165,7 @@ func GetSystemLoad() string {
 }
 
 // Get system uptime in seconds. Return 0 if it cannot be determined.
-func GetSystemUptimeSec() int {
+func GetSystemUptimeSec() int64 {
 	content, err := ioutil.ReadFile("/proc/uptime")
 	if err != nil {
 		return 0
@@ -271,12 +272,12 @@ func GetSysctlStr(key string) (string, error) {
 }
 
 // GetSysctlInt return integer value of a sysctl parameter corresponding to the input key.
-func GetSysctlInt(key string) (int, error) {
+func GetSysctlInt(key string) (int64, error) {
 	val, err := GetSysctlStr(key)
 	if err != nil {
 		return 0, err
 	}
-	return strconv.Atoi(val)
+	return strconv.ParseInt(val, 10, 64)
 }
 
 // SetSysctl writes a new value into sysctl parameter.
@@ -290,13 +291,13 @@ func SetSysctl(key, value string) (old string, err error) {
 }
 
 // IncreaseSysctlInt increases sysctl parameter to the specified value. If value already exceeds, it is left untouched.
-func IncreaseSysctlInt(key string, atLeast int) (old int, err error) {
+func IncreaseSysctlInt(key string, atLeast int64) (old int64, err error) {
 	old, err = GetSysctlInt(key)
 	if err != nil {
 		return
 	}
 	if old < atLeast {
-		_, err = SetSysctl(key, strconv.Itoa(atLeast))
+		_, err = SetSysctl(key, strconv.FormatInt(atLeast, 10))
 	}
 	return
 }
@@ -604,7 +605,7 @@ func GetProgramStatusSummary(withPublicIP bool) ProgramStatusSummary {
 	summary := ProgramStatusSummary{
 		HostName:          hostName,
 		ClockTime:         time.Now(),
-		SysUptime:         time.Duration(GetSystemUptimeSec() * int(time.Second)),
+		SysUptime:         time.Duration(GetSystemUptimeSec()) * time.Second,
 		ProgramUptime:     time.Since(misc.StartupTime),
 		SysTotalMemMB:     totalMem / 1024,
 		SysUsedMemMB:      usedMem / 1024,

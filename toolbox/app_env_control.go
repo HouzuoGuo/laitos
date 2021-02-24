@@ -116,7 +116,7 @@ func TuneLinux() string {
 
 		// Optimise system stability in low memory situation
 		"vm.zone_reclaim_mode": "1",
-		"vm.min_free_kbytes":   strconv.Itoa(memSizeKB / 32), // reserve 1MB for every 32MB of system memory
+		"vm.min_free_kbytes":   strconv.FormatInt(memSizeKB/32, 10), // reserve 1MB for every 32MB of system memory
 
 		/*
 			In earlier versions of laitos (< 1.3) IP forwarding used to be disabled right here, however, docker
@@ -162,7 +162,7 @@ func TuneLinux() string {
 		"net.ipv4.tcp_keepalive_probes": "4",
 	}
 	// The following settings are influenced by system memory size
-	atLeast := map[string]int{
+	atLeast := map[string]int64{
 		/// Optimise network resource usage
 		"net.core.somaxconn":           memSizeKB / 1024 / 512 * 256,  // 256 per 512MB of mem
 		"net.ipv4.tcp_max_syn_backlog": memSizeKB / 1024 / 512 * 512,  // 512 per 512MB of mem

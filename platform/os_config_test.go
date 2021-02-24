@@ -3,7 +3,9 @@ package platform
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -163,4 +165,36 @@ func TestGetRedactedEnviron(t *testing.T) {
 			t.Fatalf("ordinary key went missing %s=%s", key, val)
 		}
 	}
+}
+
+func TestFindNumInRegexGroup(t *testing.T) {
+	regex := regexp.MustCompile(`^prefix([\d]+)m([\d]+)suffix$`)
+	var tests = []struct {
+		inputString string
+		groupNum    int
+		expected    int64
+	}{
+		{"not-a-match", 0, 0},
+		{"not-a-match", 1, 0},
+		{"not-a-match", 2, 0},
+		{"prefix123m456suffix", 0, 0},
+		{"prefix123m456suffix", 1, 123},
+		{"prefix123m456suffix", 2, 456},
+		{"prefix123m456suffix", 3, 0},
+	}
+	for _, test := range tests {
+		if num := FindNumInRegexGroup(regex, test.inputString, test.groupNum); num != test.expected {
+			t.Fatalf("Input: %s, group num: %d, expected: %d, actual: %d", test.inputString, test.groupNum, test.expected, num)
+		}
+	}
+}
+
+func TestGetDefaultShellInterpreter(t *testing.T) {
+	shell := GetDefaultShellInterpreter()
+	cmd := exec.Command(shell)
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Process.Kill()
+	_, _ = cmd.Process.Wait()
 }
