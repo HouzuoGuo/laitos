@@ -17,7 +17,7 @@ func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
 	return misc.DNSDStatsTCP
 }
 
-// HandleConnection converses with a TCP DNS client.
+// HandleTCPConnection reads a DNS query from a TCP client and responds to it with the DNS query result.
 func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *net.TCPConn) {
 	// Read query length
 	logger.MaybeMinorError(conn.SetDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
@@ -40,13 +40,14 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 		return
 	}
 	// Formulate a response
+	queryStruct := ParseQueryPacket(queryBody)
 	var respBody, respLen []byte
-	if isTextQuery(queryBody) {
+	if queryStruct.IsTextQuery() {
 		// Handle toolbox command that arrives as a text query
-		respLen, respBody = daemon.handleTCPTextQuery(ip, queryLen, queryBody)
+		respLen, respBody = daemon.handleTCPTextQuery(ip, queryLen, queryBody, queryStruct)
 	} else {
 		// Handle other query types such as name query
-		respLen, respBody = daemon.handleTCPNameOrOtherQuery(ip, queryLen, queryBody)
+		respLen, respBody = daemon.handleTCPNameOrOtherQuery(ip, queryLen, queryBody, queryStruct)
 	}
 	// Close client connection in case there is no appropriate response
 	if respBody == nil || len(respBody) < 2 {
@@ -64,12 +65,12 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	}
 }
 
-func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
-	queriedName := ExtractTextQueryInput(queryBody)
+func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte, queryStruct *QueryPacket) (respLen, respBody []byte) {
+	queriedName := queryStruct.GetHostName()
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(queriedName)
 	}
-	if dtmfDecoded := DecodeDTMFCommandInput(queriedName); len(dtmfDecoded) > 1 {
+	if dtmfDecoded := DecodeDTMFCommandInput(queryStruct.Labels); len(dtmfDecoded) > 1 {
 		cmdResult := daemon.latestCommands.Execute(context.TODO(), daemon.Processor, clientIP, dtmfDecoded)
 		if cmdResult.Error == toolbox.ErrPINAndShortcutNotFound {
 			/*
@@ -94,10 +95,8 @@ forwardToRecursiveResolver:
 	return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 }
 
-func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
-	respLen = make([]byte, 0)
-	respBody = make([]byte, 0)
-	domainName := ExtractDomainName(queryBody)
+func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, queryStruct *QueryPacket) (respLen, respBody []byte) {
+	domainName := queryStruct.GetHostName()
 	if domainName == "" {
 		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle non-name query")
 	} else {

@@ -1,7 +1,6 @@
 package dnsd
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -428,18 +427,6 @@ func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
 		}
 	}
 	return false
-}
-
-// nameQueryMagic is a series of bytes that appears in a DNS name (A) query.
-var nameQueryMagic = []byte{0, 1, 0, 1}
-
-// textQueryMagic is a series of bytes that appears in a DNS text query.
-var textQueryMagic = []byte{0, 16, 0, 1}
-
-// isTextQuery returns true only if the input query appears to be a text query.
-func isTextQuery(queryBody []byte) bool {
-	typeTXTClassIN := bytes.Index(queryBody[13:], textQueryMagic)
-	return typeTXTClassIN > 0
 }
 
 // TestServer contains the comprehensive test cases for both TCP and UDP DNS servers.

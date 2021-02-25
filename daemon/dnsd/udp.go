@@ -23,14 +23,15 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 		logger.Warning("HandleUDPClient", ip, nil, "packet length is too small")
 		return
 	}
+	queryStruct := ParseQueryPacket(packet)
 	var respLenInt int
 	var respBody []byte
-	if isTextQuery(packet) {
+	if queryStruct.IsTextQuery() {
 		// Handle toolbox command that arrives as a text query
-		respLenInt, respBody = daemon.handleUDPTextQuery(ip, packet)
+		respLenInt, respBody = daemon.handleUDPTextQuery(ip, packet, queryStruct)
 	} else {
 		// Handle other query types such as name query
-		respLenInt, respBody = daemon.handleUDPNameOrOtherQuery(ip, packet)
+		respLenInt, respBody = daemon.handleUDPNameOrOtherQuery(ip, packet, queryStruct)
 	}
 	// Ignore the request if there is no appropriate response
 	if respBody == nil || len(respBody) < 3 {
@@ -47,12 +48,12 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 	}
 }
 
-func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
-	queriedName := ExtractTextQueryInput(queryBody)
+func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, queryStruct *QueryPacket) (respLenInt int, respBody []byte) {
+	queriedName := queryStruct.GetHostName()
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(queriedName)
 	}
-	if dtmfDecoded := DecodeDTMFCommandInput(queriedName); len(dtmfDecoded) > 1 {
+	if dtmfDecoded := DecodeDTMFCommandInput(queryStruct.Labels); len(dtmfDecoded) > 1 {
 		cmdResult := daemon.latestCommands.Execute(context.TODO(), daemon.Processor, clientIP, dtmfDecoded)
 		if cmdResult.Error == toolbox.ErrPINAndShortcutNotFound {
 			/*
@@ -74,9 +75,8 @@ forwardToRecursiveResolver:
 	return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 }
 
-func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte) (respLenInt int, respBody []byte) {
-	// Handle other query types such as name query
-	domainName := ExtractDomainName(queryBody)
+func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte, queryStruct *QueryPacket) (respLenInt int, respBody []byte) {
+	domainName := queryStruct.GetHostName()
 	if domainName == "" {
 		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle non-name query")
 	} else {
