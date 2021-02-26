@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -47,6 +48,9 @@ type Daemon struct {
 	// and placing them into AllowFromCidrs.
 	// This mechanism exists in the DNS daemon in a similar form.
 	CommandProcessor *toolbox.CommandProcessor `json:"-"`
+
+	// DNSDaemon is an initialised DNS daemon that will provide protection against advertising, malware, and tracking to this web proxy.
+	DNSDaemon *dnsd.Daemon `json:"-"`
 
 	allowFromIPNets []*net.IPNet
 	proxyHandler    http.HandlerFunc

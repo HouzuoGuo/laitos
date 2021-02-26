@@ -63,6 +63,11 @@ func PipeTCPConnection(logger lalog.Logger, ioTimeout time.Duration, srcConn, ds
 
 // ProxyHandler is an HTTP handler function that implements an HTTP proxy capable of handling HTTPS as well.
 func (daemon Daemon) ProxyHandler(w http.ResponseWriter, r *http.Request) {
+	// Pass the intended destination through DNS daemon's blacklist filter
+	if daemon.DNSDaemon != nil && daemon.DNSDaemon.IsInBlacklist(r.Host) {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	clientIP := middleware.GetRealClientIP(r)
 	switch r.Method {
 	case http.MethodConnect:

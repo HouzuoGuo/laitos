@@ -60,6 +60,19 @@ func TestCheckAllowClientIP(t *testing.T) {
 	}
 }
 
+func TestEmtpyDNSD(t *testing.T) {
+	// DNS daemon must initialise without an error without any configuration
+	daemon := &Daemon{}
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	// DNS blacklist must not crash even if it's empty and DNS daemon is not yet started.
+	// Some other daemons (sockd, web proxy) borrow DNS daemon for its blacklist filtering.
+	if daemon.IsInBlacklist("github.com") {
+		t.Fatal("should not have been in the blacklist")
+	}
+}
+
 func TestDNSD(t *testing.T) {
 	daemon := Daemon{AllowQueryIPPrefixes: []string{"192.", ""}}
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "may not contain empty string") {
