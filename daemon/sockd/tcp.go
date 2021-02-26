@@ -141,10 +141,7 @@ func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
 }
 
 func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, destWithPort string, err error) {
-	if err = conn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-		conn.logger.MaybeMinorError(err)
-		return
-	}
+	conn.logger.MaybeMinorError(conn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)))
 
 	buf := make([]byte, 269)
 	if _, err = io.ReadFull(conn, buf[:AddressTypeIndex+1]); err != nil {

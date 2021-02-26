@@ -215,6 +215,9 @@ func getUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger,
 		logger.Warning("GetUnlockPassword", serverAddr, err, "failed to establish RPC client connection")
 		return ""
 	}
+	defer func() {
+		logger.MaybeMinorError(clientConn.Close())
+	}()
 	client := unlocksvc.NewPasswordUnlockServiceClient(clientConn)
 	invokeTimeoutCtx, invokeTimeoutCancel := context.WithTimeout(ctx, PasswdRPCTimeout)
 	defer invokeTimeoutCancel()
