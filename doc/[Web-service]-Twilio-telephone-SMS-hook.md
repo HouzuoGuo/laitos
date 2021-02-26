@@ -135,7 +135,7 @@ The web service does not respond if an SMS sender fails to use the correct passw
 inspection on Twilio console.
 
 Regarding laitos configuration:
-- Make sure to choose a very secure URL for both call and SMS endpoints, it is the only way to secure this web service!
+- Make the URL difficult to guess for both call and SMS endpoints, this helps to prevent misuse of the service.
 - Under `HTTPFilters`, double check that `MaxLength` of `LintText` is set to a reasonable number below 1000, otherwise
   if laitos sends an exceedingly large SMS response, Twilio will break apart the response into multiple SMS segments,
   and then charge a high fee for sending the segments altogether! Also, consider turning on all compression features of

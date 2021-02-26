@@ -89,5 +89,7 @@ To download a file:
 4. click "Download".
 
 ## Tips
-The "Private Token" has API access to all of your git repositories, therefore keep it secured, and do not let untrusted
-persons get hold of it!
+- Make the endpoint difficult to guess, this helps to prevent misuse of the service.
+- The "Private Token" has API access to all of your git repositories, therefore keep it secured, and do not let untrusted
+  persons get hold of it!
+

@@ -46,9 +46,7 @@ Several seconds after the page loads, two buttons `XY` and `XY-ALL` will appear 
 Click on `XY` or `XY-ALL` button as required, to continue browsing. The buttons will stay on the page.
 
 ## Tips
-Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!
-
-The web proxy does not provide anonymity at all, and will often fail to render rich/sophisticated websites.
-
-Another laitos web service called [browser-in-browser](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-browser-in-browser)
-provides much better website rendering.
+- Make the endpoint difficult to guess, this helps to prevent misuse of the service.
+- The web proxy does not provide anonymity, and it may fail to properly render sophisticated web pages.
+- Also consider using the [desktop on-a-page (virtual machine)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-desktop-on-a-page-(virtual-machine))
+  to launch a remotely controlled virtual machine and web browser, which is better at rendering sophisticated web pages.

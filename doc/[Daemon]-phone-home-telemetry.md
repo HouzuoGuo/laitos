@@ -182,3 +182,7 @@ service to read telemetry records along with app command execution result.
 - In a telemetry record, the host name is always truncated to 16 characters maximum, and changed to lower case. Both of your
   laitos web server and DNS server will receive the shortened host name. The short length allows a telemetry record to
   have more room for other fields when transmitted over DNS.
+- If one of the `MessageProcessorServers` runs a DNS daemon also and you wish to send it queries from a home network, then instead
+  of manually figuring out your public IP and placing it in the DNS daemon configuration `AllowQueryIPPrefixes`, you can run this
+  phone-home telemtry daemon on a computer inside that network (e.g. on a laptop or desktop) let it send reports to the laitos DNS server
+  over `HTTPEndpointURL` or `DNSDomainName`. The DNS daemon will automatically allow all telemetry subjects to freely send queries.

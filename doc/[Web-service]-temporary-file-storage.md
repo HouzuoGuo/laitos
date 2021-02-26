@@ -36,7 +36,7 @@ The form is hosted by web server, therefore remember to [run web server](https:/
 4. Visit `FileUploadEndpoint` within 24 hours, enter the file name into the text field and click "Download".
 
 ## Tips
-- Make the URL location secure and hard to guess, it is the only way to secure this web service!
+- Make the endpoint difficult to guess, this helps to prevent misuse of the service.
 - The download button asks browser to use its default action on the downloaded file - if the file is a photo, then browsers will often 
   display the photo rather than displaying a download dialogue. You can save the photo by right-clicking the photo on a desktop computer,
   or long-press the photo on a tablet computer.

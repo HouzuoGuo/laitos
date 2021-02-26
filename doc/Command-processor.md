@@ -43,7 +43,8 @@ Mandatory `PINAndShortcuts` - define access password and shortcut command entrie
     <td>Passwords</td>
     <td>array of strings</td>
     <td>
-        Put any of these passwords at the very beginning of app command input to gain access to apps.
+        Put any of the passwords at the very beginning of app command input to gain access to apps.
+        A password consists of letters and numbers. Avoid using spaces and special symbols.
         <br/>
         See "Usage" for more information.
     </td>
@@ -189,6 +190,7 @@ App command looks like:
     Password .app_identifier parameter1 parameter2 parameter3 ...
 
 Where:
+- `Password` is one of the passwords from the `Passwords` array of valid password strings.
 - `.app_identifier` is a short text string that identifies the app to invoke. Pay attention to the mandatory leading `.` dot.
 - Parameters are passed as-is to the specified app as its input.
 
@@ -232,16 +234,27 @@ OTP 1 is `123123` and OTP 2 is `789789`:
   will refuse to execute the second "echo hi" command by saying "the TOTP has already been used with a different command".
 
 ### Override output length and timeout restriction
-Prepend the lower case string "plt" and three parameters to an app command, to position (skip) first N characters from the command output,
-override the output length restriction, and/or override the command execution timeout:
+By default, daemons that are capable of receiving app commands, executing them, and respond with execution result will impose several
+restrictions on:
+- Maximum length of the app command input.
+- Maximum length of the app command execution result (output).
+- Maximum duration (in seconds) that the app command execution may take.
 
-    .plt <SKIP> <MAX LENGTH> <TIMEOUT SECONDS> Password .app_identifier parameter1 parameter 2 parameter 3 ...
+The restrictions are often configurable, and they are crucial in preventing a malfunctioning app command from exhausting server resources.
+However, in certain cases, you may wish to temporarily lift the restriction for an individual app command, for example when executing an
+app command over SMS the response is usually restricted to ~130 characters (max. 1 SMS), and by using the special `.plt` string, you may
+then read an a response 300 characters long (in 3 texts).
+
+An app command that uses `.plt` string looks like:
+
+    PasswordPIN .plt SKIP MaxLength TimeoutSeconds .app_identifier parameter1 parameter 2 parameter 3 ...
 
 Where:
-- `<SKIP>` is the number of characters to discard from beginning of the result output.
-- `<MAX LENGTH>` is the maximum number of characters to collect from command response. It overrides `MaxLength` of `LintText` as well as
-  certain daemons' internal default limit.
-- `<TIMEOUT SECONDS>` is the maximum number of seconds the app may spend to execute the command. It overrides daemon's internal default limit.
+- `PasswordPIN` is the password PIN to authorise app command execution.
+- `SKIP` is the number of characters to discard from beginning of the result output.
+- `MaxLength` is the maximum number of characters to collect from command response. It overrides `MaxLength` of `LintText`, or the default
+  limit imposed by a daemon internally.
+- `TimeoutSeconds` is the maximum number of seconds the app may spend to execute the command. It overrides daemon's internal default limit.
 
 Take an example - a user uses the Telegram bot daemon to execute command `mypassword .il work-mail 0 10` (get the latest 10 Email subjects).
 The user previously configured `LintText` to restrict output to only 76 characters, and Telegram bot internally spends at most 30 seconds to
@@ -251,9 +264,10 @@ execute a command. These constraints would result in this incomplete response:
     2 me@example.com Holiday greetings
     3
 
-Let us try to retrieve the full output - skip the 2 Email subjects already seen, override `MaxLength` to 10000 and timeout to 60 seconds:
+Let us try to retrieve the full output - skip the 2 Email subjects already seen (the first 75 characters), then override maximum output length
+to 10000 and timeout to 60 seconds:
 
-    .plt 75 10000 60 mypassword .il work-mail 0 10
+    mypassword .plt 75 10000 60 .il work-mail 0 10
 
 And we will get the desirable result:
 
@@ -268,13 +282,12 @@ And we will get the desirable result:
 
 ## Tips
 Regarding password:
-- It must be at least 7 characters long.
-- Do not use space character in the password, or it might not be validated successfully during a command invocation.
-- Use a strong password that is hard to guess.
+- It must be at least 7 characters long. Use a strong password that is hard to guess.
+- Feel free to use numbers, upper and lower case letters, but please refrain from using other special characters or space characters in the password.
 - All daemons capable of invoking app commands offer rate limit mechanism to reduce impact of brute-force password guessing. Pay special
   attention to the rate limit settings in individual daemon configuration.
-- For prevention of brute-force guessing of password via DDoS, each laitos daemon will execute a maximum of 1000 commands per second, regardless
-  of their rate limit configuration.
+- For prevention of brute-force guessing of password via DDoS, laitos enforces a global limitation of maximum 1000 command executions per second,
+  regardless of how many daemons are processing the app commands.
 - Incorrect password PIN entry does not result in an Email notification, however, the attempts are logged in warnings and can be inspected via
   [environment inspection](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-inspect-and-control-server-environment)
   or [program health report](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report).

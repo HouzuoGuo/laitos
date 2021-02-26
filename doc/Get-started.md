@@ -102,18 +102,22 @@ Use the following command line options with extra care:
 <table>
 <tr>
     <th>Flag</th>
+    <th>Value data type</th>
     <th>Meaning</th>
 </tr>
 <tr>
     <td>-debug</td>
+    <td>true/false</td>
     <td>Print stack traces to standard error upon receiving the interrupt signal SIGINT.</td>
 </tr>
 <tr>
-    <td>-gomaxprocs</td>
+    <td>-gomaxprocs Num</td>
+    <td>Integer</td>
     <td>Specify maximum number of concurrent goroutines. The default value is the number of CPU cores/threads.</td>
 </tr>
 <tr>
     <td>-disableconflicts</td>
+    <td>true/false</td>
     <td>
         Automatically disable the following system softwares that may run into resource conflict:<br>
         <ul>
@@ -128,10 +132,53 @@ Use the following command line options with extra care:
 </tr>
 <tr>
     <td>-awslambda</td>
+    <td>true/false</td>
     <td>
       Launch laitos as a handler for AWS Lambda function.
       <br/>
       See <a href="https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips">cloud deployment tips</a> for the detailed usage.
     </td>
 </tr>
+<tr>
+    <td>-awsinteg</td>
+    <td>true/false</td>
+    <td>
+      The master switch for turning on all points of integration with AWS infrastructure resources such as S3, SNS, SQS, Kinesis Firehose.
+      <br/>
+      See <a href="https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips">cloud deployment tips</a> for the detailed usage.
+    </td>
+</tr>
+<tr>
+    <td>-prominteg</td>
+    <td>true/false</td>
+    <td>
+      The master switch for turning on all points of integration with prometheus metrics exporter.
+      <br/>
+      See <a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter">Web service - prometheus metrics exporter</a>
+      for the detailed usage.
+    </td>
+</tr>
+<tr>
+    <td>-profhttpport PORT</td>
+    <td>Integer</td>
+    <td>
+      Start an HTTP server on localhost:PORT to serve program profiling data at URL location "/debug/pprof/{cmdline,profile,symbol,trace}".
+    </td>
+</tr>
 </table>
+
+### Build a container image
+Images of a (usually) up-to-date version of laitos are uploaded to Docker Hub [hzgl/laitos](https://hub.docker.com/r/hzgl/laitos).
+
+If you wish to customise the image to your needs, feel free to use the [`Dockerfile`](https://github.com/HouzuoGuo/laitos/blob/master/Dockerfile)
+from GitHub repository as a reference.
+
+### Supply program configuration in an environment variable
+Usually, the program configuration is kept in a JSON file, the path of which is specified in the laitos launch command line (`-config my-laitos-config.json`).
+However, if the program configuration is short enough to fit into an environment variable, laitos can also get its configuration
+from there. This can be rather useful for testing a configuration snippet or starting a small number of daemons in a container.
+
+The following example starts the HTTP daemon (without TLS) on the default port number (80), the web server comes with app-command runner endpoint:
+
+    sudo env 'LAITOS_CONFIG={"HTTPFilters": {"PINAndShortcuts": {"Passwords": ["abcdefgh"]},"LintText": {"MaxLength": 1000}},"HTTPHandlers": {"AppCommandEndpoint": "/cmd"}}' ./laitos -daemons insecurehttpd
+    # Try running an app command: curl http://0.0.0.0:80/cmd?cmd=abcdefgh.sdate

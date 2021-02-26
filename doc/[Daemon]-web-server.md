@@ -3,8 +3,8 @@ The web server hosts a static personal website that consists of:
 - A home page in an HTML file.
 - Media files and other assets in directories.
 
-laitos offers a full range of specialised web services and such as [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook)
-hosted by the same web server. Explore them in [Components - rich web services](https://github.com/HouzuoGuo/laitos/wiki/Component-list#rich-web-services).
+The web server also hosts specialised web services such as telephone/SMS web hook, desktop-on-a-page, check out
+[Components - rich web services](https://github.com/HouzuoGuo/laitos/wiki/Component-list#rich-web-services) to explore and enable then.
 
 ## Configuration
 Construct the following JSON object and place it under JSON key `HTTPDaemon` in configuration file:
@@ -188,17 +188,18 @@ Use a web browser to visit laitos web server on your domain name, pay special at
 - If plain HTTP daemon is enabled, check home page and file directories on HTTP port 80 as well.
 
 ## Tips
-1. The home page HTML is slightly processed in this way:
-    - `#LAITOS_CLIENTADDR` is substituted to visitor's IP address.
-    - `#LAITOS_3339TIME` is substituted to current system date and time.
+- The home page HTML is slightly processed in this way:
+   - `#LAITOS_CLIENTADDR` is substituted to visitor's IP address.
+   - `#LAITOS_3339TIME` is substituted to current system date and time.
 
-    For example, the following HTML snippet:
+   For example, the following HTML snippet:
 
-        <p>Welcome, visitor! Your IP is #LAITOS_CLIENTADDR and the time is now #LAITOS_3339TIME.</p>
+       <p>Welcome, visitor! Your IP is #LAITOS_CLIENTADDR and the time is now #LAITOS_3339TIME.</p>
 
-    Will be rendered as (IP and time are examples):
+   Will be rendered as (IP and time are examples):
 
-        <p>Welcome, visitor! Your IP is 41.156.72.9 and the time is now 2017-08-22T15:04:05Z07:00</p>
-2. When you access specialised web services via the plain HTTP daemon, your will be warned about this usage of
-   unencrypted HTTP connection. The warning comes in an authentication dialog that accepts any username password input.
-   As an exception, visiting home page and file directories do not trigger the warning.
+       <p>Welcome, visitor! Your IP is 41.156.72.9 and the time is now 2017-08-22T15:04:05Z07:00</p>
+- If you wish to take a closer look at the web server's performance over time and plot the graphs on a dashboard,
+  check out the specialised web service [prometheus metrics exporter](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter)
+  which exports metrics many of laitos' components (including this web server daemon) to the popular open-source
+  monitoring software [prometheus](https://prometheus.io/).

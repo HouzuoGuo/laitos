@@ -2,12 +2,14 @@ __Table of Contents__
 * [Home](https://github.com/HouzuoGuo/laitos/wiki)
 * [Get started](https://github.com/HouzuoGuo/laitos/wiki/Get-started)
 * [Component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list)
+* [Tips for running on public cloud](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips)
 * [laitos terminal](https://github.com/HouzuoGuo/laitos/wiki/Laitos-terminal)
 
 Daemon Components
 * [DNS server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server)
 * [Mail server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-mail-server)
 * [Web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server)
+* [Web proxy server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-proxy)
 * [Telnet server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telnet-server)
 * [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telegram-chat-bot)
 * [Serial port communicator](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-serial-port-communicator)
@@ -19,6 +21,7 @@ Daemon Components
 Web Service Components
 * [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook)
 * [Microsoft bot hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Microsoft-bot-hook)
+* [The Things Network LORA tracker integration](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-the-things-network-LORA-tracker-integration)
 * [Recurring commands](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-recurring-commands)
 * [App command form](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-invoke-app-command)
 * [Simple app command execution API](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-simple-app-command-execution-API)
@@ -28,9 +31,11 @@ Web Service Components
 * [Web browser on a page (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(SlimerJS))
 * [Web browser on a page (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(PhantomJS))
 * [Desktop on a page (virtual machine)](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-desktop-on-a-page-(virtual-machine))
-* [Program health report](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report)
 * [Read telemetry records](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records)
-* [The Things Network LORA tracker integration](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-the-things-network-LORA-tracker-integration)
+* [Program health report](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report)
+* [System process explorer](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-system-process-explorer)
+* [Prometheus metrics exporter](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter)
+* [HTTP request inspector](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-request-inspector)
 
 Apps
 * [Use Twitter](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-Twitter)

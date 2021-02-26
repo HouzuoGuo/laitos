@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/doc/cosmetic/20200825-poster.png" alt="poster image" />
 
-# laitos - Top geek's software kit
+# laitos - Top geek's chindogu
 
 **laitos** software suite offers all you need for hosting a personal website, receiving Emails, blocking ads with a DNS server.
 And for the geeks 🤓 - as a professional geek, you need Internet access whenever and wherever!
@@ -34,7 +34,7 @@ I'd love to hear from your feedback, feel free to [Email me](mailto:guohouzuo@gm
 and visit my home page [hz.gl](https://hz.gl).
 
 ## Copyright
-Copyright (C) 2016-2020 Houzuo (Howard) Guo <guohouzuo@gmail.com>
+Copyright (C) 2016-2021 Houzuo (Howard) Guo <guohouzuo@gmail.com>
 
 This program is free software subject to the terms of Mozilla Public License, v. 2.0. You may find the license text in
 [the LICENSE file](https://github.com/HouzuoGuo/laitos/blob/master/LICENSE)

@@ -8,7 +8,8 @@ System maintenance tasks comprise:
 - Validate configuration (such as API credentials for Twitter) used by apps and HTTP handlers.
 - Collect latest daemon stats summary and collect latest log entries.
 - Install common system administration and maintenance software using system package manager.
-- Install dependency software of advanced laitos features (such as browser-in-a-browser and VM-in-a-browser) using system package manager.
+- Install dependency software of advanced laitos features (such as browser-in-a-browser and VM-in-a-browser) using
+  system package manager.
 
 (For system security)
 - Install the latest system security updates and keep installed software up to date.
@@ -23,6 +24,8 @@ System maintenance tasks comprise:
 
 (Miscellaneous)
 - Perform connection check on external TCP services (additional configuration required).
+- Collect laitos program resource usage metrics (such as CPU usage and scheduler performance) for the
+  [prometheus metrics exporter web service](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter).
 
 laitos works with the following system package managers for installing and updating system software:
 - `apt-get` (Debian, Ubuntu, etc)
@@ -46,49 +49,49 @@ laitos works with the following system package managers for installing and updat
     <td>integer</td>
     <td>Run the system maintenance routine regularly at this interval (seconds). It must be greater or equal to 86400 (24 hours).</td>
     <td>86400 - daily maintenance is good enough</td>
-    <td>All</td>
+    <td>Universal</td>
 </tr>
 <tr>
     <td>Recipients</td>
     <td>array of strings</td>
     <td>These Email addresses will receive the maintenance summary report.</td>
     <td>(Not used and print report as output)</td>
-    <td>All</td>
+    <td>Universal</td>
 </tr>
 <tr>
     <td>CheckTCPPorts</td>
     <td>array of "host:ip" strings</td>
     <td>Check that these TCP ports are open on their corresponding host during maintenance routine.</td>
     <td>(Not used)</td>
-    <td>All</td>
+    <td>Universal</td>
 </tr>
 <tr>
     <td>BlockSystemLoginExcept</td>
     <td>array of user name strings</td>
     <td>Disable Linux/Windows system users from logging in, except the names listed here.</td>
     <td>(Not used)</td>
-    <td>All</td>
+    <td>Universal</td>
 </tr>
 <tr>
     <td>DisableStopServices</td>
     <td>array of system service name strings</td>
     <td>Disable Linux/Windows system services by stopping them and preventing them from starting.</td>
     <td>(Not used)</td>
-    <td>All</td>
+    <td>Universal</td>
 </tr>
 <tr>
     <td>EnableStartServices</td>
     <td>array of system service name strings</td>
     <td>Enable Linux/Windows system services by starting them and letting them start at boot time.</td>
     <td>(Not used)</td>
-    <td>All</td>
+    <td>Universal</td>
 </tr>
 <tr>
     <td>InstallPackages</td>
     <td>array of software name strings</td>
     <td>Install and upgrade these Linux/Windows software applications.</td>
     <td>(Not used)</td>
-    <td>All</td>
+    <td>Universal</td>
 </tr>
 <tr>
     <td>BlockPortsExcept</td>
@@ -143,6 +146,13 @@ laitos works with the following system package managers for installing and updat
     <td>(Not used)</td>
     <td>Linux</td>
 </tr>
+<tr>
+    <td>UploadReportToS3Bucket</td>
+    <td>string</td>
+    <td>After completing a round of maintenance, upload the report of results to this AWS S3 bucket.</td>
+    <td>(Not used)</td>
+    <td>Universal</td>
+</tr>
 </table>
 2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).
 
@@ -165,6 +175,10 @@ Here is an example configuration that keeps system up-to-date, while also checki
     ...
 }
 </pre>
+
+
+If you opt to upload maintenance reports to AWS S3 bucket, please follow the [Cloud Tips - Integrate with AWS](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips)
+section to give laitos program `AWS_REGION` and access key.
 
 ## Run
 Tell laitos to run periodic system maintenance in the command line:

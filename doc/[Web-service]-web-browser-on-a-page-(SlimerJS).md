@@ -103,6 +103,7 @@ Additionally, "Backspace" button discards a character, and "Enter" button sends 
 While using the browser, you must regularly click "Redraw" button to view the latest rendered page.
 
 ## Tips
+- Make the endpoint difficult to guess, this helps to prevent misuse of the service.
 - The instance port number from configuration is only for internal localhost use. They do not have to be open on your
   network firewall.
 - If laitos host is running Linux, then it will need Docker container runtime and tools to launch SlimerJS. You may

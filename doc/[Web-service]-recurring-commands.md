@@ -98,5 +98,5 @@ visit the endpoint URL in a web browser and use the web form:
     /very-secret-recurring-commands
 
 ## Tips
-Make sure to choose a very secure URL for both the endpoint and channel names, and make sure they are only known by
-designated users of this service!
+- Make the endpoint and channel names difficult to guess, this helps to prevent misuse of the service.
+- Only share the endpoint and channel names with designated users of this service, do not make them public.

@@ -26,7 +26,17 @@ It may also be:
 
 ## Tips
 - In case that a load balancer periodically checks the health status of laitos by visiting its HTTP server, the checks
-  will continue to succeed (indicating a healthy server) even after `lock` action is executed. This is intentional.
+  will continue to succeed (indicating a healthy server) even after `lock` action is executed. This is intentional to
+  prevent the load balancer from replacing the laitos program under lock-down with a healthy instance not under lock-down.
 - The `kill` action attempts to delete most of the files on disk (including those mounted on mount points), and wipes
   disk partitions with zeros. It cannot guarantee that the entire disk has been filled with zeros before the computer
   crashes.
+
+About retrieving the log entries:
+- laitos keeps the most recent log entries and warning log entries in memory, totalling several hundreds entries. They
+  are available for inspection on-demand. The host operating system or hosting platform may have held more log entries
+  available for your inspection.
+- The warning log entries keep track of the most recent (about three dozens) repeating offenders and will not present
+  their repeated offences for inspection. For example, when laitos server refuses 30 DNS clients from querying the server
+  yet they keep on going, their IPs will only show up once in the recent warnings, until the server refuses another 30,
+  different DNS clients from querying the server.

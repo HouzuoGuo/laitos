@@ -1,6 +1,6 @@
 ## Introduction
 The DNS server daemon is a recursive DNS resolver that provides a safer web experience by blocking most of advertisement
-and malicious domains.
+and malicious domains. It is especially useful for personal computing devices (laptops, phones, etc) in a home network.
 
 At start up and then once a day, the blacklists for advertisement and malicious domains are automatically updated from
 well-known sources:
@@ -16,7 +16,6 @@ Beyond the blacklists, the DNS resolver uses redundant set of secure and trusted
 - [CloudFlare with malware prevention](https://blog.cloudflare.com/introducing-1-1-1-1-for-families/)
 - [OpenDNS](https://www.opendns.com)
 - [AdGuard DNS](https://adguard.com/en/adguard-dns/overview.html)
-- [SafeDNS](https://www.safedns.com)
 
 ## Configuration
 Construct the following JSON object and place it under key `DNSDaemon` in configuration file:
@@ -31,11 +30,13 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
     <td>AllowQueryIPPrefixes</td>
     <td>array of strings</td>
     <td>
-        An array of IP address prefixes such as ["195.1", "123.4.5"] that are allowed to make DNS queries.
+        An array of IP address prefixes such as ["195.1", "123.4.5"] that are allowed to make recursive DNS queries.
         <br/>
         The public IP address of your wireless routers, computers, and phones should be listed here.
+        <br/>
+        This address restriction does not apply to "Invoke app commands via DNS queries".
     </td>
-    <td>(This is a mandatory property without a default value)</td>
+    <td>Empty (see also Tips for an alternative)</td>
 </tr>
 <tr>
     <td>Address</td>
@@ -92,9 +93,9 @@ Tell laitos to run DNS daemon in the command line:
 
     sudo ./laitos -config <CONFIG FILE> -daemons ...,dnsd,...
 
-## Test
-Assuming that daemon listens on port 53, perform the tests from a computer where you will use the ad-blocking DNS server,
-such as home network:
+## Test (Optional)
+Assuming that daemon listens on port 53, perform this tests from a computer where you will be use the ad-blocking DNS server,
+such as a laptop on your home network:
 
 1. Observe successful "Name-Address" answers from the following two system command (for both UDP and TCP):
 
@@ -130,13 +131,17 @@ Regarding usage:
   Internet.
 
 Regarding configuration:
+- Instead of manually figure out your home public IP and placing it into `AllowQueryIPPrefixes`, run [phone-home telemetry daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-phone-home-telemetry)
+  on a computer inside that network (e.g. on a laptop or desktop) and configure the daemon to send reports to this laitos server.
+  The DNS daemon will automatically allow all telemetry subjects to freely send queries.
 - Not all DNS services support TCP for queries. The default forwarders (CloudFlare, Quad9, SafeDNS, OpenDNS) support both
   TCP and UDP equally well.
 - If given, the DNS `Forwarders` will override all default forwarders, and the default forwarders will remain inactive.
 
 ## Invoke app commands via DNS queries
 Beside offering an ad-free and safe web experience, the DNS server can also invoke app commands via `TXT` queries, this
-enables Internet usage in an environment where DNS usage is unrestricted but Internet access is not available.
+enables users to consume basic Internet features (news, weather, mail, etc) when their network environment restricts Internet access
+but does not restrict DNS usage - which is rather common in inflight-wifi and hotspots behind captive portal.
 
 ### Configuration
 To enable app command execution, follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor)
@@ -220,12 +225,13 @@ the record names will become authoritative name server of the first domain name.
     </tr>
 </table>
 
-The setup must have a minimum of two records because very often registrars ask for at least two name servers to be
-assigned to a domain name, for redundancy reasons. Next, visit the registrar of `my-throw-away-domain-example.net`, set
-its name servers to the following:
+Though technically only a single record is required to make this work (e.g. `ns1-for-laitos.my-home-domain-example.net`), most
+domain registrars ask for at least two records (for redundancy reasons), therefore, create 4 of them just in case.
+
+Next, visit the registrar of `my-throw-away-domain-example.net`, go to domain configuration and set the following name servers:
 <table>
     <tr>
-        <th>Registrar Field</th>
+        <th>Domain configuration at registrar</th>
         <th>Value</th>
     </tr>
     <tr>
@@ -233,15 +239,15 @@ its name servers to the following:
         <td>ns1-for-laitos.my-home-domain-example.net</td>
     </tr>
     <tr>
-        <td>Name server 2 (mandatory)</td>
+        <td>Name server 2 (likely mandatory)</td>
         <td>ns2-for-laitos.my-home-domain-example.net</td>
     </tr>
     <tr>
-        <td>Name server 3 (perhaps optional)</td>
+        <td>Name server 3 (likely optional)</td>
         <td>ns3-for-laitos.my-home-domain-example.net</td>
     </tr>
     <tr>
-        <td>Name server 4 (perhaps optional)</td>
+        <td>Name server 4 (likely optional)</td>
         <td>ns4-for-laitos.my-home-domain-example.net</td>
     </tr>
 </table>
@@ -287,7 +293,7 @@ The app command response (string `123` from our example) can be read in the `ANS
   queries.
 - DNS queries are not encrypted, your app command input (including password) and command output will be exposed to
   the public Internet. Only use DNS for app command invocation as a last resort when all other encrypted channels are
-  unavailable.
+  unavailable. Also consider [using one-time-password is place of password](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password).
 - The entire DNS query, including app command, throw-away domain name, and dots in between, may not exceed 254 characters.
 - The app command response from DNS query result has a maximum length of 254 characters.
 - The DNS query response carrying app command response uses a TTL (time-to-live) of 30 seconds, which means, if an
@@ -296,7 +302,7 @@ The app command response (string `123` from our example) can be read in the `ANS
 - By default, each app command is given 29 seconds to complete unless the timeout duration is overriden by `PLT`
   command processor mechanism.
 - Recursive DNS resolvers on the public Internet usually expects a query response from laitos in less than 10 seconds.
-  However, in preactice, many app commands take more than 10 seconds to complete, in which case the public recursive
+  However, in practice, many app commands take more than 10 seconds to complete, in which case the public recursive
   DNS resolver will respond to DNS client with an error "(upstream) name server failure". Don't worry - internally,
   laitos patiently waits for the command completion (or time out), and makes the command response ready for immediate
   retrieval when the user invokes the identical app command within 30 seconds of the command completion.

@@ -1,11 +1,33 @@
 ## Introduction
-The mail server forwards arriving mails as-is to your personal mail address. No mails are stored on the server after
-they are forwarded.
+The mail server forwards incoming mails as-is to your personal mail address(es). The server does not by itself store
+any mail. For communication secrecy, the server supports StartTLS operation and identifies itself with a TLS certificate.
 
-With additional configuration, the server will execute password-protected app commands from incoming mail, and mail
-command response back to the sender.
+To reduce spam, the sender IPs are passed through these widely-used DNS-based blocklists:
+- "b.barracudacentral.org",
+- "bl.mailspike.net",
+- "bl.spamcop.net",
+- "cbl.abuseat.org",
+- "dnsbl-1.uceprotect.net",
+- "dnsbl-2.uceprotect.net",
+- "dnsbl-3.uceprotect.net",
+- "dnsbl.kempt.net",
+- "dnsbl.sorbs.net",
+- "dnsbl.zapbl.net",
+- "ix.dnsbl.manitu.net",
+- "noptr.spamrats.com",
+- "psbl.surriel.com",
+- "singular.ttk.pte.hu",
+- "spam.dnsbl.anonmails.de",
+- "spam.dnsbl.sorbs.net",
+- "spam.spamrats.com",
+- "truncate.gbudb.net",
+- "zen.spamhaus.org",
+- "z.mailspike.net",
 
-For communication secrecy, the server supports StartTLS operation and identifies itself with a TLS certificate.
+Blocked mails will show up in program log instead of being forwarded to your personal mail address(es).
+
+The mail server is also capable of executing password-protected app commands and mail the command response back to
+the sender.
 
 ## Preparation
 In order for an Internet user to successfully send mails to your domain names, they must be covered by a DNS hosting
@@ -105,7 +127,8 @@ Here is a minimal setup example that enables TLS as well:
 </pre>
 
 ## App command processor
-In order for mail server to invoke app commands from mail content, complete all of the following:
+The mail server is also capable of executing password-protected app commands and mail the command response back to
+the sender:
 
 1. Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
    JSON key `MailFilters`.
@@ -212,9 +235,7 @@ Try invoking an app command - send laitos server a mail with arbitrary subject, 
 in the content body. Look for the command response in a mail replied to the sender.
 
 ## Tips
-- Mail servers are often targeted by spam mails - but don't worry, use a personal mail service that comes with strong
-  spam filter (such as Gmail) as `ForwardTo` address, then spam mails will not bother you any longer.
-- Occasionally spam filter (such as Gmail's) may consider legitimate mails forwarded by laitos as spam, therefore please
+- Occasionally your mail provider (such as Gmail) may consider legitimate mails forwarded by laitos as spam, therefore please
   check your spam folders regularly.
 - Many Internet domain names use [DMARC](https://en.wikipedia.org/wiki/DMARC) to protect their business from mail spoofing.
   Though laitos usually forwards the verbatim copy of incoming mail to you, DMARC makes an exception - laitos has to change

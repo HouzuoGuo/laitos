@@ -37,4 +37,13 @@ The report is hosted by web server, therefore remember to [run web server](https
 In a web browser, navigate to `InformationEndpoint` of laitos web server, and inspect the produced health report.
 
 ## Tips
-Make the URL location secure and hard to guess, it is the only way to secure this web service!
+- Make the endpoint difficult to guess, this helps to prevent misuse of the service.
+
+- About the latest log entries presented for inspection:
+  * laitos keeps the most recent log entries and warning log entries in memory, totalling several hundreds entries. They
+    are available for inspection on-demand. The host operating system or hosting platform may have held more log entries
+    available for your inspection.
+  * The warning log entries keep track of the most recent (about three dozens) repeating offenders and will not present
+    their repeated offences for inspection. For example, when laitos server refuses 30 DNS clients from querying the server
+    yet they keep on going, their IPs will only show up once in the recent warnings, until the server refuses another 30,
+    different DNS clients from querying the server.

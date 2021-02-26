@@ -32,6 +32,11 @@ the apps.
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server" target="_blank">Link</a></td>
     </tr>
     <tr>
+        <td>Web proxy server</td>
+        <td>The general purpose web proxy server is capable of handling both HTTP and HTTPS destinations.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-proxy" target="_blank">Link</a></td>
+    </tr>
+    <tr>
         <td>Telnet server</td>
         <td>Telnet server provides unencrypted access to all apps via basic tools such HyperTerminal.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telnet-server" target="_blank">Link</a></td>
@@ -88,6 +93,11 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Microsoft-bot-hook" target="_blank">Link</a></td>
     </tr>
     <tr>
+        <td>The Things Network LORA tracker integration</td>
+        <td>Collect location telemetry from your LoRa IoT devices that run The Things Network Mapper program.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-the-things-network-LORA-tracker-integration" target="_blank">Link</a></td>
+    </tr>
+    <tr>
         <td>Recurring commands</td>
         <td>Run app commands at regular interval, and retrieve their result.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-recurring-commands" target="_blank">Link</a></td>
@@ -133,19 +143,29 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-desktop-on-a-page-(virtual-machine)" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Program health report</td>
-        <td>Display program stats, log entries, and system resource usage in a comprehensive report.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report" target="_blank">Link</a></td>
-    </tr>
-    <tr>
         <td>Read telemetry records</td>
         <td>Read phone-home telemetry records collected by this server.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>The Things Network LORA tracker integration</td>
-        <td>Collect location telemetry from your LoRa IoT devices that run The Things Network Mapper program.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-the-things-network-LORA-tracker-integration" target="_blank">Link</a></td>
+        <td>Program health report</td>
+        <td>Display program stats, log entries, and system resource usage in a comprehensive report.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>System process explorer</td>
+        <td>Find all processes running on the host OS and inspect the status and resource usage of individual process.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-system-process-explorer" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>Prometheus metrics exporter</td>
+        <td>Serve metrics info collected from web server, web proxy server, program resource usage, in prometheus exporter format.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>HTTP request inspector</td>
+        <td>Dump the incoming HTTP request for your inspection.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-request-inspector" target="_blank">Link</a></td>
     </tr>
 </table>
 

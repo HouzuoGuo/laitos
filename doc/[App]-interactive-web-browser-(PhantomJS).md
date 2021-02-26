@@ -104,6 +104,7 @@ For example, to conduct a Google search:
 8. Continue browsing.
 
 ## Tips
+- Make the endpoint difficult to guess, this helps to prevent misuse of the service.
 - The instance port number from configuration is only for internal localhost use. They do not have to be open on your
   network firewall.
 - The web service relies on PhantomJS software that has several software dependencies:

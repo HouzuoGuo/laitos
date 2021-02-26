@@ -144,10 +144,10 @@ Upon receiving the app response in JSON, the phone home daemon will log the comm
   they allow monitored subjects and laitos server to execute custom app commands on each other - with a high degree of reliability. The mechanism codenamed
   "store&forward message processor" allows either party to repeatedly send identical command to the other party, to ensure a very high likelihood of
   successful delivery.
-- When the app and phone home daemon (if used) ask each other to run custom app commands, each of them will retain their most recent custom app command and
-  response in-memory for up to 3000 seconds. If a custom app command duplicates that which was previously run, the duplicated app command will be ignored.
-  The JSON response will then return the custom command and response ran previously. The retained recent app command and responses are automatically
-  cleared after 3000 seconds.
+- When the app and phone home daemon (if used) ask each other to run custom app commands, each of them will retain their most recent command execution response
+  for up to 3000 seconds, during this time identical app command requests will receive the stale execution result.
 - In general, the app command processor universally used by all laitos apps works in a line-oriented fashion, therefore, if a line break (`\n`) shows
   up in the 4th (app command response) or 6th (comment) field, they must be substituted with ASCII Record Separator (`\x1e`), and laitos will recover
   line breaks from them when decoding the fields.
+- Optionally, the phone-home telemetry can send incoming reports to AWS SQS and SNS. Check out [Cloud Tips - Integration with AWS](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips)
+  for the usage.

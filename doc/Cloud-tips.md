@@ -53,8 +53,8 @@ right away. All flavours of Linux distributions that run on EC2 can run laitos.
 Lambda is the flagship Function-as-a-Service product offered by AWS. As a serverless offering, the product does not support
 general purpose computing. For laitos, lambda can run its web server without having to prepare an EC2 instance manually.
 
-Lambda offers pre-built runtime environment (including Go) with built-in web server. Because laitos runs its own web server,
-we will build a "lambda custom runtime", start with creating a shell script and name it `bootstrap`:
+Even though lambda offers pre-built runtime environment (including Go) with built-in web server, laitos will not be using it
+because laitos runs its own web server, we will build a "lambda custom runtime" by first creating a script and name it `bootstrap`:
 
     #!/bin/sh
     ./laitos -config config.json -daemons insecurehttpd -awslambda
@@ -142,6 +142,64 @@ Here are some tips for using laitos on ElasticBeanstalk:
 
 - Remember to adjust firewall (security group) to open ports for all services (e.g. DNS, SMTP, HTTPS) served by laitos.
 
+## Integrate with AWS Kinesis Firehose, S3, SQS, and SNS
+Beyond using AWS as the computing foundation for running laitos server, it may also integrate with the following AWS products:
+- When a program component emits a warning log message, send the message to SQS (simple queue service).
+- Upon receiving a [phone home telemetry](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler) report,
+  send the report to Kinesis Firehose.
+- Upon receiving a [phone home telemetry](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler) report,
+  send the report to SNS (simple notification service).
+- After completing a round of [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance),
+  upload the report of results to S3.
+- Use x-ray to trace HTTP requests handled by the laitos web servers.
+
+The points of integration are entirely optional, they may be individually enabled as needed. In order to enable any of them, you have
+to tweak the laitos configuration, program environment and launch command in these ways:
+
+- Set environment variable `AWS_REGION` to the API name of AWS region in which where all of the involved AWS resources are located.
+  laitos program assumes that the SQS queue, Kinesis Firehose stream, SNS topic, and S3 bucket are located in the same region.
+- Add CLI parameter `-awsinteg` to the command line. The parameter acts as a master switch to turn on/off all AWS integration features.
+- Supply AWS access key in one of the several ways:
+  * Via Lambda execution role, ECS task role, or EC2 instance role (also called "instance profile").
+  * Via environment variables `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and the optional `AWS_SESSION_TOKEN`.
+  * Via environment variable `AWS_PROFILE` and the credentials file from user's home directory.
+- Tweak the laitos program configuration file to mention the ID or names of the invovled AWS resources.
+
+For example, if the command line for launching laitos was:
+
+    ./laitos -config my-config.json -daemons httpd,maintenance,phonehome
+
+Then change it to (the example specifies Ireland as the region):
+
+    env AWS_REGION=eu-west-1 ./laitos -awsinteg -config my-config.json -daemons httpd,maintenance,phonehome
+
+And tell laitos the AWS resource names/IDs in its program configuration:
+
+```
+{
+    "AWSIntegration": {
+        "ForwardMessageProcessorReportsToFirehoseStreamName": "laitos-subject-reports-stream-name",
+        "ForwardMessageProcessorReportsToSNSTopicARN": "arn:aws:sns:eu-west-1:123484198765:laitos-subject-report-topic",
+        "SendWarningLogToSQSURL": "https://sqs.eu-west-1.amazonaws.com/123484198765/laitos-warnings-queue"
+    },
+    ...
+    "Maintenance": {
+        ...
+        "UploadReportToS3Bucket": "laitos-maintenance-report-bucket",
+        ...
+    },
+    ...
+}
+```
+
+Be aware that it is often a bad idea to keep AWS access key in a program configuration file, therefore the configuration file
+of laitos does not have AWS access keys. For detailed instructions on how to supply the access key, check out AWS documentation ["Configuring the AWS SDK for Go"](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials)
+
+To use x-ray for tracing HTTP requests, turn on the AWS integration master switch with CLI parameter `-awsinteg`, and then install
+the AWS x-ray daemon program on the server host by following [AWS X-Ray Daemon guide](https://docs.aws.amazon.com/xray/latest/devguide/xray-daemon.html).
+
+All interactions between laitos and AWS generate info-level log messages for diagnosis and inspection.
+
 ## Deploy on Microsoft Azure and Google Compute Engine
 Simply copy laitos program and its data onto a Linux virtual machine and start laitos right away. It is often useful to
 use systemd integration to launch laitos automatically upon system boot. All flavours of Linux distributions supported
@@ -153,3 +211,4 @@ instance, you can be almost certain that it will run laitos smoothly and well.
 
 Beyond AWS, Azure, and GCE, the author of laitos has also successfully deployed it on generic KVM virtual machine,
 OpenStack, Linode, and several cheap hosting services advertised on [lowendbox.com](https://lowendbox.com/).
+

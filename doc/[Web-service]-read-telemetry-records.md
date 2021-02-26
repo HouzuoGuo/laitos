@@ -62,10 +62,10 @@ Behind the scene:
 
 1. This laitos server stores the pending app command in-memory, patiently waiting for the monitored subject to make contact next
    time.
-2. The monitored subject (phone home telemetry daemon) sends the latest telemetry record by constructing a command for app
+2. The monitored subject (phone home telemetry daemon) sends the latest telemetry record by executing a command for app
    [phone home telemetry handler](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler). The laitos server
    app stores the latest record, and in the response, tells monitored subject to run that pending app command.
-3. The monitored subject receives the pending app command in the response, validates the password, and executes the app command.
+3. The monitored subject receives the pending app command in the response, validates the password PIN, and executes the app command.
 4. After the app command completes execution, the monitored subject will send the next telemetry record with the execution result.
 
 Both the monitored subject and laitos server retain the pending app command and execution result for just over half an hour, to
@@ -78,3 +78,6 @@ subject.
 User may clear the pending app command by interacting with the web service endpoint, and adding parameters `tohost=SubjectHostName&clear=1`:
 
     curl 'https://laitos-server.example.com/very-secret-telemetry-retrieval?tohost=SubjectHostName&clear=1'
+
+## Tips
+- Make the endpoint difficult to guess, this helps to prevent misuse of the service.

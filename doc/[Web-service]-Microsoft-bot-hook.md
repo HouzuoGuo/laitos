@@ -6,8 +6,8 @@ with laitos server and invoke app commands, using programs supported by Microsof
 1. Sign up for a Microsoft account and visit [Microsoft Bot Framework](https://dev.botframework.com/).
 2. Visit "My bots" and then [create a new bot](https://dev.botframework.com/bots/new)
 3. Enter basic details such as name and description.
-4. Think of a URL on your laitos server that will serve the bot, make the endpoint name difficult to guess and write it
-   down into "Message endpoint". (e.g. `https://my-laitos-server.net/very-secret-microsoft-bot-hook`)
+4. Think of a URL on your laitos server that will serve the bot, make the endpoint difficult to guess and write it down
+   into "Message endpoint". (e.g. `https://my-laitos-server.net/very-secret-microsoft-bot-hook`)
 5. Click "Create Microsoft App ID and password" to automatically generate an app ID, be sure to note down the password
    as it will be filled into configuration soon.
 6. Submit the form to complete registration of the new bot.
@@ -70,11 +70,8 @@ Initiate a chat with bot and enter password followed by app command, a short whi
 arrive in a chat reply.
 
 ## Tips
-Make sure to choose a very secure URL for the endpoint, it is the only way to secure this web service!
-
-If there are more than one bot to be served, construct configuration for `MicrosoftBotEndpoint2`,
-`MicrosoftBotEndpoint3`, as well as `MicrosoftBotEndpointConfig2` and `MicrosoftBotEndpointConfig3`. A laitos server
-may serve up to three bots.
-
-Usage of HTTPS is mandatory in bot hook, your laitos web server must be serving HTTPS traffic using a valid TLS
-certificate chain.
+- Make the endpoint URLs to guess, this helps to prevent misuse of the service.
+- If there are more than one bot to be served, construct configuration for `MicrosoftBotEndpoint2`, `MicrosoftBotEndpoint3`,
+  as well as `MicrosoftBotEndpointConfig2` and `MicrosoftBotEndpointConfig3`. A laitos server may serve up to three bots.
+- Microsoft asks bot servers to use HTTPS, therefore your laitos web server must be serving HTTPS traffic using a valid TLS
+  certificate, completed with the certificate chain.
