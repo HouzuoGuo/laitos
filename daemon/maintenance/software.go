@@ -215,13 +215,14 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		among distributions.
 	*/
 	daemon.logPrintStage(out, "install software")
-	pkgs := []string{
-		// For outgoing HTTPS connections
+	allPackageNames := []string{
+		// For outgoing HTTPS connections made by laitos
 		"ca-certificates",
 
-		// Utilities for APT maintenance that also help with installer docker community edition on Debian
-		"apt-transport-https", "gnupg", "software-properties-common",
-		// Docker for running SlimerJS
+		// For maintenance of software repositories using APT package manager
+		"apt-transport-https", "gnupg", "lsb-release", "software-properties-common",
+
+		// For running SlimmerJS container
 		"docker", "docker-client", "docker.io", "docker-ce",
 
 		// Soft and hard dependencies of PhantomJS
@@ -255,8 +256,18 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		"sensors", "shadow", "snmp", "socat", "strace", "sudo", "sysinternals", "sysstat", "tcpdump", "tcptraceroute", "telnet", "tmux", "tracepath", "traceroute", "tree",
 		"tshark", "unar", "uniutils", "unzip", "usbutils", "util-linux", "util-linux-locales", "util-linux-user", "vim", "wbritish", "wget", "whois", "wiggle", "yamllint", "zip",
 	}
-	pkgs = append(pkgs, daemon.InstallPackages...)
-	sort.Strings(pkgs)
+	allPackageNames = append(allPackageNames, daemon.InstallPackages...)
+	// Collect unique package names for installation
+	uniquePackageNames := make(map[string]struct{})
+	for _, name := range allPackageNames {
+		uniquePackageNames[name] = struct{}{}
+	}
+	// Install the packages in the alphabetical order
+	allPackageNames = make([]string, 0, len(uniquePackageNames))
+	for name := range uniquePackageNames {
+		allPackageNames = append(allPackageNames, name)
+	}
+	sort.Strings(allPackageNames)
 	/*
 		Although most package managers can install more than one packages at a time, the packages are still installed
 		one after another, because:
@@ -264,7 +275,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		- if zypper runs into unsatisfactory package dependencies, it aborts the whole installation.
 		yum is once again the superior solution among all three.
 	*/
-	for _, name := range pkgs {
+	for _, name := range allPackageNames {
 		// Put software name next to installation parameters
 		installCmd := make([]string, len(pkgInstallArgs)+1)
 		copy(installCmd, pkgInstallArgs)
