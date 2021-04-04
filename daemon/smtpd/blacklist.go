@@ -24,7 +24,8 @@ var (
 		// www.barracudacentral.org "Barracuda Central maintains a history of IP addresses for both known spammers as well as senders with good email practices"
 		"b.barracudacentral.org",
 		// www.spamcop.net "SpamCop determines the origin of unwanted email and reports it to the relevant Internet service providers"
-		"bl.spamcop.net",
+		// Caution: the number of false positivies are very high with spamcop, hence it is disabled.
+		// "bl.spamcop.net",
 		// www.abuseat.org "a division of spamhaus"
 		"cbl.abuseat.org",
 		// www.uceprotect.net "The project’s mission is to stop mail abuse, globally"

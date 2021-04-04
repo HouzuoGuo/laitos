@@ -40,16 +40,16 @@ func TestIsIPBlacklistIndication(t *testing.T) {
 
 func TestIsClientBlacklisted(t *testing.T) {
 	var tests = []struct {
-		ip, expected string
+		ip, blockedBy string
 	}{
 		{"127.254.254.254", ""},
-		{"1.1.1.1", ""},
+		{"1.1.2.2", ""},
 		{"192.168.0.1", ""},
 		{"not-a-valid-ipv4-addr", ""},
 	}
 	for _, test := range tests {
-		if IsSuspectIPBlacklisted(test.ip) != test.expected {
-			t.Fatalf("return value for %s should have been %v", test.ip, test.expected)
+		if blockedBy := IsSuspectIPBlacklisted(test.ip); blockedBy != test.blockedBy {
+			t.Fatalf("%s should have been blocked by %v, actual: %v", test.ip, test.blockedBy, blockedBy)
 		}
 	}
 	// Is there an IP guaranteed to be blocked for sending spam?!
