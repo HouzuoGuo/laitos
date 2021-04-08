@@ -94,18 +94,20 @@ func (srv *UDPServer) StartAndBlock() error {
 	if err != nil {
 		return fmt.Errorf("UDPServer.StartAndBlock(%s): failed to resolve listning address %s - %v", srv.AppName, srv.ListenAddr, err)
 	}
-	srv.udpServer, err = net.ListenUDP("udp", listenUDPAddr)
-	srv.mutex.Unlock()
+	udpServer, err := net.ListenUDP("udp", listenUDPAddr)
 	if err != nil {
+		srv.mutex.Unlock()
 		return fmt.Errorf("UDPServer.StartAndBlock(%s): failed to listen on port %d - %v", srv.AppName, srv.ListenPort, err)
 	}
+	srv.udpServer = udpServer
+	srv.mutex.Unlock()
 	packet := make([]byte, MaxUDPPacketSize)
 	for {
 		if misc.EmergencyLockDown {
 			srv.logger.Warning("StartAndBlock", srv.AppName, misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
-		packetLen, clientAddr, err := srv.udpServer.ReadFromUDP(packet)
+		packetLen, clientAddr, err := udpServer.ReadFromUDP(packet)
 		if err != nil {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
@@ -123,7 +125,7 @@ func (srv *UDPServer) StartAndBlock() error {
 		// Make a copy of the packet for processing because multiple packets may be processed concurrently
 		packetCopy := make([]byte, packetLen)
 		copy(packetCopy, packet[:packetLen])
-		go srv.handleClient(srv.udpServer, clientIP, clientAddr, packetCopy)
+		go srv.handleClient(udpServer, clientIP, clientAddr, packetCopy)
 	}
 }
 

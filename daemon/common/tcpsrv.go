@@ -91,11 +91,13 @@ func (srv *TCPServer) StartAndBlock() error {
 	}
 	srv.logger.Info("StartAndBlock", "", nil, "starting TCP listener")
 	var err error
-	srv.listener, err = net.Listen("tcp", net.JoinHostPort(srv.ListenAddr, strconv.Itoa(srv.ListenPort)))
-	srv.mutex.Unlock()
+	listener, err := net.Listen("tcp", net.JoinHostPort(srv.ListenAddr, strconv.Itoa(srv.ListenPort)))
 	if err != nil {
+		srv.mutex.Unlock()
 		return fmt.Errorf("TCPServer.StartAndBlock(%s): failed to listen on port %d - %v", srv.AppName, srv.ListenPort, err)
 	}
+	srv.listener = listener
+	srv.mutex.Unlock()
 	for {
 		if misc.EmergencyLockDown {
 			srv.logger.Warning("StartAndBlock", srv.AppName, misc.ErrEmergencyLockDown, "")
