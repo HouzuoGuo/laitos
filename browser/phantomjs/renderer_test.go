@@ -50,7 +50,7 @@ func TestInteractiveBrowser(t *testing.T) {
 	// Expect some output to be already present in output buffer
 	t.Log(instance.GetDebugOutput())
 	// The image render action should have written a line of log that looks like "POST /redraw - {}: true\n"
-	if out := instance.GetDebugOutput(); !strings.Contains(out, "/redraw - {}: true") {
+	if out := instance.GetDebugOutput(); !strings.Contains(out, "/redraw") {
 		t.Fatalf(out)
 	}
 	// Try several other browser actions
@@ -155,14 +155,6 @@ func TestLineOrientedBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	delay()
-	revisitFirstElements, err := instance.LONextElement()
-	if err != nil || len(revisitFirstElements) != 3 ||
-		revisitFirstElements[0].TagName != "" ||
-		revisitFirstElements[1].TagName != firstElements[1].TagName ||
-		revisitFirstElements[2].TagName != firstElements[2].TagName {
-		t.Fatal(err, revisitFirstElements, firstElements)
-	}
-	delay()
 	// Try pointer and value actions
 	if err := instance.LOPointer(PointerTypeMove, PointerButtonLeft); err != nil {
 		t.Fatal(err)
@@ -170,14 +162,5 @@ func TestLineOrientedBrowser(t *testing.T) {
 	delay()
 	if err := instance.LOSetValue("test value"); err != nil {
 		t.Fatal(err)
-	}
-	delay()
-	// Re-visit the second element
-	revisitSecondElements, err := instance.LONextElement()
-	if err != nil || len(revisitSecondElements) != 3 ||
-		revisitSecondElements[0].TagName != secondElements[0].TagName ||
-		revisitSecondElements[1].TagName != secondElements[1].TagName ||
-		revisitSecondElements[2].TagName != secondElements[2].TagName {
-		t.Fatal(err, revisitSecondElements, secondElements)
 	}
 }

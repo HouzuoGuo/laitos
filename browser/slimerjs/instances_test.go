@@ -11,11 +11,13 @@ import (
 )
 
 func TestBrowserInstances(t *testing.T) {
-	if !platform.HostIsWindows() && os.Getuid() != 0 {
+	// CircleCI and WSL don't run containers
+	platform.SkipIfWSL(t)
+	platform.SkipTestIfCI(t)
+	if os.Getuid() != 0 {
 		t.Skip("this test involves docker daemon operation, it requires root privilege.")
 	}
-	// CircleCI container does not have the dependencies for running PhantomJS
-	platform.SkipTestIfCI(t)
+
 	instances := Instances{}
 	if err := instances.Initialise(); !strings.Contains(err.Error(), "BasePortNumber") {
 		t.Fatal(err)

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/HouzuoGuo/laitos/platform/procexp"
 )
 
@@ -25,6 +26,9 @@ func TestHandleProcessExplorer_SelfTest(t *testing.T) {
 }
 
 func TestHandleProcessExplorer_Handle(t *testing.T) {
+	// procfs on WSL does not behave like that on Linux
+	platform.SkipIfWSL(t)
+
 	handler := &HandleProcessExplorer{}
 	t.Run("get all process IDs", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodGet, "", nil)
