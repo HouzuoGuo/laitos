@@ -219,3 +219,39 @@ hoho` {
 		t.Fatal(err)
 	}
 }
+
+var PlainTextMail = []byte(`From: Howard Guo <howard-from@example.com>
+To: "howard-to@example.com" <howard-to@example.com>
+Subject: test
+Date: Wed, 12 Feb 2019 06:35:50 +0200
+Content-Language: en-GB
+X-MS-Has-Attach:
+X-MS-Exchange-Organization-SCL: -1
+X-MS-TNEF-Correlator:
+X-MS-Exchange-Organization-RecordReviewCfmType: 0
+MIME-Version: 1.0
+
+0123
+4567
+`)
+
+func TestWalkPlainTextMail(t *testing.T) {
+	err := WalkMailMessage(PlainTextMail, func(prop BasicMail, body []byte) (bool, error) {
+		if !reflect.DeepEqual(prop, BasicMail{
+			ContentType:  "",
+			ReplyAddress: "howard-from@example.com",
+			FromAddress:  "howard-from@example.com",
+			Subject:      "test",
+		}) {
+			t.Fatalf("%+v\n", prop)
+		}
+		if string(body) != "0123\n4567\n" {
+
+			t.Fatal(string(body))
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

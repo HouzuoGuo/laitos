@@ -2,7 +2,6 @@ package inet
 
 import (
 	"bytes"
-	"github.com/HouzuoGuo/laitos/misc"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -10,6 +9,8 @@ import (
 	"net/mail"
 	"regexp"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 const (
@@ -81,11 +82,9 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 	if err != nil {
 		return err
 	}
+	// The Content-Type header may be absent from a plain text mail
 	mediaType, multipartParams, err := mime.ParseMediaType(prop.ContentType)
-	if err != nil {
-		return err
-	}
-	if strings.HasPrefix(mediaType, "multipart/") {
+	if err == nil && strings.HasPrefix(mediaType, "multipart/") {
 		// Walk through each part individually
 		partReader := multipart.NewReader(parsedMail.Body, multipartParams["boundary"])
 		for {
