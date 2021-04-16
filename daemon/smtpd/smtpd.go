@@ -347,7 +347,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	}
 
 	// Try run a command via email
-	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\nverysecret.s echo hi\r\n"
+	testMessage = "From: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\n  \tverysecret.s echo hi\r\n"
 	lastEmailFrom = ""
 	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"strings"
 	"sync"
 
@@ -15,7 +14,14 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
-const CommandTimeoutSec = 120 // CommandTimeoutSec is the default command timeout in seconds
+const (
+	// CommandTimeoutSec is the timeout used for executing app commands found in mail.
+	CommandTimeoutSec = 120
+
+	// MaxMailSizeForAppCommand is the maximum size of an incoming mail that may carry an app command.
+	// The command runner will not look for app command in a mail larger than this size
+	MaxMailSizeForAppCommand = 16 * toolbox.MaxCmdLength
+)
 
 /*
 CommandRunner looks for exactly one feature command from an incoming mail, runs it and reply the sender with command
@@ -118,12 +124,17 @@ func (runner *CommandRunner) Process(clientIP string, mailContent []byte, replyA
 		return misc.ErrEmergencyLockDown
 	}
 	var commandIsProcessed bool
+
 	walkErr := inet.WalkMailMessage(mailContent, func(prop inet.BasicMail, body []byte) (bool, error) {
 		// Avoid recursive processing
 		if strings.Contains(prop.Subject, inet.OutgoingMailSubjectKeyword) {
 			return false, errors.New("ignore email sent by this program itself")
 		}
-		runner.logger.Info("Process", prop.FromAddress, nil, "process message of type %s, subject \"%s\"", prop.ContentType, prop.Subject)
+		runner.logger.Info("Process", prop.FromAddress, nil, "process message subject \"%s\", content type \"%s\"", prop.Subject, prop.ContentType)
+		if partSize := len(body); partSize > MaxMailSizeForAppCommand {
+			runner.logger.Info("Process", prop.FromAddress, nil, "the mail part size (%d) is too large to be carrying an app command", partSize)
+			return false, nil
+		}
 		// By contract, PIN processor finds command among input lines.
 		result := runner.Processor.Process(context.TODO(), toolbox.Command{
 			DaemonName: "smtpd",
@@ -181,7 +192,7 @@ func (runner *CommandRunner) Process(clientIP string, mailContent []byte, replyA
 		return false, runner.ReplyMailClient.Send(inet.OutgoingMailSubjectKeyword+"-reply-"+result.Command.Content, result.CombinedOutput, recipients...)
 	})
 	if walkErr != nil {
-		return walkErr
+		return fmt.Errorf("failed to process mail body - %w", walkErr)
 	}
 	// If all parts have been visited but no command is found, return the PIN mismatch error.
 	if !commandIsProcessed {
@@ -201,14 +212,6 @@ var (
 
 // Run unit tests on mail processor. See TestMailProcessor_Process for processor setup.
 func TestCommandRunner(runner *CommandRunner, t testingstub.T) {
-	// Real MTA is required to run the tests
-	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
-		fmt.Println("skip the test due to no MTA running on 127.0.0.1")
-		return
-	}
-	if err := runner.SelfTest(); err != nil {
-		t.Fatal(err)
-	}
 	var lastResult *toolbox.Result
 	runner.processTestCaseFunc = func(result *toolbox.Result) {
 		lastResult = result
@@ -272,4 +275,13 @@ verysecret.s echo hi
 	} else if lastResult == nil || lastResult.Error != nil || strings.TrimSpace(lastResult.CombinedOutput) != "hi" {
 		t.Fatalf("%+v", lastResult)
 	}
+
+	trimAppCommandBeforeUse := "From:a@example.com\nTo: b@example.com\nSubject: test\r\n\r\n verysecret.s echo success"
+	lastResult = nil
+	if err := runner.Process("", []byte(trimAppCommandBeforeUse)); err != nil {
+		t.Fatal(err)
+	} else if lastResult == nil || lastResult.Error != nil || strings.TrimSpace(lastResult.CombinedOutput) != "success" {
+		t.Fatalf("%+v", lastResult)
+	}
+
 }

@@ -1,6 +1,7 @@
 package mailcmd
 
 import (
+	"fmt"
 	"net"
 	"strings"
 	"testing"
@@ -30,6 +31,25 @@ func TestMailProcessor_Process(t *testing.T) {
 	// Prepare a good processor
 	runner.Processor = toolbox.GetTestCommandProcessor()
 	TestCommandRunner(&runner, t)
+}
+
+func TestMailProcessor_SelfTest(t *testing.T) {
+	runner := CommandRunner{
+		Processor: &toolbox.CommandProcessor{},
+		ReplyMailClient: inet.MailClient{
+			MTAHost:  "127.0.0.1",
+			MTAPort:  25,
+			MailFrom: "howard@localhost",
+		},
+	}
+	// Real MTA is required to run the self tests
+	if _, err := net.Dial("tcp", "127.0.0.1:25"); err != nil {
+		fmt.Println("skip the test due to no MTA running on 127.0.0.1")
+		return
+	}
+	if err := runner.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestMailProcessor_Process_Undocumented1Reply(t *testing.T) {

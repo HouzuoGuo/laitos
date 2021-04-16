@@ -2,6 +2,7 @@ package inet
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -83,14 +84,14 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 		return err
 	}
 	// The Content-Type header may be absent from a plain text mail
-	mediaType, multipartParams, err := mime.ParseMediaType(prop.ContentType)
-	if err == nil && strings.HasPrefix(mediaType, "multipart/") {
+	mediaType, multipartParams, _ := mime.ParseMediaType(prop.ContentType)
+	if strings.HasPrefix(mediaType, "multipart/") {
 		// Walk through each part individually
 		partReader := multipart.NewReader(parsedMail.Body, multipartParams["boundary"])
 		for {
 			part, err := partReader.NextPart()
 			// Stop at the end of all parts
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			} else if err != nil {
 				return err
@@ -125,7 +126,7 @@ func WalkMailMessage(mailMessage []byte, fun func(BasicMail, []byte) (bool, erro
 			contentReader = quotedprintable.NewReader(contentReader)
 		}
 		body, err := misc.ReadAllUpTo(contentReader, MaxMailBodySize)
-		if err != nil {
+		if err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
 		_, err = fun(prop, body)
