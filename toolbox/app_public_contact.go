@@ -39,18 +39,15 @@ var SARContacts = []SARContact{
 	{"HK", "ARCC", "+85229106821", "aid@cad.gov.hk"},
 	// http://www.mardep.gov.hk/en/pub_services/ocean/home.html
 	{"HK", "MRCC", "+85222337999", "hkmrcc@mardep.gov.hk"},
-	// https://www.admiralty.co.uk/WeeklyNMs/Year%20-%202017/28wknm17_week28_2017.pdf
-	{"UK", "ARCC", "+441343836001", "ukarcc@hmcg.gov.uk"},
-	{"UK", "MCC", "+441343820902", "ukmcc@hmcg.gov.uk"},
-	{"UK", "NMOC", "+443443820025", ""},
 	// https://www.amsa.gov.au/emergency-contacts/index.asp
 	{"AU", "MSAR", "+61262306811", "rccaus@amsa.gov.au"},
 	{"AU", "ASAR", "+61262306899", "rccaus@amsa.gov.au"},
 	// https://cospas-sarsat.int/en/contacts-pro/contacts-details-all?view=contact_details
 	{"CA", "JRCC", "+19024278200", "jrcchalifax@sarnet.dnd.ca"},
-	{"CN", "MCC", "+861065293298", "cnmcc@mail.eastnet.com.cn"},
+	{"CN", "MCC", "+861065293298", "cnmcc@cttic.cn"},
 	{"JP", "MCC", "+81335919000", "op@kaiho.mlit.go.jp"},
 	{"GR", "JRCC", "+302104112500", "jrccpgr@yen.gr"},
+	{"UK", "MCC", "+443443820902", "ukmcc@hmcg.gov.uk"},
 	// http://www.raja.fi/contact/contact
 	{"FI", "MRCC", "+3582941000", "mrcc@raja.fi"},
 	// http://www.smrcc.ru/
@@ -60,6 +57,7 @@ var SARContacts = []SARContact{
 	{"IL", "RCC", "+97248632145", "rcc@mot.gov.il"},
 	{"NO", "JRCC", "+4751517000", "operations@jrcc-stavanger.no"},
 	{"KR", "MRCC", "+82328352594", "mrcckorea@korea.kr"},
+	{"UK", "MRCC", "+441326317575", "falmouthcoastguard@mcga.gov.uk"},
 	{"US", "ACC", "+17573986700", "lantwatch@uscg.mil"},
 }
 

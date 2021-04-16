@@ -26,13 +26,13 @@ func TestContactSAR_Execute(t *testing.T) {
 	if ret := sar.Execute(context.Background(), Command{Content: ""}); ret.Output != fullOutput {
 		t.Fatal(ret)
 	}
-	if ret := sar.Execute(context.Background(), Command{Content: "this-does-not-exist"}); ret.Output != fullOutput {
+	if ret := sar.Execute(context.Background(), Command{Content: "zzz-this-does-not-exist"}); ret.Output != fullOutput {
 		t.Fatal(ret)
 	}
 
-	mccOutput := `uk mcc +441343820902 ukmcc@hmcg.gov.uk
-cn mcc +861065293298 cnmcc@mail.eastnet.com.cn
+	mccOutput := `cn mcc +861065293298 cnmcc@cttic.cn
 jp mcc +81335919000 op@kaiho.mlit.go.jp
+uk mcc +443443820902 ukmcc@hmcg.gov.uk
 `
 	if ret := sar.Execute(context.Background(), Command{Content: "MCC"}); ret.Output != mccOutput {
 		t.Fatal(ret)
@@ -47,23 +47,24 @@ func TestGetAllSAREmails(t *testing.T) {
 	mails := []string{
 		"aid@cad.gov.hk",
 		"hkmrcc@mardep.gov.hk",
-		"ukarcc@hmcg.gov.uk",
-		"ukmcc@hmcg.gov.uk",
 		"rccaus@amsa.gov.au",
 		"rccaus@amsa.gov.au",
 		"jrcchalifax@sarnet.dnd.ca",
-		"cnmcc@mail.eastnet.com.cn",
+		"cnmcc@cttic.cn",
 		"op@kaiho.mlit.go.jp",
 		"jrccpgr@yen.gr",
+		"ukmcc@hmcg.gov.uk",
 		"mrcc@raja.fi",
 		"odsmrcc@morflot.ru",
 		"cnmrcc@mot.gov.cn",
 		"rcc@mot.gov.il",
 		"operations@jrcc-stavanger.no",
 		"mrcckorea@korea.kr",
+		"falmouthcoastguard@mcga.gov.uk",
 		"lantwatch@uscg.mil",
 	}
 	if ret := GetAllSAREmails(); !reflect.DeepEqual(ret, mails) {
 		t.Fatal(ret)
 	}
+
 }

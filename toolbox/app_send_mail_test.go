@@ -69,22 +69,22 @@ func TestSendMail_SendSOS(t *testing.T) {
 
 	// All of the following recipients are supposed to receive the SOS email
 	expectedRecipients := map[string]bool{
-		"lantwatch@uscg.mil":           false,
-		"cnmcc@mail.eastnet.com.cn":    false,
-		"aid@cad.gov.hk":               false,
-		"hkmrcc@mardep.gov.hk":         false,
-		"ukarcc@hmcg.gov.uk":           false,
-		"ukmcc@hmcg.gov.uk":            false,
-		"rccaus@amsa.gov.au":           false,
-		"jrcchalifax@sarnet.dnd.ca":    false,
-		"odsmrcc@morflot.ru":           false,
-		"op@kaiho.mlit.go.jp":          false,
-		"jrccpgr@yen.gr":               false,
-		"mrcc@raja.fi":                 false,
-		"rcc@mot.gov.il":               false,
-		"cnmrcc@mot.gov.cn":            false,
-		"operations@jrcc-stavanger.no": false,
-		"mrcckorea@korea.kr":           false,
+		"aid@cad.gov.hk":                 false,
+		"hkmrcc@mardep.gov.hk":           false,
+		"rccaus@amsa.gov.au":             false,
+		"jrcchalifax@sarnet.dnd.ca":      false,
+		"cnmcc@cttic.cn":                 false,
+		"op@kaiho.mlit.go.jp":            false,
+		"jrccpgr@yen.gr":                 false,
+		"ukmcc@hmcg.gov.uk":              false,
+		"mrcc@raja.fi":                   false,
+		"odsmrcc@morflot.ru":             false,
+		"cnmrcc@mot.gov.cn":              false,
+		"rcc@mot.gov.il":                 false,
+		"operations@jrcc-stavanger.no":   false,
+		"mrcckorea@korea.kr":             false,
+		"falmouthcoastguard@mcga.gov.uk": false,
+		"lantwatch@uscg.mil":             false,
 	}
 	for _, mail := range sentSOSMails {
 		// Check mail content
