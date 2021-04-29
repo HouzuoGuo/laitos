@@ -6,9 +6,7 @@
 receiving Emails, blocking ads with a DNS server.
 
 And now for the geeks 🤓 - as a professional geek, you need Internet access
-whenever and wherever!
-
-laitos inter-operates with
+whenever and wherever! laitos inter-operates with
 [telephone, SMS](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook),
 [satellite terminals](https://github.com/HouzuoGuo/laitos/wiki/Tips-for-using-apps-over-satellite),
 and
