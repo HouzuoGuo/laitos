@@ -113,7 +113,7 @@ func IsEncrypted(filePath string) (content []byte, encrypted bool, err error) {
 Encrypt encrypts the input file in-place via AES. The entire operation is conducted in memory, hence it is
 most suited for important yet small files, such as configuration files and certificate keys.
 */
-func Encrypt(filePath string, key []byte) error {
+func Encrypt(filePath string, key string) error {
 	// Read the input data in its entirety in preparation for encryption
 	content, encrypted, err := IsEncrypted(filePath)
 	if err != nil {
@@ -141,17 +141,19 @@ func Encrypt(filePath string, key []byte) error {
 	if _, err := file.Write(iv); err != nil {
 		return err
 	}
-	// Initialise encryption data stream using input key and the randomly generated IV
-	if len(key) < 32 {
-		key = append(key, bytes.Repeat([]byte{0}, 32-len(key))...)
+	// Initialise encryption data stream using the input key and the randomly generated IV
+	keyBytes := []byte(key)
+	// The key must be at least 32 bytes long. Add padding (byte value 0) if needed.
+	if len(keyBytes) < 32 {
+		keyBytes = append(keyBytes, bytes.Repeat([]byte{0}, 32-len(keyBytes))...)
 	}
-	keyCipher, err := aes.NewCipher(key)
+	keyCipher, err := aes.NewCipher(keyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to initialise cipher - %v", err)
 	}
 	ctrStream := cipher.NewCTR(keyCipher, iv)
 	cipherWriter := &cipher.StreamWriter{S: ctrStream, W: file}
-	// Copy data into encrypted file stream to complete encryptioin
+	// Copy data into encrypted file stream to carry out encryption
 	_, err = cipherWriter.Write(content)
 	return err
 }

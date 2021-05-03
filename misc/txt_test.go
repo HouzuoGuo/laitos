@@ -149,7 +149,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Fatal(err, isEncrypted, contents)
 	}
 
-	if err := Encrypt(tmp.Name(), []byte("this is a key")); err != nil {
+	if err := Encrypt(tmp.Name(), "this is a key"); err != nil {
 		t.Fatal(err)
 	}
 	if content, encrypted, err := IsEncrypted(tmp.Name()); err != nil || !encrypted || len(content) < len(sampleContent) {

@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"context"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -66,16 +65,16 @@ DecryptFile is a distinct routine of laitos main program, it reads password from
 input file in-place.
 */
 func DecryptFile(filePath string) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Please enter password to decrypt file (no echo):")
 	platform.SetTermEcho(false)
-	password, _, err := reader.ReadLine()
-	platform.SetTermEcho(true)
+	defer platform.SetTermEcho(true)
+	reader := bufio.NewReader(os.Stdin)
+	lalog.DefaultLogger.Info("DecryptFile", "", nil, "Please enter a password to decrypt file \"%s\" (terminal won't echo):\n", filePath)
+	password, err := reader.ReadString('\n')
 	if err != nil {
 		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to read password")
 		return
 	}
-	content, err := misc.Decrypt(filePath, strings.TrimSpace(string(password)))
+	content, err := misc.Decrypt(filePath, strings.TrimSpace(password))
 	if err != nil {
 		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
 		return
@@ -84,7 +83,7 @@ func DecryptFile(filePath string) {
 		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
 		return
 	}
-	lalog.DefaultLogger.Info("DecryptFile", "main", nil, "successfully decrypte the file")
+	lalog.DefaultLogger.Info("DecryptFile", "main", nil, "the file has been decrypted in-place")
 }
 
 /*
@@ -92,20 +91,31 @@ EncryptFile is a distinct routine of laitos main program, it reads password from
 the input file in-place.
 */
 func EncryptFile(filePath string) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Please enter a password to encrypt the archive (no echo):")
 	platform.SetTermEcho(false)
-	password, _, err := reader.ReadLine()
-	platform.SetTermEcho(true)
+	defer platform.SetTermEcho(true)
+	reader := bufio.NewReader(os.Stdin)
+	lalog.DefaultLogger.Info("EncryptFile", "", nil, "please enter a password to encrypt the file \"%s\" (terminal won't echo):\n", filePath)
+	password, err := reader.ReadString('\n')
 	if err != nil {
 		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to read password")
 		return
 	}
-	password = []byte(strings.TrimSpace(string(password)))
+	lalog.DefaultLogger.Info("EncryptFile", "", nil, "enter the same password again (terminal won't echo):")
+	passwordAgain, err := reader.ReadString('\n')
+	if err != nil {
+		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to read password")
+		return
+	}
+	if password != passwordAgain {
+		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "The two passwords must match")
+		return
+	}
+	password = strings.TrimSpace(password)
 	if err := misc.Encrypt(filePath, password); err != nil {
 		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to encrypt file")
 		return
 	}
+	lalog.DefaultLogger.Info("EncryptFile", "", nil, "the file has been encrypted in-place with a password %d characters long", len(password))
 }
 
 /*

@@ -63,7 +63,7 @@ func TestWebServer_UnlockWithPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 	encPassword := "obtain_password_test"
-	if err := misc.Encrypt(file.Name(), []byte(encPassword)); err != nil {
+	if err := misc.Encrypt(file.Name(), encPassword); err != nil {
 		t.Fatal(err)
 	}
 	// Start the web server
