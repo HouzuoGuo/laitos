@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/hzgl"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -219,7 +220,7 @@ func main() {
 	// ========================================================================
 	if awsLambda {
 		// Use environment variable PORT to tell HTTP (not HTTPS) server to listen on port expected by lambda handler
-		os.Setenv("PORT", strconv.Itoa(lambda.UpstreamWebServerPort))
+		_ = os.Setenv(httpd.EnvironmentPortNumber, strconv.Itoa(lambda.UpstreamWebServerPort))
 		// Unfortunately without encrypting program config file it is impossible to set LAITOS_HTTP_URL_ROUTE_PREFIX
 		handler := &lambda.Handler{}
 		go handler.StartAndBlock()
@@ -347,7 +348,7 @@ func main() {
 
 	if misc.EnableAWSIntegration && inet.IsAWS() {
 		// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
-		os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
+		_ = os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
 		_ = xray.Configure(xray.Config{ContextMissingStrategy: ctxmissing.NewDefaultIgnoreErrorStrategy()})
 		xray.SetLogger(xraylog.NewDefaultLogger(ioutil.Discard, xraylog.LogLevelWarn))
 		go func() {

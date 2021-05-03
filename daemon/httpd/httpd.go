@@ -39,6 +39,13 @@ const (
 
 	// MaxRequestBodyBytes is the maximum size (in bytes) of a request body that HTTP server will process for a request.
 	MaxRequestBodyBytes = 1024 * 1024
+
+	// EnvironmentPortNumber is the name of an environment variable, the value
+	// of which determines the port number HTTP (no TLS) server will listen on.
+	// As a special consideration, the variable name "PORT" is conventionally
+	// used by a few public cloud services (e.g. AWS Elastic Beanstalk) to
+	// inform an application which port it should listen on.
+	EnvironmentPortNumber = "PORT"
 )
 
 // HandlerCollection is a mapping between URL and implementation of handlers. It does not contain directory handlers.
@@ -253,7 +260,7 @@ func (daemon *Daemon) StartAndBlockNoTLS(fallbackPort int) error {
 		- If TLS configuration exists, then listen on the fallback port.
 		Not very elegant, but it should help to launch HTTP daemon in TLS only, TLS + HTTP, and HTTP only scenarios.
 	*/
-	if envPort := strings.TrimSpace(os.Getenv("PORT")); envPort == "" {
+	if envPort := strings.TrimSpace(os.Getenv(EnvironmentPortNumber)); envPort == "" {
 		if daemon.TLSCertPath == "" {
 			daemon.PlainPort = daemon.Port
 		} else {
@@ -262,7 +269,7 @@ func (daemon *Daemon) StartAndBlockNoTLS(fallbackPort int) error {
 	} else {
 		iPort, err := strconv.Atoi(envPort)
 		if err != nil {
-			return fmt.Errorf("httpd.StartAndBlockNoTLS: environment variable PORT value \"%s\" is not an integer", envPort)
+			return fmt.Errorf("httpd.StartAndBlockNoTLS: environment variable %s value \"%s\" is must be an integer", EnvironmentPortNumber, envPort)
 		}
 		daemon.PlainPort = iPort
 	}
