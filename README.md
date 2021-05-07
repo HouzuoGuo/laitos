@@ -53,7 +53,11 @@ I'd love to hear from your feedback, feel free to
 
 ## Copyright
 
-Copyright (C) 2016-2021 Houzuo (Howard) Guo <guohouzuo@gmail.com>
+Copyright (C) 2016-February 2021 Houzuo (Howard) Guo <guohouzuo@gmail.com>. All
+rights reserved.
+
+Copyright (C) March 2021- Google Inc. and contributors (Houzuo Howard Guo, etc).
+All rights reserved.
 
 This program is free software subject to the terms of Mozilla Public License, v.
 2.0. You may find the license text in
@@ -61,11 +65,12 @@ This program is free software subject to the terms of Mozilla Public License, v.
 
 ## Project name and origin
 
-In late 2015/early 2016, a much smaller program called "websh" was born that
-only offered basic shell access via SMS and telephone. The laitos project
-evolved from the smaller program, restarted from scratch in late 2016, and
-throughout 2017 the project gained a full suite of web servers along with
-powerful social network apps as well as utility apps.
+In late 2015/early 2016, a much smaller program called
+["websh"](http://github.com/HouzuoGuo/websh) was created to offer basic shell
+access via SMS and telephone. The laitos project evolved from the smaller
+program, restarted from scratch in late 2016, and throughout 2017 the project
+gained a full suite of web servers along with integration to social networks and
+utility apps.
 
 Finland is my favourite country and a good Finnish friend on IRC by the name of
 "zutt" recommended Finnish word "laitos" (meaning institute, apparently) to

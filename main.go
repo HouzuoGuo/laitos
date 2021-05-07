@@ -1,16 +1,25 @@
 /*
-laitos web server suite offers the simplest way to host your personal website, receive Emails, block ads and malicious websites with a DNS server, and much more!
+**laitos** software suite offers all you need for hosting a personal website,
+receiving Emails, blocking ads with a DNS server.
 
-And for geeks 🤓 - as a professional geek, you need Internet access whenever and wherever!
+And now for the geeks 🤓 - as a professional geek, you need Internet access
+whenever and wherever! laitos inter-operates with
+[telephone, SMS](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook),
+[satellite terminals](https://github.com/HouzuoGuo/laitos/wiki/Tips-for-using-apps-over-satellite),
+and
+[DNS](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server#invoke-app-commands-via-dns-queries),
+to give you access to Internet features such as:
 
-laitos connects to primitive infrastructure such as telephone, SMS, and satellite terminal network to offer reliable access to many Internet features, such as:
+-   Browse news, weather, and Twitter.
+-   Keep in touch via Email, telephone call, and SMS.
+-   Browse the web via a text-based JavaScript-capable browser.
+-   Run Linux/Windows shell commands.
+-   Generate 2nd factor authentication code.
+-   ... more apps to explore!
 
-- Browse news, weather, and Twitter.
-- Keep in touch via Email, telephone call, and SMS.
-- Browse the web via a text-based JavaScript-capable browser.
-- Run Linux/Windows shell commands.
-- Generate 2nd factor authentication code.
-- ... more apps to explore!
+Check out the
+[comprehensive component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list)
+to explore all of the possibilities!
 */
 package main
 
