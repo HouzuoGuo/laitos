@@ -98,7 +98,7 @@ func TestFeatureSet_InitSelfTestErr(t *testing.T) {
 		AccessTokenSecret: "bad ",
 		ConsumerKey:       "bad",
 		ConsumerSecret:    "bad",
-		reqSigner: &inet.OAuthHeader{
+		reqSigner: &inet.OAuthSigner{
 			AccessToken: "bad",
 		},
 	}

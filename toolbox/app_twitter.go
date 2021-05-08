@@ -29,7 +29,7 @@ type Twitter struct {
 	AccessTokenSecret string `json:"AccessTokenSecret"` // Twitter API access token secret ("Your Access Token - Access Token Secret")
 	ConsumerKey       string `json:"ConsumerKey"`       // Twitter API consumer key ("Application Settings - Consumer Key (API Key)")
 	ConsumerSecret    string `json:"ConsumerSecret"`    // Twitter API consumer secret ("Application Settings - Consumer Secret (API Secret)")
-	reqSigner         *inet.OAuthHeader
+	reqSigner         *inet.OAuthSigner
 }
 
 var TestTwitter = Twitter{} // API credentials are set by init_feature_test.go
@@ -47,7 +47,7 @@ func (twi *Twitter) SelfTest() error {
 	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		TimeoutSec: SelfTestTimeoutSec,
 		RequestFunc: func(req *http.Request) error {
-			return twi.reqSigner.SetRequestAuthHeader(req)
+			return twi.reqSigner.SetAuthorizationHeader(req)
 		},
 	}, "https://api.twitter.com/1.1/statuses/user_timeline.json?count=1")
 	if err != nil {
@@ -61,7 +61,7 @@ func (twi *Twitter) SelfTest() error {
 
 func (twi *Twitter) Initialise() error {
 	// Initialise API request signer
-	twi.reqSigner = &inet.OAuthHeader{
+	twi.reqSigner = &inet.OAuthSigner{
 		AccessToken:       twi.AccessToken,
 		AccessTokenSecret: twi.AccessTokenSecret,
 		ConsumerKey:       twi.ConsumerKey,
@@ -129,7 +129,7 @@ func (twi *Twitter) GetFeeds(ctx context.Context, cmd Command) *Result {
 	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
 		RequestFunc: func(req *http.Request) error {
-			return twi.reqSigner.SetRequestAuthHeader(req)
+			return twi.reqSigner.SetAuthorizationHeader(req)
 		},
 	}, "https://api.twitter.com/1.1/statuses/home_timeline.json?count=%s", count)
 	// Return error or extract tweets
@@ -158,7 +158,7 @@ func (twi *Twitter) Tweet(ctx context.Context, cmd Command) *Result {
 		TimeoutSec: cmd.TimeoutSec,
 		Method:     http.MethodPost,
 		RequestFunc: func(req *http.Request) error {
-			return twi.reqSigner.SetRequestAuthHeader(req)
+			return twi.reqSigner.SetAuthorizationHeader(req)
 		},
 	}, "https://api.twitter.com/1.1/statuses/update.json?status=%s", tweet)
 	// Return error or extract tweets
