@@ -33,8 +33,8 @@ var httpTransport = &http.Transport{
 // When encountering an IO error from reading the source (e.g. connection closed), the function will close the destination as well.
 func PipeTCPConnection(logger lalog.Logger, ioTimeout time.Duration, srcConn, dstConn net.Conn) {
 	defer func() {
-		_ = srcConn.Close()
-		_ = dstConn.Close()
+		logger.MaybeMinorError(srcConn.Close())
+		logger.MaybeMinorError(dstConn.Close())
 	}()
 	if err := srcConn.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil {
 		return

@@ -46,7 +46,7 @@ func dialMTA(host string, serverTLSName string, port int) (smtpClient *smtp.Clie
 	} else {
 		// TLS handshake failure occurred, the port likely does not use TLS, re-establish the TCP connection.
 		tlsErr = err
-		conn.Close()
+		lalog.DefaultLogger.MaybeMinorError(conn.Close())
 		conn, err = net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), MailIOTimeoutSec*time.Second)
 		if err != nil {
 			return
@@ -216,6 +216,6 @@ func (client *MailClient) SelfTest() error {
 	if err != nil {
 		return fmt.Errorf("MailClient.SelfTest: connection test failed - %v (TLS error? %v)", err, tlsErr)
 	}
-	smtpClient.Close()
+	lalog.DefaultLogger.MaybeMinorError(smtpClient.Close())
 	return nil
 }

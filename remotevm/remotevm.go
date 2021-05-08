@@ -201,7 +201,7 @@ func (vm *VM) Kill() {
 	}
 	vm.qmpClient = nil
 	if conn := vm.qmpConn; conn != nil {
-		_ = conn.Close()
+		vm.logger.MaybeMinorError(conn.Close())
 	}
 	vm.qmpConn = nil
 	if cmd := vm.emulatorCmd; cmd != nil {

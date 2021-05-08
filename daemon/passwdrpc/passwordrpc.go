@@ -112,7 +112,7 @@ func TestPasswdRPCDaemon(daemon *Daemon, t testingstub.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_ = clientConn.Close()
+		daemon.logger.MaybeMinorError(clientConn.Close())
 	}()
 	client := unlocksvc.NewPasswordUnlockServiceClient(clientConn)
 	// Verify that RPC functions are reachable

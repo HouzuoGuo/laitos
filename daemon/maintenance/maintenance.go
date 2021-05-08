@@ -141,7 +141,7 @@ func (daemon *Daemon) runPortsCheck() error {
 					portErrs = append(portErrs, dest)
 					portErrsMutex.Unlock()
 				} else {
-					conn.Close()
+					daemon.logger.MaybeMinorError(conn.Close())
 				}
 				wait.Done()
 			}(host, port)

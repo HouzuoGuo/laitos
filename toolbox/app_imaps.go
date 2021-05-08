@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 const (
@@ -113,7 +114,7 @@ func (conn *IMAPSConnection) disconnect() {
 	if conn.tlsConn == nil {
 		return
 	}
-	conn.tlsConn.Close()
+	lalog.DefaultLogger.MaybeMinorError(conn.tlsConn.Close())
 	conn.tlsConn = nil
 }
 
@@ -241,7 +242,7 @@ func (mbox *IMAPS) ConnectLoginSelect() (conn *IMAPSConnection, err error) {
 		InsecureSkipVerify: mbox.InsecureSkipVerify,
 	})
 	if err = tlsWrapper.Handshake(); err != nil {
-		clientConn.Close()
+		lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
 		return nil, fmt.Errorf("IMAPS.ConnectLoginSelect: TLS connection error - %v", err)
 	}
 	// Absorb the connection greeting message sent by server
@@ -249,7 +250,7 @@ func (mbox *IMAPS) ConnectLoginSelect() (conn *IMAPSConnection, err error) {
 	reader := bufio.NewReader(tlsWrapper)
 	_, _, err = reader.ReadLine()
 	if err != nil {
-		clientConn.Close()
+		lalog.DefaultLogger.MaybeMinorError(clientConn.Close())
 		return nil, fmt.Errorf("IMAPS.ConnectLoginSelect: failed to read server greeting - %v", err)
 	}
 	// It is now ready for IMAP conversations
