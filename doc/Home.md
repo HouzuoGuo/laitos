@@ -51,6 +51,8 @@ I'd love to hear from your feedback, feel free to
 [Twitter](https://twitter.com/hzguo), and visit my home page
 [hz.gl](https://hz.gl).
 
+This is not an officially supported Google product.
+
 ## Copyright
 
 Copyright (C) 2016-February 2021 Houzuo (Howard) Guo <guohouzuo@gmail.com>. All
