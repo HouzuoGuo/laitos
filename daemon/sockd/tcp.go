@@ -1,13 +1,14 @@
 package sockd
 
 import (
-	"encoding/binary"
-	"fmt"
+	"bytes"
+	"crypto/cipher"
+	"crypto/rand"
+	"errors"
 	"io"
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
@@ -24,13 +25,11 @@ type TCPDaemon struct {
 
 	DNSDaemon *dnsd.Daemon `json:"-"` // it is assumed to be already initialised
 
-	cipher    *Cipher
-	tcpServer *common.TCPServer
+	derivedPassword []byte
+	tcpServer       *common.TCPServer
 }
 
 func (daemon *TCPDaemon) Initialise() error {
-	daemon.cipher = &Cipher{}
-	daemon.cipher.Initialise(daemon.Password)
 	daemon.tcpServer = &common.TCPServer{
 		ListenAddr:  daemon.Address,
 		ListenPort:  daemon.TCPPort,
@@ -39,6 +38,7 @@ func (daemon *TCPDaemon) Initialise() error {
 		LimitPerSec: daemon.PerIPLimit,
 	}
 	daemon.tcpServer.Initialise()
+	daemon.derivedPassword = GetDerivedKey(daemon.Password)
 	return nil
 }
 
@@ -47,7 +47,39 @@ func (daemon *TCPDaemon) GetTCPStatsCollector() *misc.Stats {
 }
 
 func (daemon *TCPDaemon) HandleTCPConnection(logger lalog.Logger, ip string, client *net.TCPConn) {
-	NewTCPCipherConnection(daemon, client, daemon.cipher.Copy(), logger).HandleTCPConnection()
+	logger.MaybeMinorError(client.SetReadDeadline(time.Now().Add(IOTimeout)))
+	encryptedClientConn := &EncryptedTCPConn{Conn: client, DerivedPassword: daemon.derivedPassword}
+	proxyDestAddr, err := ReadProxyDestAddr(encryptedClientConn, make([]byte, LenProxyConnectRequest))
+	if err != nil {
+		logger.Info("HandleTCPConnection", ip, nil, "failed to get destination address - %v", err)
+		WriteRandomToTCP(client)
+		return
+	}
+	destNameOrIP, destPort := proxyDestAddr.HostPort()
+	if destNameOrIP == "" || destPort == 0 || strings.ContainsRune(destNameOrIP, 0) {
+		logger.Info("HandleTCPConnection", ip, nil, "invalid destination IP (%s) or port (%d)", destNameOrIP, destPort)
+		WriteRandomToTCP(client)
+		return
+	}
+	if parsedIP := net.ParseIP(destNameOrIP); parsedIP != nil {
+		if IsReservedAddr(parsedIP) {
+			logger.Info("HandleTCPConnection", ip, nil, "will not serve reserved address %s", destNameOrIP)
+			return
+		}
+	}
+	if daemon.DNSDaemon.IsInBlacklist(destNameOrIP) {
+		logger.Info("HandleTCPConnection", ip, nil, "will not serve blacklisted destination %s", destNameOrIP)
+		return
+	}
+	proxyDestConn, err := net.Dial("tcp", net.JoinHostPort(destNameOrIP, strconv.Itoa(destPort)))
+	if err != nil {
+		logger.Info("HandleTCPConnection", ip, err, "failed to connect to destination \"%s:%d\"", destNameOrIP, destPort)
+		return
+	}
+	misc.TweakTCPConnection(encryptedClientConn.Conn.(*net.TCPConn), IOTimeout)
+	misc.TweakTCPConnection(proxyDestConn.(*net.TCPConn), IOTimeout)
+	go PipeTCPConnection(encryptedClientConn, proxyDestConn, true)
+	PipeTCPConnection(proxyDestConn, encryptedClientConn, false)
 }
 
 func (daemon *TCPDaemon) StartAndBlock() error {
@@ -58,182 +90,249 @@ func (daemon *TCPDaemon) Stop() {
 	daemon.tcpServer.Stop()
 }
 
-type TCPCipherConnection struct {
-	net.Conn
-	*Cipher
-	daemon            *TCPDaemon
-	mutex             sync.Mutex
-	readBuf, writeBuf []byte
-	logger            lalog.Logger
-}
-
-func NewTCPCipherConnection(daemon *TCPDaemon, netConn net.Conn, cip *Cipher, logger lalog.Logger) *TCPCipherConnection {
-	return &TCPCipherConnection{
-		Conn:     netConn,
-		daemon:   daemon,
-		Cipher:   cip,
-		readBuf:  make([]byte, MaxPacketSize),
-		writeBuf: make([]byte, MaxPacketSize),
-		logger:   logger,
+func ReadProxyDestAddr(client io.Reader, destWithPort []byte) (addr SocksDestAddr, err error) {
+	// Read type (1 byte)
+	_, err = io.ReadFull(client, destWithPort[:1])
+	if err != nil {
+		return nil, err
 	}
-}
-
-func (conn *TCPCipherConnection) Close() error {
-	return conn.Conn.Close()
-}
-
-func (conn *TCPCipherConnection) Read(b []byte) (n int, err error) {
-	if conn.DecryptionStream == nil {
-		iv := make([]byte, conn.IVLength)
-		if _, err = io.ReadFull(conn.Conn, iv); err != nil {
-			return
+	switch destWithPort[0] {
+	case ProxyDestAddrTypeName:
+		// Read length (1 byte)
+		_, err = io.ReadFull(client, destWithPort[1:2])
+		if err != nil {
+			return nil, err
 		}
-		conn.InitDecryptionStream(iv)
-		if len(conn.IV) == 0 {
-			conn.IV = iv
-		}
-	}
-
-	cipherData := conn.readBuf
-	if len(b) > len(cipherData) {
-		cipherData = make([]byte, len(b))
-	} else {
-		cipherData = cipherData[:len(b)]
-	}
-
-	n, err = ReadWithRetry(conn.Conn, cipherData)
-	if n > 0 {
-		conn.Decrypt(b[0:n], cipherData[0:n])
-	}
-	return
-}
-
-func (conn *TCPCipherConnection) Write(buf []byte) (n int, err error) {
-	conn.mutex.Lock()
-	bufSize := len(buf)
-	headerLen := len(buf) - bufSize
-
-	var iv []byte
-	if conn.EncryptionStream == nil {
-		iv = conn.InitEncryptionStream()
-	}
-
-	cipherData := conn.writeBuf
-	dataSize := len(buf) + len(iv)
-	if dataSize > len(cipherData) {
-		cipherData = make([]byte, dataSize)
-	} else {
-		cipherData = cipherData[:dataSize]
-	}
-
-	if iv != nil {
-		copy(cipherData, iv)
-	}
-
-	conn.Encrypt(cipherData[len(iv):], buf)
-	n, err = WriteWithRetry(conn.Conn, cipherData)
-
-	if n >= headerLen {
-		n -= headerLen
-	}
-	conn.mutex.Unlock()
-	return
-}
-
-func (conn *TCPCipherConnection) ParseRequest() (destIP net.IP, destNoPort, destWithPort string, err error) {
-	conn.logger.MaybeMinorError(conn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)))
-
-	buf := make([]byte, 269)
-	if _, err = io.ReadFull(conn, buf[:AddressTypeIndex+1]); err != nil {
-		return
-	}
-
-	var reqStart, reqEnd int
-	addrType := buf[AddressTypeIndex]
-	maskedType := addrType & AddressTypeMask
-	switch maskedType {
-	case AddressTypeIPv4:
-		reqStart, reqEnd = IPPacketIndex, IPPacketIndex+IPv4PacketLength
-	case AddressTypeIPv6:
-		reqStart, reqEnd = IPPacketIndex, IPPacketIndex+IPv6PacketLength
-	case AddressTypeDM:
-		if _, err = io.ReadFull(conn, buf[AddressTypeIndex+1:DMAddrLengthIndex+1]); err != nil {
-			return
-		}
-		reqStart, reqEnd = DMAddrIndex, DMAddrIndex+int(buf[DMAddrLengthIndex])+DMAddrHeaderLength
+		// Read name (length + 2 bytes)
+		_, err = io.ReadFull(client, destWithPort[2:2+int(destWithPort[1])+2])
+		addr = destWithPort[:1+1+int(destWithPort[1])+2]
+	case ProxyDestAddrTypeV4:
+		// Read IPv4 address (4 bytes).
+		_, err = io.ReadFull(client, destWithPort[1:1+net.IPv4len+2])
+		addr = destWithPort[:1+net.IPv4len+2]
+	case ProxyDestAddrTypeV6:
+		// Read IPv6 address (16 bytes).
+		_, err = io.ReadFull(client, destWithPort[1:1+net.IPv6len+2])
+		addr = destWithPort[:1+net.IPv6len+2]
 	default:
-		err = fmt.Errorf("TCPCipherConnection.ParseRequest: unknown mask type %d", maskedType)
-		return
-	}
-
-	if _, err = io.ReadFull(conn, buf[reqStart:reqEnd]); err != nil {
-		return
-	}
-	port := binary.BigEndian.Uint16(buf[reqEnd-2 : reqEnd])
-	if port < 1 {
-		err = fmt.Errorf("TCPCipherConnection.ParseRequest: invalid destination port %d", port)
-		return
-	}
-
-	switch maskedType {
-	case AddressTypeIPv4:
-		destIP = buf[IPPacketIndex : IPPacketIndex+net.IPv4len]
-		destNoPort = destIP.String()
-		destWithPort = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
-	case AddressTypeIPv6:
-		destIP = buf[IPPacketIndex : IPPacketIndex+net.IPv6len]
-		destNoPort = destIP.String()
-		destWithPort = net.JoinHostPort(destIP.String(), strconv.Itoa(int(port)))
-	case AddressTypeDM:
-		dest := string(buf[DMAddrIndex : DMAddrIndex+int(buf[DMAddrLengthIndex])])
-		destNoPort = dest
-		destIP = net.ParseIP(dest)
-		destWithPort = net.JoinHostPort(dest, strconv.Itoa(int(port)))
-	}
-	if strings.ContainsRune(destNoPort, 0) || strings.ContainsRune(destWithPort, 0) {
-		err = fmt.Errorf("TCPCipherConnection.ParseRequest: destination must not contain NULL byte")
+		err = errors.New("unsupported proxy destination address type")
 	}
 	return
 }
 
-func (conn *TCPCipherConnection) WriteRandAndClose() {
-	defer func() {
-		_ = conn.Close()
-	}()
-	WriteRand(conn)
+type EncryptedWriter struct {
+	io.Writer
+	cipher.AEAD
+	nonce []byte
+	buf   []byte
 }
 
-func (conn *TCPCipherConnection) HandleTCPConnection() {
-	remoteAddr := conn.RemoteAddr().String()
-	destIP, destNoPort, destWithPort, err := conn.ParseRequest()
+func NewEncryptedWriter(writer io.Writer, blockCipher cipher.AEAD) *EncryptedWriter {
+	return &EncryptedWriter{
+		AEAD:   blockCipher,
+		Writer: writer,
+		buf:    make([]byte, LenPayloadSize+blockCipher.Overhead()+PayloadSizeMask+blockCipher.Overhead()),
+		nonce:  make([]byte, blockCipher.NonceSize()),
+	}
+}
+
+func (writer *EncryptedWriter) Write(buf []byte) (int, error) {
+	n, err := writer.ReadFrom(bytes.NewBuffer(buf))
+	return int(n), err
+}
+
+func (writer *EncryptedWriter) ReadFrom(reader io.Reader) (n int64, err error) {
+	for {
+		buf := writer.buf
+		payloadBuf := buf[LenPayloadSize+writer.Overhead() : LenPayloadSize+writer.Overhead()+PayloadSizeMask]
+		readLen, readErr := reader.Read(payloadBuf)
+		if readLen > 0 {
+			n += int64(readLen)
+			buf = buf[:LenPayloadSize+writer.Overhead()+readLen+writer.Overhead()]
+			payloadBuf = payloadBuf[:readLen]
+			buf[0], buf[1] = byte(readLen>>8), byte(readLen)
+			writer.Seal(buf[:0], writer.nonce, buf[:LenPayloadSize], nil)
+			IncreaseNounce(writer.nonce)
+			writer.Seal(payloadBuf[:0], writer.nonce, payloadBuf, nil)
+			IncreaseNounce(writer.nonce)
+			if _, writeErr := writer.Writer.Write(buf); writeErr != nil {
+				err = writeErr
+				break
+			}
+		}
+		if readErr != nil {
+			if readErr != io.EOF {
+				err = readErr
+			}
+			break
+		}
+	}
+	return
+}
+
+type EncryptedReader struct {
+	io.Reader
+	cipher.AEAD
+	nonce     []byte
+	buf       []byte
+	remaining []byte
+}
+
+func NewEncryptedReader(reader io.Reader, blockCipher cipher.AEAD) *EncryptedReader {
+	return &EncryptedReader{
+		Reader: reader,
+		AEAD:   blockCipher,
+		buf:    make([]byte, PayloadSizeMask+blockCipher.Overhead()),
+		nonce:  make([]byte, blockCipher.NonceSize()),
+	}
+}
+
+func (reader *EncryptedReader) read() (int, error) {
+	buf := reader.buf[:LenPayloadSize+reader.Overhead()]
+	_, err := io.ReadFull(reader.Reader, buf)
 	if err != nil {
-		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "failed to get destination address - %v", err)
-		conn.WriteRandAndClose()
-		return
+		return 0, err
 	}
-	if strings.ContainsRune(destWithPort, 0) {
-		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve invalid destination address with 0 in it")
-		conn.WriteRandAndClose()
-		return
-	}
-	if destIP != nil && IsReservedAddr(destIP) {
-		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve reserved address %s", destNoPort)
-		_ = conn.Close()
-		return
-	}
-	if conn.daemon.DNSDaemon.IsInBlacklist(destNoPort) {
-		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "will not serve blacklisted address %s", destNoPort)
-		_ = conn.Close()
-		return
-	}
-	dest, err := net.DialTimeout("tcp", destWithPort, IOTimeoutSec*time.Second)
+	_, err = reader.Open(buf[:0], reader.nonce, buf, nil)
+	IncreaseNounce(reader.nonce)
 	if err != nil {
-		conn.logger.Info("HandleTCPConnection", remoteAddr, nil, "failed to connect to destination \"%s\" - %v", destWithPort, err)
-		_ = conn.Close()
-		return
+		return 0, err
 	}
-	misc.TweakTCPConnection(conn.Conn.(*net.TCPConn), IOTimeoutSec*time.Second)
-	misc.TweakTCPConnection(dest.(*net.TCPConn), IOTimeoutSec*time.Second)
-	go PipeTCPConnection(conn, dest, true)
-	PipeTCPConnection(dest, conn, false)
+	n := (int(buf[0])<<8 + int(buf[1])) & PayloadSizeMask
+	buf = reader.buf[:n+reader.Overhead()]
+	_, err = io.ReadFull(reader.Reader, buf)
+	if err != nil {
+		return 0, err
+	}
+	_, err = reader.Open(buf[:0], reader.nonce, buf, nil)
+	IncreaseNounce(reader.nonce)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func (reader *EncryptedReader) Read(buf []byte) (int, error) {
+	if len(reader.remaining) > 0 {
+		n := copy(buf, reader.remaining)
+		reader.remaining = reader.remaining[n:]
+		return n, nil
+	}
+	readLen, err := reader.read()
+	copiedLen := copy(buf, reader.buf[:readLen])
+	if copiedLen < readLen {
+		reader.remaining = reader.buf[copiedLen:readLen]
+	}
+	return copiedLen, err
+}
+
+func (reader *EncryptedReader) WriteTo(writer io.Writer) (n int64, err error) {
+	for len(reader.remaining) > 0 {
+		readLen, readErr := writer.Write(reader.remaining)
+		reader.remaining = reader.remaining[readLen:]
+		n += int64(readLen)
+		if readErr != nil {
+			return n, readErr
+		}
+	}
+	for {
+		readLen, readErr := reader.read()
+		if readLen > 0 {
+			writeLen, writeErr := writer.Write(reader.buf[:readLen])
+			n += int64(writeLen)
+			if writeErr != nil {
+				err = writeErr
+				break
+			}
+		}
+		if readErr != nil {
+			if readErr != io.EOF {
+				err = readErr
+			}
+			break
+		}
+	}
+	return n, err
+}
+
+func IncreaseNounce(nounceBuf []byte) {
+	for i := range nounceBuf {
+		nounceBuf[i]++
+		if nounceBuf[i] != 0 {
+			return
+		}
+	}
+}
+
+type EncryptedTCPConn struct {
+	net.Conn
+	DerivedPassword []byte
+	reader          *EncryptedReader
+	writer          *EncryptedWriter
+}
+
+func (conn *EncryptedTCPConn) Initialise() error {
+	salt := make([]byte, LenDerivedPassword)
+	if _, err := io.ReadFull(conn.Conn, salt); err != nil {
+		return err
+	}
+	aead, err := AEADBlockCipher(conn.DerivedPassword, salt)
+	if err != nil {
+		return err
+	}
+	conn.reader = NewEncryptedReader(conn.Conn, aead)
+	return nil
+}
+
+func (conn *EncryptedTCPConn) Read(buf []byte) (int, error) {
+	if conn.reader == nil {
+		if err := conn.Initialise(); err != nil {
+			return 0, err
+		}
+	}
+	return conn.reader.Read(buf)
+}
+
+func (conn *EncryptedTCPConn) WriteTo(writer io.Writer) (int64, error) {
+	if conn.reader == nil {
+		if err := conn.Initialise(); err != nil {
+			return 0, err
+		}
+	}
+	return conn.reader.WriteTo(writer)
+}
+
+func (conn *EncryptedTCPConn) InitialiseWriter() error {
+	salt := make([]byte, LenDerivedPassword)
+	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
+		return err
+	}
+	aead, err := AEADBlockCipher(conn.DerivedPassword, salt)
+	if err != nil {
+		return err
+	}
+	_, err = conn.Conn.Write(salt)
+	if err != nil {
+		return err
+	}
+	conn.writer = NewEncryptedWriter(conn.Conn, aead)
+	return nil
+}
+
+func (conn *EncryptedTCPConn) Write(buf []byte) (int, error) {
+	if conn.writer == nil {
+		if err := conn.InitialiseWriter(); err != nil {
+			return 0, err
+		}
+	}
+	return conn.writer.Write(buf)
+}
+
+func (conn *EncryptedTCPConn) ReadFrom(reader io.Reader) (int64, error) {
+	if conn.writer == nil {
+		if err := conn.InitialiseWriter(); err != nil {
+			return 0, err
+		}
+	}
+	return conn.writer.ReadFrom(reader)
 }

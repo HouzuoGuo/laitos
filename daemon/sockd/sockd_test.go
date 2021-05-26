@@ -52,6 +52,7 @@ func TestIsReservedAddr(t *testing.T) {
 	}
 
 	reserved := []net.IP{
+		net.IPv4(0, 0, 0, 0),
 		net.IPv4(10, 0, 0, 1),
 		net.IPv4(100, 64, 0, 1),
 		net.IPv4(127, 0, 0, 1),

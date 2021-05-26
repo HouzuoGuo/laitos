@@ -21,51 +21,67 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 		_ = toConn.Close()
 	}()
 	// Read and write a small TCP segment at a time to avoid IP fragmentation
-	buf := make([]byte, 1280)
+	buf := make([]byte, RandNum(1024, 128, 256))
 	for {
 		if misc.EmergencyLockDown {
 			lalog.DefaultLogger.Warning("PipeTCPConnection", "sockd", misc.ErrEmergencyLockDown, "")
 			return
-		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeout)); err != nil {
 			return
 		}
-		length, err := fromConn.Read(buf)
+		length, err := ReadWithRetry(fromConn, buf)
 		if length > 0 {
-			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
+			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeout)); err != nil {
 				return
-			} else if _, err := toConn.Write(buf[:length]); err != nil {
+			} else if _, err := WriteWithRetry(toConn, buf[:length]); err != nil {
 				return
 			}
 		}
 		if err != nil {
 			if doWriteRand {
-				WriteRand(fromConn)
+				WriteRandomToTCP(fromConn)
 			}
 			return
 		}
 	}
 }
 
-// WriteRand writes a random amount of data (up to couple of KB) to the connection.
-func WriteRand(conn net.Conn) (randBytesWritten int) {
+// WriteRandomToTCP writes a random amount of data (up to couple of KB) to the connection.
+func WriteRandomToTCP(conn net.Conn) (totalBytes int) {
 	for i := 0; i < RandNum(1, 2, 3); i++ {
 		randBuf := make([]byte, RandNum(210, 340, 550))
 		if _, err := rand.Read(randBuf); err != nil {
 			break
 		}
 		time.Sleep(time.Duration(RandNum(890, 1440, 2330)) * time.Millisecond)
-		// This is not the ordinary data transfer and does not require long IO timeout
-		if err := conn.SetWriteDeadline(time.Now().Add(6 * time.Second)); err != nil {
-			break
-		}
-		if n, err := conn.Write(randBuf); err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
+		lalog.DefaultLogger.MaybeMinorError(conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(5, 6, 7)) * time.Second)))
+		if n, err := conn.Write(randBuf); err != nil {
+			lalog.DefaultLogger.MaybeMinorError(err)
 			break
 		} else {
-			randBytesWritten += n
+			totalBytes += n
 		}
 	}
 	if rand.Intn(100) < 2 {
-		lalog.DefaultLogger.Info("sockd.quirky.WriteRand", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", randBytesWritten)
+		lalog.DefaultLogger.Info("sockd.quirky.WriteRandomToTCP", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", totalBytes)
+	}
+	return
+}
+
+func WriteRandomToUDP(srv *net.UDPConn, client *net.UDPAddr) (totalBytes int) {
+	randBuf := make([]byte, RandNum(4, 5, 60))
+	_, err := rand.Read(randBuf)
+	if err != nil {
+		return
+	}
+	time.Sleep(time.Duration(RandNum(780, 900, 1200)) * time.Millisecond)
+	lalog.DefaultLogger.MaybeMinorError(srv.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(1, 2, 3)) * time.Second)))
+	if totalBytes, err = srv.WriteToUDP(randBuf, client); err != nil {
+		lalog.DefaultLogger.MaybeMinorError(err)
+		return
+	}
+	if rand.Intn(100) < 2 {
+		lalog.DefaultLogger.Info("sockd.quirky.WriteRandomToUDP", client.IP.String(), nil, "wrote %d rand bytes", totalBytes)
 	}
 	return
 }
@@ -74,7 +90,7 @@ func WriteRand(conn net.Conn) (randBytesWritten int) {
 func ReadWithRetry(conn net.Conn, buf []byte) (n int, err error) {
 	attempts := 0
 	for ; attempts < 3; attempts++ {
-		if err = conn.SetReadDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err == nil {
+		if err = conn.SetReadDeadline(time.Now().Add(IOTimeout)); err == nil {
 			if n, err = conn.Read(buf); err == nil {
 				break
 			} else if strings.Contains(err.Error(), "closed") || strings.Contains(err.Error(), "broken") {
@@ -88,7 +104,7 @@ func ReadWithRetry(conn net.Conn, buf []byte) (n int, err error) {
 		// Sleep couple of seconds in between attempts
 		time.Sleep(time.Duration((attempts+1)*500) * time.Millisecond)
 	}
-	if rand.Intn(100) < 2 {
+	if rand.Intn(500) < 1 {
 		lalog.DefaultLogger.Info("sockd.quirky.ReadWithRetry", conn.RemoteAddr().String(), err, "read %d bytes after %d attempts", n, attempts+1)
 	}
 	return
@@ -109,7 +125,7 @@ dataTransfer:
 		}
 		// Make at most 3 attempts to transfer each portion
 		for ; attempts < 3; attempts++ {
-			if err = conn.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err == nil {
+			if err = conn.SetWriteDeadline(time.Now().Add(IOTimeout)); err == nil {
 				writtenBytes := 0
 				if writtenBytes, err = conn.Write(buf[bufStart:bufEnd]); err == nil {
 					totalWritten += writtenBytes
@@ -128,7 +144,7 @@ dataTransfer:
 		// Sleep couple of milliseconds in between each portion
 		time.Sleep(time.Duration(RandNum(1, 0, maxPortions)) * time.Millisecond)
 	}
-	if rand.Intn(100) < 2 {
+	if rand.Intn(500) < 1 {
 		lalog.DefaultLogger.Info("sockd.quirky.WriteWithRetry", conn.RemoteAddr().String(), err, "wrote %d bytes in %d portions after %d attempts", totalWritten, maxPortions, attempts+1)
 	}
 	return

@@ -2,8 +2,13 @@ package sockd
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/md5"
+	"crypto/sha1"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -14,27 +19,58 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/testingstub"
+	"golang.org/x/crypto/hkdf"
 )
 
 const (
-	MD5SumLength  = 16
-	IOTimeoutSec  = 900
-	MaxPacketSize = 9038
+	IOTimeout              = 120 * time.Second
+	PayloadSizeMask        = 16*1024 - 1
+	LenPayloadSize         = 2
+	LenDerivedPassword     = 32
+	MaxPacketSize          = 64 * 1024
+	MagicKeyDerivationInfo = "ss-subkey"
+	ProxyDestAddrTypeV4    = 1
+	ProxyDestAddrTypeName  = 3
+	ProxyDestAddrTypeV6    = 4
+	LenProxyConnectRequest = 1 + 1 + 1 + 254 + 2
 )
 
-var BlockedReservedCIDR = []net.IPNet{
-	{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
-	{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)},
-	{IP: net.IPv4(127, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
-	{IP: net.IPv4(169, 254, 0, 0), Mask: net.CIDRMask(16, 32)},
-	{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
-	{IP: net.IPv4(192, 0, 0, 0), Mask: net.CIDRMask(24, 32)},
-	{IP: net.IPv4(192, 0, 2, 0), Mask: net.CIDRMask(24, 32)},
-	{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
-	{IP: net.IPv4(198, 18, 0, 0), Mask: net.CIDRMask(15, 32)},
-	{IP: net.IPv4(198, 51, 100, 0), Mask: net.CIDRMask(24, 32)},
-	{IP: net.IPv4(203, 0, 113, 0), Mask: net.CIDRMask(24, 32)},
-	{IP: net.IPv4(240, 0, 0, 0), Mask: net.CIDRMask(4, 32)},
+var (
+	ZeroBytes           [128]byte
+	RandSeed            = int(time.Now().UnixNano())
+	BlockedReservedCIDR = []net.IPNet{
+		{IP: net.IPv4(0, 0, 0, 0), Mask: net.CIDRMask(32, 32)},
+		{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+		{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)},
+		{IP: net.IPv4(127, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+		{IP: net.IPv4(169, 254, 0, 0), Mask: net.CIDRMask(16, 32)},
+		{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
+		{IP: net.IPv4(192, 0, 0, 0), Mask: net.CIDRMask(24, 32)},
+		{IP: net.IPv4(192, 0, 2, 0), Mask: net.CIDRMask(24, 32)},
+		{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
+		{IP: net.IPv4(198, 18, 0, 0), Mask: net.CIDRMask(15, 32)},
+		{IP: net.IPv4(198, 51, 100, 0), Mask: net.CIDRMask(24, 32)},
+		{IP: net.IPv4(203, 0, 113, 0), Mask: net.CIDRMask(24, 32)},
+		{IP: net.IPv4(240, 0, 0, 0), Mask: net.CIDRMask(4, 32)},
+	}
+	ErrMalformedPacket = errors.New("received a malformed packet")
+)
+
+type SocksDestAddr []byte
+
+func (addr SocksDestAddr) HostPort() (nameOrIP string, port int) {
+	switch addr[0] {
+	case ProxyDestAddrTypeName:
+		nameOrIP = string(addr[2 : 2+int(addr[1])])
+		port = (int(addr[2+int(addr[1])]) << 8) | int(addr[2+int(addr[1])+1])
+	case ProxyDestAddrTypeV4:
+		nameOrIP = net.IP(addr[1 : 1+net.IPv4len]).String()
+		port = (int(addr[1+net.IPv4len]) << 8) | int(addr[1+net.IPv4len+1])
+	case ProxyDestAddrTypeV6:
+		nameOrIP = net.IP(addr[1 : 1+net.IPv6len]).String()
+		port = (int(addr[1+net.IPv6len]) << 8) | int(addr[1+net.IPv6len+1])
+	}
+	return
 }
 
 func IsReservedAddr(addr net.IP) bool {
@@ -49,32 +85,39 @@ func IsReservedAddr(addr net.IP) bool {
 	return false
 }
 
-var randSeed = int(time.Now().UnixNano())
+func GetDerivedKey(password string) []byte {
+	var sum, remaining []byte
+	md5Sum := md5.New()
+	for len(sum) < LenDerivedPassword {
+		md5Sum.Write(remaining)
+		md5Sum.Write([]byte(password))
+		sum = md5Sum.Sum(sum)
+		remaining = sum[len(sum)-md5Sum.Size():]
+		md5Sum.Reset()
+	}
+	return sum[:LenDerivedPassword]
+}
+
+func AEADBlockCipher(preSharedKey, salt []byte) (cipher.AEAD, error) {
+	derivedKey := make([]byte, LenDerivedPassword)
+	keyDerivation := hkdf.New(sha1.New, preSharedKey, salt, []byte(MagicKeyDerivationInfo))
+	if _, err := io.ReadFull(keyDerivation, derivedKey); err != nil {
+		return nil, err
+	}
+	blockCipher, err := aes.NewCipher(derivedKey)
+	if err != nil {
+		return nil, err
+	}
+	return cipher.NewGCM(blockCipher)
+}
 
 func RandNum(absMin, variableLower, randMore int) int {
 	lower := 0
 	if variableLower != 0 {
-		lower = randSeed % variableLower
+		lower = RandSeed % variableLower
 	}
 	return absMin + lower + rand.Intn(randMore)
 }
-
-const (
-	AddressTypeMask byte = 0xf
-
-	AddressTypeIndex = 0
-	AddressTypeIPv4  = 1
-	AddressTypeDM    = 3
-	AddressTypeIPv6  = 4
-
-	IPPacketIndex    = 1
-	IPv4PacketLength = net.IPv4len + 2
-	IPv6PacketLength = net.IPv6len + 2
-
-	DMAddrIndex        = 2
-	DMAddrLengthIndex  = 1
-	DMAddrHeaderLength = 2
-)
 
 func TestSockd(sockd *Daemon, t testingstub.T) {
 	var stopped bool
@@ -104,7 +147,7 @@ func TestSockd(sockd *Daemon, t testingstub.T) {
 			t.Fatal(err)
 		} else if n, err := conn.Write(bytes.Repeat([]byte{0}, 1000)); err != nil && n != 10 {
 			t.Fatal(err, n)
-		} else if n, err := conn.Read(resp); err != nil || n < 10 {
+		} else if n, err := conn.Read(resp); err != nil || n < 5 {
 			t.Fatal(err, n)
 		}
 	}
@@ -127,7 +170,8 @@ type Daemon struct {
 	TCPPorts   []int  `json:"TCPPorts"`
 	UDPPorts   []int  `json:"UDPPorts"`
 
-	DNSDaemon *dnsd.Daemon `json:"-"` // it is assumed to be already initialised
+	// DNSDaemon is an initialised DNS daemon. It must not be nil.
+	DNSDaemon *dnsd.Daemon `json:"-"`
 
 	tcpDaemons []*TCPDaemon
 	udpDaemons []*UDPDaemon

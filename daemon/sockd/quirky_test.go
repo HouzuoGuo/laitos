@@ -38,7 +38,7 @@ func TestReadWriteAndWriteRand(t *testing.T) {
 		t.Fatal(err, n)
 	}
 	// Write random data
-	if n := WriteRand(client); n < 200 {
+	if n := WriteRandomToTCP(client); n < 200 {
 		t.Fatal(n)
 	}
 	_ = client.Close()
