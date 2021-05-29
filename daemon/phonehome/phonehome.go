@@ -167,7 +167,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	}
 	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d servers and pausing %d seconds between each",
 		len(daemon.MessageProcessorServers), intervalSecBetweenReports)
-	for {
+	for round := 0; ; round++ {
 		if misc.EmergencyLockDown {
 			return misc.ErrEmergencyLockDown
 		}
@@ -184,12 +184,6 @@ func (daemon *Daemon) StartAndBlock() error {
 		rand.Shuffle(len(srvIndexes), func(i, j int) { srvIndexes[i], srvIndexes[j] = srvIndexes[j], srvIndexes[i] })
 
 		for _, i := range srvIndexes {
-			select {
-			case <-daemon.runContext.Done():
-				return nil
-			case <-time.After(time.Duration(intervalSecBetweenReports) * time.Second):
-				// Move on to phone home
-			}
 			srv := daemon.MessageProcessorServers[i]
 			var reportResponseJSON []byte
 			if srv.DNSDomainName != "" {
@@ -222,13 +216,34 @@ func (daemon *Daemon) StartAndBlock() error {
 				daemon.logger.Info("StartAndBlock", srv.DNSDomainName+srv.HTTPEndpointURL, nil, "failed to deserialise JSON report response - %s", string(reportResponseJSON))
 				continue
 			}
-			daemon.LocalMessageProcessor.StoreReport(context.TODO(), toolbox.SubjectReportRequest{
+			daemon.LocalMessageProcessor.StoreReport(daemon.runContext, toolbox.SubjectReportRequest{
 				SubjectHostName: srv.HostName,
 				ServerTime:      time.Time{},
 				CommandRequest:  reportResponse.CommandRequest,
 				CommandResponse: reportResponse.CommandResponse,
 			}, srv.HostName, "phonehome")
-			daemon.logger.Info("StartAndBlock", srv.HostName, nil, "report sent")
+			daemon.logger.Info("StartAndBlock", srv.HostName, nil, "report sent for the round %d", round+1)
+			// Sleep for a short interval between contacts
+			sleepDuration := time.Duration(intervalSecBetweenReports) * time.Second
+			if round == 0 {
+				// Contact all servers in short succession for the first round
+				sleepDuration = 0
+			}
+			select {
+			case <-daemon.runContext.Done():
+				return nil
+			case <-time.After(sleepDuration):
+				// Move on to contact the next server in turn
+			}
+		}
+		if round == 0 {
+			// Wait for a short while after the first round of contacts
+			select {
+			case <-daemon.runContext.Done():
+				return nil
+			case <-time.After(time.Duration(intervalSecBetweenReports) * time.Second):
+				// Move on to contact the next server in turn
+			}
 		}
 	}
 }
@@ -370,7 +385,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 		serverStopped <- struct{}{}
 	}()
 	// The daemon is expected to run at 1 second interval and the web server tests the request/response sequences
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	if muxNumRequests < 2 {
 		t.Fatalf("did not hit test server - got %d requests", muxNumRequests)
 	}
