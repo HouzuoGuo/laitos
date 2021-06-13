@@ -86,7 +86,7 @@ func (resp *HTTPResponse) GetBodyUpTo(nBytes int) []byte {
 // doHTTPRequestUsingClient makes an HTTP request via the input HTTP client.Placeholders in the URL template must always use %s.
 func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (HTTPResponse, error) {
 	reqParam.FillBlanks()
-	client.Timeout = time.Duration(reqParam.TimeoutSec) * time.Second
+	ctx = context.WithTimeout(ctx, time.Duration(reqParam.TimeoutSec)*time.Second)
 	defer client.CloseIdleConnections()
 	// Encode values in URL path
 	encodedURLValues := make([]interface{}, len(urlValues))
