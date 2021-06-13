@@ -8,7 +8,6 @@ jobs:
     steps:
       - checkout
       - run: env CGO_ENABLED=0 go vet ./...
-      - run: env CGO_ENABLED=0 go build -a
-      - run: env CGO_ENABLED=0 GOOS=windows go build -a
-      - run: env CGO_ENABLED=0 GOARCH=arm go build -a
+      - run: make all
+      - run: make clean
       - run: env CGO_ENABLED=0 go test -count=1 -v -cover ./...
