@@ -114,7 +114,7 @@ func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManage
 				Prefer zypper over apt-get because opensuse has a weird "apt-get wrapper" that is not remotely functional.
 				Prefer apt over apt-get because some public cloud OS templates can upgrade kernel via apt but not with apt-get.
 			*/
-			for _, execName := range []string{"yum", "zypper", "apt", "apt-get"} {
+			for _, execName := range []string{"dnf", "yum", "zypper", "apt", "apt-get"} {
 				pkgManagerPath = filepath.Join(binPrefix, execName)
 				if _, err := os.Stat(pkgManagerPath); err == nil {
 					pkgManagerName = execName
@@ -131,8 +131,10 @@ func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManage
 		// choco is simple and easy
 		pkgInstallArgs = []string{"install", "-y"}
 		sysUpgradeArgs = []string{"upgrade", "-y", "all"}
+	case "dnf":
+		fallthrough
 	case "yum":
-		// yum is simple and easy
+		// dnf and yum are simple and easy
 		pkgInstallArgs = []string{"-y", "--skip-broken", "install"}
 		sysUpgradeArgs = []string{"-y", "--skip-broken", "update"}
 	case "apt":
