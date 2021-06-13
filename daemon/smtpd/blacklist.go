@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/dnsd"
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 const (
@@ -105,7 +105,7 @@ func IsSuspectIPBlacklisted(suspectIP string) string {
 				return
 			}
 			// Validate the result to make sure it is a valid response to a DNS-based blacklist query
-			ips, err := dnsd.NeutralRecursiveResolver.LookupIPAddr(timeoutCtx, lookupName)
+			ips, err := inet.NeutralRecursiveResolver.LookupIPAddr(timeoutCtx, lookupName)
 			if err == nil {
 				for _, ip := range ips {
 					if IsIPBlacklistIndication(ip.IP) {

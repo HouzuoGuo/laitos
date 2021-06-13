@@ -42,16 +42,6 @@ const (
 )
 
 var (
-	// NeutralRecursiveResolver is a public recursive DNS resolver that provides genuine answers without discrimination, and offers
-	// very low latency. The CloudFlare public DNS resolver appears to offer the lowest latency.
-	NeutralRecursiveResolver = &net.Resolver{
-		PreferGo:     true,
-		StrictErrors: true,
-		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
-			return net.Dial("udp", "1.1.1.1:53")
-		},
-	}
-
 	// DefaultForwarders is a list of well tested, public, recursive DNS resolvers that must support both TCP and UDP for queries.
 	// When DNS daemon's forwarders are left unspecified, it will use these default forwarders.
 	// Operators of the DNS resolvers below claim to offer enhanced cyber security to some degree.
@@ -287,13 +277,13 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 						atomic.LoadInt64(&countResolutionAttempts), len(allNames))
 				}
 				name := strings.ToLower(strings.TrimSpace(allNames[j]))
-				// Appearance of NULL byte triggers an unfortunate panic in go's DNS resolution routine on Windows alone
+				// The appearance of NULL byte triggers an unfortunate panic in go's DNS resolution routine on Windows alone
 				if strings.ContainsRune(name, 0) {
 					continue
 				}
 				// Give each blacklisted name maximum of a second to resolve
-				timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
-				ips, err := NeutralRecursiveResolver.LookupIPAddr(timeoutCtx, name)
+				timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), 1*time.Second)
+				ips, err := inet.NeutralRecursiveResolver.LookupIPAddr(timeoutCtx, name)
 				timeoutCancel()
 				newBlackListMutex.Lock()
 				newBlackList[name] = struct{}{}

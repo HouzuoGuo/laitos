@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -14,16 +15,37 @@ import (
 	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
+var (
+	// NeutralRecursiveResolver is a public recursive DNS resolver that provides genuine answers without discrimination, and offers
+	// very low latency. The CloudFlare public DNS resolver appears to offer the lowest latency.
+	NeutralRecursiveResolver = &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
+			return net.Dial("udp", "1.1.1.1:53")
+		},
+	}
+)
+
 // HTTPRequest defines all of the parameters necessary for making an outgoing HTTP request using the DoHTTP function.
 type HTTPRequest struct {
-	TimeoutSec  int                       // Read timeout for response (default to 30)
-	Method      string                    // HTTP method (default to GET)
-	Header      http.Header               // Additional request header (default to nil)
-	ContentType string                    // Content type header (default to "application/x-www-form-urlencoded")
-	Body        io.Reader                 // HTTPRequest body (default to nil)
-	RequestFunc func(*http.Request) error // Manipulate the HTTP request at will (default to nil)
-	MaxBytes    int                       // MaxBytes is the maximum number of bytes of response body to read (default to 4MB)
-	MaxRetry    int                       // MaxRetry is the maximum number of attempts to make the same request in case of an IO error, 4xx, or 5xx response (default to 3).
+	// TimeoutSec is the timeout of the execution of the entire HTTP request, defaults to 30 seconds.
+	TimeoutSec int
+	// Method is the HTTP method name, defaults to "GET".
+	Method string
+	// Header is the collection of additional request headers, defaults to nil.
+	Header http.Header
+	// ContentType is the request content type, defaults to "application/x-www-form-urlencoded".
+	ContentType string
+	// Body is the HTTP request body, defaults to nil.
+	Body io.Reader
+	// RequestFunc is invoked shortly before executing the HTTP request, allowing caller to further customise the request, defaults to nil.
+	RequestFunc func(*http.Request) error
+	// MaxBytes is the maximum size of response body to read, defaults to 4MB.
+	MaxBytes int
+	// MaxRetry is the maximum number of retries to make in case of an IO error, 4xx, or 5xx response, defaults to 3.
+	MaxRetry int
+	// UseNeutralDNSResolver instructs the HTTP client to use the neutral & recursive public DNS resolver instead of the default resolver of the system.
+	UseNeutralDNSResolver bool
 }
 
 // FillBlanks gives sets the parameters of the HTTP request using sensible default values.
@@ -85,9 +107,29 @@ func (resp *HTTPResponse) GetBodyUpTo(nBytes int) []byte {
 
 // doHTTPRequestUsingClient makes an HTTP request via the input HTTP client.Placeholders in the URL template must always use %s.
 func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (HTTPResponse, error) {
-	reqParam.FillBlanks()
-	ctx = context.WithTimeout(ctx, time.Duration(reqParam.TimeoutSec)*time.Second)
 	defer client.CloseIdleConnections()
+	// Use context to handle the timeout of the entire lifespan of this HTTP request
+	reqParam.FillBlanks()
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Duration(reqParam.TimeoutSec)*time.Second)
+	defer timeoutCancel()
+	// Use the neutral & public recursive DNS resolver if desired
+	if reqParam.UseNeutralDNSResolver {
+		if client.Transport == nil {
+			client.Transport = &http.Transport{Proxy: http.ProxyFromEnvironment}
+		}
+		switch transport := client.Transport.(type) {
+		case *http.Transport:
+			transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				dialer := &net.Dialer{
+					Resolver:  NeutralRecursiveResolver,
+					DualStack: true,
+				}
+				return dialer.DialContext(ctx, network, addr)
+			}
+		default:
+			// The transport likely does not support DialContext.
+		}
+	}
 	// Encode values in URL path
 	encodedURLValues := make([]interface{}, len(urlValues))
 	for i, val := range urlValues {
@@ -110,7 +152,7 @@ func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam
 				reqBodyReader = bytes.NewReader(reqBodyCopy.Bytes())
 			}
 		}
-		req, err := http.NewRequestWithContext(ctx, reqParam.Method, fullURL, reqBodyReader)
+		req, err := http.NewRequestWithContext(timeoutCtx, reqParam.Method, fullURL, reqBodyReader)
 		if err != nil {
 			return HTTPResponse{}, err
 		}
@@ -157,7 +199,8 @@ func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam
 // DoHTTP makes an HTTP request and returns its HTTP response. Placeholders in the URL template must always use %s.
 func DoHTTP(ctx context.Context, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (resp HTTPResponse, err error) {
 	client := &http.Client{}
-	// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
+	// Integrate the decorated handler with AWS x-ray. Be aware that the x-ray daemon program mandatory for collecting traces only runs on AWS EC2.
+	// The x-ray library gracefully does nothing when it runs on non-EC2 instances.
 	if misc.EnableAWSIntegration && IsAWS() {
 		client = xray.Client(client)
 	}

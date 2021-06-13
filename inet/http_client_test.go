@@ -182,3 +182,15 @@ func TestDoHTTPPublicServer(t *testing.T) {
 		t.Fatal(body)
 	}
 }
+
+func TestNeutralRecursiveResolver(t *testing.T) {
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+	defer cancel()
+	addrs, err := NeutralRecursiveResolver.LookupIPAddr(timeoutCtx, "github.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(addrs) < 1 {
+		t.Fatal(addrs)
+	}
+}

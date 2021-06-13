@@ -203,6 +203,9 @@ func (daemon *Daemon) StartAndBlock() error {
 					MaxBytes:   16 * 1024,
 					Method:     http.MethodPost,
 					Body:       strings.NewReader(url.Values{"cmd": {reportCmd}}.Encode()),
+					// In the even rounds, use the neutral & public recursive DNS resolver.
+					// In the odd rounds, use the DNS resolvers from host system.
+					UseNeutralDNSResolver: round%2 == 0,
 				}, srv.HTTPEndpointURL)
 				if err != nil {
 					daemon.logger.Warning("StartAndBlock", srv.HTTPEndpointURL, err, "failed to send HTTP request")
