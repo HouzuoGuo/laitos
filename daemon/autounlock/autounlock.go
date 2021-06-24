@@ -67,17 +67,23 @@ func (daemon *Daemon) Initialise() error {
 // StartAndBlock starts the loop that probes URLs.
 func (daemon *Daemon) StartAndBlock() error {
 	daemon.logger.Info("StartAndBlock", "", nil, "going to probe %d URLs", len(daemon.URLAndPassword))
-	for {
+	for round := 0; ; round++ {
 		if misc.EmergencyLockDown {
 			atomic.StoreInt32(&daemon.loopIsRunning, 0)
 			return misc.ErrEmergencyLockDown
 		}
 		atomic.StoreInt32(&daemon.loopIsRunning, 1)
+		// In the even rounds, use the neutral & public recursive DNS resolver.
+		// In the odd rounds, use the DNS resolvers from host system.
+		useNeutralDNSResolver := round%2 == 0
 		// Probe the URLs one after another
 		for aURL, passwd := range daemon.URLAndPassword {
 			parsedURL, parseErr := url.Parse(aURL)
 			if parseErr == nil {
-				probeResp, probeErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{TimeoutSec: 10}, strings.Replace(aURL, "%", "%%", -1))
+				probeResp, probeErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{
+					TimeoutSec:            10,
+					UseNeutralDNSResolver: useNeutralDNSResolver,
+				}, strings.Replace(aURL, "%", "%%", -1))
 				if probeErr == nil && probeResp.StatusCode/200 == 1 && probeResp.Header.Get("Content-Location") == ContentLocationMagic {
 					// The URL is responding successfully and is indeed a password input web server
 					begin := time.Now().UnixNano()
@@ -85,10 +91,11 @@ func (daemon *Daemon) StartAndBlock() error {
 					// Use form submission to input password
 					submitResp, submitErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 						// While unlocking is going on, the system is often freshly booted and quite busy, hence giving it plenty of time to respond.
-						TimeoutSec:  30,
-						Method:      http.MethodPost,
-						ContentType: "application/x-www-form-urlencoded",
-						Body:        strings.NewReader(url.Values{PasswordInputName: []string{passwd}}.Encode()),
+						TimeoutSec:            30,
+						Method:                http.MethodPost,
+						ContentType:           "application/x-www-form-urlencoded",
+						Body:                  strings.NewReader(url.Values{PasswordInputName: []string{passwd}}.Encode()),
+						UseNeutralDNSResolver: useNeutralDNSResolver,
 					}, strings.Replace(aURL, "%", "%%", -1))
 					if submitErr != nil {
 						daemon.logger.Warning("StartAndBlock", aURL, submitErr, "failed to submit password to domain %s", parsedURL.Host)
