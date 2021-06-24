@@ -47,7 +47,8 @@ var (
 		// anonmails.de/dnsbl.php "To utilize the DNSBL in SpamAssasin, add the following ruleset to your local configuration file..."
 		"spam.dnsbl.anonmails.de",
 		// singular.ttk.pte.hu "SINGULARis is the PTE TTK Spam / Scam e-mail blacklist"
-		"singular.ttk.pte.hu",
+		// Caution: on 2021-06-24 it managed to list 127.0.0.1 as a false positive. Won't be using it again.
+		// "singular.ttk.pte.hu",
 		// psbl.org "PSBL is an easy-on, easy-off blacklist that does not rely on testing and should reduce false positives"
 		"psbl.surriel.com",
 		// mailspike.org "Mailspike.org is a free IP Blocklist lookup service by MailSpike, the makers of Anubisnetworks Email Security Services"
