@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
@@ -41,9 +40,8 @@ type Daemon struct {
 	URLAndPassword map[string]string `json:"URLAndPassword"` // URLAndPassword is a mapping between URL and corresponding password.
 	IntervalSec    int               `json:"IntervalSec"`    // IntervalSec is the interval at which URLs are checked.
 
-	loopIsRunning int32     // loopIsRunning has value 1 only when the daemon loop is running.
-	stop          chan bool // stop signals daemon loop to stop
-	logger        lalog.Logger
+	logger     lalog.Logger
+	cancelFunc func()
 }
 
 func (daemon *Daemon) Initialise() error {
@@ -60,69 +58,77 @@ func (daemon *Daemon) Initialise() error {
 			return fmt.Errorf("autounlock.Initialise: failed to parse URL \"%s\" - %v", aURL, err)
 		}
 	}
-	daemon.stop = make(chan bool)
 	return nil
 }
 
 // StartAndBlock starts the loop that probes URLs.
 func (daemon *Daemon) StartAndBlock() error {
 	daemon.logger.Info("StartAndBlock", "", nil, "going to probe %d URLs", len(daemon.URLAndPassword))
-	for round := 0; ; round++ {
-		if misc.EmergencyLockDown {
-			atomic.StoreInt32(&daemon.loopIsRunning, 0)
-			return misc.ErrEmergencyLockDown
+	// Build an index to map key mapping
+	urlIndexMap := make(map[int]string)
+	i := 0
+	for aURL := range daemon.URLAndPassword {
+		urlIndexMap[i] = aURL
+		i++
+	}
+	periodicFunc := func(ctx context.Context, round, urlIndex int) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
-		atomic.StoreInt32(&daemon.loopIsRunning, 1)
 		// In the even rounds, use the neutral & public recursive DNS resolver.
 		// In the odd rounds, use the DNS resolvers from host system.
 		useNeutralDNSResolver := round%2 == 0
-		// Probe the URLs one after another
-		for aURL, passwd := range daemon.URLAndPassword {
-			parsedURL, parseErr := url.Parse(aURL)
-			if parseErr == nil {
-				probeResp, probeErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{
-					TimeoutSec:            10,
+		aURL := urlIndexMap[urlIndex]
+		passwd := daemon.URLAndPassword[aURL]
+		parsedURL, parseErr := url.Parse(aURL)
+		if parseErr == nil {
+			probeResp, probeErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{
+				TimeoutSec:            10,
+				UseNeutralDNSResolver: useNeutralDNSResolver,
+			}, strings.Replace(aURL, "%", "%%", -1))
+			if probeErr == nil && probeResp.StatusCode/200 == 1 && probeResp.Header.Get("Content-Location") == ContentLocationMagic {
+				// The URL is responding successfully and is indeed a password input web server
+				begin := time.Now().UnixNano()
+				daemon.logger.Warning("StartAndBlock", aURL, nil, "trying to unlock data on domain %s", parsedURL.Host)
+				// Use form submission to input password
+				submitResp, submitErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{
+					// While unlocking is going on, the system is often freshly booted and quite busy, hence giving it plenty of time to respond.
+					TimeoutSec:            30,
+					Method:                http.MethodPost,
+					ContentType:           "application/x-www-form-urlencoded",
+					Body:                  strings.NewReader(url.Values{PasswordInputName: []string{passwd}}.Encode()),
 					UseNeutralDNSResolver: useNeutralDNSResolver,
 				}, strings.Replace(aURL, "%", "%%", -1))
-				if probeErr == nil && probeResp.StatusCode/200 == 1 && probeResp.Header.Get("Content-Location") == ContentLocationMagic {
-					// The URL is responding successfully and is indeed a password input web server
-					begin := time.Now().UnixNano()
-					daemon.logger.Warning("StartAndBlock", aURL, nil, "trying to unlock data on domain %s", parsedURL.Host)
-					// Use form submission to input password
-					submitResp, submitErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{
-						// While unlocking is going on, the system is often freshly booted and quite busy, hence giving it plenty of time to respond.
-						TimeoutSec:            30,
-						Method:                http.MethodPost,
-						ContentType:           "application/x-www-form-urlencoded",
-						Body:                  strings.NewReader(url.Values{PasswordInputName: []string{passwd}}.Encode()),
-						UseNeutralDNSResolver: useNeutralDNSResolver,
-					}, strings.Replace(aURL, "%", "%%", -1))
-					if submitErr != nil {
-						daemon.logger.Warning("StartAndBlock", aURL, submitErr, "failed to submit password to domain %s", parsedURL.Host)
-					} else if submitHTTPErr := submitResp.Non2xxToError(); submitHTTPErr != nil {
-						daemon.logger.Warning("StartAndBlock", aURL, submitHTTPErr, "failed to submit password to domain %s", parsedURL.Host)
-					} else {
-						daemon.logger.Warning("StartAndBlock", aURL, nil, "successfully unlocked domain %s, response is: %s", parsedURL.Host, submitResp.GetBodyUpTo(1024))
-					}
-					misc.AutoUnlockStats.Trigger(float64(time.Now().UnixNano() - begin))
+				if submitErr != nil {
+					daemon.logger.Warning("StartAndBlock", aURL, submitErr, "failed to submit password to domain %s", parsedURL.Host)
+				} else if submitHTTPErr := submitResp.Non2xxToError(); submitHTTPErr != nil {
+					daemon.logger.Warning("StartAndBlock", aURL, submitHTTPErr, "failed to submit password to domain %s", parsedURL.Host)
+				} else {
+					daemon.logger.Warning("StartAndBlock", aURL, nil, "successfully unlocked domain %s, response is: %s", parsedURL.Host, submitResp.GetBodyUpTo(1024))
 				}
+				misc.AutoUnlockStats.Trigger(float64(time.Now().UnixNano() - begin))
 			}
 		}
-		select {
-		case <-daemon.stop:
-			atomic.StoreInt32(&daemon.loopIsRunning, 0)
-			return nil
-		case <-time.After(time.Duration(daemon.IntervalSec) * time.Second):
-			// Move on after waiting the interval
-		}
+		return nil
 	}
+	periodic := &misc.Periodic{
+		LogActorName: "autounlock",
+		Interval:     time.Duration(daemon.IntervalSec) * time.Second,
+		MaxInt:       len(urlIndexMap),
+		Func:         periodicFunc,
+	}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	daemon.cancelFunc = cancelFunc
+	periodic.Start(ctx)
+	return periodic.WaitForErr()
 }
 
 // Stop previously started daemon loop.
 func (daemon *Daemon) Stop() {
-	if atomic.CompareAndSwapInt32(&daemon.loopIsRunning, 1, 0) {
-		daemon.stop <- true
-	}
+	daemon.cancelFunc()
 }
 
 func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
@@ -166,7 +172,7 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 	}
 	serverStopped := make(chan struct{}, 1)
 	go func() {
-		if err := daemon.StartAndBlock(); err != nil {
+		if err := daemon.StartAndBlock(); err != context.Canceled {
 			t.Fatal(err)
 		}
 		serverStopped <- struct{}{}

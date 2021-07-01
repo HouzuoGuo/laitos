@@ -105,11 +105,11 @@ type Daemon struct {
 	// UploadReportToS3Bucket is the name of S3 bucket into which the maintenance daemon shall upload its summary reports.
 	UploadReportToS3Bucket string `json:"UploadReportToS3Bucket"`
 
+	lastStepTimestamp      int64 // lastStepTimestamp is the unix timestamp at which the last maintenance stage or a stage step took place
 	processExplorerMetrics *ProcessExplorerMetrics
-	lastStepTimestamp      int64 // lastStepTimestamp is the unix timestamp at which the last maintenance stage or a stage stap took place
-	runContext             context.Context
-	runCancelFunc          context.CancelFunc
-	logger                 lalog.Logger
+
+	cancelFunc context.CancelFunc
+	logger     lalog.Logger
 }
 
 // runPortsCheck knocks on TCP ports that are to be checked in parallel, it returns an error if any of the ports fails to connect.
@@ -155,7 +155,7 @@ func (daemon *Daemon) runPortsCheck() error {
 }
 
 // Check TCP ports and features, return all-OK or not.
-func (daemon *Daemon) Execute() (string, bool) {
+func (daemon *Daemon) Execute(ctx context.Context) (string, bool) {
 	daemon.logger.Info("Execute", "", nil, "running now")
 	// Conduct system maintenance first to ensure an accurate reading of runtime information later on
 	maintResult := daemon.SystemMaintenance()
@@ -260,7 +260,7 @@ func (daemon *Daemon) Execute() (string, bool) {
 				return
 			}
 			// Spend at most 60 seconds at uploading the report file
-			uploadTimeoutCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			uploadTimeoutCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 			defer cancel()
 			_ = s3Client.Upload(uploadTimeoutCtx, daemon.UploadReportToS3Bucket, time.Now().Format(time.RFC3339), bytes.NewReader(result.Bytes()))
 		}()
@@ -289,62 +289,55 @@ You may call this function only after having called Initialise()!
 Start health check loop and block caller until Stop function is called.
 */
 func (daemon *Daemon) StartAndBlock() error {
-	daemon.runContext, daemon.runCancelFunc = context.WithCancel(context.Background())
-	maintenanceRoutineTicker := time.NewTicker(time.Duration(daemon.IntervalSec) * time.Second)
-	processMetricsRefreshTicker := time.NewTicker(PrometheusProcessMetricsInterval)
-	defer func() {
-		processMetricsRefreshTicker.Stop()
-		maintenanceRoutineTicker.Stop()
-	}()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	daemon.cancelFunc = cancelFunc
+
 	// Run maintenance routine at regular interval
-	go func() {
-		firstRunDelay := time.After(2 * time.Minute)
-		daemon.logger.Info("StartAndBlock", "", nil, "the maintenance routines will run in 2 minutes, and then every ~%d hours", daemon.IntervalSec/3600)
-		for {
-			if misc.EmergencyLockDown {
-				return
+	periodicMaint := &misc.Periodic{
+		LogActorName:   "autounlock",
+		Interval:       time.Duration(daemon.IntervalSec) * time.Second,
+		StableInterval: true,
+		MaxInt:         1,
+		Func: func(ctx context.Context, round, _ int) error {
+			if round == 0 {
+				daemon.logger.Info("StartAndBlock", "system-maintenance", nil, "the first run will begin in about two minutes")
+				select {
+				case <-time.After(2 * time.Minute):
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
-			select {
-			case <-daemon.runContext.Done():
-				return
-			case <-firstRunDelay:
-				// The first run does not have to wait for the interval to pass
-				daemon.Execute()
-			case <-maintenanceRoutineTicker.C:
-				daemon.Execute()
-			}
-		}
-	}()
+			daemon.Execute(ctx)
+			return nil
+		},
+	}
+	periodicMaint.Start(ctx)
+
 	// Collect latest performance measurements at regular interval
 	if daemon.processExplorerMetrics != nil {
 		daemon.logger.Info("StartAndBlock", "prometheus", nil, "will regularly take program performance measurements and give them to prometheus metrics.")
-		go func() {
-			for {
-				if misc.EmergencyLockDown {
-					return
-				}
-				select {
-				case <-daemon.runContext.Done():
-					return
-				case <-processMetricsRefreshTicker.C:
-					if daemon.processExplorerMetrics != nil {
-						if err := daemon.processExplorerMetrics.Refresh(); err != nil {
-							daemon.logger.Warning("StartAndBlock", "prometheus", err, "failed to collect the latest process performance measurements")
-						}
+		periodicProcMetrics := &misc.Periodic{
+			LogActorName: "autounlock",
+			Interval:     PrometheusProcessMetricsInterval,
+			MaxInt:       1,
+			Func: func(context.Context, int, int) error {
+				if daemon.processExplorerMetrics != nil {
+					if err := daemon.processExplorerMetrics.Refresh(); err != nil {
+						daemon.logger.Warning("StartAndBlock", "prometheus", err, "failed to collect the latest process performance measurements")
 					}
 				}
-			}
-		}()
+				return nil
+			},
+		}
+		periodicProcMetrics.Start(ctx)
 	}
-	// Wait for daemon to stop
-	<-daemon.runContext.Done()
-	daemon.logger.Info("StartAndBlock", "", nil, "stopped on request")
-	return nil
+	return periodicMaint.WaitForErr()
 }
 
 // Stop the daemon.
 func (daemon *Daemon) Stop() {
-	daemon.runCancelFunc()
+	daemon.cancelFunc()
 }
 
 // logPrintStage reports the start/finish of a maintenance stage to the output buffer and program log.
@@ -425,7 +418,7 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	os.Remove(ReportFilePath)
 	// Make sure maintenance is checking the ports and reporting their errors
 	check.CheckTCPPorts = map[string][]int{"localhost": {11334}}
-	if result, ok := check.Execute(); ok || !strings.Contains(result, "Port errors") {
+	if result, ok := check.Execute(context.Background()); ok || !strings.Contains(result, "Port errors") {
 		t.Fatal(result)
 	}
 
@@ -443,7 +436,7 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	time.Sleep(1 * time.Second)
 	check.CheckTCPPorts = map[string][]int{"localhost": {listener.Addr().(*net.TCPAddr).Port}}
 	// If it fails, the failure could mail processor or HTTP handler
-	if result, ok := check.Execute(); !ok &&
+	if result, ok := check.Execute(context.Background()); !ok &&
 		!strings.Contains(result, "Mail processor errors") &&
 		!strings.Contains(result, "HTTP handler errors") {
 		t.Fatal(result)
@@ -454,7 +447,7 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	}
 	// Break a feature
 	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{}
-	if result, ok := check.Execute(); ok || !strings.Contains(result, "Shell.SelfTest") { // broken shell configuration
+	if result, ok := check.Execute(context.Background()); ok || !strings.Contains(result, "Shell.SelfTest") { // broken shell configuration
 		t.Fatal(result)
 	}
 	// Look for maintenance report in temporary file

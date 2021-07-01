@@ -79,8 +79,7 @@ type Daemon struct {
 
 	messageOffset int64           // Process chat messages arrived after this point
 	userRateLimit *misc.RateLimit // Prevent user from flooding bot with new messages
-	runContext    context.Context
-	runCancelFunc context.CancelFunc
+	cancelFunc    context.CancelFunc
 	logger        lalog.Logger
 }
 
@@ -177,7 +176,9 @@ func (bot *Daemon) ProcessMessages(ctx context.Context, updates APIUpdates) {
 
 // Immediately begin processing incoming chat messages. Block caller indefinitely.
 func (bot *Daemon) StartAndBlock() error {
-	bot.runContext, bot.runCancelFunc = context.WithCancel(context.Background())
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	bot.cancelFunc = cancelFunc
 	/*
 		Make a test API call to verify the correctness of authorization token. This test call must not return in case of
 		IO error or unexpected HTTP response status. As of 2017-11-26, status 404 is the only indication of incorrect
@@ -189,16 +190,11 @@ func (bot *Daemon) StartAndBlock() error {
 		return errors.New("telegrambot.StartAndBlock: test call failed due to HTTP 404, is the AuthorizationToken correct?")
 	}
 	bot.logger.Info("StartAndBlock", "", nil, "going to poll for messages")
-	lastIdle := time.Now().Unix()
-	for {
-		if misc.EmergencyLockDown {
-			bot.logger.Warning("StartAndBlock", "", misc.ErrEmergencyLockDown, "")
-			return misc.ErrEmergencyLockDown
-		}
-		// Log a message if the loop has not processed messages for a while
-		if time.Now().Unix()-lastIdle > 1800 {
-			bot.logger.Info("Loop", "", nil, "has been idle for %d seconds", 1800)
-			lastIdle = time.Now().Unix()
+	periodicFunc := func(ctx context.Context, _, _ int) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
 		// Poll for new messages
 		updatesResp, updatesErr := inet.DoHTTP(context.TODO(), inet.HTTPRequest{TimeoutSec: APICallTimeoutSec},
@@ -219,35 +215,36 @@ func (bot *Daemon) StartAndBlock() error {
 			if updatesResp.StatusCode != http.StatusConflict {
 				bot.logger.Warning("Loop", "", updatesErr, "failed to poll due to HTTP error")
 			}
-			goto sleepAndContinue
+			return nil
 		}
 		// Deserialise new messages
 		if err := json.Unmarshal(updatesResp.Body, &newMessages); err != nil {
 			bot.logger.Warning("Loop", "", err, "failed to decode response JSON")
-			goto sleepAndContinue
+			return nil
 		}
 		if !newMessages.OK {
 			bot.logger.Warning("Loop", "", nil, "API response is not OK - %s", string(updatesResp.Body))
-			goto sleepAndContinue
+			return nil
 		}
 		// Process new messages
 		if len(newMessages.Updates) > 0 {
-			lastIdle = time.Now().Unix()
 			bot.ProcessMessages(context.TODO(), newMessages)
 		}
-	sleepAndContinue:
-		randSleepSec := PollIntervalSecMin + rand.Intn(PollIntervalSecMax-PollIntervalSecMin)
-		select {
-		case <-bot.runContext.Done():
-			return nil
-		case <-time.After(time.Duration(randSleepSec) * time.Second):
-		}
+		return nil
 	}
+	periodic := &misc.Periodic{
+		LogActorName: "telegrambot",
+		Interval:     time.Duration(PollIntervalSecMin+rand.Intn(PollIntervalSecMax-PollIntervalSecMin)) * time.Second,
+		MaxInt:       1,
+		Func:         periodicFunc,
+	}
+	periodic.Start(ctx)
+	return periodic.WaitForErr()
 }
 
 // Stop previously started message handling loop.
 func (bot *Daemon) Stop() {
-	bot.runCancelFunc()
+	bot.cancelFunc()
 }
 
 // Run unit tests on telegram bot. See TestSMTPD_StartAndBlock for bot setup.

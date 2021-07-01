@@ -100,8 +100,7 @@ type Daemon struct {
 		The DNS daemon itself isn't too concerned with the IP address, however, this black list serves as a valuable
 		input for blocking IP address access in sockd.
 	*/
-	blackList         map[string]struct{}
-	blackListUpdating int32 // blackListUpdating is set to 1 when black list is being updated, and 0 otherwise.
+	blackList map[string]struct{}
 
 	myPublicIP           string          // myPublicIP is the latest public IP address of the laitos server.
 	blackListMutex       *sync.RWMutex   // Protect against concurrent access to black list
@@ -230,13 +229,6 @@ and stores the latest blacklist names and IP addresses into blacklist map.
 */
 func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	beginUnixSec := time.Now().Unix()
-	if !atomic.CompareAndSwapInt32(&daemon.blackListUpdating, 0, 1) {
-		daemon.logger.Info("UpdateBlackList", "", nil, "will skip this run because update routine is already ongoing")
-		return
-	}
-	defer func() {
-		atomic.StoreInt32(&daemon.blackListUpdating, 0)
-	}()
 
 	// Download black list data from all sources
 	allNames := DownloadAllBlacklists(daemon.logger)
@@ -317,32 +309,18 @@ If either TCP or UDP port fails to listen, all listeners are closed and an error
 */
 func (daemon *Daemon) StartAndBlock() error {
 	// Update ad-block black list in background
-	stopAdBlockUpdater := make(chan bool, 2)
-	go func() {
-		firstTime := true
-		nextRunAt := time.Now().Add(BlacklistInitialDelaySec * time.Second)
-		for {
-			if firstTime {
-				select {
-				case <-stopAdBlockUpdater:
-					return
-				case <-time.After(time.Until(nextRunAt)):
-					nextRunAt = nextRunAt.Add(BlacklistUpdateIntervalSec * time.Second)
-					daemon.UpdateBlackList(BlacklistMaxEntries)
-				}
-				firstTime = false
-			} else {
-				// Afterwards, try to maintain a steady rate of execution.
-				select {
-				case <-stopAdBlockUpdater:
-					return
-				case <-time.After(time.Until(nextRunAt)):
-					nextRunAt = nextRunAt.Add(time.Duration(BlacklistUpdateIntervalSec) * time.Second)
-					daemon.UpdateBlackList(BlacklistMaxEntries)
-				}
-			}
-		}
-	}()
+	ctx, cancelBlacklistUpdate := context.WithCancel(context.Background())
+	defer cancelBlacklistUpdate()
+	periodicBlacklistUpdate := &misc.Periodic{
+		LogActorName: "dnsd-update-blacklist",
+		Interval:     BlacklistInitialDelaySec * time.Second,
+		MaxInt:       1,
+		Func: func(ctx context.Context, round, _ int) error {
+			daemon.UpdateBlackList(BlacklistMaxEntries)
+			return nil
+		},
+	}
+	periodicBlacklistUpdate.Start(ctx)
 
 	// Start server listeners
 	numListeners := 0
@@ -352,7 +330,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		go func() {
 			err := daemon.udpServer.StartAndBlock()
 			errChan <- err
-			stopAdBlockUpdater <- true
+			cancelBlacklistUpdate()
 		}()
 	}
 	if daemon.TCPPort != 0 {
@@ -360,7 +338,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		go func() {
 			err := daemon.tcpServer.StartAndBlock()
 			errChan <- err
-			stopAdBlockUpdater <- true
+			cancelBlacklistUpdate()
 		}()
 	}
 	for i := 0; i < numListeners; i++ {
