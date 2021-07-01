@@ -11,26 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
 )
 
 const (
-	/*
-		The constants ContentLocationMagic and PasswordInputName are copied into autounlock package in order to avoid
-		import cycle. Looks ugly, sorry.
-	*/
-
-	/*
-		ContentLocationMagic is a rather randomly typed string that is sent as Content-Location header value when a
-		client successfully reaches the password unlock URL (and only that URL). Clients may look for this magic
-		in order to know that the URL reached indeed belongs to a laitos password input web server.
-	*/
-	ContentLocationMagic = "vmseuijt5oj4d5x7fygfqj4398"
-	// PasswordInputName is the HTML element name that accepts password input.
-	PasswordInputName = "password"
-
 	// IOTimeout is the timeout (in seconds) used for transfering data between password input web server and clients.
 	IOTimeout = 30 * time.Second
 	/*
@@ -48,7 +35,7 @@ const (
 <body>
 	<pre>%s</pre>
     <form action="%s" method="post">
-        <p>Enter password to launch main program: <input type="password" name="` + PasswordInputName + `"/></p>
+        <p>Enter password to launch main program: <input type="password" name="` + autounlock.PasswordInputName + `"/></p>
         <p><input type="submit" value="Launch"/></p>
         <p>%s</p>
     </form>
@@ -80,7 +67,7 @@ configuration and data from the unencrypted (and unpacked) archive.
 */
 func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Content-Location", ContentLocationMagic)
+	w.Header().Set("Content-Location", autounlock.ContentLocationMagic)
 	w.Header().Set("Content-Type", "text/html")
 	ws.handlerMutex.Lock()
 	defer ws.handlerMutex.Unlock()
@@ -95,7 +82,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
 		var err error
 		// Try decrypting program configuration JSON file using the input password
-		key := strings.TrimSpace(r.FormValue(PasswordInputName))
+		key := strings.TrimSpace(r.FormValue(autounlock.PasswordInputName))
 		decryptedConfig, err := misc.Decrypt(misc.ConfigFilePath, key)
 		if err != nil {
 			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, err.Error())))
