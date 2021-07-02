@@ -70,6 +70,13 @@ func (p *Periodic) Start(ctx context.Context) error {
 			funcInputInts[a], funcInputInts[b] = funcInputInts[b], funcInputInts[a]
 		})
 	}
+	// Log a message every ~ 3 minutes
+	logIntervalSec := 3 * time.Minute / p.Interval
+	if logIntervalSec < 1 {
+		// If the interval is greater than 3 minutes, then log a message with
+		// every periodic invocation of the function
+		logIntervalSec = 1
+	}
 	ctx, cancelFunc := context.WithCancel(ctx)
 	p.cancelFunc = cancelFunc
 	p.funcErrChan = make(chan error, 1)
@@ -79,6 +86,11 @@ func (p *Periodic) Start(ctx context.Context) error {
 			for _, anInt := range funcInputInts {
 				if EmergencyLockDown {
 					lalog.DefaultLogger.Warning("Periodic.Start", p.LogActorName, ErrEmergencyLockDown, "stop immediately")
+					p.funcErrChan <- ErrEmergencyLockDown
+					return
+				}
+				if ((roundNum+1)*len(funcInputInts))%int(logIntervalSec) == 0 {
+					lalog.DefaultLogger.Info("Periodic.Start", p.LogActorName, nil, "is still alive in round %d, integer input %d", roundNum, anInt)
 				}
 				startTime := time.Now()
 				if err := p.Func(ctx, roundNum, anInt); err != nil {
