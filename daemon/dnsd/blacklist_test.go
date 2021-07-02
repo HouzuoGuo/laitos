@@ -9,7 +9,7 @@ import (
 )
 
 func TestDownloadAllBlacklists(t *testing.T) {
-	names := DownloadAllBlacklists(lalog.Logger{})
+	names := DownloadAllBlacklists(BlacklistMaxEntries, lalog.Logger{})
 	if len(names) < 5000 {
 		t.Fatal("number of names is too little")
 	}

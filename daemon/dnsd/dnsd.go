@@ -227,14 +227,8 @@ func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
 UpdateBlackList downloads the latest blacklist files from PGL and MVPS, resolves the IP addresses of each domain,
 and stores the latest blacklist names and IP addresses into blacklist map.
 */
-func (daemon *Daemon) UpdateBlackList(maxEntries int) {
+func (daemon *Daemon) UpdateBlackList(blacklistedNames []string) {
 	beginUnixSec := time.Now().Unix()
-
-	// Download black list data from all sources
-	allNames := DownloadAllBlacklists(daemon.logger)
-	if len(allNames) > maxEntries {
-		allNames = allNames[:maxEntries]
-	}
 	// Get ready to construct the new blacklist
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
@@ -261,14 +255,14 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	for i := 0; i < numRoutines; i++ {
 		go func(i int) {
 			defer parallelResolve.Done()
-			for j := i * (len(allNames) / numRoutines); j < (i+1)*(len(allNames)/numRoutines); j++ {
+			for j := i * (len(blacklistedNames) / numRoutines); j < (i+1)*(len(blacklistedNames)/numRoutines); j++ {
 				// Count number of resolution attempts only for logging the progress
 				atomic.AddInt64(&countResolutionAttempts, 1)
 				if atomic.LoadInt64(&countResolutionAttempts)%500 == 1 {
 					daemon.logger.Info("UpdateBlackList", "", nil, "resolving %d of %d black listed domain names",
-						atomic.LoadInt64(&countResolutionAttempts), len(allNames))
+						atomic.LoadInt64(&countResolutionAttempts), len(blacklistedNames))
 				}
-				name := strings.ToLower(strings.TrimSpace(allNames[j]))
+				name := strings.ToLower(strings.TrimSpace(blacklistedNames[j]))
 				// The appearance of NULL byte triggers an unfortunate panic in go's DNS resolution routine on Windows alone
 				if strings.ContainsRune(name, 0) {
 					continue
@@ -299,7 +293,7 @@ func (daemon *Daemon) UpdateBlackList(maxEntries int) {
 	daemon.blackListMutex.Unlock()
 	daemon.logger.Info("UpdateBlackList", "", nil,
 		"successfully resolved %d blocked IPs from %d domains, the process took %d minutes and used %d parallel routines. The blacklist now contains %d entries in total.",
-		countResolvedIPs, len(allNames), (time.Now().Unix()-beginUnixSec)/60, numRoutines, len(newBlackList))
+		countResolvedIPs, len(blacklistedNames), (time.Now().Unix()-beginUnixSec)/60, numRoutines, len(newBlackList))
 }
 
 /*
@@ -316,7 +310,15 @@ func (daemon *Daemon) StartAndBlock() error {
 		Interval:     BlacklistInitialDelaySec * time.Second,
 		MaxInt:       1,
 		Func: func(ctx context.Context, round, _ int) error {
-			daemon.UpdateBlackList(BlacklistMaxEntries)
+			if round == 0 {
+				select {
+				case <-time.After(BlacklistInitialDelaySec * time.Second):
+					daemon.logger.Info("UpdateBlacklist", "", nil, "will download blacklists in %d seconds", BlacklistInitialDelaySec)
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			daemon.UpdateBlackList(DownloadAllBlacklists(BlacklistMaxEntries, daemon.logger))
 			return nil
 		},
 	}

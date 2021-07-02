@@ -19,9 +19,16 @@ func TestUpdateBlackList(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	daemon.UpdateBlackList(2000)
-	// Assuming that half of them successfully resolve into IP address
-	if len(daemon.blackList) < 3000 {
+	// The parallel DNS resolution routines cannot handle a blacklist too small
+	// with less than 12 entries.
+	daemon.UpdateBlackList([]string{
+		"apple.com", "github.com", "google.com", "microsoft.com",
+		"apple.com", "github.com", "google.com", "microsoft.com",
+		"apple.com", "github.com", "google.com", "microsoft.com",
+		"apple.com", "github.com", "google.com", "microsoft.com",
+	})
+	// The blacklist contains both the domain names and the resolved IP addresses
+	if len(daemon.blackList) < 4*2 {
 		t.Fatal(len(daemon.blackList))
 	}
 }
