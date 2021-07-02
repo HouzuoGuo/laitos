@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/autounlock"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 )
@@ -84,7 +85,7 @@ func TestWebServer_UnlockWithPassword(t *testing.T) {
 	// Give it an incorrect password and expect an error response
 	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{PasswordInputName: []string{"wrong-password"}}.Encode()),
+		Body:   strings.NewReader(url.Values{autounlock.PasswordInputName: []string{"wrong-password"}}.Encode()),
 	}, fmt.Sprintf("http://localhost:%d%s", ws.Port, ws.URL))
 	if err != nil || !strings.Contains(string(resp.Body), "wrong key") {
 		t.Fatal(string(resp.Body))
@@ -92,7 +93,7 @@ func TestWebServer_UnlockWithPassword(t *testing.T) {
 	// Give it the correct password and read it back from collected password channel
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
-		Body:   strings.NewReader(url.Values{PasswordInputName: []string{encPassword}}.Encode()),
+		Body:   strings.NewReader(url.Values{autounlock.PasswordInputName: []string{encPassword}}.Encode()),
 	}, fmt.Sprintf("http://localhost:%d%s", ws.Port, ws.URL))
 	if err != nil || !strings.Contains(string(resp.Body), "success") {
 		t.Fatal(string(resp.Body))
