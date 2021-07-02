@@ -465,8 +465,7 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := check.StartAndBlock(); err != context.Canceled {
-			t.Error(err)
-			return
+			t.Errorf("unexpected return value from daemon start: %+v", err)
 		}
 		serverStopped <- struct{}{}
 	}()

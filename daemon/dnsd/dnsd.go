@@ -404,8 +404,7 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := dnsd.StartAndBlock(); err != nil {
-			t.Error(err)
-			return
+			t.Errorf("unexpected return value from daemon start: %+v", err)
 		}
 		serverStopped <- struct{}{}
 	}()

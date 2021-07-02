@@ -29,6 +29,35 @@ func TestPeriodic_Start(t *testing.T) {
 	p.Stop()
 }
 
+func TestPeriodic_Restart(t *testing.T) {
+	gotRoundNums := make(chan int, 10)
+	gotInts := make(chan int, 10)
+	p := &Periodic{
+		MaxInt:   1,
+		Interval: 100 * time.Millisecond,
+		Func: func(_ context.Context, round, i int) error {
+			gotRoundNums <- round
+			gotInts <- i
+			return nil
+		},
+	}
+	for startups := 0; startups < 3; startups++ {
+		p.Start(context.Background())
+		for i := 0; i < 3; i++ {
+			if round := <-gotRoundNums; round != i {
+				t.Fatalf("unexpected round number: %v", round)
+			}
+			if anInt := <-gotInts; anInt != 0 {
+				t.Fatalf("unexpected int : %v", anInt)
+			}
+		}
+		p.Stop()
+		if err := p.WaitForErr(); err != context.Canceled {
+			t.Fatalf("unexpected error return: %+v", err)
+		}
+	}
+}
+
 func TestPeriodic_RegularOrder(t *testing.T) {
 	funcDone := make(chan struct{}, 1)
 	gotRoundNums := make([]int, 0)

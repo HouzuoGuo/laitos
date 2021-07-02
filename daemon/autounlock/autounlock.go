@@ -173,7 +173,7 @@ func TestAutoUnlock(daemon *Daemon, t testingstub.T) {
 	serverStopped := make(chan struct{}, 1)
 	go func() {
 		if err := daemon.StartAndBlock(); err != context.Canceled {
-			t.Fatal(err)
+			t.Errorf("unexpected return value from daemon start: %+v", err)
 		}
 		serverStopped <- struct{}{}
 	}()
