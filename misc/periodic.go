@@ -82,6 +82,8 @@ func (p *Periodic) Start(ctx context.Context) error {
 	p.funcErrChan = make(chan error, 1)
 	p.funcErr = nil
 	go func() {
+		lalog.DefaultLogger.Info("Periodic.Start", p.LogActorName, nil, "starting now using interval %v, max.int input %v, random order? %v, stable interval? %v, rapid first round? %v",
+			p.Interval, p.MaxInt, p.RandomOrder, p.StableInterval, p.RapidFirstRound)
 		for roundNum := 0; ; roundNum++ {
 			for _, anInt := range funcInputInts {
 				if EmergencyLockDown {
@@ -89,7 +91,7 @@ func (p *Periodic) Start(ctx context.Context) error {
 					p.funcErrChan <- ErrEmergencyLockDown
 					return
 				}
-				if ((roundNum+1)*len(funcInputInts))%int(logIntervalSec) == 0 {
+				if ((roundNum+1)*len(funcInputInts))%int(logIntervalSec) == 1 {
 					lalog.DefaultLogger.Info("Periodic.Start", p.LogActorName, nil, "is still alive in round %d, integer input %d", roundNum, anInt)
 				}
 				startTime := time.Now()
