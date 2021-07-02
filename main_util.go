@@ -100,11 +100,14 @@ func DumpGoroutinesOnInterrupt() {
 	}()
 }
 
-/*
-ReseedPseudoRandAndContinue immediately re-seeds PRNG using cryptographic RNG, and then continues in background at
-regular interval (3 minutes). This helps some laitos daemons that use the common PRNG instance for their operations.
-*/
+// ReseedPseudoRandAndInBackground seeds the default PRNG using a
+// cryptographically-secure RNG, and then spawns a background goroutine to
+// continuously reseeds the default PRNG at regular interval.
+// This function helps securing several laitos program components that depend on
+// the default PRNG, therefore, it should be invoked at or near the start of the
+// main function.
 func ReseedPseudoRandAndInBackground() {
+	// Avoid using misc.Periodic, for it uses the PRNG internally.
 	reseedFun := func() {
 		seedBytes := make([]byte, 8)
 		_, err := cryptoRand.Read(seedBytes)
@@ -122,9 +125,9 @@ func ReseedPseudoRandAndInBackground() {
 	reseedFun()
 	go func() {
 		for {
-			time.Sleep(3 * time.Minute)
+			time.Sleep(5 * time.Minute)
 			reseedFun()
-			logger.Info("ReseedPseudoRandAndInBackground", "", nil, "successfully seeded RNG")
+			logger.Info("ReseedPseudoRandAndInBackground", "", nil, "successfully re-seeded PRNG")
 		}
 	}()
 }
@@ -134,13 +137,17 @@ CopyNonEssentialUtilitiesInBackground immediately copies utility programs that a
 toolbox features and daemons, and then continues in background at regular interval (1 hour).
 */
 func CopyNonEssentialUtilitiesInBackground() {
-	go func() {
-		for {
+	periodicCopy := &misc.Periodic{
+		LogActorName: "copy-non-essential-utils",
+		Interval:     1 * time.Hour,
+		MaxInt:       1,
+		Func: func(_ context.Context, _, _ int) error {
 			platform.CopyNonEssentialUtilities(logger)
 			logger.Info("PrepareUtilitiesAndInBackground", "", nil, "successfully copied non-essential utility programs")
-			time.Sleep(1 * time.Hour)
-		}
-	}()
+			return nil
+		},
+	}
+	periodicCopy.Start(context.Background())
 }
 
 // DisableConflicts prevents system daemons from conflicting with laitos, this is usually done by disabling them.

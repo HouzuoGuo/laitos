@@ -301,7 +301,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		MaxInt:         1,
 		Func: func(ctx context.Context, round, _ int) error {
 			if round == 0 {
-				daemon.logger.Info("StartAndBlock", "system-maintenance", nil, "the first run will begin in about two minutes")
+				daemon.logger.Info("StartAndBlock", "", nil, "the first run will begin in about two minutes")
 				select {
 				case <-time.After(2 * time.Minute):
 				case <-ctx.Done():
@@ -316,9 +316,9 @@ func (daemon *Daemon) StartAndBlock() error {
 
 	// Collect latest performance measurements at regular interval
 	if daemon.processExplorerMetrics != nil {
-		daemon.logger.Info("StartAndBlock", "prometheus", nil, "will regularly take program performance measurements and give them to prometheus metrics.")
+		daemon.logger.Info("StartAndBlock", "", nil, "will regularly take program performance measurements and give them to prometheus metrics.")
 		periodicProcMetrics := &misc.Periodic{
-			LogActorName: "proc-explorer-metrics",
+			LogActorName: "refresh-process-explorer-metrics",
 			Interval:     PrometheusProcessMetricsInterval,
 			MaxInt:       1,
 			Func: func(context.Context, int, int) error {
