@@ -295,7 +295,7 @@ func (daemon *Daemon) StartAndBlock() error {
 
 	// Run maintenance routine at regular interval
 	periodicMaint := &misc.Periodic{
-		LogActorName:   "autounlock",
+		LogActorName:   "system-maintenance",
 		Interval:       time.Duration(daemon.IntervalSec) * time.Second,
 		StableInterval: true,
 		MaxInt:         1,
@@ -318,7 +318,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	if daemon.processExplorerMetrics != nil {
 		daemon.logger.Info("StartAndBlock", "prometheus", nil, "will regularly take program performance measurements and give them to prometheus metrics.")
 		periodicProcMetrics := &misc.Periodic{
-			LogActorName: "autounlock",
+			LogActorName: "proc-explorer-metrics",
 			Interval:     PrometheusProcessMetricsInterval,
 			MaxInt:       1,
 			Func: func(context.Context, int, int) error {
@@ -464,7 +464,7 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	// Maintenance loop should successfully start within two seconds
 	serverStopped := make(chan struct{}, 1)
 	go func() {
-		if err := check.StartAndBlock(); err != nil {
+		if err := check.StartAndBlock(); err != context.Canceled {
 			t.Error(err)
 			return
 		}
