@@ -295,7 +295,7 @@ func (daemon *Daemon) StartAndBlock() error {
 
 	// Run maintenance routine at regular interval
 	periodicMaint := &misc.Periodic{
-		LogActorName:   "system-maintenance",
+		LogActorName:   daemon.logger.ComponentName,
 		Interval:       time.Duration(daemon.IntervalSec) * time.Second,
 		StableInterval: true,
 		MaxInt:         1,

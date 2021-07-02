@@ -114,10 +114,12 @@ func (daemon *Daemon) StartAndBlock() error {
 		return nil
 	}
 	periodic := &misc.Periodic{
-		LogActorName: "autounlock",
-		Interval:     time.Duration(daemon.IntervalSec) * time.Second,
-		MaxInt:       len(urlIndexMap),
-		Func:         periodicFunc,
+		LogActorName:    daemon.logger.ComponentName,
+		Interval:        time.Duration(daemon.IntervalSec) * time.Second,
+		MaxInt:          len(urlIndexMap),
+		Func:            periodicFunc,
+		RapidFirstRound: true,
+		RandomOrder:     true,
 	}
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()

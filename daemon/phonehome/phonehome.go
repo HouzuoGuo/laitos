@@ -60,9 +60,8 @@ type Daemon struct {
 	// cmdProcessor runs app commands coming in from a store&forward message processor server.
 	Processor *toolbox.CommandProcessor `json:"-"`
 
-	runContext    context.Context
-	runCancelFunc context.CancelFunc
-	logger        lalog.Logger
+	cancelFunc context.CancelFunc
+	logger     lalog.Logger
 }
 
 // Initialise validates the daemon configuration and initalises internal states.
@@ -155,105 +154,84 @@ func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostNam
 
 // StartAndBlock starts the periodic reports and blocks caller until the daemon is stopped.
 func (daemon *Daemon) StartAndBlock() error {
-	daemon.runContext, daemon.runCancelFunc = context.WithCancel(context.Background())
+	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d servers", len(daemon.MessageProcessorServers))
+	periodicFunc := func(ctx context.Context, round, i int) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		srv := daemon.MessageProcessorServers[i]
+		var reportResponseJSON []byte
+		if srv.DNSDomainName != "" {
+			// Send the latest report via DNS name query
+			reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, true)
+			queryResponse, err := net.LookupTXT(GetDNSQuery(reportCmd, srv.DNSDomainName))
+			if err != nil {
+				daemon.logger.Warning("StartAndBlock", srv.DNSDomainName, err, "failed to send DNS request")
+				return nil
+			}
+			reportResponseJSON = []byte(strings.Join(queryResponse, ""))
+		} else if srv.HTTPEndpointURL != "" {
+			// Send the latest report via HTTP client
+			reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, false)
+			resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
+				TimeoutSec: 15,
+				MaxBytes:   16 * 1024,
+				Method:     http.MethodPost,
+				Body:       strings.NewReader(url.Values{"cmd": {reportCmd}}.Encode()),
+				// In the even rounds, use the neutral & public recursive DNS resolver.
+				// In the odd rounds, use the DNS resolvers from host system.
+				UseNeutralDNSResolver: round%2 == 0,
+			}, srv.HTTPEndpointURL)
+			if err != nil {
+				daemon.logger.Warning("StartAndBlock", srv.HTTPEndpointURL, err, "failed to send HTTP request")
+				return nil
+			}
+			reportResponseJSON = resp.Body
+		}
+		// Deserialise the server JSON response and pass it to local message processor to process the command request
+		var reportResponse toolbox.SubjectReportResponse
+		if err := json.Unmarshal(reportResponseJSON, &reportResponse); err != nil {
+			daemon.logger.Info("StartAndBlock", srv.DNSDomainName+srv.HTTPEndpointURL, nil, "failed to deserialise JSON report response - %s", string(reportResponseJSON))
+			return nil
+		}
+		daemon.LocalMessageProcessor.StoreReport(ctx, toolbox.SubjectReportRequest{
+			SubjectHostName: srv.HostName,
+			ServerTime:      time.Time{},
+			CommandRequest:  reportResponse.CommandRequest,
+			CommandResponse: reportResponse.CommandResponse,
+		}, srv.HostName, "phonehome")
+		daemon.logger.Info("StartAndBlock", srv.HostName, nil, "report sent for the round %d", round+1)
+		return nil
+	}
 	/*
-		Instead of sending numerous reports in a row and then wait for a longer duration, send one report at a time and
-		wait a shorter duration. This helps to reduce server load and overall offers more reliability.
-		If there is a large number of servers to contact, the minimum interval will be one second.
+	   Instead of sending numerous reports in a row and then wait for a longer duration, send one report at a time and
+	   wait a shorter duration. This helps to reduce server load and overall offers more reliability.
+	   If there is a large number of servers to contact, the minimum interval will be one second.
 	*/
 	intervalSecBetweenReports := daemon.ReportIntervalSec / len(daemon.MessageProcessorServers)
 	if intervalSecBetweenReports < 1 {
 		intervalSecBetweenReports = 1
 	}
-	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d servers and pausing %d seconds between each",
-		len(daemon.MessageProcessorServers), intervalSecBetweenReports)
-	for round := 0; ; round++ {
-		if misc.EmergencyLockDown {
-			return misc.ErrEmergencyLockDown
-		}
-		/*
-			Shuffle the destination URLs that reports are sent to.
-			Reports are sent using 2FA authentication rather than the regular password authentication, if destinations
-			are not contacted in a random order, there is a chance that the daemon may reach its own server first (this
-			is a valid configuration) and it will always reject further reports as 2FA codes cannot be used a second time.
-		*/
-		srvIndexes := make([]int, 0, len(daemon.MessageProcessorServers))
-		for i := range daemon.MessageProcessorServers {
-			srvIndexes = append(srvIndexes, i)
-		}
-		rand.Shuffle(len(srvIndexes), func(i, j int) { srvIndexes[i], srvIndexes[j] = srvIndexes[j], srvIndexes[i] })
-
-		for _, i := range srvIndexes {
-			srv := daemon.MessageProcessorServers[i]
-			var reportResponseJSON []byte
-			if srv.DNSDomainName != "" {
-				// Send the latest report via DNS name query
-				reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, true)
-				queryResponse, err := net.LookupTXT(GetDNSQuery(reportCmd, srv.DNSDomainName))
-				if err != nil {
-					daemon.logger.Warning("StartAndBlock", srv.DNSDomainName, err, "failed to send DNS request")
-					continue
-				}
-				reportResponseJSON = []byte(strings.Join(queryResponse, ""))
-			} else if srv.HTTPEndpointURL != "" {
-				// Send the latest report via HTTP client
-				reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, false)
-				resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
-					TimeoutSec: 15,
-					MaxBytes:   16 * 1024,
-					Method:     http.MethodPost,
-					Body:       strings.NewReader(url.Values{"cmd": {reportCmd}}.Encode()),
-					// In the even rounds, use the neutral & public recursive DNS resolver.
-					// In the odd rounds, use the DNS resolvers from host system.
-					UseNeutralDNSResolver: round%2 == 0,
-				}, srv.HTTPEndpointURL)
-				if err != nil {
-					daemon.logger.Warning("StartAndBlock", srv.HTTPEndpointURL, err, "failed to send HTTP request")
-					continue
-				}
-				reportResponseJSON = resp.Body
-			}
-			// Deserialise the server JSON response and pass it to local message processor to process the command request
-			var reportResponse toolbox.SubjectReportResponse
-			if err := json.Unmarshal(reportResponseJSON, &reportResponse); err != nil {
-				daemon.logger.Info("StartAndBlock", srv.DNSDomainName+srv.HTTPEndpointURL, nil, "failed to deserialise JSON report response - %s", string(reportResponseJSON))
-				continue
-			}
-			daemon.LocalMessageProcessor.StoreReport(daemon.runContext, toolbox.SubjectReportRequest{
-				SubjectHostName: srv.HostName,
-				ServerTime:      time.Time{},
-				CommandRequest:  reportResponse.CommandRequest,
-				CommandResponse: reportResponse.CommandResponse,
-			}, srv.HostName, "phonehome")
-			daemon.logger.Info("StartAndBlock", srv.HostName, nil, "report sent for the round %d", round+1)
-			// Sleep for a short interval between contacts
-			sleepDuration := time.Duration(intervalSecBetweenReports) * time.Second
-			if round == 0 {
-				// Contact all servers in short succession for the first round
-				sleepDuration = 0
-			}
-			select {
-			case <-daemon.runContext.Done():
-				return nil
-			case <-time.After(sleepDuration):
-				// Move on to contact the next server in turn
-			}
-		}
-		if round == 0 {
-			// Wait for a short while after the first round of contacts
-			select {
-			case <-daemon.runContext.Done():
-				return nil
-			case <-time.After(time.Duration(intervalSecBetweenReports) * time.Second):
-				// Move on to contact the next server in turn
-			}
-		}
+	periodic := &misc.Periodic{
+		LogActorName:    daemon.logger.ComponentName,
+		Interval:        time.Duration(intervalSecBetweenReports) * time.Second,
+		MaxInt:          len(daemon.MessageProcessorServers),
+		Func:            periodicFunc,
+		RapidFirstRound: true,
+		RandomOrder:     true,
 	}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	daemon.cancelFunc = cancelFunc
+	periodic.Start(ctx)
+	return periodic.WaitForErr()
 }
 
 // Stop the daemon.
 func (daemon *Daemon) Stop() {
-	daemon.runCancelFunc()
+	daemon.cancelFunc()
 }
 
 // TestServer implements test cases for the phone-home daemon.

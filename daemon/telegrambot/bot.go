@@ -233,7 +233,7 @@ func (bot *Daemon) StartAndBlock() error {
 		return nil
 	}
 	periodic := &misc.Periodic{
-		LogActorName: "telegrambot",
+		LogActorName: bot.logger.ComponentName,
 		Interval:     time.Duration(PollIntervalSecMin+rand.Intn(PollIntervalSecMax-PollIntervalSecMin)) * time.Second,
 		MaxInt:       1,
 		Func:         periodicFunc,
