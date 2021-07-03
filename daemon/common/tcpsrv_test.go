@@ -71,7 +71,7 @@ func TestTCPServer(t *testing.T) {
 
 	// Wait for connection to close and then check stats counter
 	time.Sleep(ServerRateLimitIntervalSec * 2)
-	if count := srv.App.GetTCPStatsCollector().Count(); count < 2 {
+	if count := srv.App.GetTCPStatsCollector().Count(); count < 1 {
 		t.Fatal(count)
 	}
 
