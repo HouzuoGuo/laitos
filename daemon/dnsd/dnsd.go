@@ -322,7 +322,9 @@ func (daemon *Daemon) StartAndBlock() error {
 			return nil
 		},
 	}
-	periodicBlacklistUpdate.Start(ctx)
+	if err := periodicBlacklistUpdate.Start(ctx); err != nil {
+		return err
+	}
 
 	// Start server listeners
 	numListeners := 0

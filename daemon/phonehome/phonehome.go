@@ -83,7 +83,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	// There is no point in keeping many app command exchange reports in memory
 	daemon.LocalMessageProcessor = &toolbox.MessageProcessor{
-		OwnerName:             "phonehome",
+		OwnerName:             "phonehome-internal-tracking",
 		MaxReportsPerHostName: 10,
 		CmdProcessor:          daemon.Processor,
 	}
@@ -134,7 +134,7 @@ func (daemon *Daemon) getTwoFACode(server *MessageProcessorServer) string {
 
 func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostName bool) string {
 	// Ask local message processor for a pending app command request and/or app command response
-	cmdExchange := daemon.LocalMessageProcessor.StoreReport(context.Background(), toolbox.SubjectReportRequest{SubjectHostName: serverHostName}, serverHostName, "phonehome")
+	cmdExchange := daemon.LocalMessageProcessor.StoreReport(context.Background(), toolbox.SubjectReportRequest{SubjectHostName: serverHostName}, serverHostName, "getReportForServer")
 	// Craft the report for this server
 	hostname, _ := os.Hostname()
 	if shortenMyHostName && len(hostname) > 16 {
@@ -177,7 +177,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, false)
 			resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 				TimeoutSec: 15,
-				MaxBytes:   16 * 1024,
+				MaxBytes:   platform.MaxExternalProgramOutputBytes,
 				Method:     http.MethodPost,
 				Body:       strings.NewReader(url.Values{"cmd": {reportCmd}}.Encode()),
 				// In the even rounds, use the neutral & public recursive DNS resolver.
@@ -201,8 +201,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			ServerTime:      time.Time{},
 			CommandRequest:  reportResponse.CommandRequest,
 			CommandResponse: reportResponse.CommandResponse,
-		}, srv.HostName, "phonehome")
-		daemon.logger.Info("StartAndBlock", srv.HostName, nil, "report sent for the round %d", round+1)
+		}, srv.HostName, fmt.Sprintf("round%d#%d", round, i))
 		return nil
 	}
 	/*
@@ -225,7 +224,9 @@ func (daemon *Daemon) StartAndBlock() error {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	daemon.cancelFunc = cancelFunc
-	periodic.Start(ctx)
+	if err := periodic.Start(ctx); err != nil {
+		return err
+	}
 	return periodic.WaitForErr()
 }
 
@@ -257,13 +258,13 @@ func TestServer(server *Daemon, t testingstub.T) {
 				})
 				t.Log("1st req:", reqCmd)
 				if result.Error != nil {
-					t.Fatalf("1st request error: %+v", result)
+					t.Errorf("1st request error: %+v", result)
 				}
 				if len(muxMessageProcessor.IncomingAppCommands) != 1 { // ".s echo 2server"
-					t.Fatalf("1st request unexpected incoming command: %+v", muxMessageProcessor.IncomingAppCommands)
+					t.Errorf("1st request unexpected incoming command: %+v", muxMessageProcessor.IncomingAppCommands)
 				}
 				if len(muxMessageProcessor.SubjectReports) != 1 {
-					t.Fatalf("1st request unexpected subject reports: %+v", muxMessageProcessor.SubjectReports)
+					t.Errorf("1st request unexpected subject reports: %+v", muxMessageProcessor.SubjectReports)
 				}
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					// Verify the collected report details
@@ -275,7 +276,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 					if report0.SubjectClientTag == "" || report0.DaemonName == "" || report0.OriginalRequest.SubjectHostName == "" ||
 						comment.PID == 0 || comment.HostName == "" ||
 						report0.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" {
-						t.Fatalf("1st request, unexpected memorised report: %+v", report0)
+						t.Errorf("1st request, unexpected memorised report: %+v", report0)
 					}
 				}
 				// The response will ask the daemon to run an app command
@@ -286,7 +287,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 				}
 				respJSON, err := json.Marshal(resp)
 				if err != nil {
-					t.Fatal(err)
+					t.Errorf("failed to marshal json: %+v", err)
 				}
 				t.Log("1st resp:", string(respJSON))
 				_, _ = w.Write(respJSON)
@@ -302,13 +303,13 @@ func TestServer(server *Daemon, t testingstub.T) {
 				})
 				t.Log("2nd req:", reqCmd)
 				if result.Error != nil {
-					t.Fatalf("2st request error: %+v", result)
+					t.Errorf("2st request error: %+v", result)
 				}
 				if len(muxMessageProcessor.IncomingAppCommands) != 1 { // "local-to-server"
-					t.Fatalf("2st request unexpected incoming command: %+v", muxMessageProcessor.IncomingAppCommands)
+					t.Errorf("2st request unexpected incoming command: %+v", muxMessageProcessor.IncomingAppCommands)
 				}
 				if len(muxMessageProcessor.SubjectReports) != 1 {
-					t.Fatalf("2st request unexpected subject reports: %+v", muxMessageProcessor.SubjectReports)
+					t.Errorf("2st request unexpected subject reports: %+v", muxMessageProcessor.SubjectReports)
 				}
 				for _, reports := range muxMessageProcessor.SubjectReports {
 					report1 := (*reports)[1]
@@ -321,7 +322,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 						report1.OriginalRequest.CommandRequest.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" ||
 						report1.OriginalRequest.CommandResponse.Command != toolbox.TestCommandProcessorPIN+".s echo 2client" ||
 						report1.OriginalRequest.CommandResponse.Result != "2client" || report1.OriginalRequest.CommandResponse.RunDurationSec < 0 {
-						t.Fatalf("2nd request, unexpected memorised report: %+v", report1)
+						t.Errorf("2nd request, unexpected memorised report: %+v", report1)
 					}
 				}
 
@@ -334,34 +335,33 @@ func TestServer(server *Daemon, t testingstub.T) {
 	})
 	l, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("failed to listen: %+v", err)
 	}
 	srv := http.Server{Addr: "0.0.0.0:0", Handler: mux}
 	go func() {
 		if err := srv.Serve(l); err != nil {
-			t.Error(err)
+			t.Error("failed to start http server: %+v", err)
 			return
 		}
 	}()
 	if !misc.ProbePort(1*time.Second, "0.0.0.0", l.Addr().(*net.TCPAddr).Port) {
-		t.Fatal("server did not start in time")
+		t.Fatal("http server did not start in time")
 	}
 	// Start phone-home daemon
 	cmdURL := fmt.Sprintf("http://localhost:%d/test", l.Addr().(*net.TCPAddr).Port)
 	server.MessageProcessorServers = []*MessageProcessorServer{
 		{Passwords: []string{toolbox.TestCommandProcessorPIN}, HTTPEndpointURL: cmdURL},
-		{Passwords: []string{toolbox.TestCommandProcessorPIN}, DNSDomainName: "example.com"},
+		{Passwords: []string{toolbox.TestCommandProcessorPIN}, DNSDomainName: "laitos.example.com"},
 	}
 	if err := server.Initialise(); err != nil {
-		t.Fatal(err)
+		t.Fatal("failed to initialise phonehome daemon: %+v", err)
 	}
 	// Prepare an outgoing to be sent to the server by the local message processor
 	server.LocalMessageProcessor.SetOutgoingCommand("localhost", toolbox.TestCommandProcessorPIN+".s echo 2server")
 	serverStopped := make(chan struct{}, 1)
 	go func() {
-		if err := server.StartAndBlock(); err != nil {
-			t.Error(err)
-			return
+		if err := server.StartAndBlock(); err != context.Canceled {
+			t.Error("failed to start phonehome daemon: %+v", err)
 		}
 		serverStopped <- struct{}{}
 	}()
@@ -373,17 +373,19 @@ func TestServer(server *Daemon, t testingstub.T) {
 	// Check local message processor's number of reports
 	localReports := server.LocalMessageProcessor.GetLatestReports(1000)
 	if len(localReports) < 5 {
-		t.Fatalf("%d\n%+v", len(localReports), localReports)
+		t.Fatalf("incorrect local message processor reports: got %d\n%+v", len(localReports), localReports)
 	}
 	// Check server response from the 2nd request
-	lastReport := localReports[0]
-	t.Logf("phonehome latest report: %+v", lastReport)
-	if lastReport.SubjectClientTag != "localhost" || time.Now().Unix()-lastReport.ServerTime.Unix() > 10 || lastReport.DaemonName != "phonehome" ||
+	for i, report := range localReports {
+		t.Logf("Local report at index %d: %+v", i, report)
+	}
+	lastReport := localReports[1]
+	if lastReport.SubjectClientTag != "localhost" || time.Now().Unix()-lastReport.ServerTime.Unix() > 10 || lastReport.DaemonName != "round1#0" ||
 		lastReport.OriginalRequest.CommandRequest.Command != "" ||
 		lastReport.OriginalRequest.CommandResponse.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" ||
 		lastReport.OriginalRequest.CommandResponse.RunDurationSec < 0 ||
 		lastReport.OriginalRequest.CommandResponse.Result != "2server" {
-		t.Fatalf("%+v", lastReport)
+		t.Fatalf("incorrect last report: %+v", lastReport)
 	}
 	// Daemon should stop shortly
 	server.Stop()

@@ -201,9 +201,9 @@ func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectRe
 	proc.mutex.Unlock()
 	cmdResponse := proc.processCommandRequest(ctx, request, clientTag, daemonName)
 	if outgoingCommandForSubject == "" {
-		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from daemon %s", daemonName)
+		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from %s", daemonName)
 	} else {
-		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from daemon %s, replying with a pending app command.", daemonName)
+		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from %s, replying with a pending app command.", daemonName)
 	}
 	return SubjectReportResponse{
 		CommandRequest: AppCommandRequest{

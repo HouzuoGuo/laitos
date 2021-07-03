@@ -124,7 +124,9 @@ func (daemon *Daemon) StartAndBlock() error {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	daemon.cancelFunc = cancelFunc
-	periodic.Start(ctx)
+	if err := periodic.Start(ctx); err != nil {
+		return err
+	}
 	return periodic.WaitForErr()
 }
 

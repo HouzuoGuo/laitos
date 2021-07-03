@@ -147,7 +147,9 @@ func CopyNonEssentialUtilitiesInBackground() {
 			return nil
 		},
 	}
-	periodicCopy.Start(context.Background())
+	if err := periodicCopy.Start(context.Background()); err != nil {
+		panic(err)
+	}
 }
 
 // DisableConflicts prevents system daemons from conflicting with laitos, this is usually done by disabling them.

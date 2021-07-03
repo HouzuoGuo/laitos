@@ -312,7 +312,9 @@ func (daemon *Daemon) StartAndBlock() error {
 			return nil
 		},
 	}
-	periodicMaint.Start(ctx)
+	if err := periodicMaint.Start(ctx); err != nil {
+		return err
+	}
 
 	// Collect latest performance measurements at regular interval
 	if daemon.processExplorerMetrics != nil {
@@ -330,7 +332,9 @@ func (daemon *Daemon) StartAndBlock() error {
 				return nil
 			},
 		}
-		periodicProcMetrics.Start(ctx)
+		if err := periodicProcMetrics.Start(ctx); err != nil {
+			return err
+		}
 	}
 	return periodicMaint.WaitForErr()
 }

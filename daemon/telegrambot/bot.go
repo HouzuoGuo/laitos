@@ -238,7 +238,9 @@ func (bot *Daemon) StartAndBlock() error {
 		MaxInt:       1,
 		Func:         periodicFunc,
 	}
-	periodic.Start(ctx)
+	if err := periodic.Start(ctx); err != nil {
+		return err
+	}
 	return periodic.WaitForErr()
 }
 
