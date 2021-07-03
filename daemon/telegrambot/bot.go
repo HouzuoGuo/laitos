@@ -228,7 +228,7 @@ func (bot *Daemon) StartAndBlock() error {
 		}
 		// Process new messages
 		if len(newMessages.Updates) > 0 {
-			bot.ProcessMessages(context.TODO(), newMessages)
+			bot.ProcessMessages(ctx, newMessages)
 		}
 		return nil
 	}

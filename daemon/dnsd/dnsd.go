@@ -311,9 +311,9 @@ func (daemon *Daemon) StartAndBlock() error {
 		MaxInt:       1,
 		Func: func(ctx context.Context, round, _ int) error {
 			if round == 0 {
+				daemon.logger.Info("UpdateBlacklist", "", nil, "will download blacklists in %d seconds", BlacklistInitialDelaySec)
 				select {
 				case <-time.After(BlacklistInitialDelaySec * time.Second):
-					daemon.logger.Info("UpdateBlacklist", "", nil, "will download blacklists in %d seconds", BlacklistInitialDelaySec)
 				case <-ctx.Done():
 					return ctx.Err()
 				}

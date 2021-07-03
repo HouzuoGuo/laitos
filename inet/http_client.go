@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,12 +17,34 @@ import (
 )
 
 var (
-	// NeutralRecursiveResolver is a public recursive DNS resolver that provides genuine answers without discrimination, and offers
-	// very low latency. The CloudFlare public DNS resolver appears to offer the lowest latency.
+	// NeutralRecursiveResolvers is a list of public recursive DNS resolvers
+	// that provide genuine answers without discrimination or filtering.
+	// These resolvers must support both TCP and UDP.
+	NeutralDNSResolverAddrs = []string{
+		// Cloudflare (https://1.1.1.1/dns/)
+		"1.1.1.1:53",
+		"1.0.0.1:53",
+		// (Oracle) Dyn (https://help.dyn.com/)
+		"216.146.35.35:53",
+		"216.146.36.36:53",
+		// Google public DNS (https://developers.google.com/speed/public-dns)
+		"8.8.8.8:53",
+		"8.8.4.4:53",
+		// Hurricane electric (https://dns.he.net/)
+		"74.82.42.42:53",
+	}
+
+	// NeutralRecursiveResolver is a DNS resolver that provides genuine answers
+	// without discrimation or filtering. This is often useful for resolving
+	// names downloaded from various blocklist projects.
 	NeutralRecursiveResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
-			return net.Dial("udp", "1.1.1.1:53")
+			proto := "udp"
+			if rand.Intn(2) == 0 {
+				proto = "tcp"
+			}
+			return net.Dial(proto, NeutralDNSResolverAddrs[rand.Intn(len(NeutralDNSResolverAddrs))])
 		},
 	}
 )
