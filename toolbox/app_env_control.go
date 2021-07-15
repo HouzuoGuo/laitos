@@ -146,7 +146,7 @@ func TuneLinux() string {
 		"net.ipv4.conf.default.send_redirects":       "0",
 		"net.ipv4.icmp_echo_ignore_broadcasts":       "1",
 		"net.ipv4.icmp_ignore_bogus_error_responses": "1",
-		"net.ipv4.ip_local_port_range":               "2048\t65535",
+		"net.ipv4.ip_local_port_range":               "32768\t65000",
 		"net.ipv4.tcp_syncookies":                    "1",
 		"net.ipv6.conf.all.accept_redirects":         "0",
 		"net.ipv6.conf.all.accept_source_route":      "0",
