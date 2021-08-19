@@ -184,16 +184,17 @@ func TestDoHTTPPublicServer(t *testing.T) {
 }
 
 func TestNeutralRecursiveResolver(t *testing.T) {
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Duration(20*time.Second))
+	// The timeout is applied to all resolution attempts
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Duration(60*time.Second))
 	defer cancel()
 	for _, name := range []string{"apple.com", "github.com", "google.com", "microsoft.com", "wikipedia.org"} {
-		for i := 0; i < 20; i++ {
+		for i := 0; i < 10; i++ {
 			addrs, err := NeutralRecursiveResolver.LookupIPAddr(timeoutCtx, name)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("failed to resolve %s: %v", name, err)
 			}
 			if len(addrs) < 1 {
-				t.Fatal(addrs)
+				t.Fatalf("name %s did not resolve to anything", name)
 			}
 		}
 	}

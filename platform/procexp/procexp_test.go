@@ -116,7 +116,7 @@ func TestGetProcAndTaskStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.Stats.NumUserModeSecInclChildren+status.Stats.NumKernelModeSecInclChildren < 2 ||
+	if status.Stats.NumUserModeSecInclChildren+status.Stats.NumKernelModeSecInclChildren < 1 ||
 		status.Stats.ResidentSetMemSizeBytes < 100 || status.Stats.VirtualMemSizeBytes < 100 ||
 		status.Stats.State == "" || status.Status.Name != "yes" ||
 		len(status.Tasks) < 1 {
