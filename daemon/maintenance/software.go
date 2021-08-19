@@ -2,15 +2,12 @@ package maintenance
 
 import (
 	"bytes"
-	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/platform"
 )
 
@@ -29,53 +26,6 @@ pkgAlreadyInstalledMarkers is a list of strings containing text phrases that ind
 installing/updating a package even though no action is taken, for example, when a package to install is already up to date.
 */
 var pkgAlreadyInstalledMarkers = []string{"already the newest", "already installed", "no packages marked for update"}
-
-/*
-PrepareDockerRepositorForDebian prepares APT repository for installing docker, because debian does not distribute docker
-in their repository for whatever reason. If the system is not a debian the function will do nothing.
-
-The software maintenance routine runs this function prior to installing the set of useful system software packages,
-among which there is "add-apt-repository" command. Hence, on a freshly provisioned Debian system the command may not be
-available, which causes docker to be missing even after system maintenance routine has run for the first time. The fault
-will correct itself when system maintenance routine runs a second time.
-*/
-func (daemon *Daemon) prepareDockerRepositoryForDebian(out *bytes.Buffer) {
-	if platform.HostIsWindows() {
-		daemon.logPrintStageStep(out, "skipped on windows: prepare docker repository for debian system")
-		return
-	}
-	daemon.logPrintStageStep(out, "prepare docker repository for debian system")
-	content, err := ioutil.ReadFile("/etc/os-release")
-	if err != nil {
-		daemon.logPrintStageStep(out, "failed to read os-release, skip rest of the stage.")
-		return
-	} else if !strings.Contains(strings.ToLower(string(content)), "debian") || strings.Contains(strings.ToLower(string(content)), "ubuntu") {
-		daemon.logPrintStageStep(out, "system is not a debian, skip rest of the stage.")
-		return
-	}
-	// Install docker's GPG key
-	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, "https://download.docker.com/linux/debian/gpg")
-	if err != nil {
-		daemon.logPrintStageStep(out, "failed to download docker GPG key - %v", err)
-		return
-	}
-	gpgKeyFile := "/tmp/laitos-docker-gpg-key"
-	if err := ioutil.WriteFile(gpgKeyFile, resp.Body, 0600); err != nil {
-		daemon.logPrintStageStep(out, "failed to store docker GPG key - %v", err)
-		return
-	}
-	aptOut, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "apt-key", "add", gpgKeyFile)
-	daemon.logPrintStageStep(out, "install docker GPG key - %v %s", err, aptOut)
-	// Add docker community edition repository
-	lsbOut, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "lsb_release", "-cs")
-	daemon.logPrintStageStep(out, "determine release name - %v %s", err, lsbOut)
-	if err != nil {
-		daemon.logPrintStageStep(out, "failed to determine release name")
-		return
-	}
-	aptOut, err = platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "add-apt-repository", fmt.Sprintf("https://download.docker.com/linux/debian %s stable", strings.TrimSpace(lsbOut)))
-	daemon.logPrintStageStep(out, "enable docker repository - %v %s", err, aptOut)
-}
 
 func (daemon *Daemon) prepareDockerRepositoryForAWSLinux(out *bytes.Buffer) {
 	if platform.HostIsWindows() {
@@ -175,7 +125,6 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 			daemon.logPrintStageStep(out, "failed to install/upgrade chocolatey: %v - %s", err, shellOut)
 		}
 	} else {
-		daemon.prepareDockerRepositoryForDebian(out)
 		daemon.prepareDockerRepositoryForAWSLinux(out)
 	}
 
