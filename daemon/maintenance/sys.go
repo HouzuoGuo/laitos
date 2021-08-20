@@ -387,12 +387,12 @@ func (daemon *Daemon) RunPreMaintenanceScript(out *bytes.Buffer) {
 	var scriptOut string
 	var err error
 	if daemon.PreScriptUnix != "" && !platform.HostIsWindows() {
-		daemon.logPrintStage(out, "run pre-maintenance script (unix-like)")
-		scriptOut, err = platform.InvokeShell(10*600, platform.GetDefaultShellInterpreter(), daemon.PreScriptUnix)
+		daemon.logPrintStage(out, "run script for unix-like system")
+		scriptOut, err = platform.InvokeShell(daemon.IntervalSec/2, platform.GetDefaultShellInterpreter(), daemon.PreScriptUnix)
 	}
 	if daemon.PreScriptWindows != "" && platform.HostIsWindows() {
-		daemon.logPrintStage(out, "run pre-maintenance script (windows)")
-		scriptOut, err = platform.InvokeShell(10*600, platform.GetDefaultShellInterpreter(), daemon.PreScriptWindows)
+		daemon.logPrintStage(out, "run script for windows system")
+		scriptOut, err = platform.InvokeShell(daemon.IntervalSec/2, platform.GetDefaultShellInterpreter(), daemon.PreScriptWindows)
 	}
 	daemon.logPrintStage(out, "script result: %s - %v", scriptOut, err)
 }

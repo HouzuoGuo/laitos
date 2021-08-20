@@ -35,8 +35,6 @@ const (
 	MinimumIntervalSec = 24 * 3600
 	// InitialDelaySec is the number of seconds to wait for the first maintenance run.
 	InitialDelaySec = 180
-	// MaxMessageLength is the maximum length of each message entry coming from output of a maintenance action.
-	MaxMessageLength = 1024
 	// PrometheusProcessMetricsInterval is the interval at which the latest process performance measurements are
 	// collected and then given to prometheus metrics.
 	PrometheusProcessMetricsInterval = 10 * time.Second
@@ -349,7 +347,7 @@ func (daemon *Daemon) logPrintStage(out *bytes.Buffer, template string, a ...int
 	if duration := time.Now().Unix() - daemon.lastStepTimestamp; duration > 5 {
 		out.WriteString(fmt.Sprintf("(it took %d seconds)\n", duration))
 	}
-	out.WriteString(lalog.TruncateString(fmt.Sprintf("\n---"+template+"\n", a...), MaxMessageLength))
+	out.WriteString(lalog.TruncateString(fmt.Sprintf("\n---"+template+"\n", a...), lalog.MaxLogMessageLen))
 	daemon.logger.Info("maintenance", "", nil, "Stage: "+template, a...)
 	daemon.lastStepTimestamp = time.Now().Unix()
 }
@@ -359,7 +357,7 @@ func (daemon *Daemon) logPrintStageStep(out *bytes.Buffer, template string, a ..
 	if duration := time.Now().Unix() - daemon.lastStepTimestamp; duration > 5 {
 		out.WriteString(fmt.Sprintf("(it took %d seconds)\n", duration))
 	}
-	out.WriteString(lalog.TruncateString(fmt.Sprintf("---"+template+"\n", a...), MaxMessageLength))
+	out.WriteString(lalog.TruncateString(fmt.Sprintf("---"+template+"\n", a...), lalog.MaxLogMessageLen))
 	daemon.logger.Info("maintenance", "", nil, "Step: "+template, a...)
 	daemon.lastStepTimestamp = time.Now().Unix()
 }
