@@ -147,7 +147,7 @@ func TestSockd(sockd *Daemon, t testingstub.T) {
 			t.Fatal(err)
 		} else if n, err := conn.Write(bytes.Repeat([]byte{0}, 1000)); err != nil && n != 10 {
 			t.Fatal(err, n)
-		} else if n, err := conn.Read(resp); err != nil || n < 5 {
+		} else if n, err := conn.Read(resp); err != nil || n < 4 {
 			t.Fatal(err, n)
 		}
 	}

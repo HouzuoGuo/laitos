@@ -173,8 +173,10 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		}
 		serverStopped <- struct{}{}
 	}()
-	if !misc.ProbePort(1*time.Second, daemon.Address, daemon.ActiveUsersPort) {
-		t.Fatal("server did not start on time")
+	for _, port := range []int{daemon.ActiveUsersPort, daemon.DayTimePort, daemon.QOTDPort} {
+		if !misc.ProbePort(1*time.Second, daemon.Address, port) {
+			t.Fatal("server did not start on time")
+		}
 	}
 
 	// The function returns true only if the response matches expectation from the service
