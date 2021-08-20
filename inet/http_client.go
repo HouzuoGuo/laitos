@@ -24,9 +24,6 @@ var (
 		// Cloudflare (https://1.1.1.1/dns/)
 		"1.1.1.1:53",
 		"1.0.0.1:53",
-		// (Oracle) Dyn (https://help.dyn.com/)
-		"216.146.35.35:53",
-		"216.146.36.36:53",
 		// Google public DNS (https://developers.google.com/speed/public-dns)
 		"8.8.8.8:53",
 		"8.8.4.4:53",

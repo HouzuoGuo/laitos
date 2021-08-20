@@ -188,7 +188,7 @@ func TestNeutralRecursiveResolver(t *testing.T) {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Duration(60*time.Second))
 	defer cancel()
 	for _, name := range []string{"apple.com", "github.com", "google.com", "microsoft.com", "wikipedia.org"} {
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 5; i++ {
 			addrs, err := NeutralRecursiveResolver.LookupIPAddr(timeoutCtx, name)
 			if err != nil {
 				t.Fatalf("failed to resolve %s: %v", name, err)
