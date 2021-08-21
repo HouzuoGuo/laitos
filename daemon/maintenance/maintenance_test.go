@@ -19,7 +19,7 @@ func TestMaintenance_Execute(t *testing.T) {
 		DoEnhanceFileSecurity:  true,
 		SwapFileSizeMB:         100,
 		FeaturesToTest:         features,
-		PreScriptUnix:          "touch /tmp/laitos-maintenance-pre-script-test",
+		ScriptForUnix:          "touch /tmp/laitos-maintenance-pre-script-test",
 		MailCmdRunnerToTest:    nil, // deliberately nil because it is not involved in this test
 		HTTPHandlersToCheck:    nil, // deliberately nil because it is not involved in this test
 	}

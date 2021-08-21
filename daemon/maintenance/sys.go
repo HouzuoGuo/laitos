@@ -382,17 +382,17 @@ func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
 	}
 }
 
-// RunPreMaintenanceScript runs the pre-maintenance script using system default script interpreter. The script is given 10 minutes to run.
-func (daemon *Daemon) RunPreMaintenanceScript(out *bytes.Buffer) {
+// RunMaintenanceScripts runs the shell script specifically defined for the host OS type in daemon configuration.
+func (daemon *Daemon) RunMaintenanceScripts(out *bytes.Buffer) {
 	var scriptOut string
 	var err error
-	if daemon.PreScriptUnix != "" && !platform.HostIsWindows() {
+	if daemon.ScriptForUnix != "" && !platform.HostIsWindows() {
 		daemon.logPrintStage(out, "run script for unix-like system")
-		scriptOut, err = platform.InvokeShell(daemon.IntervalSec/2, platform.GetDefaultShellInterpreter(), daemon.PreScriptUnix)
+		scriptOut, err = platform.InvokeShell(daemon.IntervalSec/2, platform.GetDefaultShellInterpreter(), daemon.ScriptForUnix)
 	}
-	if daemon.PreScriptWindows != "" && platform.HostIsWindows() {
+	if daemon.ScriptForWindows != "" && platform.HostIsWindows() {
 		daemon.logPrintStage(out, "run script for windows system")
-		scriptOut, err = platform.InvokeShell(daemon.IntervalSec/2, platform.GetDefaultShellInterpreter(), daemon.PreScriptWindows)
+		scriptOut, err = platform.InvokeShell(daemon.IntervalSec/2, platform.GetDefaultShellInterpreter(), daemon.ScriptForWindows)
 	}
 	daemon.logPrintStage(out, "script result: %s - %v", scriptOut, err)
 }

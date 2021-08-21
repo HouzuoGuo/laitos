@@ -123,12 +123,12 @@ func TestGetProcAndTaskStatus(t *testing.T) {
 		t.Fatalf("%+v", status)
 	}
 	mainTask := status.Tasks[cmd.Process.Pid]
-	if mainTask.ID != cmd.Process.Pid || mainTask.SchedulerStats.NumRunSec < 2 || mainTask.SchedulerStats.NumWaitSec < 0.001 ||
-		mainTask.SchedulerStats.NumVoluntarySwitches < 1 || mainTask.SchedulerStats.NumInvoluntarySwitches < 1 {
+	if mainTask.ID != cmd.Process.Pid || mainTask.SchedulerStats.NumRunSec < 1 || mainTask.SchedulerStats.NumWaitSec < 0.001 ||
+		mainTask.SchedulerStats.NumVoluntarySwitches < 100 || mainTask.SchedulerStats.NumInvoluntarySwitches < 100 {
 		t.Fatalf("%+v", status)
 	}
-	if status.SchedulerStatsSum.NumRunSec < 2 || status.SchedulerStatsSum.NumWaitSec < 0.001 ||
-		status.SchedulerStatsSum.NumVoluntarySwitches < 1 || status.SchedulerStatsSum.NumInvoluntarySwitches < 1 {
+	if status.SchedulerStatsSum.NumRunSec < 1 || status.SchedulerStatsSum.NumWaitSec < 0.001 ||
+		status.SchedulerStatsSum.NumVoluntarySwitches < 100 || status.SchedulerStatsSum.NumInvoluntarySwitches < 100 {
 		t.Fatalf("%+v", status)
 	}
 }

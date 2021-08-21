@@ -75,18 +75,17 @@ type Daemon struct {
 	TuneLinux bool `json:"TuneLinux"`
 	// EnhanceFileSecurity enables hardening of home directory security (ownership and permission).
 	DoEnhanceFileSecurity bool `json:"DoEnhanceFileSecurity"`
-	// PreScriptWindows is run by PowerShell prior to all other maintenance actions. It is given 10 minutes to run,
-	PreScriptWindows string `json:"PreScriptWindows"`
-	// PreScriptWindows is run by Unix default script interpreter prior to all other maintenance actions. It is given 10 minutes to run,
-	PreScriptUnix string `json:"PreScriptUnix"`
-	/*
-		SwapFileSizeMB determines the size of swap file to be created for Linux platform. If the value is 0, no swap file
-		will be created; if value is -1, swap will be turned off for the entire OS.
-	*/
+	// ScriptForWindows is a PowerShell Script to be run on Windows at the end of maintenance procedure.
+	ScriptForWindows string `json:"ScriptForWindows"`
+	// ScriptForUnix is a shell script to be run on Unix/Linux at the end of maintenance procedure.
+	ScriptForUnix string `json:"ScriptForUnix"`
+	// SwapFileSizeMB is the size of swap file to be created and activated for a Linux host.
+	// If the value is 0 then no swap file will be created.
+	// If the value is -1 then all active swap files and swap partitions will be disabled.
 	SwapFileSizeMB int `json:"SwapFileSizeMB"`
-	// SetTimeZone changes system time zone to the specified value (such as "UTC").
+	// SetTimeZone changes system time zone to the specified value (such as "UTC" or "Europe/Dublin").
 	SetTimeZone string `json:"SetTimeZone"`
-	// ProvidePerformanceMetricsToPrometheus determines whether the maintenance daemon will provide program performance metrics to prometheus at regular interval.
+	// RegisterPrometheusMetrics determines whether the maintenance daemon will provide program performance metrics to prometheus at regular interval.
 	RegisterPrometheusMetrics bool `json:"RegisterPrometheusMetrics"`
 
 	/*
@@ -367,9 +366,6 @@ func (daemon *Daemon) SystemMaintenance() string {
 	out := new(bytes.Buffer)
 	daemon.logPrintStage(out, "begin system maintenance")
 
-	// In general, an earlier task should exert a positive impact on subsequent tasks.
-	daemon.RunPreMaintenanceScript(out)
-
 	// System maintenance
 	if daemon.TuneLinux && !platform.HostIsWindows() {
 		daemon.logPrintStage(out, "tune linux kernel: %s", toolbox.TuneLinux())
@@ -409,6 +405,8 @@ func (daemon *Daemon) SystemMaintenance() string {
 	daemon.MaintainServices(out)
 	daemon.MaintainsIptables(out) // run this after service maintenance, because disabling firewall service may alter iptables.
 	daemon.EnhanceFileSecurity(out)
+
+	daemon.RunMaintenanceScripts(out)
 
 	daemon.logPrintStage(out, "concluded system maintenance")
 	return out.String()
