@@ -94,6 +94,8 @@ func (writer *ByteLogWriter) absorb(in []byte) {
 
 // Retrieve returns a copy of the latest bytes written.
 func (writer *ByteLogWriter) Retrieve(asciiOnly bool) (ret []byte) {
+	writer.mutex.Lock()
+	defer writer.mutex.Unlock()
 	var bufCopy []byte
 	if writer.everFull {
 		bufCopy = make([]byte, writer.currentSize)
