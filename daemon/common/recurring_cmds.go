@@ -38,7 +38,7 @@ type RecurringCommands struct {
 	*/
 	transientCommands []string
 	results           *datastruct.RingBuffer // results are the most recent command results and test messages to retrieve.
-	mutex             sync.Mutex             // mutex prevents concurrent access to internal structures.
+	mutex             *sync.RWMutex          // mutex prevents concurrent access to internal structures.
 	logger            lalog.Logger
 	cancelFunc        func()
 }
@@ -56,6 +56,7 @@ func (cmds *RecurringCommands) Initialise() error {
 	}
 	cmds.results = datastruct.NewRingBuffer(int64(cmds.MaxResults))
 	cmds.transientCommands = make([]string, 0, 10)
+	cmds.mutex = new(sync.RWMutex)
 	cmds.logger = lalog.Logger{
 		ComponentName: "RecurringCommands",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Intv", Value: cmds.IntervalSec}},
@@ -68,8 +69,8 @@ GetTransientCommands returns a copy of all transient commands memorises for exec
 an empty string array.
 */
 func (cmds *RecurringCommands) GetTransientCommands() []string {
-	cmds.mutex.Lock()
-	defer cmds.mutex.Unlock()
+	cmds.mutex.RLock()
+	defer cmds.mutex.RUnlock()
 	ret := make([]string, len(cmds.transientCommands))
 	copy(ret, cmds.transientCommands)
 	return ret
@@ -106,10 +107,10 @@ func (cmds *RecurringCommands) runAllCommands(ctx context.Context) {
 		}
 	}
 	// Make a copy of the latest transient commands that are about to run
-	cmds.mutex.Lock()
+	cmds.mutex.RLock()
 	transientCommands := make([]string, len(cmds.transientCommands))
 	copy(transientCommands, cmds.transientCommands)
-	cmds.mutex.Unlock()
+	cmds.mutex.RUnlock()
 	// Run transient commands one after another
 	for _, cmd := range transientCommands {
 		// Skip result filters that may send notifications or manipulate result in other means
@@ -180,8 +181,6 @@ func (cmds *RecurringCommands) AddArbitraryTextToResult(text string) {
 
 // GetResults returns the latest command execution results and text messages, then clears the result buffer.
 func (cmds *RecurringCommands) GetResults() []string {
-	cmds.mutex.Lock()
-	defer cmds.mutex.Unlock()
 	ret := cmds.results.GetAll()
 	cmds.results.Clear()
 	return ret

@@ -10,7 +10,7 @@ type RingBuffer struct {
 	size    int64
 	counter int64
 	buf     []string
-	mutex   *sync.Mutex
+	mutex   *sync.RWMutex
 }
 
 // NewRingBuffer returns an initialised ring buffer.
@@ -21,7 +21,7 @@ func NewRingBuffer(size int64) *RingBuffer {
 	return &RingBuffer{
 		size:  size,
 		buf:   make([]string, size),
-		mutex: new(sync.Mutex),
+		mutex: new(sync.RWMutex),
 	}
 }
 
@@ -38,6 +38,8 @@ Clear sets all buffered elements to empty string, consequently GetAll function w
 indicating there's no element.
 */
 func (r *RingBuffer) Clear() {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	r.buf = make([]string, r.size)
 }
 
@@ -47,8 +49,8 @@ The iterator function is fed an element value as sole parameter. If the function
 immediately. The total number of elements iterated is not predictable, and iteration loop always skips empty elements.
 */
 func (r *RingBuffer) IterateReverse(fun func(string) bool) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 	currentIndex := r.counter % r.size
 	for i := currentIndex; i >= 0; i-- {
 		value := r.buf[i]
@@ -70,8 +72,8 @@ func (r *RingBuffer) IterateReverse(fun func(string) bool) {
 
 // GetAll returns all elements (oldest to the latest) of the ring buffer in a string array.
 func (r *RingBuffer) GetAll() (ret []string) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 	reversed := make([]string, 0, r.size)
 	r.IterateReverse(func(elem string) bool {
 		reversed = append(reversed, elem)
