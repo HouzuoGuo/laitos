@@ -2,6 +2,7 @@ package misc
 
 import (
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 )
@@ -30,39 +31,56 @@ func TestRateLimit(t *testing.T) {
 	limit.Initialise()
 	// Three actors should get two chances each
 	success := [3]int{}
+	successMutex := new(sync.Mutex)
 	for i := 0; i < 3; i++ {
 		go func(i int) {
 			for j := 0; j < 100; j++ {
 				if limit.Add(strconv.Itoa(i), true) {
+					successMutex.Lock()
 					success[i]++
+					successMutex.Unlock()
 				}
 			}
 		}(i)
 	}
 	time.Sleep(1 * time.Second)
 	for i := 0; i < 3; i++ {
+		successMutex.Lock()
 		if success[i] != 4 {
 			t.Fatal(success)
 		}
+		successMutex.Unlock()
 	}
-	// Do it again over a period of 15 seconds
+}
+
+func TestRateLimit2(t *testing.T) {
+	success := [3]int{}
+	successMutex := new(sync.Mutex)
+	// Test rate limit over the period of 15 seconds
+	limit := RateLimit{UnitSecs: 3, MaxCount: 4}
 	limit.Initialise()
 	for i := 0; i < 3; i++ {
+		successMutex.Lock()
 		success[i] = 0
+		successMutex.Unlock()
 		go func(i int) {
 			// Will finish in exactly 0.6*25=15 seconds
 			for j := 0; j < 25; j++ {
 				if limit.Add(strconv.Itoa(i), true) {
+					successMutex.Lock()
 					success[i]++
+					successMutex.Unlock()
 				}
 				time.Sleep(600 * time.Millisecond)
 			}
 		}(i)
 	}
 	time.Sleep(17 * time.Second)
+	successMutex.Lock()
 	for i := 0; i < 3; i++ {
 		if success[i] > 22 || success[i] < 20 {
 			t.Fatal(success)
 		}
 	}
+	successMutex.Unlock()
 }

@@ -71,22 +71,18 @@ func TestRecurringCommands(t *testing.T) {
 	}
 
 	// Run in a loop and check for result
-	var stopped bool
+	stoppedChan := make(chan bool, 1)
 	go func() {
 		cmds.Start()
-		stopped = true
+		stoppedChan <- true
 	}()
 	time.Sleep(time.Duration(cmds.IntervalSec*5) * time.Second)
 	if a := cmds.GetResults(); len(a) != len(cmds.transientCommands)+len(cmds.PreConfiguredCommands) {
 		t.Fatal(a, len(a), len(cmds.transientCommands)+len(cmds.PreConfiguredCommands))
 	}
 
-	// Expect it to stop within 2 seconds
 	cmds.Stop()
-	time.Sleep(2 * time.Second)
-	if !stopped {
-		t.Fatal("did not stop in time")
-	}
+	<-stoppedChan
 
 	// Repeatedly stopping the loop should not matter
 	cmds.Stop()

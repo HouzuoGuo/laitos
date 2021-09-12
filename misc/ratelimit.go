@@ -13,9 +13,10 @@ specified rate limit. Instead of being a rolling counter, the tracking data is r
 Remember to call Initialise() before use!
 */
 type RateLimit struct {
-	UnitSecs      int64
-	MaxCount      int
-	Logger        lalog.Logger
+	UnitSecs int64
+	MaxCount int
+	Logger   lalog.Logger
+
 	lastTimestamp int64
 	counter       map[string]int
 	logged        map[string]struct{}
@@ -24,7 +25,9 @@ type RateLimit struct {
 
 // Initialise rate limiter internal states.
 func (limit *RateLimit) Initialise() {
+	limit.lastTimestamp = 0
 	limit.counter = make(map[string]int)
+	limit.logged = make(map[string]struct{})
 	limit.counterMutex = new(sync.Mutex)
 	if limit.UnitSecs < 1 || limit.MaxCount < 1 {
 		limit.Logger.Panic("Initialise", "RateLimit", nil, "UnitSecs and MaxCount must be greater than 0")
@@ -48,7 +51,8 @@ Otherwise, the actor's current counter stays until the interval passes, and the 
 */
 func (limit *RateLimit) Add(actor string, logIfLimitHit bool) bool {
 	limit.counterMutex.Lock()
-	// Reset all counters if unit of time has past
+	defer limit.counterMutex.Unlock()
+	// Reset all counters after the interval.
 	if now := time.Now().Unix(); now-limit.lastTimestamp >= limit.UnitSecs {
 		limit.counter = make(map[string]int)
 		limit.logged = make(map[string]struct{})
@@ -60,7 +64,6 @@ func (limit *RateLimit) Add(actor string, logIfLimitHit bool) bool {
 				limit.Logger.Info("Add", "RateLimit", nil, "%s exceeded limit of %d hits per %d seconds", actor, limit.MaxCount, limit.UnitSecs)
 				limit.logged[actor] = struct{}{}
 			}
-			limit.counterMutex.Unlock()
 			return false
 		} else {
 			limit.counter[actor] = count + 1
@@ -68,6 +71,5 @@ func (limit *RateLimit) Add(actor string, logIfLimitHit bool) bool {
 	} else {
 		limit.counter[actor] = 1
 	}
-	limit.counterMutex.Unlock()
 	return true
 }
