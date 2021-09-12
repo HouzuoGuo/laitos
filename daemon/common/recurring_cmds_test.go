@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -52,7 +53,7 @@ func TestRecurringCommands(t *testing.T) {
 	cmds.AddTransientCommand(toolbox.TestCommandProcessorPIN + ".s echo fourth")
 
 	// Collect result from all four commands
-	cmds.runAllCommands()
+	cmds.runAllCommands(context.Background())
 	if a := cmds.GetResults(); !reflect.DeepEqual(
 		[]string{strings.TrimSpace(a[0]), strings.TrimSpace(a[1]), strings.TrimSpace(a[2]), strings.TrimSpace(a[3])},
 		[]string{"first", "second", "third", "fourth"}) {

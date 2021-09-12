@@ -8,6 +8,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/datastruct"
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
@@ -38,8 +39,8 @@ type RecurringCommands struct {
 	transientCommands []string
 	results           *datastruct.RingBuffer // results are the most recent command results and test messages to retrieve.
 	mutex             sync.Mutex             // mutex prevents concurrent access to internal structures.
-	running           bool                   // running becomes true when command processing loop is running
-	stop              chan struct{}          // stop channel signals Run function to return soon.
+	logger            lalog.Logger
+	cancelFunc        func()
 }
 
 // Initialise prepares internal states of a new RecurringCommands.
@@ -55,7 +56,10 @@ func (cmds *RecurringCommands) Initialise() error {
 	}
 	cmds.results = datastruct.NewRingBuffer(int64(cmds.MaxResults))
 	cmds.transientCommands = make([]string, 0, 10)
-	cmds.stop = make(chan struct{})
+	cmds.logger = lalog.Logger{
+		ComponentName: "RecurringCommands",
+		ComponentID:   []lalog.LoggerIDField{{Key: "Intv", Value: cmds.IntervalSec}},
+	}
 	return nil
 }
 
@@ -86,19 +90,22 @@ func (cmds *RecurringCommands) ClearTransientCommands() {
 }
 
 // runAllCommands executes all pre-configured and transient commands one after another and store their results.
-func (cmds *RecurringCommands) runAllCommands() {
+func (cmds *RecurringCommands) runAllCommands(ctx context.Context) {
 	//	Access to the commands array is not protected by mutex since no other function modifies it
 	if cmds.PreConfiguredCommands != nil {
 		for _, cmd := range cmds.PreConfiguredCommands {
 			// Skip result filters that may send notifications or manipulate result in other means
-			cmds.results.Push(cmds.CommandProcessor.Process(context.TODO(), toolbox.Command{
+			result := cmds.CommandProcessor.Process(ctx, toolbox.Command{
 				DaemonName: "RecurringCommands",
 				TimeoutSec: TimerCommandTimeoutSec,
 				Content:    cmd,
-			}, false).CombinedOutput)
+			}, false)
+			cmds.mutex.Lock()
+			cmds.results.Push(result.CombinedOutput)
+			cmds.mutex.Unlock()
 		}
 	}
-	// Make a copy of the latest transient commands to run
+	// Make a copy of the latest transient commands that are about to run
 	cmds.mutex.Lock()
 	transientCommands := make([]string, len(cmds.transientCommands))
 	copy(transientCommands, cmds.transientCommands)
@@ -106,11 +113,14 @@ func (cmds *RecurringCommands) runAllCommands() {
 	// Run transient commands one after another
 	for _, cmd := range transientCommands {
 		// Skip result filters that may send notifications or manipulate result in other means
-		cmds.results.Push(cmds.CommandProcessor.Process(context.TODO(), toolbox.Command{
+		result := cmds.CommandProcessor.Process(ctx, toolbox.Command{
 			DaemonName: "RecurringCommands",
 			TimeoutSec: TimerCommandTimeoutSec,
 			Content:    cmd,
-		}, false).CombinedOutput)
+		}, false)
+		cmds.mutex.Lock()
+		cmds.results.Push(result.CombinedOutput)
+		cmds.mutex.Unlock()
 	}
 
 }
@@ -122,22 +132,30 @@ If Start function is already running, calling it a second time will do nothing a
 */
 func (cmds *RecurringCommands) Start() {
 	cmds.mutex.Lock()
-	if cmds.running {
-		lalog.DefaultLogger.Warning("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "starting an already started RecurringCommands becomes a nop")
-		cmds.mutex.Unlock()
+	defer cmds.mutex.Unlock()
+	if cmds.cancelFunc != nil {
+		cmds.logger.Warning("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "starting an already started RecurringCommands becomes a nop")
 		return
 	}
-	cmds.mutex.Unlock()
-	lalog.DefaultLogger.Info("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "command execution now starts")
-	for {
-		cmds.running = true
+	cmds.logger.Info("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "command execution now starts")
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	cmds.cancelFunc = cancelFunc
+	periodicFunc := func(ctx context.Context, _, _ int) error {
 		select {
-		case <-time.After(time.Duration(cmds.IntervalSec) * time.Second):
-			cmds.runAllCommands()
-		case <-cmds.stop:
-			return
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			cmds.runAllCommands(ctx)
 		}
+		return nil
 	}
+	periodic := &misc.Periodic{
+		LogActorName: cmds.logger.ComponentName,
+		Interval:     time.Duration(cmds.IntervalSec) * time.Second,
+		MaxInt:       1,
+		Func:         periodicFunc,
+	}
+	_ = periodic.Start(ctx)
 }
 
 /*
@@ -146,12 +164,12 @@ terminated. Calling the function while command processing loop is not running yi
 */
 func (cmds *RecurringCommands) Stop() {
 	cmds.mutex.Lock()
-	if cmds.running {
-		cmds.stop <- struct{}{}
-		cmds.running = false
+	defer cmds.mutex.Unlock()
+	if cmds.cancelFunc != nil {
+		cmds.cancelFunc()
+		cmds.cancelFunc = nil
 	}
-	cmds.mutex.Unlock()
-	lalog.DefaultLogger.Info("RecurringCommands.Stop", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "stopped on request")
+	cmds.logger.Info("Stop", "", nil, "stopped on request")
 }
 
 // AddArbitraryTextToResult simply places an arbitrary text string into result.
