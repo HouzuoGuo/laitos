@@ -38,6 +38,29 @@ type sentSOSMail struct {
 func TestSendMail_SendSOS(t *testing.T) {
 	sentSOSMails := make(map[string]sentSOSMail)
 	sentSOSMailsMutex := new(sync.Mutex)
+	// All of the following recipients are supposed to receive the SOS email
+	expectedRecipients := map[string]bool{
+		"aid@cad.gov.hk":                 false,
+		"cnmcc@cttic.cn":                 false,
+		"cnmrcc@mot.gov.cn":              false,
+		"falmouthcoastguard@mcga.gov.uk": false,
+		"hkmrcc@mardep.gov.hk":           false,
+		"jrcchalifax@sarnet.dnd.ca":      false,
+		"jrccpgr@yen.gr":                 false,
+		"lantwatch@uscg.mil":             false,
+		"mrcc@raja.fi":                   false,
+		"mrcckorea@korea.kr":             false,
+		"odsmrcc@morflot.ru":             false,
+		"op@kaiho.mlit.go.jp":            false,
+		"operations@jrcc-stavanger.no":   false,
+		"rcc@mot.gov.il":                 false,
+		// Be careful - this AU email is twice listed in SARContacts, it is shared by MSAR and ASAR.
+		"rccaus@amsa.gov.au": false,
+		"ukmcc@hmcg.gov.uk":  false,
+	}
+	wait := new(sync.WaitGroup)
+	// +1 because amsa.gov.au gets two emails - one copy for MSAR and the other for ASAR.
+	wait.Add(len(expectedRecipients) + 1)
 
 	sendMail := SendMail{
 		MailClient: inet.MailClient{
@@ -47,14 +70,15 @@ func TestSendMail_SendSOS(t *testing.T) {
 		SOSPersonalInfo: "laitos software test from TestSendMail_SendSOS",
 		sosTestCaseSendFun: func(subject string, body string, recipients ...string) error {
 			sentSOSMailsMutex.Lock()
+			defer sentSOSMailsMutex.Unlock()
 			for _, recipient := range recipients {
 				sentSOSMails[recipient] = sentSOSMail{
 					subject:   subject,
 					body:      body,
 					recipient: recipient,
 				}
+				wait.Done()
 			}
-			sentSOSMailsMutex.Unlock()
 			return nil
 		},
 	}
@@ -64,28 +88,9 @@ func TestSendMail_SendSOS(t *testing.T) {
 		t.Fatal(result.Error, result.Output, result.ErrText())
 	}
 
-	// SOS emails are sent in background. Expect all of them to be sent within 5 seconds
-	time.Sleep(5 * time.Second)
+	// Emails are sent in the background.
+	wait.Wait()
 
-	// All of the following recipients are supposed to receive the SOS email
-	expectedRecipients := map[string]bool{
-		"aid@cad.gov.hk":                 false,
-		"hkmrcc@mardep.gov.hk":           false,
-		"rccaus@amsa.gov.au":             false,
-		"jrcchalifax@sarnet.dnd.ca":      false,
-		"cnmcc@cttic.cn":                 false,
-		"op@kaiho.mlit.go.jp":            false,
-		"jrccpgr@yen.gr":                 false,
-		"ukmcc@hmcg.gov.uk":              false,
-		"mrcc@raja.fi":                   false,
-		"odsmrcc@morflot.ru":             false,
-		"cnmrcc@mot.gov.cn":              false,
-		"rcc@mot.gov.il":                 false,
-		"operations@jrcc-stavanger.no":   false,
-		"mrcckorea@korea.kr":             false,
-		"falmouthcoastguard@mcga.gov.uk": false,
-		"lantwatch@uscg.mil":             false,
-	}
 	for _, mail := range sentSOSMails {
 		// Check mail content
 		if mail.subject != "SOS HELP laitos software test email title" {
