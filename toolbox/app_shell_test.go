@@ -79,7 +79,7 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 	}
 
 	// Execute a successful command
-	ret = sh.Execute(context.Background(), Command{TimeoutSec: 1, Content: `echo -n '"abc"' > /proc/self/fd/2`})
+	ret = sh.Execute(context.Background(), Command{TimeoutSec: 1, Content: `echo -n '"abc"' >&2`})
 	if ret.Error != nil ||
 		ret.ErrText() != "" ||
 		ret.Output != `"abc"` ||
@@ -103,7 +103,7 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 	}
 	defer os.Remove(tmpFile.Name())
 	start := time.Now().Unix()
-	ret = sh.Execute(context.Background(), Command{TimeoutSec: 2, Content: `echo -n abc && sleep 5 && rm ` + tmpFile.Name()})
+	ret = sh.Execute(context.Background(), Command{TimeoutSec: 2, Content: `echo -n abc; sleep 5; rm ` + tmpFile.Name()})
 	if !strings.Contains(ret.Error.Error(), "time limit") ||
 		ret.Output != "abc" ||
 		!strings.Contains(ret.ResetCombinedText(), "time limit") || !strings.Contains(ret.ResetCombinedText(), CombinedTextSeparator+"abc") {

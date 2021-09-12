@@ -302,59 +302,54 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 
 	// Send an ordinary mail to the daemon
 	addr := smtpd.Address + ":" + strconv.Itoa(smtpd.Port)
-	var lastEmailFrom, lastEmailBody string
+	lastEmailFrom := make(chan string, 100)
+	lastEmailBody := make(chan string, 100)
 	smtpd.processMailTestCaseFunc = func(from string, body string) {
-		lastEmailFrom = from
-		lastEmailBody = body
+		lastEmailFrom <- from
+		lastEmailBody <- body
 	}
 	testMessage := "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
-	lastEmailFrom = ""
-	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
 	}
 	// Due to unknown reason, netSMTP.SendMail always returns prematurely before it has completed the conversation with SMTP server.
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
-	if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
+	if from, body := <-lastEmailFrom, <-lastEmailBody; from != "ClientFrom@localhost" || body != strings.Replace(testMessage, "\r\n", "\n", -1) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, testMessage, lastEmailBody)
 	}
 
 	// Send a mail with a From address of a DMARC-enforcing domain
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@microsoft.com\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
-	lastEmailFrom = ""
-	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "MsgFrom@microsoft.com", []string{"ClientTo@example.com"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
-	if !strings.HasPrefix(lastEmailFrom, "MsgFrom@microsoft-laitos-nodmarc-") || !strings.HasSuffix(lastEmailFrom, ".com") ||
-		!strings.Contains(lastEmailBody, "From: "+lastEmailFrom) || !strings.Contains(lastEmailBody, "Subject: text subject\n\ntest body") {
+	if from, body := <-lastEmailFrom, <-lastEmailBody; !strings.HasPrefix(from, "MsgFrom@microsoft-laitos-nodmarc-") || !strings.HasSuffix(from, ".com") ||
+		!strings.Contains(body, "From: "+from) || !strings.Contains(body, "Subject: text subject\n\ntest body") {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, testMessage, lastEmailBody)
 	}
 
 	// Send a mail that does not belong to this server's domain, which will be simply discarded.
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
-	lastEmailFrom = ""
-	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@not-my-domain"}, []byte(testMessage)); !strings.Contains(err.Error(), "Bad address") {
 		t.Fatal(err)
 	}
-	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
-	if lastEmailFrom != "" || lastEmailBody != "" {
-		t.Fatal(lastEmailFrom, lastEmailBody)
+	select {
+	case <-time.After((DNSBlackListQueryTimeoutSec + 1) * time.Second):
+		// Good, the test function did not get this email, which does not belong to any of the domains handled by SMTP server.
+	case from := <-lastEmailFrom:
+		t.Fatalf("should not have handled email from %s", from)
 	}
 
 	// Try run a command via email
 	testMessage = "From: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: command subject\r\n\r\n  \tverysecret.s echo hi\r\n"
-	lastEmailFrom = ""
-	lastEmailBody = ""
 	if err := netSMTP.SendMail(addr, nil, "ClientFrom@localhost", []string{"ClientTo@howard.name"}, []byte(testMessage)); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
-	if lastEmailFrom != "ClientFrom@localhost" || lastEmailBody != strings.Replace(testMessage, "\r\n", "\n", -1) {
+	if from, body := <-lastEmailFrom, <-lastEmailBody; from != "ClientFrom@localhost" || body != strings.Replace(testMessage, "\r\n", "\n", -1) {
 		// Keep in mind that server reads input mail message through the textproto.DotReader
 		t.Fatal(lastEmailFrom, lastEmailBody)
 	}

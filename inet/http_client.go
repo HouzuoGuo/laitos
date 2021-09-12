@@ -41,7 +41,8 @@ var (
 			if rand.Intn(2) == 0 {
 				proto = "tcp"
 			}
-			return net.Dial(proto, NeutralDNSResolverAddrs[rand.Intn(len(NeutralDNSResolverAddrs))])
+			resolver := NeutralDNSResolverAddrs[rand.Intn(len(NeutralDNSResolverAddrs))]
+			return net.Dial(proto, resolver)
 		},
 	}
 )

@@ -62,11 +62,6 @@ func TestLambdaHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Collect the program data decryption password
-	var decryptionPassword string
-	go func() {
-		decryptionPassword = <-misc.ProgramDataDecryptionPasswordInput
-	}()
 	// Decode and handle the request
 	lambdaResponse, err := hand.decodeAndHandleHTTPRequest("test-request-id", input, 60110)
 	if err != nil {
@@ -90,7 +85,8 @@ func TestLambdaHandler(t *testing.T) {
 	if !IsProgramDataDecrypted {
 		t.Fatal("did not decrypt program data")
 	}
-	if decryptionPassword != "test-password" {
+	// Collect the program data decryption password
+	if decryptionPassword := <-misc.ProgramDataDecryptionPasswordInput; decryptionPassword != "test-password" {
 		t.Fatal(decryptionPassword)
 	}
 	// Check web request translation
