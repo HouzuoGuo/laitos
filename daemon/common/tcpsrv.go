@@ -103,7 +103,7 @@ func (srv *TCPServer) StartAndBlock() error {
 			srv.logger.Warning("StartAndBlock", srv.AppName, misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
-		client, err := srv.listener.Accept()
+		client, err := listener.Accept()
 		if err != nil {
 			if strings.Contains(err.Error(), "closed") {
 				return nil
