@@ -410,7 +410,7 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 		}
 		serverStopped <- struct{}{}
 	}()
-	if !misc.ProbePort(2*time.Second, dnsd.Address, dnsd.TCPPort) {
+	if !misc.ProbePort(5*time.Second, dnsd.Address, dnsd.TCPPort) {
 		t.Fatal("did not start within two seconds")
 	}
 

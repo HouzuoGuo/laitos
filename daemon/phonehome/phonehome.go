@@ -344,7 +344,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 			return
 		}
 	}()
-	if !misc.ProbePort(1*time.Second, "0.0.0.0", l.Addr().(*net.TCPAddr).Port) {
+	if !misc.ProbePort(5*time.Second, "0.0.0.0", l.Addr().(*net.TCPAddr).Port) {
 		t.Fatal("http server did not start in time")
 	}
 	// Start phone-home daemon

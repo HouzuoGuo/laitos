@@ -32,7 +32,7 @@ func TestWebServer(t *testing.T) {
 		shutdownChan <- struct{}{}
 	}()
 	// Expect server to start within a second
-	if !misc.ProbePort(1*time.Second, "localhost", ws.Port) {
+	if !misc.ProbePort(5*time.Second, "localhost", ws.Port) {
 		t.Fatal("server did not start in time")
 	}
 	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, fmt.Sprintf("http://localhost:%d", ws.Port))
@@ -79,7 +79,7 @@ func TestWebServer_UnlockWithPassword(t *testing.T) {
 			return
 		}
 	}()
-	if !misc.ProbePort(1*time.Second, "localhost", ws.Port) {
+	if !misc.ProbePort(5*time.Second, "localhost", ws.Port) {
 		t.Fatal("server did not start in time")
 	}
 	// Give it an incorrect password and expect an error response

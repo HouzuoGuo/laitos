@@ -296,7 +296,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 		}
 		serverStopped <- struct{}{}
 	}()
-	if !misc.ProbePort(1*time.Second, smtpd.Address, smtpd.Port) {
+	if !misc.ProbePort(5*time.Second, smtpd.Address, smtpd.Port) {
 		t.Fatal("daemon did not start in time")
 	}
 

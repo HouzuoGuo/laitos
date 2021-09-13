@@ -174,7 +174,7 @@ func TestSimpleIPSvcD(daemon *Daemon, t testingstub.T) {
 		serverStopped <- struct{}{}
 	}()
 	for _, port := range []int{daemon.ActiveUsersPort, daemon.DayTimePort, daemon.QOTDPort} {
-		if !misc.ProbePort(1*time.Second, daemon.Address, port) {
+		if !misc.ProbePort(5*time.Second, daemon.Address, port) {
 			t.Fatal("server did not start on time")
 		}
 	}

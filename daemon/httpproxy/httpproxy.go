@@ -164,7 +164,7 @@ func TestHTTPProxyDaemon(daemon *Daemon, t testingstub.T) {
 		}
 		daemonStopped <- struct{}{}
 	}()
-	if !misc.ProbePort(1*time.Second, "127.0.0.1", daemon.Port) {
+	if !misc.ProbePort(5*time.Second, daemon.Address, daemon.Port) {
 		t.Fatal("daemon did not start on time")
 	}
 	// Use the HTTP proxy daemon as the choice of proxy in this HTTP client

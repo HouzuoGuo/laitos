@@ -31,7 +31,7 @@ func TestLambdaHandler(t *testing.T) {
 			return
 		}
 	}()
-	if !misc.ProbePort(1*time.Second, "localhost", 60110) {
+	if !misc.ProbePort(5*time.Second, "localhost", 60110) {
 		t.Fatal("server did not start in time")
 	}
 

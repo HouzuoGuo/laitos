@@ -92,7 +92,7 @@ func TestGetUnlockingPassword(t *testing.T) {
 			return
 		}
 	}()
-	if !misc.ProbePort(1*time.Second, "127.0.0.1", daemon.Port) {
+	if !misc.ProbePort(5*time.Second, daemon.Address, daemon.Port) {
 		t.Fatal("daemon did not start on time")
 	}
 	password := getUnlockingPassword(context.Background(), false, *lalog.DefaultLogger, "test-challenge-str", net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)))
