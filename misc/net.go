@@ -2,14 +2,19 @@ package misc
 
 import (
 	"net"
+	"runtime/debug"
 	"strconv"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
-// ProbePort makes at most 100 attempts at contacting the TCP server specified by its host and port, for up to specified
-// maximum duration.
-// If the TCP server accepts a connection, the connection will be immediately closed and the function will return true.
-// If after the maximum duration the TCP server still has not accepted a connection, the function will return false.
+// ProbePort makes at most 100 attempts at contacting the TCP server specified
+// by its host and port, for up to specified maximum duration.
+// If the TCP server accepts a connection, the connection will be immediately
+// closed and the function will return true.
+// If after the maximum duration the TCP server still has not accepted a
+// connection, the function will return false and print a warning log message.
 func ProbePort(maxDuration time.Duration, host string, port int) bool {
 	maxRounds := 100
 	for i := 0; i < maxRounds; i++ {
@@ -20,6 +25,7 @@ func ProbePort(maxDuration time.Duration, host string, port int) bool {
 		}
 		time.Sleep(maxDuration / time.Duration(maxRounds))
 	}
+	lalog.DefaultLogger.Warning("ProbePort", "", nil, "%s:%d did not respond within %s. Stack: %s", host, port, maxDuration, debug.Stack())
 	return false
 }
 
@@ -31,7 +37,7 @@ func TweakTCPConnection(conn *net.TCPConn, firstTransferTimeout time.Duration) {
 	_ = conn.SetKeepAlive(true)
 	// Set keep-alive interval to every minute
 	_ = conn.SetKeepAlivePeriod(60 * time.Second)
-	// The first data transfer from server to client or client to server must take place before the timeout occurrs
+	// The first data transfer from server to client or client to server must take place before the timeout occurs
 	_ = conn.SetDeadline(time.Now().Add(firstTransferTimeout))
 	// Allow outstanding data to be transferred within 5 seconds of closing the connection
 	_ = conn.SetLinger(5)

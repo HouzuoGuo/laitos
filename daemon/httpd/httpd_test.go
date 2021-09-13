@@ -151,7 +151,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		serverStopped <- struct{}{}
 	}()
 	if !misc.ProbePort(5*time.Second, daemon.Address, daemon.Port) {
-		t.Fatal("server did not start on time")
+		t.Fatalf("server on %s:%d did not start on time", daemon.Address, daemon.Port)
 	}
 	TestHTTPD(&daemon, t)
 	TestAPIHandlers(&daemon, t)
