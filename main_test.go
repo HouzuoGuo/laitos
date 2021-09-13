@@ -25,39 +25,41 @@ func TestCopyNonEssentialUtilitiesInBackground(t *testing.T) {
 
 func TestAutoRestart(t *testing.T) {
 	// The sample function returns error three times and then returns nothing.
-	sampleRound := 0
+	restarted := make(chan struct{}, 10)
+	roundNum := 0
 	sampleFun := func() error {
-		if sampleRound <= 2 {
-			sampleRound++
-			return fmt.Errorf("round %d", sampleRound)
+		if roundNum <= 2 {
+			restarted <- struct{}{}
+			roundNum++
+			return fmt.Errorf("round %d", roundNum)
 		}
 		return nil
 	}
-	var returnedFromRestart bool
+	done := make(chan struct{}, 0)
 	go func() {
 		AutoRestart(lalog.Logger{}, "sample", sampleFun)
-		returnedFromRestart = true
+		done <- struct{}{}
 	}()
-	// Round 0 quits with an error and it is immediately restarted
-	time.Sleep(1 * time.Second)
-	// Round 1 quits with an error
-	if sampleRound != 2 {
-		t.Fatal(sampleRound)
+	start := time.Now()
+	// Round 1 quits with an error and it is immediately restarted
+	<-restarted
+	if time.Now().Sub(start) > 2*time.Second {
+		t.Fatal("round 1 took too long")
 	}
-	// Round 2 is started after 10 seconds
-	time.Sleep(10 * time.Second)
 	// Round 2 quits with an error
-	if sampleRound != 3 {
-		t.Fatal(sampleRound)
+	<-restarted
+	if time.Now().Sub(start) > 2*time.Second {
+		t.Fatal("round 2 took too long")
 	}
-	// Round 3 is started after 20 seconds
-	time.Sleep(20 * time.Second)
-	if sampleRound != 3 {
-		t.Fatal(sampleRound)
+	// Round 3 is started after another 10 seconds
+	<-restarted
+	if time.Now().Sub(start) > 12*time.Second {
+		t.Fatal("round 3 took too long")
 	}
-	// Round 3 quits successfuly, no further restart is required.
-	if !returnedFromRestart {
-		t.Fatal("did not return")
+	// Round 4 is started after another 20 seconds
+	<-done
+	if time.Now().Sub(start) > 32*time.Second {
+		t.Fatal("round 4 (successful return) took too long")
 	}
 }
 
@@ -65,27 +67,22 @@ func TestAutoRestartDuringLockDown(t *testing.T) {
 	sampleFun := func() error {
 		return errors.New("sample function error")
 	}
-	var returnedFromRestart bool
-	go func() {
-		AutoRestart(lalog.Logger{}, "sample", sampleFun)
-		returnedFromRestart = true
-	}()
-	// Turn on emergency lock-down
+	done := make(chan struct{}, 0)
+	// While emergency lock down is activated, auto-restart will not perform a restart.
 	misc.EmergencyLockDown = true
 	defer func() {
 		misc.EmergencyLockDown = false
 	}()
-	// AutoRestart keeps the sample function ablive, but it shall quit after emergency lock-down.
-	// Wait past the second restart
-	time.Sleep(15 * time.Second)
-	if !returnedFromRestart {
-		t.Fatal("did not return")
-	}
+	go func() {
+		AutoRestart(lalog.Logger{}, "sample", sampleFun)
+		done <- struct{}{}
+	}()
+	<-done
 }
 
 func TestGetUnlockingPassword(t *testing.T) {
 	daemon := &passwdrpc.Daemon{
-		Address:          "0.0.0.0",
+		Address:          "127.0.0.1",
 		Port:             8972,
 		PasswordRegister: netboundfileenc.NewPasswordRegister(10, 10, lalog.DefaultLogger),
 	}
