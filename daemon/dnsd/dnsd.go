@@ -508,11 +508,18 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		daemon.blackList = oldBlacklist
 	}()
 	daemon.blackList["github.com"] = struct{}{}
-	if result, err := resolver.LookupHost(context.Background(), "GiThUb.CoM"); err != nil || len(result) != 1 || result[0] != "0.0.0.0" {
+	daemon.blackList["google.com"] = struct{}{}
+	if result, err := resolver.LookupIP(context.Background(), "ip4", "GiThUb.CoM"); err != nil || len(result) != 1 || result[0].String() != "0.0.0.0" {
 		t.Fatal("failed to get a black-listed response", err, result)
 	}
 	if lastResolvedName != "GiThUb.CoM" {
 		t.Fatal("attempted to resolve black-listed github.com, but daemon saw:", lastResolvedName)
+	}
+	if result, err := resolver.LookupIP(context.Background(), "ip6", "gooGLE.cOm"); err != nil || len(result) != 1 || result[0].String() != "::1" {
+		t.Fatal("failed to get a black-listed response", err, result)
+	}
+	if lastResolvedName != "gooGLE.cOm" {
+		t.Fatal("attempted to resolve black-listed google.com, but daemon saw:", lastResolvedName)
 	}
 
 	// Make a TXT query that carries toolbox command prefix but is in fact not

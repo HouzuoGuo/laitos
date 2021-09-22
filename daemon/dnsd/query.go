@@ -28,10 +28,20 @@ func (pkt *QueryPacket) IsTextQuery() bool {
 
 }
 
-// IsTextQuery returns true only if the query's only question is looking for an "A" (IPv4) address record.
-func (pkt *QueryPacket) IsNameQuery() bool {
-	// The magic type hex for A is 0x0001, class Internet.
-	return pkt.NumQuestions == 1 && bytes.Equal(pkt.Type, []byte{0x00, 0x01}) && bytes.Equal(pkt.Class, []byte{0x00, 0x01})
+// GetNameQueryVersion returns either 4 or 6 if the query packet is a name query.
+// If the packet is not a name query, the function will return 0.
+func (pkt *QueryPacket) GetNameQueryVersion() int {
+	// 1 question for Internet class
+	if pkt.NumQuestions != 1 || !bytes.Equal(pkt.Class, []byte{0x00, 0x01}) {
+		return 0
+	}
+	if bytes.Equal(pkt.Type, []byte{0x00, 0x01}) {
+		return 4
+	} else if bytes.Equal(pkt.Type, []byte{0x00, 0x1c}) {
+		return 6
+	} else {
+		return 0
+	}
 }
 
 // GetHostName returns the host name (e.g. example.com) specified in the query labels.
@@ -127,20 +137,24 @@ var (
 	// standardResponseNoError is a magic flag used in a DNS response packet, it means standard response without an error.
 	standardResponseNoError = []byte{129, 128}
 
-	// blackHoleAnswer is an answer to a DNS name query, the answer points the domain in question to "0.0.0.0".
-	//                       Domain      A    IN      TTL 1466  IPv4     0.0.0.0
-	blackHoleAnswer = []byte{192, 12, 0, 1, 0, 1, 0, 0, 5, 186, 0, 4, 0, 0, 0, 0}
+	// blackHoleV4Answer is a DNS answer that points the domain in question to "0.0.0.0" (any NIC).
+	//                             Domain           A    IN      TTL (256)  IPv4     0.0.0.0
+	blackHoleV4Answer = []byte{0xc0, 0x0c, 0x00, 0x01, 0, 1, 0, 0, 0, 0xff, 0, 4, 0, 0, 0, 0}
+
+	// blackHoleV6Answer is a DNS answer that points the domain in question to "::1" (localhost).
+	//                             Domain        AAAA          TTL (256)    IPv6  0000  0000  0000  0000  0000  0000  0000  0001
+	blackHoleV6Answer = []byte{0xc0, 0x0c, 0x00, 0x1c, 0, 1, 0, 0, 0, 0xff, 0, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 
 	// textQueryMagic is a series of bytes that appears at the very end of a TXT query question.
 	textQueryMagic = []byte{0, 16, 0, 1}
 )
 
 // GetBlackHoleResponse returns a DNS response packet (without prefix length bytes) that points queried name to 0.0.0.0.
-func GetBlackHoleResponse(queryNoLength []byte) []byte {
+func GetBlackHoleResponse(queryNoLength []byte, isV6Query bool) []byte {
 	if queryNoLength == nil || len(queryNoLength) < MinNameQuerySize {
 		return []byte{}
 	}
-	answerPacket := make([]byte, 2+2+len(queryNoLength)-4+len(blackHoleAnswer))
+	answerPacket := make([]byte, 2+2+len(queryNoLength)-4)
 	// Match transaction ID of original query
 	answerPacket[0] = queryNoLength[0]
 	answerPacket[1] = queryNoLength[1]
@@ -151,8 +165,11 @@ func GetBlackHoleResponse(queryNoLength []byte) []byte {
 	// There is exactly one answer RR
 	answerPacket[6] = 0
 	answerPacket[7] = 1
-	// Answer 0.0.0.0 to the query
-	copy(answerPacket[len(answerPacket)-len(blackHoleAnswer):], blackHoleAnswer)
+	if isV6Query {
+		answerPacket = append(answerPacket, blackHoleV6Answer...)
+	} else {
+		answerPacket = append(answerPacket, blackHoleV4Answer...)
+	}
 	return answerPacket
 }
 

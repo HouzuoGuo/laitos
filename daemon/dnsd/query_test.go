@@ -2,40 +2,49 @@ package dnsd
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"reflect"
+	"strings"
 	"testing"
 )
 
 // Sample queries for composing test cases
-var githubComTCPQuery []byte
-var githubComUDPQuery []byte
+var (
+	githubComV4TCPQuery []byte
+	githubComV4UDPQuery []byte
+	googleComV6UDPQuery []byte
+)
 
 func init() {
 	var err error
 	// Prepare two A queries on "github.coM" (note the capital M, hex 4d) for test cases
-	githubComTCPQuery, err = hex.DecodeString("00274cc7012000010000000000010667697468756203636f4d00000100010000291000000000000000")
+	githubComV4TCPQuery, err = hex.DecodeString("00274cc7012000010000000000010667697468756203636f4d00000100010000291000000000000000")
 	if err != nil {
 		panic(err)
 	}
-	githubComUDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f4d00000100010000291000000000000000")
+	githubComV4UDPQuery, err = hex.DecodeString("e575012000010000000000010667697468756203636f4d00000100010000291000000000000000")
+	if err != nil {
+		panic(err)
+	}
+	googleComV6UDPQuery, err = hex.DecodeString(strings.Replace("84 e3 01 20 00 01 00 00 00 00 00 01 06 67 6f 6f 67 6c 65 03 63 6f 6d 00 00 1c 00 01 00 00 29 10 00 00 00 00 00 00 00", " ", "", -1))
 	if err != nil {
 		panic(err)
 	}
 }
 
 func TestGetBlackHoleResponse(t *testing.T) {
-	if packet := GetBlackHoleResponse(nil); len(packet) != 0 {
+	if packet := GetBlackHoleResponse(nil, false); len(packet) != 0 {
 		t.Fatal(packet)
 	}
-	if packet := GetBlackHoleResponse([]byte{}); len(packet) != 0 {
+	if packet := GetBlackHoleResponse([]byte{}, false); len(packet) != 0 {
 		t.Fatal(packet)
 	}
-	match, err := hex.DecodeString("e575818000010001000000010667697468756203636f4d00000100010000291000000000000000c00c00010001000005ba000400000000")
+	match, err := hex.DecodeString("e575818000010001000000010667697468756203636f4d00000100010000291000000000000000c00c00010001000000ff000400000000")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if packet := GetBlackHoleResponse(githubComUDPQuery); !reflect.DeepEqual(packet, match) {
+	if packet := GetBlackHoleResponse(githubComV4UDPQuery, false); !reflect.DeepEqual(packet, match) {
 		t.Fatal(hex.EncodeToString(packet))
 	}
 }
@@ -69,46 +78,69 @@ func TestDecodeDTMFCommandInput(t *testing.T) {
 	}
 }
 
-func TestParseQueryPacket(t *testing.T) {
-	if ret := ParseQueryPacket(nil); ret.TransactionID != nil {
-		t.Fatal(ret)
+func TestParseQueryPacketV4(t *testing.T) {
+	if ret := ParseQueryPacket(nil); ret.TransactionID != nil || ret.GetNameQueryVersion() != 0 {
+		t.Fatal(ret, ret.GetNameQueryVersion())
 	}
-	if ret := ParseQueryPacket([]byte{0x1, 0x2}); !bytes.Equal(ret.TransactionID, []byte{0x1, 0x2}) {
-		t.Fatal(ret)
+	if ret := ParseQueryPacket([]byte{0x1, 0x2}); !bytes.Equal(ret.TransactionID, []byte{0x1, 0x2}) || ret.GetNameQueryVersion() != 0 {
+		t.Fatal(ret, ret.GetNameQueryVersion())
 	}
-	githubRet := ParseQueryPacket(githubComUDPQuery)
-	if !bytes.Equal(githubRet.TransactionID, []byte{0xe5, 0x75}) {
-		t.Fatalf("%+v", githubRet)
+	gotPacket := ParseQueryPacket(githubComV4UDPQuery)
+	wantPacket := &QueryPacket{
+		TransactionID:    []byte{0xe5, 0x75},
+		Flags:            []byte{0x01, 0x20},
+		NumQuestions:     1,
+		NumAnswerRRs:     0,
+		NumAuthorityRRs:  0,
+		NumAdditionalRRs: 1,
+		Labels:           []string{"github", "coM"},
+		Type:             []byte{0x00, 0x01},
+		Class:            []byte{0x00, 0x01},
 	}
-	if !bytes.Equal(githubRet.Flags, []byte{0x01, 0x20}) {
-		t.Fatalf("%+v", githubRet)
+	if !reflect.DeepEqual(gotPacket, wantPacket) {
+		t.Fatalf("\ngot:\n%v\nwant:\n%v\n", gotPacket, wantPacket)
 	}
-	if githubRet.NumQuestions != 1 {
-		t.Fatalf("%+v", githubRet)
-	}
-	if githubRet.NumAnswerRRs != 0 {
-		t.Fatalf("%+v", githubRet)
-	}
-	if githubRet.NumAuthorityRRs != 0 {
-		t.Fatalf("%+v", githubRet)
-	}
-	if githubRet.NumAdditionalRRs != 1 {
-		t.Fatalf("%+v", githubRet)
-	}
-	if !reflect.DeepEqual(githubRet.Labels, []string{"github", "coM"}) {
-		t.Fatalf("%+v", githubRet)
-	}
-	if !bytes.Equal(githubRet.Type, []byte{0x00, 0x01}) {
-		t.Fatalf("%+v", githubRet)
-	}
-	if !bytes.Equal(githubRet.Class, []byte{0x00, 0x01}) {
-		t.Fatalf("%+v", githubRet)
-	}
-
-	if hostName := githubRet.GetHostName(); hostName != "github.coM" {
+	if hostName := gotPacket.GetHostName(); hostName != "github.coM" {
 		t.Fatal(hostName)
 	}
-	if !githubRet.IsNameQuery() || githubRet.IsTextQuery() {
-		t.Fatal(githubRet.IsNameQuery(), githubRet.IsTextQuery())
+	if gotPacket.GetNameQueryVersion() != 4 || gotPacket.IsTextQuery() {
+		t.Fatal(gotPacket.GetNameQueryVersion(), gotPacket.IsTextQuery())
+	}
+}
+
+func TestParseQueryPacketV6(t *testing.T) {
+	gotPacket := ParseQueryPacket(googleComV6UDPQuery)
+	wantPacket := &QueryPacket{
+		TransactionID:    []byte{0x84, 0xe3},
+		Flags:            []byte{0x01, 0x20},
+		NumQuestions:     1,
+		NumAnswerRRs:     0,
+		NumAuthorityRRs:  0,
+		NumAdditionalRRs: 1,
+		Labels:           []string{"google", "com"},
+		Type:             []byte{0x00, 0x1c},
+		Class:            []byte{0x00, 0x01},
+	}
+	if !reflect.DeepEqual(gotPacket, wantPacket) {
+		t.Fatalf("\ngot:\n%v\nwant:\n%v\n", gotPacket, wantPacket)
+	}
+	if hostName := gotPacket.GetHostName(); hostName != "google.com" {
+		t.Fatal(hostName)
+	}
+	if gotPacket.GetNameQueryVersion() != 6 || gotPacket.IsTextQuery() {
+		t.Fatal(gotPacket.GetNameQueryVersion(), gotPacket.IsTextQuery())
+	}
+}
+
+func TestParseQueryPacketFuzzy(t *testing.T) {
+	for i := 0; i < 20000; i++ {
+		malformedPacket := make([]byte, 12345)
+		_, err := rand.Reader.Read(malformedPacket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if gotPacket := ParseQueryPacket(malformedPacket); gotPacket.GetNameQueryVersion() != 0 || gotPacket.IsTextQuery() {
+			t.Fatalf("Packet: %v, is name query: %v, is text query: %v", malformedPacket, gotPacket.GetNameQueryVersion(), gotPacket.IsTextQuery())
+		}
 	}
 }

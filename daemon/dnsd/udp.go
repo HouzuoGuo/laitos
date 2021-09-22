@@ -68,7 +68,7 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, quer
 			return len(respBody), respBody
 		}
 	} else {
-		daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "handle query \"%s\"", string(queriedName))
+		daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "handle TXT query \"%s\"", string(queriedName))
 	}
 forwardToRecursiveResolver:
 	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.
@@ -83,12 +83,12 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 		if daemon.processQueryTestCaseFunc != nil {
 			daemon.processQueryTestCaseFunc(domainName)
 		}
-		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle query \"%s\"", domainName)
+		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle IPv%d name query \"%s\"", queryStruct.GetNameQueryVersion(), domainName)
 	}
 	if daemon.IsInBlacklist(domainName) {
 		// Formulate a black-hole response to black-listed domain name
-		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle black-listed \"%s\"", domainName)
-		respBody = GetBlackHoleResponse(queryBody)
+		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle black-listed IPv%d name query \"%s\"", queryStruct.GetNameQueryVersion(), domainName)
+		respBody = GetBlackHoleResponse(queryBody, queryStruct.GetNameQueryVersion() == 6)
 		respLenInt = len(respBody)
 		return
 	}

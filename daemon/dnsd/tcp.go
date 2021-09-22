@@ -19,8 +19,8 @@ func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
 
 // HandleTCPConnection reads a DNS query from a TCP client and responds to it with the DNS query result.
 func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *net.TCPConn) {
+	misc.TweakTCPConnection(conn, ClientTimeoutSec*time.Second)
 	// Read query length
-	logger.MaybeMinorError(conn.SetDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
 	queryLen := make([]byte, 2)
 	_, err := conn.Read(queryLen)
 	if err != nil {
@@ -81,14 +81,13 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 			goto forwardToRecursiveResolver
 		} else {
 			daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "processed a toolbox command")
-
 			respBody = MakeTextResponse(queryBody, cmdResult.CombinedOutput)
 			respLenInt := len(respBody)
 			respLen = []byte{byte(respLenInt / 256), byte(respLenInt % 256)}
 			return
 		}
 	} else {
-		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "handle query \"%s\"", string(queriedName))
+		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "handle TXT query \"%s\"", string(queriedName))
 	}
 forwardToRecursiveResolver:
 	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.
@@ -103,12 +102,12 @@ func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, query
 		if daemon.processQueryTestCaseFunc != nil {
 			daemon.processQueryTestCaseFunc(domainName)
 		}
-		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle query \"%s\"", domainName)
+		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle IPv%d name query \"%s\"", queryStruct.GetNameQueryVersion(), domainName)
 	}
 	if daemon.IsInBlacklist(domainName) {
 		// Black hole response returns a
-		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle black-listed \"%s\"", domainName)
-		respBody = GetBlackHoleResponse(queryBody)
+		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle black-listed IPv%d name query \"%s\"", queryStruct.GetNameQueryVersion(), domainName)
+		respBody = GetBlackHoleResponse(queryBody, queryStruct.GetNameQueryVersion() == 6)
 		respLenInt := len(respBody)
 		respLen = []byte{byte(respLenInt / 256), byte(respLenInt % 256)}
 	} else {
