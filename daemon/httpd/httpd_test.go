@@ -38,7 +38,7 @@ func TestHTTPD_WithURLPrefix(t *testing.T) {
 			return
 		}
 	}()
-	if !misc.ProbePort(5*time.Second, daemon.Address, daemon.Port) {
+	if !misc.ProbePort(30*time.Second, daemon.Address, daemon.Port) {
 		t.Fatal("server did not start in time")
 	}
 	// Test directory listing route
@@ -150,7 +150,7 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 		}
 		serverStopped <- struct{}{}
 	}()
-	if !misc.ProbePort(5*time.Second, daemon.Address, daemon.Port) {
+	if !misc.ProbePort(30*time.Second, daemon.Address, daemon.Port) {
 		t.Fatalf("server on %s:%d did not start on time", daemon.Address, daemon.Port)
 	}
 	TestHTTPD(&daemon, t)

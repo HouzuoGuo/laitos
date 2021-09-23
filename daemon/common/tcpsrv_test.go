@@ -48,7 +48,7 @@ func TestTCPServer(t *testing.T) {
 		}
 		serverStopped <- struct{}{}
 	}()
-	if !misc.ProbePort(5*time.Second, srv.ListenAddr, srv.ListenPort) {
+	if !misc.ProbePort(30*time.Second, srv.ListenAddr, srv.ListenPort) {
 		t.Fatal("server did not start in time")
 	}
 

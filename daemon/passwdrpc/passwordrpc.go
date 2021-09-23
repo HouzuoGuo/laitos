@@ -104,7 +104,7 @@ func TestPasswdRPCDaemon(daemon *Daemon, t testingstub.T) {
 		}
 		daemonStopped <- struct{}{}
 	}()
-	if !misc.ProbePort(5*time.Second, daemon.Address, daemon.Port) {
+	if !misc.ProbePort(30*time.Second, daemon.Address, daemon.Port) {
 		t.Fatal("daemon did not start on time")
 	}
 	clientConn, err := grpc.Dial(net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)), grpc.WithInsecure(), grpc.WithBlock())

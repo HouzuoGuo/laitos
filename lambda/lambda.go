@@ -149,7 +149,7 @@ func (hand *Handler) decodeAndHandleHTTPRequest(awsRequestID string, invocationJ
 	}
 	hand.logger.Info("decodeAndHandleHTTPRequest", awsRequestID, err, "%s %s with %d bytes of request body", reqParams.Method, reqURL, len(reqBody))
 	// Wait for HTTP server to start
-	if !misc.ProbePort(20*time.Second, "localhost", webServerPort) {
+	if !misc.ProbePort(30*time.Second, "localhost", webServerPort) {
 		hand.logger.Warning("decodeAndHandleHTTPRequest", awsRequestID, nil, "the web server failed to start in time")
 		return nil, errors.New("the web server failed to start in time")
 	}

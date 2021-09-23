@@ -210,7 +210,7 @@ func TestServer(server *Daemon, t testingstub.T) {
 		}
 		serverStopped <- struct{}{}
 	}()
-	if !misc.ProbePort(5*time.Second, server.Address, server.TCPPort) {
+	if !misc.ProbePort(30*time.Second, server.Address, server.TCPPort) {
 		t.Fatal("server did not start in time")
 	}
 

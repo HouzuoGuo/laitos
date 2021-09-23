@@ -100,7 +100,7 @@ func TestDoHTTPFaultyServer(t *testing.T) {
 			return
 		}
 	}()
-	if !misc.ProbePort(5*time.Second, "localhost", listener.Addr().(*net.TCPAddr).Port) {
+	if !misc.ProbePort(30*time.Second, "localhost", listener.Addr().(*net.TCPAddr).Port) {
 		t.Fatal("server did not start in time")
 	}
 
@@ -143,7 +143,7 @@ func TestDoHTTPGoodServer(t *testing.T) {
 			return
 		}
 	}()
-	if !misc.ProbePort(5*time.Second, "localhost", listener.Addr().(*net.TCPAddr).Port) {
+	if !misc.ProbePort(30*time.Second, "localhost", listener.Addr().(*net.TCPAddr).Port) {
 		t.Fatal("server did not start in time")
 	}
 

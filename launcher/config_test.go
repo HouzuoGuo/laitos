@@ -408,7 +408,7 @@ func TestConfig(t *testing.T) {
 			return
 		}
 	}()
-	if !misc.ProbePort(3*time.Second, httpDaemon.Address, httpDaemon.Port) {
+	if !misc.ProbePort(30*time.Second, httpDaemon.Address, httpDaemon.Port) {
 		t.Fatal("server did not start in time")
 	}
 
