@@ -1,0 +1,22 @@
+{
+  "HTTPFilters": {
+    "LintText": {
+      "CompressSpaces": false,
+      "CompressToSingleLine": false,
+      "KeepVisible7BitCharOnly": false,
+      "MaxLength": 1000,
+      "TrimSpaces": false
+    },
+    "PINAndShortcuts": {
+      "Passwords": [
+        "password"
+      ]
+    }
+  },
+  "HTTPHandlers": {
+    "CommandFormEndpoint": "/cmd",
+    "InformationEndpoint": "/info",
+    "RequestInspectorEndpoint": "/myrequest",
+    "WebProxyEndpoint": "/proxy"
+  }
+}
