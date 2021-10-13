@@ -176,7 +176,7 @@ func TestHTTPProxyDaemon(daemon *Daemon, t testingstub.T) {
 		Proxy: http.ProxyURL(proxyURL),
 	}}
 	// Perform a regular HTTP request using the proxy server
-	resp, err := proxyClient.Get("http://google.com")
+	resp, err := proxyClient.Get("http://microsoft.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestHTTPProxyDaemon(daemon *Daemon, t testingstub.T) {
 		t.Fatal("unexpected http response status code", resp.StatusCode)
 	}
 	// Perform a regular HTTPS request using the proxy server
-	resp, err = proxyClient.Get("https://google.com")
+	resp, err = proxyClient.Get("https://microsoft.com")
 	if err != nil {
 		t.Fatal(err)
 	}
