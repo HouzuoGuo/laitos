@@ -1,0 +1,86 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laitos-app-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      pod-app: laitos-pod
+  template:
+    metadata:
+      labels:
+        pod-app: laitos-pod
+    spec:
+      containers:
+        - name: laitos-container
+          imagePullPolicy: Always
+          image: hzgl/laitos:latest
+          args: ["-daemons", "insecurehttpd"]
+          env:
+            - name: LAITOS_CONFIG
+              value: |
+                {
+                  "HTTPFilters": {
+                    "LintText": {
+                      "CompressSpaces": false,
+                      "CompressToSingleLine": false,
+                      "KeepVisible7BitCharOnly": false,
+                      "MaxLength": 1000,
+                      "TrimSpaces": false
+                    },
+                    "PINAndShortcuts": {
+                      "Passwords": [
+                        "password"
+                      ]
+                    }
+                  },
+                  "HTTPHandlers": {
+                    "CommandFormEndpoint": "/cmd",
+                    "IndexEndpointConfig": {
+                      "HTMLFilePath": "index.html"
+                    },
+                    "IndexEndpoints": [
+                      "/",
+                      "/index.html"
+                    ],
+                    "InformationEndpoint": "/info",
+                    "RequestInspectorEndpoint": "/myrequest",
+                    "WebProxyEndpoint": "/proxy"
+                  }
+                }
+          ports:
+            - containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: laitos-svc
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    pod-app: laitos-pod
+  type: ClusterIP
+  sessionAffinity: None
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: laitos-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: laitos-svc
+                port:
+                  number: 80

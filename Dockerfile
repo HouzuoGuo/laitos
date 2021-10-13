@@ -2,11 +2,12 @@ FROM ubuntu:20.04
 
 # See https://hub.docker.com/repository/docker/hzgl/laitos for ready made images uploaded by the author of laitos program.
 WORKDIR /
+COPY k8s.example/index.html /index.html
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && apt upgrade -q -y -f -m -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-overwrite && apt install -q -y -f -m -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-overwrite bind9-dnsutils busybox ca-certificates curl iputils-ping lftp net-tools netcat-openbsd socat wget
 
-COPY laitos /laitos
-ENTRYPOINT ["/laitos"]
+COPY laitos.amd64 /laitos.amd64
+ENTRYPOINT ["/laitos.amd64"]
 
 # A gentle start - run laitos in a container and start the HTTP server:
 # 1. Start the container: docker run -it --rm -p 12345:80 --env 'LAITOS_CONFIG={"HTTPFilters": {"PINAndShortcuts": {"Passwords": ["abcdefgh"]},"LintText": {"MaxLength": 1000}},"HTTPHandlers": {"AppCommandEndpoint": "/cmd"}}' hzgl/laitos:latest -daemons insecurehttpd
