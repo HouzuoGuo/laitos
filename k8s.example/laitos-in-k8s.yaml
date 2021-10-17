@@ -38,18 +38,15 @@ spec:
                   },
                   "HTTPHandlers": {
                     "CommandFormEndpoint": "/cmd",
-                    "IndexEndpointConfig": {
-                      "HTMLFilePath": "index.html"
-                    },
-                    "IndexEndpoints": [
-                      "/",
-                      "/index.html"
-                    ],
                     "InformationEndpoint": "/info",
                     "RequestInspectorEndpoint": "/myrequest",
                     "WebProxyEndpoint": "/proxy"
                   }
                 }
+            - name: LAITOS_INDEX_PAGE
+              value: |
+                Hello from k8s!
+                This is a demo app, brought to you by the laitos open source project: https://github.com/HouzuoGuo/laitos
           ports:
             - containerPort: 80
 

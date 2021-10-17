@@ -46,6 +46,15 @@ const (
 	// used by a few public cloud services (e.g. AWS Elastic Beanstalk) to
 	// inform an application which port it should listen on.
 	EnvironmentPortNumber = "PORT"
+
+	// EnvironmentIndexPage is the name of an environment variable that provides
+	// an way of installing an HTML doc handler for an index page instead of
+	// writing the same configuration in JSON configuration.
+	// When the environment variable is present, the HTTP daemons will
+	// initialise themselves with an HTML doc handler serving the environment
+	// variable content at "/", "/index.htm", and "/index.html".
+	// This environment variable value takes precedence over JSON configuration.
+	EnvironmentIndexPage = "LAITOS_INDEX_PAGE"
 )
 
 // HandlerCollection is a mapping between URL and implementation of handlers. It does not contain directory handlers.
@@ -153,6 +162,9 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 
 	// Install handlers with rate-limiting middleware
 	daemon.mux = new(http.ServeMux)
+	if daemon.HandlerCollection == nil {
+		daemon.HandlerCollection = HandlerCollection{}
+	}
 	daemon.AllRateLimits = map[string]*misc.RateLimit{}
 
 	// Prometheus histograms that use a label to tell the HTTP handler associated with the histogram metrics
@@ -181,7 +193,7 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 		}
 	}
 
-	// Install directory handlers
+	// Install directory handlers.
 	if daemon.ServeDirectories != nil {
 		for urlLocation, dirPath := range daemon.ServeDirectories {
 			if urlLocation == "" || dirPath == "" {
@@ -212,7 +224,16 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 		}
 	}
 
-	// Install web service handlers
+	// Install index page handlers.
+	if indexPageContent := strings.TrimSpace(os.Getenv(EnvironmentIndexPage)); indexPageContent != "" {
+		daemon.logger.Info("Initialise", "", nil, "serving index page from environment variable %s", EnvironmentIndexPage)
+		indexHandler := &handler.HandleHTMLDocument{HTMLContent: indexPageContent}
+		for _, path := range []string{"/", "/index.htm", "/index.html"} {
+			daemon.HandlerCollection[path] = indexHandler
+		}
+	}
+
+	// Install web service handlers.
 	for urlLocation, hand := range daemon.HandlerCollection {
 		if err := hand.Initialise(daemon.logger, daemon.Processor, stripURLPrefixFromResponse); err != nil {
 			return err

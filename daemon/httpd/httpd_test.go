@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func TestHTTPD_WithURLPrefix(t *testing.T) {
 	// Prepare directory listing route, text file rendering route, and a handler function route.
 	daemon := Daemon{
 		Address:          "localhost",
-		Port:             16251,
+		Port:             34859,
 		Processor:        toolbox.GetTestCommandProcessor(),
 		ServeDirectories: map[string]string{"my/dir": "/tmp/test-laitos-dir", "dir": "/tmp/test-laitos-dir"},
 		HandlerCollection: map[string]handler.Handler{
@@ -160,5 +161,33 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	daemon.StopNoTLS()
+	daemon.StopNoTLS()
+}
+
+func TestHTTPD_IndexPageFromEnv(t *testing.T) {
+	daemon := Daemon{
+		Address: "localhost",
+		Port:    21987,
+	}
+	os.Setenv(EnvironmentIndexPage, "hi from env")
+	if err := daemon.Initialise("/test-prefix", ""); err != nil {
+		t.Fatalf("%+v", err)
+	}
+	go func() {
+		if err := daemon.StartAndBlockNoTLS(0); err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+	if !misc.ProbePort(30*time.Second, daemon.Address, daemon.Port) {
+		t.Fatal("server did not start in time")
+	}
+	serverURLPrefix := fmt.Sprintf("http://localhost:%d/test-prefix", daemon.Port)
+	for _, path := range []string{"/", "/index.htm", "/index.html"} {
+		resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, serverURLPrefix+path)
+		if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "hi from env") {
+			t.Fatal(serverURLPrefix+path, err, string(resp.Body), resp)
+		}
+	}
 	daemon.StopNoTLS()
 }

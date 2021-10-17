@@ -20,8 +20,16 @@ const (
 	HTMLClientAddress = "#LAITOS_CLIENTADDR"
 )
 
-// HandleHTMLDocument renders an HTML page with client IP and current system time injected inside.
+// HandleHTMLDocument responds to the HTTP request with a static HTML page.
+// The page may contain placeholders (for example "#LAITOS_3339TIME"), which
+// will be substituted with rendered values when the page is served to a client.
 type HandleHTMLDocument struct {
+	// HTMLContent is the content of HTML page, which may contain magic
+	// placeholders. It is OK to configure the handler to serve an empty HTML
+	// page with no content at all.
+	HTMLContent string `json:"HTMLContent"`
+	// HTMLFilePath is the file path to the HTML page, the content of which may
+	// contain placeholders.
 	HTMLFilePath string `json:"HTMLFilePath"`
 
 	contentBytes  []byte // contentBytes is the HTML document file's content in bytes
@@ -30,10 +38,13 @@ type HandleHTMLDocument struct {
 
 func (doc *HandleHTMLDocument) Initialise(lalog.Logger, *toolbox.CommandProcessor, string) error {
 	var err error
-	if doc.contentBytes, err = ioutil.ReadFile(doc.HTMLFilePath); err != nil {
-		return fmt.Errorf("HandleHTMLDocument.Initialise: failed to open HTML file at %s - %v", doc.HTMLFilePath, err)
+	doc.contentString = doc.HTMLContent
+	if doc.HTMLFilePath != "" {
+		if doc.contentBytes, err = ioutil.ReadFile(doc.HTMLFilePath); err != nil {
+			return fmt.Errorf("HandleHTMLDocument.Initialise: failed to open HTML file at %s - %v", doc.HTMLFilePath, err)
+		}
+		doc.contentString = string(doc.contentBytes)
 	}
-	doc.contentString = string(doc.contentBytes)
 	return nil
 }
 
@@ -47,12 +58,12 @@ func (doc *HandleHTMLDocument) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (_ *HandleHTMLDocument) GetRateLimitFactor() int {
-	/*
-		Usually nobody visits the index page (or plain HTML document) this often, but on Elastic Beanstalk the nginx
-		proxy in front of the HTTP 80 server visits the index page a lot! If HTTP server fails to serve this page,
-		Elastic Beanstalk will consider the instance unhealthy. Therefore, the factor here allows 8x as many requests
-		to be processed.
-	*/
+	// Some laitos installations are web servers behind a load balancer, they
+	// use an HTML document handler for the load balancer's health check
+	// endpoint. In some rare cases (e.g. AWS Beanstalk using a combo of elastic
+	// load balancer and on-instance nginx proxy) are very busy and make far
+	// more requests than what was configured.
+	// Therefore, be extra generous about the rate limit factor.
 	return 8
 }
 

@@ -28,19 +28,22 @@ such as a load balancer or LAN proxy, the return value will be the client IP add
 "X-Real-Ip" (preferred) or "X-Forwarded-For".
 */
 func GetRealClientIP(r *http.Request) string {
-	ip := r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')]
-	if strings.HasPrefix(ip, "127.") {
-		if realIP := r.Header["X-Real-Ip"]; len(realIP) > 0 {
-			ip = realIP[0]
-		} else if forwardedFor := r.Header["X-Forwarded-For"]; len(forwardedFor) > 0 {
-			// X-Forwarded-For value looks like "1.1.1.1[, 2.2.2.2, 3.3.3.3 ...]" where the first IP is the client IP
-			split := strings.Split(forwardedFor[0], ",")
-			if len(split) > 0 {
-				ip = split[0]
+	if colon := strings.LastIndexByte(r.RemoteAddr, ':'); colon > 1 {
+		ip := r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')]
+		if strings.HasPrefix(ip, "127.") {
+			if realIP := r.Header["X-Real-Ip"]; len(realIP) > 0 {
+				ip = realIP[0]
+			} else if forwardedFor := r.Header["X-Forwarded-For"]; len(forwardedFor) > 0 {
+				// X-Forwarded-For value looks like "1.1.1.1[, 2.2.2.2, 3.3.3.3 ...]" where the first IP is the client IP
+				split := strings.Split(forwardedFor[0], ",")
+				if len(split) > 0 {
+					ip = split[0]
+				}
 			}
 		}
+		return ip
 	}
-	return ip
+	return ""
 }
 
 // RecordInternalStats decorates the HTTP handler function by recording the request handing duration in internal stats.
