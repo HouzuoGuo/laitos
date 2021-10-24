@@ -116,8 +116,9 @@ type HTTPHandlers struct {
 	ReportsRetrievalEndpoint string `json:"ReportsRetrievalEndpoint"`
 	ProcessExplorerEndpoint  string `json:"ProcessExplorerEndpoint"`
 
-	PrometheusMetricsEndpoint string `json:"PrometheusMetricsEndpoint"`
-	RequestInspectorEndpoint  string `json:"RequestInspectorEndpoint"`
+	PrometheusMetricsEndpoint       string `json:"PrometheusMetricsEndpoint"`
+	RequestInspectorEndpoint        string `json:"RequestInspectorEndpoint"`
+	LatestRequestsInspectorEndpoint string `json:"LatestRequestsInspector"`
 }
 
 // AWSIntegration contains configuration properties for global behaviours (e.g. logger) of laitos program to integrate with AWS
@@ -613,6 +614,9 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		}
 		if config.HTTPHandlers.RequestInspectorEndpoint != "" {
 			handlers[config.HTTPHandlers.RequestInspectorEndpoint] = &handler.HandleRequestInspector{}
+		}
+		if config.HTTPHandlers.LatestRequestsInspectorEndpoint != "" {
+			handlers[config.HTTPHandlers.LatestRequestsInspectorEndpoint] = &handler.HandleLatestRequestsInspector{}
 		}
 		config.HTTPDaemon.HandlerCollection = handlers
 		stripURLPrefixFromRequest := os.Getenv(EnvironmentStripURLPrefixFromRequest)

@@ -131,6 +131,7 @@
       }
     },
     "CommandFormEndpoint": "/sample/cmd",
+    "FileUploadEndpoint": "/sample/upload",
     "GitlabBrowserEndpoint": "/sample/gitlab",
     "GitlabBrowserEndpointConfig": {
       "PrivateToken": "dummy token",
@@ -142,6 +143,7 @@
       ]
     },
     "InformationEndpoint": "/sample/info",
+    "LatestRequestsInspector": "/sample/latest_requests",
     "MailMeEndpoint": "/sample/mailme",
     "MailMeEndpointConfig": {
       "Recipients": [
@@ -175,6 +177,7 @@
         }
       }
     },
+    "RequestInspectorEndpoint": "/sample/my_request",
     "TwilioCallEndpoint": "/sample/twilio/call",
     "TwilioCallEndpointConfig": {
       "CallGreeting": "Hey"

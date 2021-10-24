@@ -1,10 +1,16 @@
 package middleware
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/datastruct"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -19,7 +25,27 @@ const (
 	PrometheusHandlerLocationLabel = "url_location"
 	// PrometheusHandlerHostLabel is the name of data label given to prometheus observers, the label data shall be the intended host (example.com:443) requested by the client.
 	PrometheusHandlerHostLabel = "host"
+	// MaxLatestRequests is the maximum number of latest HTTP requests to be
+	// kept in-memory for on-demand inspection.
+	MaxLatestRequests = 200
 )
+
+var (
+	// LatestRequests is a ring buffer of the latest HTTP requests processed by
+	// HTTP daemons. HandleLatestRequestsInspector will be retrieving these
+	// captured requests and present them to user for inspection.
+	LatestRequests *datastruct.RingBuffer
+
+	// EnableLatestRequestsRecording determines whether the default set of
+	// middleware installed to HTTP daemons will be capturing the latest HTTP
+	// requests into a ring buffer for inspection. HandleLatestRequestsInspector
+	// will be turning it on and off.
+	EnableLatestRequestsRecording bool
+)
+
+func init() {
+	LatestRequests = datastruct.NewRingBuffer(MaxLatestRequests)
+}
 
 /*
 GetRealClientIP returns the IP of HTTP client that initiated the HTTP request.
@@ -62,7 +88,7 @@ func RecordInternalStats(stats *misc.Stats, next http.HandlerFunc) http.HandlerF
 func WithAWSXray(next http.HandlerFunc) http.HandlerFunc {
 	if misc.EnableAWSIntegration && inet.IsAWS() {
 		// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
-		return xray.Handler(xray.NewDynamicSegmentNamer("LaitosHTTPD", "*"), http.HandlerFunc(next)).ServeHTTP
+		return xray.Handler(xray.NewDynamicSegmentNamer("LaitosHTTPD", "*"), next).ServeHTTP
 	}
 	return next
 }
@@ -187,5 +213,40 @@ func LogRequestStats(logger lalog.Logger, next http.HandlerFunc) http.HandlerFun
 			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus (time to 1st byte %dus)",
 				r.Method, r.URL.EscapedPath(), r.Proto, r.Host, r.Header.Get("User-Agent"), r.Header.Get("Referer"), responseRecorder.statusCode, totalWritten, processingDuration.Microseconds(), timeToFirstByte.Microseconds())
 		}
+	}
+}
+
+type bytesReaderCloser struct {
+	*bytes.Reader
+	io.Closer
+}
+
+func (buf bytesReaderCloser) Close() error {
+	return nil
+}
+
+// RecordLatestRequests records the request body for on-demand inspection.
+func RecordLatestRequests(logger lalog.Logger, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil && EnableLatestRequestsRecording {
+			// Read the entire request into memory.
+			requestBody, err := ioutil.ReadAll(r.Body)
+			_ = r.Body.Close()
+			if err != nil {
+				logger.Warning("RecordLatestRequests", GetRealClientIP(r), err, "failed to read request body")
+			}
+			// Present the copy of request body to DumpRequest.
+			r.Body = &bytesReaderCloser{Reader: bytes.NewReader(requestBody)}
+			dump, err := httputil.DumpRequest(r, true)
+			if err == nil {
+				LatestRequests.Push(fmt.Sprintf("From: %s\n%s", GetRealClientIP(r), string(dump)))
+			} else {
+				logger.Warning("RecordLatestRequests", GetRealClientIP(r), err, "failed to dump request")
+			}
+			// Present the copy of request body to the next middleware/handler.
+			r.Body = &bytesReaderCloser{Reader: bytes.NewReader(requestBody)}
+
+		}
+		next(w, r)
 	}
 }

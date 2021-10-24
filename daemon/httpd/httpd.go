@@ -215,10 +215,11 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 			decoratedHandlerFunc := middleware.LogRequestStats(daemon.logger,
 				middleware.RecordInternalStats(misc.HTTPDStats,
 					middleware.EmergencyLockdown(
-						middleware.RecordPrometheusStats("FileServer", urlLocation, handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram,
-							middleware.RateLimit(rl,
-								middleware.RestrictMaxRequestSize(MaxRequestBodyBytes,
-									http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc)))))))
+						middleware.RecordLatestRequests(daemon.logger,
+							middleware.RecordPrometheusStats("FileServer", urlLocation, handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram,
+								middleware.RateLimit(rl,
+									middleware.RestrictMaxRequestSize(MaxRequestBodyBytes,
+										http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc))))))))
 			daemon.mux.Handle(urlLocation, decoratedHandlerFunc)
 			daemon.logger.Info("Initialise", "", nil, "installed directory listing handler at location \"%s\"", urlLocation)
 		}
@@ -255,9 +256,10 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 		decoratedHandlerFunc := middleware.LogRequestStats(daemon.logger,
 			middleware.RecordInternalStats(misc.HTTPDStats,
 				middleware.EmergencyLockdown(
-					middleware.RecordPrometheusStats(handlerTypeName, urlLocation, handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram,
-						middleware.WithAWSXray(
-							middleware.RateLimit(rl, innerMostHandler))))))
+					middleware.RecordLatestRequests(daemon.logger,
+						middleware.RecordPrometheusStats(handlerTypeName, urlLocation, handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram,
+							middleware.WithAWSXray(
+								middleware.RateLimit(rl, innerMostHandler)))))))
 		daemon.mux.Handle(urlLocation, decoratedHandlerFunc)
 		daemon.logger.Info("Initialise", "", nil, "installed web service \"%s\" at location \"%s\"", handlerTypeName, urlLocation)
 	}
