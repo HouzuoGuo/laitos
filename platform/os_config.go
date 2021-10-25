@@ -2,6 +2,7 @@ package platform
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -188,7 +189,7 @@ func CopyNonEssentialUtilities(progress lalog.Logger) {
 		return
 	}
 	progress.Info("PrepareUtilities", "", nil, "going to reset program environment PATH and copy non-essential utility programs to "+UtilityDir)
-	os.Setenv("PATH", CommonPATH)
+	_ = os.Setenv("PATH", CommonPATH)
 	if err := os.MkdirAll(UtilityDir, 0755); err != nil {
 		progress.Warning("PrepareUtilities", "", err, "failed to create directory %s", UtilityDir)
 		return
@@ -319,6 +320,11 @@ func HostIsWSL() bool {
 	cmd := exec.Command("uname", "-a")
 	out, err := cmd.CombinedOutput()
 	return err == nil && strings.Contains(string(out), "Microsoft")
+}
+
+// IsMacOS returns true iff the host OS is running MacOS (darwin).
+func IsMacOS() bool {
+	return runtime.GOOS == "darwin"
 }
 
 // SkipIfWSL asks a test to be skipped if it is being run on Windows Subsystem For Linux.
@@ -538,8 +544,16 @@ func SwapOff() error {
 	return nil
 }
 
-// SetTimeZone changes system time zone to the specified value (such as "UTC").
+// SetTimeZone changes system time zone to the specified value, such as "UTC" or
+// "Europe/Dublin".
 func SetTimeZone(zone string) error {
+	if IsMacOS() {
+		// Using this approach to set time zone on MacOS results in the time
+		// zone to be reset to UTC instead - regardless of the value specified,
+		// and the Date/Time page of System Preferences will indicate that no
+		// time zone is set at all. This bug is observed on MacOS 11.
+		return errors.New("will not set time zone on MacOS due to an OS bug")
+	}
 	zoneInfoPath := filepath.Join("/usr/share/zoneinfo/", zone)
 	if stat, err := os.Stat(zoneInfoPath); err != nil || stat.IsDir() {
 		return fmt.Errorf("failed to read zoneinfo file of %s - %v", zone, err)
