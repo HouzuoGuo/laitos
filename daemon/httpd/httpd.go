@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -497,20 +496,6 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "github") || !strings.Contains(string(resp.Body), "laitos_rewrite_url") {
 		t.Fatal(err, resp.StatusCode, string(resp.Body))
 	}
-
-	// TTN HTTP hook (payload is 10 empty bytes + letters "ABC")
-	ttnUplinkPayload := base64.StdEncoding.EncodeToString([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 66, 67})
-	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
-		Method: http.MethodPost,
-		Body:   strings.NewReader(fmt.Sprintf(`{"app_id": "test_app", "dev_id": "test_ttn_dev", "hardware_serial": "ttn-tx", "payload_raw": "%s"}`, ttnUplinkPayload)),
-	}, addr+httpd.GetHandlerByFactoryType(&handler.HandleTheThingsNetworkHTTPIntegration{}))
-	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatal(err, string(resp.Body))
-	}
-	if reports := httpd.Processor.Features.MessageProcessor.GetLatestReportsFromSubject("test_ttn_dev", 1000); len(reports) != 1 {
-		t.Fatalf("%+v", reports)
-	}
-
 	// Twilio - exchange SMS with bad PIN
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{
 		Method: http.MethodPost,
@@ -701,7 +686,7 @@ over.
 	if err := json.Unmarshal(resp.Body, &subjectCount); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(subjectCount, map[string]int{"subject-host-name": 2, "test_ttn_dev": 1}) {
+	if !reflect.DeepEqual(subjectCount, map[string]int{"subject-host-name": 2}) {
 		t.Fatalf("%+v", subjectCount)
 	}
 	// Retrieve TTN report + two host reports from the latest to oldest
@@ -713,7 +698,7 @@ over.
 	if err := json.Unmarshal(resp.Body, &reports); err != nil {
 		t.Fatal(err)
 	}
-	if len(reports) != 3 || reports[0].SubjectClientTag != "client-ip2" || reports[1].SubjectClientTag != "client-ip1" || reports[2].SubjectClientTag != "ttn-tx" {
+	if len(reports) != 2 || reports[0].SubjectClientTag != "client-ip2" || reports[1].SubjectClientTag != "client-ip1" {
 		t.Fatalf("%+v", reports)
 	}
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{

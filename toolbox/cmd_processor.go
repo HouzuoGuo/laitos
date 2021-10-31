@@ -32,6 +32,8 @@ const (
 	MaxCmdPerSecHardLimit = 1000
 	// MaxCmdLength is the maximum length of a single command (including password PIN and other prefixes) that the command processor will accept.
 	MaxCmdLength = 16 * 1024
+	// MinPasswordLength is the minimum password length accepted by IsSaneForInternet.
+	MinPasswordLength = 7
 )
 
 // ErrBadPrefix is a command execution error triggered if the command does not contain a valid toolbox feature trigger.
@@ -143,7 +145,7 @@ func (proc *CommandProcessor) IsSaneForInternet() (errs []error) {
 					errs = append(errs, errors.New(ErrBadProcessorConfig+"Defined in PINAndShortcuts there has to be password PIN, command shortcuts, or both."))
 				}
 				for _, password := range pin.Passwords {
-					if len(password) < 7 {
+					if len(password) < MinPasswordLength {
 						errs = append(errs, errors.New(ErrBadProcessorConfig+"Each password must be at least 7 characters long"))
 						break
 					}

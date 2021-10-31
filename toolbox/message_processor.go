@@ -22,11 +22,14 @@ const (
 		This is only a recommendation - subjects may freely exceed or relax the interval as they see fit.
 	*/
 	ReportIntervalSec = 10 * 60
-	/*
-		AppCommandResponseRetentionSec is the maximum duration to retain an app command execution result per host. During the retention period the result
-		will be available for retrieval After the retention period the result will be available for retrieval one last time, and then removed from memory.
-		The command execution timeout shares the same number.
-	*/
+	// AppCommandResponseRetentionSec is the maximum duration to retain an app
+	// command execution result per host.
+	// During the retention period the command execution result will be
+	// available for retrieval when the subject requests the identical identical
+	// toolbox command to be executed.
+	// After the retention period the result will be available for retrieval one
+	// last time, and then removed from memory.
+	// The command execution timeout shares the same number.
 	CommandResponseRetentionSec = ReportIntervalSec * 10
 	// SubjectExpirySecond is the number of seconds after which clean-up routine will remove a subject and its reports if it has not been heard since.
 	SubjectExpirySecond = 48 * 3600

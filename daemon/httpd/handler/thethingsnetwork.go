@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -16,72 +15,95 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
-// UplinkMessageMetadataGateway describes a gateway that received an uplink message.
-type UplinkMessageMetadataGateway struct {
-	ID        string  `json:"gtw_id"`
-	Timestamp int     `json:"timestamp"`
-	Time      string  `json:"time"`
-	Channel   int     `json:"channel"`
-	RSSI      float64 `json:"rssi"`
-	SNR       float64 `json:"snr"`
+const (
+	DownlinkPriorityNormal = "NORMAL"
+	// AppCommandPort is the magic LoRaWAN port number for a transmitter to
+	// transmit an app command.
+	AppCommandPort = 112
+)
+
+type ApplicationIDs struct {
+	ApplicationID string `json:"application_id"`
+}
+
+type EndDeviceIDs struct {
+	ApplicationIDs ApplicationIDs `json:"application_ids"`
+	DeviceID       string         `json:"device_id"`
+	DeviceEUI      string         `json:"dev_eui"`
+	DeviceAddr     string         `json:"dev_addr"`
+}
+
+type PacketBroker struct {
+	MessageID          string `json:"message_id"`
+	ForwarderGatewayID string `json:"forwarder_gateway_id"`
+}
+
+type LORADataRate struct {
+	Bandwidth       int `json:"bandwidth"`
+	SpreadingFactor int `json:"spreading_factor"`
+}
+
+type DataRateSettings struct {
+	LORA LORADataRate `json:"lora"`
+}
+
+type MessageSettings struct {
+	DataRate      DataRateSettings `json:"data_rate"`
+	DataRateIndex int              `json:"data_rate_index"`
+	Frequency     string           `json:"frequency"`
+}
+
+type GatewayMetadata struct {
+	ReceptionTime string       `json:"time"`
+	RSSI          float64      `json:"rssi"`
+	SNR           float64      `json:"snr"`
+	PacketBroker  PacketBroker `json:"packet_broker"`
+}
+
+type Location struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 	Altitude  float64 `json:"altitude"`
+	Accuracy  float64 `json:"accuracy"`
+	Source    string  `json:"source"`
 }
 
-// UplinkMessageMetadata is the metadata part of an unlink message that describes the transmission and recipient quality.
-type UplinkMessageMetadata struct {
-	Time                     string                         `json:"time"`
-	Frequency                float64                        `json:"frequency"`
-	Modulation               string                         `json:"modulation"`
-	SpreadingFactorBandwidth string                         `json:"data_rate"`
-	BitRate                  float64                        `json:"bit_rate"`
-	CodingRate               string                         `json:"coding_rate"`
-	Gateways                 []UplinkMessageMetadataGateway `json:"gateways"`
-	Latitude                 float64                        `json:"latitude"`
-	Longitude                float64                        `json:"longitude"`
-	Altitude                 float64                        `json:"altitude"`
+type Locations struct {
+	LocationFromPayload Location `json:"frm-payload"`
 }
 
-// TTNMapperPayload is TTN-Mapper compatible payload fields embedded into an uplink message.
-type TTNMapperPayload struct {
-	Altitude  float64 `json:"altitude"`
-	HDOP      float64 `json:"hdop"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-}
-
-// UplinkMessage is an uplink, TTN-Mapper compatible message transmitted by LoRA device, arrived via TTN HTTP integration.
 type UplinkMessage struct {
-	AppID            string                `json:"app_id"`
-	DeviceID         string                `json:"dev_id"`
-	DeviceEUISerial  string                `json:"hardware_serial"`
-	Port             int                   `json:"port"`
-	Counter          int                   `json:"counter"`
-	RawPayloadBase64 string                `json:"payload_raw"`
-	TTNMapperPayload TTNMapperPayload      `json:"payload_fields"`
-	Metadata         UplinkMessageMetadata `json:"metadata"`
-	DownlinkURL      string                `json:"downlink_url"`
+	PortNumber       int               `json:"f_port"`
+	Counter          int               `json:"f_cnt"`
+	RawPayloadBase64 string            `json:"frm_payload"`
+	GatewayMetadata  []GatewayMetadata `json:"rx_metadata"`
+	MesageSettings   MessageSettings   `json:"settings"`
+	Locations        Locations         `json:"locations"`
+	ConsumedAirtime  string            `json:"consumed_airtime"`
 }
 
-// ReceptionComment describes a reception of TTN packet/message, the description describes the transmitter and gateway, and will be
-// stored by store&forward message processor in-memory.
+type WebHookPayload struct {
+	EndDeviceIDs        EndDeviceIDs  `json:"end_device_ids"`
+	ReceivedByGatewayAt string        `json:"received_at"`
+	UplinkMessage       UplinkMessage `json:"uplink_message"`
+}
+
+// ReceptionComment describes a reception of TTN message by a gateway.
+// The comment will be stored by the message processor in-memory.
 type ReceptionComment struct {
-	DeviceID                            string
-	UplinkSequenceNum                   int
-	UplinkPort                          int
-	Latitude, Longitude, Altitude, HDOP float64
-	Frequency                           float64
-	Modulation                          string
-	SpreadingFactorBandwidth            string
-	CodingRate                          string
-	NumGateway                          int
-	GatewayID                           string
-	GWLatitude, GWLongitude, GWAltitude float64
-	RSSI                                float64
-	SNR                                 float64
-	Channel                             int
-	TimeAtReception                     string
+	DeviceID                      string
+	DeviceAddr                    string
+	UplinkCounter                 int
+	UplinkPort                    int
+	Latitude, Longitude, Altitude float64
+	Frequency                     string
+	SpreadingFactor               int
+	Bandwidth                     int
+	NumGateways                   int
+	GatewayID                     string
+	RSSI                          float64
+	SNR                           float64
+	TimeAtReception               string
 }
 
 /*
@@ -106,18 +128,20 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Initialise(logger lalog.Logge
 	return nil
 }
 
-// DownlinkMessage is made in reply to an UplinkMessage and will be schedule for transmission to LoRA device by a gateway.
 type DownlinkMessage struct {
-	DeviceID         string `json:"dev_id"`
-	Port             int    `json:"port"`
-	Confirmed        bool   `json:"confirmed"`
-	RawPayloadBase64 string `json:"payload_raw"`
+	Port             int    `json:"f_port"`
+	RawPayloadBase64 string `json:"frm_payload"`
+	Priority         string `json:"priority"`
 }
 
-func (msg DownlinkMessage) ToJSONString() string {
+type Downlinks struct {
+	DownlinkMessage []DownlinkMessage `json:"downlinks"`
+}
+
+func (msg Downlinks) JSONString() string {
 	b, err := json.Marshal(msg)
 	if err != nil {
-		lalog.DefaultLogger.Warning("DownlinkMessage.ToJSONString", msg.DeviceID, err, "failed to marshal message")
+		lalog.DefaultLogger.Warning("Downlinks.JSONString", "", err, "failed to marshal message")
 		return ""
 	}
 	return string(b)
@@ -131,105 +155,85 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 	defer func() {
 		_ = r.Body.Close()
 	}()
-	var msg UplinkMessage
-	if err := json.Unmarshal(body, &msg); err != nil || msg.AppID == "" || msg.DeviceID == "" {
-		http.Error(w, "failed to decode uplink message", http.StatusInternalServerError)
+	var uplinkInfo WebHookPayload
+	if err := json.Unmarshal(body, &uplinkInfo); err != nil || len(uplinkInfo.EndDeviceIDs.DeviceID) == 0 {
+		http.Error(w, "failed to decode uplink message", http.StatusBadRequest)
 		return
 	}
 	// Decode the raw payload sent by transmitter
-	payloadBytes, err := base64.StdEncoding.DecodeString(msg.RawPayloadBase64)
+	payloadBytes, err := base64.StdEncoding.DecodeString(uplinkInfo.UplinkMessage.RawPayloadBase64)
 	if err != nil {
-		http.Error(w, "failed to decode uplink message payload", http.StatusInternalServerError)
+		http.Error(w, "failed to decode uplink message payload", http.StatusBadRequest)
 		return
 	}
-	// Construct a report to save in message processor
-	var firstGW UplinkMessageMetadataGateway
-	if len(msg.Metadata.Gateways) > 0 {
-		firstGW = msg.Metadata.Gateways[0]
+	// Construct a report to save to message processor
+	var firstGW GatewayMetadata
+	if len(uplinkInfo.UplinkMessage.GatewayMetadata) > 0 {
+		firstGW = uplinkInfo.UplinkMessage.GatewayMetadata[0]
 	}
-	hand.logger.Info("Handle", msg.DeviceEUISerial, nil,
-		"received transmission from device %s, packet #%d on port %d, located at %f, %f (TTN Mapper %f, %f), received by gateway %s located at %f %f, payload size %d bytes.",
-		msg.DeviceID, msg.Counter, msg.Port, msg.Metadata.Latitude, msg.Metadata.Longitude,
-		msg.TTNMapperPayload.Latitude, msg.TTNMapperPayload.Longitude,
-		firstGW.ID, firstGW.Latitude, firstGW.Longitude, len(payloadBytes))
+	hand.logger.Info("Handle", uplinkInfo.EndDeviceIDs.DeviceID, nil,
+		"received transmission from device EUI %s (addr %s) packet #%d on port %d, located at %f, %f, received by gateway %s (RSSI %f), payload size %d bytes.",
+		uplinkInfo.EndDeviceIDs.DeviceEUI, uplinkInfo.EndDeviceIDs.DeviceAddr,
+		uplinkInfo.UplinkMessage.Counter, uplinkInfo.UplinkMessage.PortNumber,
+		uplinkInfo.UplinkMessage.Locations.LocationFromPayload.Latitude, uplinkInfo.UplinkMessage.Locations.LocationFromPayload.Longitude,
+		firstGW.PacketBroker.ForwarderGatewayID, firstGW.RSSI,
+		len(payloadBytes))
 
 	comment := ReceptionComment{
-		DeviceID:                 msg.DeviceID,
-		UplinkSequenceNum:        msg.Counter,
-		UplinkPort:               msg.Port,
-		Latitude:                 msg.TTNMapperPayload.Latitude,
-		Longitude:                msg.TTNMapperPayload.Longitude,
-		Altitude:                 msg.TTNMapperPayload.Altitude,
-		HDOP:                     msg.TTNMapperPayload.HDOP,
-		Frequency:                msg.Metadata.Frequency,
-		Modulation:               msg.Metadata.Modulation,
-		SpreadingFactorBandwidth: msg.Metadata.SpreadingFactorBandwidth,
-		CodingRate:               msg.Metadata.CodingRate,
-		NumGateway:               len(msg.Metadata.Gateways),
-		GatewayID:                firstGW.ID,
-		GWLatitude:               firstGW.Latitude,
-		GWLongitude:              firstGW.Longitude,
-		GWAltitude:               firstGW.Altitude,
-		RSSI:                     firstGW.RSSI,
-		SNR:                      firstGW.SNR,
-		Channel:                  firstGW.Channel,
-		TimeAtReception:          firstGW.Time,
+		DeviceID:        uplinkInfo.EndDeviceIDs.DeviceID,
+		DeviceAddr:      uplinkInfo.EndDeviceIDs.DeviceAddr,
+		UplinkCounter:   uplinkInfo.UplinkMessage.Counter,
+		UplinkPort:      uplinkInfo.UplinkMessage.PortNumber,
+		Latitude:        uplinkInfo.UplinkMessage.Locations.LocationFromPayload.Latitude,
+		Longitude:       uplinkInfo.UplinkMessage.Locations.LocationFromPayload.Longitude,
+		Altitude:        uplinkInfo.UplinkMessage.Locations.LocationFromPayload.Altitude,
+		Frequency:       uplinkInfo.UplinkMessage.MesageSettings.Frequency,
+		SpreadingFactor: uplinkInfo.UplinkMessage.MesageSettings.DataRate.LORA.SpreadingFactor,
+		Bandwidth:       uplinkInfo.UplinkMessage.MesageSettings.DataRate.LORA.Bandwidth,
+		NumGateways:     len(uplinkInfo.UplinkMessage.GatewayMetadata),
+		GatewayID:       firstGW.PacketBroker.ForwarderGatewayID,
+		RSSI:            float64(firstGW.RSSI),
+		SNR:             firstGW.SNR,
+		TimeAtReception: uplinkInfo.ReceivedByGatewayAt,
 	}
 	report := toolbox.SubjectReportRequest{
-		SubjectIP:       msg.DeviceEUISerial,
-		SubjectHostName: msg.DeviceID,
-		SubjectPlatform: msg.AppID,
+		SubjectIP:       uplinkInfo.EndDeviceIDs.DeviceEUI,
+		SubjectHostName: uplinkInfo.EndDeviceIDs.DeviceID,
+		SubjectPlatform: uplinkInfo.EndDeviceIDs.ApplicationIDs.ApplicationID,
 		SubjectComment:  comment,
 	}
-	/*
-		The first 10 bytes are decoded like this:
-		(from https://github.com/kizniche/ttgo-tbeam-ttn-tracker)
-		function Decoder(bytes, port) {
-				var decoded = {};
-				decoded.latitude = ((bytes[0]<<16)>>>0) + ((bytes[1]<<8)>>>0) + bytes[2];
-				decoded.latitude = (decoded.latitude / 16777215.0 * 180) - 90;
-				decoded.longitude = ((bytes[3]<<16)>>>0) + ((bytes[4]<<8)>>>0) + bytes[5];
-				decoded.longitude = (decoded.longitude / 16777215.0 * 360) - 180;
-				var altValue = ((bytes[6]<<8)>>>0) + bytes[7];
-				var sign = bytes[6] & (1 << 7);
-				if(sign) decoded.altitude = 0xFFFF0000 | altValue;
-				else decoded.altitude = altValue;
-				decoded.hdop = bytes[8] / 10.0;
-				decoded.sats = bytes[9];
-				return decoded;
-		}
-		After the 10th byte there comes the app command.
-	*/
-	if len(payloadBytes) > 10 {
-		// There is an app command carried in the payload, ask store&forward message processor to execute it.
-		report.CommandRequest.Command = strings.TrimSpace(string(bytes.TrimLeft(bytes.TrimRight(payloadBytes[10:], "\x00"), "\x00")))
+
+	if uplinkInfo.UplinkMessage.PortNumber == AppCommandPort && len(payloadBytes) > toolbox.MinPasswordLength+3 {
+		// The port number matches the magic port number for transporting an app command. Ask store&forward message processor to execute it.
+		report.CommandRequest.Command = string(payloadBytes)
 	}
-	cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, msg.DeviceEUISerial, "httpd")
-	/*
-		Assume that LoRAWAN transmitter operates at SF8/125kHz (or better), at which the maximum payload size is 133 bytes across all regions.
-		Among the payload, TTN uses "at least 13 bytes" for its own overhead.
-		References:
-		- https://docs.exploratory.engineering/lora/dr_sf/
-		- https://www.thethingsnetwork.org/forum/t/limitations-data-rate-packet-size-30-seconds-uplink-and-10-messages-downlink-per-day-fair-access-policy-guidelines/1300
-		Therefore, limit the downlink payload to 110 bytes, leaving 10 bytes of buffer just in case.
-		Limiting command result size is usually carried out with LintText, but in this case with TTN there is an application constraint.
-		Make sure the downstream message never exceeds 110 bytes, otherwise the LoRA transceiver may not get anything back.
-	*/
-	if result := cmdResp.CommandResponse.Result; len(result) > 110 {
+	cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
+	// At SF9/125kHz, the maximum payload size drops to 115 bytes.
+	// At SF7/125kHz, the maximum payload size is about 222 bytes.
+	// The LoRaWAN protocol takes away another ~13 bytes.
+	// Reference: https://www.thethingsnetwork.org/forum/t/fair-use-policy-explained/1300
+	// To be on the conservative side, limit the result length to SF9/125kHz's maximum.
+	if result := cmdResp.CommandResponse.Result; len(result) > 100 {
 		cmdResp.CommandResponse.Result = result[:110]
 	}
-	// Reply with app command execution result
-	if len(report.CommandRequest.Command) > 10 {
+	// Schedule a downlink message multiple times to transmit the app command execution result.
+	if len(cmdResp.CommandResponse.Result) > 0 {
+		authHeaderValue := "Bearer " + r.Header.Get("X-Downlink-Apikey")
+		replaceEndpoint := r.Header.Get("X-Downlink-Replace")
 		downlinkResp, err := inet.DoHTTP(r.Context(), inet.HTTPRequest{
 			Method:      http.MethodPost,
 			ContentType: "application/json",
-			Body: strings.NewReader(DownlinkMessage{
-				DeviceID:         msg.DeviceID,
-				Port:             msg.Port,
-				Confirmed:        false,
-				RawPayloadBase64: base64.StdEncoding.EncodeToString([]byte(cmdResp.CommandResponse.Result)),
-			}.ToJSONString()),
-		}, strings.Replace(msg.DownlinkURL, "%", "%%", -1))
+			Header:      http.Header{"Authorization": []string{authHeaderValue}},
+			Body: strings.NewReader(Downlinks{
+				DownlinkMessage: []DownlinkMessage{
+					{
+						Port:             AppCommandPort,
+						RawPayloadBase64: base64.StdEncoding.EncodeToString([]byte(cmdResp.CommandResponse.Result)),
+						Priority:         DownlinkPriorityNormal,
+					},
+				},
+			}.JSONString()),
+		}, strings.Replace(replaceEndpoint, "%", "%%", -1))
 		if err != nil {
 			err = downlinkResp.Non2xxToError()
 		}
