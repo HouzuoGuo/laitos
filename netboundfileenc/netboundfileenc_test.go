@@ -2,6 +2,7 @@ package netboundfileenc
 
 import (
 	"context"
+	"runtime"
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -33,6 +34,11 @@ func TestPasswordRegister_GetOutstandingIntents(t *testing.T) {
 				HostName:        intent.hostName,
 				PID:             intent.PID,
 				RandomChallenge: intent.challenge,
+				UserID:          2192,
+				UptimeSec:       34110,
+				GOOS:            runtime.GOOS,
+				GOARCH:          runtime.GOARCH,
+				SystemLoad:      "this-is-system-load",
 			},
 		})
 		if err != nil {
@@ -52,6 +58,7 @@ func TestPasswordRegister_GetOutstandingIntents(t *testing.T) {
 	if outstandingIntent.HostName != intents[1].hostName || outstandingIntent.PID != intents[1].PID || outstandingIntent.RandomChallenge != intents[1].challenge {
 		t.Fatalf("%+v", outstandingIntent)
 	}
+
 }
 
 func TestPasswordRegister_GetUnlockPassword(t *testing.T) {
@@ -75,6 +82,11 @@ func TestPasswordRegister_GetUnlockPassword(t *testing.T) {
 				HostName:        intent.hostName,
 				PID:             intent.PID,
 				RandomChallenge: intent.challenge,
+				UserID:          2192,
+				UptimeSec:       34110,
+				GOOS:            runtime.GOOS,
+				GOARCH:          runtime.GOARCH,
+				SystemLoad:      "this-is-system-load",
 			},
 		})
 		if err != nil {
@@ -95,7 +107,7 @@ func TestPasswordRegister_GetUnlockPassword(t *testing.T) {
 		t.Fatal("should have found the corresponding outstanding intent")
 	}
 
-	// Retireve passwords and verify
+	// Retrieve passwords and verify
 	passwordRetrieval := []struct {
 		challenge, password string
 	}{
@@ -105,8 +117,8 @@ func TestPasswordRegister_GetUnlockPassword(t *testing.T) {
 	for _, retrieval := range passwordRetrieval {
 		resp, err := reg.GetUnlockPassword(context.Background(), &unlocksvc.GetUnlockPasswordRequest{
 			Identification: &unlocksvc.UnlockAttemptIdentification{
+				// The host name is not used at all when handing out a password.
 				HostName:        "does-not-matter",
-				PID:             0,
 				RandomChallenge: retrieval.challenge,
 			},
 		})

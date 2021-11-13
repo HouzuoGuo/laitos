@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/datastruct"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -15,6 +16,10 @@ import (
 	"github.com/HouzuoGuo/laitos/netboundfileenc/unlocksvc"
 	"google.golang.org/grpc/peer"
 )
+
+// Tip: generate go code for the unlocksvc.proto by navigating into unlocksvc
+// directory and then run:
+// protoc --go_out=paths=source_relative:. ./unlocksvc.proto
 
 const (
 	// MaxRandomChallengeLen is the maximum length accepted for a client-generated random challenge string.
@@ -48,6 +53,7 @@ func getRPCClientIP(ctx context.Context) string {
 type UnlockAttemptRPCClientInfo struct {
 	*unlocksvc.UnlockAttemptIdentification
 	ClientIP string
+	Time     time.Time
 }
 
 // PasswordRegister provides facilities for an instance of laitos program to register an intent of obtaining unlocking password
@@ -96,16 +102,15 @@ func (reg *PasswordRegister) PostUnlockIntent(ctx context.Context, req *unlocksv
 	reg.mutex.Lock()
 	defer reg.mutex.Unlock()
 	// Perform sanity check on the request properties
-	if hostNameLen := len(req.Identification.HostName); hostNameLen > 254 {
-		return nil, fmt.Errorf("identification host name must be less than 255 characters in length (actual: %d characters)", hostNameLen)
-	} else if randChallengeLen := len(req.Identification.RandomChallenge); randChallengeLen > MaxRandomChallengeLen {
-		return nil, fmt.Errorf("identification random challenge must be less than %d characters in length (actual: %d characters)", MaxRandomChallengeLen, randChallengeLen)
+	if hostNameLen := len(req.Identification.HostName); hostNameLen < 3 || hostNameLen > 254 {
+		return nil, fmt.Errorf("identification host name must be more than 2 characters and less than 255 characters in length (actual: %d characters)", hostNameLen)
+	} else if randChallengeLen := len(req.Identification.RandomChallenge); randChallengeLen < 3 || randChallengeLen > MaxRandomChallengeLen {
+		return nil, fmt.Errorf("identification random challenge must be more than 2 characters and less than %d characters in length (actual: %d characters)", MaxRandomChallengeLen, randChallengeLen)
 	}
-	reg.logger.Warning("PostUnlockIntent", clientIP, nil, "Host name \"%s\", PID %d, has requested an unlocking password using random challenge \"%s\"",
-		req.Identification.HostName, req.Identification.PID, req.Identification.RandomChallenge)
+	reg.logger.Warning("PostUnlockIntent", clientIP, nil, "Received request: %+v", req.Identification)
 	// Memorise the intent by the random challenge string
 	_, evicted := reg.IntentsChallenge.Add(req.Identification.RandomChallenge)
-	clientIDInfo := &UnlockAttemptRPCClientInfo{ClientIP: clientIP}
+	clientIDInfo := &UnlockAttemptRPCClientInfo{ClientIP: clientIP, Time: time.Now()}
 	clientIDInfo.UnlockAttemptIdentification = req.Identification
 	reg.IntentIdentifications[req.Identification.RandomChallenge] = clientIDInfo
 	// When the new intent causes the in-memory buffer of intents to overfill and evict an older intent, delete the corresponding identification record as well.

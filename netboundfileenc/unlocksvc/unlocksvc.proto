@@ -3,45 +3,67 @@ syntax = "proto3";
 package hzgllaitosunlocksvc;
 option go_package = "github.com/HouzuoGuo/laitos;unlocksvc";
 
-// UnlockAttemptIdentification encapsulates identification properties of a program instance (the config/data files of which are currently password-locked)
-// along with properties of its computer host.
+// UnlockAttemptIdentification encapsulates identification properties of a
+// program instance (the config/data files of which are currently
+// password-locked) along with properties of its computer host.
 message UnlockAttemptIdentification {
-    // HostName is the name of the computer host as seen by the kernel (kernel.hostname).
-    string HostName = 1;
-    // PID is the program process ID.
-    uint64 PID = 2;
-    // RandomChallenge is a string of random characters generated when the program instance starts up. The string acts as a disposable secret to identify
-    // this program instance.
-    string RandomChallenge = 3;
+  // HostName is the name of the computer host as seen by the kernel
+  // (kernel.hostname).
+  string HostName = 1;
+  // PID is the program process ID.
+  uint64 PID = 2;
+  // RandomChallenge is a string of random characters generated when the program
+  // instance starts up. The string acts as a disposable secret to identify this
+  // program instance.
+  string RandomChallenge = 3;
+  // UserID is the ID of the OS user that laitos process runs as.
+  uint64 UserID = 4;
+  // UptimeSec is the uptime (in seconds) of the host OS.
+  uint64 UptimeSec = 5;
+  // GOOS is the identifier of the host OS.
+  string GOOS = 6;
+  // GOARCH is the architecture of the host OS.
+  string GOARCH = 7;
+  // SystemLoad is the system load (Linux specific) string.
+  string SystemLoad = 8;
 }
 
-// PostUnlockIntentRequest provides input parameters for a program instance's intent of asking a user to provide the password for unlocking config/data files.
+// PostUnlockIntentRequest provides input parameters for a program instance's
+// intent of asking a user to provide the password for unlocking config/data
+// files.
 message PostUnlockIntentRequest {
-        UnlockAttemptIdentification identification = 1;
+  UnlockAttemptIdentification identification = 1;
 }
 
-// PostUnlockIntentResponse represents a response from an intent of asking a user to provide the unlocking password.
-message PostUnlockIntentResponse {
-}
+// PostUnlockIntentResponse represents a response from an intent of asking a
+// user to provide the unlocking password.
+message PostUnlockIntentResponse {}
 
-// GetUnlockPasswordRequest provides input parameters for a program instance to obtain unlocking password a user has already offered.
+// GetUnlockPasswordRequest provides input parameters for a program instance to
+// obtain unlocking password a user has already offered.
 message GetUnlockPasswordRequest {
-        UnlockAttemptIdentification identification = 1;
+  UnlockAttemptIdentification identification = 1;
 }
 
-// GetUnlockPasswordRequest represents a response from obtaining the password offered by a user for unlocking config/data files.
+// GetUnlockPasswordRequest represents a response from obtaining the password
+// offered by a user for unlocking config/data files.
 message GetUnlockPasswordResponse {
-        // Exists is true only if a user has already offered a password for the unlocking of config/data files.
-        bool Exists = 1;
-        // Password is the password string used to unlock config/data files.
-        string Password = 2;
+  // Exists is true only if a user has already offered a password for the
+  // unlocking of config/data files.
+  bool Exists = 1;
+  // Password is the password string used to unlock config/data files.
+  string Password = 2;
 }
 
-// PasswordUnlockService provides facilities for a program instance to register an intent of obtaining unlocking password, and then obtain the password after
+// PasswordUnlockService provides facilities for a program instance to register
+// an intent of obtaining unlocking password, and then obtain the password after
 // a user has honoured the intent.
 service PasswordUnlockService {
-        // PostUnlockIntent registers an intent of obtaining unlocking password from a user.
-        rpc PostUnlockIntent(PostUnlockIntentRequest) returns (PostUnlockIntentResponse);
-        // GetUnlockPassword retrieves an unlocking password a user has offered.
-        rpc GetUnlockPassword(GetUnlockPasswordRequest) returns (GetUnlockPasswordResponse);
+  // PostUnlockIntent registers an intent of obtaining unlocking password from a
+  // user.
+  rpc PostUnlockIntent(PostUnlockIntentRequest)
+      returns (PostUnlockIntentResponse);
+  // GetUnlockPassword retrieves an unlocking password a user has offered.
+  rpc GetUnlockPassword(GetUnlockPasswordRequest)
+      returns (GetUnlockPasswordResponse);
 }

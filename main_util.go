@@ -9,6 +9,7 @@ import (
 	pseudoRand "math/rand"
 	"os"
 	"os/signal"
+	"runtime"
 	runtimePprof "runtime/pprof"
 	"sync"
 	"time"
@@ -234,6 +235,11 @@ func getUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger,
 		PID:             uint64(os.Getpid()),
 		RandomChallenge: challengeStr,
 		HostName:        hostName,
+		UserID:          uint64(os.Getuid()),
+		UptimeSec:       uint64(platform.GetSystemUptimeSec()),
+		SystemLoad:      platform.GetSystemLoad(),
+		GOOS:            runtime.GOOS,
+		GOARCH:          runtime.GOARCH,
 	}})
 	if err != nil {
 		logger.Warning("GetUnlockPassword", serverAddr, err, "failed to invoke RPC PostUnlockIntent")

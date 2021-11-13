@@ -73,8 +73,9 @@ func (nbe *NetBoundFileEncryption) Execute(_ context.Context, cmd Command) *Resu
 		resp := new(bytes.Buffer)
 		// List one intent on each line
 		for _, clientIntent := range nbe.GetOutstandingIntents() {
-			resp.WriteString(fmt.Sprintf("%s\t%d\t%s\t%s\n",
-				clientIntent.RandomChallenge, clientIntent.PID, clientIntent.HostName, clientIntent.ClientIP))
+			resp.WriteString(fmt.Sprintf("%s\t%s\t%s\t%d\t%d\t%d\t%s\n",
+				clientIntent.ClientIP, clientIntent.Time, clientIntent.HostName, clientIntent.PID,
+				clientIntent.UserID, clientIntent.UptimeSec, clientIntent.RandomChallenge))
 		}
 		return &Result{Output: resp.String()}
 	}

@@ -3,6 +3,8 @@ package toolbox
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -24,20 +26,32 @@ func TestNetBoundFileEncryption(t *testing.T) {
 
 	// Post an unlocking intent and then check outstanding intents
 	randChallenge := netboundfileenc.GetRandomChallenge()
-	_, err := nbe.PostUnlockIntent(context.Background(), &unlocksvc.PostUnlockIntentRequest{Identification: &unlocksvc.UnlockAttemptIdentification{
+	id := &unlocksvc.UnlockAttemptIdentification{
 		HostName:        "test1.example.com",
-		PID:             1234,
+		PID:             46318972,
 		RandomChallenge: randChallenge,
-	}})
+		UserID:          56134789,
+		UptimeSec:       13256784,
+	}
+	_, err := nbe.PostUnlockIntent(context.Background(), &unlocksvc.PostUnlockIntentRequest{Identification: id})
 	if err != nil {
 		t.Fatal(err)
 	}
 	result := nbe.Execute(context.Background(), Command{Content: ""})
-	expectedOutput := fmt.Sprintf("%s\t1234\ttest1.example.com\t\n", randChallenge)
-	if result.Error != nil || result.Output != expectedOutput {
+	if result.Error != nil {
 		t.Fatalf("Err: %v\nOutput: %v", result.Error, result.Output)
 	}
-
+	for _, needle := range []string{
+		id.HostName,
+		strconv.Itoa(int(id.PID)),
+		randChallenge,
+		strconv.Itoa(int(id.UserID)),
+		strconv.Itoa(int(id.UptimeSec)),
+	} {
+		if !strings.Contains(result.Output, needle) {
+			t.Fatalf("Cannot find needle %q, got %q", needle, result.Output)
+		}
+	}
 	// Fulfil the outstanding intent by offering the password to it
 	result = nbe.Execute(context.Background(), Command{Content: "malformed-input"})
 	if result.Error == nil {
