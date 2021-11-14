@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/inet"
@@ -17,9 +18,12 @@ import (
 
 const (
 	DownlinkPriorityNormal = "NORMAL"
-	// AppCommandPort is the magic LoRaWAN port number for a transmitter to
+	// AppCommandPort is the magic LoRaWAN port number for a transceiver to
 	// transmit an app command.
 	AppCommandPort = 112
+	// AppCommandPort is the magic LoRaWAN port number for a transceiver to
+	// transmit a text message.
+	MessagePort = 129
 )
 
 type ApplicationIDs struct {
@@ -88,9 +92,10 @@ type WebHookPayload struct {
 	UplinkMessage       UplinkMessage `json:"uplink_message"`
 }
 
-// ReceptionComment describes a reception of TTN message by a gateway.
-// The comment will be stored by the message processor in-memory.
-type ReceptionComment struct {
+// MessageReception describes the metadata and payload of an uplink message
+// received by a TTN gateway. The comment will be stored in-memory by message
+// processor app and message bank app.
+type MessageReception struct {
 	DeviceID                      string
 	DeviceAddr                    string
 	UplinkCounter                 int
@@ -104,6 +109,7 @@ type ReceptionComment struct {
 	RSSI                          float64
 	SNR                           float64
 	TimeAtReception               string
+	StringPayload                 string
 }
 
 /*
@@ -179,7 +185,7 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 		firstGW.PacketBroker.ForwarderGatewayID, firstGW.RSSI,
 		len(payloadBytes))
 
-	comment := ReceptionComment{
+	messageReception := MessageReception{
 		DeviceID:        uplinkInfo.EndDeviceIDs.DeviceID,
 		DeviceAddr:      uplinkInfo.EndDeviceIDs.DeviceAddr,
 		UplinkCounter:   uplinkInfo.UplinkMessage.Counter,
@@ -195,29 +201,50 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 		RSSI:            float64(firstGW.RSSI),
 		SNR:             firstGW.SNR,
 		TimeAtReception: uplinkInfo.ReceivedByGatewayAt,
+		StringPayload:   string(payloadBytes),
 	}
 	report := toolbox.SubjectReportRequest{
 		SubjectIP:       uplinkInfo.EndDeviceIDs.DeviceEUI,
 		SubjectHostName: uplinkInfo.EndDeviceIDs.DeviceID,
 		SubjectPlatform: uplinkInfo.EndDeviceIDs.ApplicationIDs.ApplicationID,
-		SubjectComment:  comment,
-	}
-
-	if uplinkInfo.UplinkMessage.PortNumber == AppCommandPort && len(payloadBytes) > toolbox.MinPasswordLength+3 {
-		// The port number matches the magic port number for transporting an app command. Ask store&forward message processor to execute it.
-		report.CommandRequest.Command = string(payloadBytes)
+		SubjectComment:  messageReception,
 	}
 	cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
+	var downlinkMessage string
+
+	if uplinkInfo.UplinkMessage.PortNumber == AppCommandPort && len(payloadBytes) > toolbox.MinPasswordLength+3 {
+		// The port number matches the magic port number for transmitting an
+		// app command.
+		// Ask store&forward message processor to execute the app command.
+		report.CommandRequest.Command = string(payloadBytes)
+		downlinkMessage = cmdResp.CommandResponse.Result
+	} else if uplinkInfo.UplinkMessage.PortNumber == MessagePort {
+		// This is a regular text message. Put the text message into message
+		// bank.
+		err := hand.cmdProc.Features.MessageBank.Store(toolbox.MessageBankTagTTN, toolbox.MessageDirectionIncoming, time.Now(), messageReception)
+		if err != nil {
+			hand.logger.Warning("Handle", messageReception.DeviceID, err, "failed to store uplink message in message bank")
+		}
+		// If there's been a recent (-10 min) outgoing message, give it to the
+		// transceiver in a downlink message.
+		outgoing := hand.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagTTN, toolbox.MessageDirectionOutgoing)
+		if len(outgoing) > 0 {
+			latest := outgoing[len(outgoing)-1]
+			if time.Now().Sub(latest.Time) < 10*time.Minute {
+				downlinkMessage = fmt.Sprintf("%v", latest.Content)
+			}
+		}
+	}
 	// At SF9/125kHz, the maximum payload size drops to 115 bytes.
 	// At SF7/125kHz, the maximum payload size is about 222 bytes.
 	// The LoRaWAN protocol takes away another ~13 bytes.
 	// Reference: https://www.thethingsnetwork.org/forum/t/fair-use-policy-explained/1300
 	// To be on the conservative side, limit the result length to SF9/125kHz's maximum.
-	if result := cmdResp.CommandResponse.Result; len(result) > 100 {
-		cmdResp.CommandResponse.Result = result[:110]
+	if len(downlinkMessage) > 100 {
+		downlinkMessage = downlinkMessage[:110]
 	}
 	// Schedule a downlink message multiple times to transmit the app command execution result.
-	if len(cmdResp.CommandResponse.Result) > 0 {
+	if len(downlinkMessage) > 0 {
 		authHeaderValue := "Bearer " + r.Header.Get("X-Downlink-Apikey")
 		replaceEndpoint := r.Header.Get("X-Downlink-Replace")
 		downlinkResp, err := inet.DoHTTP(r.Context(), inet.HTTPRequest{
@@ -228,7 +255,7 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 				DownlinkMessage: []DownlinkMessage{
 					{
 						Port:             AppCommandPort,
-						RawPayloadBase64: base64.StdEncoding.EncodeToString([]byte(cmdResp.CommandResponse.Result)),
+						RawPayloadBase64: base64.StdEncoding.EncodeToString([]byte(downlinkMessage)),
 						Priority:         DownlinkPriorityNormal,
 					},
 				},

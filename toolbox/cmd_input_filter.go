@@ -32,7 +32,7 @@ var lastTOTPCommandContent = map[string]TOTPWithCommand{}
 var lastTOTPCommandContentMutex = new(sync.Mutex)
 
 /*
-setLastTOTPCommand determiens whether the toolbox command may proceed to execute using the TOTP that has been proven valid.
+setLastTOTPCommand determines whether the toolbox command may proceed to execute using the TOTP that has been proven valid.
 The function returns true only if the TOTP is being used to authenticate the toolbox command for the first time, or, if
 the identical toolbox command was executed quite recently using that TOTP.
 If the TOTP is being used a second time to authenticate a different toolbox command, then the function will return false

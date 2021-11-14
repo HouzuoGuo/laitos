@@ -23,6 +23,7 @@ type FeatureSet struct {
 	EnvControl             EnvControl             `json:"EnvControl"`
 	IMAPAccounts           IMAPAccounts           `json:"IMAPAccounts"`
 	Joke                   Joke                   `json:"Joke"`
+	MessageBank            MessageBank            `json:"MessageBank"`
 	NetBoundFileEncryption NetBoundFileEncryption `json:"NetBoundFileEncryption"`
 	RSS                    RSS                    `json:"RSS"`
 	SendMail               SendMail               `json:"SendMail"`
@@ -44,6 +45,7 @@ func (fs *FeatureSet) Initialise() error {
 	// Initialise the apps that do not reference this FeatureSet
 	apps := map[Trigger]Feature{
 		fs.AESDecrypt.Trigger():             &fs.AESDecrypt,             // a
+		fs.MessageBank.Trigger():            &fs.MessageBank,            // b
 		fs.BrowserPhantomJS.Trigger():       &fs.BrowserPhantomJS,       // bp
 		fs.BrowserSlimerJS.Trigger():        &fs.BrowserSlimerJS,        // bs
 		fs.PublicContact.Trigger():          &fs.PublicContact,          // c
