@@ -196,7 +196,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
 	if resp.CommandRequest.Command != "test cmd" ||
-		resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 || resp.CommandResponse.Result != "123" {
+		resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec > 2 || resp.CommandResponse.Result != "123" {
 		t.Fatalf("%+v", resp)
 	}
 
@@ -210,7 +210,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
 	if resp.CommandRequest.Command != "test cmd2" ||
-		resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 || resp.CommandResponse.Result != "123" {
+		resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec > 2 || resp.CommandResponse.Result != "123" {
 		t.Fatalf("%+v", resp)
 	}
 
@@ -220,7 +220,7 @@ func TestMessageProcessor_PendingCommandRequest(t *testing.T) {
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
 	if resp.CommandRequest.Command != "" ||
-		resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 || resp.CommandResponse.Result != "123" {
+		resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec > 2 || resp.CommandResponse.Result != "123" {
 		t.Fatalf("%+v", resp)
 	}
 }
@@ -236,7 +236,7 @@ func TestMessageProcessor_processCommandRequest_QuickCommand(t *testing.T) {
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
-	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
+	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec > 2 ||
 		resp.CommandResponse.Result != ErrPINAndShortcutNotFound.Error() {
 		t.Fatalf("%+v", resp)
 	}
@@ -246,7 +246,7 @@ func TestMessageProcessor_processCommandRequest_QuickCommand(t *testing.T) {
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
-	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
+	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec > 2 ||
 		resp.CommandResponse.Result != "123" {
 		t.Fatalf("%+v", resp)
 	}
@@ -263,7 +263,7 @@ func TestMessageProcessor_processCommandRequest_RecursiveCommand(t *testing.T) {
 		SubjectHostName: "subject-host-name1",
 		CommandRequest:  AppCommandRequest{Command: cmd},
 	}, "ip", "daemon")
-	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec != 0 ||
+	if resp.CommandResponse.Command != cmd || resp.CommandResponse.RunDurationSec > 2 ||
 		!strings.Contains(resp.CommandResponse.Result, "will not run a recursive") {
 		t.Fatalf("%+v", resp)
 	}
