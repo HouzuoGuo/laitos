@@ -71,54 +71,41 @@ type StandardFilters struct {
 
 // Configure path to HTTP handlers and handler themselves.
 type HTTPHandlers struct {
-	InformationEndpoint string `json:"InformationEndpoint"`
-
-	BrowserPhantomJSEndpoint       string                         `json:"BrowserPhantomJSEndpoint"`
-	BrowserPhantomJSEndpointConfig handler.HandleBrowserPhantomJS `json:"BrowserPhantomJSEndpointConfig"`
-
-	BrowserSlimerJSEndpoint       string                        `json:"BrowserSlimerJSEndpoint"`
-	BrowserSlimerJSEndpointConfig handler.HandleBrowserSlimerJS `json:"BrowserSlimerJSEndpointConfig"`
-
-	VirtualMachineEndpoint       string                       `json:"VirtualMachineEndpoint"`
-	VirtualMachineEndpointConfig handler.HandleVirtualMachine `json:"VirtualMachineEndpointConfig"`
-
-	CommandFormEndpoint string `json:"CommandFormEndpoint"`
-	FileUploadEndpoint  string `json:"FileUploadEndpoint"`
-
-	GitlabBrowserEndpoint       string                      `json:"GitlabBrowserEndpoint"`
-	GitlabBrowserEndpointConfig handler.HandleGitlabBrowser `json:"GitlabBrowserEndpointConfig"`
-
-	IndexEndpoints      []string                   `json:"IndexEndpoints"`
-	IndexEndpointConfig handler.HandleHTMLDocument `json:"IndexEndpointConfig"`
-
-	MailMeEndpoint       string               `json:"MailMeEndpoint"`
-	MailMeEndpointConfig handler.HandleMailMe `json:"MailMeEndpointConfig"`
-
-	MicrosoftBotEndpoint1       string                     `json:"MicrosoftBotEndpoint1"`
-	MicrosoftBotEndpointConfig1 handler.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig1"`
-	MicrosoftBotEndpoint2       string                     `json:"MicrosoftBotEndpoint2"`
-	MicrosoftBotEndpointConfig2 handler.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig2"`
-	MicrosoftBotEndpoint3       string                     `json:"MicrosoftBotEndpoint3"`
-	MicrosoftBotEndpointConfig3 handler.HandleMicrosoftBot `json:"MicrosoftBotEndpointConfig3"`
-
+	AppCommandEndpoint              string                          `json:"AppCommandEndpoint"`
+	BrowserPhantomJSEndpoint        string                          `json:"BrowserPhantomJSEndpoint"`
+	BrowserPhantomJSEndpointConfig  handler.HandleBrowserPhantomJS  `json:"BrowserPhantomJSEndpointConfig"`
+	BrowserSlimerJSEndpoint         string                          `json:"BrowserSlimerJSEndpoint"`
+	BrowserSlimerJSEndpointConfig   handler.HandleBrowserSlimerJS   `json:"BrowserSlimerJSEndpointConfig"`
+	CommandFormEndpoint             string                          `json:"CommandFormEndpoint"`
+	FileUploadEndpoint              string                          `json:"FileUploadEndpoint"`
+	GitlabBrowserEndpoint           string                          `json:"GitlabBrowserEndpoint"`
+	GitlabBrowserEndpointConfig     handler.HandleGitlabBrowser     `json:"GitlabBrowserEndpointConfig"`
+	IndexEndpointConfig             handler.HandleHTMLDocument      `json:"IndexEndpointConfig"`
+	IndexEndpoints                  []string                        `json:"IndexEndpoints"`
+	InformationEndpoint             string                          `json:"InformationEndpoint"`
+	LatestRequestsInspectorEndpoint string                          `json:"LatestRequestsInspector"`
+	MailMeEndpoint                  string                          `json:"MailMeEndpoint"`
+	MailMeEndpointConfig            handler.HandleMailMe            `json:"MailMeEndpointConfig"`
+	MessageBankEndpoint             string                          `json:"MessageBankEndpoint"`
+	MicrosoftBotEndpoint1           string                          `json:"MicrosoftBotEndpoint1"`
+	MicrosoftBotEndpoint2           string                          `json:"MicrosoftBotEndpoint2"`
+	MicrosoftBotEndpoint3           string                          `json:"MicrosoftBotEndpoint3"`
+	MicrosoftBotEndpointConfig1     handler.HandleMicrosoftBot      `json:"MicrosoftBotEndpointConfig1"`
+	MicrosoftBotEndpointConfig2     handler.HandleMicrosoftBot      `json:"MicrosoftBotEndpointConfig2"`
+	MicrosoftBotEndpointConfig3     handler.HandleMicrosoftBot      `json:"MicrosoftBotEndpointConfig3"`
+	ProcessExplorerEndpoint         string                          `json:"ProcessExplorerEndpoint"`
+	PrometheusMetricsEndpoint       string                          `json:"PrometheusMetricsEndpoint"`
 	RecurringCommandsEndpoint       string                          `json:"RecurringCommandsEndpoint"`
 	RecurringCommandsEndpointConfig handler.HandleRecurringCommands `json:"RecurringCommandsEndpointConfig"`
-
-	WebProxyEndpoint string `json:"WebProxyEndpoint"`
-
-	TheThingsNetworkEndpoint string `json:"TheThingsNetworkEndpoint"`
-
-	TwilioSMSEndpoint        string                       `json:"TwilioSMSEndpoint"`
-	TwilioCallEndpoint       string                       `json:"TwilioCallEndpoint"`
-	TwilioCallEndpointConfig handler.HandleTwilioCallHook `json:"TwilioCallEndpointConfig"`
-
-	AppCommandEndpoint       string `json:"AppCommandEndpoint"`
-	ReportsRetrievalEndpoint string `json:"ReportsRetrievalEndpoint"`
-	ProcessExplorerEndpoint  string `json:"ProcessExplorerEndpoint"`
-
-	PrometheusMetricsEndpoint       string `json:"PrometheusMetricsEndpoint"`
-	RequestInspectorEndpoint        string `json:"RequestInspectorEndpoint"`
-	LatestRequestsInspectorEndpoint string `json:"LatestRequestsInspector"`
+	ReportsRetrievalEndpoint        string                          `json:"ReportsRetrievalEndpoint"`
+	RequestInspectorEndpoint        string                          `json:"RequestInspectorEndpoint"`
+	TheThingsNetworkEndpoint        string                          `json:"TheThingsNetworkEndpoint"`
+	TwilioCallEndpoint              string                          `json:"TwilioCallEndpoint"`
+	TwilioCallEndpointConfig        handler.HandleTwilioCallHook    `json:"TwilioCallEndpointConfig"`
+	TwilioSMSEndpoint               string                          `json:"TwilioSMSEndpoint"`
+	VirtualMachineEndpoint          string                          `json:"VirtualMachineEndpoint"`
+	VirtualMachineEndpointConfig    handler.HandleVirtualMachine    `json:"VirtualMachineEndpointConfig"`
+	WebProxyEndpoint                string                          `json:"WebProxyEndpoint"`
 }
 
 // AWSIntegration contains configuration properties for global behaviours (e.g. logger) of laitos program to integrate with AWS
@@ -576,6 +563,9 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		}
 		if ttnEndpoint := config.HTTPHandlers.TheThingsNetworkEndpoint; ttnEndpoint != "" {
 			handlers[ttnEndpoint] = &handler.HandleTheThingsNetworkHTTPIntegration{}
+		}
+		if config.HTTPHandlers.MessageBankEndpoint != "" {
+			handlers[config.HTTPHandlers.MessageBankEndpoint] = &handler.HandleMessageBank{}
 		}
 		if config.HTTPHandlers.TwilioSMSEndpoint != "" {
 			handlers[config.HTTPHandlers.TwilioSMSEndpoint] = &handler.HandleTwilioSMSHook{}

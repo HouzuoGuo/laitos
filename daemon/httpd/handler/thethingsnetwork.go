@@ -24,6 +24,9 @@ const (
 	// AppCommandPort is the magic LoRaWAN port number for a transceiver to
 	// transmit a text message.
 	MessagePort = 129
+	// TTNMaxDownlinkMessageLength is the maximum length of a downlink message
+	// that can be handled by LoRaWAN at SF9/125kHz.
+	TTNMaxDownlinkMessageLength = 100
 )
 
 type ApplicationIDs struct {
@@ -240,8 +243,8 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 	// The LoRaWAN protocol takes away another ~13 bytes.
 	// Reference: https://www.thethingsnetwork.org/forum/t/fair-use-policy-explained/1300
 	// To be on the conservative side, limit the result length to SF9/125kHz's maximum.
-	if len(downlinkMessage) > 100 {
-		downlinkMessage = downlinkMessage[:110]
+	if len(downlinkMessage) > TTNMaxDownlinkMessageLength {
+		downlinkMessage = downlinkMessage[:TTNMaxDownlinkMessageLength]
 	}
 	// Schedule a downlink message multiple times to transmit the app command execution result.
 	if len(downlinkMessage) > 0 {

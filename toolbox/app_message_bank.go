@@ -51,6 +51,16 @@ func (*MessageBank) SelfTest() error {
 	return nil
 }
 
+// MessagesToString constructs a multi-line string from the input message slice,
+// with one message on each line.
+func MessagesToString(messages []Message) string {
+	var out bytes.Buffer
+	for _, msg := range messages {
+		out.WriteString(fmt.Sprintf("%s %+v\n", msg.Time.UTC().Format(MessageBankDateFormat), msg.Content))
+	}
+	return out.String()
+}
+
 // Store memorises the message of arbitrary type. If the maximum number of
 // messages is reached for the combination of tag and direction, then the oldest
 // message will be evicted prior to storing this message.
@@ -129,11 +139,7 @@ func (bank *MessageBank) Execute(ctx context.Context, cmd Command) *Result {
 		}
 		return &Result{Output: MessageBankDefaultStoreResponse}
 	} else if getParams := MessageBankRegexGet.FindStringSubmatch(cmd.Content); len(getParams) == 3 {
-		var output bytes.Buffer
-		for _, message := range bank.Get(getParams[1], getParams[2]) {
-			output.WriteString(fmt.Sprintf("%s %+v\n", message.Time.UTC().Format(MessageBankDateFormat), message.Content))
-		}
-		return &Result{Output: output.String()}
+		return &Result{Output: MessagesToString(bank.Get(getParams[1], getParams[2]))}
 	} else {
 		return &Result{Error: errors.New(".b s Tag Direction Text | g Tag Direction")}
 	}
