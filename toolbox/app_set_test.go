@@ -26,13 +26,14 @@ func TestFeatureSet_InitSelfTest(t *testing.T) {
 		t.Fatal(err)
 	}
 	enabledByDefaultApps := []Trigger{
-		StoreAndForwardMessageProcessorTrigger,
-		".c",   // public contacts lookup
-		".e",   // program and environment control
-		".j",   // get a joke
-		".nbe", // network bound file encryption
-		".r",   // RSS news reader
-		".s",   // shell
+		(&EnvControl{}).Trigger(),
+		(&Joke{}).Trigger(),
+		(&MessageBank{}).Trigger(),
+		(&MessageProcessor{}).Trigger(),
+		(&NetBoundFileEncryption{}).Trigger(),
+		(&PublicContact{}).Trigger(),
+		(&RSS{}).Trigger(),
+		(&Shell{}).Trigger(),
 	}
 	if len(apps.LookupByTrigger) != len(enabledByDefaultApps) {
 		t.Fatal(apps.LookupByTrigger)
@@ -54,7 +55,7 @@ func TestFeatureSet_InitSelfTest(t *testing.T) {
 	if err := apps.SelfTest(); err != nil {
 		t.Fatal(err)
 	}
-	if triggers := apps.GetTriggers(); !reflect.DeepEqual(triggers, []string{".0m", ".2", ".a", ".c", ".e", ".j", ".nbe", ".r", ".s"}) {
+	if triggers := apps.GetTriggers(); !reflect.DeepEqual(triggers, []string{".0m", ".2", ".a", ".b", ".c", ".e", ".j", ".nbe", ".r", ".s"}) {
 		t.Fatal(triggers)
 	}
 }

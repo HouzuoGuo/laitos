@@ -19,12 +19,12 @@ type FeatureSet struct {
 	AESDecrypt             AESDecrypt             `json:"AESDecrypt"`
 	BrowserPhantomJS       BrowserPhantomJS       `json:"BrowserPhantomJS"`
 	BrowserSlimerJS        BrowserSlimerJS        `json:"BrowserSlimerJS"`
-	PublicContact          PublicContact          `json:"PublicContact"`
 	EnvControl             EnvControl             `json:"EnvControl"`
 	IMAPAccounts           IMAPAccounts           `json:"IMAPAccounts"`
 	Joke                   Joke                   `json:"Joke"`
 	MessageBank            MessageBank            `json:"MessageBank"`
 	NetBoundFileEncryption NetBoundFileEncryption `json:"NetBoundFileEncryption"`
+	PublicContact          PublicContact          `json:"PublicContact"`
 	RSS                    RSS                    `json:"RSS"`
 	SendMail               SendMail               `json:"SendMail"`
 	Shell                  Shell                  `json:"Shell"`
@@ -45,18 +45,18 @@ func (fs *FeatureSet) Initialise() error {
 	// Initialise the apps that do not reference this FeatureSet
 	apps := map[Trigger]Feature{
 		fs.AESDecrypt.Trigger():             &fs.AESDecrypt,             // a
-		fs.MessageBank.Trigger():            &fs.MessageBank,            // b
 		fs.BrowserPhantomJS.Trigger():       &fs.BrowserPhantomJS,       // bp
 		fs.BrowserSlimerJS.Trigger():        &fs.BrowserSlimerJS,        // bs
-		fs.PublicContact.Trigger():          &fs.PublicContact,          // c
 		fs.EnvControl.Trigger():             &fs.EnvControl,             // e
-		fs.TextSearch.Trigger():             &fs.TextSearch,             // g
 		fs.IMAPAccounts.Trigger():           &fs.IMAPAccounts,           // i
 		fs.Joke.Trigger():                   &fs.Joke,                   // j
+		fs.MessageBank.Trigger():            &fs.MessageBank,            // b
 		fs.NetBoundFileEncryption.Trigger(): &fs.NetBoundFileEncryption, // nbe
+		fs.PublicContact.Trigger():          &fs.PublicContact,          // c
 		fs.RSS.Trigger():                    &fs.RSS,                    // r
 		fs.SendMail.Trigger():               &fs.SendMail,               // m
 		fs.Shell.Trigger():                  &fs.Shell,                  // s
+		fs.TextSearch.Trigger():             &fs.TextSearch,             // g
 		fs.Twilio.Trigger():                 &fs.Twilio,                 // p
 		fs.Twitter.Trigger():                &fs.Twitter,                // t
 		fs.TwoFACodeGenerator.Trigger():     &fs.TwoFACodeGenerator,     // 2
