@@ -212,23 +212,27 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 		SubjectPlatform: uplinkInfo.EndDeviceIDs.ApplicationIDs.ApplicationID,
 		SubjectComment:  messageReception,
 	}
-	cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
 	var downlinkMessage string
 
 	if uplinkInfo.UplinkMessage.PortNumber == AppCommandPort && len(payloadBytes) > toolbox.MinPasswordLength+3 {
 		// The port number matches the magic port number for transmitting an
 		// app command.
-		// Ask store&forward message processor to execute the app command.
 		report.CommandRequest.Command = string(payloadBytes)
+		// Ask store&forward message processor to execute the app command.
+		cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
+		// When the transceiver checks in again with the identical app command,
+		// the result from previous execution will be available from the command
+		// processor.
 		downlinkMessage = cmdResp.CommandResponse.Result
 	} else if uplinkInfo.UplinkMessage.PortNumber == MessagePort {
+		cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
 		// This is a regular text message. Put the text message into message
 		// bank.
 		err := hand.cmdProc.Features.MessageBank.Store(toolbox.MessageBankTagTTN, toolbox.MessageDirectionIncoming, time.Now(), messageReception)
 		if err != nil {
 			hand.logger.Warning("Handle", messageReception.DeviceID, err, "failed to store uplink message in message bank")
 		}
-		// If there's been a recent (-10 min) outgoing message, give it to the
+		// If there's been a new (<10 min) outgoing message, give it to the
 		// transceiver in a downlink message.
 		outgoing := hand.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagTTN, toolbox.MessageDirectionOutgoing)
 		if len(outgoing) > 0 {
@@ -237,6 +241,13 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 				downlinkMessage = fmt.Sprintf("%v", latest.Content)
 			}
 		}
+		// If there is no outgoing text message, then transmit the last command
+		// response (if any) to the transceiver in a downlink message.
+		if downlinkMessage == "" {
+			downlinkMessage = cmdResp.CommandResponse.Result
+		}
+	} else {
+		hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
 	}
 	// At SF9/125kHz, the maximum payload size drops to 115 bytes.
 	// At SF7/125kHz, the maximum payload size is about 222 bytes.
