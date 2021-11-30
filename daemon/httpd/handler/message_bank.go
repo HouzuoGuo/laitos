@@ -10,6 +10,14 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
+const (
+	// AppBankMaxMessageLength is the maximum length of a single message the
+	// message bank web page will be able to store in the outgoing direction.
+	// A longer message will be truncated before it is stored in the outgoing
+	// direction.
+	AppBankMaxMessageLength = 1024
+)
+
 const HandleMessageBankPage = `<html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -25,13 +33,13 @@ const HandleMessageBankPage = `<html>
         <p><input type="text" name="messageForDefault" /><input type="submit" value="Submit outgoing message"/></p>
     </form>
     <hr/>
-    <p>Message bank "TTN", incoming direction:</p>
+    <p>Message bank "LoRaWAN", incoming direction:</p>
     <pre>%s</pre>
     <hr/>
-    <p>Message bank "TTN", outgoing direction:</p>
+    <p>Message bank "LoRaWAN", outgoing direction:</p>
     <pre>%s</pre>
     <form action="%s" method="post">
-        <p><input type="text" name="messageForTTN" /><input type="submit" value="Submit outgoing message"/></p>
+        <p><input type="text" name="messageForLoRaWAN" /><input type="submit" value="Submit outgoing message"/></p>
     </form>
     <hr/>
 </body>
@@ -57,12 +65,18 @@ func (bank *HandleMessageBank) Handle(w http.ResponseWriter, r *http.Request) {
 	handlerURL := strings.TrimPrefix(r.RequestURI, bank.stripURLPrefixFromResponse)
 	if r.Method == http.MethodPost {
 		if messageForDefault := r.FormValue("messageForDefault"); messageForDefault != "" {
+			if len(messageForDefault) > AppBankMaxMessageLength {
+				messageForDefault = messageForDefault[:AppBankMaxMessageLength]
+			}
 			if err := bank.cmdProc.Features.MessageBank.Store(toolbox.MessageBankTagDefault, toolbox.MessageDirectionOutgoing, time.Now(), messageForDefault); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-		} else if messageForTTN := r.FormValue("messageForTTN"); messageForTTN != "" {
-			if err := bank.cmdProc.Features.MessageBank.Store(toolbox.MessageBankTagTTN, toolbox.MessageDirectionOutgoing, time.Now(), messageForTTN); err != nil {
+		} else if messageForLoRaWAN := r.FormValue("messageForLoRaWAN"); messageForLoRaWAN != "" {
+			if len(messageForLoRaWAN) > LoraWANMaxDownlinkMessageLength {
+				messageForLoRaWAN = messageForLoRaWAN[:LoraWANMaxDownlinkMessageLength]
+			}
+			if err := bank.cmdProc.Features.MessageBank.Store(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionOutgoing, time.Now(), messageForLoRaWAN); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -74,8 +88,8 @@ func (bank *HandleMessageBank) Handle(w http.ResponseWriter, r *http.Request) {
 		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagDefault, toolbox.MessageDirectionIncoming)),
 		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagDefault, toolbox.MessageDirectionOutgoing)),
 		handlerURL,
-		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagTTN, toolbox.MessageDirectionIncoming)),
-		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagTTN, toolbox.MessageDirectionOutgoing)),
+		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionIncoming)),
+		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionOutgoing)),
 		handlerURL)))
 }
 

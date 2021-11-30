@@ -11,17 +11,16 @@ import (
 )
 
 const (
-	MessageBankMaxTextLen              = 1024
-	MessageBankMaxMessagesPerDirection = 10
+	MessageBankMaxMessagesPerDirection = 100
 	MessageDirectionIncoming           = "in"
 	MessageDirectionOutgoing           = "out"
 	MessageBankTagDefault              = "default"
-	MessageBankTagTTN                  = "TTN"
+	MessageBankTagLoRaWAN              = "LoRaWAN"
 	MessageBankDefaultStoreResponse    = "message has been stored"
 )
 
 var (
-	allTags = map[string]bool{MessageBankTagDefault: true, MessageBankTagTTN: true}
+	allTags = map[string]bool{MessageBankTagDefault: true, MessageBankTagLoRaWAN: true}
 
 	MessageBankRegexStore = regexp.MustCompile(`s[^\w]+([\w]+)[^\w]+([\w]+)[^\w]+(.*)`)
 	MessageBankRegexGet   = regexp.MustCompile(`g[^\w]+([\w]+)[^\w]+([\w]+)`)

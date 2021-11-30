@@ -24,10 +24,10 @@ func TestMessageBank_Store(t *testing.T) {
 	if err := bank.Store("bad tag", MessageDirectionIncoming, time.Now(), "haha"); err == nil || !strings.Contains(err.Error(), "unrecognised tag") {
 		t.Fatal(err)
 	}
-	if err := bank.Store(MessageBankTagTTN, "bad dir", time.Now(), "haha"); err == nil || !strings.Contains(err.Error(), "unrecognised direction") {
+	if err := bank.Store(MessageBankTagLoRaWAN, "bad dir", time.Now(), "haha"); err == nil || !strings.Contains(err.Error(), "unrecognised direction") {
 		t.Fatal(err)
 	}
-	if err := bank.Store(MessageBankTagTTN, MessageDirectionIncoming, time.Now(), nil); err == nil || !strings.Contains(err.Error(), "must not be nil") {
+	if err := bank.Store(MessageBankTagLoRaWAN, MessageDirectionIncoming, time.Now(), nil); err == nil || !strings.Contains(err.Error(), "must not be nil") {
 		t.Fatal(err)
 	}
 
@@ -51,11 +51,11 @@ func TestMessageBank_Store(t *testing.T) {
 		t.Fatalf("%+v", gotMessages)
 	}
 
-	// TTN, outgoing direction.
-	if err := bank.Store(MessageBankTagTTN, MessageDirectionOutgoing, now, "delta"); err != nil {
+	// LoRaWAN, outgoing direction.
+	if err := bank.Store(MessageBankTagLoRaWAN, MessageDirectionOutgoing, now, "delta"); err != nil {
 		t.Fatal(err)
 	}
-	gotMessages = bank.Get(MessageBankTagTTN, MessageDirectionOutgoing)
+	gotMessages = bank.Get(MessageBankTagLoRaWAN, MessageDirectionOutgoing)
 	if !reflect.DeepEqual([]Message{{Time: now, Content: "delta"}}, gotMessages) {
 		t.Fatalf("%+v", gotMessages)
 	}

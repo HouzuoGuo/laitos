@@ -24,9 +24,9 @@ const (
 	// AppCommandPort is the magic LoRaWAN port number for a transceiver to
 	// transmit a text message.
 	MessagePort = 129
-	// TTNMaxDownlinkMessageLength is the maximum length of a downlink message
+	// LoraWANMaxDownlinkMessageLength is the maximum length of a downlink message
 	// that can be handled by LoRaWAN at SF9/125kHz.
-	TTNMaxDownlinkMessageLength = 100
+	LoraWANMaxDownlinkMessageLength = 100
 )
 
 type ApplicationIDs struct {
@@ -96,8 +96,8 @@ type WebHookPayload struct {
 }
 
 // MessageReception describes the metadata and payload of an uplink message
-// received by a TTN gateway. The comment will be stored in-memory by message
-// processor app and message bank app.
+// received by a LoRaWAN gateway. The comment will be stored in-memory by
+// message processor app and message bank app.
 type MessageReception struct {
 	DeviceID                      string
 	DeviceAddr                    string
@@ -115,22 +115,21 @@ type MessageReception struct {
 	StringPayload                 string
 }
 
-/*
-HandleTheThingsNetworkHTTPIntegration collects an uplink message from TheThingsNetwork HTTP integration endpoint,
-if the message carries an app command, the command will be executed by store&forward command processor, and the result
-will be delivered as a downlink message.
-*/
-type HandleTheThingsNetworkHTTPIntegration struct {
+// HandleLoraWANWebhook collects an uplink message from LoRaWAN HTTP integration
+// endpoint, if the message carries an app command, the command will be executed
+// by store&forward command processor, and the result will be delivered as a
+// downlink message.
+type HandleLoraWANWebhook struct {
 	cmdProc *toolbox.CommandProcessor
 	logger  lalog.Logger
 }
 
-func (hand *HandleTheThingsNetworkHTTPIntegration) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
+func (hand *HandleLoraWANWebhook) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
 	if cmdProc == nil {
-		return errors.New("HandleTheThingsNetworkHTTPIntegration.Initialise: command processor must not be nil")
+		return errors.New("HandleLoraWANWebhook.Initialise: command processor must not be nil")
 	}
 	if errs := cmdProc.IsSaneForInternet(); len(errs) > 0 {
-		return fmt.Errorf("HandleTheThingsNetworkHTTPIntegration.Initialise: %+v", errs)
+		return fmt.Errorf("HandleLoraWANWebhook.Initialise: %+v", errs)
 	}
 	hand.cmdProc = cmdProc
 	hand.logger = logger
@@ -156,7 +155,7 @@ func (msg Downlinks) JSONString() string {
 	return string(b)
 }
 
-func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter, r *http.Request) {
+func (hand *HandleLoraWANWebhook) Handle(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return
@@ -166,13 +165,20 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 	}()
 	var uplinkInfo WebHookPayload
 	if err := json.Unmarshal(body, &uplinkInfo); err != nil || len(uplinkInfo.EndDeviceIDs.DeviceID) == 0 {
+		hand.logger.Warning("Handle", middleware.GetRealClientIP(r), err, "failed to unmarshal webhook payload")
 		http.Error(w, "failed to decode uplink message", http.StatusBadRequest)
 		return
 	}
 	// Decode the raw payload sent by transmitter
 	payloadBytes, err := base64.StdEncoding.DecodeString(uplinkInfo.UplinkMessage.RawPayloadBase64)
 	if err != nil {
+		hand.logger.Warning("Handle", middleware.GetRealClientIP(r), err, "failed to unmarshal uplink message payload")
 		http.Error(w, "failed to decode uplink message payload", http.StatusBadRequest)
+		return
+	}
+	if len(payloadBytes) > 2048 {
+		hand.logger.Warning("Handle", middleware.GetRealClientIP(r), err, "received an unusually large uplink payload")
+		http.Error(w, "the size of raw payload is unusually large", http.StatusBadRequest)
 		return
 	}
 	// Construct a report to save to message processor
@@ -226,15 +232,17 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 		downlinkMessage = cmdResp.CommandResponse.Result
 	} else if uplinkInfo.UplinkMessage.PortNumber == MessagePort {
 		cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
-		// This is a regular text message. Put the text message into message
-		// bank.
-		err := hand.cmdProc.Features.MessageBank.Store(toolbox.MessageBankTagTTN, toolbox.MessageDirectionIncoming, time.Now(), messageReception)
-		if err != nil {
-			hand.logger.Warning("Handle", messageReception.DeviceID, err, "failed to store uplink message in message bank")
+		if len(messageReception.StringPayload) > 0 {
+			// This is a regular text message. Put the text message into message
+			// bank.
+			err := hand.cmdProc.Features.MessageBank.Store(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionIncoming, time.Now(), messageReception)
+			if err != nil {
+				hand.logger.Warning("Handle", messageReception.DeviceID, err, "failed to store uplink message in message bank")
+			}
 		}
 		// If there's been a new (<10 min) outgoing message, give it to the
 		// transceiver in a downlink message.
-		outgoing := hand.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagTTN, toolbox.MessageDirectionOutgoing)
+		outgoing := hand.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionOutgoing)
 		if len(outgoing) > 0 {
 			latest := outgoing[len(outgoing)-1]
 			if time.Now().Sub(latest.Time) < 10*time.Minute {
@@ -254,8 +262,8 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 	// The LoRaWAN protocol takes away another ~13 bytes.
 	// Reference: https://www.thethingsnetwork.org/forum/t/fair-use-policy-explained/1300
 	// To be on the conservative side, limit the result length to SF9/125kHz's maximum.
-	if len(downlinkMessage) > TTNMaxDownlinkMessageLength {
-		downlinkMessage = downlinkMessage[:TTNMaxDownlinkMessageLength]
+	if len(downlinkMessage) > LoraWANMaxDownlinkMessageLength {
+		downlinkMessage = downlinkMessage[:LoraWANMaxDownlinkMessageLength]
 	}
 	// Schedule a downlink message multiple times to transmit the app command execution result.
 	if len(downlinkMessage) > 0 {
@@ -279,16 +287,16 @@ func (hand *HandleTheThingsNetworkHTTPIntegration) Handle(w http.ResponseWriter,
 			err = downlinkResp.Non2xxToError()
 		}
 		if err != nil {
-			hand.logger.Warning("HandleTheThingsNetworkHTTPIntegration.Handler", middleware.GetRealClientIP(r), err, "failed to send downlink reply message")
+			hand.logger.Warning("HandleLoraWANWebhook.Handler", middleware.GetRealClientIP(r), err, "failed to send downlink reply message")
 		}
 	}
 	w.WriteHeader(http.StatusOK)
 }
 
-func (_ *HandleTheThingsNetworkHTTPIntegration) GetRateLimitFactor() int {
+func (_ *HandleLoraWANWebhook) GetRateLimitFactor() int {
 	return 6
 }
 
-func (_ *HandleTheThingsNetworkHTTPIntegration) SelfTest() error {
+func (_ *HandleLoraWANWebhook) SelfTest() error {
 	return nil
 }

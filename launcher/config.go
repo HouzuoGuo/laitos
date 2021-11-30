@@ -99,7 +99,7 @@ type HTTPHandlers struct {
 	RecurringCommandsEndpointConfig handler.HandleRecurringCommands `json:"RecurringCommandsEndpointConfig"`
 	ReportsRetrievalEndpoint        string                          `json:"ReportsRetrievalEndpoint"`
 	RequestInspectorEndpoint        string                          `json:"RequestInspectorEndpoint"`
-	TheThingsNetworkEndpoint        string                          `json:"TheThingsNetworkEndpoint"`
+	LoraWANWebhookEndpoint          string                          `json:"LoraWANWebhookEndpoint"`
 	TwilioCallEndpoint              string                          `json:"TwilioCallEndpoint"`
 	TwilioCallEndpointConfig        handler.HandleTwilioCallHook    `json:"TwilioCallEndpointConfig"`
 	TwilioSMSEndpoint               string                          `json:"TwilioSMSEndpoint"`
@@ -561,8 +561,8 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		if proxyEndpoint := config.HTTPHandlers.WebProxyEndpoint; proxyEndpoint != "" {
 			handlers[proxyEndpoint] = &handler.HandleWebProxy{OwnEndpoint: proxyEndpoint}
 		}
-		if ttnEndpoint := config.HTTPHandlers.TheThingsNetworkEndpoint; ttnEndpoint != "" {
-			handlers[ttnEndpoint] = &handler.HandleTheThingsNetworkHTTPIntegration{}
+		if endpoint := config.HTTPHandlers.LoraWANWebhookEndpoint; endpoint != "" {
+			handlers[endpoint] = &handler.HandleLoraWANWebhook{}
 		}
 		if config.HTTPHandlers.MessageBankEndpoint != "" {
 			handlers[config.HTTPHandlers.MessageBankEndpoint] = &handler.HandleMessageBank{}

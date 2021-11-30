@@ -152,7 +152,7 @@ var sampleConfigJSON = `
         }
       }
     },
-    "TheThingsNetworkEndpoint": "/ttn",
+    "LoraWANWebhookEndpoint": "/ttn",
     "TwilioCallEndpoint": "/call_greeting",
     "TwilioCallEndpointConfig": {
       "CallGreeting": "Hi there"
