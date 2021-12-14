@@ -8,7 +8,5 @@ RUN apt update && apt upgrade -q -y -f -m -o Dpkg::Options::=--force-confold -o 
 COPY laitos.amd64 /laitos.amd64
 ENTRYPOINT ["/laitos.amd64"]
 
-# A gentle start - run laitos in a container and start the HTTP server:
-# 1. Start the container: docker run -it --rm -p 12345:80 --env 'LAITOS_CONFIG={"HTTPFilters": {"PINAndShortcuts": {"Passwords": ["abcdefgh"]},"LintText": {"MaxLength": 1000}},"HTTPHandlers": {"AppCommandEndpoint": "/cmd"}}' --env 'LAITOS_INDEX_PAGE=hi from laitos' hzgl/laitos:latest -daemons insecurehttpd
-# 2. In browser window, navigate to "http://server-ip:12345/cmd?cmd=abcdefgh.s date", the example command calls for shell app ".s" to print out the system date and time.
-# 3. The browser page will display the app command result on the page.
+# Give this a try - start the laitos web server (HTTP) with a couple of web services:
+# docker run -it --rm -p 12345:80 --env 'LAITOS_CONFIG={"HTTPFilters": {"PINAndShortcuts": {"Passwords": ["password"]}, "LintText": {"MaxLength": 1000}}, "HTTPHandlers": {"CommandFormEndpoint": "/cmd", "FileUploadEndpoint": "/upload", "InformationEndpoint": "/info", "LatestRequestsInspectorEndpoint": "/latest_requests", "ProcessExplorerEndpoint": "/proc", "RequestInspectorEndpoint": "/myrequest", "WebProxyEndpoint": "/proxy"}}' --env 'LAITOS_INDEX_PAGE=Welcome to laitos, try these out: /cmd /upload /info /latest_requests?e=1 /proc?pid=0 /myrequest /proxy?u=http://google.com' hzgl/laitos:latest -daemons insecurehttpd

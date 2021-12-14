@@ -117,7 +117,7 @@
     }
   },
   "HTTPHandlers": {
-    "BrowserPhantomJSEndpoint": "/sample/browserp",
+    "BrowserPhantomJSEndpoint": "/browserp",
     "BrowserPhantomJSEndpointConfig": {
       "Browsers": {
         "BasePortNumber": 14120,
@@ -126,7 +126,7 @@
         "PhantomJSExecPath": "./extra/linux/phantomjs-2.1.1-x86_64"
       }
     },
-    "BrowserSlimerJSEndpoint": "/sample/browsers",
+    "BrowserSlimerJSEndpoint": "/browsers",
     "BrowserSlimerJSEndpointConfig": {
       "Browsers": {
         "BasePortNumber": 48887,
@@ -134,9 +134,9 @@
         "MaxLifetimeSec": 1800
       }
     },
-    "CommandFormEndpoint": "/sample/cmd",
-    "FileUploadEndpoint": "/sample/upload",
-    "GitlabBrowserEndpoint": "/sample/gitlab",
+    "CommandFormEndpoint": "/cmd",
+    "FileUploadEndpoint": "/upload",
+    "GitlabBrowserEndpoint": "/gitlab",
     "GitlabBrowserEndpointConfig": {
       "PrivateToken": "dummy token",
       "Projects": {
@@ -146,17 +146,17 @@
         "root@localhost"
       ]
     },
-    "InformationEndpoint": "/sample/info",
-    "LatestRequestsInspector": "/sample/latest_requests",
-    "MailMeEndpoint": "/sample/mailme",
+    "InformationEndpoint": "/info",
+    "LatestRequestsInspector": "/latest_requests",
+    "MailMeEndpoint": "/mailme",
     "MailMeEndpointConfig": {
       "Recipients": [
         "root@localhost"
       ]
     },
-    "MicrosoftBotEndpoint1": "/sample/msbot1",
-    "MicrosoftBotEndpoint2": "/sample/msbot2",
-    "MicrosoftBotEndpoint3": "/sample/msbot3",
+    "MicrosoftBotEndpoint1": "/msbot1",
+    "MicrosoftBotEndpoint2": "/msbot2",
+    "MicrosoftBotEndpoint3": "/msbot3",
     "MicrosoftBotEndpointConfig1": {
       "ClientAppID": "dummy id 1",
       "ClientAppSecret": "dummy secret 1"
@@ -169,7 +169,7 @@
       "ClientAppID": "dummy id 3",
       "ClientAppSecret": "dummy id 3"
     },
-    "RecurringCommandsEndpoint": "/sample/recurring_commands",
+    "RecurringCommandsEndpoint": "/recurring_commands",
     "RecurringCommandsEndpointConfig": {
       "RecurringCommands": {
         "channel1": {
@@ -181,14 +181,15 @@
         }
       }
     },
-    "RequestInspectorEndpoint": "/sample/my_request",
-    "TwilioCallEndpoint": "/sample/twilio/call",
+    "RequestInspectorEndpoint": "/my_request",
+    "TwilioCallEndpoint": "/twilio/call",
     "TwilioCallEndpointConfig": {
       "CallGreeting": "Hey"
     },
-    "TwilioSMSEndpoint": "/sample/twilio/sms",
-    "WebProxyEndpoint": "/sample/proxy"
+    "TwilioSMSEndpoint": "/twilio/sms",
+    "WebProxyEndpoint": "/proxy"
   },
+  "LatestRequestsInspectorEndpoint": "/latest_requests",
   "MailClient": {
     "AuthPassword": "dummy password",
     "AuthUsername": "dummy username",

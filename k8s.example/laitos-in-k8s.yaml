@@ -21,32 +21,32 @@ spec:
           env:
             - name: LAITOS_CONFIG
               value: |
-                {
-                  "HTTPFilters": {
-                    "LintText": {
-                      "CompressSpaces": false,
-                      "CompressToSingleLine": false,
-                      "KeepVisible7BitCharOnly": false,
-                      "MaxLength": 1000,
-                      "TrimSpaces": false
+                  {
+                    "HTTPFilters": {
+                      "LintText": {
+                        "MaxLength": 1000
+                      },
+                      "PINAndShortcuts": {
+                        "Passwords": [
+                          "password"
+                        ]
+                      }
                     },
-                    "PINAndShortcuts": {
-                      "Passwords": [
-                        "password"
-                      ]
+                    "HTTPHandlers": {
+                      "CommandFormEndpoint": "/cmd",
+                      "FileUploadEndpoint": "/upload",
+                      "InformationEndpoint": "/info",
+                      "LatestRequestsInspectorEndpoint": "/latest_requests",
+                      "ProcessExplorerEndpoint": "/proc",
+                      "RequestInspectorEndpoint": "/myrequest",
+                      "WebProxyEndpoint": "/proxy"
                     }
-                  },
-                  "HTTPHandlers": {
-                    "CommandFormEndpoint": "/cmd",
-                    "InformationEndpoint": "/info",
-                    "RequestInspectorEndpoint": "/myrequest",
-                    "WebProxyEndpoint": "/proxy"
                   }
-                }
             - name: LAITOS_INDEX_PAGE
               value: |
                 Hello from k8s!
                 This is a demo app, brought to you by the laitos open source project: https://github.com/HouzuoGuo/laitos
+                Try these out: /cmd /upload /info /latest_requests?e=1 /proc?pid=0 /myrequest /proxy?u=http://google.com
           ports:
             - containerPort: 80
 

@@ -83,7 +83,7 @@ type HTTPHandlers struct {
 	IndexEndpointConfig             handler.HandleHTMLDocument      `json:"IndexEndpointConfig"`
 	IndexEndpoints                  []string                        `json:"IndexEndpoints"`
 	InformationEndpoint             string                          `json:"InformationEndpoint"`
-	LatestRequestsInspectorEndpoint string                          `json:"LatestRequestsInspector"`
+	LatestRequestsInspectorEndpoint string                          `json:"LatestRequestsInspectorEndpoint"`
 	MailMeEndpoint                  string                          `json:"MailMeEndpoint"`
 	MailMeEndpointConfig            handler.HandleMailMe            `json:"MailMeEndpointConfig"`
 	MessageBankEndpoint             string                          `json:"MessageBankEndpoint"`

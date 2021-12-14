@@ -15,6 +15,7 @@
   },
   "HTTPHandlers": {
     "CommandFormEndpoint": "/cmd",
+    "FileUploadEndpoint": "/upload",
     "IndexEndpointConfig": {
       "HTMLFilePath": "index.html"
     },
@@ -23,6 +24,8 @@
       "/index.html"
     ],
     "InformationEndpoint": "/info",
+    "LatestRequestsInspectorEndpoint": "/latest_requests",
+    "ProcessExplorerEndpoint": "/proc",
     "RequestInspectorEndpoint": "/myrequest",
     "WebProxyEndpoint": "/proxy"
   }
