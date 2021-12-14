@@ -5,7 +5,6 @@ any mail. For communication secrecy, the server supports StartTLS operation and 
 To reduce spam, the sender IPs are passed through these widely-used DNS-based blocklists:
 - "b.barracudacentral.org",
 - "bl.mailspike.net",
-- "bl.spamcop.net",
 - "cbl.abuseat.org",
 - "dnsbl-1.uceprotect.net",
 - "dnsbl-2.uceprotect.net",
@@ -16,7 +15,6 @@ To reduce spam, the sender IPs are passed through these widely-used DNS-based bl
 - "ix.dnsbl.manitu.net",
 - "noptr.spamrats.com",
 - "psbl.surriel.com",
-- "singular.ttk.pte.hu",
 - "spam.dnsbl.anonmails.de",
 - "spam.dnsbl.sorbs.net",
 - "spam.spamrats.com",
@@ -227,17 +225,25 @@ Here are couple of examples involving, assuming that laitos server is on `123.23
 Wait up to an hour for new DNS records to propagate through the Internet.
 
 ## Test
+
 Send a test mail with subject, text, and attachments to any name under `MyDomains` (e.g. `i@my-domain-name.net`). Wait
 a short moment, check the inbox on any of `ForwardTo` address (e.g. `me@example.com`), the test mail should arrive at
 all of the `ForwardTo` addresses.
 
-Try invoking an app command - send laitos server a mail with arbitrary subject, and write down password PIN and app command
-in the content body. Look for the command response in a mail replied to the sender.
+To invoke an app command, compose a plain text email to laitos server using an
+arbitrary subject text, write down the password PIN and app command in the mail
+body, and send it to laitos server. A short moment later, the command execution
+result will be mailed back to the sender.
 
 ## Tips
+
 - Occasionally your mail provider (such as Gmail) may consider legitimate mails forwarded by laitos as spam, therefore please
   check your spam folders regularly.
 - Many Internet domain names use [DMARC](https://en.wikipedia.org/wiki/DMARC) to protect their business from mail spoofing.
   Though laitos usually forwards the verbatim copy of incoming mail to you, DMARC makes an exception - laitos has to change
   the sender from `name@protected-domain.com` to `name@protected-domain-laitos-nodmarc-###.com` where hash is a random digit.
-  Otherwise your mail provder will discard the mail silently - without a trace in spam folder.
+  Otherwise your mail provider will discard the mail silently - without a trace in spam folder.
+- Some mail providers and clients (such as Gmail on the web) automatically
+  attaches a plain-text copy of the rich-text mail content when sending it.
+  When receiving this kind of mail, the laitos mail server will be smart enough
+  to pick up the plain-text copy and look for app command to execute there.

@@ -201,9 +201,31 @@ the AWS x-ray daemon program on the server host by following [AWS X-Ray Daemon g
 All interactions between laitos and AWS generate info-level log messages for diagnosis and inspection.
 
 ## Deploy on Microsoft Azure and Google Compute Engine
+
 Simply copy laitos program and its data onto a Linux virtual machine and start laitos right away. It is often useful to
 use systemd integration to launch laitos automatically upon system boot. All flavours of Linux distributions supported
 by Azure can run laitos.
+
+## Deploy on Google App Engine
+
+Clone the laitos repository and create a sub-directory named
+`gcp_appengine_data`. Place the following files into the sub-directory:
+
+- `daemonName` - A plain-text file of comma-separated daemon names to be started
+  on App Engine. The content is analogous to CLI parameter `-daemons`.
+- `appeng-environment.yaml` - A YAML file of program environment variables,
+  for example: `env_variables:\n LAITOS_INDEX_PAGE: "{...}"`
+- `config.json` - A JSON file for the laitos program configuration.
+  * Alternatively, write the program configuration JSON into the environment
+    variable `LAITOS_CONFIG`.
+- Other program data files such as HTML assets.
+
+Then navigate to the cloned directory (`laitos.git`) and run `gcloud app depoy`.
+
+You can find an example in: https://github.com/HouzuoGuo/laitos/tree/master/gcp_appengine_data.example
+
+Note that, the example config file is named `config.json.example` whereas the
+actual config file must be named `config.json`.
 
 ## Deploy on other cloud providers
 laitos runs on nearly all flavours of Linux system, therefore as long as your cloud provider supports Linux compute

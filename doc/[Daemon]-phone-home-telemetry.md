@@ -144,7 +144,36 @@ to read the telemetry records sent by this daemon. A record looks like:
         "SubjectIP": "123.123.123.123",
         "SubjectHostName": "my-laptop",
         "SubjectPlatform": "linux-amd64",
-        "SubjectComment": "IP: 123.123.123.123\nClock: 2020-07-21 06:09:36.939774681 +0000 UTC m=+234024.286691409\nSys/prog uptime: 65h1m26s / 65h0m24.284679748s\nTotal/used/prog mem: 976 / 304 / 50 MB\nTotal/used/free rootfs: 46050 / 15730 / 30319 MB\nSys load: 0.00 0.03 0.00 3/157 16592\nNum CPU/GOMAXPROCS/goroutines: 2 / 8 / 52\nProgram flags: [-disableconflicts -gomaxprocs 8 -config config.json -supervisor=false -daemons autounlock,dnsd,httpd,insecurehttpd,maintenance,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram]\n",
+        "SubjectComment": {
+            "CLIFlags": [
+                ...
+                "-supervisor=false",
+                "-daemons",
+                "autounlock,maintenance,phonehome"
+            ],
+            "ClockTime": "2021-12-14T18:58:36.198344935Z",
+            "DiskCapMB": 15817,
+            "DiskFreeMB": 2845,
+            "DiskUsedMB": 12972,
+            "EGID": 0,
+            "EUID": 0,
+            "EnvironmentVars": [
+                ...
+                "SHELL=/bin/sh",
+                "HOME=/root",
+                "LANG=C.UTF-8",
+                ...
+            ],
+            "ExePath": "/hg/bin/laitos.amd64",
+            ...
+            "WorkingDirContent": [
+                ...
+                "index.html",
+                "resume/",
+                ...
+            ],
+            "WorkingDirPath": "/prog-dat/"
+        },
         "CommandRequest": {
             "Command": ""
         },
@@ -173,16 +202,21 @@ sends a telemetry record again, that record will include the app command along w
 service to read telemetry records along with app command execution result.
 
 ## Tips
-- The daemon never transmits the password PIN over network , instead, it translates the password PIN into a disposable,
-  one-time-password with every telemetry record. This is especially helpful when sending telemetry over DNS, as DNS protocol
-  does not use encryption. Read more about this command processor mechanism in
-  [Use one-time-password in place of password](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password).
-- If the daemon sends telemetry records to your laitos DNS server, then the telemetry record will appear truncated to the
-  DNS server, due to DNS protocol limitation, it does not have enough room for a complete telemetry record.
-- In a telemetry record, the host name is always truncated to 16 characters maximum, and changed to lower case. Both of your
-  laitos web server and DNS server will receive the shortened host name. The short length allows a telemetry record to
-  have more room for other fields when transmitted over DNS.
-- If one of the `MessageProcessorServers` runs a DNS daemon also and you wish to send it queries from a home network, then instead
-  of manually figuring out your public IP and placing it in the DNS daemon configuration `AllowQueryIPPrefixes`, you can run this
-  phone-home telemtry daemon on a computer inside that network (e.g. on a laptop or desktop) let it send reports to the laitos DNS server
-  over `HTTPEndpointURL` or `DNSDomainName`. The DNS daemon will automatically allow all telemetry subjects to freely send queries.
+
+- The daemon never transmits the password PIN over network, instead, it
+  translates the password PIN into a disposable, one-time-password with every
+  telemetry record. This is especially helpful when sending telemetry over DNS,
+  as DNS protocol does not use encryption. Read more about this command
+  processor mechanism in [Use one-time-password in place of password](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password).
+- When the daemon sends out a telemetry record over DNS to your laitos server,
+  the record will appear truncated on the receiver's end. This is to be expected
+  as DNS protocol does not leave much room for data transmission.
+- In an outgoing telemetry record, the host name is always truncated to 16
+  characters maximum and changed to lower case. This is especially beneficial
+  for sending the telemetry record over DNS which has very limited space for
+  data transmission.
+- The [DNS daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server)
+  automatically allows telemetry record senders to send DNS queries as well,
+  regardless of whether the sender's IP is among the `AllowQueryIPPrefixes`.
+  This is a handy alternative to keeping `AllowQueryIPPrefixes` updated for the
+  public IP of your home network.

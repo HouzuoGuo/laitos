@@ -1,27 +1,29 @@
 # Get started
 
-## Acquire software
-Download the latest [laitos software](https://github.com/HouzuoGuo/laitos/releases).
+## Obtain laitos software
 
-For geekier scenarios, use the latest go compiler to compile the software from source code like so:
+Download the latest laitos software from the [releases page](https://github.com/HouzuoGuo/laitos/releases).
 
-    ~/go > go get github.com/HouzuoGuo/laitos
-    ~/go/src/github.com/HouzuoGuo/laitos > go build
+Alternatively, compile the software manually by cloning this repository and then
+run `go build`.
 
-laitos is an all-in-one solution and does not depend on third party library.
+## Craft your configuration
 
-## Prepare configuration
-laitos components go into three categories:
+A configurable laitos component belongs to one of the three categories:
+
 - Apps - reading news and Emails, make a Tweet, ask about weather, etc.
-- Daemons - web/mail/DNS servers, chat bots, etc. Many daemons offer access to apps, protected with a password.
-- Rich web services - useful web-based utilities hosted by the web server.
+  * Some apps do not require manual configuration and they are pre-enabled.
+- Daemons - web/mail/DNS servers, chat bots, etc. Many daemons are capable of
+  accepting app command input and allow command execution protected by a
+  password.
+- Web services - HTML-based utilities, web-hooks for integration with 3rd party
+  services, etc.
 
-Follow the links in [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list) to craft your very own
-configuration in [JSON](https://en.wikipedia.org/wiki/JSON).
-Keep in mind - nearly all components require configuration to be useful.
+Follow the links in [component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list)
+to craft your very own configuration in [JSON](https://en.wikipedia.org/wiki/JSON).
 
-As an example, here we use laitos DNS server for a safer and ad-free web experience at home, and automatically keep
-the laitos server computer up-to-date with latest security patches:
+As an example, here we use laitos DNS server to provide a safer and ad-free web
+experience at home, and enable a couple of web utilities:
 
     {
       "DNSDaemon": {
@@ -30,14 +32,20 @@ the laitos server computer up-to-date with latest security patches:
           "10."
         ]
       },
-      "Maintenance": {
-        "Recipients": [
-          "server-owner@hotmail.com"
-        ]
-      },
+      "HTTPDaemon": {},
+      "HTTPHandlers": {
+        "CommandFormEndpoint": "/cmd",
+        "FileUploadEndpoint": "/upload",
+        "InformationEndpoint": "/info",
+        "LatestRequestsInspectorEndpoint": "/latest_requests",
+        "ProcessExplorerEndpoint": "/proc",
+        "RequestInspectorEndpoint": "/myrequest",
+        "WebProxyEndpoint": "/proxy"
+      }
     }
 
-## Start program
+## Start the program
+
 Assume that latios software is in current directory, run the following command:
 
     sudo ./laitos -config <PATH TO JSON FILE> -daemons <LIST>
@@ -60,25 +68,62 @@ Note that:
   * [`maintenance`](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance) - Automated server maintenance and program health report
 - Apps are enabled automatically once they are configured in the JSON file. Some apps such as the RSS News Reader are automatically enabled via their built-in default configuration.
 
+## Other deployment techniques
+
+### Use environment variables to feed the program configuration
+
+For ease of deployment, laitos can fetch its program configuration along with
+the content of HTTP daemon index page from environment variables - instead of
+the usual files.
+
+When `LAITOS_CONFIG` environment variable is present and not empty, laitos
+program will load its configuration from there. When `LAITOS_INDEX_PAGE`
+environment variable is present and not empty, laitos will use its content
+to serve the index page on its HTTP servers.
+
+Check out environment variable usage examples in the [Kubernetes example](https://github.com/HouzuoGuo/laitos/blob/master/k8s.example/laitos-in-k8s.yaml)
+and the [example in Dockerfile](https://github.com/HouzuoGuo/laitos/blob/master/Dockerfile)
+
+Be aware that the combined size of all environment variables generally cannot
+exceed ~2MBytes.
+
+### Build a container image
+The images of a (usually) up-to-date version of laitos are uploaded to Docker
+Hub [hzgl/laitos](https://hub.docker.com/r/hzgl/laitos).
+
+If you wish to customise the image to your needs, feel free to use the [`Dockerfile`](https://github.com/HouzuoGuo/laitos/blob/master/Dockerfile)
+from GitHub repository as a reference.
+
 ## Deploy on cloud
+
 laitos runs well on all popular cloud vendors, it supports cloud virtual machines for a straight-forward installation,
 as well as more advanced cloud features such as AWS Elastic Beanstalk and AWS Lambda (in combination with API gateway).
 Check out the [cloud deployment tips](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips).
 
 ## Deploy on Windows
+
 laitos is well tuned for running on Windows server and desktop. Check out this [PowerShell script](https://raw.githubusercontent.com/HouzuoGuo/laitos/master/extra/windows/setup.ps1)
 that helps to start laitos automatically as a background service.
 
-## Advanced behaviours
-### Self-healing
-laitos is extremely reliable thanks to its many built-in mechanisms that activate automatically in the unlikely event of program anormaly.
-The mechanisms are fully automatic and do not require manual intervention:
+## Advanced program behaviours
 
-1. Access to external resources, such as API services on the public Internet, automatically recover from transient errors.
-2. Each daemon automatically restarts in case of a transient initialisation error, such as when required system resource is unavailable.
-3. laitos program and its daemons restart automatically in case of a complete program crash.
-4. In the extremely unlikely event of repeated program crashes in short succession (20 minutes), laitos will restart automatically while
-   shedding of its daemons starting from the heaviest daemon, thus ensuring the maximum availabily of remaining healthy daemons.
+### Self-healing
+
+laitos is extremely reliable thanks to its many built-in mechanisms that make
+automated attempts to restart and isolate faulty components. The built-in
+mechanisms are fully automatic and do not require intervention:
+
+1. Automatically recover from transient errors when contacting external
+   resources, such as API services on the public Internet.
+2. Every daemon automatically restarts in case of a transient initialisation
+   error.
+3. In the unlikely event of a program crash, the laitos program automatically
+   restarts itself to recover.
+4. In the extremely unlikely event of repeated program crashes in short
+   succession (20 minutes), laitos will attempt to automatically isolate the
+   faulty daemon by removing daemons before the next restart - shedding the
+   heavier daemons (e.g. DNS) first before shedding the lighter daemons (e.g.
+   HTTP daemon).
 
 Optionally, laitos can send server owner a notification mail when a program crash occurs. To enable the notification, follow
 [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration) and then specify Email recipients in
@@ -98,6 +143,7 @@ Please use [Github issues](https://github.com/HouzuoGuo/laitos/issues) to report
 output contain valuable clues for diagnosis - please retain them for an issue report.
 
 ### More command line options
+
 Use the following command line options with extra care:
 <table>
 <tr>
@@ -166,19 +212,3 @@ Use the following command line options with extra care:
     </td>
 </tr>
 </table>
-
-### Build a container image
-Images of a (usually) up-to-date version of laitos are uploaded to Docker Hub [hzgl/laitos](https://hub.docker.com/r/hzgl/laitos).
-
-If you wish to customise the image to your needs, feel free to use the [`Dockerfile`](https://github.com/HouzuoGuo/laitos/blob/master/Dockerfile)
-from GitHub repository as a reference.
-
-### Supply program configuration in an environment variable
-Usually, the program configuration is kept in a JSON file, the path of which is specified in the laitos launch command line (`-config my-laitos-config.json`).
-However, if the program configuration is short enough to fit into an environment variable, laitos can also get its configuration
-from there. This can be rather useful for testing a configuration snippet or starting a small number of daemons in a container.
-
-The following example starts the HTTP daemon (without TLS) on the default port number (80), the web server comes with app-command runner endpoint:
-
-    sudo env 'LAITOS_CONFIG={"HTTPFilters": {"PINAndShortcuts": {"Passwords": ["abcdefgh"]},"LintText": {"MaxLength": 1000}},"HTTPHandlers": {"AppCommandEndpoint": "/cmd"}}' ./laitos -daemons insecurehttpd
-    # Try running an app command: curl http://0.0.0.0:80/cmd?cmd=abcdefgh.sdate
