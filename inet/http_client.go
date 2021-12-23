@@ -32,17 +32,16 @@ var (
 	}
 
 	// NeutralRecursiveResolver is a DNS resolver that provides genuine answers
-	// without discrimation or filtering. This is often useful for resolving
-	// names downloaded from various blocklist projects.
+	// without discrimination or filtering. This is often useful for resolving
+	// names downloaded from various blacklist projects.
 	NeutralRecursiveResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
-			proto := "udp"
-			if rand.Intn(2) == 0 {
-				proto = "tcp"
-			}
-			resolver := NeutralDNSResolverAddrs[rand.Intn(len(NeutralDNSResolverAddrs))]
-			return net.Dial(proto, resolver)
+			// Obey the network protocol choice (udp, tcp), but insist on using
+			// one of the built-in resolver addresses.
+			resolverAddr := NeutralDNSResolverAddrs[rand.Intn(len(NeutralDNSResolverAddrs))]
+			var d net.Dialer
+			return d.DialContext(ctx, network, resolverAddr)
 		},
 	}
 )
