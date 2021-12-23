@@ -231,31 +231,30 @@ func (hand *HandleLoraWANWebhook) Handle(w http.ResponseWriter, r *http.Request)
 		// processor.
 		downlinkMessage = cmdResp.CommandResponse.Result
 	} else if uplinkInfo.UplinkMessage.PortNumber == MessagePort {
-		cmdResp := hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
+		// Always store the report even though it is not have an app command.
+		hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
 		if len(messageReception.StringPayload) > 0 {
-			// This is a regular text message. Put the text message into message
-			// bank.
+			// Put the text message into message bank.
 			err := hand.cmdProc.Features.MessageBank.Store(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionIncoming, time.Now(), messageReception)
 			if err != nil {
 				hand.logger.Warning("Handle", messageReception.DeviceID, err, "failed to store uplink message in message bank")
 			}
 		}
-		// If there's been a new (<10 min) outgoing message, give it to the
-		// transceiver in a downlink message.
+	} else {
+		// Always store the report.
+		hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
+	}
+	if downlinkMessage == "" {
+		// If there is no app command response, then see if there is a regular
+		// text message that can be sent in the downlink.
 		outgoing := hand.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionOutgoing)
 		if len(outgoing) > 0 {
+			// There is a new (<10 min ago) outgoing text message.
 			latest := outgoing[len(outgoing)-1]
 			if time.Now().Sub(latest.Time) < 10*time.Minute {
 				downlinkMessage = fmt.Sprintf("%v", latest.Content)
 			}
 		}
-		// If there is no outgoing text message, then transmit the last command
-		// response (if any) to the transceiver in a downlink message.
-		if downlinkMessage == "" {
-			downlinkMessage = cmdResp.CommandResponse.Result
-		}
-	} else {
-		hand.cmdProc.Features.MessageProcessor.StoreReport(r.Context(), report, uplinkInfo.EndDeviceIDs.DeviceID, "httpd")
 	}
 	// At SF9/125kHz, the maximum payload size drops to 115 bytes.
 	// At SF7/125kHz, the maximum payload size is about 222 bytes.
