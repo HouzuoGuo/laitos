@@ -1,4 +1,5 @@
 ## Introduction
+
 The web proxy daemon is a general-purpose HTTP proxy, capable of handling both HTTP and HTTPS destinations. It is especially suitable
 for general web browsing on personal computing devices such as laptops and phones.
 
@@ -9,6 +10,7 @@ Optionally, to obtain insights of proxy destination performance and web browsing
 in the web service of [prometheus metrics exporter](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter).
 
 ## Configuration
+
 Construct the following JSON object and place it under key `HTTPProxyDaemon` in configuration file:
 
 <table>
@@ -65,11 +67,13 @@ Here is an example:
 </pre>
 
 ## Run
+
 Tell laitos to run the HTTP web proxy daemon in the command line:
 
     sudo ./laitos -config <CONFIG FILE> -daemons ...,httpproxy,...
 
 ## Test (Optional)
+
 Assuming that the proxy daemon is listening on the default port 210, perform this tests from a computer where you will be using the proxy
 server: `curl -L -x http://LaitosServerHostNameOrIP:210 https://github.com`.
 
@@ -77,6 +81,7 @@ If the command runs successfully and gives plenty of HTML output, then the test 
 on personal computing devices.
 
 ## Usage
+
 On your personal computing devices (such as phones and laptops), visit OS network settings and then set:
 
 - Use a proxy server: Yes
@@ -90,12 +95,19 @@ If presented to you, set these settings too:
 For other cases such as Linux command line, set environment variable `http_proxy` and `https_proxy` to `http://LaitosServerHostNameOrIP:Port`.
 Majority of Linux programs obey the two environment variables.
 
-Optionally, if you wish to obtain some insights about data transferred over this proxy and users' browsing habits, such as getting the top N proxy
-destinations by data transfer and number of connections, then turn on on prometheus integration (`sudo ./laitos -prominteg -config ... -daemons ...httpproxy,httpd,...`)
-and enable the web server to serve the [prometheus metrics exporter](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter).
-See the exporter's tips for examples of useful queries as such.
+
+See the exporter's tips for examples of useful queries
 
 ## Tips
-- Instead of manually figure out your home public IP and placing it into `AllowFromCidrs`, run [phone-home telemetry daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-phone-home-telemetry)
-  on a computer inside that network (e.g. on a laptop or desktop) and configure the daemon to send reports to the laitos server.
-  The web proxy daemon will automatically allow all telemetry subjects to freely use the proxy.
+
+- Instead of manually figure out your home public IP and placing it into
+  `AllowFromCidrs`, run [phone-home telemetry daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-phone-home-telemetry)
+  on a computer inside that network (e.g. on a laptop or desktop) and configure
+  the daemon to send reports to the laitos server. The web proxy daemon will
+  automatically allow all telemetry subjects to use the proxy.
+- To obtain insights about proxy usage and users' browsing habits (such as the
+  top N proxy destinations by bandwidth), turn on the Prometheus integration
+  (`sudo ./laitos -prominteg -config ... -daemons ...httpproxy,httpd,...`)
+  and enable the web server to serve the [prometheus metrics exporter](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter).
+  * Check out the [metrics exporter - tips](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter#tips)
+    for some useful query examples.

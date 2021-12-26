@@ -208,7 +208,7 @@ by Azure can run laitos.
 
 ## Deploy on Google App Engine
 
-Clone the laitos repository and create a sub-directory named
+Clone the laitos repository. In the clone directory,and create a sub-directory
 `gcp_appengine_data`. Place the following files into the sub-directory:
 
 - `daemonName` - A plain-text file of comma-separated daemon names to be started

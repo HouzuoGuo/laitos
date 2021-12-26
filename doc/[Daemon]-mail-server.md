@@ -1,8 +1,10 @@
 ## Introduction
+
 The mail server forwards incoming mails as-is to your personal mail address(es). The server does not by itself store
 any mail. For communication secrecy, the server supports StartTLS operation and identifies itself with a TLS certificate.
 
 To reduce spam, the sender IPs are passed through these widely-used DNS-based blocklists:
+
 - "b.barracudacentral.org",
 - "bl.mailspike.net",
 - "cbl.abuseat.org",

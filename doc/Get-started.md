@@ -51,6 +51,7 @@ Assume that latios software is in current directory, run the following command:
     sudo ./laitos -config <PATH TO JSON FILE> -daemons <LIST>
 
 Note that:
+
 - Web, mail, and many other daemons usually bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html),
   Run laitos using `sudo` to ensure their proper operation.
 - Replace `<PATH TO JSON FILE>` by the relative or absolute path to your configuration file.
@@ -72,14 +73,11 @@ Note that:
 
 ### Use environment variables to feed the program configuration
 
-For ease of deployment, laitos can fetch its program configuration along with
-the content of HTTP daemon index page from environment variables - instead of
-the usual files.
+For ease of deployment, when `LAITOS_CONFIG` environment variable is not empty,
+laitos will load its configuration from there.
 
-When `LAITOS_CONFIG` environment variable is present and not empty, laitos
-program will load its configuration from there. When `LAITOS_INDEX_PAGE`
-environment variable is present and not empty, laitos will use its content
-to serve the index page on its HTTP servers.
+When `LAITOS_INDEX_PAGE` environment variable not empty, laitos will use its
+content for the index page served by HTTP daemon(s).
 
 Check out environment variable usage examples in the [Kubernetes example](https://github.com/HouzuoGuo/laitos/blob/master/k8s.example/laitos-in-k8s.yaml)
 and the [example in Dockerfile](https://github.com/HouzuoGuo/laitos/blob/master/Dockerfile)
@@ -88,22 +86,29 @@ Be aware that the combined size of all environment variables generally cannot
 exceed ~2MBytes.
 
 ### Build a container image
+
 The images of a (usually) up-to-date version of laitos are uploaded to Docker
 Hub [hzgl/laitos](https://hub.docker.com/r/hzgl/laitos).
 
 If you wish to customise the image to your needs, feel free to use the [`Dockerfile`](https://github.com/HouzuoGuo/laitos/blob/master/Dockerfile)
 from GitHub repository as a reference.
 
-## Deploy on cloud
+Check out the [Kubernetes deployment example](https://github.com/HouzuoGuo/laitos/blob/master/k8s.example/laitos-in-k8s.yaml)
+for a quick-start of hosting laitos on Kubernetes.
+
+### Deploy on cloud
 
 laitos runs well on all popular cloud vendors, it supports cloud virtual machines for a straight-forward installation,
 as well as more advanced cloud features such as AWS Elastic Beanstalk and AWS Lambda (in combination with API gateway).
 Check out the [cloud deployment tips](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips).
 
-## Deploy on Windows
+### Deploy on Windows
 
-laitos is well tuned for running on Windows server and desktop. Check out this [PowerShell script](https://raw.githubusercontent.com/HouzuoGuo/laitos/master/extra/windows/setup.ps1)
-that helps to start laitos automatically as a background service.
+laitos is well optimised for running on Windows server and Windows desktop.
+
+Instead of manually running `laitos.exe` in command prompt, check out this
+[PowerShell script](https://raw.githubusercontent.com/HouzuoGuo/laitos/master/extra/windows/setup.ps1)
+that helps to start laitos automatically in the background using Task Scheduler.
 
 ## Advanced program behaviours
 
@@ -165,7 +170,7 @@ Use the following command line options with extra care:
     <td>-disableconflicts</td>
     <td>true/false</td>
     <td>
-        Automatically disable the following system softwares that may run into resource conflict:<br>
+        Automatically stop and disable the following daemons that may interfere with laitos:<br>
         <ul>
             <li>apache web server</li>
             <li>bind DNS server</li>

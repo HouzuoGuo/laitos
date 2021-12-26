@@ -24,7 +24,8 @@ These actions help to inspect the program and system status:
 - `log` - Get the latest log entries of all kinds - information and warnings.
 - `warn` - Get the latest warning log entries.
 - `stack` - Get the latest stack traces.
-- `tune` - Automatically tune server kernel parameters for enhanced performance and security.
+- `tune` - Automatically tune server kernel parameters for enhanced performance
+  and security.
 
 These actions offer limited control over the life-cycle of the laitos program:
 

@@ -35,6 +35,7 @@ all points of integration with prometheus:
 The exporter is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
 
 ## Usage
+
 There are three categories of performance metrics exported by this web service:
 - [Web server (httpd and insecurehttpd)](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server) statistics are always included, such as
   individual handler's processing duration, response size, time-to-first-byte, etc.
@@ -62,7 +63,11 @@ scrape_configs:
 </pre>
 
 ## Tips
+
+Make the endpoint difficult to guess, this helps to prevent misuse of the service.
+
 Visit prometheus web UI (or Grafana dashboard if they are integrated), and try out the following equations for plotting program resource usage:
+
 - Percentage of involuntary context switches, 3-minutes running average:
   `(sum(rate(laitos_proc_num_involuntary_switches[3m])) by (instance) / (sum(rate(laitos_proc_num_involuntary_switches[3m])) by (instance) + sum(rate(laitos_proc_num_voluntary_switches[3m])) by (instance))) * 100`
 - Seconds of CPU time spent by laitos server (including children) in user and kernel mode, 3-minutes running average:
@@ -71,6 +76,7 @@ Visit prometheus web UI (or Grafana dashboard if they are integrated), and try o
   `(sum(rate(laitos_proc_num_run_sec[3m])) by (instance) / (sum(rate(laitos_proc_num_run_sec[3m])) by (instance) + sum(rate(laitos_proc_num_wait_sec[3m])) by (instance))) * 100`
 
 And try out these for plotting web server stats:
+
 - Time-to-first-byte across all handlers at 95% quantile, 3-minutes running average:
   `histogram_quantile(0.95, sum(rate(laitos_httpd_response_time_to_first_byte_seconds_bucket[3m])) by (le, instance))`
 - Processing duration (including IO) across all handlers at 95% quantile, 3-minutes running average:
@@ -79,6 +85,7 @@ And try out these for plotting web server stats:
   `histogram_quantile(0.95, sum(rate(laitos_httpd_response_size_bytes_bucket[3m])) by (le, instance))`
 
 And try out these for plotting web proxy stats:
+
 - Number of proxy requests per minute, 1-minute running average:
   `sum(rate(laitos_httpproxy_response_size_bytes_count[1m])) by (instance)`
 - Bytes transferred to proxy clients per minute, 1-minute running average:
@@ -96,5 +103,3 @@ And try out these for plotting web proxy stats:
 - Processing duration (including IO) across all proxy destinations at 50% quantile, 3-minutes running average:
   `histogram_quantile(0.50, sum(rate(laitos_httpproxy_handler_duration_seconds_bucket[3m])) by (le, instance))`
 
-## Tips
-- Make the endpoint difficult to guess, this helps to prevent misuse of the service.

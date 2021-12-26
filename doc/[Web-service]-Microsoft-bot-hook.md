@@ -1,9 +1,14 @@
 ## Introduction
-Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), users can chat
-with laitos server and invoke app commands, using programs supported by Microsofot bot framework such as Skype.
+
+Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server),
+users may initiate a chat (e.g. Skype) with laitos to invoke app commands
+
+The web hook is compatible with the Microsoft Bot Framework (aka Azure Bot
+services).
 
 ## Preparation
-1. Sign up for a Microsoft account and visit [Microsoft Bot Framework](https://dev.botframework.com/).
+
+1. Sign up for a Microsoft account and visit [Microsoft Bot Framework homepage](https://dev.botframework.com/).
 2. Visit "My bots" and then [create a new bot](https://dev.botframework.com/bots/new)
 3. Enter basic details such as name and description.
 4. Think of a URL on your laitos server that will serve the bot, make the endpoint difficult to guess and write it down
@@ -60,18 +65,24 @@ Here is an example:
 </pre>
 
 ## Run
-The service is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
+
+The service is hosted by web server, therefore remember to [run the web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
+
+As required by Azure bot service, the web server must have a valid TLS
+certificate and present its complete certificate chain to HTTPS clients.
 
 ## Usage
-Visit [My bots](https://dev.botframework.com/bots), and then click bot name to enter "Connect to channels" page. From
-there, click a channel name such as "Skype" to add bot into Skype contacts.
 
-Initiate a chat with bot and enter password followed by app command, a short while later the command result will
-arrive in a chat reply.
+Visit [Azure Bot services](https://portal.azure.com/#blade/Microsoft_Azure_ProjectOxford/AppliedAIHub/BotServices),
+click on the bot name, and visit the `Channels` tab. Click `Add to Skype` to
+add the bot as a Skype contact.
+
+Initiate a chat with the Skype contact, enter password followed by app command,
+and the command result will arrive in a chat reply.
 
 ## Tips
+
 - Make the endpoint URLs to guess, this helps to prevent misuse of the service.
-- If there are more than one bot to be served, construct configuration for `MicrosoftBotEndpoint2`, `MicrosoftBotEndpoint3`,
-  as well as `MicrosoftBotEndpointConfig2` and `MicrosoftBotEndpointConfig3`. A laitos server may serve up to three bots.
-- Microsoft asks bot servers to use HTTPS, therefore your laitos web server must be serving HTTPS traffic using a valid TLS
-  certificate, completed with the certificate chain.
+- A laitos server may serve up to three bots. To configure more than one bot,
+  fill in the configuration for `MicrosoftBotEndpoint2`, `MicrosoftBotEndpoint3`,
+  as well as `MicrosoftBotEndpointConfig2` and `MicrosoftBotEndpointConfig3`.

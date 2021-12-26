@@ -1,15 +1,21 @@
 # Component list
-The rich set of components not only covers the needs of hosting a personal web server, but also provide advanced
-capabilities to satisfy the geeky nature inside of you!
 
-laitos components go into three categories:
+The laitos program offers a large selection of components for you to explore! A
+program component belongs to one of the three categories:
+
 - Apps - reading news and Emails, make a Tweet, ask about weather, etc.
-- Daemons - web/mail/DNS servers, chat bots, etc. Many daemons offer access to apps, protected with a password.
-- Rich web services - useful web-based utilities hosted by the web server.
+  * Some apps do not require manual configuration and they are pre-enabled.
+- Daemons - web/mail/DNS servers, chat bots, etc. Many daemons are capable of
+  accepting app command input and allow command execution protected by a
+  password.
+- Web services - HTML-based utilities, web-hooks for integration with 3rd party
+  services, etc.
 
-Also, check out [laitos terminal](https://github.com/HouzuoGuo/laitos/wiki/Laitos-terminal) for a terminal-UI of
-the apps.
+Also, check out [laitos terminal](https://github.com/HouzuoGuo/laitos/wiki/Laitos-terminal)
+for a terminal-UI of some of the apps.
+
 ## Daemons
+
 <table>
     <tr>
         <th>Name</th>
@@ -73,8 +79,10 @@ the apps.
     </tr>
 </table>
 
-#### Rich web services
-The following services are hosted by web server and enabled on your demand:
+## Web services
+
+The web services are hosted by the web server. When enabled, they will be
+reachable via both HTTP and HTTPS - if the web server has a TLS certificate.
 
 <table>
     <tr>
@@ -88,8 +96,8 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Microsoft bot hook</td>
-        <td>Run app commands on Skype and Cortana via Microsoft Bot Framework.</td>
+        <td>Microsoft chat bot hook</td>
+        <td>Run app commands via Skype and Cortana using Microsoft Bot Framework.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Microsoft-bot-hook" target="_blank">Link</a></td>
     </tr>
     <tr>
@@ -164,12 +172,18 @@ The following services are hosted by web server and enabled on your demand:
     </tr>
     <tr>
         <td>HTTP request inspector</td>
-        <td>Dump the incoming HTTP request for your inspection.</td>
+        <td>Inspect the incoming HTTP request by repeating it back in the response.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-request-inspector" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>HTTP request logger</td>
+        <td>Log all incoming HTTP request for inspection.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-request-logger" target="_blank">Link</a></td>
     </tr>
 </table>
 
 ## Apps
+
 <table>
     <tr>
         <th>Name</th>
@@ -182,7 +196,7 @@ The following services are hosted by web server and enabled on your demand:
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-Twitter" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Use WolframAlpha</td>
+        <td>Ask WolframAlpha</td>
         <td>Ask about weather and all sorts of questions on WolframAlpha - the computational knowledge engine.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-WolframAlpha" target="_blank">Link</a></td>
     </tr>

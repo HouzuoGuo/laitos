@@ -1,6 +1,6 @@
-<img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/doc/cosmetic/20200825-poster.png" alt="poster image" />
-
 # laitos - Top geek's chindogu
+
+<img src="https://raw.githubusercontent.com/HouzuoGuo/laitos/master/doc/cosmetic/20200825-poster.png" alt="poster image" />
 
 **laitos** software suite offers all you need for hosting a personal website,
 receiving Emails, blocking ads with a DNS server.
@@ -58,7 +58,7 @@ This is not an officially supported Google product.
 Copyright (C) 2016-February 2021 Houzuo (Howard) Guo <guohouzuo@gmail.com>. All
 rights reserved.
 
-Copyright (C) March 2021- Google Inc. and contributors (Houzuo Howard Guo, etc).
+Copyright (C) 2021, 2022 Google Inc. and contributors (Houzuo Guo, etc).
 All rights reserved.
 
 This program is free software subject to the terms of Mozilla Public License, v.

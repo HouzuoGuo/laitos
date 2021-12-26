@@ -24,7 +24,7 @@ Daemon Components
 Web Service Components
 
 *   [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook)
-*   [Microsoft bot hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Microsoft-bot-hook)
+*   [Microsoft chat bot hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Microsoft-bot-hook)
 *   [The Things Network LORA tracker integration](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-the-things-network-LORA-tracker-integration)
 *   [Recurring commands](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-recurring-commands)
 *   [App command form](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-invoke-app-command)
@@ -40,11 +40,12 @@ Web Service Components
 *   [System process explorer](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-system-process-explorer)
 *   [Prometheus metrics exporter](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter)
 *   [HTTP request inspector](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-request-inspector)
+*   [HTTP request logger](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-request-logger)
 
 Apps
 
 *   [Use Twitter](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-Twitter)
-*   [Use WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-WolframAlpha)
+*   [Ask WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-WolframAlpha)
 *   [RSS feeds](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-RSS-reader)
 *   [Wild joke](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-wild-joke)
 *   [Read Emails](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-reading-emails)

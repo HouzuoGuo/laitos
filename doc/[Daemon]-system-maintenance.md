@@ -117,7 +117,7 @@ laitos works with the following system package managers for installing and updat
 <tr>
     <td>TuneLinux</td>
     <td>true/false</td>
-    <td>Automatically tune server kernel parameters for enhnaced performance and security.</td>
+    <td>Automatically tune server kernel parameters for enhanced performance and security.</td>
     <td>(Not used) false</td>
     <td>Linux</td>
 </tr>
@@ -133,16 +133,16 @@ laitos works with the following system package managers for installing and updat
     <td>Linux</td>
 </tr>
 <tr>
-    <td>PreScriptWindows</td>
+    <td>ScriptForWindows</td>
     <td>string</td>
-    <td>Run this PowerShell script text prior to all other maintenance actions.</td>
+    <td>Run these PowerShell statements after all other maintenance actions are completed.</td>
     <td>(Not used)</td>
     <td>Windows</td>
 </tr>
 <tr>
-    <td>PreScriptUnix</td>
+    <td>ScriptForUnix</td>
     <td>string</td>
-    <td>Run this bourne-shell script text prior to all other maintenance actions.</td>
+    <td>Run these bourne-shell statements after all all other maintenance actions are completed.</td>
     <td>(Not used)</td>
     <td>Linux</td>
 </tr>
@@ -193,7 +193,7 @@ Each run produces a very detailed system maintenance report for inspection, whic
 - A text file located under system temporary files directory (`/tmp/laitos-latest-maintenance-report.txt` for Linux and `%USERPROFILE%/AppData/Local/Temp/laitos-latest-maintenance-report.txt` for Windows).
   Old report file will be overwritten.
 - An Email addressed to the recipients defined in configuration.
-- `laitos` program standard output (only if there are no Email recipeints).
+- `laitos` program standard output (only if there are no Email recipients).
 
 ## Tips
 System maintenance does not have to run too often. Let it run daily is usually good enough.

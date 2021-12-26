@@ -1,9 +1,11 @@
 ## Introduction
-The DNS server daemon is a recursive DNS resolver that provides a safer web experience by blocking most of advertisement
-and malicious domains. It is especially useful for personal computing devices (laptops, phones, etc) in a home network.
 
-At start up and then once a day, the blacklists for advertisement and malicious domains are automatically updated from
-well-known sources:
+The DNS server daemon is a recursive DNS resolver providing home network a safer
+web experience by blocking most advertising and malicious domains.
+
+At startup and once a day, the latest blacklists are automatically updated from
+these popular sources:
+
 - [malwaredomainlist.com](http://www.malwaredomainlist.com)
 - [someonewhocares.org](http://someonewhocares.org/hosts/hosts)
 - [mvps.org](http://winhelp2002.mvps.org)
@@ -11,13 +13,16 @@ well-known sources:
 - [oisd.nl light hosts list](https://oisd.nl/)
 - [The Block List Project (ransomware/scam/tracking)](https://github.com/blocklistproject/Lists)
 
-Beyond the blacklists, the DNS resolver uses redundant set of secure and trusted public DNS services provided by:
+When resolving safe domain names not blocked by blacklists, the DNS server
+forwards the queries to one of these secure and trusted public DNS resolvers:
+
 - [Quad9](https://www.quad9.net)
 - [CloudFlare with malware prevention](https://blog.cloudflare.com/introducing-1-1-1-1-for-families/)
 - [OpenDNS](https://www.opendns.com)
 - [AdGuard DNS](https://adguard.com/en/adguard-dns/overview.html)
 
 ## Configuration
+
 Construct the following JSON object and place it under key `DNSDaemon` in configuration file:
 <table>
 <tr>
@@ -289,20 +294,33 @@ command on Linux:
 The app command response (string `123` from our example) can be read in the `ANSWER SECTION`.
 
 ### Tips
-- Respect and comply with the terms and policies imposed by your Internet service provider in regards to usage of DNS
-  queries.
-- DNS queries are not encrypted, your app command input (including password) and command output will be exposed to
-  the public Internet. Only use DNS for app command invocation as a last resort when all other encrypted channels are
-  unavailable. Also consider [using one-time-password is place of password](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password).
-- The entire DNS query, including app command, throw-away domain name, and dots in between, may not exceed 254 characters.
-- The app command response from DNS query result has a maximum length of 254 characters.
-- The DNS query response carrying app command response uses a TTL (time-to-live) of 30 seconds, which means, if an
-  identical app command is issued within 30 seconds of the previous query, it will not reach laitos server, instead,
-  the cached response from 30 seconds ago will arrive instantaneously.
-- By default, each app command is given 29 seconds to complete unless the timeout duration is overriden by `PLT`
-  command processor mechanism.
-- Recursive DNS resolvers on the public Internet usually expects a query response from laitos in less than 10 seconds.
-  However, in practice, many app commands take more than 10 seconds to complete, in which case the public recursive
-  DNS resolver will respond to DNS client with an error "(upstream) name server failure". Don't worry - internally,
-  laitos patiently waits for the command completion (or time out), and makes the command response ready for immediate
-  retrieval when the user invokes the identical app command within 30 seconds of the command completion.
+
+General tips:
+
+- Respect and comply with the terms and policies imposed by your Internet
+  service provider in regards to usage of DNS queries.
+- The entire DNS query - including the app command, the dedicated domain name,
+  and dots in between DNS labels, may not exceed 254 characters.
+  * The app command response will be truncated to a maximum length of 254
+    characters as well.
+
+Regarding timing:
+
+- The app command response uses a TTL (time-to-live) of 30 seconds, which means
+  identical app command executed within the 30 seconds time span will likely
+  receive a cached response.
+- By default, each app command is given 29 seconds to complete unless the
+  timeout duration is overridden by `PLT` command processor mechanism.
+- When an app command takes longer than ~5 seconds to complete, the recursive
+  resolver issuing the query will consider it a timeout (upstream name server
+  failure). Do not worry - internally, laitos patiently waits for the app
+  command to complete and makes the command response ready for retrieval when
+  the user makes the same query within 30 seconds.
+
+Regarding security:
+
+- DNS queries are not encrypted. The app command input is susceptible to
+  eavesdropping on the public Internet.
+  * Only use DNS for app command invocation as a last resort when all other
+    encrypted channels are unavailable.
+  * Consider using [one-time-password is place of password](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password).
