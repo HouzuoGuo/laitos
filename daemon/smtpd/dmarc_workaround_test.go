@@ -84,9 +84,6 @@ func TestGetFromAddressWithDmarcWorkaround(t *testing.T) {
 	if addr := GetFromAddressWithDmarcWorkaround("user@www.b737.org.uk", 123); addr != "user@www.b737.org.uk" {
 		t.Fatal(addr)
 	}
-	if addr := GetFromAddressWithDmarcWorkaround("user@arstechnica.com", 123); addr != "user@arstechnica.com" {
-		t.Fatal(addr)
-	}
 	if addr := GetFromAddressWithDmarcWorkaround("user@distrowatch.com", 123); addr != "user@distrowatch.com" {
 		t.Fatal(addr)
 	}
