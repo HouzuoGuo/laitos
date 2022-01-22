@@ -29,6 +29,9 @@ var (
 		"8.8.4.4:53",
 		// Hurricane electric (https://dns.he.net/)
 		"74.82.42.42:53",
+		// OpenNIC (https://www.opennic.org/)
+		"185.121.177.177:53",
+		"169.239.202.202:53",
 	}
 
 	// NeutralRecursiveResolver is a DNS resolver that provides genuine answers

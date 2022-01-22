@@ -130,17 +130,12 @@ func (daemon *Daemon) runPortsCheck() error {
 			}
 			wait.Add(1)
 			go func(host string, port int) {
-				// Expect connection to open very shortly
-				dest := net.JoinHostPort(host, strconv.Itoa(port))
-				conn, err := net.DialTimeout("tcp", dest, TCPPortCheckTimeoutSec*time.Second)
-				if err != nil {
+				defer wait.Done()
+				if !misc.ProbePort(5*time.Second, host, port) {
 					portErrsMutex.Lock()
-					portErrs = append(portErrs, dest)
+					portErrs = append(portErrs, net.JoinHostPort(host, strconv.Itoa(port)))
 					portErrsMutex.Unlock()
-				} else {
-					daemon.logger.MaybeMinorError(conn.Close())
 				}
-				wait.Done()
 			}(host, port)
 		}
 	}

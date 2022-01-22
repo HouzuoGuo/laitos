@@ -17,14 +17,19 @@ import (
 // connection, the function will return false and print a warning log message.
 func ProbePort(maxDuration time.Duration, host string, port int) bool {
 	maxRounds := 100
+	start := time.Now()
 	for i := 0; i < maxRounds; i++ {
 		client, err := net.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 		if err == nil {
 			_ = client.Close()
 			return true
 		}
+		if time.Now().Sub(start) > maxDuration {
+			goto fail
+		}
 		time.Sleep(maxDuration / time.Duration(maxRounds))
 	}
+fail:
 	lalog.DefaultLogger.Warning("ProbePort", "", nil, "%s:%d did not respond within %s. Stack: %s", host, port, maxDuration, debug.Stack())
 	return false
 }
