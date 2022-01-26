@@ -131,7 +131,7 @@ func (daemon *Daemon) runPortsCheck() error {
 			wait.Add(1)
 			go func(host string, port int) {
 				defer wait.Done()
-				if !misc.ProbePort(5*time.Second, host, port) {
+				if !misc.ProbePort(15*time.Second, host, port) {
 					portErrsMutex.Lock()
 					portErrs = append(portErrs, net.JoinHostPort(host, strconv.Itoa(port)))
 					portErrsMutex.Unlock()
