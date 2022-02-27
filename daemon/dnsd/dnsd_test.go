@@ -2,9 +2,11 @@ package dnsd
 
 import (
 	"context"
+	"net"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -122,4 +124,30 @@ func TestDNSD(t *testing.T) {
 	}
 
 	TestServer(&daemon, t)
+}
+
+func TestDefaultForwarders(t *testing.T) {
+	// The timeout is applied to all resolution attempts
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Duration(60*time.Second))
+	defer cancel()
+	for _, forwarderAddr := range DefaultForwarders {
+		resolver := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
+				var d net.Dialer
+				return d.DialContext(ctx, network, forwarderAddr)
+			},
+		}
+		for _, name := range []string{"apple.com", "github.com", "google.com", "microsoft.com", "wikipedia.org"} {
+			for i := 0; i < 10; i++ {
+				addrs, err := resolver.LookupIPAddr(timeoutCtx, name)
+				if err != nil {
+					t.Fatalf("failed to resolve %s: %v", name, err)
+				}
+				if len(addrs) < 1 {
+					t.Fatalf("resolver %q did not resolve %s to an address", forwarderAddr, name)
+				}
+			}
+		}
+	}
 }
