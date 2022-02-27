@@ -175,7 +175,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		latestJWT, err := hand.RetrieveJWT(r.Context())
+		latestJWT, err := hand.RetrieveJWT(context.Background())
 		if err != nil {
 			hand.logger.Warning("HandleMicrosoftBot", incoming.Conversation.ID, err, "cannot reply due to JWT retrieval error")
 			return
@@ -193,7 +193,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Process feature command from incoming chat text
-		result := hand.cmdProc.Process(r.Context(), toolbox.Command{
+		result := hand.cmdProc.Process(context.Background(), toolbox.Command{
 			DaemonName: "httpd",
 			ClientTag:  convID,
 			TimeoutSec: MicrosoftBotCommandTimeoutSec,
@@ -215,7 +215,7 @@ func (hand *HandleMicrosoftBot) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Send away the reply
-		resp, err := inet.DoHTTP(r.Context(), inet.HTTPRequest{
+		resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 			Method:      http.MethodPost,
 			ContentType: "application/json",
 			TimeoutSec:  MicrosoftBotAPITimeoutSec,
