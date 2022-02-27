@@ -38,16 +38,16 @@ func (daemon *Daemon) CleanUpFiles(out *bytes.Buffer) {
 		})
 	}
 	if platform.HostIsWindows() {
-		/*
-			Use Windows Disk Cleanup to do a more thorough round of clean up. The Windows program is not very well
-			suited for headless operation, modes such as "/SAGERUN" and "/VERYLOWDISK" have to spawn a window, and in
-			case of headless operation (e.g. running laitos at boot automatically via Task Scheduler) the modes will
-			simply hang.
-			"AUTOCLEAN" however does not hang in headless mode and seems to kick off some kind of background routine to
-			complete the disk clean up operation.
-		*/
-		result, err := platform.InvokeProgram(nil, 3600, `C:\Windows\system32\cleanmgr.exe`, "/AUTOCLEAN")
-		daemon.logPrintStageStep(out, "windows automated disk clean up: %v - %s", err, strings.TrimSpace(result))
+		// Use Windows Disk Cleanup to do a more thorough round of clean up.
+		// On windows server, 10, and 11, cleanmgr.exe is not very suited for
+		// headless operation, e.g. running laitos.exe as a task scheduler job.
+		// Both /sagerun and /verylowdisk result in cleanmgr.exe getting stuck
+		// awaiting user input - /autoclean seems to be an exception.
+		result, err := platform.InvokeProgram(nil, 1800, `C:\Windows\system32\cleanmgr.exe`, "/AUTOCLEAN")
+		daemon.logPrintStageStep(out, "windows automated disk clean up (/autoclean): %v - %s", err, strings.TrimSpace(result))
+	} else {
+		result, err := platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 180, "journalctl", "--vacuum-size=2G")
+		daemon.logPrintStageStep(out, "shrink system journal to 2GB maximum: %v - %s", err, strings.TrimSpace(result))
 	}
 }
 
