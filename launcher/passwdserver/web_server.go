@@ -68,7 +68,7 @@ configuration and data from the unencrypted (and unpacked) archive.
 func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Content-Location", autounlock.ContentLocationMagic)
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	ws.handlerMutex.Lock()
 	defer ws.handlerMutex.Unlock()
 	if ws.alreadyUnlocked {

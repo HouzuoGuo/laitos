@@ -154,7 +154,7 @@ func (remoteBrowser *HandleBrowserPhantomJS) parseSubmission(r *http.Request) (i
 }
 
 func (remoteBrowser *HandleBrowserPhantomJS) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	NoCache(w)
 	if r.Method == http.MethodGet {
 		// Start a new browser instance

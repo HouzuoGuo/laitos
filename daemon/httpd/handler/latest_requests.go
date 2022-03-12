@@ -33,7 +33,7 @@ func (_ *HandleLatestRequestsInspector) SelfTest() error {
 // Handle shows various parameters about the request (e.g. headers, body, etc) in a plain text response.
 func (_ *HandleLatestRequestsInspector) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	enable, err := strconv.ParseBool(r.FormValue("e"))
 	if err != nil {
 		// Just browsing - print out the collected requests.

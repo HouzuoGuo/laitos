@@ -40,7 +40,7 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 
 	// Save / update / clear commands directed at a subject
 	if outgoingAppCmd != "" || clearOutgoingCmd != "" {
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 		if clearOutgoingCmd == "" {
 			// Store/update an outgoing command directed at a subject identified by its host name (/endpoint?tohost=abc&cmd=xxxxx)
 			if outgoingAppCmd != "" {
@@ -114,7 +114,7 @@ func (hand *HandleAppCommand) Initialise(_ lalog.Logger, cmdProc *toolbox.Comman
 }
 
 func (hand *HandleAppCommand) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	NoCache(w)
 	cmd := r.FormValue("cmd")
 	if cmd == "" {

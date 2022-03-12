@@ -13,7 +13,7 @@ import (
 
 const HandleMailMePage = `<html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>给厚佐写信</title>
     <style>
     	textarea {
@@ -59,7 +59,7 @@ func (mm *HandleMailMe) Initialise(logger lalog.Logger, _ *toolbox.CommandProces
 }
 
 func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	NoCache(w)
 	if r.Method == http.MethodGet {
 		// Render the page

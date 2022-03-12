@@ -66,7 +66,7 @@ func (upload *HandleFileUpload) Initialise(logger lalog.Logger, _ *toolbox.Comma
 
 // render renders the file upload page in HTML
 func (upload *HandleFileUpload) render(w http.ResponseWriter, r *http.Request, message string) {
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	_, _ = w.Write([]byte(fmt.Sprintf(HandleFileUploadPage, strings.TrimPrefix(r.RequestURI, upload.stripURLPrefixFromResponse), message)))
 }
 
@@ -172,7 +172,7 @@ func (upload *HandleFileUpload) Handle(w http.ResponseWriter, r *http.Request) {
 		defer fh.Close()
 		http.ServeFile(w, r, fh.Name())
 	default:
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		_, _ = w.Write([]byte(fmt.Sprintf(HandleFileUploadPage, strings.TrimPrefix(r.RequestURI, upload.stripURLPrefixFromResponse), "")))
 	}
 }

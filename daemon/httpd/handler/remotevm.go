@@ -165,7 +165,7 @@ func (handler *HandleVirtualMachine) getISODownloadLocation() string {
 
 // Handle renders HTML page, reads user input from HTML form submission, and carries out corresponding VM control operations.
 func (handler *HandleVirtualMachine) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	NoCache(w)
 	if r.Method == http.MethodGet {
 		// Display the web page. Suggest user to download the default Linux distribution.

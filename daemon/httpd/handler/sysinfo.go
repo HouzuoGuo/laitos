@@ -25,7 +25,7 @@ func (info *HandleSystemInfo) Initialise(logger lalog.Logger, _ *toolbox.Command
 
 func (info *HandleSystemInfo) Handle(w http.ResponseWriter, r *http.Request) {
 	// The routine is quite similar to maintenance daemon
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	NoCache(w)
 	var result bytes.Buffer
 	// Latest runtime info

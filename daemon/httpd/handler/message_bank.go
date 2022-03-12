@@ -20,7 +20,7 @@ const (
 
 const HandleMessageBankPage = `<html>
 <head>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 	<title>laitos message bank</title>
 </head>
 <body>
@@ -60,7 +60,7 @@ func (bank *HandleMessageBank) Initialise(logger lalog.Logger, cmdProc *toolbox.
 }
 
 func (bank *HandleMessageBank) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	NoCache(w)
 	handlerURL := strings.TrimPrefix(r.RequestURI, bank.stripURLPrefixFromResponse)
 	if r.Method == http.MethodPost {

@@ -50,7 +50,7 @@ func (doc *HandleHTMLDocument) Initialise(lalog.Logger, *toolbox.CommandProcesso
 
 func (doc *HandleHTMLDocument) Handle(w http.ResponseWriter, r *http.Request) {
 	// Inject browser client IP and current time into index document and return.
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	NoCache(w)
 	page := strings.Replace(doc.contentString, HTMLCurrentDateTime, time.Now().Format(time.RFC3339), -1)
 	page = strings.Replace(page, HTMLClientAddress, middleware.GetRealClientIP(r), -1)

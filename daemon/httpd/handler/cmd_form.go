@@ -47,7 +47,7 @@ func (form *HandleCommandForm) Initialise(_ lalog.Logger, cmdProc *toolbox.Comma
 }
 
 func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	NoCache(w)
 	if r.Method == http.MethodGet {
 		_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), "")))
