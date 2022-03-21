@@ -152,7 +152,7 @@ func main() {
 	var disableConflicts, debug, awsLambda bool
 	var gomaxprocs int
 	flag.StringVar(&misc.ConfigFilePath, launcher.ConfigFlagName, "", "(Mandatory) path to configuration file in JSON syntax")
-	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated list of daemon names to start (autounlock, dnsd, httpd, httpproxy, insecurehttpd, maintenance, passwdrpc, phonehome, plainsocket, serialport, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
+	flag.StringVar(&daemonList, launcher.DaemonsFlagName, "", "(Mandatory) comma-separated list of daemon names to start (autounlock, dnsd, httpd, httpproxy, insecurehttpd, maintenance, passwdrpc, phonehome, plainsocket, simpleipsvcd, smtpd, snmpd, sockd, telegram)")
 	flag.BoolVar(&awsLambda, launcher.LambdaFlagName, false, "(Optional) run AWS Lambda handler to proxy HTTP requests to laitos web server")
 	// Internal supervisor flag
 	var isSupervisor = true
@@ -417,8 +417,6 @@ func main() {
 			go AutoRestart(logger, daemonName, config.GetPhoneHomeDaemon().StartAndBlock)
 		case launcher.PlainSocketName:
 			go AutoRestart(logger, daemonName, config.GetPlainSocketDaemon().StartAndBlock)
-		case launcher.SerialPortDaemonName:
-			go AutoRestart(logger, daemonName, config.GetSerialPortDaemon().StartAndBlock)
 		case launcher.SimpleIPSvcName:
 			go AutoRestart(logger, daemonName, config.GetSimpleIPSvcD().StartAndBlock)
 		case launcher.SMTPDName:

@@ -11,7 +11,6 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/httpproxy"
 	"github.com/HouzuoGuo/laitos/daemon/passwdrpc"
 	"github.com/HouzuoGuo/laitos/daemon/phonehome"
-	"github.com/HouzuoGuo/laitos/daemon/serialport"
 	"github.com/HouzuoGuo/laitos/misc"
 
 	"github.com/HouzuoGuo/laitos/daemon/autounlock"
@@ -154,9 +153,6 @@ type Config struct {
 	PlainSocketDaemon  *plainsocket.Daemon `json:"PlainSocketDaemon"`  // Plain text protocol TCP and UDP daemon configuration
 	PlainSocketFilters StandardFilters     `json:"PlainSocketFilters"` // Plain text daemon filter configuration
 
-	SerialPortDaemon  *serialport.Daemon `json:"SerialPortDaemon"` // SerialPortDaemon serves toolbox commands over devices connected to serial ports
-	SerialPortFilters StandardFilters    `json:"SerialPortFilters"`
-
 	SockDaemon *sockd.Daemon `json:"SockDaemon"` // Intentionally undocumented
 
 	SNMPDaemon *snmpd.Daemon `json:"SNMPDaemon"` // SNMPDaemon configuration and instance
@@ -187,7 +183,6 @@ type Config struct {
 	mailDaemonInit        *sync.Once
 	phoneHomeDaemonInit   *sync.Once
 	plainSocketDaemonInit *sync.Once
-	serialPortDaemonInit  *sync.Once
 	sockDaemonInit        *sync.Once
 	telegramBotInit       *sync.Once
 	autoUnlockInit        *sync.Once
@@ -282,10 +277,6 @@ func (config *Config) Initialise() error {
 	if config.PlainSocketDaemon == nil {
 		config.PlainSocketDaemon = &plainsocket.Daemon{}
 	}
-	config.serialPortDaemonInit = new(sync.Once)
-	if config.SerialPortDaemon == nil {
-		config.SerialPortDaemon = &serialport.Daemon{}
-	}
 	config.simpleIPSvcDaemonInit = new(sync.Once)
 	if config.SimpleIPSvcDaemon == nil {
 		config.SimpleIPSvcDaemon = &simpleipsvcd.Daemon{}
@@ -371,29 +362,6 @@ func (config *Config) GetDNSD() *dnsd.Daemon {
 		}
 	})
 	return config.DNSDaemon
-}
-
-// GetSerialPortDaemon initialises serial port devices daemon instance and returns it.
-func (config *Config) GetSerialPortDaemon() *serialport.Daemon {
-	config.serialPortDaemonInit.Do(func() {
-		config.SerialPortDaemon.Processor = &toolbox.CommandProcessor{
-			Features: config.Features,
-			CommandFilters: []toolbox.CommandFilter{
-				&config.SerialPortFilters.PINAndShortcuts,
-				&config.SerialPortFilters.TranslateSequences,
-			},
-			ResultFilters: []toolbox.ResultFilter{
-				&config.SerialPortFilters.LintText,
-				&toolbox.SayEmptyOutput{}, // this is mandatory but not configured by user's config file
-				&config.SerialPortFilters.NotifyViaEmail,
-			},
-		}
-		if err := config.SerialPortDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetSerialPortDaemon", "", err, "the daemon failed to initialise")
-			return
-		}
-	})
-	return config.SerialPortDaemon
 }
 
 // GetSNMPD initialises SNMP daemon instance and returns it.

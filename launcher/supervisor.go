@@ -21,21 +21,20 @@ const (
 	DaemonsFlagName    = "daemons"    // DaemonsFlagName is the CLI string flag of daemon names (comma separated) to launch
 
 	// Individual daemon names as provided by user in CLI to launch laitos:
-	DNSDName             = "dnsd"
-	HTTPDName            = "httpd"
-	InsecureHTTPDName    = "insecurehttpd"
-	MaintenanceName      = "maintenance"
-	PlainSocketName      = "plainsocket"
-	SerialPortDaemonName = "serialport"
-	SimpleIPSvcName      = "simpleipsvcd"
-	SMTPDName            = "smtpd"
-	SNMPDName            = "snmpd"
-	SOCKDName            = "sockd"
-	TelegramName         = "telegram"
-	AutoUnlockName       = "autounlock"
-	PhoneHomeName        = "phonehome"
-	PasswdRPCName        = "passwdrpc"
-	HTTPProxyName        = "httpproxy"
+	DNSDName          = "dnsd"
+	HTTPDName         = "httpd"
+	InsecureHTTPDName = "insecurehttpd"
+	MaintenanceName   = "maintenance"
+	PlainSocketName   = "plainsocket"
+	SimpleIPSvcName   = "simpleipsvcd"
+	SMTPDName         = "smtpd"
+	SNMPDName         = "snmpd"
+	SOCKDName         = "sockd"
+	TelegramName      = "telegram"
+	AutoUnlockName    = "autounlock"
+	PhoneHomeName     = "phonehome"
+	PasswdRPCName     = "passwdrpc"
+	HTTPProxyName     = "httpproxy"
 
 	/*
 		FailureThresholdSec determines the maximum failure interval for supervisor to tolerate before taking action to shed
@@ -51,7 +50,7 @@ const (
 // AllDaemons is an unsorted list of string daemon names.
 var AllDaemons = []string{
 	AutoUnlockName, DNSDName, HTTPDName, InsecureHTTPDName, MaintenanceName, PhoneHomeName,
-	PlainSocketName, SerialPortDaemonName, SimpleIPSvcName, SMTPDName, SNMPDName, SOCKDName, TelegramName,
+	PlainSocketName, SimpleIPSvcName, SMTPDName, SNMPDName, SOCKDName, TelegramName,
 	PasswdRPCName, HTTPProxyName,
 }
 
@@ -73,9 +72,9 @@ If the program continues to crash repeatedly after all rounds of shedding, then 
 daemons, and all daemons will be re-enabled, the user will have to make diagnosis manually.
 */
 var ShedOrder = []string{
-	MaintenanceName,                                      // 1
-	SerialPortDaemonName, SimpleIPSvcName, PasswdRPCName, // 2
-	SNMPDName, HTTPProxyName, DNSDName, // 3
+	MaintenanceName,                           // 1
+	SimpleIPSvcName, PasswdRPCName, SNMPDName, // 2
+	HTTPProxyName, DNSDName, // 3
 	SOCKDName, SMTPDName, HTTPDName, // 4
 	InsecureHTTPDName, PlainSocketName, TelegramName, PhoneHomeName, // 5
 	// Never shed - AutoUnlockName

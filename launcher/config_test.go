@@ -11,7 +11,6 @@ import (
 	"github.com/HouzuoGuo/laitos/daemon/maintenance"
 	"github.com/HouzuoGuo/laitos/daemon/passwdrpc"
 	"github.com/HouzuoGuo/laitos/daemon/plainsocket"
-	"github.com/HouzuoGuo/laitos/daemon/serialport"
 	"github.com/HouzuoGuo/laitos/daemon/simpleipsvcd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd"
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
@@ -305,37 +304,6 @@ var sampleConfigJSON = `
     "CommunityName": "public",
     "Port": 33210
   },
-  "SerialPortDaemon": {
-    "DeviceGlobPatterns": [
-      "COM12"
-    ]
-  },
-  "SerialPortFilters": {
-    "LintText": {
-      "CompressToSingleLine": true,
-      "MaxLength": 120,
-      "TrimSpaces": true
-    },
-    "NotifyViaEmail": {
-      "Recipients": [
-        "howard@localhost"
-      ]
-    },
-    "PINAndShortcuts": {
-      "Passwords": ["verysecret"],
-      "Shortcuts": {
-        "serialshortcut": ".secho serialshortcut"
-      }
-    },
-    "TranslateSequences": {
-      "Sequences": [
-        [
-          "123",
-          "456"
-        ]
-      ]
-    }
-  },
   "SimpleIPSvcDaemon": {
     "ActiveUserNames": "howard (houzuo) guo",
     "ActiveUsersPort": 16222,
@@ -425,8 +393,6 @@ func TestConfig(t *testing.T) {
 	smtpd.TestSMTPD(config.GetMailDaemon(), t)
 
 	plainsocket.TestServer(config.GetPlainSocketDaemon(), t)
-
-	serialport.TestDaemon(config.GetSerialPortDaemon(), t)
 
 	sockd.TestSockd(config.GetSockDaemon(), t)
 

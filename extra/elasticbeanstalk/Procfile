@@ -1,1 +1,1 @@
-laitos: ./laitos -awsinteg -prominteg -disableconflicts -gomaxprocs 16 -config config.json -daemons autounlock,dnsd,httpd,httpproxy,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,serialport,simpleipsvcd,smtpd,snmpd,sockd,telegram
+laitos: ./laitos -awsinteg -prominteg -disableconflicts -gomaxprocs 16 -config config.json -daemons autounlock,dnsd,httpd,httpproxy,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
