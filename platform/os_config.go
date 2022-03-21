@@ -197,7 +197,7 @@ func CopyNonEssentialUtilities(progress lalog.Logger) {
 		"busybox-1.31.0-x86_64", "busybox",
 		"busybox-x86_64", "busybox",
 		"busybox", "busybox",
-		"toybox-0.8.3-x86_64", "toybox",
+		"toybox-0.8.6-x86_64", "toybox",
 		"toybox-x86_64", "toybox",
 		"toybox", "toybox",
 	}
