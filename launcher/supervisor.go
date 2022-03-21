@@ -62,7 +62,7 @@ The sequence is prioritised this way:
 2. Non-essential services that do not require authentication/authorisation.
 3. Non-essential services that require authentication/authorisation.
 4. Heavy services that use significant amount of resources.
-5. Essential services.
+5. Lightweight services.
 
 The supervisor will not shed the last remaining daemon, which is the auto-unlocking daemon, conveniently not present in
 this list. The auto-unlocking daemon provides memorised password to unlock data and configuration of other healthy
@@ -72,9 +72,9 @@ If the program continues to crash repeatedly after all rounds of shedding, then 
 daemons, and all daemons will be re-enabled, the user will have to make diagnosis manually.
 */
 var ShedOrder = []string{
-	MaintenanceName,                           // 1
-	SimpleIPSvcName, PasswdRPCName, SNMPDName, // 2
-	HTTPProxyName, DNSDName, // 3
+	MaintenanceName,                // 1
+	SimpleIPSvcName, PasswdRPCName, // 2
+	SNMPDName, HTTPProxyName, DNSDName, // 3
 	SOCKDName, SMTPDName, HTTPDName, // 4
 	InsecureHTTPDName, PlainSocketName, TelegramName, PhoneHomeName, // 5
 	// Never shed - AutoUnlockName
