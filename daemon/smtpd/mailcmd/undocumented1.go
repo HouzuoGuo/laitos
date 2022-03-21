@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -69,7 +68,7 @@ func (und *Undocumented1) SendMessage(message string) error {
 		}.Encode()),
 		RequestFunc: func(req *http.Request) error {
 			req.Header.Set("X-Requested-With", "XMLHttpRequest")
-			req.Header.Set("User-Agent", phantomjs.GoodUserAgent)
+			req.Header.Set("User-Agent", DefaultHTTPUserAgent)
 			return nil
 		},
 	}, und.URL)

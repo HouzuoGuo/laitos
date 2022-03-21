@@ -27,7 +27,6 @@ const (
 	   utility programs are not essential to most of laitos operations, however they come in handy in certain scenarios:
 	   - statically linked "busybox" (maintenance daemon uses it to synchronise system clock)
 	   - statically linked "toybox" (its rich set of utilities help with shell usage)
-	   - dynamically linked "phantomjs" (used by text interactive web browser feature and browser-in-browser HTTP handler)
 	*/
 	UtilityDir = "/tmp/laitos-util"
 
@@ -177,7 +176,7 @@ func GetSystemUptimeSec() int64 {
 /*
 CopyNonEssentialUtilities sets program environment PATH to a comprehensive list of common executable directories on popular OSes.
 
-Then it copies non-essential utility programs (busybox, toybox, phantomjs, etc) from CWD into a temporary directory, the temporary
+Then it copies non-essential utility programs (busybox, toybox, etc) from CWD into a temporary directory, the temporary
 directory is already among environment PATH.
 
 This function may take couple of seconds to complete. Be aware that certain Linux distributions (e.g. that used by AWS ElasticBeanstalk)
@@ -201,8 +200,6 @@ func CopyNonEssentialUtilities(progress lalog.Logger) {
 		"toybox-0.8.3-x86_64", "toybox",
 		"toybox-x86_64", "toybox",
 		"toybox", "toybox",
-		"phantomjs-2.1.1-x86_64", "phantomjs",
-		"phantomjs", "phantomjs",
 	}
 	findInPaths := []string{
 		// For developing using go module

@@ -88,7 +88,7 @@ func TestCopyNonEssentialUtilities(t *testing.T) {
 		// Just make sure it does not panic
 		return
 	}
-	for _, utilName := range []string{"busybox", "toybox", "phantomjs"} {
+	for _, utilName := range []string{"busybox", "toybox"} {
 		if _, err := os.Stat(filepath.Join(UtilityDir, utilName)); err != nil {
 			t.Fatal("cannot find program "+utilName, err)
 		}

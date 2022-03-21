@@ -30,20 +30,6 @@
     }
   },
   "Features": {
-    "BrowserPhantomJS": {
-      "Browsers": {
-        "BasePortNumber": 12020,
-        "PhantomJSExecPath": "./extra/linux/phantomjs-2.1.1-x86_64"
-      }
-    },
-    "BrowserSlimerJS": {
-      "Browsers": {
-        "BasePortNumber": 51191
-      }
-    },
-    "Facebook": {
-      "UserAccessToken": "dummy token"
-    },
     "IMAPAccounts": {
       "Accounts": {
         "dummy": {

@@ -158,13 +158,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 	}
 	daemon.logPrintStageStep(out, "upgrade system result: (err? %v) %s", err, strings.TrimSpace(result))
 
-	/*
-		Install additional software packages.
-		laitos itself does not rely on any third-party library or program to run, however, it is very useful to install
-		several PhantomJS/SlimerJS dependencies, as well as utility applications to help out with system diagnosis.
-		Several of the packages are repeated under different names to accommodate the differences in naming convention
-		among distributions.
-	*/
+	// Install system diagnosis utilities.
 	daemon.logPrintStage(out, "install software")
 	allPackageNames := []string{
 		// For outgoing HTTPS connections made by laitos
@@ -173,19 +167,11 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		// For maintenance of software repositories using APT package manager
 		"apt-transport-https", "gnupg", "lsb-release", "software-properties-common",
 
-		// For running SlimmerJS container
+		// For the maintenance of laitos container image.
 		"docker", "docker-client", "docker.io", "docker-ce",
 
-		// Soft and hard dependencies of PhantomJS
-		"bzip2", "bzip2-libs", "cjkuni-fonts-common", "cjkuni-ukai-fonts", "cjkuni-uming-fonts", "dbus", "dejavu-fonts-common", "dejavu-sans-fonts",
-		"dejavu-serif-fonts", "expat", "firefox", "fontconfig", "fontconfig-config", "font-noto", "fontpackages-filesystem", "fonts-arphic-ukai",
-		"fonts-arphic-uming", "fonts-dejavu-core", "fonts-liberation", "fonts-noto-cjk", "fonts-wqy-microhei", "fonts-wqy-zenhei", "freetype", "gnutls",
-		"google-noto-cjk-fonts-common", "google-noto-sans-cjk-fonts", "google-noto-sans-cjk-ttc-fonts", "google-noto-sans-jp-fonts", "google-noto-sans-kr-fonts",
-		"google-noto-sans-sc-fonts", "google-noto-sans-tc-fonts", "icu", "intlfonts-chinese-big-bitmap-fonts", "intlfonts-chinese-bitmap-fonts", "lib64z1",
-		"libbz2-1", "libbz2-1.0", "liberation2-fonts", "liberation-fonts-common", "liberation-mono-fonts", "liberation-sans-fonts", "liberation-serif-fonts",
-		"libexpat1", "libfontconfig1", "libfontenc", "libfreetype6", "libicu", "libicu57", "libicu60_2", "libpng", "libpng16-16", "libXfont", "nss", "openssl",
-		"ttf-dejavu", "ttf-freefont", "ttf-liberation", "wqy-zenhei", "wqy-zenhei-fonts", "xfonts-utils", "xorg-x11-fonts-Type1", "xorg-x11-font-utils", "zlib",
-		"zlib1g",
+		// Essential libraries for command line-based HTTP clients.
+		"bzip2", "bzip2-libs", "gnutls", "lib64z1", "libbz2-1", "libbz2-1.0", "nss", "openssl", "zlib", "zlib1g",
 
 		// Soft and hard dependencies of remote virtual machine
 		"qemu", "qemu-common", "qemu-img", "qemu-kvm", "qemu-kvm-common", "qemu-kvm-core",

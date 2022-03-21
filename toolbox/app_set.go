@@ -17,8 +17,6 @@ type FeatureSet struct {
 	LookupByTrigger map[Trigger]Feature `json:"-"`
 
 	AESDecrypt             AESDecrypt             `json:"AESDecrypt"`
-	BrowserPhantomJS       BrowserPhantomJS       `json:"BrowserPhantomJS"`
-	BrowserSlimerJS        BrowserSlimerJS        `json:"BrowserSlimerJS"`
 	EnvControl             EnvControl             `json:"EnvControl"`
 	IMAPAccounts           IMAPAccounts           `json:"IMAPAccounts"`
 	Joke                   Joke                   `json:"Joke"`
@@ -45,8 +43,6 @@ func (fs *FeatureSet) Initialise() error {
 	// Initialise the apps that do not reference this FeatureSet
 	apps := map[Trigger]Feature{
 		fs.AESDecrypt.Trigger():             &fs.AESDecrypt,             // a
-		fs.BrowserPhantomJS.Trigger():       &fs.BrowserPhantomJS,       // bp
-		fs.BrowserSlimerJS.Trigger():        &fs.BrowserSlimerJS,        // bs
 		fs.EnvControl.Trigger():             &fs.EnvControl,             // e
 		fs.IMAPAccounts.Trigger():           &fs.IMAPAccounts,           // i
 		fs.Joke.Trigger():                   &fs.Joke,                   // j
@@ -126,8 +122,6 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 	// Here are the feature keys
 	features := map[string]Feature{
 		"AESDecrypt":         &fs.AESDecrypt,
-		"BrowserPhantomJS":   &fs.BrowserPhantomJS,
-		"BrowserSlimerJS":    &fs.BrowserSlimerJS,
 		"EnvControl":         &fs.EnvControl,
 		"IMAPAccounts":       &fs.IMAPAccounts,
 		"Joke":               &fs.Joke,

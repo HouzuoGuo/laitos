@@ -9,10 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/HouzuoGuo/laitos/browser/phantomjs"
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
+
+const DefaultHTTPUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36"
 
 // (TH) Intentionally undocumented he he he.
 type Undocumented2 struct {
@@ -68,7 +69,7 @@ func (und *Undocumented2) SendMessage(message string) error {
 			"tlength": {strconv.Itoa(tlength)},
 		}.Encode()),
 		RequestFunc: func(req *http.Request) error {
-			req.Header.Set("User-Agent", phantomjs.GoodUserAgent)
+			req.Header.Set("User-Agent", DefaultHTTPUserAgent)
 			return nil
 		},
 	}, und.URL)

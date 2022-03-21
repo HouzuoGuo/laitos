@@ -72,10 +72,6 @@ type StandardFilters struct {
 // Configure path to HTTP handlers and handler themselves.
 type HTTPHandlers struct {
 	AppCommandEndpoint              string                          `json:"AppCommandEndpoint"`
-	BrowserPhantomJSEndpoint        string                          `json:"BrowserPhantomJSEndpoint"`
-	BrowserPhantomJSEndpointConfig  handler.HandleBrowserPhantomJS  `json:"BrowserPhantomJSEndpointConfig"`
-	BrowserSlimerJSEndpoint         string                          `json:"BrowserSlimerJSEndpoint"`
-	BrowserSlimerJSEndpointConfig   handler.HandleBrowserSlimerJS   `json:"BrowserSlimerJSEndpointConfig"`
 	CommandFormEndpoint             string                          `json:"CommandFormEndpoint"`
 	FileUploadEndpoint              string                          `json:"FileUploadEndpoint"`
 	GitlabBrowserEndpoint           string                          `json:"GitlabBrowserEndpoint"`
@@ -462,47 +458,6 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 				CheckMailCmdRunner: config.GetMailCommandRunner(),
 			}
 		}
-		// Configure a browser (PhantomJS) render image endpoint at a randomly generated endpoint name
-		if config.HTTPHandlers.BrowserPhantomJSEndpoint != "" {
-			/*
-			 Configure a browser image endpoint for browser page.
-			 The endpoint name is automatically generated from random bytes.
-			*/
-			randBytes := make([]byte, 32)
-			_, err := rand.Read(randBytes)
-			if err != nil {
-				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
-				return
-			}
-			// Image handler needs to operate on browser handler's browser instances
-			browserImageHandler := &handler.HandleBrowserPhantomJSImage{}
-			browserHandler := config.HTTPHandlers.BrowserPhantomJSEndpointConfig
-			imageEndpoint := "/phantomjs-screenshot-" + hex.EncodeToString(randBytes)
-			handlers[imageEndpoint] = browserImageHandler
-			// Browser handler needs to use image handler's path
-			browserHandler.ImageEndpoint = imageEndpoint
-			browserImageHandler.Browsers = &browserHandler.Browsers
-			handlers[config.HTTPHandlers.BrowserPhantomJSEndpoint] = &browserHandler
-		}
-		// Configure a browser (SlimerJS) render image endpoint at a randomly generated endpoint name
-		if config.HTTPHandlers.BrowserSlimerJSEndpoint != "" {
-			randBytes := make([]byte, 32)
-			_, err := rand.Read(randBytes)
-			if err != nil {
-				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
-				return
-			}
-			// Image handler needs to operate on browser handler's browser instances
-			browserImageHandler := &handler.HandleBrowserSlimerJSImage{}
-			browserHandler := config.HTTPHandlers.BrowserSlimerJSEndpointConfig
-			imageEndpoint := "/slimmerjs-screenshot-" + hex.EncodeToString(randBytes)
-			handlers[imageEndpoint] = browserImageHandler
-			// Browser handler needs to use image handler's path
-			browserHandler.ImageEndpoint = imageEndpoint
-			browserImageHandler.Browsers = &browserHandler.Browsers
-			handlers[config.HTTPHandlers.BrowserSlimerJSEndpoint] = &browserHandler
-		}
-
 		// Configure a virtual machine screenshot endpoint at a randomly generated endpoint name
 		if config.HTTPHandlers.VirtualMachineEndpoint != "" {
 			randBytes := make([]byte, 32)
