@@ -1,58 +1,61 @@
-## Introduction
-Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the service
-works as an [HTTP integration](https://www.thethingsnetwork.org/docs/applications/http/) method for
-[The Things Network](https://www.thethingsnetwork.org/).
+# Introduction
 
-When your LoRa IoT devices run a [The Things Network Mapper compatible](https://ttnmapper.org/) program, this
-web service collects the devices' location information via The Things Network HTTP integration, and stores each
-location record in-memory via the [telemetry handler app](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler),
-making them available for inspection via the [read telemetry records web service](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records).
+Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server),
+the service works as an [HTTP integration web hook](https://www.thethingsindustries.com/docs/integrations/webhooks/)
+for [The Things Network](https://www.thethingsnetwork.org/) - a popular IoT
+network that uses LoRaWAN for its connectivity.
 
-Optionally, you may extend the Mapper IoT program to include an app command with each transmission, when the web
-service receives the app command along with IoT device location from "uplink" transmission, it will execute the
-app command and put the command response in a "downlink" message for the IoT device to receive.
+Be aware of the confusing branding message from "The Things Network" (TTN), it
+is also [known as](https://github.com/TheThingsNetwork/docs/issues/473):
+
+- The Things Network Stack
+- The Things Network v3
+- The Things Stack
+- The Things Stack Community Edition
+- The Things Stack v3
+
+The HTTP web hook processes three different kinds of incoming messages (aka
+"uplink messages") from devices connected to The Things Network (TTN):
+
+- On message port number 129, the web hook picks up a text message from the
+  uplink message and stores it in the incoming direction of the message bank of
+  "LoRaWAN". If there is a new message (entered within the last 5 minutes) in
+  the outgoing direction of the message bank, then the web hook will invoke TTN
+  downlink API to transmit the outgoing message back to the device.
+- On message port number 112, the web hook picks up an app command completed
+  with password PIN from the uplink message, executes the app command using the
+  [phone home telemetry handler](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler),
+  and then invoke TTN downlink API to transmit the command execution result back
+  to the device.
+
+Regardless of the message port number, the web hook always stores the location
+(if any), RF signal strength, and payload text of the uplink messages in the
+[phone home telemetry handler](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler).
+
+The web hook is generally compatible with any IoT device firmware that sends and
+receives compatible payload, though payload expectations are closely aligned with
+[hzgl-lora-communicator](https://github.com/HouzuoGuo/hzgl-lora-communicator),
+which is an open source IoT firmware for a battery-powered tracker and two-way
+messaging device.
+
+The rest of this article may contain instructions specific to
+[hzgl-lora-communicator](https://github.com/HouzuoGuo/hzgl-lora-communicator).
 
 ## Preparation
-1. Sign up for an account at [The Things Network (TTN)](https://www.thethingsnetwork.org/). The Things Network
-   is an open IoT platform that uses the popular [LoRa (LoRaWAN)](https://en.wikipedia.org/wiki/LoRa) for radio
-   transmission.
-2. Login to [TTN Applications Console](https://console.thethingsnetwork.org/) and create an application. An
-   application hands out access key for your LoRa IoT devices that share the same program, same data format, and
-   same set of Internet integration.
-3. Install a [TTN Mapper](https://ttnmapper.org/) compatible program to your LoRa IoT device, such as this program
-   made for TTGO T-Beam development board [ttgo-tbeam-ttn-tracker](https://github.com/kizniche/ttgo-tbeam-ttn-tracker).
-4. In TTN applications console, navigate to "Devices" and register your IoT development device there, the registration
-   grants the device free access to TTN and hands it a set of credentials that must be by the IoT device's program.
-5. In TTN applications console, navigate to "Payload Formats", and choose to use a "Custom payload format". The decoder
-   interprets individual bytes transmitted by IoT device and transforms them into an enriched data record, write down
-   the following code for the decoder:
 
-       // from https://github.com/kizniche/ttgo-tbeam-ttn-tracker
-       function Decoder(bytes, port) {
-         var decoded = {};
-         decoded.latitude = ((bytes[0]<<16)>>>0) + ((bytes[1]<<8)>>>0) + bytes[2];
-         decoded.latitude = (decoded.latitude / 16777215.0 * 180) - 90;
-         decoded.longitude = ((bytes[3]<<16)>>>0) + ((bytes[4]<<8)>>>0) + bytes[5];
-         decoded.longitude = (decoded.longitude / 16777215.0 * 360) - 180;
-         var altValue = ((bytes[6]<<8)>>>0) + bytes[7];
-         var sign = bytes[6] & (1 << 7);
-         if(sign) decoded.altitude = 0xFFFF0000 | altValue;
-         else decoded.altitude = altValue;
-         decoded.hdop = bytes[8] / 10.0;
-         decoded.sats = bytes[9];
-         return decoded;
-       }
-
-Optionally, if you with to contribute to the public of world-wide TTN coverage, consider making your IoT device location
-records public by visiting TTN application console, navigate to "Integrations", and add "TTN Mapper" integration.
+1. Sign up for an account at [The Things Network (TTN)](https://www.thethingsnetwork.org/).
+2. Login to [The Things Network console](https://console.thethingsnetwork.org/)
+   and create a new "application".
+3. Follow [hzgl-lora-communicator Get Started](https://github.com/HouzuoGuo/hzgl-lora-communicator/wiki/Get-started)
+   to configure "application payload formatter", create a new "end device",
+   configure radio parameters for the newly created device
+4. Continue following the instructions to compile and flash/upload the firmware
+   onto a TTGO T-Beam v1.1 development board.
 
 ## Configuration
-Under JSON key `HTTPHandlers`, write a string property called `TheThingsNetworkEndpoint`, value being the URL address
-of the service. The address should be kept a secret, make it difficult to guess.
 
-If you wish to extend the TTN Mapper-compatible program and enable your IOT device to execute app commands on this laitos
-server, then follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration
-for JSON key `HTTPFilters`.
+Under JSON key `HTTPHandlers`, write two string properties called
+`LoraWANWebhookEndpoint` and `MessageBankEndpoint`. Make them difficult to guess.
 
 Here is an example setup:
 <pre>
@@ -62,14 +65,27 @@ Here is an example setup:
     "HTTPHandlers": {
         ...
 
-        "TheThingsNetworkEndpoint": "/very-secret-ttn-integration",
+        "LoraWANWebhookEndpoint": "/hard-to-guess-ttn-hook",
+        "MessageBankEndpoint": "/hard-to-guess-message-ui"
 
         ...
     },
+</pre>
 
+The `LoraWANWebhookEndpoint` will be later used on The Things Network console,
+and `MessageBankEndpoint` will serving an HTML form for reading text messages
+from IoT devices and entering new messages to be sent to them.
+
+### Optional: allow IoT devices to send in app commands
+
+In addition to `LoraWANWebhookEndpoint` and `MessageBankEndpoint`,follow
+[command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor)
+to construct a configuration for JSON key `MessageProcessorFilters`.
+
+<pre>
+{
     ...
-
-    "HTTPFilters": {
+    "MessageProcessorFilters": {
         "PINAndShortcuts": {
             "Passwords": ["verysecretpassword"],
             "Shortcuts": {
@@ -98,41 +114,85 @@ Here is an example setup:
 }
 </pre>
 
-In addition, please enable and configure the [read telemetry record](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records)
-web service, in order to read the location data sent by your IoT devices.
+The message processor is responsible for executing app commands coming in from
+IoT devices.
+
+It may also be useful to enable and configure the [read telemetry record](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records)
+web service, to read the location (if available), RF signal strength, and
+payload data sent by the IoT devices.
 
 ## Run
-The service is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
+
+The web hook is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
 
 ## Usage
-1. In TTN applications console, navigate to "Integrations", add a new HTTP integration. Give the integration an identifier name
-   (so called Process ID), choose the default key for Access Key, and use the laitos web service URL there; use "POST" as the
-   HTTP method, and leave Authorization and custom header blank.
-2. Power up your LoRa IoT device(s). In TTN application console, inspect the status of your LoRa IoT device registration, and
-   verify that it is indeed transmitting location data properly.
-3. In web browser, Navigate to laitos web service [read telemetry record](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records)
-   to read the location records from your IoT devices.
 
-If you wish to send app commands from LoRa IoT devices to your laitos server, modify the TTN mapper program running on the IoT
-devices in this way:
+Create a new API key for the web hook to send downlink messages to your IoT
+devices:
 
-1. Leave the transmission of TTN mapper-compatible location payload intact.
-2. Write additional program logic to append app command, completed with password, to the transmitted payload. The original
-   TTN mapper program transmits location data in exactly 10 bytes, so the app command should start at the 11th byte.
-3. In TTN applications console, leave the decoder program intact - the present decoder program continues to successfully decode 
-   location data, the bytes added to payload do not interfere with the decoder.
-3. This web service, upon receiving the transmitted app command, will pick up the app command in addition to location data, and
-   execute the app command using command processor configuration from `HTTPFilters`.
-4. After laitos executes the app command, the web service will ask TTN to transmit the command response to your LoRa IoT devices,
-   TTN calls this "scheduling a downlink message", which will be picked up by your LoRa IoT devices when it makes the next radio
-   transmission.
+1. Return to TTN console, navigate to the newly created application and then
+   visit "API keys".
+2. Click "Add API key" and name the new key however you wish.
+3. Choose "Grant all current and future rights"
+   * If you wish, restrict the privileges of the API key to only those related
+     to downlink messages.
+4. Click "Create API key" to finish creating the key, copy down the API key into
+   a note pad.
 
-Be aware that, sending downlink message (the app command reply) is the latest feature of The Things Network, its reliability leaves
-a great deal to be desired, and the downlink coverage is far less than the uplink message.
+Next, create a new web hook for the IoT "application":
+
+1. Navigate to the newly created applications and then visit "Integrations",
+   "Webhooks".
+2. Click "Add webhook" button and choose "Custom webhook", then fill
+   in the details:
+   * Webhook ID: (name the webhook however you wish)
+   * Webhook format: JSON
+   * Base URL: https://laitos-server.example.com/hard-to-guess-ttn-hook (see `LoraWANWebhookEndpoint`)
+   * Downlink API key: (paste in the key created just now)
+   * Enabled messages: tick "Uplink message" (with an empty path).
+3. Save the web hook.
+
+### Usage: exchanging text messages with IoT devices
+
+On the IoT device running [hzgl-lora-communicator](https://github.com/HouzuoGuo/hzgl-lora-communicator),
+compose a text message using its morse-based input method. The device will then
+start transmitting the text message ("uplink") at regular intervals - usually
+every 3 minutes.
+
+Users should visit visit `MessageBankEndpoint` regularly to find the latest text
+messages coming from IoT devices.
+
+To send a reply, visit `MessageBankEndpoint` and enter the reply message in the
+"outgoing" directory of "LoRaWAN" message bank. When the communicator IoT device
+makes its next transmission within 5 minutes of the reply, the web hook will
+use the LoRaWAN network downlink API to transmit the reply message in a downlink
+(from IoT gateway to IoT device) message.
+
+### Usage: use IoT devices to execute an app command
+
+On the IoT device running [hzgl-lora-communicator](https://github.com/HouzuoGuo/hzgl-lora-communicator),
+compose an app command using its morse-based input method. The device will then
+start transmitting the app command at regular intervals - usually every 3
+minutes.
+
+When the web hook receives an app command (identified by LoRaWAN message port),
+it immediately passes the app command to the message processor (configured by
+`MessageProcessorFilters`) for execution.
+
+After executing the command, the message processor retains the command response
+in-memory; when the IoT device transmits the app command again, the message
+processor will automatically de-duplicate the repeated app command and offers
+the previous command response to the web hook for a reply. The web hook then
+uses the LoRaWAN network downlink API to transmit the command response in a
+downlink (from IoT gateway to IoT device) message.
 
 ## Tips
-For transmitting app commands from IoT device to laitos server:
-- The web service picks up app commands transmitted by your IoT devices from the transmission's raw bytes, which is why the TTN
-  decoder program needs not to be modified to support app command transmission.
-- It is OK to repeatedly transmit the same app command, doing so in fact ensures a higher likelihood of successful delivery.
-  The mechanism that prevents execution of repeated app commands is the same one that powers [phone home telemetry handler](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler)
+
+- The message bank will only record 99 historical messages in each
+  name-direction combination.
+- LoRaWAN transmission should be kept rather short, larger payload cannot be
+  reliably sent across in either direction. The practical limit is about 100
+  characters in either direction.
+  * The web hook will truncate text message reply and app command response to
+    100 characters maximum before sending them to IoT devices in downlink
+    messages.

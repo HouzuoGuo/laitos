@@ -1,4 +1,4 @@
-## Introduction
+# Introduction
 
 The web proxy daemon is a general-purpose HTTP proxy, capable of handling both HTTP and HTTPS destinations. It is especially suitable
 for general web browsing on personal computing devices such as laptops and phones.
@@ -28,7 +28,7 @@ Construct the following JSON object and place it under key `HTTPProxyDaemon` in 
         <br/>
         Visitors that do not belong to any of these CIDRs will be refused proxy service.
     </td>
-    <td>Empty (see also Tips for an alternative)</td>
+    <td>Empty (see also Tips for an alternative by using the Phone Home telemetry daemon)</td>
 </tr>
 <tr>
     <td>Address</td>

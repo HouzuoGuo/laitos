@@ -61,14 +61,12 @@ Construct the following JSON object and place it under JSON key `HTTPDaemon` in 
 </tr>
 </table>
 
-### Host home page (index page)
-To host a home page, place the following things under JSON key `HTTPHandlers` in configuration file:
+### Host an index page using an HTML file
 
-- String array `IndexEndpoints` - URL locations that will serve home page; in most cases it should be:
+To host an index (home) page, place the following things under JSON key `HTTPHandlers` in configuration file:
 
-      ["/", "/index.html"]
-
-  The prefix slash is mandatory.
+- String array `IndexEndpoints` - URL locations that will serve home page; in
+  most cases it should be `["/", "/index.html"]`. The prefix slash is mandatory.
 - Object `IndexEndpointConfig` that comes with the following mandatory attributes:
 <table>
 <tr>
@@ -79,10 +77,20 @@ To host a home page, place the following things under JSON key `HTTPHandlers` in
 <tr>
     <td>HTMLFilePath</td>
     <td>string</td>
-    <td>Path to HTML home page file.</td>
+    <td>Absolute or relative path to the home page file written in HTML.</td>
 </tr>
 </table>
 
+### Host an index page using environment variable
+
+Instead of composing an HTML file and use it as the index (home) page, you may
+also write the entire index page HTML content in the environment variable
+`LAITOS_INDEX_PAGE`:
+
+    sudo env 'LAITOS_INDEX_PAGE=<h1>hi from laitos</h1>' ./laitos -daemons ...,insecurehttpd,...
+
+The HTTP server will serve the index page at `/`, `/index.html`, and
+`/index.html`.
 
 ### Example
 Here is an example setup that hosts a home page and media files:
@@ -181,13 +189,18 @@ Here is an example involving two domain names and one sub-domain, assuming that 
 Wait up to an hour for new DNS records to propagate through the Internet.
 
 ## Test
+
 Use a web browser to visit laitos web server on your domain name, pay special attention to these items:
-- If TLS is enabled, connect to web server via HTTPS, and browser should recognise the TLS certificate.
-- Visit home page locations.
-- Visit file directories - it is normal for browser to see a directory file listing page.
-- If plain HTTP daemon is enabled, check home page and file directories on HTTP port 80 as well.
+
+- If TLS is enabled, then navigate to the web server using `https://` prefix,
+  the web browser should recognise its TLS certificate as valid.
+- Visit home page locations and ensure that they work as intended.
+- Visit file directories and inspect the directory file listing.
+- If plain HTTP daemon (without TLS) is also running, then check home page and
+  file directories using `http://` address prefix as well.
 
 ## Tips
+
 - The home page HTML is slightly processed in this way:
    - `#LAITOS_CLIENTADDR` is substituted to visitor's IP address.
    - `#LAITOS_3339TIME` is substituted to current system date and time.

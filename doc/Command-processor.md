@@ -199,8 +199,6 @@ Here are the comprehensive list of `.app_identifier` identifiers:
 - `.2` - [Two factor authentication code generator](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-two-factor-authentication-code-generator)
 - `.a` - [Find text in AES-encrypted files](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-find-text-in-AES-encrypted-files)
 - `.c` - [Contact information of public institutions](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-public-institution-contacts)
-- `.bp` - [Interactive web browser (PhantomJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(PhantomJS))
-- `.bs` - [Interactive web browser (SlimerJS)](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(SlimerJS))
 - `.e` - [Inspect system and program environment](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-inspect-and-control-server-environment)
 - `.g` - [Text search](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-text-search)
 - `.i` - [Read Emails](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-reading-Emails)

@@ -37,11 +37,11 @@ Construct the following JSON object and place it under key `DNSDaemon` in config
     <td>
         An array of IP address prefixes such as ["195.1", "123.4.5"] that are allowed to make recursive DNS queries.
         <br/>
-        The public IP address of your wireless routers, computers, and phones should be listed here.
+        The public Internet IP address of your wireless routers, computers, and phones should be listed here.
         <br/>
         This address restriction does not apply to "Invoke app commands via DNS queries".
     </td>
-    <td>Empty (see also Tips for an alternative)</td>
+    <td>Empty (see also Tips for an alternative by using the Phone Home telemetry daemon)</td>
 </tr>
 <tr>
     <td>Address</td>

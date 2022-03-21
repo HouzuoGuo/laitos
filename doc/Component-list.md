@@ -136,16 +136,6 @@ reachable via both HTTP and HTTPS - if the web server has a TLS certificate.
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-simple-proxy" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Web browser on a page (SlimerJS)</td>
-        <td>Present you with a fully functional web browser running on laitos server. It uses the newer SlimmerJS technology.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(SlimerJS)" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>Web browser on a page (PhantomJS)</td>
-        <td>Present you with a fully functional web browser running on laitos server. It uses the older PhantomJS technology.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-web-browser-on-a-page-(PhantomJS)" target="_blank">Link</a></td>
-    </tr>
-    <tr>
         <td>Desktop on a page (virtual machine)</td>
         <td>Present you with a fully functional computer desktop running on laitos server as a virtual machine.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-desktop-on-a-page-(virtual-machine)" target="_blank">Link</a></td>
@@ -244,16 +234,6 @@ reachable via both HTTP and HTTPS - if the web server has a TLS certificate.
         <td>Public contacts</td>
         <td>Look up contact information from several public institutions.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-public-institution-contacts" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>Web browser (SlimerJS)</td>
-        <td>Take control over a fully feature web browser (SlimerJS) via text commands.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(SlimerJS)" target="_blank">Link</a></td>
-    </tr>
-    <tr>
-        <td>Web browser (PhantomJS)</td>
-        <td>Take control over a fully feature web browser (PhantomJS) via text commands.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-interactive-web-browser-(PhantomJS)" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Run system commands</td>

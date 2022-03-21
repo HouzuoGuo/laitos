@@ -1,4 +1,5 @@
-## Introduction
+# Introduction
+
 The phone home daemon collects system resource usage information and delivers them to your laitos servers via the
 [simple app command execution API](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-simple-app-command-execution-API)
 and/or [DNS daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server) running on those servers.
@@ -12,6 +13,7 @@ server host of laitos software, the one running daemon programs (web server, DNS
 commands, and stores received telemetry records in memory.
 
 ## Configuration
+
 Construct the following JSON object and place it under key `PhoneHomeDaemon` in configuration file:
 <table>
 <tr>
@@ -23,8 +25,8 @@ Construct the following JSON object and place it under key `PhoneHomeDaemon` in 
 <tr>
     <td>ReportIntervalSec</td>
     <td>integer</td>
-    <td>The interval (in seconds) between telemetry records that each server will receive.</td>
-    <td>300 - every 5 minutes</td>
+    <td>The interval (in seconds) at which the daemon will send telemetry records to all servers.</td>
+    <td>300 - all servers get a record every 5 minutes</td>
 </tr>
 <tr>
     <td>MessageProcessorServers</td>
@@ -67,10 +69,11 @@ The `MessageProcessorServers` array contains details of your laitos server that 
 </tr>
 </table>
 
-Your laitos server are capable of storing app commands for this phone home daemon to execute, this enables your
-laitos server to control this computer remotely. To enable this optional feature, follow
-[command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
-configuration JSON key `PhoneHomeFilters`.
+The message processor servers may memorise app commands and execute them on this
+phone home daemon when the daemon sends telemetry records to the servers. This
+enables the message processor servers to remotely control the computer that
+runs phone home daemon when needed. To enable this optional feature, follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor)
+to construct configuration for configuration JSON key `PhoneHomeFilters`.
 
 Here is a complete example:
 
@@ -122,11 +125,13 @@ Here is a complete example:
 </pre>
 
 ## Run
+
 Tell laitos to run the phone home daemon in the command line:
 
     sudo ./laitos -config <CONFIG FILE> -daemons ...,phonehome,...
 
 ## Usage
+
 The phone home daemon automatically sends telemetry records consisting of host name, platform information (CPU, OS),
 and system resource usage (memory & disk) to your laitos servers.
 
@@ -190,16 +195,17 @@ to read the telemetry records sent by this daemon. A record looks like:
 },
 </pre>
 
-The web service is capable of storing and memorising an app command for this phone home daemon to execute, enabling
-your laitos server to remotely control this computer. If this optional feature is enabled in configuration
-(`PhoneHomeFilters`), then use the same web service [read telemetry records](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records)
-to store an app command:
+When the phone home daemon allows message processor servers to execute app
+commands on this computer via the phone home daemon (i.e. by configuring
+`PhoneHomeFilters`), contact the same web service [read telemetry records](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-read-telemetry-records)
+to execute an app command on the phone home daemon's computer:
 
     curl 'https://laitos-server.example.com/very-secret-telemetry-retrieval?tohost=SubjectHostName&cmd=PhoneHomePassword.s+echo+abc'
 
-When this daemon sends the next telemetry record, it will pick up the memorised app command and execute it; then when it
-sends a telemetry record again, that record will include the app command along with its execution result. Use the same web
-service to read telemetry records along with app command execution result.
+When the phone home daemon sends its next telemetry record, it will pick up
+the app command from the message processor server's response and execute it.
+When the phone home daemon sends yet another telemetry record, the record will
+include the command execution result (`CommandResponse`).
 
 ## Tips
 

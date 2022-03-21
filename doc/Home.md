@@ -15,9 +15,7 @@ to give you access to Internet features such as:
 
 -   Browse news, weather, and Twitter.
 -   Keep in touch via Email, telephone call, and SMS.
--   Browse the web via a text-based JavaScript-capable browser.
--   Run Linux/Windows shell commands.
--   Generate 2nd factor authentication code.
+-   Remotely control computers in your laitos fleet.
 -   ... more apps to explore!
 
 Check out the
