@@ -202,9 +202,9 @@ func (daemon *Daemon) Execute(ctx context.Context) (string, bool) {
 		result.WriteString(fmt.Sprintf("\nPort errors: %v\n", portsErr))
 	}
 	if featureErr == nil {
-		result.WriteString("\nFeatures: OK\n")
+		result.WriteString("\nApp toolbox: OK\n")
 	} else {
-		result.WriteString(fmt.Sprintf("\nFeature errors: %v\n", featureErr))
+		result.WriteString(fmt.Sprintf("\nApp toolbox errors: %v\n", featureErr))
 	}
 	if mailCmdRunnerErr == nil {
 		result.WriteString("\nMail processor (if present): OK\n")
