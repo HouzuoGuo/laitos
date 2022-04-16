@@ -53,11 +53,6 @@ for a terminal-UI of some of the apps.
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telegram-chat-bot" target="_blank">Link</a></td>
     </tr>
     <tr>
-        <td>Serial port communicator</td>
-        <td>Serial port communicator provides access to all apps to serial port devices.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-serial-port-communicator" target="_blank">Link</a></td>
-    </tr>
-    <tr>
         <td>Simple IP services server</td>
         <td>Simple IP services were used in the nostalgic era of computing.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-simple-IP-services" target="_blank">Link</a></td>

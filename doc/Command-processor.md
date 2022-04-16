@@ -4,7 +4,6 @@
 The following daemon components are capable of executing app commands:
 - [DNS server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server)
 - [Mail server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-mail-server)
-- [Serial port communicator](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-serial-port-communicator)
 - [Telnet server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telnet-server)
 - [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telegram-chat-bot)
 - [Phone home telemetry](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-phone-home-telemetry)

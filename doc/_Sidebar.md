@@ -15,7 +15,6 @@ Daemon Components
 *   [Web proxy server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-proxy)
 *   [Telnet server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telnet-server)
 *   [Telegram chat-bot](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telegram-chat-bot)
-*   [Serial port communicator](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-serial-port-communicator)
 *   [Simple IP services server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-simple-IP-services)
 *   [SNMP server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-SNMP-server)
 *   [System maintenance](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance)
