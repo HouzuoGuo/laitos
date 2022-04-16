@@ -19,9 +19,10 @@ System maintenance tasks comprise:
 
 (For routine maintenance)
 
-- Defragment drives, trim SSD drives, and delete expired temporary files.
+- Defragment drives, trim SSD drives, delete unused temporary files and system
+  journal.
 - Synchronise system clock.
-- On Windows, maintain system files integrity with `DISM` and `SFC`.
+- On Windows, verify and maintain system files integrity with `DISM` and `SFC`.
 - Set Linux system time zone (additional configuration required).
 
 (Miscellaneous)

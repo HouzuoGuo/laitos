@@ -159,14 +159,15 @@ compose a text message using its morse-based input method. The device will then
 start transmitting the text message ("uplink") at regular intervals - usually
 every 3 minutes.
 
-Users should visit visit `MessageBankEndpoint` regularly to find the latest text
-messages coming from IoT devices.
+Users should visit `MessageBankEndpoint` regularly to read the latest text
+messages coming from IoT devices. There is no notification mechanism to alert
+users of incoming messages.
 
 To send a reply, visit `MessageBankEndpoint` and enter the reply message in the
 "outgoing" directory of "LoRaWAN" message bank. When the communicator IoT device
-makes its next transmission within 5 minutes of the reply, the web hook will
-use the LoRaWAN network downlink API to transmit the reply message in a downlink
-(from IoT gateway to IoT device) message.
+makes its next transmission within 5 minutes of the reply (the timing is
+important), the web hook will use the LoRaWAN network downlink API to transmit
+the reply message in a downlink (from IoT gateway to IoT device) message.
 
 ### Usage: use IoT devices to execute an app command
 

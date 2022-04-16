@@ -56,8 +56,7 @@ This is not an officially supported Google product.
 Copyright (C) 2016-February 2021 Houzuo (Howard) Guo <guohouzuo@gmail.com>. All
 rights reserved.
 
-Copyright (C) 2021, 2022 Google Inc. and contributors (Houzuo Guo, etc).
-All rights reserved.
+Copyright (C) 2021, 2022 Google Inc. and contributors. All rights reserved.
 
 This program is free software subject to the terms of Mozilla Public License, v.
 2.0. You may find the license text in

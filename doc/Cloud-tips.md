@@ -1,12 +1,14 @@
 # Cloud tips
 
 ## General information
+
 laitos runs well on all popular cloud vendors such as Amazon Web Service, Microsoft Azure, and Google Compute Engine.
 
 In fact, it works well on nearly all public and private cloud vendors, irrespective of computer form factor,
 virtualisation technology, hardware model, and administration interface.
 
 ## Important note on sending outgoing mails
+
 As an anti-spam measure, nearly all major public cloud vendors block outgoing contact to port 25, which means applications
 running on their infrastructure will not be able to deliver outgoing mails - this does not interfere with mails coming in.
 Therefore, use laitos program with a dedicated mail delivery services such as [sendgrid](https://sendgrid.com/) that has
@@ -16,6 +18,7 @@ In laitos system maintenance daemon configuration, if there is a connectivity ch
 will skip that check.
 
 ## Start laitos automatically via systemd
+
 systemd is the most popular init system for Linux distributions, it can help launching laitos automatically when
 computer boots up. Create a service file `/etc/systemd/system/laitos.service` and write:
 
@@ -46,10 +49,12 @@ After the service file is in place, run these commands as root user:
     # systemctl start laitos     (Start laitos right now)
 
 ## Deploy on Amazon Web Service - EC2
+
 Simply copy laitos program and its data onto an EC2 instance, compose and save the system service file, start laitos
 right away. All flavours of Linux distributions that run on EC2 can run laitos.
 
 ## Deploy on Amazon Web Service - Lambda
+
 Lambda is the flagship Function-as-a-Service product offered by AWS. As a serverless offering, the product does not support
 general purpose computing. For laitos, lambda can run its web server without having to prepare an EC2 instance manually.
 
@@ -101,6 +106,7 @@ If something seems amiss, enable CloudWatch logging in Stage editor, and navigat
 API gateway and Lambda log streams, they may give a clue.
 
 ## Deploy on Amazon Web Service - Elastic Beanstalk
+
 AWS offers a Platform-as-a-Service product "ElasticBeanstalk" that automatically manages EC2 instances for you.
 Here are some tips for using laitos on ElasticBeanstalk:
 - For a personal web server, it is sufficient to use "Single Instance" as environment type. Load balancer incurs
@@ -143,6 +149,7 @@ Here are some tips for using laitos on ElasticBeanstalk:
 - Remember to adjust firewall (security group) to open ports for all services (e.g. DNS, SMTP, HTTPS) served by laitos.
 
 ## Integrate with AWS Kinesis Firehose, S3, SQS, and SNS
+
 Beyond using AWS as the computing foundation for running laitos server, it may also integrate with the following AWS products:
 - When a program component emits a warning log message, send the message to SQS (simple queue service).
 - Upon receiving a [phone home telemetry](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler) report,
@@ -208,7 +215,7 @@ by Azure can run laitos.
 
 ## Deploy on Google App Engine
 
-Clone the laitos repository. In the clone directory,and create a sub-directory
+Clone the laitos repository. In the clone directory, and create a sub-directory
 `gcp_appengine_data`. Place the following files into the sub-directory:
 
 - `daemonName` - A plain-text file of comma-separated daemon names to be started
@@ -228,9 +235,12 @@ Note that, the example config file is named `config.json.example` whereas the
 actual config file must be named `config.json`.
 
 ## Deploy on other cloud providers
-laitos runs on nearly all flavours of Linux system, therefore as long as your cloud provider supports Linux compute
-instance, you can be almost certain that it will run laitos smoothly and well.
 
-Beyond AWS, Azure, and GCE, the author of laitos has also successfully deployed it on generic KVM virtual machine,
-OpenStack, Linode, and several cheap hosting services advertised on [lowendbox.com](https://lowendbox.com/).
+laitos runs on nearly all flavours of Linux and Windows hosts, as long as your
+cloud provider supports Linux compute instance, you can be almost certain that
+it will run laitos smoothly.
 
+Beyond AWS, Azure, GCP, and Oracle Cloud, laitos has also been successfully
+deployed on generic KVM-based virtual machines, OpenStack VM instances, Linode
+instances, as well as VMs from several budget hosting services advertised on
+[lowendbox.com](https://lowendbox.com/).
