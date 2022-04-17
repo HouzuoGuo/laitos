@@ -365,16 +365,20 @@ IsInBlacklist returns true only if the input domain name or IP address is black 
 a sub-domain name, then the function strips the sub-domain portion in order to check it against black list.
 */
 func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
-	// If the name is exceedingly long, then return true as if the name is black-listed.
-	if len(nameOrIP) > 255 {
+	// Treat excessively (impossibly) long input name as if it is black-listed.
+	if len(nameOrIP) > 255 || len(nameOrIP) < 4 {
 		return true
 	}
-	// Black list only contains lower case names, hence converting the input name to lower case for matching.
+	// The black list uses lower case letters by convention.
 	nameOrIP = strings.ToLower(strings.TrimSpace(nameOrIP))
-	/*
-		Starting from the requested domain name, strip down sub-domain name to make candidates for black list match.
-		Stripping down an IP address is meaningless but will do no harm.
-	*/
+	// Trim the rightmost dot.
+	if nameOrIP[len(nameOrIP)-1] == '.' {
+		nameOrIP = nameOrIP[:len(nameOrIP)-1]
+	}
+	// Discover all candidate names derived from the input name that can be used
+	// to find a blacklist match.
+	// If "a.com" is blacklisted, then "alpha.a.com" and "beta.alpha.a.com" are
+	// also considered blacklisted.
 	blackListCandidates := make([]string, 0, 4)
 	blackListCandidates = append(blackListCandidates, nameOrIP)
 	for {
@@ -485,7 +489,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	}
 
 	// Resolve A and TXT records from popular domains
-	for _, domain := range []string{"bing.com", "wikipedia.org"} {
+	for _, domain := range []string{"biNg.cOM.", "wikipedIA.oRg."} {
 		lastResolvedName = ""
 		if result, err := resolver.LookupTXT(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
 			t.Fatal("failed to resolve domain name TXT record", domain, err, result)
@@ -509,17 +513,17 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	}()
 	daemon.blackList["github.com"] = struct{}{}
 	daemon.blackList["google.com"] = struct{}{}
-	if result, err := resolver.LookupIP(context.Background(), "ip4", "GiThUb.CoM"); err != nil || len(result) != 1 || result[0].String() != "0.0.0.0" {
+	if result, err := resolver.LookupIP(context.Background(), "ip4", "some.GiThUb.CoM"); err != nil || len(result) != 1 || result[0].String() != "0.0.0.0" {
 		t.Fatal("failed to get a black-listed response", err, result)
 	}
-	if lastResolvedName != "GiThUb.CoM" {
-		t.Fatal("attempted to resolve black-listed github.com, but daemon saw:", lastResolvedName)
+	if lastResolvedName != "some.GiThUb.CoM." {
+		t.Fatal("daemon did not process the query name:", lastResolvedName)
 	}
-	if result, err := resolver.LookupIP(context.Background(), "ip6", "gooGLE.cOm"); err != nil || len(result) != 1 || result[0].String() != "::1" {
+	if result, err := resolver.LookupIP(context.Background(), "ip6", "buzz.gooGLE.cOm"); err != nil || len(result) != 1 || result[0].String() != "::1" {
 		t.Fatal("failed to get a black-listed response", err, result)
 	}
-	if lastResolvedName != "gooGLE.cOm" {
-		t.Fatal("attempted to resolve black-listed google.com, but daemon saw:", lastResolvedName)
+	if lastResolvedName != "buzz.gooGLE.cOm." {
+		t.Fatal("daemon did not process the query name:", lastResolvedName)
 	}
 
 	// Make a TXT query that carries toolbox command prefix but is in fact not
@@ -527,7 +531,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		// _.apple.com.            3599    IN      TXT     "v=spf1 redirect=_spf.apple.com"
 		t.Fatal(result, err)
 	}
-	if lastResolvedName != "_.apple.com" {
+	if lastResolvedName != "_.apple.com." {
 		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
 	}
 

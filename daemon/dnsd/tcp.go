@@ -4,10 +4,12 @@ import (
 	"context"
 	"math/rand"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"golang.org/x/net/dns/dnsmessage"
 
 	"github.com/HouzuoGuo/laitos/misc"
 )
@@ -24,94 +26,119 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	queryLen := make([]byte, 2)
 	_, err := conn.Read(queryLen)
 	if err != nil {
-		logger.Warning("handleTCPQuery", ip, err, "failed to read query length from client")
+		logger.Warning("HandleTCPConnection", ip, err, "failed to read query length from client")
 		return
 	}
 	queryLenInteger := int(queryLen[0])*256 + int(queryLen[1])
 	// Read query packet
 	if queryLenInteger > MaxPacketSize || queryLenInteger < MinNameQuerySize {
-		logger.Info("handleTCPQuery", ip, nil, "invalid query length from client")
+		logger.Info("HandleTCPConnection", ip, nil, "invalid query length from client")
 		return
 	}
 	queryBody := make([]byte, queryLenInteger)
 	_, err = conn.Read(queryBody)
 	if err != nil {
-		logger.Warning("handleTCPQuery", ip, err, "failed to read query from client")
+		logger.Warning("HandleTCPConnection", ip, err, "failed to read query from client")
 		return
 	}
-	// Formulate a response
-	queryStruct := ParseQueryPacket(queryBody)
-	var respBody, respLen []byte
-	if queryStruct.IsTextQuery() {
-		// Handle toolbox command that arrives as a text query
-		respLen, respBody = daemon.handleTCPTextQuery(ip, queryLen, queryBody, queryStruct)
+	// Parse the first (and only) query question.
+	parser := new(dnsmessage.Parser)
+	header, err := parser.Start(queryBody)
+	if err != nil {
+		logger.Warning("HandleTCPConnection", ip, err, "failed to parse query header")
+		return
+	}
+	question, err := parser.Question()
+	if err != nil {
+		logger.Warning("HandleTCPConnection", ip, err, "failed to parse query question")
+		return
+	}
+	var respBody []byte
+	if question.Type == dnsmessage.TypeTXT {
+		// The TXT query may be carrying an app command.
+		respBody = daemon.handleTCPTextQuery(ip, queryLen, queryBody, header, question)
 	} else {
-		// Handle other query types such as name query
-		respLen, respBody = daemon.handleTCPNameOrOtherQuery(ip, queryLen, queryBody, queryStruct)
+		// Handle all other query types.
+		respBody = daemon.handleTCPNameOrOtherQuery(ip, queryLen, queryBody, header, question)
 	}
-	// Close client connection in case there is no appropriate response
-	if respBody == nil || len(respBody) < 2 {
+	// Return early (and close the client connection) in case there is no
+	// appropriate response.
+	if len(respBody) < 3 {
 		return
 	}
-	// Send response to the client, match transaction ID of original query, the deadline is shared with the read deadline above.
+	// Match the response transaction ID with the request.
 	respBody[0] = queryBody[0]
 	respBody[1] = queryBody[1]
+	// Reset connection IO timeout.
+	misc.TweakTCPConnection(conn, ClientTimeoutSec*time.Second)
+	respLen := []byte{byte(len(respBody) / 256), byte(len(respBody) % 256)}
 	if _, err := conn.Write(respLen); err != nil {
-		logger.Warning("handleTCPQuery", ip, err, "failed to answer length to client")
+		logger.Warning("HandleTCPConnection", ip, err, "failed to answer length to the client")
 		return
 	} else if _, err := conn.Write(respBody); err != nil {
-		logger.Warning("handleTCPQuery", ip, err, "failed to answer to client")
+		logger.Warning("HandleTCPConnection", ip, err, "failed to answer to the client")
 		return
 	}
 }
 
-func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte, queryStruct *QueryPacket) (respLen, respBody []byte) {
-	queriedName := queryStruct.GetHostName()
+func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+	name := question.Name.String()
 	if daemon.processQueryTestCaseFunc != nil {
-		daemon.processQueryTestCaseFunc(queriedName)
+		daemon.processQueryTestCaseFunc(name)
 	}
-	if dtmfDecoded := DecodeDTMFCommandInput(queryStruct.Labels); len(dtmfDecoded) > 1 {
-		cmdResult := daemon.latestCommands.Execute(context.TODO(), daemon.Processor, clientIP, dtmfDecoded)
+	// Remove the domain name from the labels.
+	labelsWithoutDomain := strings.Split(name, ".")
+	if len(labelsWithoutDomain) > 2 {
+		labelsWithoutDomain = labelsWithoutDomain[:len(labelsWithoutDomain)-2]
+	}
+	if dtmfDecoded := DecodeDTMFCommandInput(labelsWithoutDomain); len(dtmfDecoded) > 1 {
+		cmdResult := daemon.latestCommands.Execute(context.Background(), daemon.Processor, clientIP, dtmfDecoded)
 		if cmdResult.Error == toolbox.ErrPINAndShortcutNotFound {
-			/*
-				Because the prefix may appear in an ordinary text record query that is not a toolbox command, when there is
-				a PIN mismatch, forward to recursive resolver as if the query is indeed not a toolbox command.
-			*/
-			daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "input has command prefix but failed PIN check, forward to recursive resolver.")
+			// Because the prefix may appear in an ordinary text record query
+			// that is not a toolbox command, when there is a PIN mismatch,
+			// forward to recursive resolver as if the query is indeed not a
+			// toolbox command.
+			daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "the queried name has the command prefix but failed PIN check, forwarding to recursive resolver.")
 			goto forwardToRecursiveResolver
 		} else {
+			var err error
 			daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "processed a toolbox command")
-			respBody = MakeTextResponse(queryBody, cmdResult.CombinedOutput)
-			respLenInt := len(respBody)
-			respLen = []byte{byte(respLenInt / 256), byte(respLenInt % 256)}
+			respBody, err = BuildTextResponse(name, header, question, []string{cmdResult.CombinedOutput})
+			if err != nil {
+				daemon.logger.Warning("handleTCPTextQuery", clientIP, err, "failed to build response packet")
+				return nil
+			}
 			return
 		}
 	} else {
-		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "handle TXT query \"%s\"", string(queriedName))
+		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "handle TXT query %q", name)
 	}
 forwardToRecursiveResolver:
-	// There's a chance of being a typo in the PIN entry, make sure this function does not log the request input.
+	// Because the password PIN in the query may contain a typo, make sure this
+	// function does not incidentally log the query name.
 	return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 }
 
-func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, queryStruct *QueryPacket) (respLen, respBody []byte) {
-	domainName := queryStruct.GetHostName()
-	if domainName == "" {
+func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+	name := question.Name.String()
+	if name == "" {
 		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle non-name query")
 	} else {
 		if daemon.processQueryTestCaseFunc != nil {
-			daemon.processQueryTestCaseFunc(domainName)
+			daemon.processQueryTestCaseFunc(name)
 		}
-		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle IPv%d name query \"%s\"", queryStruct.GetNameQueryVersion(), domainName)
+		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle name query %q", name)
 	}
-	if daemon.IsInBlacklist(domainName) {
-		// Black hole response returns a
-		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle black-listed IPv%d name query \"%s\"", queryStruct.GetNameQueryVersion(), domainName)
-		respBody = GetBlackHoleResponse(queryBody, queryStruct.GetNameQueryVersion() == 6)
-		respLenInt := len(respBody)
-		respLen = []byte{byte(respLenInt / 256), byte(respLenInt % 256)}
+	if daemon.IsInBlacklist(name) {
+		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle black-listed name query %q", name)
+		var err error
+		respBody, err = BuildBlackHoleAddrResponse(header, question)
+		if err != nil {
+			daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, err, "failed to build response packet")
+			return nil
+		}
 	} else {
-		respLen, respBody = daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
+		respBody = daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	return
 }
@@ -121,8 +148,7 @@ handleTCPRecursiveQuery forward the input query to a randomly chosen recursive r
 Be aware that toolbox command processor may invoke this function with an incorrect PIN entry similar to the real PIN,
 therefore this function must not log the input packet content in any way.
 */
-func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBody []byte) (respLen, respBody []byte) {
-	respLen = make([]byte, 0)
+func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBody []byte) (respBody []byte) {
 	respBody = make([]byte, 0)
 	if !daemon.checkAllowClientIP(clientIP) {
 		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, nil, "client IP is not allowed to query")
@@ -148,7 +174,7 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 		return
 	}
 	// Read resolver's response
-	respLen = make([]byte, 2)
+	respLen := make([]byte, 2)
 	if _, err = myForwarder.Read(respLen); err != nil {
 		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to read length from forwarder")
 		return

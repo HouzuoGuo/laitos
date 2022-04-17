@@ -1,220 +1,87 @@
 package dnsd
 
 import (
-	"bytes"
+	"errors"
 	"regexp"
 	"strings"
 
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"golang.org/x/net/dns/dnsmessage"
 )
 
-// QueryPacket encapsulates a DNS query consisting of exactly one question.
-type QueryPacket struct {
-	TransactionID    []byte
-	Flags            []byte
-	NumQuestions     int
-	NumAnswerRRs     int
-	NumAuthorityRRs  int
-	NumAdditionalRRs int
-	Labels           []string
-	Type             []byte
-	Class            []byte
+// BuildTextResponse constructs a TXT record response packet, the record TTL is
+// hard coded to 30 seconds.
+func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessage.Question, txt []string) ([]byte, error) {
+	// Retain the original transaction ID.
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = true
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	// Repeat the question back to the client, this is required by DNS protocol.
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	builder.TXTResource(dnsmessage.ResourceHeader{
+		Name:  dnsmessage.MustNewName(name),
+		Class: dnsmessage.ClassINET, TTL: 30}, dnsmessage.TXTResource{TXT: txt})
+	return builder.Finish()
 }
 
-// IsTextQuery returns true only if the query's only question is looking for a TXT record.
-func (pkt *QueryPacket) IsTextQuery() bool {
-	// The magic type hex for TXT is 0x0010, class Internet.
-	return pkt.NumQuestions == 1 && bytes.Equal(pkt.Type, []byte{0x00, 0x10}) && bytes.Equal(pkt.Class, []byte{0x00, 0x01})
-
-}
-
-// GetNameQueryVersion returns either 4 or 6 if the query packet is a name query.
-// If the packet is not a name query, the function will return 0.
-func (pkt *QueryPacket) GetNameQueryVersion() int {
-	// 1 question for Internet class
-	if pkt.NumQuestions != 1 || !bytes.Equal(pkt.Class, []byte{0x00, 0x01}) {
-		return 0
+// BuildBlackHoleAddrResponse constructs an A or AAAA address record response
+// packet pointing to localhost, the record TTL is hard coded to 600 seconds.
+func BuildBlackHoleAddrResponse(header dnsmessage.Header, question dnsmessage.Question) ([]byte, error) {
+	// Retain the original transaction ID.
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = true
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	// Repeat the question back to the client, this is required by DNS protocol.
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
 	}
-	if bytes.Equal(pkt.Type, []byte{0x00, 0x01}) {
-		return 4
-	} else if bytes.Equal(pkt.Type, []byte{0x00, 0x1c}) {
-		return 6
-	} else {
-		return 0
+	if err := builder.Question(question); err != nil {
+		return nil, err
 	}
-}
-
-// GetHostName returns the host name (e.g. example.com) specified in the query labels.
-// The return value preserves the original case presented in the labels.
-func (pkt *QueryPacket) GetHostName() string {
-	return strings.Join(pkt.Labels, ".")
-}
-
-// ParseQueryPacket parses the received DNS (UDP) query packet into individual fields and attributes.
-// The function may also be used to parse a DNS-TCP query packet if the caller strips the leading two TCP query length bytes before
-// passing the packet into this function.
-// If the incoming packet is incomplete, the function will decode as many fields as it can and returns the incomplete
-// decoding result.
-func ParseQueryPacket(in []byte) (ret *QueryPacket) {
-	ret = &QueryPacket{}
-	// Because the returned packet structure is going to reference a few slices of the input packet, make a copy of it
-	// to prevent the input from being resued for another packet.
-	packet := make([]byte, len(in))
-	copy(packet, in)
-	idx := 0
-	// Transaction ID - 2 bytes
-	if len(packet) < idx+2 {
-		return
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
 	}
-	ret.TransactionID = packet[idx : idx+2]
-	idx += 2
-	// Flags - 2 bytes
-	if len(packet) < idx+2 {
-		return
-	}
-	ret.Flags = packet[idx : idx+2]
-	idx += 2
-	// Number of questions, answer RRs, authority RRs, additional RRs - 2 bytes each
-	if len(packet) < idx+2 {
-		return
-	}
-	ret.NumQuestions = int(packet[idx])*256 + int(packet[idx+1])
-	idx += 2
-
-	if len(packet) < idx+2 {
-		return
-	}
-	ret.NumAnswerRRs = int(packet[idx])*256 + int(packet[idx+1])
-	idx += 2
-
-	if len(packet) < idx+2 {
-		return
-	}
-	ret.NumAuthorityRRs = int(packet[idx])*256 + int(packet[idx+1])
-	idx += 2
-
-	if len(packet) < idx+2 {
-		return
-	}
-	ret.NumAdditionalRRs = int(packet[idx])*256 + int(packet[idx+1])
-	idx += 2
-	// Labels - len(1B), label(lenB), len(1B), label(lenB) ...
-	ret.Labels = make([]string, 0, 8)
-	for {
-		if len(packet) < idx+1 {
-			// This is a malformed query packet, was expecting 0x0 to indicate end of labels.
-			return
+	switch question.Type {
+	case dnsmessage.TypeA:
+		err := builder.AResource(dnsmessage.ResourceHeader{
+			Name:  dnsmessage.MustNewName(question.Name.String()),
+			Class: dnsmessage.ClassINET,
+			TTL:   600,
+			// 0.0.0.0 - any network interface.
+		}, dnsmessage.AResource{A: [4]byte{0, 0, 0, 0}})
+		if err != nil {
+			return nil, err
 		}
-		lenLabel := int(packet[idx])
-		idx += 1
-		if lenLabel == 0 {
-			// This is the end of all labels
-			break
+	case dnsmessage.TypeAAAA:
+		err := builder.AAAAResource(dnsmessage.ResourceHeader{
+			Name:  dnsmessage.MustNewName(question.Name.String()),
+			Class: dnsmessage.ClassINET,
+			TTL:   600,
+		}, dnsmessage.AAAAResource{
+			// ::1 - localhost.
+			AAAA: [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		})
+		if err != nil {
+			return nil, err
 		}
-		if len(packet) < idx+lenLabel {
-			// Malformed packet, was expecting the label text.
-			return
-		}
-		ret.Labels = append(ret.Labels, string(packet[idx:idx+lenLabel]))
-		idx += lenLabel
+	default:
+		return nil, errors.New("question type must be an address type for building a black hole response")
 	}
-	// Type - 2 bytes
-	if len(packet) < idx+2 {
-		return
-	}
-	ret.Type = packet[idx : idx+2]
-	idx += 2
-	// Class - 2 bytes
-	if len(packet) < idx+2 {
-		return
-	}
-	ret.Class = packet[idx : idx+2]
-	idx += 2
-	return
-}
-
-var (
-	// standardResponseNoError is a magic flag used in a DNS response packet, it means standard response without an error.
-	standardResponseNoError = []byte{129, 128}
-
-	// blackHoleV4Answer is a DNS answer that points the domain in question to "0.0.0.0" (any NIC).
-	//                             Domain           A    IN      TTL (256)  IPv4     0.0.0.0
-	blackHoleV4Answer = []byte{0xc0, 0x0c, 0x00, 0x01, 0, 1, 0, 0, 0, 0xff, 0, 4, 0, 0, 0, 0}
-
-	// blackHoleV6Answer is a DNS answer that points the domain in question to "::1" (localhost).
-	//                             Domain        AAAA          TTL (256)    IPv6  0000  0000  0000  0000  0000  0000  0000  0001
-	blackHoleV6Answer = []byte{0xc0, 0x0c, 0x00, 0x1c, 0, 1, 0, 0, 0, 0xff, 0, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
-
-	// textQueryMagic is a series of bytes that appears at the very end of a TXT query question.
-	textQueryMagic = []byte{0, 16, 0, 1}
-)
-
-// GetBlackHoleResponse returns a DNS response packet (without prefix length bytes) that points queried name to 0.0.0.0.
-func GetBlackHoleResponse(queryNoLength []byte, isV6Query bool) []byte {
-	if queryNoLength == nil || len(queryNoLength) < MinNameQuerySize {
-		return []byte{}
-	}
-	answerPacket := make([]byte, 2+2+len(queryNoLength)-4)
-	// Match transaction ID of original query
-	answerPacket[0] = queryNoLength[0]
-	answerPacket[1] = queryNoLength[1]
-	// 0x8180 - response is a standard query response, without indication of error.
-	copy(answerPacket[2:4], standardResponseNoError)
-	// Copy of original query structure
-	copy(answerPacket[4:], queryNoLength[4:])
-	// There is exactly one answer RR
-	answerPacket[6] = 0
-	answerPacket[7] = 1
-	if isV6Query {
-		answerPacket = append(answerPacket, blackHoleV6Answer...)
-	} else {
-		answerPacket = append(answerPacket, blackHoleV4Answer...)
-	}
-	return answerPacket
-}
-
-func MakeTextResponse(queryNoLength []byte, text string) []byte {
-	if queryNoLength == nil || len(queryNoLength) < MinNameQuerySize {
-		return []byte{}
-	}
-	// Limit response to 254 characters maximum, I am feeling lazy to implement multi-entry reply.
-	if len(text) > 254 {
-		text = text[:254]
-	}
-
-	queryMagicIndex := bytes.Index(queryNoLength[MinNameQuerySize:], textQueryMagic)
-	if queryMagicIndex < 0 {
-		return []byte{}
-	}
-	// Copy input packet into output packet
-	answerPacket := make([]byte, 0, len(queryNoLength))
-	answerPacket = append(answerPacket, queryNoLength[:MinNameQuerySize+queryMagicIndex+len(textQueryMagic)]...)
-
-	// Manipulate response based on the copied input query
-	// Byte 0, 1 - transaction ID already matches that of input query
-	// Byte 2, 3 - standard response, no error.
-	copy(answerPacket[2:4], standardResponseNoError)
-	// Byte 6, 7 - there is exactly one answer RR
-	answerPacket[6] = 0
-	answerPacket[7] = 1
-
-	// Answer entry magic c0 0c
-	answerPacket = append(answerPacket, 0xc0, 0x0c)
-	// Text type, Class IN
-	answerPacket = append(answerPacket, textQueryMagic...)
-	// TTL - 30 seconds (the minimum acceptable TTL by consensus, not by standard)
-	answerPacket = append(answerPacket, 0x0, 0x0, 0x0, TextCommandReplyTTL)
-	// Data length (2 bytes) = TXT length + 1
-	answerPacket = append(answerPacket, 0x0, byte(len(text)+1))
-	// TXT length = length of input text
-	answerPacket = append(answerPacket, byte(len(text)))
-	// Text entry content
-	answerPacket = append(answerPacket, []byte(text)...)
-	// Additional Record from the original packet
-	queryAdditionalRecord := queryNoLength[queryMagicIndex+MinNameQuerySize:]
-	answerPacket = append(answerPacket, queryAdditionalRecord...)
-
-	return answerPacket
+	return builder.Finish()
 }
 
 // DecodeDTMFCommandInput extracts an app command (that may contain DTMF sequences) from the input DNS question labels and returns
