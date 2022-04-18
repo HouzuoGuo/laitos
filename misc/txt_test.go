@@ -173,3 +173,51 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Fatal(err, isEncrypted, contents)
 	}
 }
+
+func TestSplitIntoSlice(t *testing.T) {
+	var tests = []struct {
+		inStr         string
+		maxElemLen    int
+		maxOverallLen int
+		want          []string
+	}{
+		{
+			inStr:         "aaaa",
+			maxElemLen:    1,
+			maxOverallLen: 0,
+			want:          nil,
+		},
+		{
+			inStr:         "abcd",
+			maxElemLen:    2,
+			maxOverallLen: 2,
+			want:          []string{"ab"},
+		},
+		{
+			inStr:         "abcd",
+			maxElemLen:    2,
+			maxOverallLen: 6,
+			want:          []string{"ab", "cd"},
+		},
+		{
+			inStr:         "abcd",
+			maxElemLen:    3,
+			maxOverallLen: 6,
+			want:          []string{"abc", "d"},
+		},
+		{
+			inStr:         "abcdefg",
+			maxElemLen:    1,
+			maxOverallLen: 3,
+			want:          []string{"a", "b", "c"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.inStr, func(t *testing.T) {
+			got := SplitIntoSlice(test.inStr, test.maxElemLen, test.maxOverallLen)
+			if !reflect.DeepEqual(test.want, got) {
+				t.Errorf("SplitIntoSlice(%q): Got %+v, want %+v.", test.inStr, got, test.want)
+			}
+		})
+	}
+}

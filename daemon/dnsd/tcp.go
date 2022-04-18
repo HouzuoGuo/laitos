@@ -103,7 +103,11 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 		} else {
 			var err error
 			daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "processed a toolbox command")
-			respBody, err = BuildTextResponse(name, header, question, []string{cmdResult.CombinedOutput})
+			// Try to fit the response into a single TXT entry.
+			// Keep in mind that by convention DNS uses 512 bytes as the overall
+			// message size limit - including both question and response.
+			// Leave some buffer room for the DNS headers.
+			respBody, err = BuildTextResponse(name, header, question, misc.SplitIntoSlice(cmdResult.CombinedOutput, 200, 200))
 			if err != nil {
 				daemon.logger.Warning("handleTCPTextQuery", clientIP, err, "failed to build response packet")
 				return nil

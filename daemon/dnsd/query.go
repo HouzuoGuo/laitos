@@ -29,9 +29,12 @@ func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessag
 	if err := builder.StartAnswers(); err != nil {
 		return nil, err
 	}
-	builder.TXTResource(dnsmessage.ResourceHeader{
+	err := builder.TXTResource(dnsmessage.ResourceHeader{
 		Name:  dnsmessage.MustNewName(name),
 		Class: dnsmessage.ClassINET, TTL: 30}, dnsmessage.TXTResource{TXT: txt})
+	if err != nil {
+		return nil, err
+	}
 	return builder.Finish()
 }
 

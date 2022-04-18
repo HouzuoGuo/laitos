@@ -185,3 +185,22 @@ func Decrypt(filePath string, key string) (content []byte, err error) {
 	content, err = ioutil.ReadAll(cipherReader)
 	return
 }
+
+// SplitIntoSlice truncates the input string into maxOverallLen and then splits
+// it into a slice of strings up to maxElemLen each,
+func SplitIntoSlice(in string, maxElemLen, maxOverallLen int) (ret []string) {
+	if len(in) > maxOverallLen {
+		in = in[:maxOverallLen]
+	}
+	for i := 0; i < maxOverallLen && i < len(in); {
+		end := i + maxElemLen
+		if len(in) >= end {
+			ret = append(ret, in[i:end])
+			i = end
+		} else {
+			ret = append(ret, in[i:])
+			break
+		}
+	}
+	return
+}
