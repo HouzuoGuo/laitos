@@ -442,7 +442,7 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 
 	// Use go DNS client to verify that the server returns satisfactory response
 	tcpResolver := &net.Resolver{
-		// PreferGo:     true,
+		PreferGo:     true,
 		StrictErrors: true,
 		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
 			return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dnsd.TCPPort))
@@ -450,7 +450,7 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 	}
 	testResolveNameAndBlackList(t, dnsd, tcpResolver)
 	udpResolver := &net.Resolver{
-		// PreferGo:     true,
+		PreferGo:     true,
 		StrictErrors: true,
 		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
 			return net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", dnsd.UDPPort))

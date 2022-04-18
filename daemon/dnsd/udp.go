@@ -66,12 +66,8 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, head
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	// Remove the domain name from the labels.
-	labelsWithoutDomain := strings.Split(name, ".")
-	if len(labelsWithoutDomain) > 2 {
-		labelsWithoutDomain = labelsWithoutDomain[:len(labelsWithoutDomain)-2]
-	}
-	if dtmfDecoded := DecodeDTMFCommandInput(labelsWithoutDomain); len(dtmfDecoded) > 1 {
+	labels := strings.Split(name, ".")
+	if dtmfDecoded := DecodeDTMFCommandInput(labels); len(dtmfDecoded) > 1 {
 		cmdResult := daemon.latestCommands.Execute(context.Background(), daemon.Processor, clientIP, dtmfDecoded)
 		if cmdResult.Error == toolbox.ErrPINAndShortcutNotFound {
 			// Because the prefix may appear in an ordinary text record query

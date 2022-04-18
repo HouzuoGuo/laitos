@@ -6,11 +6,12 @@ import (
 
 func TestDecodeDTMFCommandInput(t *testing.T) {
 	var tests = []struct {
-		labels   []string
-		expected string
+		labels []string
+		want   string
 	}{
 		{nil, ""},
 		{[]string{"_"}, ""},
+		{[]string{"_11"}, ""},
 		{[]string{"example", "com"}, ""},
 		{[]string{"_", "example", "com"}, ""},
 		// Decode DTMF spaces
@@ -25,10 +26,12 @@ func TestDecodeDTMFCommandInput(t *testing.T) {
 		{[]string{"_abc", "def", "example", "com"}, "abcdef"},
 		{[]string{"_", "abc", "example", "com"}, "abc"},
 		{[]string{"_", "11a", "12b", "13c", "example", "com"}, "1a2b3c"},
+		// Decode with an empty tail label
+		{[]string{"_0abc", "example", "com", ""}, " abc"},
 	}
 	for _, test := range tests {
-		if decoded := DecodeDTMFCommandInput(test.labels); decoded != test.expected {
-			t.Fatalf("Labels: %v, decoded: %s, expected: %s", test.labels, decoded, test.expected)
+		if got := DecodeDTMFCommandInput(test.labels); got != test.want {
+			t.Fatalf("Labels: %v, decoded: %s, expected: %s", test.labels, got, test.want)
 		}
 	}
 }

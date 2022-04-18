@@ -87,7 +87,8 @@ func BuildBlackHoleAddrResponse(header dnsmessage.Header, question dnsmessage.Qu
 	return builder.Finish()
 }
 
-// DecodeDTMFCommandInput extracts an app command (that may contain DTMF sequences) from the input DNS question labels and returns
+// DecodeDTMFCommandInput extracts an app command (that may contain DTMF
+// sequences) from the input DNS question labels (incl. domain name) and returns
 // the extracted app command.
 func DecodeDTMFCommandInput(labels []string) (decodedCommand string) {
 	if len(labels) < 2 {
@@ -97,7 +98,11 @@ func DecodeDTMFCommandInput(labels []string) (decodedCommand string) {
 	if len(labels[0]) == 0 || labels[0][0] != ToolboxCommandPrefix {
 		return ""
 	}
-	// Remove the prefix and continue
+	// Remove the tail label if it is empty.
+	if labels[len(labels)-1] == "" {
+		labels = labels[:len(labels)-1]
+	}
+	// Remove the toolbox command prefix and continue.
 	labels[0] = labels[0][1:]
 	// Remove last two DNS labels that belong to domain name
 	labels = labels[:len(labels)-2]
