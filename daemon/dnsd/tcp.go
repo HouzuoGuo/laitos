@@ -86,12 +86,15 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
+	lalog.DefaultLogger.Warning("@@@@@@@@@@@@@@@@@@", "", nil, "input name: %q", name)
 	// Remove the domain name from the labels.
 	labelsWithoutDomain := strings.Split(name, ".")
 	if len(labelsWithoutDomain) > 2 {
 		labelsWithoutDomain = labelsWithoutDomain[:len(labelsWithoutDomain)-2]
 	}
+	lalog.DefaultLogger.Warning("@@@@@@@@@@@@@@@@@@", "", nil, "labelsWithoutDomain: %+v", labelsWithoutDomain)
 	if dtmfDecoded := DecodeDTMFCommandInput(labelsWithoutDomain); len(dtmfDecoded) > 1 {
+		lalog.DefaultLogger.Warning("@@@@@@@@@@@@@@@@@@", "", nil, "dtmfDecoded: %q", dtmfDecoded)
 		cmdResult := daemon.latestCommands.Execute(context.Background(), daemon.Processor, clientIP, dtmfDecoded)
 		if cmdResult.Error == toolbox.ErrPINAndShortcutNotFound {
 			// Because the prefix may appear in an ordinary text record query
