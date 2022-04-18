@@ -22,6 +22,7 @@ import (
 	"github.com/HouzuoGuo/laitos/platform"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -218,7 +219,7 @@ func getUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger,
 	if useTLS {
 		clientOpts = append(clientOpts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	} else {
-		clientOpts = append(clientOpts, grpc.WithInsecure())
+		clientOpts = append(clientOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 	clientConn, err := grpc.DialContext(dialTimeoutCtx, serverAddr, clientOpts...)
 	if err != nil {

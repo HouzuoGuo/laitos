@@ -15,6 +15,7 @@ import (
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -107,7 +108,7 @@ func TestPasswdRPCDaemon(daemon *Daemon, t testingstub.T) {
 	if !misc.ProbePort(30*time.Second, daemon.Address, daemon.Port) {
 		t.Fatal("daemon did not start on time")
 	}
-	clientConn, err := grpc.Dial(net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)), grpc.WithInsecure(), grpc.WithBlock())
+	clientConn, err := grpc.Dial(net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		t.Fatal(err)
 	}
