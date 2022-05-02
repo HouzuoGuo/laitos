@@ -2,6 +2,11 @@ package dnspe
 
 import "encoding/binary"
 
+const (
+	// SegmentHeaderLen is the total length of a segment header.
+	SegmentHeaderLen = 10
+)
+
 type Segment struct {
 	SeqNum int
 	AckNum int
