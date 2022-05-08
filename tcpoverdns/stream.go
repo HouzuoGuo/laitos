@@ -1,10 +1,12 @@
-package dnspe
+package tcpoverdns
 
 import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -84,25 +86,79 @@ type TransmissionControl struct {
 	lastInputAck time.Time
 	// outputSeq is the latest sequence number written for outbound segments.
 	outputSeq int
+
+	mutex *sync.Mutex
 }
 
 func (tc *TransmissionControl) Start(ctx context.Context) {
+	// Give parameters a default value.
+	if tc.MaxSegmentLenExclHeader == 0 {
+		tc.MaxSegmentLenExclHeader = 256
+	}
+	if tc.ReadTimeout == 0 {
+		tc.ReadTimeout = 15 * time.Second
+	}
+	if tc.WriteTimeout == 0 {
+		tc.WriteTimeout = 15 * time.Second
+	}
+	if tc.CongestionWindow == 0 {
+		tc.CongestionWindow = 256
+	}
+	if tc.CongestionWaitDuration == 0 {
+		tc.CongestionWaitDuration = 1 * time.Second
+	}
+	if tc.RetransmissionInterval == 0 {
+		tc.RetransmissionInterval = 10 * time.Second
+	}
+	if tc.MaxRetransmissions == 0 {
+		tc.MaxRetransmissions = 3
+	}
+
 	tc.outputErr = make(chan error, 1)
 	tc.inputErr = make(chan error, 1)
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
 	tc.lastInputAck = time.Now()
+	tc.mutex = new(sync.Mutex)
 	go tc.DrainInputFromTransport()
 	go tc.DrainOutputToTransport()
 }
 
 func (tc *TransmissionControl) Write(buf []byte) (int, error) {
-	// FIXME: block caller while waiting for congestion to clear.
 	// Drain input into the internal send buffer.
+	initialSeq := tc.outputSeq
+	start := time.Now()
 	if tc.Debug {
-		tc.Logger.Info("Write", "", nil, "buf: %+v", buf)
+		tc.Logger.Info("Write", fmt.Sprintf("%v", buf), nil, "output seq: %v, input ack: %v, has congestion? %v", tc.outputSeq, tc.inputAck, tc.hasCongestion())
+	}
+	for tc.hasCongestion() {
+		// Wait for congestion to clear.
+		if time.Since(start) < tc.WriteTimeout {
+			<-time.After(ReadStarvationRetryInterval)
+			continue
+		} else {
+			if tc.Debug {
+				tc.Logger.Info("Write", fmt.Sprintf("%v", buf), nil, "abort write due to timeout ")
+			}
+			return 0, ErrTimeout
+		}
+	}
+	if tc.outputSeq != initialSeq {
+		// Retransmission happened while sender was waiting, don't let this
+		// buffer through or it will be out of sequence.
+		if tc.Debug {
+			tc.Logger.Info("Write", fmt.Sprintf("%v", buf), nil, "abort write due to retransmission that happened after seq number %v", initialSeq)
+		}
+		return 0, ErrTimeout
 	}
 	tc.outputBuf = append(tc.outputBuf, buf...)
+	// There is no need to wait for the output sequence number to catch up.
 	return len(buf), nil
+}
+
+func (tc *TransmissionControl) hasCongestion() bool {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	return tc.outputSeq-tc.inputAck >= tc.CongestionWindow
 }
 
 func (tc *TransmissionControl) DrainOutputToTransport() {
@@ -130,7 +186,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 				}
 				return
 			}
-			tc.writeSegments(tc.inputAck, tc.outputBuf[:tc.outputSeq-tc.inputAck])
+			tc.writeSegments(tc.inputAck, tc.outputBuf[tc.inputAck:tc.outputSeq])
 			// Wait a short duration before the next transmission.
 			select {
 			case <-time.After(tc.CongestionWaitDuration):
@@ -138,7 +194,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 			case <-tc.context.Done():
 				return
 			}
-		} else if tc.outputSeq-tc.inputAck > tc.CongestionWindow {
+		} else if tc.hasCongestion() {
 			// Wait for a short duration and retry.
 			if tc.Debug {
 				tc.Logger.Info("DrainOutputToTransport", "", nil, "wait due to congestion, output seq: %+v, input ack: %+v, congestion window: %+v", tc.outputSeq, tc.inputAck, tc.CongestionWindow)
@@ -167,14 +223,13 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 			if tc.Debug {
 				tc.Logger.Info("DrainOutputToTransport", "", nil, "sending segments totalling %d bytes: %+v", len(toSend), toSend)
 			}
-			tc.writeSegments(tc.outputSeq, toSend)
-			tc.outputSeq += len(toSend)
+			tc.outputSeq += tc.writeSegments(tc.outputSeq, toSend)
 			tc.ongoingRetransmissions = 0
 		}
 	}
 }
 
-func (tc *TransmissionControl) writeSegments(seqNum int, buf []byte) {
+func (tc *TransmissionControl) writeSegments(seqNum int, buf []byte) int {
 	for i := 0; i < len(buf); i += tc.MaxSegmentLenExclHeader {
 		// Split the buffer into individual segments maximum
 		// MaxSegmentLenExclHeader bytes each.
@@ -188,7 +243,7 @@ func (tc *TransmissionControl) writeSegments(seqNum int, buf []byte) {
 			Data:   thisSeg,
 		}
 		if tc.Debug {
-			tc.Logger.Info("writeSegments", "", nil, "segment seq: %+v, segment ack: %+v, len segment: %d, data: %+v", seg.SeqNum, seg.AckNum, len(seg.Data), seg.Data)
+			tc.Logger.Info("writeSegments", "", nil, "writing to output transport: %+#v", seg)
 		}
 		_, err := tc.OutputTransport.Write(seg.Packet())
 		if err != nil {
@@ -197,9 +252,10 @@ func (tc *TransmissionControl) writeSegments(seqNum int, buf []byte) {
 			}
 			// FIXME: maybe log and retry? How to detect permanent failure?
 			tc.outputErr <- err
-			return
+			return i
 		}
 	}
+	return len(buf)
 }
 
 func (tc *TransmissionControl) Read(buf []byte) (int, error) {
@@ -210,7 +266,6 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 	if len(tc.inputBuf) == 0 {
 		return 0, ErrTimeout
 	}
-	// FIXME: block caller while waiting for data.
 	// Drain received data buffer to caller.
 	readLen := copy(buf, tc.inputBuf)
 	// Remove received portion from the internal buffer.
@@ -258,11 +313,20 @@ func (tc *TransmissionControl) DrainInputFromTransport() {
 			return
 		}
 		seg := SegmentFromPacket(append(segHeader, segData...))
-		tc.inputAck = seg.SeqNum
-		tc.lastInputAck = time.Now()
-		tc.inputBuf = append(tc.inputBuf, seg.Data...)
-		if tc.Debug {
-			tc.Logger.Info("DrainInputFromTransport", "", nil, "reconstruted segment: %+#v, next ack: %v", seg, tc.inputAck)
+		if tc.inputSeq == 0 || tc.inputSeq+len(seg.Data) == seg.SeqNum {
+			// Ensure the new segment is consecutive to the ones already
+			// received. There is no selective acknowledgement going on here.
+			tc.inputSeq = seg.SeqNum
+			tc.inputAck = seg.AckNum
+			tc.lastInputAck = time.Now()
+			tc.inputBuf = append(tc.inputBuf, seg.Data...)
+			if tc.Debug {
+				tc.Logger.Info("DrainInputFromTransport", "", nil, "reconstructed segment: %+#v, input seq: %v, input ack: %v", seg, tc.inputSeq, tc.inputAck)
+			}
+		} else {
+			if tc.Debug {
+				tc.Logger.Info("DrainInputFromTransport", "", nil, "received out of sequence segment: %+#v, input seq: %v, seg seq: %v", seg, tc.inputSeq, seg.SeqNum)
+			}
 		}
 		segDataCtxCancel()
 	}

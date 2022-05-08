@@ -1,4 +1,4 @@
-package dnspe
+package tcpoverdns
 
 import "encoding/binary"
 
@@ -7,6 +7,9 @@ const (
 	SegmentHeaderLen = 10
 )
 
+// Segment is a unit of data transported by TransmissionControl. A stream of
+// longer data length is broken down into individual segments before they are
+// transported.
 type Segment struct {
 	SeqNum int
 	AckNum int

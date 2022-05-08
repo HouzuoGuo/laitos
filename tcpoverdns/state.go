@@ -1,4 +1,4 @@
-package dnspe
+package tcpoverdns
 
 // State is the transmission control connection state.
 type State int

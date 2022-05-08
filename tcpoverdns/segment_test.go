@@ -1,4 +1,4 @@
-package dnspe
+package tcpoverdns
 
 import (
 	"reflect"
