@@ -165,10 +165,9 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 		CongestionWindow:       100,
 		CongestionWaitDuration: 1 * time.Second,
 		// Leave retransmission interval much longer than the typical execution
-		// time of this test case. This test case does not focus on
+		// time of this test case. This test case does not intend to involve
 		// retransmission.
 		RetransmissionInterval: 10 * time.Second,
-		ReadTimeout:            2 * time.Second,
 	}
 	tc.Start(context.Background())
 	for i := byte(0); i < 10; i++ {
@@ -215,7 +214,7 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 		CongestionWindow:       100,
 		CongestionWaitDuration: 1 * time.Second,
 		// Leave retransmission interval much longer than the typical execution
-		// time of this test case. This test case does not focus on
+		// time of this test case. This test case does not intend to involve
 		// retransmission.
 		RetransmissionInterval: 10 * time.Second,
 		ReadTimeout:            2 * time.Second,

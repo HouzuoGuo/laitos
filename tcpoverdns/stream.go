@@ -142,11 +142,11 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 			return 0, ErrTimeout
 		}
 	}
-	if tc.outputSeq != initialSeq {
+	if tc.outputSeq < initialSeq {
 		// Retransmission happened while sender was waiting, don't let this
 		// buffer through or it will be out of sequence.
 		if tc.Debug {
-			tc.Logger.Info("Write", fmt.Sprintf("%v", buf), nil, "abort write due to retransmission that happened after seq number %v", initialSeq)
+			tc.Logger.Info("Write", fmt.Sprintf("%v", buf), nil, "abort write due to unexpected output sequence number %d which should have been %d", tc.outputSeq, initialSeq)
 		}
 		return 0, ErrTimeout
 	}
