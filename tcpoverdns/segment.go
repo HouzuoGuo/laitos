@@ -11,7 +11,11 @@ const (
 // longer data length is broken down into individual segments before they are
 // transported.
 type Segment struct {
+	// SeqNum is the sequence number of the first byte of data of the segment.
 	SeqNum int
+	// AckNum differs from the way it works in TCP. Over here it is the sequence
+	// number of the latest byte arrived, whereas in TCP it is the next sequence
+	// number expected from peer - oops!
 	AckNum int
 	Data   []byte
 }

@@ -71,6 +71,10 @@ type TransmissionControl struct {
 	// MaxRetransmissions is the maximum number of retransmissions to make
 	// before closing the transmission control.
 	MaxRetransmissions int
+	// KeepAliveInterval is a short duration to wait before transmitting an
+	// outbound ack segment in the absence of outbound data.
+	// This internal must be longer than the peer's retransmission interval.
+	KeepAliveInterval time.Duration
 
 	// ongoingRetransmissions is the number of retransmissions being made for
 	// the absence of ack.
@@ -86,6 +90,9 @@ type TransmissionControl struct {
 	lastInputAck time.Time
 	// outputSeq is the latest sequence number written for outbound segments.
 	outputSeq int
+	// lastOutput is the timestamo of the latest outbound segment or
+	// retransmission written.
+	lastOutput time.Time
 
 	mutex *sync.Mutex
 }
@@ -110,6 +117,9 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	if tc.RetransmissionInterval == 0 {
 		tc.RetransmissionInterval = 10 * time.Second
 	}
+	if tc.KeepAliveInterval == 0 {
+		tc.KeepAliveInterval = 5 * time.Second
+	}
 	if tc.MaxRetransmissions == 0 {
 		tc.MaxRetransmissions = 3
 	}
@@ -118,6 +128,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	tc.inputErr = make(chan error, 1)
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
 	tc.lastInputAck = time.Now()
+	tc.lastOutput = time.Now()
 	tc.mutex = new(sync.Mutex)
 	go tc.DrainInputFromTransport()
 	go tc.DrainOutputToTransport()
@@ -150,14 +161,14 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 		}
 		return 0, ErrTimeout
 	}
+	tc.mutex.Lock()
 	tc.outputBuf = append(tc.outputBuf, buf...)
+	tc.mutex.Unlock()
 	// There is no need to wait for the output sequence number to catch up.
 	return len(buf), nil
 }
 
 func (tc *TransmissionControl) hasCongestion() bool {
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
 	return tc.outputSeq-tc.inputAck >= tc.CongestionWindow
 }
 
@@ -174,11 +185,15 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 	for {
 		// Decide whether to re-transmit unacknowledged data, wait for ongoing
 		// congestion to clear, or transmit incoming data in a segment.
-		if time.Since(tc.lastInputAck) > tc.RetransmissionInterval && tc.inputAck < tc.outputSeq {
+		tc.mutex.Lock()
+		instant := *tc
+		tc.mutex.Unlock()
+
+		if time.Since(instant.lastInputAck) > tc.RetransmissionInterval && instant.inputAck < instant.outputSeq {
 			// Re-transmit the segments since the latest acknowledgement.
 			tc.ongoingRetransmissions++
 			if tc.Debug {
-				tc.Logger.Info("DrainOutputToTransport", "", nil, "re-transmitting, last input ack time: %+v, input ack: %+v, output seq: %+v, ongoing retransmissions: %v", tc.lastInputAck, tc.inputAck, tc.outputSeq, tc.ongoingRetransmissions)
+				tc.Logger.Info("DrainOutputToTransport", "", nil, "re-transmitting, last input ack time: %+v, input ack: %+v, output seq: %+v, ongoing retransmissions: %v", instant.lastInputAck, instant.inputAck, instant.outputSeq, tc.ongoingRetransmissions)
 			}
 			if tc.ongoingRetransmissions >= tc.MaxRetransmissions {
 				if tc.Debug {
@@ -186,7 +201,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 				}
 				return
 			}
-			tc.writeSegments(tc.inputAck, tc.outputBuf[tc.inputAck:tc.outputSeq])
+			tc.writeSegments(instant.inputAck, instant.outputBuf[instant.inputAck:instant.outputSeq])
 			// Wait a short duration before the next transmission.
 			select {
 			case <-time.After(tc.CongestionWaitDuration):
@@ -197,7 +212,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 		} else if tc.hasCongestion() {
 			// Wait for a short duration and retry.
 			if tc.Debug {
-				tc.Logger.Info("DrainOutputToTransport", "", nil, "wait due to congestion, output seq: %+v, input ack: %+v, congestion window: %+v", tc.outputSeq, tc.inputAck, tc.CongestionWindow)
+				tc.Logger.Info("DrainOutputToTransport", "", nil, "wait due to congestion, output seq: %+v, input ack: %+v, congestion window: %+v", instant.outputSeq, instant.inputAck, tc.CongestionWindow)
 			}
 			select {
 			case <-time.After(tc.CongestionWaitDuration):
@@ -207,23 +222,39 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 			}
 		} else {
 			// Send output segments starting with the latest sequence number.
-			toSend := tc.outputBuf[tc.outputSeq:]
+			toSend := instant.outputBuf[instant.outputSeq:]
 			if len(toSend) > tc.CongestionWindow {
 				toSend = toSend[:tc.CongestionWindow]
 			}
-			// Wait for more outgoing data or congestion window to clear.
 			if len(toSend) == 0 {
-				select {
-				case <-time.After(ReadStarvationRetryInterval):
-					continue
-				case <-tc.context.Done():
-					return
+				if time.Since(instant.lastOutput) < tc.KeepAliveInterval {
+					// Wait for write to be called with more data.
+					select {
+					case <-time.After(ReadStarvationRetryInterval):
+						continue
+					case <-tc.context.Done():
+						return
+					}
+				} else {
+					// Send an empty segment for keep-alive.
+					emptySeg := Segment{
+						SeqNum: instant.outputSeq,
+						AckNum: instant.inputSeq,
+						Data:   []byte{},
+					}
+					if tc.Debug {
+						tc.Logger.Info("DrainOutputToTransport", "", nil, "sending keep-alive: %+#v", emptySeg)
+					}
+					// FIXME: count IO errors and break the connection if needed.
+					tc.OutputTransport.Write(emptySeg.Packet())
 				}
+			} else {
+				if tc.Debug {
+					tc.Logger.Info("DrainOutputToTransport", "", nil, "sending segments totalling %d bytes: %+v", len(toSend), toSend)
+				}
+				// The segment data may be empty, in which case it is for keep-alive.
+				tc.outputSeq += tc.writeSegments(instant.outputSeq, toSend)
 			}
-			if tc.Debug {
-				tc.Logger.Info("DrainOutputToTransport", "", nil, "sending segments totalling %d bytes: %+v", len(toSend), toSend)
-			}
-			tc.outputSeq += tc.writeSegments(tc.outputSeq, toSend)
 			tc.ongoingRetransmissions = 0
 		}
 	}
@@ -246,6 +277,7 @@ func (tc *TransmissionControl) writeSegments(seqNum int, buf []byte) int {
 			tc.Logger.Info("writeSegments", "", nil, "writing to output transport: %+#v", seg)
 		}
 		_, err := tc.OutputTransport.Write(seg.Packet())
+		tc.lastOutput = time.Now()
 		if err != nil {
 			if tc.Debug {
 				tc.Logger.Info("writeSegments", "", nil, "failed to write to output transport, err: %+v", err)
