@@ -444,3 +444,36 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
 }
+
+func TestTransmissionControl_KeepAlive(t *testing.T) {
+	_, inTransport := net.Pipe()
+	testOut, outTransport := net.Pipe()
+	tc := &TransmissionControl{
+		Debug:                   true,
+		MaxSegmentLenExclHeader: 5,
+		InputTransport:          inTransport,
+		OutputTransport:         outTransport,
+		CongestionWindow:        5,
+		CongestionWaitDuration:  1 * time.Second,
+		RetransmissionInterval:  3 * time.Second,
+		MaxRetransmissions:      3,
+		ReadTimeout:             2 * time.Second,
+		WriteTimeout:            2 * time.Second,
+		// Keep the keep alive interval short and below read timeout.
+		KeepAliveInterval: 1 * time.Second,
+	}
+	tc.Start(context.Background())
+
+	//  Wait for the keep-alive segment to arrive.
+	for i := 0; i < 3; i++ {
+		gotSeg := readSegment(t, testOut, tc.MaxSegmentLenExclHeader)
+		wantSeg := Segment{
+			SeqNum: 0,
+			AckNum: 0,
+			Data:   []byte{},
+		}
+		if !reflect.DeepEqual(gotSeg, wantSeg) {
+			t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
+		}
+	}
+}
