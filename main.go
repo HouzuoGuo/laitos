@@ -1,27 +1,22 @@
-/*
-**laitos** software suite offers all you need for hosting a personal website,
-receiving Emails, blocking ads with a DNS server.
-
-And now for the geeks 🤓 - as a professional geek, you need Internet access
-whenever and wherever! laitos inter-operates with
-[telephone, SMS](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook),
-
-[satellite terminals](https://github.com/HouzuoGuo/laitos/wiki/Tips-for-using-apps-over-satellite),
-and
-[DNS](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server#invoke-app-commands-via-dns-queries),
-to give you access to Internet features such as:
-
--   Browse news, weather, and Twitter.
--   Keep in touch via Email, telephone call, and SMS.
--   Browse the web via a text-based JavaScript-capable browser.
--   Run Linux/Windows shell commands.
--   Generate 2nd factor authentication code.
--   ... more apps to explore!
-
-Check out the
-[comprehensive component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list)
-to explore all of the possibilities!
-*/
+// laitos software suite offers all you need for hosting a personal website,
+// receiving Emails, blocking ads with a DNS server.
+//
+// And now for the geeks 🤓 - as a professional geek, you need Internet access
+// whenever and wherever! laitos inter-operates with
+// [telephone, SMS](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook),
+// [satellite terminals](https://github.com/HouzuoGuo/laitos/wiki/Tips-for-using-apps-over-satellite),
+// and
+// [DNS](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server#invoke-app-commands-via-dns-queries),
+// to give you access to Internet features such as:
+//
+// -   Browse news, weather, and Twitter.
+// -   Keep in touch via Email, telephone call, and SMS.
+// -   Remotely control computers in your laitos fleet.
+// -   ... more apps to explore!
+//
+// Check out the
+// [comprehensive component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list)
+// to explore all of the possibilities!
 package main
 
 import (
