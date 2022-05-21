@@ -61,7 +61,7 @@ type TransmissionControl struct {
 
 	// CongestionWindow is the maximum length of outbound data that can be
 	// transported whilst waiting for acknowledgement.
-	CongestionWindow int
+	CongestionWindow uint32
 	// CongestionWaitDuration is a short duration to wait during congestion
 	// before retrying.
 	CongestionWaitDuration time.Duration
@@ -80,16 +80,16 @@ type TransmissionControl struct {
 	// the absence of ack.
 	ongoingRetransmissions int
 	// State is the transmission control connection State.
-	State State
+	state State
 
 	// inputSeq is the latest sequence number read from inbound segments.
-	inputSeq int
+	inputSeq uint32
 	// inputAck is the latest sequence number acknowledged by inbound segments.
-	inputAck int
+	inputAck uint32
 	// lastInputAck is the timestamp of the latest inbound segment.
 	lastInputAck time.Time
 	// outputSeq is the latest sequence number written for outbound segments.
-	outputSeq int
+	outputSeq uint32
 	// lastOutput is the timestamo of the latest outbound segment or
 	// retransmission written.
 	lastOutput time.Time
@@ -136,10 +136,12 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 
 func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 	// Drain input into the internal send buffer.
+	tc.mutex.Lock()
 	initialSeq := tc.outputSeq
+	tc.mutex.Unlock()
 	start := time.Now()
 	if tc.Debug {
-		tc.Logger.Info("Write", fmt.Sprintf("%v", buf), nil, "output seq: %v, input ack: %v, has congestion? %v", tc.outputSeq, tc.inputAck, tc.hasCongestion())
+		tc.Logger.Info("Write", fmt.Sprintf("%v", buf), nil, "writing buf %v, has congestion? %v", buf, tc.hasCongestion())
 	}
 	for tc.hasCongestion() {
 		// Wait for congestion to clear.
@@ -153,6 +155,8 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 			return 0, ErrTimeout
 		}
 	}
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
 	if tc.outputSeq < initialSeq {
 		// Retransmission happened while sender was waiting, don't let this
 		// buffer through or it will be out of sequence.
@@ -161,15 +165,17 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 		}
 		return 0, ErrTimeout
 	}
-	tc.mutex.Lock()
 	tc.outputBuf = append(tc.outputBuf, buf...)
-	tc.mutex.Unlock()
 	// There is no need to wait for the output sequence number to catch up.
 	return len(buf), nil
 }
 
+// hasCongestion returns true if the output transport's backlog exceeds the
+// congestion threshold.
 func (tc *TransmissionControl) hasCongestion() bool {
-	return tc.outputSeq-tc.inputAck >= tc.CongestionWindow
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	return tc.inputAck < tc.outputSeq && tc.outputSeq-tc.inputAck >= tc.CongestionWindow
 }
 
 func (tc *TransmissionControl) DrainOutputToTransport() {
@@ -209,7 +215,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 			case <-tc.context.Done():
 				return
 			}
-		} else if tc.hasCongestion() {
+		} else if instant.hasCongestion() {
 			// Wait for a short duration and retry.
 			if tc.Debug {
 				tc.Logger.Info("DrainOutputToTransport", "", nil, "wait due to congestion, output seq: %+v, input ack: %+v, congestion window: %+v", instant.outputSeq, instant.inputAck, tc.CongestionWindow)
@@ -223,8 +229,8 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 		} else {
 			// Send output segments starting with the latest sequence number.
 			toSend := instant.outputBuf[instant.outputSeq:]
-			if len(toSend) > tc.CongestionWindow {
-				toSend = toSend[:tc.CongestionWindow]
+			if len(toSend) > int(tc.CongestionWindow) {
+				toSend = toSend[:int(tc.CongestionWindow)]
 			}
 			if len(toSend) == 0 {
 				if time.Since(instant.lastOutput) < tc.KeepAliveInterval {
@@ -249,18 +255,23 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 					tc.OutputTransport.Write(emptySeg.Packet())
 				}
 			} else {
+				// The segment data can be empty. An empty segment is for
+				// keep-alive.
 				if tc.Debug {
 					tc.Logger.Info("DrainOutputToTransport", "", nil, "sending segments totalling %d bytes: %+v", len(toSend), toSend)
 				}
-				// The segment data may be empty, in which case it is for keep-alive.
-				tc.outputSeq += tc.writeSegments(instant.outputSeq, toSend)
+				written := tc.writeSegments(instant.outputSeq, toSend)
+				tc.mutex.Lock()
+				// Clear the retransmission counter if retransmission happened.
+				tc.ongoingRetransmissions = 0
+				tc.outputSeq += written
+				tc.mutex.Unlock()
 			}
-			tc.ongoingRetransmissions = 0
 		}
 	}
 }
 
-func (tc *TransmissionControl) writeSegments(seqNum int, buf []byte) int {
+func (tc *TransmissionControl) writeSegments(seqNum uint32, buf []byte) uint32 {
 	for i := 0; i < len(buf); i += tc.MaxSegmentLenExclHeader {
 		// Split the buffer into individual segments maximum
 		// MaxSegmentLenExclHeader bytes each.
@@ -269,7 +280,7 @@ func (tc *TransmissionControl) writeSegments(seqNum int, buf []byte) int {
 			thisSeg = thisSeg[:tc.MaxSegmentLenExclHeader]
 		}
 		seg := Segment{
-			SeqNum: seqNum + i,
+			SeqNum: seqNum + uint32(i),
 			AckNum: tc.inputSeq,
 			Data:   thisSeg,
 		}
@@ -284,28 +295,35 @@ func (tc *TransmissionControl) writeSegments(seqNum int, buf []byte) int {
 			}
 			// FIXME: maybe log and retry? How to detect permanent failure?
 			tc.outputErr <- err
-			return i
+			return uint32(i)
 		}
 	}
-	return len(buf)
+	return uint32(len(buf))
 }
 
 func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 	start := time.Now()
-	for len(tc.inputBuf) == 0 && time.Since(start) < tc.ReadTimeout {
-		<-time.After(ReadStarvationRetryInterval)
+	var readLen int
+	for {
+		tc.mutex.Lock()
+		// Drain from received data buffer to caller's buffer.
+		readLen = copy(buf[readLen:], tc.inputBuf)
+		// Remove drained portion from the internal buffer.
+		tc.inputBuf = tc.inputBuf[readLen:]
+		tc.mutex.Unlock()
+		if readLen > 0 {
+			// Caller has got some data.
+			return readLen, nil
+		} else if time.Since(start) < tc.ReadTimeout {
+			// Wait for more input data to arrive and then retry.
+			<-time.After(ReadStarvationRetryInterval)
+		} else {
+			if tc.Debug {
+				tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, buf[:readLen])
+			}
+			return readLen, ErrTimeout
+		}
 	}
-	if len(tc.inputBuf) == 0 {
-		return 0, ErrTimeout
-	}
-	// Drain received data buffer to caller.
-	readLen := copy(buf, tc.inputBuf)
-	// Remove received portion from the internal buffer.
-	tc.inputBuf = tc.inputBuf[readLen:]
-	if tc.Debug {
-		tc.Logger.Info("Read", "", nil, "read len: %+v, buf %+v", readLen, buf)
-	}
-	return readLen, nil
 }
 
 func (tc *TransmissionControl) DrainInputFromTransport() {
@@ -322,10 +340,10 @@ func (tc *TransmissionControl) DrainInputFromTransport() {
 	for {
 		// Read the segment header first.
 		segHeader, err := readInput(tc.context, tc.InputTransport, SegmentHeaderLen)
-		if tc.Debug {
-			tc.Logger.Info("DrainInputFromTransport", "", nil, "received segment header: %+v, err: %+v", segHeader, err)
-		}
 		if err != nil {
+			if tc.Debug {
+				tc.Logger.Info("DrainInputFromTransport", "", nil, "failed to read segment header: %+v", err)
+			}
 			return
 		}
 		// Read the segment data.
@@ -333,7 +351,6 @@ func (tc *TransmissionControl) DrainInputFromTransport() {
 		// FIXME: make sure the length is within acceptable range
 		segDataCtx, segDataCtxCancel := context.WithTimeout(tc.context, SegmentDataTimeout)
 		segData, err := readInput(segDataCtx, tc.InputTransport, segDataLen)
-		tc.Logger.Info("DrainInputFromTransport", "", nil, "received segment data: %+v, err: %+v", segData, err)
 		if errors.Is(err, context.DeadlineExceeded) {
 			if tc.Debug {
 				tc.Logger.Info("DrainInputFromTransport", "", nil, "timed out waiting for segment data")
@@ -345,33 +362,53 @@ func (tc *TransmissionControl) DrainInputFromTransport() {
 			return
 		}
 		seg := SegmentFromPacket(append(segHeader, segData...))
-		if tc.inputSeq == 0 || tc.inputSeq+len(seg.Data) == seg.SeqNum {
+		tc.mutex.Lock()
+		if tc.inputSeq == 0 || tc.inputSeq+uint32(len(seg.Data)) == seg.SeqNum {
+			if tc.Debug {
+				tc.Logger.Info("DrainInputFromTransport", "", nil, "received %+#v", seg)
+			}
 			// Ensure the new segment is consecutive to the ones already
 			// received. There is no selective acknowledgement going on here.
 			tc.inputSeq = seg.SeqNum
 			tc.inputAck = seg.AckNum
 			tc.lastInputAck = time.Now()
 			tc.inputBuf = append(tc.inputBuf, seg.Data...)
-			if tc.Debug {
-				tc.Logger.Info("DrainInputFromTransport", "", nil, "reconstructed segment: %+#v, input seq: %v, input ack: %v", seg, tc.inputSeq, tc.inputAck)
-			}
 		} else {
 			if tc.Debug {
-				tc.Logger.Info("DrainInputFromTransport", "", nil, "received out of sequence segment: %+#v, input seq: %v, seg seq: %v", seg, tc.inputSeq, seg.SeqNum)
+				tc.Logger.Info("DrainInputFromTransport", "", nil, "received out of sequence segment: %+#v, input seq: %v", seg, tc.inputSeq)
 			}
+			// Do nothing, wait for retransmission.
 		}
+		tc.mutex.Unlock()
 		segDataCtxCancel()
 	}
 }
 
+// State returns the stream state.
+func (tc *TransmissionControl) State() State {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	return tc.state
+}
+
+// OutputSeq returns the latest output sequence number.
+func (tc *TransmissionControl) OutputSeq() uint32 {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	return tc.outputSeq
+}
+
+// Close terminates ongoing IO activities and terminates the stream.
 func (tc *TransmissionControl) Close() error {
-	if tc.State == StateClosed {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	if tc.state == StateClosed {
 		return nil
 	}
 	if tc.Debug {
 		tc.Logger.Info("Close", "", nil, "closing")
 	}
-	tc.State = StateClosed
+	tc.state = StateClosed
 	tc.cancelFun()
 	return nil
 }
@@ -379,9 +416,9 @@ func (tc *TransmissionControl) Close() error {
 // readInput reads from transmission control's input transport for a total
 // number of bytes specified in totalLen.
 // The function always returns the desired number of bytes read or an error.
-func readInput(ctx context.Context, in io.Reader, totalLen int) (buf []byte, err error) {
+func readInput(ctx context.Context, in io.Reader, totalLen int) ([]byte, error) {
 	lalog.DefaultLogger.Info("readInput", "", nil, "totalLen %+v", totalLen)
-	buf = make([]byte, totalLen)
+	buf := make([]byte, totalLen)
 	for i := 0; i < totalLen; {
 		recvLen := make(chan int, 1)
 		recvErr := make(chan error, 1)
@@ -394,13 +431,13 @@ func readInput(ctx context.Context, in io.Reader, totalLen int) (buf []byte, err
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case n := <-recvLen:
-			err = <-recvErr
+			err := <-recvErr
 			if err != nil {
-				return
+				return nil, err
 			}
 			i += n
 			continue
 		}
 	}
-	return
+	return buf, nil
 }

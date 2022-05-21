@@ -11,12 +11,15 @@ const (
 // longer data length is broken down into individual segments before they are
 // transported.
 type Segment struct {
+	// Flags is a bitmap of individual control bits that help the stream to
+	// transition between its states.
+	Flags uint16
 	// SeqNum is the sequence number of the first byte of data of the segment.
-	SeqNum int
+	SeqNum uint32
 	// AckNum differs from the way it works in TCP. Over here it is the sequence
 	// number of the latest byte arrived, whereas in TCP it is the next sequence
 	// number expected from peer - oops!
-	AckNum int
+	AckNum uint32
 	Data   []byte
 }
 
@@ -37,8 +40,8 @@ func SegmentFromPacket(packet []byte) Segment {
 	length := binary.BigEndian.Uint16(packet[8:10])
 	data := packet[10 : 10+length]
 	return Segment{
-		SeqNum: int(seq),
-		AckNum: int(ack),
+		SeqNum: seq,
+		AckNum: ack,
 		Data:   data,
 	}
 }
