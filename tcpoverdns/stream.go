@@ -28,6 +28,7 @@ var (
 // TransmissionControl provides TCP-like features for duplex transportation of
 // data between an initiator and a responder, with flow and congestion control,
 // customisable segment size, and guaranteed in-order delivery.
+// The behaviour is inspired by but not a replica of the Internet standard TCP.
 type TransmissionControl struct {
 	io.ReadCloser
 	io.WriteCloser
@@ -36,6 +37,18 @@ type TransmissionControl struct {
 	Debug bool
 	// Logger is used to log IO activities when verbose logging is enabled.
 	Logger lalog.Logger
+
+	// Initiator determines whether this transmission control will initiate
+	// the handshake sequence with the peer.
+	// Otherwise, this transmission control remains passive at the start.
+	Initiator bool
+
+	// lastInputSyn is the timestamp of the latest inbound segment with the syn
+	// flag (used for handhsake).
+	lastInputSyn time.Time
+	// lastOutputSyn is the timestamp of the latest outbound segment with with syn
+	// flag (used for handhsake).
+	lastOutputSyn time.Time
 
 	// MaxSegmentLenExclHeader is the maximum length of a single segment in both
 	// directions, excluding the headers.
@@ -195,7 +208,59 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 		instant := *tc
 		tc.mutex.Unlock()
 
-		if time.Since(instant.lastInputAck) > tc.RetransmissionInterval && instant.inputAck < instant.outputSeq {
+		if instant.state < StateEstablished && time.Since(instant.lastOutputSyn) > tc.RetransmissionInterval {
+			if instant.Initiator {
+				// The transmission control carries on with the handshake
+				// sequence as the initiator.
+				switch instant.state {
+				case StateEmpty:
+					// SYN.
+					if tc.Debug {
+						tc.Logger.Info("DrainOutputToTransport", "", nil, "sending first syn")
+					}
+					synSeg := Segment{
+						Flags:  FlagSyn,
+						SeqNum: 0,
+						AckNum: 0,
+						Data:   []byte{},
+					}
+					// FIXME: retransmit syn but eventually give up if the peer does not respond in time
+					tc.OutputTransport.Write(synSeg.Packet())
+					tc.mutex.Lock()
+					tc.state = StateSynSent
+					tc.lastOutputSyn = time.Now()
+					tc.mutex.Unlock()
+				case StatePeerAck:
+					// SYN + ACK.
+					if tc.Debug {
+						tc.Logger.Info("DrainOutputToTransport", "", nil, "handshake completed")
+					}
+					synSeg := Segment{
+						Flags:  FlagSyn & FlagAck,
+						SeqNum: 0,
+						AckNum: 0,
+						Data:   []byte{},
+					}
+					// FIXME: retransmit syn but eventually give up if the peer does not respond in time
+					tc.OutputTransport.Write(synSeg.Packet())
+					tc.mutex.Lock()
+					tc.state = StateEstablished
+					tc.lastOutputSyn = time.Now()
+					tc.mutex.Unlock()
+				default:
+					tc.Logger.Warning("DrainOutputToTransport", "", nil, "logical state error: %v", tc.state)
+				}
+			} else {
+				// The transmission control carries on with the handshake
+				// sequence as the responder.
+				switch instant.state {
+				case StateSynReceived:
+					// TODO
+
+				}
+			}
+
+		} else if tc.state == StateEstablished && time.Since(instant.lastInputAck) > tc.RetransmissionInterval && instant.inputAck < instant.outputSeq {
 			// Re-transmit the segments since the latest acknowledgement.
 			tc.ongoingRetransmissions++
 			if tc.Debug {
@@ -215,7 +280,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 			case <-tc.context.Done():
 				return
 			}
-		} else if instant.hasCongestion() {
+		} else if tc.state == StateEstablished && instant.hasCongestion() {
 			// Wait for a short duration and retry.
 			if tc.Debug {
 				tc.Logger.Info("DrainOutputToTransport", "", nil, "wait due to congestion, output seq: %+v, input ack: %+v, congestion window: %+v", instant.outputSeq, instant.inputAck, tc.CongestionWindow)
@@ -226,7 +291,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 			case <-tc.context.Done():
 				return
 			}
-		} else {
+		} else if tc.state == StateEstablished {
 			// Send output segments starting with the latest sequence number.
 			toSend := instant.outputBuf[instant.outputSeq:]
 			if len(toSend) > int(tc.CongestionWindow) {
@@ -362,6 +427,28 @@ func (tc *TransmissionControl) DrainInputFromTransport() {
 			return
 		}
 		seg := SegmentFromPacket(append(segHeader, segData...))
+		tc.mutex.Lock()
+		instant := *tc
+		tc.mutex.Unlock()
+		if !instant.Initiator && instant.state < StateEstablished {
+			switch instant.state {
+			case StateEmpty:
+				// Expect SYN.
+				if seg.Flags == FlagSyn {
+					tc.state = StateSynReceived
+				} else {
+					tc.Logger.Warning("DrainInputFromTransport", "", nil, "unexpected handshake syn segment: %+#v", seg)
+				}
+			default:
+				// Expect SYN+ACK.
+				if seg.Flags == FlagSyn&FlagAck {
+					tc.state = StateEstablished
+				} else {
+					tc.Logger.Warning("DrainInputFromTransport", "", nil, "unexpected handshake syn+ack segment: %+#v", seg)
+				}
+			}
+		}
+
 		tc.mutex.Lock()
 		if tc.inputSeq == 0 || tc.inputSeq+uint32(len(seg.Data)) == seg.SeqNum {
 			if tc.Debug {

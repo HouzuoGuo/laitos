@@ -34,6 +34,7 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 		CongestionWaitDuration:  1 * time.Second,
 		RetransmissionInterval:  1 * time.Second,
 		ReadTimeout:             2 * time.Second,
+		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
 	// The next read times out due to lack of further input segments.
@@ -58,6 +59,7 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 		CongestionWaitDuration:  1 * time.Second,
 		RetransmissionInterval:  1 * time.Second,
 		ReadTimeout:             2 * time.Second,
+		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
 	for i := byte(0); i < 10; i++ {
@@ -94,6 +96,7 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 		CongestionWaitDuration:  1 * time.Second,
 		RetransmissionInterval:  1 * time.Second,
 		ReadTimeout:             2 * time.Second,
+		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
 	var wantData []byte
@@ -133,6 +136,7 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 		CongestionWaitDuration:  1 * time.Second,
 		RetransmissionInterval:  1 * time.Second,
 		ReadTimeout:             2 * time.Second,
+		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
 	n, err := tc.Write([]byte{})
@@ -218,6 +222,7 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 		// retransmission.
 		RetransmissionInterval: 10 * time.Second,
 		ReadTimeout:            2 * time.Second,
+		state:                  StateEstablished,
 	}
 	tc.Start(context.Background())
 	for i := byte(0); i < 5; i++ {
@@ -269,6 +274,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 		RetransmissionInterval: 1 * time.Second,
 		MaxRetransmissions:     3,
 		ReadTimeout:            2 * time.Second,
+		state:                  StateEstablished,
 	}
 	tc.Start(context.Background())
 	// Write a segment without acknowledging it.
@@ -360,6 +366,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 		MaxRetransmissions:     3,
 		ReadTimeout:            2 * time.Second,
 		WriteTimeout:           2 * time.Second,
+		state:                  StateEstablished,
 	}
 	tc.Start(context.Background())
 
@@ -461,6 +468,7 @@ func TestTransmissionControl_KeepAlive(t *testing.T) {
 		WriteTimeout:            2 * time.Second,
 		// Keep the keep alive interval short and below read timeout.
 		KeepAliveInterval: 1 * time.Second,
+		state:             StateEstablished,
 	}
 	tc.Start(context.Background())
 
