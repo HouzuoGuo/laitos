@@ -31,7 +31,7 @@ func (seg *Segment) Packet() (ret []byte) {
 	binary.BigEndian.PutUint32(ret[2:6], seg.SeqNum)
 	binary.BigEndian.PutUint32(ret[6:10], seg.AckNum)
 	binary.BigEndian.PutUint16(ret[10:12], uint16(len(seg.Data)))
-	copy(ret[10:], seg.Data)
+	copy(ret[SegmentHeaderLen:], seg.Data)
 	return
 }
 
@@ -42,7 +42,7 @@ func SegmentFromPacket(packet []byte) Segment {
 	ack := binary.BigEndian.Uint32(packet[6:10])
 	// FIXME: ensure length is sane and not out of bound
 	length := binary.BigEndian.Uint16(packet[10:12])
-	data := packet[12 : 12+length]
+	data := packet[SegmentHeaderLen : SegmentHeaderLen+length]
 	return Segment{
 		Flags:  flags,
 		SeqNum: seq,

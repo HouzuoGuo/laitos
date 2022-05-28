@@ -42,8 +42,8 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("read n: %+v, err: %+v", n, err)
 	}
-	if tc.inputAck != 0 {
-		t.Fatalf("ack number: ack %v, last input ack: %+v", tc.inputAck, tc.lastInputAck)
+	if tc.inputAck != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
+		t.Fatalf("input ack: %v, retrans: %v, state: %v", tc.inputAck, tc.ongoingRetransmissions, tc.state)
 	}
 }
 
@@ -64,7 +64,11 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 	tc.Start(context.Background())
 	for i := byte(0); i < 10; i++ {
 		t.Log("i", i)
-		seg := Segment{SeqNum: uint32(i) * 3, Data: []byte{i, i, i}}
+		seg := Segment{
+			SeqNum: uint32(i) * 3,
+			AckNum: 234,
+			Data:   []byte{i, i, i},
+		}
 		nWritten, err := testIn.Write(seg.Packet())
 		if nWritten != SegmentHeaderLen+3 || err != nil {
 			t.Fatalf("write n: %v, err: %+#v", nWritten, err)
@@ -82,6 +86,9 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 	n, err := tc.Read(nil)
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
+	}
+	if tc.inputAck != 234 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
+		t.Fatalf("input ack: %v, retrans: %v, state: %v", tc.inputAck, tc.ongoingRetransmissions, tc.state)
 	}
 }
 func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
@@ -103,7 +110,11 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 	for i := byte(0); i < 10; i++ {
 		t.Log("i", i)
 		wantData = append(wantData, i, i, i)
-		seg := Segment{SeqNum: uint32(i) * 3, Data: []byte{i, i, i}}
+		seg := Segment{
+			SeqNum: uint32(i) * 3,
+			AckNum: 234,
+			Data:   []byte{i, i, i},
+		}
 		nWritten, err := testIn.Write(seg.Packet())
 		if nWritten != SegmentHeaderLen+3 || err != nil {
 			t.Fatalf("write n: %v, err: %+#v", nWritten, err)
@@ -121,6 +132,9 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 	n, err := tc.Read(nil)
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
+	}
+	if tc.inputAck != 234 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
+		t.Fatalf("input ack: %v, retrans: %v, state: %v", tc.inputAck, tc.ongoingRetransmissions, tc.state)
 	}
 }
 
@@ -151,8 +165,8 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", n, err)
 	}
-	if tc.outputSeq != 0 {
-		t.Fatalf("unexpected seq number: %v", tc.outputSeq)
+	if tc.outputSeq != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
 	}
 }
 
@@ -161,6 +175,7 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
 		Debug:                   true,
+		state:                   StateEstablished,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
@@ -202,6 +217,9 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 	data, err := readInput(timeout, testOut, 10)
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
+	}
+	if tc.outputSeq != 10*3 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
 	}
 }
 
@@ -254,6 +272,9 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	data, err := readInput(timeout, testOut, 10)
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
+	}
+	if tc.outputSeq != 5*2 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
 	}
 }
 
@@ -335,17 +356,17 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 		t.Fatalf("wrong input ack: %+v", tc.inputAck)
 	}
 
-	// The connection is now broken, there won't be further retransmissions.
-	if tc.State() != StateClosed {
-		t.Fatalf("unexpected state: %+v", tc.State())
-	}
-
-	// There should not be anything else coming out.
+	// There should not be anything else coming out of the transport.
 	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	data, err := readInput(timeout, testOut, 10)
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
+	}
+
+	// The connection is broken and closed.
+	if tc.outputSeq != 3+3 || tc.ongoingRetransmissions != 3 || tc.state != StateClosed {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
 	}
 }
 
@@ -404,7 +425,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 		t.Fatalf("write n: %+v, err: %+v", n, err)
 	}
 
-	// Acknowledge all 20 bytes and then write another stream of data.
+	// Clear the congestion by acknowledging all 20 bytes.
 	ackSeg := Segment{
 		SeqNum: 0,
 		AckNum: 20,
@@ -413,6 +434,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 	if _, err := testIn.Write(ackSeg.Packet()); err != nil {
 		t.Fatalf("write ack: %+v", err)
 	}
+	// Write again after clearing congestion.
 	n, err = tc.Write([]byte{31, 32, 33, 34, 35})
 	if n != 5 || err != nil {
 		t.Fatalf("write n %v, %+v", n, err)
@@ -432,7 +454,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 		}
 	}
 
-	// Read the segment from the third invocation of write.
+	// Read the segment written after clearing congestion.
 	gotSeg = readSegment(t, testOut, tc.MaxSegmentLenExclHeader)
 	wantSeg = Segment{
 		SeqNum: 20, // length of the first invocation of write
@@ -449,6 +471,10 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 	data, err := readInput(timeout, testOut, 10)
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
+	}
+
+	if tc.outputSeq != 20+5 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
 	}
 }
 
@@ -483,5 +509,8 @@ func TestTransmissionControl_KeepAlive(t *testing.T) {
 		if !reflect.DeepEqual(gotSeg, wantSeg) {
 			t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
 		}
+	}
+	if tc.inputSeq != 0 || tc.outputSeq != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
+		t.Fatalf("input seq: %v, output seq: %v, retrans: %v, state: %v", tc.inputSeq, tc.outputSeq, tc.ongoingRetransmissions, tc.state)
 	}
 }

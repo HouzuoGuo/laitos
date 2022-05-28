@@ -5,10 +5,9 @@ type State int
 
 const (
 	StateEmpty       = State(0)
-	StateSynSent     = State(1)
 	StateSynReceived = State(2)
-	StatePeerAck     = State(3)
-	StateEstablished = State(4)
+	StatePeerAck     = State(4)
+	StateEstablished = State(5)
 	// TODO: add FIN and perhaps FIN ACK.
 	StateClosed = State(100)
 )

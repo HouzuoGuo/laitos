@@ -7,6 +7,7 @@ import (
 
 func TestSegment(t *testing.T) {
 	seg := Segment{
+		Flags:  FlagAck & FlagSyn,
 		SeqNum: 1,
 		AckNum: 2,
 		Data:   []byte{1, 2, 3, 4},
