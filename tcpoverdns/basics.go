@@ -2,6 +2,44 @@ package tcpoverdns
 
 import "encoding/binary"
 
+// State is the transmission control stream's state.
+type State int
+
+const (
+	StateEmpty       = State(0)
+	StateSynReceived = State(2)
+	StatePeerAck     = State(4)
+	StateEstablished = State(5)
+	// TODO: add FIN and perhaps FIN ACK.
+	StateClosed = State(100)
+)
+
+// Flag is transmitted with each segment, it is the data type of an individual
+// flag bit while also used to represent an entire collection of flags.
+// Transmission control and its peer use flags to communicate transition between
+// states.
+type Flag uint16
+
+const (
+	FlagSyn       = Flag(1)
+	FlagAck       = Flag(2)
+	FlagReset     = Flag(3)
+	FlagFinnish   = Flag(4)
+	FlagMalformed = Flag(5)
+)
+
+func (flag Flag) Has(f Flag) bool {
+	return flag^f != 0
+}
+
+func (flag *Flag) Set(f Flag) {
+	*flag |= f
+}
+
+func (flag *Flag) Clear(f Flag) {
+	*flag &^= f
+}
+
 const (
 	// SegmentHeaderLen is the total length of a segment header.
 	SegmentHeaderLen = 12
@@ -36,12 +74,16 @@ func (seg *Segment) Packet() (ret []byte) {
 }
 
 func SegmentFromPacket(packet []byte) Segment {
-	// FIXME: ensure the packet has sufficient length
+	if len(packet) < SegmentHeaderLen {
+		return Segment{Flags: FlagMalformed}
+	}
 	flags := Flag(binary.BigEndian.Uint16(packet[0:2]))
 	seq := binary.BigEndian.Uint32(packet[2:6])
 	ack := binary.BigEndian.Uint32(packet[6:10])
-	// FIXME: ensure length is sane and not out of bound
 	length := binary.BigEndian.Uint16(packet[10:12])
+	if len(packet) < SegmentHeaderLen+int(length) {
+		return Segment{Flags: FlagMalformed}
+	}
 	data := packet[SegmentHeaderLen : SegmentHeaderLen+length]
 	return Segment{
 		Flags:  flags,

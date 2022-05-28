@@ -19,6 +19,8 @@ const (
 	// SegmentDataTimeout specifies the time limit in between the arrival of a
 	// segment header and segment data.
 	SegmentDataTimeout = 5 * time.Second
+	//MaxSegmentDataLen is the maximum permissible segment length.
+	MaxSegmentDataLen = 8192
 )
 
 var (
@@ -45,9 +47,6 @@ type TransmissionControl struct {
 	// State is the current transmission control connection state.
 	state State
 
-	// lastInputSyn is the timestamp of the latest inbound segment with the syn
-	// flag (used for handhsake).
-	lastInputSyn time.Time
 	// lastOutputSyn is the timestamp of the latest outbound segment with with syn
 	// flag (used for handhsake).
 	lastOutputSyn time.Time
@@ -70,9 +69,7 @@ type TransmissionControl struct {
 
 	// Buffer input and output for callers.
 	inputBuf  []byte
-	inputErr  chan error
 	outputBuf []byte
-	outputErr chan error
 
 	// CongestionWindow is the maximum length of outbound data that can be
 	// transported whilst waiting for acknowledgement.
@@ -91,10 +88,21 @@ type TransmissionControl struct {
 	// outbound ack segment in the absence of outbound data.
 	// This internal must be longer than the peer's retransmission interval.
 	KeepAliveInterval time.Duration
+	// MaxTransportErrors is the maximum number of consecutive errors to
+	// tolerate from input and output transports before closing down the
+	// transmission control.
+	MaxTransportErrors int
 
 	// ongoingRetransmissions is the number of retransmissions being made for a
 	// handshake or data segment.
 	ongoingRetransmissions int
+
+	// inputTransportErrors is the number of consecutive IO errors that have
+	// occurred in the input transport so far.
+	inputTransportErrors int
+	// outputTransportErrors is the number of consecutive IO errors that have
+	// occurred in the output transport so far.
+	outputTransportErrors int
 
 	// inputSeq is the latest sequence number read from inbound segments.
 	inputSeq uint32
@@ -137,9 +145,10 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	if tc.MaxRetransmissions == 0 {
 		tc.MaxRetransmissions = 3
 	}
+	if tc.MaxTransportErrors == 0 {
+		tc.MaxTransportErrors = 10
+	}
 
-	tc.outputErr = make(chan error, 1)
-	tc.inputErr = make(chan error, 1)
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
 	tc.lastInputAck = time.Now()
 	tc.lastOutput = time.Now()
@@ -202,7 +211,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 		}
 		tc.Close()
 	}()
-	for {
+	for tc.state < StateClosed {
 		// Decide whether to re-transmit unacknowledged data, wait for ongoing
 		// congestion to clear, or transmit incoming data in a segment.
 		tc.mutex.Lock()
@@ -220,33 +229,23 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 						tc.Logger.Info("DrainOutputToTransport", "", nil, "handshake syn has got no response after multiple attempts, closing.")
 						return
 					}
-					seg := Segment{
-						Flags:  FlagSyn,
-						SeqNum: 0,
-						AckNum: 0,
-						Data:   []byte{},
-					}
+					seg := Segment{Flags: FlagSyn}
 					if tc.Debug {
 						tc.Logger.Info("DrainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+#v", instant.state, seg)
 					}
+					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
-					tc.OutputTransport.Write(seg.Packet())
 					tc.lastOutputSyn = time.Now()
 					tc.ongoingRetransmissions++
 					tc.mutex.Unlock()
 				case StatePeerAck:
 					// Got ack, send SYN + ACK.
-					seg := Segment{
-						Flags:  FlagSyn & FlagAck,
-						SeqNum: 0,
-						AckNum: 0,
-						Data:   []byte{},
-					}
+					seg := Segment{Flags: FlagSyn & FlagAck}
 					if tc.Debug {
 						tc.Logger.Info("DrainOutputToTransport", "", nil, "handshake completed, sending syn+ack: %+#v", seg)
 					}
+					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
-					tc.OutputTransport.Write(seg.Packet())
 					tc.state = StateEstablished
 					tc.lastOutputSyn = time.Now()
 					tc.ongoingRetransmissions = 0
@@ -264,17 +263,12 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 						tc.Logger.Info("DrainOutputToTransport", "", nil, "handshake ack has got no response after multiple attempts, closing.")
 						return
 					}
-					seg := Segment{
-						Flags:  FlagAck,
-						SeqNum: 0,
-						AckNum: 0,
-						Data:   []byte{},
-					}
+					seg := Segment{Flags: FlagAck}
 					if tc.Debug {
 						tc.Logger.Info("DrainOutputToTransport", "", nil, "sending handshake ack, state: %v, seg: %+#v", instant.state, seg)
 					}
+					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
-					tc.OutputTransport.Write(seg.Packet())
 					tc.lastOutputSyn = time.Now()
 					tc.ongoingRetransmissions++
 					tc.mutex.Unlock()
@@ -336,8 +330,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 					if tc.Debug {
 						tc.Logger.Info("DrainOutputToTransport", "", nil, "sending keep-alive: %+#v", emptySeg)
 					}
-					// FIXME: count IO errors and break the connection if needed.
-					tc.OutputTransport.Write(emptySeg.Packet())
+					_ = tc.writeToOutputTransport(emptySeg)
 				}
 			} else {
 				// The segment data can be empty. An empty segment is for
@@ -372,14 +365,9 @@ func (tc *TransmissionControl) writeSegments(seqNum uint32, buf []byte) uint32 {
 		if tc.Debug {
 			tc.Logger.Info("writeSegments", "", nil, "writing to output transport: %+#v", seg)
 		}
-		_, err := tc.OutputTransport.Write(seg.Packet())
+		err := tc.writeToOutputTransport(seg)
 		tc.lastOutput = time.Now()
 		if err != nil {
-			if tc.Debug {
-				tc.Logger.Info("writeSegments", "", nil, "failed to write to output transport, err: %+v", err)
-			}
-			// FIXME: maybe log and retry? How to detect permanent failure?
-			tc.outputErr <- err
 			return uint32(i)
 		}
 	}
@@ -422,31 +410,38 @@ func (tc *TransmissionControl) DrainInputFromTransport() {
 		tc.Close()
 	}()
 	// Continuously read the bytes of inputBuf using the underlying transit.
-	for {
+	for tc.state < StateClosed {
 		// Read the segment header first.
-		segHeader, err := readInput(tc.context, tc.InputTransport, SegmentHeaderLen)
+		segHeader, err := tc.readFromInputTransport(tc.context, SegmentHeaderLen)
 		if err != nil {
 			if tc.Debug {
 				tc.Logger.Info("DrainInputFromTransport", "", nil, "failed to read segment header: %+v", err)
 			}
-			return
+			continue
 		}
 		// Read the segment data.
 		segDataLen := int(binary.BigEndian.Uint16(segHeader[SegmentHeaderLen-2 : SegmentHeaderLen]))
-		// FIXME: make sure the length is within acceptable range
-		segDataCtx, segDataCtxCancel := context.WithTimeout(tc.context, SegmentDataTimeout)
-		segData, err := readInput(segDataCtx, tc.InputTransport, segDataLen)
-		if errors.Is(err, context.DeadlineExceeded) {
-			if tc.Debug {
-				tc.Logger.Info("DrainInputFromTransport", "", nil, "timed out waiting for segment data")
-			}
-			segDataCtxCancel()
+		if segDataLen > MaxSegmentDataLen {
+			tc.Logger.Warning("DrainInputFromTransport", "", nil, "seg data len (%d) must be less than %d", segDataLen, MaxSegmentDataLen)
 			continue
-		} else if err != nil {
+		}
+		segDataCtx, segDataCtxCancel := context.WithTimeout(tc.context, SegmentDataTimeout)
+		segData, err := tc.readFromInputTransport(segDataCtx, segDataLen)
+		if err != nil {
 			segDataCtxCancel()
-			return
+			if tc.Debug {
+				tc.Logger.Info("DrainInputFromTransport", "", nil, "failed to read segment data: %+v", err)
+			}
+			continue
 		}
 		seg := SegmentFromPacket(append(segHeader, segData...))
+		/* FIXME, the flags.Has function does not work!
+		if seg.Flags.Has(FlagMalformed) {
+			tc.Logger.Warning("DrainInputFromTransport", "", nil, "failed to decode the segment, header: %v, data: %v", segHeader, segData)
+			segDataCtxCancel()
+			continue
+		}
+		*/
 		tc.mutex.Lock()
 		instant := *tc
 		tc.mutex.Unlock()
@@ -519,6 +514,54 @@ func (tc *TransmissionControl) OutputSeq() uint32 {
 	return tc.outputSeq
 }
 
+// writeToOutputTransport writes the segment to the output transport and returns
+// the IO error (if any).
+// The function briefly locks the transmission control mutex, therefore the
+// caller must not hold the mutex.
+// If there has been an exceeding number of IO errors from the output transport,
+// then the transmission control will be closed.
+func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
+	_, err := tc.OutputTransport.Write(seg.Packet())
+	tc.mutex.Lock()
+	if err == nil {
+		tc.outputTransportErrors = 0
+		tc.mutex.Unlock()
+		return nil
+	} else {
+		tc.outputTransportErrors++
+		if tc.outputTransportErrors >= tc.MaxTransportErrors {
+			tc.Logger.Warning("writeToOutputTransport", "", nil, "closing due to exceedingly many transport errors")
+			tc.mutex.Unlock()
+			tc.Close()
+		}
+		return err
+	}
+}
+
+// readFromInputTransport reads the desired number of bytes from the input
+// transport and returns the IO error (if any).
+// The function briefly locks the transmission control mutex, therefore the
+// caller must not hold the mutex.
+// If there has been an exceeding number of IO errors from the output transport,
+// then the transmission control will be closed.
+func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, totalLen int) ([]byte, error) {
+	n, err := readInput(ctx, tc.InputTransport, totalLen)
+	tc.mutex.Lock()
+	if err == nil {
+		tc.inputTransportErrors = 0
+		tc.mutex.Unlock()
+		return n, err
+	} else {
+		tc.inputTransportErrors++
+		if tc.inputTransportErrors >= tc.MaxTransportErrors {
+			tc.Logger.Warning("readFromInputTransport", "", nil, "closing due to exceedingly many transport errors")
+			tc.mutex.Unlock()
+			tc.Close()
+		}
+		return n, err
+	}
+}
+
 // Close terminates ongoing IO activities and terminates the stream.
 func (tc *TransmissionControl) Close() {
 	tc.mutex.Lock()
@@ -531,7 +574,6 @@ func (tc *TransmissionControl) Close() {
 	}
 	tc.state = StateClosed
 	tc.cancelFun()
-	return
 }
 
 // readInput reads from transmission control's input transport for a total

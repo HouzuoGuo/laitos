@@ -238,8 +238,8 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 		// Leave retransmission interval much longer than the typical execution
 		// time of this test case. This test case does not intend to involve
 		// retransmission.
-		RetransmissionInterval: 10 * time.Second,
-		ReadTimeout:            2 * time.Second,
+		RetransmissionInterval: 30 * time.Second,
+		ReadTimeout:            3 * time.Second,
 		state:                  StateEstablished,
 	}
 	tc.Start(context.Background())
@@ -383,10 +383,10 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 		// Keep the congestion window wait duration short to shorten the test
 		// case execution.
 		CongestionWaitDuration: 1 * time.Second,
-		RetransmissionInterval: 3 * time.Second,
+		RetransmissionInterval: 30 * time.Second,
 		MaxRetransmissions:     3,
-		ReadTimeout:            2 * time.Second,
-		WriteTimeout:           2 * time.Second,
+		ReadTimeout:            5 * time.Second,
+		WriteTimeout:           5 * time.Second,
 		state:                  StateEstablished,
 	}
 	tc.Start(context.Background())
