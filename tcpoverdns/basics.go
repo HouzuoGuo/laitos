@@ -21,23 +21,14 @@ const (
 type Flag uint16
 
 const (
-	FlagSyn       = Flag(1)
-	FlagAck       = Flag(2)
-	FlagReset     = Flag(3)
-	FlagFinnish   = Flag(4)
-	FlagMalformed = Flag(5)
+	FlagSyn       = Flag(1 << 0)
+	FlagAck       = Flag(1 << 1)
+	FlagEnd       = Flag(1 << 2)
+	FlagMalformed = Flag(1 << 3)
 )
 
 func (flag Flag) Has(f Flag) bool {
-	return flag^f != 0
-}
-
-func (flag *Flag) Set(f Flag) {
-	*flag |= f
-}
-
-func (flag *Flag) Clear(f Flag) {
-	*flag &^= f
+	return flag&f != 0
 }
 
 const (

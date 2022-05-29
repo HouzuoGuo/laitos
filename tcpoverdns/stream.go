@@ -240,7 +240,7 @@ func (tc *TransmissionControl) DrainOutputToTransport() {
 					tc.mutex.Unlock()
 				case StatePeerAck:
 					// Got ack, send SYN + ACK.
-					seg := Segment{Flags: FlagSyn & FlagAck}
+					seg := Segment{Flags: FlagSyn | FlagAck}
 					if tc.Debug {
 						tc.Logger.Info("DrainOutputToTransport", "", nil, "handshake completed, sending syn+ack: %+#v", seg)
 					}
@@ -435,13 +435,11 @@ func (tc *TransmissionControl) DrainInputFromTransport() {
 			continue
 		}
 		seg := SegmentFromPacket(append(segHeader, segData...))
-		/* FIXME, the flags.Has function does not work!
 		if seg.Flags.Has(FlagMalformed) {
 			tc.Logger.Warning("DrainInputFromTransport", "", nil, "failed to decode the segment, header: %v, data: %v", segHeader, segData)
 			segDataCtxCancel()
 			continue
 		}
-		*/
 		tc.mutex.Lock()
 		instant := *tc
 		tc.mutex.Unlock()
@@ -469,7 +467,7 @@ func (tc *TransmissionControl) DrainInputFromTransport() {
 					}
 				default:
 					// Expect SYN+ACK.
-					if seg.Flags == FlagSyn&FlagAck {
+					if seg.Flags == FlagSyn|FlagAck {
 						tc.state = StateEstablished
 					} else {
 						tc.Logger.Warning("DrainInputFromTransport", "", nil, "expecting syn+ack, got: %+#v", seg)

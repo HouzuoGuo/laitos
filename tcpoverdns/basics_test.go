@@ -31,4 +31,14 @@ func TestSegmentFromPacket(t *testing.T) {
 	}
 }
 
-// TODO FIXME: test flag functions
+func TestFlags(t *testing.T) {
+	allFlags := FlagSyn | FlagAck | FlagEnd
+	for _, flag := range []Flag{FlagSyn, FlagAck, FlagEnd} {
+		if !allFlags.Has(flag) {
+			t.Fatalf("missing %d", flag)
+		}
+	}
+	if allFlags.Has(1 << 4) {
+		t.Fatalf("should not have had flag %d", 1<<4)
+	}
+}

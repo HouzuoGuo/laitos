@@ -26,15 +26,11 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 	_, inTransport := net.Pipe()
 	_, outTransport := net.Pipe()
 	tc := &TransmissionControl{
-		Debug:                   true,
-		MaxSegmentLenExclHeader: 5,
-		InputTransport:          inTransport,
-		OutputTransport:         outTransport,
-		CongestionWindow:        10,
-		CongestionWaitDuration:  1 * time.Second,
-		RetransmissionInterval:  1 * time.Second,
-		ReadTimeout:             2 * time.Second,
-		state:                   StateEstablished,
+		Debug:           true,
+		InputTransport:  inTransport,
+		OutputTransport: outTransport,
+		ReadTimeout:     3 * time.Second,
+		state:           StateEstablished,
 	}
 	tc.Start(context.Background())
 	// The next read times out due to lack of further input segments.
@@ -42,8 +38,8 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("read n: %+v, err: %+v", n, err)
 	}
-	if tc.inputAck != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
-		t.Fatalf("input ack: %v, retrans: %v, state: %v", tc.inputAck, tc.ongoingRetransmissions, tc.state)
+	if tc.inputAck != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
+		t.Fatalf("input ack: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputAck, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
 
@@ -56,9 +52,7 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
 		CongestionWindow:        10,
-		CongestionWaitDuration:  1 * time.Second,
-		RetransmissionInterval:  1 * time.Second,
-		ReadTimeout:             2 * time.Second,
+		ReadTimeout:             3 * time.Second,
 		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
@@ -87,8 +81,8 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
-	if tc.inputAck != 234 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
-		t.Fatalf("input ack: %v, retrans: %v, state: %v", tc.inputAck, tc.ongoingRetransmissions, tc.state)
+	if tc.inputAck != 234 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
+		t.Fatalf("input ack: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputAck, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
 func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
@@ -99,9 +93,6 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		CongestionWindow:        10,
-		CongestionWaitDuration:  1 * time.Second,
-		RetransmissionInterval:  1 * time.Second,
 		ReadTimeout:             2 * time.Second,
 		state:                   StateEstablished,
 	}
@@ -133,8 +124,8 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
-	if tc.inputAck != 234 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
-		t.Fatalf("input ack: %v, retrans: %v, state: %v", tc.inputAck, tc.ongoingRetransmissions, tc.state)
+	if tc.inputAck != 234 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
+		t.Fatalf("input ack: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputAck, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
 
@@ -146,10 +137,7 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		CongestionWindow:        10,
-		CongestionWaitDuration:  1 * time.Second,
-		RetransmissionInterval:  1 * time.Second,
-		ReadTimeout:             2 * time.Second,
+		ReadTimeout:             3 * time.Second,
 		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
@@ -165,8 +153,8 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", n, err)
 	}
-	if tc.outputSeq != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
+	if tc.outputSeq != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
 
@@ -179,14 +167,6 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		// Leave congestion window sufficient large for all outgoing segments.
-		// This test case does not focus on congestion.
-		CongestionWindow:       100,
-		CongestionWaitDuration: 1 * time.Second,
-		// Leave retransmission interval much longer than the typical execution
-		// time of this test case. This test case does not intend to involve
-		// retransmission.
-		RetransmissionInterval: 10 * time.Second,
 	}
 	tc.Start(context.Background())
 	for i := byte(0); i < 10; i++ {
@@ -218,8 +198,8 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
-	if tc.outputSeq != 10*3 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
+	if tc.outputSeq != 10*3 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
 
@@ -231,16 +211,7 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 		MaxSegmentLenExclHeader: 10,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		// Leave congestion window sufficient large for all outgoing segments.
-		// This test case does not focus on congestion.
-		CongestionWindow:       100,
-		CongestionWaitDuration: 1 * time.Second,
-		// Leave retransmission interval much longer than the typical execution
-		// time of this test case. This test case does not intend to involve
-		// retransmission.
-		RetransmissionInterval: 30 * time.Second,
-		ReadTimeout:            3 * time.Second,
-		state:                  StateEstablished,
+		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
 	for i := byte(0); i < 5; i++ {
@@ -273,8 +244,8 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
-	if tc.outputSeq != 5*2 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
+	if tc.outputSeq != 5*2 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
 
@@ -286,10 +257,6 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		// Leave congestion window sufficient large for all outgoing segments.
-		// This test case does not focus on congestion.
-		CongestionWindow:       100,
-		CongestionWaitDuration: 1 * time.Second,
 		// Leave the retransmission interval short to shorten the test case
 		// execution.
 		RetransmissionInterval: 1 * time.Second,
@@ -365,8 +332,9 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	}
 
 	// The connection is broken and closed.
-	if tc.outputSeq != 3+3 || tc.ongoingRetransmissions != 3 || tc.state != StateClosed {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
+	// The single error is "DrainInputFromTransport: failed to read segment header: context canceled".
+	if tc.outputSeq != 3+3 || tc.ongoingRetransmissions != 3 || tc.state != StateClosed || tc.inputTransportErrors != 1 || tc.outputTransportErrors != 0 {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
 
@@ -384,7 +352,6 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 		// case execution.
 		CongestionWaitDuration: 1 * time.Second,
 		RetransmissionInterval: 30 * time.Second,
-		MaxRetransmissions:     3,
 		ReadTimeout:            5 * time.Second,
 		WriteTimeout:           5 * time.Second,
 		state:                  StateEstablished,
@@ -473,8 +440,8 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
 
-	if tc.outputSeq != 20+5 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v", tc.outputSeq, tc.ongoingRetransmissions, tc.state)
+	if tc.outputSeq != 20+5 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
+		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
 
@@ -510,7 +477,7 @@ func TestTransmissionControl_KeepAlive(t *testing.T) {
 			t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
 		}
 	}
-	if tc.inputSeq != 0 || tc.outputSeq != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished {
-		t.Fatalf("input seq: %v, output seq: %v, retrans: %v, state: %v", tc.inputSeq, tc.outputSeq, tc.ongoingRetransmissions, tc.state)
+	if tc.inputSeq != 0 || tc.outputSeq != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
+		t.Fatalf("input seq: %v, output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputSeq, tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
