@@ -215,10 +215,13 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 		}
 		tc.Close()
 	}()
-	for tc.state < StateClosed {
+	for {
 		tc.mutex.Lock()
 		instant := *tc
 		tc.mutex.Unlock()
+		if instant.state >= StateClosed {
+			return
+		}
 
 		if instant.state < StateEstablished {
 			if instant.Initiator {
@@ -419,7 +422,13 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		tc.Close()
 	}()
 	// Continuously read the bytes of inputBuf using the underlying transit.
-	for tc.state < StateClosed {
+	for {
+		tc.mutex.Lock()
+		state := tc.state
+		tc.mutex.Unlock()
+		if state >= StateClosed {
+			return
+		}
 		// Read the segment header first.
 		segHeader, err := tc.readFromInputTransport(tc.context, SegmentHeaderLen)
 		if err != nil {
@@ -463,7 +472,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						if tc.Debug {
 							tc.Logger.Info("drainInputFromTransport", "", nil, "transition to StatePeerAck")
 						}
+						tc.mutex.Lock()
 						tc.state = StatePeerAck
+						tc.mutex.Unlock()
 					} else {
 						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting ack, got: %+#v", seg)
 					}
@@ -476,7 +487,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						if tc.Debug {
 							tc.Logger.Info("drainInputFromTransport", "", nil, "transition to StateSynReceived")
 						}
+						tc.mutex.Lock()
 						tc.state = StateSynReceived
+						tc.mutex.Unlock()
 					} else {
 						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn, got: %+#v", seg)
 					}
@@ -486,7 +499,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						if tc.Debug {
 							tc.Logger.Info("drainInputFromTransport", "", nil, "transition to StateEstablished")
 						}
+						tc.mutex.Lock()
 						tc.state = StateEstablished
+						tc.mutex.Unlock()
 					} else {
 						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn+ack, got: %+#v", seg)
 					}
@@ -516,13 +531,6 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 	}
 }
 
-// State returns the stream state.
-func (tc *TransmissionControl) State() State {
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-	return tc.state
-}
-
 // OutputSeq returns the latest output sequence number.
 func (tc *TransmissionControl) OutputSeq() uint32 {
 	tc.mutex.Lock()
@@ -546,9 +554,10 @@ func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 		return nil
 	} else {
 		tc.outputTransportErrors++
-		if tc.outputTransportErrors >= tc.MaxTransportErrors {
+		gotErrs := tc.outputTransportErrors
+		tc.mutex.Unlock()
+		if gotErrs >= tc.MaxTransportErrors {
 			tc.Logger.Warning("writeToOutputTransport", "", nil, "closing due to exceedingly many transport errors")
-			tc.mutex.Unlock()
 			tc.Close()
 		}
 		return err
@@ -570,9 +579,10 @@ func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, total
 		return n, err
 	} else {
 		tc.inputTransportErrors++
-		if tc.inputTransportErrors >= tc.MaxTransportErrors {
+		gotErrs := tc.inputTransportErrors
+		tc.mutex.Unlock()
+		if gotErrs >= tc.MaxTransportErrors {
 			tc.Logger.Warning("readFromInputTransport", "", nil, "closing due to exceedingly many transport errors")
-			tc.mutex.Unlock()
 			tc.Close()
 		}
 		return n, err
@@ -582,14 +592,15 @@ func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, total
 // Close terminates ongoing IO activities and terminates the stream.
 func (tc *TransmissionControl) Close() {
 	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
 	if tc.state == StateClosed {
+		tc.mutex.Unlock()
 		return
 	}
 	if tc.Debug {
 		tc.Logger.Info("Close", "", nil, "closing")
 	}
 	tc.state = StateClosed
+	tc.mutex.Unlock()
 	tc.cancelFun()
 }
 

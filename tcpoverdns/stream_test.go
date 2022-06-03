@@ -6,12 +6,26 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
+	"os/signal"
 	"reflect"
 	"testing"
 	"time"
 
+	runtimePprof "runtime/pprof"
+
 	"github.com/HouzuoGuo/laitos/lalog"
 )
+
+func DumpGoroutinesOnInterrupt() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for range c {
+			_ = runtimePprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+		}
+	}()
+}
 
 func readSegment(t *testing.T, reader io.Reader, dataLen int) Segment {
 	t.Helper()
@@ -28,7 +42,10 @@ func readSegment(t *testing.T, reader io.Reader, dataLen int) Segment {
 func waitForState(t *testing.T, tc *TransmissionControl, timeoutSec int, wantState State) {
 	t.Helper()
 	for i := 0; i < timeoutSec*10; i++ {
-		if tc.state == wantState {
+		tc.mutex.Lock()
+		gotState := tc.state
+		tc.mutex.Unlock()
+		if gotState == wantState {
 			return
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -52,6 +69,8 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("read n: %+v, err: %+v", n, err)
 	}
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
 	if tc.inputAck != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
 		t.Fatalf("input ack: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputAck, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
@@ -138,6 +157,8 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
 	if tc.inputAck != 234 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
 		t.Fatalf("input ack: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputAck, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
@@ -212,6 +233,8 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
 	if tc.outputSeq != 10*3 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
 		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
@@ -236,7 +259,8 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 		}
 	}
 	// Read all at once, TC should have combined 5 bursts of data into a single
-	// segment.
+	// segment after a short while.
+	time.Sleep(100 * time.Millisecond)
 	segData, err := readInput(context.Background(), testOut, SegmentHeaderLen+10)
 	if err != nil {
 		t.Fatalf("read err: %+v", err)
@@ -258,12 +282,16 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
 	if tc.outputSeq != 5*2 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
 		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 }
 
 func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing.T) {
+	DumpGoroutinesOnInterrupt()
+
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
@@ -347,6 +375,8 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 
 	// The connection is broken and closed.
 	// The single error is "DrainInputFromTransport: failed to read segment header: context canceled".
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
 	if tc.outputSeq != 3+3 || tc.ongoingRetransmissions != 3 || tc.state != StateClosed || tc.inputTransportErrors != 1 || tc.outputTransportErrors != 0 {
 		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
@@ -453,7 +483,8 @@ func TestTransmissionControl_OutboundSegments_WriteWithCongestion(t *testing.T) 
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
-
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
 	if tc.outputSeq != 20+5 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
 		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
