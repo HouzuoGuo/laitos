@@ -13,12 +13,12 @@ import (
 )
 
 const (
-	// ReadStarvationRetryInterval specifies a duration to wait when a reader
-	// is starved of data.
-	ReadStarvationRetryInterval = 100 * time.Millisecond
+	// BusyWaitInterval specifies a short duration in between consecutive
+	// busy-wait operations.
+	BusyWaitInterval = 100 * time.Millisecond
 	// SegmentDataTimeout specifies the time limit in between the arrival of a
 	// segment header and segment data.
-	SegmentDataTimeout = 5 * time.Second
+	SegmentDataTimeout = 10 * time.Second
 	//MaxSegmentDataLen is the maximum permissible segment length.
 	MaxSegmentDataLen = 8192
 )
@@ -28,7 +28,7 @@ var (
 )
 
 // TransmissionControl provides TCP-like features for duplex transportation of
-// data between an initiator and a responder, with flow and congestion control,
+// data between an initiator and a responder, with flow sliding window control,
 // customisable segment size, and guaranteed in-order delivery.
 // The behaviour is inspired by but not a replica of the Internet standard TCP.
 type TransmissionControl struct {
@@ -74,12 +74,14 @@ type TransmissionControl struct {
 	inputBuf  []byte
 	outputBuf []byte
 
-	// CongestionWindow is the maximum length of outbound data that can be
-	// transported whilst waiting for acknowledgement.
-	CongestionWindow uint32
-	// CongestionWaitDuration is a short duration to wait during congestion
-	// before retrying.
-	CongestionWaitDuration time.Duration
+	// MaxSlidingWindow is the maximum length of data buffered in the outgoing
+	// direction without receiving acknowledge from the peer.
+	// This number is comparable to the TCP flow control sliding window.
+	MaxSlidingWindow uint32
+	// SlidingWindowWaitDuration is a short duration to wait the peer's
+	// acknowledgement before this transmission control sends more data to the
+	// output transport.
+	SlidingWindowWaitDuration time.Duration
 	// RetransmissionInterval is a short duration to wait before re-transmitting
 	// the unacknowledged outbound segments (if any).
 	RetransmissionInterval time.Duration
@@ -133,11 +135,11 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	if tc.WriteTimeout == 0 {
 		tc.WriteTimeout = 15 * time.Second
 	}
-	if tc.CongestionWindow == 0 {
-		tc.CongestionWindow = 256
+	if tc.MaxSlidingWindow == 0 {
+		tc.MaxSlidingWindow = 256
 	}
-	if tc.CongestionWaitDuration == 0 {
-		tc.CongestionWaitDuration = 1 * time.Second
+	if tc.SlidingWindowWaitDuration == 0 {
+		tc.SlidingWindowWaitDuration = 1 * time.Second
 	}
 	if tc.RetransmissionInterval == 0 {
 		tc.RetransmissionInterval = 10 * time.Second
@@ -162,18 +164,14 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 }
 
 func (tc *TransmissionControl) Write(buf []byte) (int, error) {
-	// Drain input into the internal send buffer.
-	tc.mutex.Lock()
-	initialSeq := tc.outputSeq
-	tc.mutex.Unlock()
 	start := time.Now()
 	if tc.Debug {
-		tc.Logger.Info("Write", "", nil, "writing buf %v, has congestion? %v", buf, tc.hasCongestion())
+		tc.Logger.Info("Write", "", nil, "writing buf %v, sliding window full? %v", buf, tc.slidingWindowFull())
 	}
-	for tc.hasCongestion() {
-		// Wait for congestion to clear.
+	for tc.slidingWindowFull() {
+		// Wait for peer to acknowledge before sending more.
 		if time.Since(start) < tc.WriteTimeout {
-			<-time.After(ReadStarvationRetryInterval)
+			<-time.After(BusyWaitInterval)
 			continue
 		} else {
 			if tc.Debug {
@@ -184,25 +182,27 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 	}
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
-	if tc.outputSeq < initialSeq {
-		// Retransmission happened while sender was waiting, don't let this
-		// buffer through or it will be out of sequence.
-		if tc.Debug {
-			tc.Logger.Info("Write", fmt.Sprintf("%v", buf), nil, "abort write due to unexpected output sequence number %d which should have been %d", tc.outputSeq, initialSeq)
-		}
-		return 0, ErrTimeout
-	}
 	tc.outputBuf = append(tc.outputBuf, buf...)
 	// There is no need to wait for the output sequence number to catch up.
 	return len(buf), nil
 }
 
-// hasCongestion returns true if the output transport's backlog exceeds the
-// congestion threshold or the transmission control is not established yet.
-func (tc *TransmissionControl) hasCongestion() bool {
+// slidingWindowFull returns true if the output sliding input is saturated, in
+// which case the transmission control will wait before sending more data to
+// the output transport.
+func (tc *TransmissionControl) slidingWindowFull() bool {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
-	return tc.state < StateEstablished || tc.inputAck < tc.outputSeq && tc.outputSeq-tc.inputAck >= tc.CongestionWindow
+	return tc.state < StateEstablished || len(tc.outputBuf) >= int(tc.MaxSlidingWindow) ||
+		tc.inputAck < tc.outputSeq && tc.outputSeq-tc.inputAck >= tc.MaxSlidingWindow
+}
+
+// State returns the current state of the transmission control.
+func (tc *TransmissionControl) State() State {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	s := tc.state
+	return s
 }
 
 func (tc *TransmissionControl) drainOutputToTransport() {
@@ -215,13 +215,10 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 		}
 		tc.Close()
 	}()
-	for {
+	for tc.State() < StateClosed {
 		tc.mutex.Lock()
 		instant := *tc
 		tc.mutex.Unlock()
-		if instant.state >= StateClosed {
-			return
-		}
 
 		if instant.state < StateEstablished {
 			if instant.Initiator {
@@ -273,7 +270,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						continue
 					}
 					if instant.ongoingRetransmissions >= tc.MaxRetransmissions {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake ack has got no response after multiple attempts, closing.")
+						tc.Logger.Warning("drainOutputToTransport", "", nil, "handshake ack has got no response after multiple attempts, closing.")
 						return
 					}
 					seg := Segment{Flags: FlagAck}
@@ -291,7 +288,9 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			// Re-transmit the segments since the latest acknowledgement.
 			tc.ongoingRetransmissions++
 			if tc.Debug {
-				tc.Logger.Info("drainOutputToTransport", "", nil, "re-transmitting, last input ack time: %+v, input ack: %+v, output seq: %+v, ongoing retransmissions: %v", instant.lastInputAck, instant.inputAck, instant.outputSeq, tc.ongoingRetransmissions)
+				tc.Logger.Warning("drainOutputToTransport", "", nil,
+					"re-transmitting, last input ack time: %+v, input ack: %+v, output seq: %+v, ongoing retransmissions: %v",
+					instant.lastInputAck, instant.inputAck, instant.outputSeq, tc.ongoingRetransmissions)
 			}
 			if tc.ongoingRetransmissions >= tc.MaxRetransmissions {
 				if tc.Debug {
@@ -299,36 +298,38 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				}
 				return
 			}
-			tc.writeSegments(instant.inputAck, instant.outputBuf[instant.inputAck:instant.outputSeq])
+			tc.writeSegments(instant.inputAck, instant.outputBuf[:instant.outputSeq-instant.inputAck])
 			// Wait a short duration before the next transmission.
 			select {
-			case <-time.After(tc.CongestionWaitDuration):
+			case <-time.After(tc.SlidingWindowWaitDuration):
 				continue
 			case <-tc.context.Done():
 				return
 			}
-		} else if tc.state == StateEstablished && instant.hasCongestion() {
+		} else if tc.state == StateEstablished && tc.inputAck < tc.outputSeq && tc.outputSeq-tc.inputAck >= tc.MaxSlidingWindow {
 			// Wait for a short duration and retry.
 			if tc.Debug {
-				tc.Logger.Info("drainOutputToTransport", "", nil, "wait due to congestion, output seq: %+v, input ack: %+v, congestion window: %+v", instant.outputSeq, instant.inputAck, tc.CongestionWindow)
+				tc.Logger.Info("drainOutputToTransport", "", nil,
+					"wait due to saturated sliding window, output seq: %+v, input ack: %+v, max sliding window: %+v",
+					instant.outputSeq, instant.inputAck, tc.MaxSlidingWindow)
 			}
 			select {
-			case <-time.After(tc.CongestionWaitDuration):
+			case <-time.After(tc.SlidingWindowWaitDuration):
 				continue
 			case <-tc.context.Done():
 				return
 			}
 		} else if tc.state == StateEstablished {
 			// Send output segments starting with the latest sequence number.
-			toSend := instant.outputBuf[instant.outputSeq:]
-			if len(toSend) > int(tc.CongestionWindow) {
-				toSend = toSend[:int(tc.CongestionWindow)]
+			toSend := instant.outputBuf[instant.outputSeq-instant.inputAck:]
+			if len(toSend) > int(tc.MaxSlidingWindow) {
+				toSend = toSend[:int(tc.MaxSlidingWindow)]
 			}
 			if len(toSend) == 0 {
 				if time.Since(instant.lastOutput) < tc.KeepAliveInterval {
 					// Wait for write to be called with more data.
 					select {
-					case <-time.After(ReadStarvationRetryInterval):
+					case <-time.After(BusyWaitInterval):
 						continue
 					case <-tc.context.Done():
 						return
@@ -401,7 +402,7 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 			return readLen, nil
 		} else if time.Since(start) < tc.ReadTimeout {
 			// Wait for more input data to arrive and then retry.
-			<-time.After(ReadStarvationRetryInterval)
+			<-time.After(BusyWaitInterval)
 		} else {
 			if tc.Debug {
 				tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, buf[:readLen])
@@ -422,13 +423,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		tc.Close()
 	}()
 	// Continuously read the bytes of inputBuf using the underlying transit.
-	for {
-		tc.mutex.Lock()
-		state := tc.state
-		tc.mutex.Unlock()
-		if state >= StateClosed {
-			return
-		}
+	for tc.State() < StateClosed {
 		// Read the segment header first.
 		segHeader, err := tc.readFromInputTransport(tc.context, SegmentHeaderLen)
 		if err != nil {
@@ -508,27 +503,43 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 				}
 			}
 		} else {
+			// Ensure the new segment is consecutive to the ones already
+			// received. There is no selective acknowledgement going on here.
 			tc.mutex.Lock()
 			if tc.inputSeq == 0 || tc.inputSeq+uint32(len(seg.Data)) == seg.SeqNum {
 				if tc.Debug {
 					tc.Logger.Info("drainInputFromTransport", "", nil, "received %+#v", seg)
 				}
-				// Ensure the new segment is consecutive to the ones already
-				// received. There is no selective acknowledgement going on here.
-				tc.inputSeq = seg.SeqNum
-				tc.inputAck = seg.AckNum
-				tc.lastInputAck = time.Now()
-				tc.inputBuf = append(tc.inputBuf, seg.Data...)
-			} else {
-				if tc.Debug {
-					tc.Logger.Info("drainInputFromTransport", "", nil, "received out of sequence segment: %+#v, input seq: %v", seg, tc.inputSeq)
+				if seg.AckNum > tc.outputSeq {
+					// This will be (hopefully) resolved by a retransmission.
+					tc.Logger.Warning("drainInputFromTransport", "", nil, "segment has a bad ack number: %d, output seq: %d", seg.AckNum, tc.outputSeq)
+				} else {
+					tc.inputSeq = seg.SeqNum
+					// Pop the acknowledged bytes from the output buffer.
+					tc.outputBuf = tc.outputBuf[seg.AckNum-tc.inputAck:]
+					tc.lastInputAck = time.Now()
+					tc.inputBuf = append(tc.inputBuf, seg.Data...)
 				}
-				// Do nothing, wait for retransmission.
+			} else {
+				// This will be (hopefully) resolved by a retransmission.
+				tc.Logger.Warning("drainInputFromTransport", "", nil, "received out of sequence segment: %+#v, input seq: %v", seg, tc.inputSeq)
 			}
 			tc.mutex.Unlock()
 		}
 		segDataCtxCancel()
 	}
+}
+
+func (tc *TransmissionControl) DumpState() {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	tc.Logger.Warning("DumpState", "", nil, "state: %d\tlast output syn: %v\ninput buf: %v\toutput buf: %v\ninput seq: %v\tinput ack: %v\tlast input ack: %v\noutput seq: %v\tlast output: %v",
+		tc.state, tc.lastOutputSyn,
+		tc.inputBuf,
+		tc.outputBuf,
+		tc.inputSeq, tc.inputAck, tc.lastInputAck,
+		tc.outputSeq, tc.lastOutput,
+	)
 }
 
 // OutputSeq returns the latest output sequence number.
