@@ -237,7 +237,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					}
 					seg := Segment{Flags: FlagSyn}
 					if tc.Debug {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+#v", instant.state, seg)
+						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+v", instant.state, seg)
 					}
 					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
@@ -248,7 +248,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					// Got ack, send SYN + ACK.
 					seg := Segment{Flags: FlagSyn | FlagAck}
 					if tc.Debug {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake completed, sending syn+ack: %+#v", seg)
+						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake completed, sending syn+ack: %+v", seg)
 					}
 					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
@@ -275,7 +275,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					}
 					seg := Segment{Flags: FlagAck}
 					if tc.Debug {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake ack, state: %v, seg: %+#v", instant.state, seg)
+						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake ack, state: %v, seg: %+v", instant.state, seg)
 					}
 					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
@@ -321,7 +321,10 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			}
 		} else if tc.state == StateEstablished {
 			// Send output segments starting with the latest sequence number.
-			toSend := instant.outputBuf[instant.outputSeq-instant.inputAck:]
+			var toSend []byte
+			if next := instant.outputSeq - instant.inputAck; int(next) < len(instant.outputBuf) {
+				toSend = instant.outputBuf[next:]
+			}
 			if len(toSend) > int(tc.MaxSlidingWindow) {
 				toSend = toSend[:int(tc.MaxSlidingWindow)]
 			}
@@ -342,7 +345,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						Data:   []byte{},
 					}
 					if tc.Debug {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "sending keep-alive: %+#v", emptySeg)
+						tc.Logger.Info("drainOutputToTransport", "", nil, "sending keep-alive: %+v", emptySeg)
 					}
 					_ = tc.writeToOutputTransport(emptySeg)
 				}
@@ -377,7 +380,7 @@ func (tc *TransmissionControl) writeSegments(seqNum uint32, buf []byte) uint32 {
 			Data:   thisSeg,
 		}
 		if tc.Debug {
-			tc.Logger.Info("writeSegments", "", nil, "writing to output transport: %+#v", seg)
+			tc.Logger.Info("writeSegments", "", nil, "writing to output transport: %+v", seg)
 		}
 		err := tc.writeToOutputTransport(seg)
 		if err != nil {
@@ -458,7 +461,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		tc.mutex.Unlock()
 		if instant.state < StateEstablished {
 			if tc.Debug {
-				tc.Logger.Info("drainInputFromTransport", "", nil, "handshake ongoing, received: %+#v", seg)
+				tc.Logger.Info("drainInputFromTransport", "", nil, "handshake ongoing, received: %+v", seg)
 			}
 			if instant.Initiator {
 				if instant.state == StateEmpty {
@@ -471,7 +474,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						tc.state = StatePeerAck
 						tc.mutex.Unlock()
 					} else {
-						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting ack, got: %+#v", seg)
+						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting ack, got: %+v", seg)
 					}
 				}
 			} else {
@@ -486,7 +489,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						tc.state = StateSynReceived
 						tc.mutex.Unlock()
 					} else {
-						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn, got: %+#v", seg)
+						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn, got: %+v", seg)
 					}
 				default:
 					// Expect SYN+ACK.
@@ -498,7 +501,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						tc.state = StateEstablished
 						tc.mutex.Unlock()
 					} else {
-						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn+ack, got: %+#v", seg)
+						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn+ack, got: %+v", seg)
 					}
 				}
 			}
@@ -508,7 +511,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 			tc.mutex.Lock()
 			if tc.inputSeq == 0 || tc.inputSeq+uint32(len(seg.Data)) == seg.SeqNum {
 				if tc.Debug {
-					tc.Logger.Info("drainInputFromTransport", "", nil, "received %+#v", seg)
+					tc.Logger.Info("drainInputFromTransport", "", nil, "received seg %+v", seg)
 				}
 				if seg.AckNum > tc.outputSeq {
 					// This will be (hopefully) resolved by a retransmission.
@@ -517,12 +520,13 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					tc.inputSeq = seg.SeqNum
 					// Pop the acknowledged bytes from the output buffer.
 					tc.outputBuf = tc.outputBuf[seg.AckNum-tc.inputAck:]
+					tc.inputAck = seg.AckNum
 					tc.lastInputAck = time.Now()
 					tc.inputBuf = append(tc.inputBuf, seg.Data...)
 				}
 			} else {
 				// This will be (hopefully) resolved by a retransmission.
-				tc.Logger.Warning("drainInputFromTransport", "", nil, "received out of sequence segment: %+#v, input seq: %v", seg, tc.inputSeq)
+				tc.Logger.Warning("drainInputFromTransport", "", nil, "received out of sequence segment: %+v, input seq: %v", seg, tc.inputSeq)
 			}
 			tc.mutex.Unlock()
 		}
@@ -533,12 +537,16 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 func (tc *TransmissionControl) DumpState() {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
-	tc.Logger.Warning("DumpState", "", nil, "state: %d\tlast output syn: %v\ninput buf: %v\toutput buf: %v\ninput seq: %v\tinput ack: %v\tlast input ack: %v\noutput seq: %v\tlast output: %v",
+	tc.Logger.Warning("DumpState", "", nil, "\n"+
+		"state: %d\tlast output syn: %v\n"+
+		"input seq: %v\tinput ack: %v\tlast input ack: %v\n"+
+		"output seq: %v\tlast output: %v\ninput buf: %v\toutput buf: %v\n"+
+		"ongoing retrans: %d\tinput transport errs: %d\toutput transport errs: %d\n",
 		tc.state, tc.lastOutputSyn,
-		tc.inputBuf,
-		tc.outputBuf,
 		tc.inputSeq, tc.inputAck, tc.lastInputAck,
 		tc.outputSeq, tc.lastOutput,
+		tc.inputBuf, tc.outputBuf,
+		tc.ongoingRetransmissions, tc.inputTransportErrors, tc.outputTransportErrors,
 	)
 }
 

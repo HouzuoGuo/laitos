@@ -7,66 +7,12 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
-	"os/signal"
 	"reflect"
 	"testing"
 	"time"
 
-	runtimePprof "runtime/pprof"
-
 	"github.com/HouzuoGuo/laitos/lalog"
 )
-
-func DumpGoroutinesOnInterrupt() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	go func() {
-		for range c {
-			_ = runtimePprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
-		}
-	}()
-}
-
-func readSegment(t *testing.T, reader io.Reader, dataLen int) Segment {
-	t.Helper()
-	segData, err := readInput(context.Background(), reader, SegmentHeaderLen+dataLen)
-	if err != nil {
-		t.Fatalf("readSegment err: %+v", err)
-	}
-	if len(segData) != SegmentHeaderLen+dataLen {
-		t.Fatalf("readSegment unexpected segData length: %v, want: %v", len(segData), dataLen)
-	}
-	return SegmentFromPacket(segData)
-}
-
-func waitForOutputSeq(t *testing.T, tc *TransmissionControl, timeoutSec int, want int) {
-	t.Helper()
-	for i := 0; i < timeoutSec*10; i++ {
-		tc.mutex.Lock()
-		got := tc.outputSeq
-		tc.mutex.Unlock()
-		if int(got) == want {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	t.Fatalf("got tc output seq %d, want seq %v", tc.outputSeq, want)
-}
-
-func waitForState(t *testing.T, tc *TransmissionControl, timeoutSec int, wantState State) {
-	t.Helper()
-	for i := 0; i < timeoutSec*10; i++ {
-		tc.mutex.Lock()
-		gotState := tc.state
-		tc.mutex.Unlock()
-		if gotState == wantState {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	t.Fatalf("got tc state %d, want state %v", tc.state, wantState)
-}
 
 func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 	_, inTransport := net.Pipe()
@@ -84,11 +30,8 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("read n: %+v, err: %+v", n, err)
 	}
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-	if tc.inputAck != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
-		t.Fatalf("input ack: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputAck, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
-	}
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
@@ -129,9 +72,8 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
-	if tc.inputAck != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
-		t.Fatalf("input ack: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputAck, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
-	}
+	checkTC(t, tc, 1, StateEstablished, 9*3, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
@@ -173,11 +115,9 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-	if tc.inputAck != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
-		t.Fatalf("input ack: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputAck, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
-	}
+
+	checkTC(t, tc, 1, StateEstablished, 9*3, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
@@ -207,6 +147,9 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 	if tc.outputSeq != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
 		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
+
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
@@ -242,12 +185,9 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 		if err != nil || !reflect.DeepEqual(gotSeg, wantSeg) {
 			t.Fatalf("got seg data: %+v, got seg: %+v want: %+v", segData, gotSeg, wantSeg)
 		}
-		// Verify output sequence number.
-		waitForOutputSeq(t, tc, 3, int((i+1)*3))
+		// Wait for output sequence number to catch up and verify output buffer.
 		// In the absence of ack, the data remains in the buffer.
-		if !reflect.DeepEqual(tc.outputBuf, wantOutputBuf) {
-			t.Fatalf("wrong data in output buf, got %v, want %v", tc.outputBuf, wantOutputBuf)
-		}
+		checkTC(t, tc, 1, StateEstablished, 0, 0, int(i+1)*3, nil, wantOutputBuf)
 	}
 
 	// There should not be anything else coming out.
@@ -257,11 +197,8 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-	if tc.outputSeq != 10*3 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
-	}
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 10*3, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
@@ -298,12 +235,9 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(gotSeg, wantSeg) {
 		t.Fatalf("got seg data: %+v, got seg: %+v want: %+v", segData, gotSeg, wantSeg)
 	}
-	// Verify output sequence number.
-	waitForOutputSeq(t, tc, 3, 10)
+	// Wait for output sequence number to catch up and verify output buffer.
 	// In the absence of ack, the data remains in the buffer.
-	if !reflect.DeepEqual(tc.outputBuf, []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4}) {
-		t.Fatalf("wrong data in output buf, got %v", tc.outputBuf)
-	}
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 10, nil, []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4})
 
 	// There should not be anything else coming out.
 	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -312,15 +246,12 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-	if tc.outputSeq != 5*2 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
-	}
+
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 5*2, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing.T) {
-	// TODO FIXME: fix me first
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
@@ -341,7 +272,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	if n != 3 || err != nil {
 		t.Fatalf("write n %v, %+v", n, err)
 	}
-	// Look one retransmission and then acknowledge it.
+	// Anticipate one retransmission and then acknowledge it.
 	segData, err := readInput(context.Background(), testOut, SegmentHeaderLen+3)
 	if err != nil {
 		t.Fatalf("err: %+v", err)
@@ -355,7 +286,10 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	if err != nil || !reflect.DeepEqual(gotSeg, wantSeg) {
 		t.Fatalf("retrans first seg data: %+v, got seg: %+v want: %+v", segData, gotSeg, wantSeg)
 	}
-	// Acknowledge the first transmission.
+	// Acknowledge the next retransmission.
+	// The short wait is important because otherwise TC rejects the ack number
+	// as out-of-range and the ack is lost.
+	waitForOutputSeq(t, tc, 2, 3)
 	ackSeg := Segment{
 		SeqNum: 0,
 		AckNum: 3,
@@ -364,6 +298,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	if _, err := testIn.Write(ackSeg.Packet()); err != nil {
 		t.Fatalf("write ack: %+v", err)
 	}
+	checkTC(t, tc, 1, StateEstablished, 0, 3, 3, nil, nil)
 
 	// Write a second segment without acknowledging it.
 	n, err = tc.Write([]byte{2, 2, 2})
@@ -385,31 +320,16 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 			Data:   []byte{2, 2, 2},
 		}
 		if err != nil || !reflect.DeepEqual(gotSeg, wantSeg) {
-			t.Fatalf("retrans second seg data: %+v, got seg: %+v want: %+v", segData, gotSeg, wantSeg)
+			t.Fatalf("got retrans seg %+#v, want %+#v", gotSeg, wantSeg)
 		}
 	}
-
 	time.Sleep(tc.SlidingWindowWaitDuration * 2)
-	if tc.inputAck != 3 {
-		t.Fatalf("wrong input ack: %+v", tc.inputAck)
-	}
-
-	// There should not be anything else coming out of the transport.
-	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	data, err := readInput(timeout, testOut, 10)
-	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("read n: %+v, err: %+v", len(data), err)
-	}
-
-	// The connection is broken and closed.
+	// The TC is closed after exhausting all retransmission attempts.
+	checkTC(t, tc, 1, StateClosed, 0, 3, 3+3, nil, []byte{2, 2, 2})
 	// The single error is "DrainInputFromTransport: failed to read segment header: context canceled".
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-	if tc.outputSeq != 3+3 || tc.ongoingRetransmissions != 3 || tc.state != StateClosed || tc.inputTransportErrors != 1 || tc.outputTransportErrors != 0 {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
-	}
+	checkTCError(t, tc, 1, 3, 1, 0)
 }
+
 func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t *testing.T) {
 	_, inTransport := net.Pipe()
 	tc := &TransmissionControl{
@@ -426,7 +346,7 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t 
 	}
 	tc.Start(context.Background())
 
-	// The first write operation saturates the sliding window.
+	// The first write operation fully saturates the sliding window.
 	start := time.Now()
 	n, err := tc.Write([]byte{0, 1, 2, 3, 4})
 	if n != 5 || err != nil {
@@ -435,20 +355,16 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t 
 	if time.Since(start) > tc.WriteTimeout/3 {
 		t.Fatalf("write took unusually long to complete")
 	}
-	// The second write operation is blocked due to sliding window saturation.
+	// The second write operation times out and does nothing.
 	n, err = tc.Write([]byte{5, 6, 7, 8, 9})
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("write n %v, %+v", n, err)
 	}
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-	if tc.outputSeq != 5 || tc.ongoingRetransmissions != 0 || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
-	}
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 5, nil, []byte{0, 1, 2, 3, 4})
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *testing.T) {
-	// TODO FIXME: fix me second
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
@@ -477,7 +393,7 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 	}
 
 	// Write another stream of data, which is going to fail due to saturated
-	// sliding window .
+	// sliding window.
 	n, err = tc.Write([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30})
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("write n: %+v, err: %+v", n, err)
@@ -505,16 +421,15 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 		if _, err := testIn.Write(ackSeg.Packet()); err != nil {
 			t.Fatalf("write ack: %+v", err)
 		}
+		waitForInputAck(t, tc, 1, int(i)+5)
 	}
-	tc.DumpState()
 
-	// Write again after clearing sliding window saturation.
+	// Sliding window saturation is now cleared, this write should succeed.
 	n, err = tc.Write([]byte{31, 32, 33, 34, 35})
 	if n != 5 || err != nil {
 		t.Fatalf("write n %v, %+v", n, err)
 	}
-
-	// Read the latest segment after having cleared the satured sliding window.
+	// Read the same segment.
 	gotSeg := readSegment(t, testOut, tc.MaxSegmentLenExclHeader)
 	wantSeg := Segment{
 		SeqNum: 20, // length of the first invocation of write
@@ -525,18 +440,8 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 		t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
 	}
 
-	// There should not be anything else coming out.
-	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	data, err := readInput(timeout, testOut, 10)
-	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("read n: %+v, err: %+v", len(data), err)
-	}
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-	if tc.outputSeq != 20+5 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
-		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
-	}
+	checkTC(t, tc, 1, StateEstablished, 0, 20, 20+5, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_KeepAlive(t *testing.T) {
@@ -571,9 +476,8 @@ func TestTransmissionControl_KeepAlive(t *testing.T) {
 			t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
 		}
 	}
-	if tc.inputSeq != 0 || tc.outputSeq != 0 || tc.ongoingRetransmissions != 0 || tc.state != StateEstablished || tc.inputTransportErrors != 0 || tc.outputTransportErrors != 0 {
-		t.Fatalf("input seq: %v, output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.inputSeq, tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
-	}
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
@@ -616,6 +520,9 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 		t.Fatalf("incorrect syn seg: %+v", synAck)
 	}
 	waitForState(t, tc, 10, StateEstablished)
+
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_ResponderHandshake(t *testing.T) {
@@ -658,6 +565,10 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 		t.Fatalf("write err: %+v", err)
 	}
 	waitForState(t, tc, 10, StateEstablished)
+
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
+	// TODO FIXME: fix this one first
 }
 
 func TestTransmissionControl_PeerHandshake(t *testing.T) {
@@ -707,6 +618,12 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	if rightTC.slidingWindowFull() {
 		t.Fatalf("should have unblocked sending")
 	}
+
+	checkTC(t, leftTC, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, leftTC, 1, 0, 0, 0)
+	checkTC(t, rightTC, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, rightTC, 1, 0, 0, 0)
+	// TODO FIXME: fix this one second
 }
 
 func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
@@ -737,7 +654,6 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 		RetransmissionInterval:  5 * time.Second,
 	}
 	rightTC.Start(context.Background())
-	t.Skip("TODO FIXME: fix sliding window saturation detection")
 
 	for i := 0; i < 100; i++ {
 		n, err := leftTC.Write(bytes.Repeat([]byte{1, 2, 3}, 20))
@@ -745,4 +661,5 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 			t.Fatalf("left tc write n: %v, err: %v", n, err)
 		}
 	}
+	// TODO FIXME: complete this wip test case
 }
