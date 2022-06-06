@@ -98,6 +98,14 @@ type TransmissionControl struct {
 	// transmission control.
 	MaxTransportErrors int
 
+	// AckDelay is a short delay between receiving the latest segment and
+	// sending an outbound acknowledgement-only segment.
+	// It should shorter than the retransmission interval by a magnitude.
+	AckDelay time.Duration
+	// lastAckOnlySeg is the timestamp of the latest acknowledgment-only segment
+	// (i.e. delayed ack or keep-alive) sent to the output transport.
+	lastAckOnlySeg time.Time
+
 	// ongoingRetransmissions is the number of retransmissions being made for a
 	// handshake or data segment.
 	ongoingRetransmissions int
@@ -109,7 +117,8 @@ type TransmissionControl struct {
 	// occurred in the output transport so far.
 	outputTransportErrors int
 
-	// inputSeq is the latest sequence number read from inbound segments.
+	// inputSeq is the sequence number of the latest byte read from the inbound
+	// segment (i.e. seg.SeqNum + len(seg.Data)).
 	inputSeq uint32
 	// inputAck is the latest sequence number acknowledged by inbound segments.
 	inputAck uint32
@@ -147,6 +156,9 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	if tc.KeepAliveInterval == 0 {
 		tc.KeepAliveInterval = 5 * time.Second
 	}
+	if tc.AckDelay == 0 {
+		tc.AckDelay = 1 * time.Second
+	}
 	if tc.MaxRetransmissions == 0 {
 		tc.MaxRetransmissions = 3
 	}
@@ -157,6 +169,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
 	tc.lastInputAck = time.Now()
 	tc.lastOutput = time.Now()
+	tc.lastAckOnlySeg = time.Now()
 	tc.mutex = new(sync.Mutex)
 	tc.Logger.ComponentID = append(tc.Logger.ComponentID, lalog.LoggerIDField{Key: "TCID", Value: tc.ID})
 	go tc.drainInputFromTransport()
@@ -203,6 +216,24 @@ func (tc *TransmissionControl) State() State {
 	defer tc.mutex.Unlock()
 	s := tc.state
 	return s
+}
+
+// WaitState blocks the caller until the transmission control reaches the
+// specified state, or the context is cancelled.
+// It returns true only if the state has been reached while the context is not
+// cancelled.
+func (tc *TransmissionControl) WaitState(ctx context.Context, want State) bool {
+	for {
+		if tc.State() == want {
+			return true
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(BusyWaitInterval):
+			continue
+		}
+	}
 }
 
 func (tc *TransmissionControl) drainOutputToTransport() {
@@ -329,15 +360,21 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				toSend = toSend[:int(tc.MaxSlidingWindow)]
 			}
 			if len(toSend) == 0 {
-				if time.Since(instant.lastOutput) < tc.KeepAliveInterval {
-					// Wait for write to be called with more data.
-					select {
-					case <-time.After(BusyWaitInterval):
-						continue
-					case <-tc.context.Done():
-						return
+				if time.Since(instant.lastInputAck) > tc.AckDelay && instant.lastAckOnlySeg.Before(instant.lastInputAck) && instant.inputSeq > 0 {
+					// Send a delayed ack segment.
+					emptySeg := Segment{
+						SeqNum: instant.outputSeq,
+						AckNum: instant.inputSeq,
+						Data:   []byte{},
 					}
-				} else {
+					if tc.Debug {
+						tc.Logger.Info("drainOutputToTransport", "", nil, "sending delayed ack: %+v", emptySeg)
+					}
+					_ = tc.writeToOutputTransport(emptySeg)
+					tc.mutex.Lock()
+					tc.lastAckOnlySeg = time.Now()
+					tc.mutex.Unlock()
+				} else if time.Since(instant.lastAckOnlySeg) > tc.KeepAliveInterval {
 					// Send an empty segment for keep-alive.
 					emptySeg := Segment{
 						SeqNum: instant.outputSeq,
@@ -348,6 +385,17 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "sending keep-alive: %+v", emptySeg)
 					}
 					_ = tc.writeToOutputTransport(emptySeg)
+					tc.mutex.Lock()
+					tc.lastAckOnlySeg = time.Now()
+					tc.mutex.Unlock()
+				} else {
+					// There is nothing to do.
+					select {
+					case <-time.After(BusyWaitInterval):
+						continue
+					case <-tc.context.Done():
+						return
+					}
 				}
 			} else {
 				// The segment data can be empty. An empty segment is for
@@ -360,6 +408,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				// Clear the retransmission counter if retransmission happened.
 				tc.ongoingRetransmissions = 0
 				tc.outputSeq += written
+				tc.lastOutput = time.Now()
 				tc.mutex.Unlock()
 			}
 		}
@@ -498,6 +547,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 							tc.Logger.Info("drainInputFromTransport", "", nil, "transition to StateEstablished")
 						}
 						tc.mutex.Lock()
+						tc.ongoingRetransmissions = 0
 						tc.state = StateEstablished
 						tc.mutex.Unlock()
 					} else {
@@ -509,7 +559,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 			// Ensure the new segment is consecutive to the ones already
 			// received. There is no selective acknowledgement going on here.
 			tc.mutex.Lock()
-			if tc.inputSeq == 0 || tc.inputSeq+uint32(len(seg.Data)) == seg.SeqNum {
+			if tc.inputSeq == 0 || seg.SeqNum == tc.inputSeq {
 				if tc.Debug {
 					tc.Logger.Info("drainInputFromTransport", "", nil, "received seg %+v", seg)
 				}
@@ -517,7 +567,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					// This will be (hopefully) resolved by a retransmission.
 					tc.Logger.Warning("drainInputFromTransport", "", nil, "segment has a bad ack number: %d, output seq: %d", seg.AckNum, tc.outputSeq)
 				} else {
-					tc.inputSeq = seg.SeqNum
+					tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
 					// Pop the acknowledged bytes from the output buffer.
 					tc.outputBuf = tc.outputBuf[seg.AckNum-tc.inputAck:]
 					tc.inputAck = seg.AckNum
@@ -539,13 +589,12 @@ func (tc *TransmissionControl) DumpState() {
 	defer tc.mutex.Unlock()
 	tc.Logger.Warning("DumpState", "", nil, "\n"+
 		"state: %d\tlast output syn: %v\n"+
-		"input seq: %v\tinput ack: %v\tlast input ack: %v\n"+
-		"output seq: %v\tlast output: %v\ninput buf: %v\toutput buf: %v\n"+
+		"input seq: %v\tinput ack: %v\tlast input ack: %v\tinput buf: %v\n"+
+		"output seq: %v\tlast output: %v\tlast ack-only seg: %v\toutput buf: %v\n"+
 		"ongoing retrans: %d\tinput transport errs: %d\toutput transport errs: %d\n",
 		tc.state, tc.lastOutputSyn,
-		tc.inputSeq, tc.inputAck, tc.lastInputAck,
-		tc.outputSeq, tc.lastOutput,
-		tc.inputBuf, tc.outputBuf,
+		tc.inputSeq, tc.inputAck, tc.lastInputAck, tc.inputBuf,
+		tc.outputSeq, tc.lastOutput, tc.lastAckOnlySeg, tc.outputBuf,
 		tc.ongoingRetransmissions, tc.inputTransportErrors, tc.outputTransportErrors,
 	)
 }
@@ -566,7 +615,6 @@ func (tc *TransmissionControl) OutputSeq() uint32 {
 func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 	_, err := tc.OutputTransport.Write(seg.Packet())
 	tc.mutex.Lock()
-	tc.lastOutput = time.Now()
 	if err == nil {
 		tc.outputTransportErrors = 0
 		tc.mutex.Unlock()

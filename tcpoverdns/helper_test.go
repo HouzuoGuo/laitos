@@ -115,14 +115,9 @@ func waitForInputAck(t *testing.T, tc *TransmissionControl, timeoutSec int, want
 
 func waitForState(t *testing.T, tc *TransmissionControl, timeoutSec int, wantState State) {
 	t.Helper()
-	for i := 0; i < timeoutSec*10; i++ {
-		tc.mutex.Lock()
-		gotState := tc.state
-		tc.mutex.Unlock()
-		if gotState == wantState {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+	if !tc.WaitState(timeoutCtx, wantState) {
+		t.Fatalf("got tc state %d, want state %v", tc.state, wantState)
 	}
-	t.Fatalf("got tc state %d, want state %v", tc.state, wantState)
 }

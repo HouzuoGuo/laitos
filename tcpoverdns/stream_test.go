@@ -1,7 +1,6 @@
 package tcpoverdns
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -63,8 +62,8 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 		if nRead != 3 || err != nil || !reflect.DeepEqual(readBuf[:nRead], []byte{i, i, i}) {
 			t.Fatalf("read n: %v, err: %+#v, buf: %+v", nRead, err, readBuf)
 		}
-		if tc.inputSeq != uint32(i)*3 || time.Since(tc.lastInputAck) > tc.ReadTimeout*2 {
-			t.Fatalf("ack number: got %v, want %v, last input ack: %+v", tc.inputAck, (i+1)*3, tc.lastInputAck)
+		if tc.inputSeq != uint32(i+1)*3 || time.Since(tc.lastInputAck) > tc.ReadTimeout*2 {
+			t.Fatalf("input seq: %v, last input ack: %+v", tc.inputSeq, tc.lastInputAck)
 		}
 	}
 	// The next read times out due to lack of further input segments.
@@ -72,7 +71,7 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 	if n != 0 || err != ErrTimeout {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
-	checkTC(t, tc, 1, StateEstablished, 9*3, 0, 0, nil, nil)
+	checkTC(t, tc, 1, StateEstablished, 10*3, 0, 0, nil, nil)
 	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
@@ -107,8 +106,8 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(gotData, wantData) {
 		t.Fatalf("read err: %+#v, got: %+v", err, gotData)
 	}
-	if tc.inputSeq != 30-3 || time.Since(tc.lastInputAck) > tc.ReadTimeout {
-		t.Fatalf("ack number: %+v, last input ack: %+v", tc.inputAck, tc.lastInputAck)
+	if tc.inputSeq != 30 || time.Since(tc.lastInputAck) > tc.ReadTimeout {
+		t.Fatalf("input seq: %v, last input ack: %+v", tc.inputSeq, tc.lastInputAck)
 	}
 	// The next read times out due to lack of further input segments.
 	n, err := tc.Read(nil)
@@ -116,7 +115,7 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
 
-	checkTC(t, tc, 1, StateEstablished, 9*3, 0, 0, nil, nil)
+	checkTC(t, tc, 1, StateEstablished, 10*3, 0, 0, nil, nil)
 	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
@@ -444,8 +443,8 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
-func TestTransmissionControl_KeepAlive(t *testing.T) {
-	_, inTransport := net.Pipe()
+func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
+	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
 		Debug:                     true,
@@ -458,25 +457,75 @@ func TestTransmissionControl_KeepAlive(t *testing.T) {
 		MaxRetransmissions:        3,
 		ReadTimeout:               2 * time.Second,
 		WriteTimeout:              2 * time.Second,
-		// Keep the keep alive interval short and below read timeout.
-		KeepAliveInterval: 1 * time.Second,
-		state:             StateEstablished,
+		KeepAliveInterval:         5 * time.Second,
+		AckDelay:                  2 * time.Second,
+		state:                     StateEstablished,
 	}
 	tc.Start(context.Background())
 
-	//  Wait for the keep-alive segment to arrive.
+	// The first empty segment is for keep-alive.
+	start := time.Now()
+	lalog.DefaultLogger.Info("", "", nil, "tests expects the first keep-alive")
+	gotSeg := readSegment(t, testOut, 0)
+	lalog.DefaultLogger.Info("", "", nil, "test got the first keep-alive")
+	wantSeg := Segment{
+		SeqNum: 0,
+		AckNum: 0,
+		Data:   []byte{},
+	}
+	if !reflect.DeepEqual(gotSeg, wantSeg) {
+		t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
+	}
+	if time.Since(start) < tc.KeepAliveInterval {
+		t.Fatalf("keep alive came too early")
+	}
+
+	// Write a segment to TC's input transport and expect a delayed ACK.
+	seg := Segment{
+		SeqNum: 0,
+		AckNum: 0,
+		Data:   []byte{255},
+	}
+	if _, err := testIn.Write(seg.Packet()); err != nil {
+		t.Fatal(err)
+	}
+	start = time.Now()
+	lalog.DefaultLogger.Info("", "", nil, "test expects a delayed ack")
+	gotSeg = readSegment(t, testOut, 0)
+	wantSeg = Segment{
+		SeqNum: 0,
+		AckNum: 1,
+		Data:   []byte{},
+	}
+	if !reflect.DeepEqual(gotSeg, wantSeg) {
+		tc.DumpState()
+		t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
+	}
+	if time.Since(start) < tc.AckDelay || time.Since(start) > tc.KeepAliveInterval {
+		tc.DumpState()
+		t.Fatalf("delayed ack came too early or too late")
+	}
+
+	// All further segments are for keep-alive only.
 	for i := 0; i < 3; i++ {
-		gotSeg := readSegment(t, testOut, tc.MaxSegmentLenExclHeader)
+		start = time.Now()
+		lalog.DefaultLogger.Info("", "", nil, "test expects a keep-alive")
+		gotSeg := readSegment(t, testOut, 0)
 		wantSeg := Segment{
 			SeqNum: 0,
-			AckNum: 0,
+			AckNum: 1,
 			Data:   []byte{},
 		}
 		if !reflect.DeepEqual(gotSeg, wantSeg) {
+			tc.DumpState()
 			t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
 		}
+		if time.Since(start) < tc.KeepAliveInterval {
+			tc.DumpState()
+			t.Fatalf("keep alive came too early")
+		}
 	}
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTC(t, tc, 1, StateEstablished, 1, 0, 0, nil, nil)
 	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
@@ -568,7 +617,6 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 
 	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
 	checkTCError(t, tc, 1, 0, 0, 0)
-	// TODO FIXME: fix this one first
 }
 
 func TestTransmissionControl_PeerHandshake(t *testing.T) {
@@ -623,7 +671,6 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	checkTCError(t, leftTC, 1, 0, 0, 0)
 	checkTC(t, rightTC, 1, StateEstablished, 0, 0, 0, nil, nil)
 	checkTCError(t, rightTC, 1, 0, 0, 0)
-	// TODO FIXME: fix this one second
 }
 
 func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
@@ -654,12 +701,25 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 		RetransmissionInterval:  5 * time.Second,
 	}
 	rightTC.Start(context.Background())
+	t.Skip("TODO FIXME auto-ack segments at a short, regular interval")
 
-	for i := 0; i < 100; i++ {
-		n, err := leftTC.Write(bytes.Repeat([]byte{1, 2, 3}, 20))
-		if n != 60 {
-			t.Fatalf("left tc write n: %v, err: %v", n, err)
+	waitForState(t, leftTC, 1, StateEstablished)
+	waitForState(t, rightTC, 1, StateEstablished)
+
+	go func() {
+		for i := byte(0); i < 255; i++ {
+			n, err := leftTC.Write([]byte{i, i, i})
+			if n != 3 {
+				log.Panicf("left tc write n: %v, err: %v", n, err)
+			}
+		}
+	}()
+
+	for i := byte(0); i < 255; i++ {
+		lalog.DefaultLogger.Info("", "", nil, "reading at %d", i)
+		got, err := readInput(context.Background(), rightTC, 3)
+		if err != nil || !reflect.DeepEqual(got, []byte{i, i, i}) {
+			t.Fatalf("i %d, err: %v, got: %v", i, err, got)
 		}
 	}
-	// TODO FIXME: complete this wip test case
 }
