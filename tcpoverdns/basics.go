@@ -21,10 +21,12 @@ const (
 type Flag uint16
 
 const (
-	FlagSyn       = Flag(1 << 0)
-	FlagAck       = Flag(1 << 1)
-	FlagEnd       = Flag(1 << 2)
-	FlagMalformed = Flag(1 << 3)
+	FlagHandshakeSyn = Flag(1 << 0)
+	FlagHandshakeAck = Flag(1 << 1)
+	FlagTerminate    = Flag(1 << 2)
+	FlagKeepAlive    = Flag(1 << 3)
+	FlagAckOnly      = Flag(1 << 3)
+	FlagMalformed    = Flag(1 << 4)
 )
 
 func (flag Flag) Has(f Flag) bool {

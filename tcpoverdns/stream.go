@@ -110,11 +110,15 @@ type TransmissionControl struct {
 	// handshake or data segment.
 	ongoingRetransmissions int
 
-	// inputTransportErrors is the number of consecutive IO errors that have
-	// occurred in the input transport so far.
+	// inputTransportErrors is the number of IO errors that have occurred when
+	// reading a segment from the input transport.
+	// The number is reset to 0 when a valid segment is read successfully from
+	// the transport.
 	inputTransportErrors int
-	// outputTransportErrors is the number of consecutive IO errors that have
-	// occurred in the output transport so far.
+	// outputTransportErrors is the number of IO errors that have occurred when
+	// writing a segment from the input transport.
+	// The number is reset to 0 when a valid segment is written succesfully to
+	// the transport.
 	outputTransportErrors int
 
 	// inputSeq is the sequence number of the latest byte read from the inbound
@@ -266,7 +270,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake syn has got no response after multiple attempts, closing.")
 						return
 					}
-					seg := Segment{Flags: FlagSyn}
+					seg := Segment{Flags: FlagHandshakeSyn}
 					if tc.Debug {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+v", instant.state, seg)
 					}
@@ -277,7 +281,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					tc.mutex.Unlock()
 				case StatePeerAck:
 					// Got ack, send SYN + ACK.
-					seg := Segment{Flags: FlagSyn | FlagAck}
+					seg := Segment{Flags: FlagHandshakeSyn | FlagHandshakeAck}
 					if tc.Debug {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake completed, sending syn+ack: %+v", seg)
 					}
@@ -304,7 +308,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						tc.Logger.Warning("drainOutputToTransport", "", nil, "handshake ack has got no response after multiple attempts, closing.")
 						return
 					}
-					seg := Segment{Flags: FlagAck}
+					seg := Segment{Flags: FlagHandshakeAck}
 					if tc.Debug {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake ack, state: %v, seg: %+v", instant.state, seg)
 					}
@@ -315,9 +319,11 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					tc.mutex.Unlock()
 				}
 			}
-		} else if tc.state == StateEstablished && time.Since(instant.lastInputAck) > tc.RetransmissionInterval && instant.inputAck < instant.outputSeq {
+		} else if instant.state == StateEstablished && time.Since(instant.lastInputAck) > instant.RetransmissionInterval && instant.inputAck < instant.outputSeq {
 			// Re-transmit the segments since the latest acknowledgement.
+			tc.mutex.Lock()
 			tc.ongoingRetransmissions++
+			tc.mutex.Unlock()
 			if tc.Debug {
 				tc.Logger.Warning("drainOutputToTransport", "", nil,
 					"re-transmitting, last input ack time: %+v, input ack: %+v, output seq: %+v, ongoing retransmissions: %v",
@@ -329,7 +335,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				}
 				return
 			}
-			tc.writeSegments(instant.inputAck, instant.outputBuf[:instant.outputSeq-instant.inputAck])
+			tc.writeSegments(instant.inputSeq, instant.inputAck, instant.outputBuf[:instant.outputSeq-instant.inputAck])
 			// Wait a short duration before the next transmission.
 			select {
 			case <-time.After(tc.SlidingWindowWaitDuration):
@@ -337,8 +343,38 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			case <-tc.context.Done():
 				return
 			}
-		} else if tc.state == StateEstablished && tc.inputAck < tc.outputSeq && tc.outputSeq-tc.inputAck >= tc.MaxSlidingWindow {
-			// Wait for a short duration and retry.
+		} else if time.Since(instant.lastInputAck) > tc.AckDelay && instant.lastAckOnlySeg.Before(instant.lastInputAck) && instant.inputSeq > 0 {
+			// Send a delayed ack segment.
+			emptySeg := Segment{
+				SeqNum: instant.outputSeq,
+				AckNum: instant.inputSeq,
+				Data:   []byte{},
+				Flags:  FlagAckOnly,
+			}
+			if tc.Debug {
+				tc.Logger.Info("drainOutputToTransport", "", nil, "sending delayed ack: %+v", emptySeg)
+			}
+			_ = tc.writeToOutputTransport(emptySeg)
+			tc.mutex.Lock()
+			tc.lastAckOnlySeg = time.Now()
+			tc.mutex.Unlock()
+		} else if time.Since(instant.lastAckOnlySeg) > tc.KeepAliveInterval {
+			// Send an empty segment for keep-alive.
+			emptySeg := Segment{
+				SeqNum: instant.outputSeq,
+				AckNum: instant.inputSeq,
+				Data:   []byte{},
+				Flags:  FlagKeepAlive,
+			}
+			if tc.Debug {
+				tc.Logger.Info("drainOutputToTransport", "", nil, "sending keep-alive: %+v", emptySeg)
+			}
+			_ = tc.writeToOutputTransport(emptySeg)
+			tc.mutex.Lock()
+			tc.lastAckOnlySeg = time.Now()
+			tc.mutex.Unlock()
+		} else if instant.state == StateEstablished && instant.inputAck < instant.outputSeq && instant.outputSeq-instant.inputAck >= instant.MaxSlidingWindow {
+			// Wait for a short duration and retry when sliding window is full.
 			if tc.Debug {
 				tc.Logger.Info("drainOutputToTransport", "", nil,
 					"wait due to saturated sliding window, output seq: %+v, input ack: %+v, max sliding window: %+v",
@@ -360,42 +396,12 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				toSend = toSend[:int(tc.MaxSlidingWindow)]
 			}
 			if len(toSend) == 0 {
-				if time.Since(instant.lastInputAck) > tc.AckDelay && instant.lastAckOnlySeg.Before(instant.lastInputAck) && instant.inputSeq > 0 {
-					// Send a delayed ack segment.
-					emptySeg := Segment{
-						SeqNum: instant.outputSeq,
-						AckNum: instant.inputSeq,
-						Data:   []byte{},
-					}
-					if tc.Debug {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "sending delayed ack: %+v", emptySeg)
-					}
-					_ = tc.writeToOutputTransport(emptySeg)
-					tc.mutex.Lock()
-					tc.lastAckOnlySeg = time.Now()
-					tc.mutex.Unlock()
-				} else if time.Since(instant.lastAckOnlySeg) > tc.KeepAliveInterval {
-					// Send an empty segment for keep-alive.
-					emptySeg := Segment{
-						SeqNum: instant.outputSeq,
-						AckNum: instant.inputSeq,
-						Data:   []byte{},
-					}
-					if tc.Debug {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "sending keep-alive: %+v", emptySeg)
-					}
-					_ = tc.writeToOutputTransport(emptySeg)
-					tc.mutex.Lock()
-					tc.lastAckOnlySeg = time.Now()
-					tc.mutex.Unlock()
-				} else {
-					// There is nothing to do.
-					select {
-					case <-time.After(BusyWaitInterval):
-						continue
-					case <-tc.context.Done():
-						return
-					}
+				// There is nothing to do.
+				select {
+				case <-time.After(BusyWaitInterval):
+					continue
+				case <-tc.context.Done():
+					return
 				}
 			} else {
 				// The segment data can be empty. An empty segment is for
@@ -403,7 +409,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				if tc.Debug {
 					tc.Logger.Info("drainOutputToTransport", "", nil, "sending segments totalling %d bytes: %+v", len(toSend), toSend)
 				}
-				written := tc.writeSegments(instant.outputSeq, toSend)
+				written := tc.writeSegments(instant.inputSeq, instant.outputSeq, toSend)
 				tc.mutex.Lock()
 				// Clear the retransmission counter if retransmission happened.
 				tc.ongoingRetransmissions = 0
@@ -415,7 +421,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 	}
 }
 
-func (tc *TransmissionControl) writeSegments(seqNum uint32, buf []byte) uint32 {
+func (tc *TransmissionControl) writeSegments(ackInputSeq, seqNum uint32, buf []byte) uint32 {
 	for i := 0; i < len(buf); i += tc.MaxSegmentLenExclHeader {
 		// Split the buffer into individual segments maximum
 		// MaxSegmentLenExclHeader bytes each.
@@ -425,7 +431,7 @@ func (tc *TransmissionControl) writeSegments(seqNum uint32, buf []byte) uint32 {
 		}
 		seg := Segment{
 			SeqNum: seqNum + uint32(i),
-			AckNum: tc.inputSeq,
+			AckNum: ackInputSeq,
 			Data:   thisSeg,
 		}
 		if tc.Debug {
@@ -515,7 +521,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 			if instant.Initiator {
 				if instant.state == StateEmpty {
 					// SYN was sent, expect ACK.
-					if seg.Flags == FlagAck {
+					if seg.Flags == FlagHandshakeAck {
 						if tc.Debug {
 							tc.Logger.Info("drainInputFromTransport", "", nil, "transition to StatePeerAck")
 						}
@@ -524,13 +530,16 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						tc.mutex.Unlock()
 					} else {
 						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting ack, got: %+v", seg)
+						tc.mutex.Lock()
+						tc.inputTransportErrors++
+						tc.mutex.Unlock()
 					}
 				}
 			} else {
 				switch instant.state {
 				case StateEmpty:
 					// Expect SYN.
-					if seg.Flags == FlagSyn {
+					if seg.Flags == FlagHandshakeSyn {
 						if tc.Debug {
 							tc.Logger.Info("drainInputFromTransport", "", nil, "transition to StateSynReceived")
 						}
@@ -539,10 +548,13 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						tc.mutex.Unlock()
 					} else {
 						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn, got: %+v", seg)
+						tc.mutex.Lock()
+						tc.inputTransportErrors++
+						tc.mutex.Unlock()
 					}
 				default:
 					// Expect SYN+ACK.
-					if seg.Flags == FlagSyn|FlagAck {
+					if seg.Flags == FlagHandshakeSyn|FlagHandshakeAck {
 						if tc.Debug {
 							tc.Logger.Info("drainInputFromTransport", "", nil, "transition to StateEstablished")
 						}
@@ -552,6 +564,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						tc.mutex.Unlock()
 					} else {
 						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn+ack, got: %+v", seg)
+						tc.mutex.Lock()
+						tc.inputTransportErrors++
+						tc.mutex.Unlock()
 					}
 				}
 			}
@@ -573,10 +588,12 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					tc.inputAck = seg.AckNum
 					tc.lastInputAck = time.Now()
 					tc.inputBuf = append(tc.inputBuf, seg.Data...)
+					tc.inputTransportErrors = 0
 				}
 			} else {
 				// This will be (hopefully) resolved by a retransmission.
 				tc.Logger.Warning("drainInputFromTransport", "", nil, "received out of sequence segment: %+v, input seq: %v", seg, tc.inputSeq)
+				tc.inputTransportErrors++
 			}
 			tc.mutex.Unlock()
 		}
@@ -639,12 +656,10 @@ func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 // then the transmission control will be closed.
 func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, totalLen int) ([]byte, error) {
 	n, err := readInput(ctx, tc.InputTransport, totalLen)
-	tc.mutex.Lock()
 	if err == nil {
-		tc.inputTransportErrors = 0
-		tc.mutex.Unlock()
 		return n, err
 	} else {
+		tc.mutex.Lock()
 		tc.inputTransportErrors++
 		gotErrs := tc.inputTransportErrors
 		tc.mutex.Unlock()
@@ -698,3 +713,9 @@ func readInput(ctx context.Context, in io.Reader, totalLen int) ([]byte, error) 
 	}
 	return buf, nil
 }
+
+/*
+TODO FIXME:
+- Let the peer know when TC is closing.
+- Count transport errors and close TC when reaching an error threshold.
+*/

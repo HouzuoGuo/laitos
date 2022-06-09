@@ -7,7 +7,7 @@ import (
 
 func TestSegment_Packet(t *testing.T) {
 	want := Segment{
-		Flags:  FlagAck & FlagSyn,
+		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
 		SeqNum: 1,
 		AckNum: 2,
 		Data:   []byte{1, 2, 3, 4},
@@ -32,8 +32,8 @@ func TestSegmentFromPacket(t *testing.T) {
 }
 
 func TestFlags(t *testing.T) {
-	allFlags := FlagSyn | FlagAck | FlagEnd
-	for _, flag := range []Flag{FlagSyn, FlagAck, FlagEnd} {
+	allFlags := FlagHandshakeSyn | FlagHandshakeAck | FlagTerminate
+	for _, flag := range []Flag{FlagHandshakeSyn, FlagHandshakeAck, FlagTerminate} {
 		if !allFlags.Has(flag) {
 			t.Fatalf("missing %d", flag)
 		}
