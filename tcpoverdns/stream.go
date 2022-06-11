@@ -335,7 +335,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				}
 				return
 			}
-			tc.writeSegments(instant.inputSeq, instant.inputAck, instant.outputBuf[:instant.outputSeq-instant.inputAck])
+			_ = tc.writeSegments(instant.inputSeq, instant.inputAck, instant.outputBuf[:instant.outputSeq-instant.inputAck], false)
 			// Wait a short duration before the next transmission.
 			select {
 			case <-time.After(tc.SlidingWindowWaitDuration):
@@ -409,19 +409,18 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				if tc.Debug {
 					tc.Logger.Info("drainOutputToTransport", "", nil, "sending segments totalling %d bytes: %+v", len(toSend), toSend)
 				}
-				written := tc.writeSegments(instant.inputSeq, instant.outputSeq, toSend)
+				_ = tc.writeSegments(instant.inputSeq, instant.outputSeq, toSend, true)
+				// Always clear the retransmission counter after a regular
+				// transmission.
 				tc.mutex.Lock()
-				// Clear the retransmission counter if retransmission happened.
 				tc.ongoingRetransmissions = 0
-				tc.outputSeq += written
-				tc.lastOutput = time.Now()
 				tc.mutex.Unlock()
 			}
 		}
 	}
 }
 
-func (tc *TransmissionControl) writeSegments(ackInputSeq, seqNum uint32, buf []byte) uint32 {
+func (tc *TransmissionControl) writeSegments(ackInputSeq, seqNum uint32, buf []byte, increaseOutputSeq bool) uint32 {
 	for i := 0; i < len(buf); i += tc.MaxSegmentLenExclHeader {
 		// Split the buffer into individual segments maximum
 		// MaxSegmentLenExclHeader bytes each.
@@ -438,7 +437,16 @@ func (tc *TransmissionControl) writeSegments(ackInputSeq, seqNum uint32, buf []b
 			tc.Logger.Info("writeSegments", "", nil, "writing to output transport: %+v", seg)
 		}
 		err := tc.writeToOutputTransport(seg)
-		if err != nil {
+		if err == nil {
+			if increaseOutputSeq {
+				// Increase the output sequence number with each successfully
+				// written segment.
+				tc.mutex.Lock()
+				tc.outputSeq += uint32(len(thisSeg))
+				tc.lastOutput = time.Now()
+				tc.mutex.Unlock()
+			}
+		} else {
 			return uint32(i)
 		}
 	}
@@ -578,9 +586,10 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 				if tc.Debug {
 					tc.Logger.Info("drainInputFromTransport", "", nil, "received seg %+v", seg)
 				}
-				if seg.AckNum > tc.outputSeq {
+				if seg.AckNum > tc.outputSeq || seg.AckNum < tc.inputAck {
 					// This will be (hopefully) resolved by a retransmission.
 					tc.Logger.Warning("drainInputFromTransport", "", nil, "segment has a bad ack number: %d, output seq: %d", seg.AckNum, tc.outputSeq)
+					tc.inputTransportErrors++
 				} else {
 					tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
 					// Pop the acknowledged bytes from the output buffer.

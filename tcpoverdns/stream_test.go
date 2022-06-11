@@ -729,6 +729,11 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 			t.Fatalf("left tc read, i: %d, err: %v, got: %v", i, err, got)
 		}
 	}
+
+	checkTC(t, leftTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
+	checkTCError(t, leftTC, 1, 0, 0, 0)
+	checkTC(t, rightTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
+	checkTCError(t, rightTC, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
@@ -812,4 +817,9 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 		}
 	}
 	// TODO FIXME: sequence number gets out of sync
+
+	checkTC(t, leftTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
+	checkTCError(t, leftTC, 1, 0, 0, 0)
+	checkTC(t, rightTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
+	checkTCError(t, rightTC, 1, 0, 0, 0)
 }
