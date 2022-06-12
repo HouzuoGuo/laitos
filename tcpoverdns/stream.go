@@ -583,14 +583,14 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 			// received. There is no selective acknowledgement going on here.
 			tc.mutex.Lock()
 			if tc.inputSeq == 0 || seg.SeqNum == tc.inputSeq {
-				if tc.Debug {
-					tc.Logger.Info("drainInputFromTransport", "", nil, "received seg %+v", seg)
-				}
 				if seg.AckNum > tc.outputSeq || seg.AckNum < tc.inputAck {
 					// This will be (hopefully) resolved by a retransmission.
-					tc.Logger.Warning("drainInputFromTransport", "", nil, "segment has a bad ack number: %d, output seq: %d", seg.AckNum, tc.outputSeq)
+					tc.Logger.Warning("drainInputFromTransport", "", nil, "received segment %+v with an out-of-range ack numbers, my output seq: %d", seg, tc.outputSeq)
 					tc.inputTransportErrors++
 				} else {
+					if tc.Debug {
+						tc.Logger.Info("drainInputFromTransport", "", nil, "received a good segment %+v", seg)
+					}
 					tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
 					// Pop the acknowledged bytes from the output buffer.
 					tc.outputBuf = tc.outputBuf[seg.AckNum-tc.inputAck:]
@@ -601,8 +601,20 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 				}
 			} else {
 				// This will be (hopefully) resolved by a retransmission.
-				tc.Logger.Warning("drainInputFromTransport", "", nil, "received out of sequence segment: %+v, input seq: %v", seg, tc.inputSeq)
+				tc.Logger.Warning("drainInputFromTransport", "", nil, "received out-of-sequence segment %+v, my input seq: %d", seg, tc.inputSeq)
 				tc.inputTransportErrors++
+				// In a special case, if the other TC is out of sync with the
+				// segment sequence number but still comes with a valid
+				// ack number, then make use of the ack number.
+				// This also helps to bring two TCs back in sync when they
+				// disagree on each other's ack number and seq number
+				// simultaneously.
+				if seg.AckNum <= tc.outputSeq && seg.AckNum > tc.inputAck {
+					tc.Logger.Warning("drainInputFromTransport", "", nil, "advancing input ack from %d to %d of the out-of-sequence segment", tc.inputAck, seg.AckNum)
+					tc.outputBuf = tc.outputBuf[seg.AckNum-tc.inputAck:]
+					tc.inputAck = seg.AckNum
+					tc.lastInputAck = time.Now()
+				}
 			}
 			tc.mutex.Unlock()
 		}

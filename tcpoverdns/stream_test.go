@@ -746,9 +746,6 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          leftInTransport,
 		OutputTransport:         rightIn,
-		ReadTimeout:             3 * time.Second,
-		WriteTimeout:            3 * time.Second,
-		RetransmissionInterval:  5 * time.Second,
 		Initiator:               true,
 	}
 	leftTC.Start(context.Background())
@@ -759,9 +756,6 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          rightInTransport,
 		OutputTransport:         leftIn,
-		ReadTimeout:             3 * time.Second,
-		WriteTimeout:            3 * time.Second,
-		RetransmissionInterval:  5 * time.Second,
 	}
 	rightTC.Start(context.Background())
 
@@ -769,8 +763,9 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	waitForState(t, rightTC, 1, StateEstablished)
 
 	errs := make(chan error, 4)
+	totalRounds := byte(255)
 	go func() {
-		for i := byte(0); i < 255; i++ {
+		for i := byte(0); i < totalRounds; i++ {
 			n, err := leftTC.Write([]byte{i, i, i})
 			if n != 3 {
 				errs <- fmt.Errorf("left tc write, i: %v, n: %v, err: %v", i, n, err)
@@ -781,7 +776,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	}()
 
 	go func() {
-		for i := byte(0); i < 255; i++ {
+		for i := byte(0); i < totalRounds; i++ {
 			got, err := readInput(context.Background(), leftTC, 3)
 			if err != nil || !reflect.DeepEqual(got, []byte{i, i, i}) {
 				errs <- fmt.Errorf("left tc read, i: %d, err: %v, got: %v", i, err, got)
@@ -791,7 +786,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	}()
 
 	go func() {
-		for i := byte(0); i < 255; i++ {
+		for i := byte(0); i < totalRounds; i++ {
 			n, err := rightTC.Write([]byte{i, i, i})
 			if n != 3 {
 				errs <- fmt.Errorf("right tc write, i:%v, n: %v, err: %v", i, n, err)
@@ -801,7 +796,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	}()
 
 	go func() {
-		for i := byte(0); i < 255; i++ {
+		for i := byte(0); i < totalRounds; i++ {
 			got, err := readInput(context.Background(), rightTC, 3)
 			if err != nil || !reflect.DeepEqual(got, []byte{i, i, i}) {
 				errs <- fmt.Errorf("right tc read, i: %d, err: %v, got: %v", i, err, got)
@@ -816,10 +811,8 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// TODO FIXME: sequence number gets out of sync
-
-	checkTC(t, leftTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
-	checkTCError(t, leftTC, 1, 0, 0, 0)
-	checkTC(t, rightTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
-	checkTCError(t, rightTC, 1, 0, 0, 0)
+	checkTC(t, leftTC, 10, StateEstablished, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
+	checkTCError(t, leftTC, 10, 0, 0, 0)
+	checkTC(t, rightTC, 10, StateEstablished, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
+	checkTCError(t, rightTC, 10, 0, 0, 0)
 }
