@@ -32,13 +32,13 @@ func TestSegmentFromPacket(t *testing.T) {
 }
 
 func TestFlags(t *testing.T) {
-	allFlags := FlagHandshakeSyn | FlagHandshakeAck | FlagTerminate
-	for _, flag := range []Flag{FlagHandshakeSyn, FlagHandshakeAck, FlagTerminate} {
+	allFlags := FlagHandshakeSyn | FlagHandshakeAck | FlagAckOnly | FlagKeepAlive | FlagReset | FlagMalformed
+	for _, flag := range []Flag{FlagHandshakeSyn, FlagHandshakeAck, FlagAckOnly, FlagKeepAlive, FlagReset, FlagMalformed} {
 		if !allFlags.Has(flag) {
 			t.Fatalf("missing %d", flag)
 		}
 	}
-	if allFlags.Has(1 << 4) {
+	if allFlags.Has(1 << 6) {
 		t.Fatalf("should not have had flag %d", 1<<4)
 	}
 }

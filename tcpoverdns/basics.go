@@ -10,8 +10,8 @@ const (
 	StateSynReceived = State(2)
 	StatePeerAck     = State(4)
 	StateEstablished = State(5)
-	// TODO: add FIN and perhaps FIN ACK.
-	StateClosed = State(100)
+	StatePeerClosed  = State(5)
+	StateClosed      = State(100)
 )
 
 // Flag is transmitted with each segment, it is the data type of an individual
@@ -23,10 +23,10 @@ type Flag uint16
 const (
 	FlagHandshakeSyn = Flag(1 << 0)
 	FlagHandshakeAck = Flag(1 << 1)
-	FlagTerminate    = Flag(1 << 2)
+	FlagAckOnly      = Flag(1 << 2)
 	FlagKeepAlive    = Flag(1 << 3)
-	FlagAckOnly      = Flag(1 << 3)
-	FlagMalformed    = Flag(1 << 4)
+	FlagReset        = Flag(1 << 4)
+	FlagMalformed    = Flag(1 << 5)
 )
 
 func (flag Flag) Has(f Flag) bool {

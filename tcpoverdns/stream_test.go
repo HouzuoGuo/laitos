@@ -672,6 +672,38 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	checkTCError(t, rightTC, 1, 0, 0, 0)
 }
 
+func TestTransmissionControl_Reset(t *testing.T) {
+	testIn, inTransport := net.Pipe()
+	testOut, outTransport := net.Pipe()
+	tc := &TransmissionControl{
+		Debug:           true,
+		InputTransport:  inTransport,
+		OutputTransport: outTransport,
+		state:           StateEstablished,
+	}
+	tc.Start(context.Background())
+	resetSeg := Segment{
+		Flags:  FlagReset,
+		SeqNum: 0,
+		AckNum: 0,
+		Data:   []byte{},
+	}
+	nWritten, err := testIn.Write(resetSeg.Packet())
+	if nWritten != SegmentHeaderLen || err != nil {
+		t.Fatalf("write n: %v, err: %+#v", nWritten, err)
+	}
+	segData, err := readInput(context.Background(), testOut, SegmentHeaderLen)
+	if err != nil {
+		t.Fatalf("read err: %+v", err)
+	}
+	gotSeg := SegmentFromPacket(segData)
+	if !reflect.DeepEqual(gotSeg, resetSeg) {
+		t.Fatalf("did not get a reset in return: %+v", gotSeg)
+	}
+	checkTC(t, tc, 1, StateClosed, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
+}
+
 func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 	leftIn, leftInTransport := net.Pipe()
 	rightIn, rightInTransport := net.Pipe()
@@ -731,9 +763,16 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 	}
 
 	checkTC(t, leftTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
-	checkTCError(t, leftTC, 1, 0, 0, 0)
+	checkTCError(t, leftTC, 2, 0, 0, 0)
 	checkTC(t, rightTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
-	checkTCError(t, rightTC, 1, 0, 0, 0)
+	checkTCError(t, rightTC, 2, 0, 0, 0)
+
+	// Close one peer and the other will close too.
+	rightTC.Close()
+	checkTC(t, leftTC, 2, StateClosed, 3*255, 3*255, 3*255, nil, nil)
+	checkTCError(t, leftTC, 2, 0, 0, 0)
+	checkTC(t, rightTC, 2, StateClosed, 3*255, 3*255, 3*255, nil, nil)
+	checkTCError(t, rightTC, 2, 0, 1, 0)
 }
 
 func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
@@ -815,4 +854,11 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	checkTCError(t, leftTC, 10, 0, 0, 0)
 	checkTC(t, rightTC, 10, StateEstablished, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
 	checkTCError(t, rightTC, 10, 0, 0, 0)
+
+	// Close one peer and the other will close too.
+	leftTC.Close()
+	checkTC(t, leftTC, 2, StateClosed, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
+	checkTCError(t, leftTC, 2, 0, 1, 0)
+	checkTC(t, rightTC, 2, StateClosed, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
+	checkTCError(t, rightTC, 2, 0, 0, 0)
 }

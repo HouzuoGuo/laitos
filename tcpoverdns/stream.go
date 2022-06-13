@@ -138,6 +138,9 @@ type TransmissionControl struct {
 }
 
 func (tc *TransmissionControl) Start(ctx context.Context) {
+	if tc.state == StateClosed {
+		panic("caller may not restart an already closed transmission control")
+	}
 	// Give parameters a default value.
 	if tc.MaxSegmentLenExclHeader == 0 {
 		tc.MaxSegmentLenExclHeader = 256
@@ -386,7 +389,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			case <-tc.context.Done():
 				return
 			}
-		} else if tc.state == StateEstablished {
+		} else if instant.state == StateEstablished {
 			// Send output segments starting with the latest sequence number.
 			var toSend []byte
 			if next := instant.outputSeq - instant.inputAck; int(next) < len(instant.outputBuf) {
@@ -579,10 +582,15 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 				}
 			}
 		} else {
-			// Ensure the new segment is consecutive to the ones already
-			// received. There is no selective acknowledgement going on here.
-			tc.mutex.Lock()
-			if tc.inputSeq == 0 || seg.SeqNum == tc.inputSeq {
+			if seg.Flags.Has(FlagReset) {
+				if tc.Debug {
+					tc.Logger.Info("drainInputFromTransport", "", nil, "received a reset segment %+v", seg)
+				}
+				tc.Close()
+			} else if tc.inputSeq == 0 || seg.SeqNum == tc.inputSeq {
+				// Ensure the new segment is consecutive to the ones already
+				// received. There is no selective acknowledgement going on here.
+				tc.mutex.Lock()
 				if seg.AckNum > tc.outputSeq || seg.AckNum < tc.inputAck {
 					// This will be (hopefully) resolved by a retransmission.
 					tc.Logger.Warning("drainInputFromTransport", "", nil, "received segment %+v with an out-of-range ack numbers, my output seq: %d", seg, tc.outputSeq)
@@ -599,7 +607,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					tc.inputBuf = append(tc.inputBuf, seg.Data...)
 					tc.inputTransportErrors = 0
 				}
+				tc.mutex.Unlock()
 			} else {
+				tc.mutex.Lock()
 				// This will be (hopefully) resolved by a retransmission.
 				tc.Logger.Warning("drainInputFromTransport", "", nil, "received out-of-sequence segment %+v, my input seq: %d", seg, tc.inputSeq)
 				tc.inputTransportErrors++
@@ -615,8 +625,8 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					tc.inputAck = seg.AckNum
 					tc.lastInputAck = time.Now()
 				}
+				tc.mutex.Unlock()
 			}
-			tc.mutex.Unlock()
 		}
 		segDataCtxCancel()
 	}
@@ -692,7 +702,7 @@ func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, total
 	}
 }
 
-// Close terminates ongoing IO activities and terminates the stream.
+// Close terminates both directions of the transmission control connection.
 func (tc *TransmissionControl) Close() {
 	tc.mutex.Lock()
 	if tc.state == StateClosed {
@@ -705,6 +715,17 @@ func (tc *TransmissionControl) Close() {
 	tc.state = StateClosed
 	tc.mutex.Unlock()
 	tc.cancelFun()
+	// Both input and output loops have quit at this point.
+	// Send an RST segment to the peer.
+	if err := tc.writeToOutputTransport(Segment{
+		Flags:  FlagReset,
+		SeqNum: tc.outputSeq,
+		AckNum: tc.inputSeq,
+		Data:   []byte{},
+	}); err != nil {
+		tc.Logger.Info("Close", "", err, "failed to write reset segment")
+		// There's nothing more for this TC to do.
+	}
 }
 
 // readInput reads from transmission control's input transport for a total
@@ -734,9 +755,3 @@ func readInput(ctx context.Context, in io.Reader, totalLen int) ([]byte, error) 
 	}
 	return buf, nil
 }
-
-/*
-TODO FIXME:
-- Let the peer know when TC is closing.
-- Count transport errors and close TC when reaching an error threshold.
-*/
