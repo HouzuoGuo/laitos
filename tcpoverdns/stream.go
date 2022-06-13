@@ -35,9 +35,9 @@ type TransmissionControl struct {
 	io.ReadCloser
 	io.WriteCloser
 
-	// ID is a unique identifier of the transport control, it is primarily used
-	// for logging.
-	ID string
+	// ID is a file descriptor-like number that identifies all outgoing segments
+	// as well as used for logging.
+	ID uint16
 	// Debug enables/disables verbose logging for IO activities.
 	Debug bool
 	// Logger is used to log IO activities when verbose logging is enabled.
@@ -273,7 +273,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake syn has got no response after multiple attempts, closing.")
 						return
 					}
-					seg := Segment{Flags: FlagHandshakeSyn}
+					seg := Segment{ID: tc.ID, Flags: FlagHandshakeSyn}
 					if tc.Debug {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+v", instant.state, seg)
 					}
@@ -284,7 +284,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					tc.mutex.Unlock()
 				case StatePeerAck:
 					// Got ack, send SYN + ACK.
-					seg := Segment{Flags: FlagHandshakeSyn | FlagHandshakeAck}
+					seg := Segment{ID: tc.ID, Flags: FlagHandshakeSyn | FlagHandshakeAck}
 					if tc.Debug {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake completed, sending syn+ack: %+v", seg)
 					}
@@ -311,7 +311,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						tc.Logger.Warning("drainOutputToTransport", "", nil, "handshake ack has got no response after multiple attempts, closing.")
 						return
 					}
-					seg := Segment{Flags: FlagHandshakeAck}
+					seg := Segment{ID: tc.ID, Flags: FlagHandshakeAck}
 					if tc.Debug {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake ack, state: %v, seg: %+v", instant.state, seg)
 					}
@@ -349,6 +349,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 		} else if time.Since(instant.lastInputAck) > tc.AckDelay && instant.lastAckOnlySeg.Before(instant.lastInputAck) && instant.inputSeq > 0 {
 			// Send a delayed ack segment.
 			emptySeg := Segment{
+				ID:     tc.ID,
 				SeqNum: instant.outputSeq,
 				AckNum: instant.inputSeq,
 				Data:   []byte{},
@@ -364,6 +365,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 		} else if time.Since(instant.lastAckOnlySeg) > tc.KeepAliveInterval {
 			// Send an empty segment for keep-alive.
 			emptySeg := Segment{
+				ID:     tc.ID,
 				SeqNum: instant.outputSeq,
 				AckNum: instant.inputSeq,
 				Data:   []byte{},
@@ -432,6 +434,7 @@ func (tc *TransmissionControl) writeSegments(ackInputSeq, seqNum uint32, buf []b
 			thisSeg = thisSeg[:tc.MaxSegmentLenExclHeader]
 		}
 		seg := Segment{
+			ID:     tc.ID,
 			SeqNum: seqNum + uint32(i),
 			AckNum: ackInputSeq,
 			Data:   thisSeg,
@@ -718,6 +721,7 @@ func (tc *TransmissionControl) Close() {
 	// Both input and output loops have quit at this point.
 	// Send an RST segment to the peer.
 	if err := tc.writeToOutputTransport(Segment{
+		ID:     tc.ID,
 		Flags:  FlagReset,
 		SeqNum: tc.outputSeq,
 		AckNum: tc.inputSeq,

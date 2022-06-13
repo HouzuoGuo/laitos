@@ -35,7 +35,7 @@ func (flag Flag) Has(f Flag) bool {
 
 const (
 	// SegmentHeaderLen is the total length of a segment header.
-	SegmentHeaderLen = 12
+	SegmentHeaderLen = 14
 )
 
 // Segment is a unit of data transported by TransmissionControl. A stream of
@@ -45,7 +45,7 @@ type Segment struct {
 	// Flags is a bitmap of individual control bits that help the stream to
 	// transition between its states.
 	Flags Flag
-	// ID is a random number
+	// ID is the ID of the transmission control that constructed this segment.
 	ID uint16
 	// SeqNum is the sequence number of the first byte of data of the segment.
 	SeqNum uint32
@@ -57,11 +57,12 @@ type Segment struct {
 }
 
 func (seg *Segment) Packet() (ret []byte) {
-	ret = make([]byte, 2+4+4+2+len(seg.Data))
-	binary.BigEndian.PutUint16(ret[0:2], uint16(seg.Flags))
-	binary.BigEndian.PutUint32(ret[2:6], seg.SeqNum)
-	binary.BigEndian.PutUint32(ret[6:10], seg.AckNum)
-	binary.BigEndian.PutUint16(ret[10:12], uint16(len(seg.Data)))
+	ret = make([]byte, 2+2+4+4+2+len(seg.Data))
+	binary.BigEndian.PutUint16(ret[0:2], seg.ID)
+	binary.BigEndian.PutUint16(ret[2:4], uint16(seg.Flags))
+	binary.BigEndian.PutUint32(ret[4:8], seg.SeqNum)
+	binary.BigEndian.PutUint32(ret[8:12], seg.AckNum)
+	binary.BigEndian.PutUint16(ret[12:14], uint16(len(seg.Data)))
 	copy(ret[SegmentHeaderLen:], seg.Data)
 	return
 }
@@ -70,15 +71,17 @@ func SegmentFromPacket(packet []byte) Segment {
 	if len(packet) < SegmentHeaderLen {
 		return Segment{Flags: FlagMalformed}
 	}
-	flags := Flag(binary.BigEndian.Uint16(packet[0:2]))
-	seq := binary.BigEndian.Uint32(packet[2:6])
-	ack := binary.BigEndian.Uint32(packet[6:10])
-	length := binary.BigEndian.Uint16(packet[10:12])
+	id := binary.BigEndian.Uint16(packet[0:2])
+	flags := Flag(binary.BigEndian.Uint16(packet[2:4]))
+	seq := binary.BigEndian.Uint32(packet[4:8])
+	ack := binary.BigEndian.Uint32(packet[8:12])
+	length := binary.BigEndian.Uint16(packet[12:14])
 	if len(packet) < SegmentHeaderLen+int(length) {
 		return Segment{Flags: FlagMalformed}
 	}
 	data := packet[SegmentHeaderLen : SegmentHeaderLen+length]
 	return Segment{
+		ID:     id,
 		Flags:  flags,
 		SeqNum: seq,
 		AckNum: ack,

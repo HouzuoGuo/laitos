@@ -7,6 +7,7 @@ import (
 
 func TestSegment_Packet(t *testing.T) {
 	want := Segment{
+		ID:     123,
 		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
 		SeqNum: 1,
 		AckNum: 2,

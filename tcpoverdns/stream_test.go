@@ -125,6 +125,7 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
 		Debug:                   true,
+		ID:                      1111,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
@@ -157,10 +158,11 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
 		Debug:                   true,
-		state:                   StateEstablished,
+		ID:                      1111,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
+		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
 	var wantOutputBuf []byte
@@ -178,6 +180,7 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 		gotSeg := SegmentFromPacket(segData)
 		wantOutputBuf = append(wantOutputBuf, []byte{i, i, i}...)
 		wantSeg := Segment{
+			ID:     1111,
 			SeqNum: uint32(i) * 3,
 			AckNum: 0,
 			Data:   []byte{i, i, i},
@@ -205,6 +208,7 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	_, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
+		ID:                      1111,
 		Debug:                   true,
 		MaxSegmentLenExclHeader: 10,
 		InputTransport:          inTransport,
@@ -221,13 +225,14 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	}
 	// Read all at once, TC should have combined 5 bursts of data into a single
 	// segment after a short while.
-	time.Sleep(1 * time.Second)
+	time.Sleep(tc.AckDelay * 2)
 	segData, err := readInput(context.Background(), testOut, SegmentHeaderLen+10)
 	if err != nil {
 		t.Fatalf("read err: %+v", err)
 	}
 	gotSeg := SegmentFromPacket(segData)
 	wantSeg := Segment{
+		ID:     1111,
 		SeqNum: 0,
 		AckNum: 0,
 		Data:   []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4},
@@ -255,6 +260,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
+		ID:                      1111,
 		Debug:                   true,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
@@ -279,6 +285,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	}
 	gotSeg := SegmentFromPacket(segData)
 	wantSeg := Segment{
+		ID:     1111,
 		SeqNum: 0,
 		AckNum: 0,
 		Data:   []byte{1, 1, 1},
@@ -315,6 +322,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 		t.Logf("seg data: %+v", segData)
 		gotSeg := SegmentFromPacket(segData)
 		wantSeg := Segment{
+			ID:     1111,
 			SeqNum: 3,
 			AckNum: 0,
 			Data:   []byte{2, 2, 2},
@@ -333,6 +341,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t *testing.T) {
 	_, inTransport := net.Pipe()
 	tc := &TransmissionControl{
+		ID:                      1111,
 		Debug:                   true,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
@@ -368,6 +377,7 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
+		ID:                      1111,
 		Debug:                   true,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
@@ -407,6 +417,7 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 		t.Log("read at", i)
 		gotSeg := readSegment(t, testOut, tc.MaxSegmentLenExclHeader)
 		wantSeg := Segment{
+			ID:     1111,
 			SeqNum: uint32(i),
 			AckNum: 0,
 			Data:   []byte{i, i + 1, i + 2, i + 3, i + 4},
@@ -435,6 +446,7 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 	// Read the same segment.
 	gotSeg := readSegment(t, testOut, tc.MaxSegmentLenExclHeader)
 	wantSeg := Segment{
+		ID:     1111,
 		SeqNum: 20, // length of the first invocation of write
 		AckNum: 0,
 		Data:   []byte{31, 32, 33, 34, 35},
@@ -451,6 +463,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
+		ID:                        1111,
 		Debug:                     true,
 		MaxSegmentLenExclHeader:   5,
 		InputTransport:            inTransport,
@@ -473,6 +486,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 	gotSeg := readSegment(t, testOut, 0)
 	lalog.DefaultLogger.Info("", "", nil, "test got the first keep-alive")
 	wantSeg := Segment{
+		ID:     1111,
 		SeqNum: 0,
 		AckNum: 0,
 		Data:   []byte{},
@@ -498,6 +512,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 	lalog.DefaultLogger.Info("", "", nil, "test expects a delayed ack")
 	gotSeg = readSegment(t, testOut, 0)
 	wantSeg = Segment{
+		ID:     1111,
 		SeqNum: 0,
 		AckNum: 1,
 		Data:   []byte{},
@@ -518,6 +533,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 		lalog.DefaultLogger.Info("", "", nil, "test expects a keep-alive")
 		gotSeg := readSegment(t, testOut, 0)
 		wantSeg := Segment{
+			ID:     1111,
 			SeqNum: 0,
 			AckNum: 1,
 			Data:   []byte{},
@@ -540,6 +556,7 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
+		ID:                      1111,
 		Debug:                   true,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
@@ -555,7 +572,7 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		lalog.DefaultLogger.Info("", "", nil, "test expects syn")
 		syn := readSegment(t, testOut, 0)
-		if !reflect.DeepEqual(syn, Segment{Flags: FlagHandshakeSyn, Data: []byte{}}) {
+		if !reflect.DeepEqual(syn, Segment{ID: 1111, Flags: FlagHandshakeSyn, Data: []byte{}}) {
 			t.Fatalf("incorrect syn seg: %+v", syn)
 		}
 	}
@@ -572,7 +589,7 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	// Expect SYN+ACK and expect state transition.
 	lalog.DefaultLogger.Info("", "", nil, "test expects syn+ack")
 	synAck := readSegment(t, testOut, 0)
-	if !reflect.DeepEqual(synAck, Segment{Flags: FlagHandshakeSyn | FlagHandshakeAck, Data: []byte{}}) {
+	if !reflect.DeepEqual(synAck, Segment{ID: 1111, Flags: FlagHandshakeSyn | FlagHandshakeAck, Data: []byte{}}) {
 		t.Fatalf("incorrect syn seg: %+v", synAck)
 	}
 	waitForState(t, tc, 10, StateEstablished)
@@ -585,6 +602,7 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
+		ID:                      1111,
 		Debug:                   true,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
@@ -608,7 +626,7 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		lalog.DefaultLogger.Info("", "", nil, "test expects ack")
 		ack := readSegment(t, testOut, 0)
-		if !reflect.DeepEqual(ack, Segment{Flags: FlagHandshakeAck, Data: []byte{}}) {
+		if !reflect.DeepEqual(ack, Segment{ID: 1111, Flags: FlagHandshakeAck, Data: []byte{}}) {
 			t.Fatalf("incorrect ack seg: %+v", ack)
 		}
 	}
@@ -633,7 +651,7 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 
 	leftTC := &TransmissionControl{
 		Debug:           true,
-		ID:              "LEFT",
+		ID:              1111,
 		InputTransport:  leftInTransport,
 		OutputTransport: rightIn,
 		Initiator:       true,
@@ -645,7 +663,7 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 
 	rightTC := &TransmissionControl{
 		Debug:           true,
-		ID:              "RIGHT",
+		ID:              2222,
 		InputTransport:  rightInTransport,
 		OutputTransport: leftIn,
 	}
@@ -676,12 +694,14 @@ func TestTransmissionControl_Reset(t *testing.T) {
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
+		ID:              1111,
 		Debug:           true,
 		InputTransport:  inTransport,
 		OutputTransport: outTransport,
 		state:           StateEstablished,
 	}
 	tc.Start(context.Background())
+	// Send a segment to reset the TC.
 	resetSeg := Segment{
 		Flags:  FlagReset,
 		SeqNum: 0,
@@ -692,10 +712,12 @@ func TestTransmissionControl_Reset(t *testing.T) {
 	if nWritten != SegmentHeaderLen || err != nil {
 		t.Fatalf("write n: %v, err: %+#v", nWritten, err)
 	}
+	// Expect the TC to transmit an outbound reset segment before closing.
 	segData, err := readInput(context.Background(), testOut, SegmentHeaderLen)
 	if err != nil {
 		t.Fatalf("read err: %+v", err)
 	}
+	resetSeg.ID = 1111
 	gotSeg := SegmentFromPacket(segData)
 	if !reflect.DeepEqual(gotSeg, resetSeg) {
 		t.Fatalf("did not get a reset in return: %+v", gotSeg)
@@ -710,7 +732,7 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 
 	leftTC := &TransmissionControl{
 		Debug:                   true,
-		ID:                      "LEFT",
+		ID:                      1111,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          leftInTransport,
 		OutputTransport:         rightIn,
@@ -720,7 +742,7 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 
 	rightTC := &TransmissionControl{
 		Debug:                   true,
-		ID:                      "RIGHT",
+		ID:                      2222,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          rightInTransport,
 		OutputTransport:         leftIn,
@@ -781,7 +803,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 
 	leftTC := &TransmissionControl{
 		Debug:                   true,
-		ID:                      "LEFT",
+		ID:                      1111,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          leftInTransport,
 		OutputTransport:         rightIn,
@@ -791,7 +813,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 
 	rightTC := &TransmissionControl{
 		Debug:                   true,
-		ID:                      "RIGHT",
+		ID:                      2222,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          rightInTransport,
 		OutputTransport:         leftIn,
