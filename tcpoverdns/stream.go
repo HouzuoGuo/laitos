@@ -590,6 +590,13 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					tc.Logger.Info("drainInputFromTransport", "", nil, "received a reset segment %+v", seg)
 				}
 				tc.Close()
+			} else if seg.Flags.Has(FlagHandshakeSyn) || seg.Flags.Has(FlagHandshakeAck) {
+				if tc.Debug {
+					tc.Logger.Info("drainInputFromTransport", "", nil, "ignored a handshake segments %+v after handshake is already over", seg)
+				}
+				tc.mutex.Lock()
+				tc.inputTransportErrors++
+				tc.mutex.Unlock()
 			} else if tc.inputSeq == 0 || seg.SeqNum == tc.inputSeq {
 				// Ensure the new segment is consecutive to the ones already
 				// received. There is no selective acknowledgement going on here.

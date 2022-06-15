@@ -596,6 +596,15 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 
 	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
 	checkTCError(t, tc, 1, 0, 0, 0)
+
+	// Further SYN or SYN+ACK segments will not alter TC's state.
+	unexpectedSeg := Segment{Flags: FlagHandshakeSyn | FlagHandshakeAck}
+	_, err = testIn.Write(unexpectedSeg.Packet())
+	if err != nil {
+		t.Fatalf("write err: %+v", err)
+	}
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 1, 0) // the error is for the unexpected segment.
 }
 
 func TestTransmissionControl_ResponderHandshake(t *testing.T) {
