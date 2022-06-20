@@ -11,27 +11,23 @@ func TestDecodeDTMFCommandInput(t *testing.T) {
 	}{
 		{nil, ""},
 		{[]string{"_"}, ""},
-		{[]string{"_11"}, ""},
-		{[]string{"example", "com"}, ""},
-		{[]string{"_", "example", "com"}, ""},
+		{[]string{"_11"}, "1"},
 		// Decode DTMF spaces
-		{[]string{"_0", "example", "com"}, " "},
-		{[]string{"_0abc", "example", "com"}, " abc"},
+		{[]string{"_0"}, " "},
+		{[]string{"_0abc"}, " abc"},
 		// Decode DTMF numbers
-		{[]string{"_a1b2", "example", "com"}, "a0ba"},
-		{[]string{"_a1b2c", "example", "com"}, "a0bac"},
-		{[]string{"_0a2", "example", "com"}, " aa"},
-		{[]string{"_101010", "example", "com"}, "000"},
+		{[]string{"_a1b2"}, "a0ba"},
+		{[]string{"_a1b2c"}, "a0bac"},
+		{[]string{"_0a2"}, " aa"},
+		{[]string{"_101010"}, "000"},
 		// Decode from multiple labels
-		{[]string{"_abc", "def", "example", "com"}, "abcdef"},
-		{[]string{"_", "abc", "example", "com"}, "abc"},
-		{[]string{"_", "11a", "12b", "13c", "example", "com"}, "1a2b3c"},
-		// Decode with an empty tail label
-		{[]string{"_0abc", "example", "com", ""}, " abc"},
+		{[]string{"_abc", "def"}, "abcdef"},
+		{[]string{"_", "abc"}, "abc"},
+		{[]string{"_", "11a", "12b", "13c"}, "1a2b3c"},
 	}
 	for _, test := range tests {
 		if got := DecodeDTMFCommandInput(test.labels); got != test.want {
-			t.Fatalf("Labels: %v, decoded: %s, expected: %s", test.labels, got, test.want)
+			t.Errorf("Labels: %v, decoded: %s, expected: %s", test.labels, got, test.want)
 		}
 	}
 }
