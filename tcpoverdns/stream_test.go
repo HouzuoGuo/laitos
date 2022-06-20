@@ -225,7 +225,7 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	}
 	// Read all at once, TC should have combined 5 bursts of data into a single
 	// segment after a short while.
-	time.Sleep(tc.AckDelay * 2)
+	checkTC(t, tc, 3, StateEstablished, 0, 0, 0, nil, []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4})
 	segData, err := readInput(context.Background(), testOut, SegmentHeaderLen+10)
 	if err != nil {
 		t.Fatalf("read err: %+v", err)
@@ -242,7 +242,7 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	}
 	// Wait for output sequence number to catch up and verify output buffer.
 	// In the absence of ack, the data remains in the buffer.
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 10, nil, []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4})
+	checkTC(t, tc, 3, StateEstablished, 0, 0, 10, nil, []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4})
 
 	// There should not be anything else coming out.
 	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
