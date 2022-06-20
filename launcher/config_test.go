@@ -33,7 +33,7 @@ var sampleConfigJSON = `
     "AllowQueryFromCidrs": [
       "192.0.0.0/8"
     ],
-    MyDomainNames: ["example.com"],
+    "MyDomainNames": ["example.com"],
     "PerIPLimit": 40,
     "TCPPort": 45115,
     "UDPPort": 23518
