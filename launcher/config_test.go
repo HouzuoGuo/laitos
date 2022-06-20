@@ -30,9 +30,10 @@ var sampleConfigJSON = `
   },
   "DNSDaemon": {
     "Address": "127.0.0.1",
-    "AllowQueryIPPrefixes": [
-      "192"
+    "AllowQueryFromCidrs": [
+      "192.0.0.0/8"
     ],
+    MyDomainNames: ["example.com"],
     "PerIPLimit": 40,
     "TCPPort": 45115,
     "UDPPort": 23518

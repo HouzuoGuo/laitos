@@ -4,11 +4,9 @@ import (
 	"context"
 	"math/rand"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/toolbox"
 	"golang.org/x/net/dns/dnsmessage"
 
 	"github.com/HouzuoGuo/laitos/misc"
@@ -66,37 +64,26 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, head
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	labels := strings.Split(name, ".")
+	labels, isRecursive := daemon.queryLabels(name)
+	if isRecursive {
+		return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+	}
 	if dtmfDecoded := DecodeDTMFCommandInput(labels); len(dtmfDecoded) > 1 {
 		cmdResult := daemon.latestCommands.Execute(context.Background(), daemon.Processor, clientIP, dtmfDecoded)
-		if cmdResult.Error == toolbox.ErrPINAndShortcutNotFound {
-			// Because the prefix may appear in an ordinary text record query
-			// that is not a toolbox command, when there is a PIN mismatch,
-			// forward to recursive resolver as if the query is indeed not a
-			// toolbox command.
-			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "the queried name has the command prefix but failed PIN check, forwarding to recursive resolver.")
-			goto forwardToRecursiveResolver
-		} else {
-			var err error
-			daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "processed a toolbox command")
-			// Try to fit the response into a single TXT entry.
-			// Keep in mind that by convention DNS uses 512 bytes as the overall
-			// message size limit - including both question and response.
-			// Leave some buffer room for the DNS headers.
-			respBody, err = BuildTextResponse(name, header, question, misc.SplitIntoSlice(cmdResult.CombinedOutput, 200, 200))
-			if err != nil {
-				daemon.logger.Warning("handleUDPTextQuery", clientIP, err, "failed to build response packet")
-				return nil
-			}
-			return respBody
+		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "executed a toolbox command")
+		// Try to fit the response into a single TXT entry.
+		// Keep in mind that by convention DNS uses 512 bytes as the overall
+		// message size limit - including both question and response.
+		// Leave some buffer room for the DNS headers.
+		var err error
+		respBody, err = BuildTextResponse(name, header, question, misc.SplitIntoSlice(cmdResult.CombinedOutput, 200, 200))
+		if err != nil {
+			daemon.logger.Warning("handleUDPTextQuery", clientIP, err, "failed to build response packet")
 		}
 	} else {
-		daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "handle TXT query %q", name)
+		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
 	}
-forwardToRecursiveResolver:
-	// Because the password PIN in the query may contain a typo, make sure this
-	// function does not incidentally log the query name.
-	return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+	return
 }
 
 func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
@@ -130,7 +117,7 @@ therefore this function must not log the input packet content in any way.
 */
 func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte) (respBody []byte) {
 	respBody = make([]byte, 0)
-	if !daemon.checkAllowClientIP(clientIP) {
+	if !daemon.isRecursiveQueryAllowed(clientIP) {
 		daemon.logger.Info("handleUDPRecursiveQuery", clientIP, nil, "client IP is not allowed to query")
 		return
 	}

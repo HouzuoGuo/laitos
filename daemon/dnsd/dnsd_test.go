@@ -17,7 +17,7 @@ func TestUpdateBlackList(t *testing.T) {
 	daemon.Address = "127.0.0.1"
 	daemon.UDPPort = 33111
 	daemon.PerIPLimit = 5
-	daemon.AllowQueryIPPrefixes = []string{"192."}
+	daemon.AllowQueryFromCidrs = []string{"192."}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
@@ -36,34 +36,34 @@ func TestUpdateBlackList(t *testing.T) {
 }
 
 func TestCheckAllowClientIP(t *testing.T) {
-	daemon := Daemon{AllowQueryIPPrefixes: []string{"192.", "100."}}
+	daemon := Daemon{AllowQueryFromCidrs: []string{"192.0.0.0/8", "100.0.0.0/8"}}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
 	// Allowed by tags (client IPs) seen by store&forward message processor
 	for _, client := range []string{"123.0.0.1", "123.0.0.2", "123.0.0.3"} {
 		daemon.Processor.Features.MessageProcessor.StoreReport(context.Background(), toolbox.SubjectReportRequest{SubjectHostName: "dummy"}, client, "dummy")
-		if !daemon.checkAllowClientIP(client) {
+		if !daemon.isRecursiveQueryAllowed(client) {
 			t.Fatal("should have allowed", client)
 		}
 	}
 
 	// Allowed by fast track
 	for _, client := range []string{"127.0.0.1", "::1", "127.0.100.1", inet.GetPublicIP()} {
-		if !daemon.checkAllowClientIP(client) {
+		if !daemon.isRecursiveQueryAllowed(client) {
 			t.Fatal("should have allowed", client)
 		}
 	}
 	// Allowed by configured prefixes
 	for _, client := range []string{"192.168.1.1", "100.1.1.1"} {
-		if !daemon.checkAllowClientIP(client) {
+		if !daemon.isRecursiveQueryAllowed(client) {
 			t.Fatal("should have allowed", client)
 		}
 	}
 
 	// Blocked
 	for _, client := range []string{"172.16.0.1", "193.0.0.1", "101.0.0.1", "128.0.0.1", "1.1.1.2", "0.0.0.0", "123.0.0.5"} {
-		if daemon.checkAllowClientIP(client) {
+		if daemon.isRecursiveQueryAllowed(client) {
 			t.Fatal("should have blocked", client)
 		}
 	}
@@ -82,23 +82,26 @@ func TestEmtpyDNSD(t *testing.T) {
 	}
 }
 
-func TestDNSD(t *testing.T) {
-	daemon := Daemon{AllowQueryIPPrefixes: []string{"192.", ""}}
-	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "may not contain empty string") {
+func TestDaemon_Initialise(t *testing.T) {
+	daemon := Daemon{AllowQueryFromCidrs: []string{"192.0.0.0/8", ""}, MyDomainNames: []string{"example.com"}}
+	// Initialise with bad CIDR.
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "failed to parse") {
 		t.Fatal(err)
 	}
-	daemon.AllowQueryIPPrefixes = nil
+	// Fix CIDR.
+	daemon.AllowQueryFromCidrs = nil
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if len(daemon.AllowQueryIPPrefixes) != 0 {
-		t.Fatal(daemon.AllowQueryIPPrefixes)
+	if len(daemon.allowQueryFromCidrNets) != 0 {
+		t.Fatal(daemon.allowQueryFromCidrNets)
 	}
-	// Must not initialise if command processor is not sane
+	// Initialise with a misconfigured command processor.
 	daemon.Processor = toolbox.GetInsaneCommandProcessor()
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), toolbox.ErrBadProcessorConfig) {
-		t.Fatal("did not error due to insane CommandProcessor")
+		t.Fatal(err)
 	}
+	// Fix command processor.
 	daemon.Processor = toolbox.GetTestCommandProcessor()
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
@@ -107,11 +110,21 @@ func TestDNSD(t *testing.T) {
 	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 48 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
 		t.Fatalf("%+v", daemon)
 	}
+}
+
+func TestDNSD(t *testing.T) {
+	daemon := Daemon{
+		Address:       "127.0.0.1",
+		UDPPort:       62151,
+		TCPPort:       18519,
+		PerIPLimit:    100, // must be sufficient for test case
+		MyDomainNames: []string{"example.com"},
+	}
+	daemon.Processor = toolbox.GetTestCommandProcessor()
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	// Prepare settings for test
-	daemon.Address = "127.0.0.1"
-	daemon.UDPPort = 62151
-	daemon.TCPPort = 18519
-	daemon.PerIPLimit = 100 // must be sufficient for test case
 	// Non-functioning forwarders should not abort initialisation or fail the daemon operation
 	daemon.Forwarders = append(daemon.Forwarders, "does-not-exist:53", "also-does-not-exist:12")
 	if err := daemon.Initialise(); err != nil {
@@ -148,6 +161,53 @@ func TestDefaultForwarders(t *testing.T) {
 					t.Fatalf("resolver %q did not resolve %s to an address", forwarderAddr, name)
 				}
 			}
+		}
+	}
+}
+
+func TestDaemon_queryLabels(t *testing.T) {
+	daemon := Daemon{
+		MyDomainNames: []string{"a.com", "b.net."},
+	}
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(daemon.MyDomainNames, []string{".a.com", ".b.net"}) {
+		t.Fatal(daemon.MyDomainNames)
+	}
+	var tests = []struct {
+		name            string
+		wantLabels      []string
+		wantIsRecursive bool
+	}{
+		{
+			name:            "",
+			wantLabels:      []string{},
+			wantIsRecursive: false,
+		},
+		{
+			name:            "haha.example.com",
+			wantLabels:      []string{"haha", "example", "com"},
+			wantIsRecursive: true,
+		},
+		{
+			name:            "a.b.a.com",
+			wantLabels:      []string{"a", "b"},
+			wantIsRecursive: false,
+		},
+		{
+			name:            "c.d.b.net.",
+			wantLabels:      []string{"c", "d"},
+			wantIsRecursive: false,
+		},
+	}
+	for _, test := range tests {
+		gotLabels, gotRecursive := daemon.queryLabels(test.name)
+		if !reflect.DeepEqual(gotLabels, test.wantLabels) {
+			t.Errorf("got labels: %+#v, want: %+#v", gotLabels, test.wantLabels)
+		}
+		if gotRecursive != test.wantIsRecursive {
+			t.Errorf("got recursive: %v, want: %v", gotRecursive, test.wantIsRecursive)
 		}
 	}
 }

@@ -2,7 +2,6 @@ package dnsd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -82,11 +81,24 @@ type TCPForwarderQuery struct {
 
 // A DNS forwarder daemon that selectively refuse to answer certain A record requests made against advertisement servers.
 type Daemon struct {
-	Address              string                    `json:"Address"`              // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
-	AllowQueryIPPrefixes []string                  `json:"AllowQueryIPPrefixes"` // AllowQueryIPPrefixes are the string prefixes in IPv4 and IPv6 client addresses that are allowed to query the DNS server.
-	PerIPLimit           int                       `json:"PerIPLimit"`           // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
-	Forwarders           []string                  `json:"Forwarders"`           // DefaultForwarders are recursive DNS resolvers that will resolve name queries. They must support both TCP and UDP.
-	Processor            *toolbox.CommandProcessor `json:"-"`                    // Processor enables TXT queries to execute toolbox command
+	Address string `json:"Address"` // Network address for both TCP and UDP to listen to, e.g. 0.0.0.0 for all network interfaces.
+	// AllowQueryFromCidrs are the network address blocks (both IPv4 and IPv6)
+	// from which clients may send recursive queries.
+	// Queries that are directed at DNS server's own domain names
+	// (MyDomainNames) are not restricted by this list.
+	AllowQueryFromCidrs []string `json:"AllowQueryFromCidrs"`
+	PerIPLimit          int      `json:"PerIPLimit"` // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
+	// Forwarders are recursive DNS resolvers for all query types. All resolvers
+	// must support both TCP and UDP.
+	Forwarders []string `json:"Forwarders"`
+	// Processor enables execution of toolbox commands via DNS TXT queries when
+	// the queries are directed at the server's own domain name(s).
+	Processor *toolbox.CommandProcessor `json:"-"`
+	// MyDomainNames is the list of domain names that belong to the DNS server
+	// itself. The list is used to determine whether an incoming query shall be
+	// handled as recursive queries to forwarders, or handled internally as
+	// as toolbox commands and TCP-over-DNS packet segments.
+	MyDomainNames []string `json:"MyDomainNames"`
 
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
@@ -94,18 +106,19 @@ type Daemon struct {
 	tcpServer *common.TCPServer
 	udpServer *common.UDPServer
 
+	allowQueryFromCidrNets []*net.IPNet
+
 	/*
 		blackList is a map of domain names (in lower case) and their resolved IP addresses that should be blocked. In
 		the context of DNS, queries made against the domain names will be answered 0.0.0.0 (black hole).
 		The DNS daemon itself isn't too concerned with the IP address, however, this black list serves as a valuable
 		input for blocking IP address access in sockd.
 	*/
-	blackList map[string]struct{}
-
-	myPublicIP           string          // myPublicIP is the latest public IP address of the laitos server.
-	blackListMutex       *sync.RWMutex   // Protect against concurrent access to black list
-	allowQueryMutex      *sync.Mutex     // allowQueryMutex guards against concurrent access to AllowQueryIPPrefixes.
-	allowQueryLastUpdate int64           // allowQueryLastUpdate is the Unix timestamp of the very latest automatic placement of computer's public IP into the array of AllowQueryIPPrefixes.
+	blackList            map[string]struct{}
+	myPublicIP           string        // myPublicIP is the latest public IP address of the laitos server.
+	blackListMutex       *sync.RWMutex // Protect against concurrent access to black list
+	allowQueryMutex      *sync.Mutex
+	allowQueryLastUpdate int64
 	rateLimit            *misc.RateLimit // Rate limit counter
 	logger               lalog.Logger
 
@@ -142,17 +155,34 @@ func (daemon *Daemon) Initialise() error {
 		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = toolbox.GetEmptyCommandProcessor()
 	}
-	daemon.Processor.SetLogger(daemon.logger)
+	if len(daemon.MyDomainNames) == 0 {
+		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands because MyDomainNames is empty")
+		daemon.Processor = toolbox.GetEmptyCommandProcessor()
+	}
+	for i, name := range daemon.MyDomainNames {
+		if len(name) < 3 {
+			return fmt.Errorf("DNSD.Initialise: MyDomainNames contains an invalid entry %q", name)
+		}
+		// Remove the full-stop suffix and give it a full-stop prefix.
+		if name[len(name)-1] == '.' {
+			name = name[:len(name)-1]
+		}
+		if name[0] != '.' {
+			name = "." + name
+		}
+		daemon.MyDomainNames[i] = name
+	}
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("dnsd.Initialise: %+v", errs)
 	}
-	if daemon.AllowQueryIPPrefixes == nil {
-		daemon.AllowQueryIPPrefixes = []string{}
-	}
-	for _, prefix := range daemon.AllowQueryIPPrefixes {
-		if prefix == "" {
-			return errors.New("DNSD.Initialise: IP address prefixes that are allowed to query may not contain empty string")
+	daemon.Processor.SetLogger(daemon.logger)
+	daemon.allowQueryFromCidrNets = make([]*net.IPNet, 0)
+	for _, cidr := range daemon.AllowQueryFromCidrs {
+		_, cidrNet, err := net.ParseCIDR(cidr)
+		if err != nil || cidr == "" {
+			return fmt.Errorf("DNSD.Initialise: failed to parse AllowQueryFromCidrs entry %q", cidr)
 		}
+		daemon.allowQueryFromCidrNets = append(daemon.allowQueryFromCidrNets, cidrNet)
 	}
 
 	daemon.allowQueryMutex = new(sync.Mutex)
@@ -196,27 +226,30 @@ func (daemon *Daemon) allowMyPublicIP() {
 	daemon.logger.Info("allowMyPublicIP", "", nil, "the computer may send DNS queries to its public IP address %s", daemon.myPublicIP)
 }
 
-// checkAllowClientIP returns true only if the input client IP address is allowed to query this DNS server.
-func (daemon *Daemon) checkAllowClientIP(clientIP string) bool {
+// isRecursiveQueryAllowed checks whether the input client IP is allowed to make
+// recursive queries to this DNS server.
+func (daemon *Daemon) isRecursiveQueryAllowed(clientIP string) bool {
 	if clientIP == "" || len(clientIP) > 64 {
 		return false
 	}
-	// Fast track - always allow localhost to query
+	// Fast track - always allow localhost to query.
 	if strings.HasPrefix(clientIP, "127.") || clientIP == "::1" || clientIP == daemon.myPublicIP {
 		return true
 	}
-	// At regular time interval, make sure that the latest public IP is allowed to query.
+	// Update my public IP at regular interval.
 	daemon.allowMyPublicIP()
-	// Another fast track - subjects that are monitored (periodically phoning home) are allowed to query the DNS server.
-	// By convention, subject reports transmitted over IP network will have their client IP address recorded in report's client tag attribute.
+	// Another fast track - monitored subjects phoning home are allowed.
+	// By convention, the subject reports arriving via IP network will have
+	// their client IP address recorded in the report tag attribute.
 	if daemon.Processor.Features.MessageProcessor.HasClientTag(clientIP) {
 		return true
 	}
-	// Allow the client to query if the IP address matches any of the allowed address prefixes
+	// Allow clients from whitelisted CIDR blocks to query.
+	parsedClientIP := net.ParseIP(clientIP)
 	daemon.allowQueryMutex.Lock()
 	defer daemon.allowQueryMutex.Unlock()
-	for _, prefix := range daemon.AllowQueryIPPrefixes {
-		if strings.HasPrefix(clientIP, prefix) {
+	for _, cidrNet := range daemon.allowQueryFromCidrNets {
+		if cidrNet.Contains(parsedClientIP) {
 			return true
 		}
 	}
@@ -405,6 +438,28 @@ func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
 	return false
 }
 
+// queryLabels returns the labels of a query, with the domain name removed if
+// the query was directed at this DNS server itself.
+func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, isRecursive bool) {
+	if len(name) == 0 {
+		return []string{}, false
+	}
+	if name[len(name)-1] == '.' {
+		name = name[:len(name)-1]
+	}
+	isRecursive = true
+	// Remove all configured domain suffixes from the queried name.
+	for _, suffix := range daemon.MyDomainNames {
+		if strings.HasSuffix(name, suffix) {
+			isRecursive = false
+			name = strings.TrimSuffix(name, suffix)
+			break
+		}
+	}
+	labelsWithoutDomain = strings.Split(name, ".")
+	return
+}
+
 // TestServer contains the comprehensive test cases for both TCP and UDP DNS servers.
 func TestServer(dnsd *Daemon, t testingstub.T) {
 	serverStopped := make(chan struct{}, 1)
@@ -537,7 +592,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 
 	// Make a TXT query that carries toolbox command prefix and an invalid PIN
 	appCmdQueryWithBadPassword := "_badpass142s0date.example.com"
-	if result, err := resolver.LookupTXT(context.Background(), appCmdQueryWithBadPassword); err == nil || result != nil {
+	if result, err := resolver.LookupTXT(context.Background(), appCmdQueryWithBadPassword); err != nil || len(result) != 1 || result[0] != toolbox.ErrPINAndShortcutNotFound.Error() {
 		t.Fatal(result, err)
 	}
 	if !strings.HasPrefix(lastResolvedName, appCmdQueryWithBadPassword) {
