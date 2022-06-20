@@ -17,7 +17,7 @@ func TestUpdateBlackList(t *testing.T) {
 	daemon.Address = "127.0.0.1"
 	daemon.UDPPort = 33111
 	daemon.PerIPLimit = 5
-	daemon.AllowQueryFromCidrs = []string{"192."}
+	daemon.AllowQueryFromCidrs = []string{"192.168.0.0/8"}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
