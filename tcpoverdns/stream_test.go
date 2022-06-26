@@ -130,7 +130,9 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
 		ReadTimeout:             3 * time.Second,
-		state:                   StateEstablished,
+		// This test is not concerned with keep-alive.
+		KeepAliveInterval: 999 * time.Second,
+		state:             StateEstablished,
 	}
 	tc.Start(context.Background())
 	n, err := tc.Write([]byte{})
@@ -268,9 +270,11 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 		// Leave the retransmission interval short to shorten the test case
 		// execution.
 		RetransmissionInterval: 1 * time.Second,
-		MaxRetransmissions:     3,
-		ReadTimeout:            2 * time.Second,
-		state:                  StateEstablished,
+		// This test is not concerned with keep-alive.
+		KeepAliveInterval:  999 * time.Second,
+		MaxRetransmissions: 3,
+		ReadTimeout:        2 * time.Second,
+		state:              StateEstablished,
 	}
 	tc.Start(context.Background())
 	// Write a segment without acknowledging it.

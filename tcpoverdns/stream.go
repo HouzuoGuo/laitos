@@ -16,8 +16,8 @@ const (
 	// BusyWaitInterval specifies a short duration in between consecutive
 	// busy-wait operations.
 	BusyWaitInterval = 100 * time.Millisecond
-	// SegmentDataTimeout specifies the time limit in between the arrival of a
-	// segment header and segment data.
+	// SegmentDataTimeout specifies the timeout between the arrival of a segment
+	// header and the segment data.
 	SegmentDataTimeout = 10 * time.Second
 	//MaxSegmentDataLen is the maximum permissible segment length.
 	MaxSegmentDataLen = 8192
@@ -137,34 +137,36 @@ type TransmissionControl struct {
 	mutex *sync.Mutex
 }
 
+// Start initialises the internal state of the transmission control.
+// Start may not be called after the transmission control is stopped.
 func (tc *TransmissionControl) Start(ctx context.Context) {
 	if tc.state == StateClosed {
-		panic("caller may not restart an already closed transmission control")
+		panic("caller may not restart an already stopped transmission control")
 	}
 	// Give parameters a default value.
 	if tc.MaxSegmentLenExclHeader == 0 {
 		tc.MaxSegmentLenExclHeader = 256
 	}
 	if tc.ReadTimeout == 0 {
-		tc.ReadTimeout = 15 * time.Second
+		tc.ReadTimeout = 20 * time.Second
 	}
 	if tc.WriteTimeout == 0 {
-		tc.WriteTimeout = 15 * time.Second
+		tc.WriteTimeout = 20 * time.Second
 	}
 	if tc.MaxSlidingWindow == 0 {
 		tc.MaxSlidingWindow = 256
 	}
-	if tc.SlidingWindowWaitDuration == 0 {
-		tc.SlidingWindowWaitDuration = 1 * time.Second
-	}
 	if tc.RetransmissionInterval == 0 {
-		tc.RetransmissionInterval = 10 * time.Second
+		tc.RetransmissionInterval = tc.ReadTimeout / 2
 	}
 	if tc.KeepAliveInterval == 0 {
-		tc.KeepAliveInterval = 5 * time.Second
+		tc.KeepAliveInterval = tc.RetransmissionInterval / 2
+	}
+	if tc.SlidingWindowWaitDuration == 0 {
+		tc.SlidingWindowWaitDuration = tc.RetransmissionInterval / 3
 	}
 	if tc.AckDelay == 0 {
-		tc.AckDelay = 1 * time.Second
+		tc.AckDelay = tc.SlidingWindowWaitDuration / 3
 	}
 	if tc.MaxRetransmissions == 0 {
 		tc.MaxRetransmissions = 3
@@ -172,13 +174,17 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	if tc.MaxTransportErrors == 0 {
 		tc.MaxTransportErrors = 10
 	}
+	lalog.DefaultLogger.Warning("", "", nil, "read: %+v, retrans: %+v, keep alive: %+v", tc.ReadTimeout, tc.RetransmissionInterval, tc.KeepAliveInterval)
 
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
 	tc.lastInputAck = time.Now()
 	tc.lastOutput = time.Now()
 	tc.lastAckOnlySeg = time.Now()
 	tc.mutex = new(sync.Mutex)
-	tc.Logger.ComponentID = append(tc.Logger.ComponentID, lalog.LoggerIDField{Key: "TCID", Value: tc.ID})
+	tc.Logger = lalog.Logger{
+		ComponentName: "TC",
+		ComponentID:   []lalog.LoggerIDField{{Key: "ID", Value: tc.ID}},
+	}
 	go tc.drainInputFromTransport()
 	go tc.drainOutputToTransport()
 }
@@ -668,8 +674,8 @@ func (tc *TransmissionControl) OutputSeq() uint32 {
 // the IO error (if any).
 // The function briefly locks the transmission control mutex, therefore the
 // caller must not hold the mutex.
-// If there has been an exceeding number of IO errors from the output transport,
-// then the transmission control will be closed.
+// If the output transport is experience an exceeding exceeding number of IO
+// errors then the transmission controll will be stopped.
 func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 	_, err := tc.OutputTransport.Write(seg.Packet())
 	tc.mutex.Lock()
@@ -693,8 +699,8 @@ func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 // transport and returns the IO error (if any).
 // The function briefly locks the transmission control mutex, therefore the
 // caller must not hold the mutex.
-// If there has been an exceeding number of IO errors from the output transport,
-// then the transmission control will be closed.
+// If the input transport is experience an exceeding exceeding number of IO
+// errors then the transmission controll will be stopped.
 func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, totalLen int) ([]byte, error) {
 	n, err := readInput(ctx, tc.InputTransport, totalLen)
 	if err == nil {
@@ -713,14 +719,15 @@ func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, total
 }
 
 // Close terminates both directions of the transmission control connection.
-func (tc *TransmissionControl) Close() {
+// The function always returns nil.
+func (tc *TransmissionControl) Close() error {
 	tc.mutex.Lock()
 	if tc.state == StateClosed {
 		tc.mutex.Unlock()
-		return
+		return nil
 	}
 	if tc.Debug {
-		tc.Logger.Info("Close", "", nil, "closing")
+		tc.Logger.Info("Close", "", nil, "terminating now")
 	}
 	tc.state = StateClosed
 	tc.mutex.Unlock()
@@ -737,6 +744,7 @@ func (tc *TransmissionControl) Close() {
 		tc.Logger.Info("Close", "", err, "failed to write reset segment")
 		// There's nothing more for this TC to do.
 	}
+	return nil
 }
 
 // readInput reads from transmission control's input transport for a total

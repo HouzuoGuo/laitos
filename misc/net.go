@@ -1,6 +1,7 @@
 package misc
 
 import (
+	"io"
 	"net"
 	"runtime/debug"
 	"strconv"
@@ -46,4 +47,19 @@ func TweakTCPConnection(conn *net.TCPConn, firstTransferTimeout time.Duration) {
 	_ = conn.SetDeadline(time.Now().Add(firstTransferTimeout))
 	// Allow outstanding data to be transferred within 5 seconds of closing the connection
 	_ = conn.SetLinger(5)
+}
+
+// Pipe continuously reads data from the source reader in blocks of no more than
+// the specified buffer length, and writes them to the destination.
+func Pipe(bufLen int, src io.Reader, dest io.Writer) error {
+	buf := make([]byte, bufLen)
+	for {
+		n, err := src.Read(buf)
+		if err != nil {
+			return err
+		}
+		if _, err := dest.Write(buf[:n]); err != nil {
+			return err
+		}
+	}
 }
