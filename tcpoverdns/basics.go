@@ -1,16 +1,18 @@
 package tcpoverdns
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // State is the transmission control stream's state.
 type State int
 
 const (
 	StateEmpty       = State(0)
-	StateSynReceived = State(2)
-	StatePeerAck     = State(4)
-	StateEstablished = State(5)
-	StatePeerClosed  = State(5)
+	StateSynReceived = State(1)
+	StatePeerAck     = State(2)
+	StateEstablished = State(3)
+	StatePeerClosed  = State(4)
 	StateClosed      = State(100)
 )
 
@@ -56,6 +58,7 @@ type Segment struct {
 	Data   []byte
 }
 
+// Packet serialises the segment into bytes and returns them.
 func (seg *Segment) Packet() (ret []byte) {
 	ret = make([]byte, 2+2+4+4+2+len(seg.Data))
 	binary.BigEndian.PutUint16(ret[0:2], seg.ID)
@@ -67,6 +70,8 @@ func (seg *Segment) Packet() (ret []byte) {
 	return
 }
 
+// SegmentFromPacket decodes a segment from a byte array and returns the decoded
+// segment.
 func SegmentFromPacket(packet []byte) Segment {
 	if len(packet) < SegmentHeaderLen {
 		return Segment{Flags: FlagMalformed}

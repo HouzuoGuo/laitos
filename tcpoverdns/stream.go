@@ -47,8 +47,9 @@ type TransmissionControl struct {
 	// the handshake sequence with the peer.
 	// Otherwise, this transmission control remains passive at the start.
 	Initiator bool
-	// State is the current transmission control connection state.
-	state State
+	// InitiatorSegmentData is an optional byte array carried by initiator's
+	// handshake (SYN) segment. It must be shorter than MaxSegmentLenExclHeader.
+	InitiatorSegmentData []byte
 
 	// lastOutputSyn is the timestamp of the latest outbound segment with with syn
 	// flag (used for handhsake).
@@ -61,6 +62,9 @@ type TransmissionControl struct {
 	InputTransport io.Reader
 	// OutputTransport transports outbound segments.
 	OutputTransport io.Writer
+	// OutputSegmentCallback (optional) is invoked for each outbound segment as
+	// they are written to output transport.
+	OutputSegmentCallback func(Segment)
 
 	// ReadTimeout specifies a time limit for the Read function.
 	ReadTimeout time.Duration
@@ -70,6 +74,8 @@ type TransmissionControl struct {
 	context   context.Context
 	cancelFun func()
 
+	// State is the current transmission control connection state.
+	state State
 	// Buffer input and output for callers.
 	inputBuf  []byte
 	outputBuf []byte
@@ -174,7 +180,6 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	if tc.MaxTransportErrors == 0 {
 		tc.MaxTransportErrors = 10
 	}
-	lalog.DefaultLogger.Warning("", "", nil, "read: %+v, retrans: %+v, keep alive: %+v", tc.ReadTimeout, tc.RetransmissionInterval, tc.KeepAliveInterval)
 
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
 	tc.lastInputAck = time.Now()
@@ -190,6 +195,9 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 }
 
 func (tc *TransmissionControl) Write(buf []byte) (int, error) {
+	if tc.State() == StateClosed {
+		return 0, io.ErrClosedPipe
+	}
 	start := time.Now()
 	if tc.Debug {
 		tc.Logger.Info("Write", "", nil, "writing buf %v, sliding window full? %v", buf, tc.slidingWindowFull())
@@ -279,7 +287,11 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake syn has got no response after multiple attempts, closing.")
 						return
 					}
-					seg := Segment{ID: tc.ID, Flags: FlagHandshakeSyn}
+					seg := Segment{
+						ID:    tc.ID,
+						Flags: FlagHandshakeSyn,
+						Data:  instant.InitiatorSegmentData,
+					}
 					if tc.Debug {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+v", instant.state, seg)
 					}
@@ -466,6 +478,9 @@ func (tc *TransmissionControl) writeSegments(ackInputSeq, seqNum uint32, buf []b
 }
 
 func (tc *TransmissionControl) Read(buf []byte) (int, error) {
+	if tc.State() == StateClosed {
+		return 0, io.ErrClosedPipe
+	}
 	start := time.Now()
 	var readLen int
 	for {
@@ -678,6 +693,10 @@ func (tc *TransmissionControl) OutputSeq() uint32 {
 // errors then the transmission controll will be stopped.
 func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 	_, err := tc.OutputTransport.Write(seg.Packet())
+	if tc.OutputSegmentCallback != nil {
+		tc.Logger.Warning("", "", nil, "writing to output transport %+#v", seg)
+		tc.OutputSegmentCallback(seg)
+	}
 	tc.mutex.Lock()
 	if err == nil {
 		tc.outputTransportErrors = 0

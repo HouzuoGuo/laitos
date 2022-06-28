@@ -7,10 +7,10 @@ import (
 
 func TestSegment_Packet(t *testing.T) {
 	want := Segment{
-		ID:     123,
+		ID:     12345,
 		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
-		SeqNum: 1,
-		AckNum: 2,
+		SeqNum: 23456,
+		AckNum: 34567,
 		Data:   []byte{1, 2, 3, 4},
 	}
 

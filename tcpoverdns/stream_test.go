@@ -155,6 +155,42 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
+func TestTransmissionControl_OutboundSegments_Callback(t *testing.T) {
+	_, inTransport := net.Pipe()
+	callBackSegments := make(chan Segment, 10)
+	tc := &TransmissionControl{
+		ID:                      1111,
+		Debug:                   true,
+		state:                   StateEstablished,
+		MaxSegmentLenExclHeader: 10,
+		InputTransport:          inTransport,
+		OutputTransport:         io.Discard,
+		OutputSegmentCallback: func(seg Segment) {
+			callBackSegments <- seg
+		},
+		// Leave retransmission, keep-alive, and delayed ack out of this test.
+		KeepAliveInterval:      999 * time.Second,
+		RetransmissionInterval: 999 * time.Second,
+		AckDelay:               999 * time.Second,
+	}
+	tc.Start(context.Background())
+	n, err := tc.Write([]byte{0, 1, 2, 3, 4, 5})
+	if n != 6 || err != nil {
+		t.Fatalf("write: n %v, %+v", n, err)
+	}
+	checkTC(t, tc, 3, StateEstablished, 0, 0, 0, nil, []byte{0, 1, 2, 3, 4, 5})
+	got := <-callBackSegments
+	want := Segment{
+		ID:   1111,
+		Data: []byte{0, 1, 2, 3, 4, 5},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+#v, want %+#v", got, want)
+	}
+	checkTC(t, tc, 1, StateEstablished, 0, 0, 6, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
+}
+
 func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 	_, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
@@ -568,6 +604,7 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 		ReadTimeout:             2 * time.Second,
 		WriteTimeout:            2 * time.Second,
 		Initiator:               true,
+		InitiatorSegmentData:    []byte{3, 2, 1},
 		RetransmissionInterval:  5 * time.Second,
 	}
 	tc.Start(context.Background())
@@ -575,8 +612,8 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	// Expect SYN with retransmissions.
 	for i := 0; i < 3; i++ {
 		lalog.DefaultLogger.Info("", "", nil, "test expects syn")
-		syn := readSegment(t, testOut, 0)
-		if !reflect.DeepEqual(syn, Segment{ID: 1111, Flags: FlagHandshakeSyn, Data: []byte{}}) {
+		syn := readSegment(t, testOut, 3)
+		if !reflect.DeepEqual(syn, Segment{ID: 1111, Flags: FlagHandshakeSyn, Data: []byte{3, 2, 1}}) {
 			t.Fatalf("incorrect syn seg: %+v", syn)
 		}
 	}

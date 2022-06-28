@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 type ProxyRequest struct {
@@ -17,14 +19,47 @@ type ProxyRequest struct {
 }
 
 type proxyConnection struct {
+	proxy                *Proxy
 	tcpConn              *net.TCPConn
 	context              context.Context
 	tc                   *TransmissionControl
 	inputSegments        net.Conn
-	outputSegments       net.Conn
 	outputSegmentBacklog []Segment
 }
 
+// Start piping data back and forth between proxy TCP connection and
+// transmission control.
+func (conn *proxyConnection) Start() {
+	defer func() {
+		_ = conn.Close()
+		conn.proxy.mutex.Lock()
+		delete(conn.proxy.connections, conn.tc.ID)
+		conn.proxy.mutex.Unlock()
+
+	}()
+	// Absorb outgoing segments into the outgoing backlog.
+	conn.tc.OutputSegmentCallback = func(seg Segment) {
+		conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
+	}
+	// Carry on with the handshake.
+	conn.tc.Start(conn.context)
+	for {
+		if conn.tc.WaitState(conn.context, StateEstablished) {
+			break
+		}
+	}
+	// Pipe data in both directions.
+	go func() {
+		// This goroutine automatically terminates when Pipe encounters an IO
+		// error.
+		_ = misc.Pipe(conn.proxy.ReadBufferSize, conn.tc, conn.tcpConn)
+	}()
+	if err := misc.Pipe(conn.proxy.ReadBufferSize, conn.tcpConn, conn.tc); err != nil {
+		return
+	}
+}
+
+// Close and terminate the proxy TCP connection and its transmission control.
 func (conn *proxyConnection) Close() error {
 	conn.tc.Close()
 	_ = conn.tcpConn.Close()
@@ -34,12 +69,11 @@ func (conn *proxyConnection) Close() error {
 // Proxy manages the full life cycle of multiple transmission controls created
 // for the purpose of relaying TCP connections.
 type Proxy struct {
-	// ProxyReadBufferSize is the buffer
-	ProxyReadBufferSize int
+	// ReadBufferSize is the buffer
+	ReadBufferSize int
 	// IOTimeout is the timeout shared by both TC and proxy connections.
 	IOTimeout time.Duration
 
-	tcs         map[uint16]*TransmissionControl
 	connections map[uint16]*proxyConnection
 	context     context.Context
 	cancelFun   func()
@@ -49,14 +83,13 @@ type Proxy struct {
 
 // Start initialises the internal state of the proxy.
 func (proxy *Proxy) Start(ctx context.Context) {
-	if proxy.ProxyReadBufferSize == 0 {
+	if proxy.ReadBufferSize == 0 {
 		// Keep the buffer size small.
-		proxy.ProxyReadBufferSize = 256
+		proxy.ReadBufferSize = 256
 	}
-	proxy.tcs = make(map[uint16]*TransmissionControl)
 	proxy.context, proxy.cancelFun = context.WithCancel(ctx)
 	proxy.mutex = new(sync.Mutex)
-	proxy.logger = lalog.Logger{ComponentName: "ProxyOverTC"}
+	proxy.logger = lalog.Logger{ComponentName: "TCProxy"}
 }
 
 // Receive processes an incoming segment and relay the segment to an existing
@@ -67,13 +100,11 @@ func (proxy *Proxy) Receive(in Segment) (resp Segment) {
 	conn, exists := proxy.connections[in.ID]
 	proxy.mutex.Unlock()
 	if exists {
-		// Pass the segment to TC's input transport.
+		// Pass the segment to transmission control's input transport.
 		if _, err := conn.inputSegments.Write(in.Packet()); err != nil {
 			conn.Close()
 		}
 	} else {
-		// TODO FIXME: change TC to allow the initiator to put data into the first segment.
-		// TODO FIXME: deduplicate proxy requests from within a short interval.
 		// Connect to the proxy destination.
 		var req ProxyRequest
 		if err := json.Unmarshal(in.Data, &req); err != nil {
@@ -87,39 +118,43 @@ func (proxy *Proxy) Receive(in Segment) (resp Segment) {
 		}
 		// Establish the transmission control by completing the handshake.
 		proxyIn, tcIn := net.Pipe()
-		proxyOut, tcOut := net.Pipe()
 		tc := &TransmissionControl{
-			ReadTimeout:     proxy.IOTimeout,
-			WriteTimeout:    proxy.IOTimeout,
-			InputTransport:  tcIn,
-			OutputTransport: tcOut,
+			// This transmission control is a responder during the handshake.
+			Initiator:      false,
+			ReadTimeout:    proxy.IOTimeout,
+			WriteTimeout:   proxy.IOTimeout,
+			InputTransport: tcIn,
+			// The output transport is not used. Instead, the output segments
+			// are kept in a backlog.
+			OutputTransport: io.Discard,
 		}
-		tc.Start(proxy.context)
 		// Track the new connection.
 		proxyConn := &proxyConnection{
-			tcpConn:        netConn.(*net.TCPConn),
-			context:        proxy.context,
-			tc:             tc,
-			inputSegments:  proxyIn,
-			outputSegments: proxyOut,
+			proxy:         proxy,
+			tcpConn:       netConn.(*net.TCPConn),
+			context:       proxy.context,
+			tc:            tc,
+			inputSegments: proxyIn,
 		}
+		proxyConn.Start()
 		proxy.mutex.Lock()
 		proxy.connections[in.ID] = proxyConn
 		proxy.mutex.Unlock()
-		// TODO FIXME: pipe data: read tcpConn write tc & read tc write tcpConn
 	}
 	// TODO FIXME: pop a segment from outputSegmentBacklog
 	return Segment{} // TODO FIXME
 }
 
-// Stop terminates all ongoing transmission controls.
-func (proxy *Proxy) Stop() {
+// Close terminates all ongoing transmission controls.
+// The function always returns nil.
+func (proxy *Proxy) Close() error {
 	proxy.mutex.Lock()
 	// Terminate all TCs.
-	for _, tc := range proxy.tcs {
-		tc.Close()
+	for _, conn := range proxy.connections {
+		_ = conn.Close()
 	}
 	defer proxy.mutex.Unlock()
-	// Terminate all proxied connecitons.
+	// Terminate all proxy connections.
 	proxy.cancelFun()
+	return nil
 }
