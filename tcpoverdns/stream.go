@@ -103,6 +103,12 @@ type TransmissionControl struct {
 	// tolerate from input and output transports before closing down the
 	// transmission control.
 	MaxTransportErrors int
+	// MaxLifetime is the maximum lifetime of the transmission control. After
+	// the lifetime elapses, the transmission control will be unconditionally
+	// closed/terminated.
+	// This is used as a safeguard against transmission control going stale
+	// without being properly closed/terminated.
+	MaxLifetime time.Duration
 
 	// AckDelay is a short delay between receiving the latest segment and
 	// sending an outbound acknowledgement-only segment.
@@ -139,6 +145,8 @@ type TransmissionControl struct {
 	// lastOutput is the timestamo of the latest write operation done to the
 	// output transport.
 	lastOutput time.Time
+	// startTime is the timestamp of the moment Start is called.
+	startTime time.Time
 
 	mutex *sync.Mutex
 }
@@ -179,6 +187,9 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	}
 	if tc.MaxTransportErrors == 0 {
 		tc.MaxTransportErrors = 10
+	}
+	if tc.MaxLifetime == 0 {
+		tc.MaxLifetime = 10 * time.Minute
 	}
 
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
@@ -272,7 +283,10 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 		instant := *tc
 		tc.mutex.Unlock()
 
-		if instant.state < StateEstablished {
+		if time.Since(instant.startTime) > instant.MaxLifetime {
+			tc.Logger.Warning("drainOutputToTransport", "", nil, "closing due to exceeding max lifetime")
+			tc.Close()
+		} else if instant.state < StateEstablished {
 			if instant.Initiator {
 				// The transmission control carries on with the handshake
 				// sequence as the initiator.
@@ -549,7 +563,10 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		tc.mutex.Lock()
 		instant := *tc
 		tc.mutex.Unlock()
-		if instant.state < StateEstablished {
+		if time.Since(instant.startTime) > instant.MaxLifetime {
+			tc.Logger.Warning("drainInputFromTransport", "", nil, "closing due to exceeding max lifetime")
+			tc.Close()
+		} else if instant.state < StateEstablished {
 			if tc.Debug {
 				tc.Logger.Info("drainInputFromTransport", "", nil, "handshake ongoing, received: %+v", seg)
 			}

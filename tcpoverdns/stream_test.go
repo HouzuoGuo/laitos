@@ -776,6 +776,39 @@ func TestTransmissionControl_Reset(t *testing.T) {
 	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
+func TestTransmissionControl_MaxLifetime(t *testing.T) {
+	_, inTransport := net.Pipe()
+	testOut, outTransport := net.Pipe()
+	tc := &TransmissionControl{
+		ID:              1111,
+		Debug:           true,
+		InputTransport:  inTransport,
+		OutputTransport: outTransport,
+		MaxLifetime:     1 * time.Second,
+		state:           StateEstablished,
+	}
+	tc.Start(context.Background())
+	waitForState(t, tc, 1, StateClosed)
+	// Expect the TC to transmit an outbound reset segment before closing.
+	segData, err := readInput(context.Background(), testOut, SegmentHeaderLen)
+	if err != nil {
+		t.Fatalf("read err: %+v", err)
+	}
+	resetSeg := Segment{
+		ID:     1111,
+		Flags:  FlagReset,
+		SeqNum: 0,
+		AckNum: 0,
+		Data:   []byte{},
+	}
+	gotSeg := SegmentFromPacket(segData)
+	if !reflect.DeepEqual(gotSeg, resetSeg) {
+		t.Fatalf("did not get a reset in return: %+v", gotSeg)
+	}
+	checkTC(t, tc, 1, StateClosed, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
+}
+
 func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 	leftIn, leftInTransport := net.Pipe()
 	rightIn, rightInTransport := net.Pipe()

@@ -27,8 +27,10 @@ const (
 	FlagHandshakeAck = Flag(1 << 1)
 	FlagAckOnly      = Flag(1 << 2)
 	FlagKeepAlive    = Flag(1 << 3)
-	FlagReset        = Flag(1 << 4)
-	FlagMalformed    = Flag(1 << 5)
+	// FlagReset asks the peer to close/terminate, as the local side also does.
+	// The misleading name was inspired by TCP reset.
+	FlagReset     = Flag(1 << 4)
+	FlagMalformed = Flag(1 << 5)
 )
 
 func (flag Flag) Has(f Flag) bool {
