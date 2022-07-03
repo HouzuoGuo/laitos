@@ -38,7 +38,7 @@ type TransmissionControl struct {
 	// ID is a file descriptor-like number that identifies all outgoing segments
 	// as well as used for logging.
 	ID uint16
-	// Debug enables/disables verbose logging for IO activities.
+	// Debug enables verbose logging for IO activities.
 	Debug bool
 	// Logger is used to log IO activities when verbose logging is enabled.
 	Logger lalog.Logger
@@ -196,6 +196,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	tc.lastInputAck = time.Now()
 	tc.lastOutput = time.Now()
 	tc.lastAckOnlySeg = time.Now()
+	tc.startTime = time.Now()
 	tc.mutex = new(sync.Mutex)
 	tc.Logger = lalog.Logger{
 		ComponentName: "TC",
@@ -284,7 +285,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 		tc.mutex.Unlock()
 
 		if time.Since(instant.startTime) > instant.MaxLifetime {
-			tc.Logger.Warning("drainOutputToTransport", "", nil, "closing due to exceeding max lifetime")
+			tc.Logger.Warning("drainOutputToTransport", "", nil, "closing due to exceeding max lifetime (start: %v, max: %v)", instant.startTime, instant.MaxLifetime)
 			tc.Close()
 		} else if instant.state < StateEstablished {
 			if instant.Initiator {
