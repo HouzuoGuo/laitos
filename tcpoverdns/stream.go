@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -212,7 +211,7 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 	}
 	start := time.Now()
 	if tc.Debug {
-		tc.Logger.Info("Write", "", nil, "writing buf %v, sliding window full? %v", buf, tc.slidingWindowFull())
+		tc.Logger.Info("Write", ByteArrayLogString(buf), nil, "writing buf - sliding window full? %v", tc.slidingWindowFull())
 	}
 	for tc.slidingWindowFull() {
 		// Wait for peer to acknowledge before sending more.
@@ -221,7 +220,7 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 			continue
 		} else {
 			if tc.Debug {
-				tc.Logger.Info("Write", fmt.Sprintf("%v", buf), nil, "abort write due to timeout ")
+				tc.Logger.Info("Write", ByteArrayLogString(buf), nil, "abort write due to timeout ")
 			}
 			return 0, ErrTimeout
 		}
@@ -389,6 +388,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				Flags:  FlagAckOnly,
 			}
 			if tc.Debug {
+
 				tc.Logger.Info("drainOutputToTransport", "", nil, "sending delayed ack: %+v", emptySeg)
 			}
 			_ = tc.writeToOutputTransport(emptySeg)
@@ -445,7 +445,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				// The segment data can be empty. An empty segment is for
 				// keep-alive.
 				if tc.Debug {
-					tc.Logger.Info("drainOutputToTransport", "", nil, "sending segments totalling %d bytes: %+v", len(toSend), toSend)
+					tc.Logger.Info("drainOutputToTransport", "", nil, "sending segments totalling %d bytes: %+v", len(toSend), ByteArrayLogString(toSend))
 				}
 				_ = tc.writeSegments(instant.inputSeq, instant.outputSeq, toSend, true)
 				// Always clear the retransmission counter after a regular
@@ -513,7 +513,7 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 			<-time.After(BusyWaitInterval)
 		} else {
 			if tc.Debug {
-				tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, buf[:readLen])
+				tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, ByteArrayLogString(buf[:readLen]))
 			}
 			return readLen, ErrTimeout
 		}
@@ -557,7 +557,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		}
 		seg := SegmentFromPacket(append(segHeader, segData...))
 		if seg.Flags.Has(FlagMalformed) {
-			tc.Logger.Warning("drainInputFromTransport", "", nil, "failed to decode the segment, header: %v, data: %v", segHeader, segData)
+			tc.Logger.Warning("drainInputFromTransport", "", nil, "failed to decode the segment, header: %v, data: %v", segHeader, ByteArrayLogString(segData))
 			segDataCtxCancel()
 			continue
 		}
@@ -690,8 +690,8 @@ func (tc *TransmissionControl) DumpState() {
 		"output seq: %v\tlast output: %v\tlast ack-only seg: %v\toutput buf: %v\n"+
 		"ongoing retrans: %d\tinput transport errs: %d\toutput transport errs: %d\n",
 		tc.state, tc.lastOutputSyn,
-		tc.inputSeq, tc.inputAck, tc.lastInputAck, tc.inputBuf,
-		tc.outputSeq, tc.lastOutput, tc.lastAckOnlySeg, tc.outputBuf,
+		tc.inputSeq, tc.inputAck, tc.lastInputAck, ByteArrayLogString(tc.inputBuf),
+		tc.outputSeq, tc.lastOutput, tc.lastAckOnlySeg, ByteArrayLogString(tc.outputBuf),
 		tc.ongoingRetransmissions, tc.inputTransportErrors, tc.outputTransportErrors,
 	)
 }
@@ -712,7 +712,7 @@ func (tc *TransmissionControl) OutputSeq() uint32 {
 func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 	_, err := tc.OutputTransport.Write(seg.Packet())
 	if tc.OutputSegmentCallback != nil {
-		tc.Logger.Warning("", "", nil, "writing to output transport %+#v", seg)
+		tc.Logger.Warning("", "", nil, "writing to output transport %+v", seg)
 		tc.OutputSegmentCallback(seg)
 	}
 	tc.mutex.Lock()

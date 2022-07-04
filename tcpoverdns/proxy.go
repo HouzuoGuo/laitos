@@ -196,6 +196,7 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			// The output transport is not used. Instead, the output segments
 			// are kept in a backlog.
 			OutputTransport: io.Discard,
+			ID:              9999, // TODO FIXME: change this to input TC ID.
 		}
 		// Track the new connection.
 		conn = &ProxyConnection{

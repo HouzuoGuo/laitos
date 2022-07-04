@@ -2,6 +2,11 @@ package tcpoverdns
 
 import (
 	"encoding/binary"
+	"fmt"
+	"strings"
+	"unicode"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 // State is the transmission control stream's state.
@@ -35,6 +40,29 @@ const (
 
 func (flag Flag) Has(f Flag) bool {
 	return flag&f != 0
+}
+
+func (flag Flag) String() string {
+	var names []string
+	if flag.Has(FlagHandshakeSyn) {
+		names = append(names, "HandshakeSyn")
+	}
+	if flag.Has(FlagHandshakeAck) {
+		names = append(names, "HandshakeAck")
+	}
+	if flag.Has(FlagAckOnly) {
+		names = append(names, "AckOnly")
+	}
+	if flag.Has(FlagKeepAlive) {
+		names = append(names, "KeepAlive")
+	}
+	if flag.Has(FlagReset) {
+		names = append(names, "ResetTerminate")
+	}
+	if flag.Has(FlagMalformed) {
+		names = append(names, "Malformed")
+	}
+	return strings.Join(names, "+")
 }
 
 const (
@@ -72,6 +100,12 @@ func (seg *Segment) Packet() (ret []byte) {
 	return
 }
 
+// Stringer returns a human-readable representation of the segment for debug
+// logging.
+func (seg Segment) String() string {
+	return fmt.Sprintf("[ID=%d Seq=%d Flags=%v Data=%s]", seg.ID, seg.SeqNum, seg.Flags, ByteArrayLogString(seg.Data))
+}
+
 // SegmentFromPacket decodes a segment from a byte array and returns the decoded
 // segment.
 func SegmentFromPacket(packet []byte) Segment {
@@ -94,4 +128,22 @@ func SegmentFromPacket(packet []byte) Segment {
 		AckNum: ack,
 		Data:   data,
 	}
+}
+
+// ByteArrayLogString returns a human-readable string for the input byte array.
+// The returned string is only suitable for log messages.
+func ByteArrayLogString(data []byte) string {
+	var countBinaryBytes int
+	for _, b := range data {
+		if (b >= 0 && b <= 8) || // NUL...Backspace
+			(b >= 14 && b <= 31) || // ShiftOut..UnitSeparator
+			(b >= 127) || // Past the basic ASCII table
+			(!unicode.IsPrint(rune(b)) && !unicode.IsSpace(rune(b))) { // Non-printable
+			countBinaryBytes++
+		}
+	}
+	if float32(countBinaryBytes)/float32(len(data)) > 0.5 {
+		return fmt.Sprintf("%#v", data)
+	}
+	return lalog.LintString(string(data), 100)
 }

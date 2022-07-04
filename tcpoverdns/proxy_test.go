@@ -66,6 +66,8 @@ func TestProxy(t *testing.T) {
 		"Host: 1.1.1.1\r\n",
 		"User-Agent: golang test\r\n",
 		"Accept: */*\r\n",
+		"Connection: close\r\n",
+		"Content-Length: 0\r\n",
 		"\r\n",
 	}
 	for _, line := range req {
