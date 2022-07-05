@@ -45,6 +45,8 @@ var Whitelist = []string{
 	*/
 	"graph.facebook.com",
 	"graph.instagram.com",
+	// 2022-07-05 - unblock URL shortening services.
+	"t.co", "bit.ly",
 	// "Common whitelisted domains"(https://discourse.pi-hole.net/t/commonly-whitelisted-domains/212) collected on 2021-02-24
 	"106c06cd218b007d-b1e8a1331f68446599e96a4b46a050f5.ams.plex.services", "79423.analytics.edgekey.net", "activity.windows.com", "android.clients.google.com", "api.facebook.com", "api-tv.spotify.com",
 	"appleid.apple.com", "app.plex.tv", "appspot-preview.l.google.com", "apps.skype.com", "apresolve.spotify.com", "apt.sonarr.tv", "arc.msn.com", "assets.adobedtm.com", "attestation.xboxlive.com",
