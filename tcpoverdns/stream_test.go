@@ -788,7 +788,7 @@ func TestTransmissionControl_MaxLifetime(t *testing.T) {
 		state:           StateEstablished,
 	}
 	tc.Start(context.Background())
-	waitForState(t, tc, 1, StateClosed)
+	waitForState(t, tc, 3, StateClosed)
 	// Expect the TC to transmit an outbound reset segment before closing.
 	segData, err := readInput(context.Background(), testOut, SegmentHeaderLen)
 	if err != nil {
@@ -806,7 +806,8 @@ func TestTransmissionControl_MaxLifetime(t *testing.T) {
 		t.Fatalf("did not get a reset in return: %+v", gotSeg)
 	}
 	checkTC(t, tc, 1, StateClosed, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	// There is a single error from context being cancelled.
+	checkTCError(t, tc, 1, 0, 1, 0)
 }
 
 func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
