@@ -51,6 +51,14 @@ var ErrRateLimitExceeded = errors.New("command processor internal rate limit has
 // RegexCommandWithPLT parses PLT magic parameters position, length, and timeout, all of which are integers.
 var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`)
 
+// RegexSubjectReportUsing2FA matches the content of an app command (2FA
+// password & command content) that invoke the store&forward messaging
+// processor.
+// The regex helps identify such commands *before* they are processed by command
+// filters, which is useful for suppressing the result filters (e.g. email
+// notification).
+var RegexSubjectReportUsing2FA = regexp.MustCompile(`[\d]{12}[\s]*\` + StoreAndForwardMessageProcessorTrigger)
+
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
 	Features       *FeatureSet     // Features is the aggregation of initialised toolbox feature routines.
@@ -197,6 +205,17 @@ func (proc *CommandProcessor) Process(ctx context.Context, cmd Command, runResul
 		return &Result{Error: ErrCommandTooLong}
 	}
 
+	// If the app command is invoking the store&forward message processor using
+	// 2FA code for authorisation, then forcibly prevent result filters from
+	// being run before command filters decide whether to authorise the command
+	// to execute.
+	// This is useful for preventing mail notification from being sent for
+	// reused 2FA codes, which is a potential condition detected by one of the
+	// result filters.
+	if RegexSubjectReportUsing2FA.MatchString(cmd.Content) {
+		runResultFilters = false
+	}
+
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
 	var filterDisapproval error
@@ -272,8 +291,10 @@ func (proc *CommandProcessor) Process(ctx context.Context, cmd Command, runResul
 			if prefix == AESDecryptTrigger || prefix == TwoFATrigger || prefix == NBETrigger {
 				logCommandContent = "<hidden due to AESDecryptTrigger or TwoFATrigger or NBETrigger>"
 			}
-			// Another hacky workaround - do not run result filters (incl.
-			// email notification) for the store&forward message processor.
+			// Prevent result filters from being run for the store&forward
+			// message processor.
+			// Over here they are disabled after the command filters have
+			// successfully authorised the command to execute.
 			if prefix == StoreAndForwardMessageProcessorTrigger {
 				runResultFilters = false
 			}
