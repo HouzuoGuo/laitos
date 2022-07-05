@@ -51,9 +51,6 @@ var ErrRateLimitExceeded = errors.New("command processor internal rate limit has
 // RegexCommandWithPLT parses PLT magic parameters position, length, and timeout, all of which are integers.
 var RegexCommandWithPLT = regexp.MustCompile(`[^\d]*(\d+)[^\d]+(\d+)[^\d]*(\d+)(.*)`)
 
-// RegexSubjectReportUsing2FA matches a message processor's subject report app command invoked via 2FA.
-var RegexSubjectReportUsing2FA = regexp.MustCompile(`[\d]{12}[\s]*\` + StoreAndForwardMessageProcessorTrigger)
-
 // Pre-configured environment and configuration for processing feature commands.
 type CommandProcessor struct {
 	Features       *FeatureSet     // Features is the aggregation of initialised toolbox feature routines.
@@ -199,13 +196,6 @@ func (proc *CommandProcessor) Process(ctx context.Context, cmd Command, runResul
 	if len(cmd.Content) > MaxCmdLength {
 		return &Result{Error: ErrCommandTooLong}
 	}
-	/*
-		Hacky workaround - do not run result filter for the store&forward message processor, which runs an app command
-		with its own command processor and its own result filters.
-	*/
-	if RegexSubjectReportUsing2FA.MatchString(cmd.Content) {
-		runResultFilters = false
-	}
 
 	// Put execution duration into statistics
 	beginTimeNano := time.Now().UnixNano()
@@ -281,6 +271,11 @@ func (proc *CommandProcessor) Process(ctx context.Context, cmd Command, runResul
 			// Hacky workaround - do not log content of AES decryption commands as they can reveal encryption key
 			if prefix == AESDecryptTrigger || prefix == TwoFATrigger || prefix == NBETrigger {
 				logCommandContent = "<hidden due to AESDecryptTrigger or TwoFATrigger or NBETrigger>"
+			}
+			// Another hacky workaround - do not run result filters (incl.
+			// email notification) for the store&forward message processor.
+			if prefix == StoreAndForwardMessageProcessorTrigger {
+				runResultFilters = false
 			}
 			matchedFeature = configuredFeature
 			break
