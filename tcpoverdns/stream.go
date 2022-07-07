@@ -207,7 +207,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 
 func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 	if tc.State() == StateClosed {
-		return 0, io.ErrClosedPipe
+		return 0, io.EOF
 	}
 	start := time.Now()
 	if tc.Debug {
@@ -221,6 +221,9 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 		} else {
 			if tc.Debug {
 				tc.Logger.Info("Write", ByteArrayLogString(buf), nil, "abort write due to timeout ")
+			}
+			if tc.State() == StateClosed {
+				return 0, io.EOF
 			}
 			return 0, ErrTimeout
 		}
@@ -494,7 +497,7 @@ func (tc *TransmissionControl) writeSegments(ackInputSeq, seqNum uint32, buf []b
 
 func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 	if tc.State() == StateClosed {
-		return 0, io.ErrClosedPipe
+		return 0, io.EOF
 	}
 	start := time.Now()
 	var readLen int
@@ -506,6 +509,9 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 		tc.inputBuf = tc.inputBuf[readLen:]
 		tc.mutex.Unlock()
 		if readLen > 0 {
+			if tc.Debug {
+				tc.Logger.Info("Read", "", nil, "returning to caller %d bytes %v", readLen, buf[:readLen])
+			}
 			// Caller has got some data.
 			return readLen, nil
 		} else if time.Since(start) < tc.ReadTimeout {
@@ -514,6 +520,9 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 		} else {
 			if tc.Debug {
 				tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, ByteArrayLogString(buf[:readLen]))
+			}
+			if tc.State() == StateClosed {
+				return readLen, io.EOF
 			}
 			return readLen, ErrTimeout
 		}
@@ -720,6 +729,10 @@ func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 		tc.outputTransportErrors = 0
 		tc.mutex.Unlock()
 		return nil
+	} else if err == io.EOF {
+		tc.mutex.Unlock()
+		_ = tc.Close()
+		return nil
 	} else {
 		tc.outputTransportErrors++
 		gotErrs := tc.outputTransportErrors
@@ -739,9 +752,16 @@ func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 // If the input transport is experience an exceeding exceeding number of IO
 // errors then the transmission controll will be stopped.
 func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, totalLen int) ([]byte, error) {
-	n, err := readInput(ctx, tc.InputTransport, totalLen)
+	data, err := readInput(ctx, tc.InputTransport, totalLen)
 	if err == nil {
-		return n, err
+		return data, err
+	} else if err == io.EOF {
+		_ = tc.Close()
+		return data, nil
+	} else if err == context.Canceled {
+		// The caller (TC's internal function) cancelled the context, this is
+		// not a transport error.
+		return data, err
 	} else {
 		tc.mutex.Lock()
 		tc.inputTransportErrors++
@@ -751,7 +771,7 @@ func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, total
 			tc.Logger.Warning("readFromInputTransport", "", nil, "closing due to exceedingly many transport errors")
 			_ = tc.Close()
 		}
-		return n, err
+		return data, err
 	}
 }
 

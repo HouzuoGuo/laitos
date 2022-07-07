@@ -34,6 +34,31 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
+func TestTransmissionControl_Closed(t *testing.T) {
+	_, inTransport := net.Pipe()
+	_, outTransport := net.Pipe()
+	tc := &TransmissionControl{
+		Debug:           true,
+		InputTransport:  inTransport,
+		OutputTransport: outTransport,
+		ReadTimeout:     3 * time.Second,
+		MaxLifetime:     1 * time.Second,
+	}
+	tc.Start(context.Background())
+	// Wait for TC to close.
+	checkTC(t, tc, 2, StateClosed, 0, 0, 0, nil, nil)
+	n, err := tc.Read(nil)
+	if n != 0 || err != io.EOF {
+		t.Fatalf("read n: %+v, err: %+v", n, err)
+	}
+	n, err = tc.Write(nil)
+	if n != 0 || err != io.EOF {
+		t.Fatalf("read n: %+v, err: %+v", n, err)
+	}
+	checkTC(t, tc, 1, StateClosed, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 1, 0, 0, 0)
+}
+
 func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 	testIn, inTransport := net.Pipe()
 	_, outTransport := net.Pipe()
@@ -364,8 +389,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	time.Sleep(tc.SlidingWindowWaitDuration * 2)
 	// The TC is closed after exhausting all retransmission attempts.
 	checkTC(t, tc, 1, StateClosed, 0, 3, 3+3, nil, []byte{2, 2, 2})
-	// The single error is "DrainInputFromTransport: failed to read segment header: context canceled".
-	checkTCError(t, tc, 1, 3, 1, 0)
+	checkTCError(t, tc, 1, 3, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t *testing.T) {
@@ -796,8 +820,7 @@ func TestTransmissionControl_MaxLifetime(t *testing.T) {
 		t.Fatalf("did not get a reset in return: %+v", gotSeg)
 	}
 	checkTC(t, tc, 1, StateClosed, 0, 0, 0, nil, nil)
-	// There is a single error from context being cancelled.
-	checkTCError(t, tc, 1, 0, 1, 0)
+	checkTCError(t, tc, 1, 0, 0, 0)
 }
 
 func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
@@ -868,7 +891,7 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 	checkTC(t, leftTC, 2, StateClosed, 3*255, 3*255, 3*255, nil, nil)
 	checkTCError(t, leftTC, 2, 0, 0, 0)
 	checkTC(t, rightTC, 2, StateClosed, 3*255, 3*255, 3*255, nil, nil)
-	checkTCError(t, rightTC, 2, 0, 1, 0)
+	checkTCError(t, rightTC, 2, 0, 0, 0)
 }
 
 func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
@@ -954,7 +977,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	// Close one peer and the other will close too.
 	leftTC.Close()
 	checkTC(t, leftTC, 2, StateClosed, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
-	checkTCError(t, leftTC, 2, 0, 1, 0)
+	checkTCError(t, leftTC, 2, 0, 0, 0)
 	checkTC(t, rightTC, 2, StateClosed, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
 	checkTCError(t, rightTC, 2, 0, 0, 0)
 }

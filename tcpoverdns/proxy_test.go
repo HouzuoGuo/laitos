@@ -30,7 +30,6 @@ func readSegmentHeaderData(t *testing.T, ctx context.Context, in io.Reader) Segm
 }
 
 func TestProxy(t *testing.T) {
-	t.Skip("TODO FIXME")
 	proxy := &Proxy{Debug: true}
 	proxy.Start(context.Background())
 
