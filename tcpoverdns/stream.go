@@ -276,7 +276,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 		if tc.Debug {
 			tc.Logger.Info("drainOutputToTransport", "", nil, "returning and closing")
 		}
-		tc.Close()
+		_ = tc.Close()
 	}()
 	for tc.State() < StateClosed {
 		tc.mutex.Lock()
@@ -285,7 +285,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 
 		if time.Since(instant.startTime) > instant.MaxLifetime {
 			tc.Logger.Warning("drainOutputToTransport", "", nil, "closing due to exceeding max lifetime (start: %v, max: %v)", instant.startTime, instant.MaxLifetime)
-			tc.Close()
+			_ = tc.Close()
 		} else if instant.state < StateEstablished {
 			if instant.Initiator {
 				// The transmission control carries on with the handshake
@@ -528,7 +528,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		if tc.Debug {
 			tc.Logger.Info("drainInputFromTransport", "", nil, "returning and closing")
 		}
-		tc.Close()
+		_ = tc.Close()
 	}()
 	// Continuously read the bytes of inputBuf using the underlying transit.
 	for tc.State() < StateClosed {
@@ -566,7 +566,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		tc.mutex.Unlock()
 		if time.Since(instant.startTime) > instant.MaxLifetime {
 			tc.Logger.Warning("drainInputFromTransport", "", nil, "closing due to exceeding max lifetime")
-			tc.Close()
+			_ = tc.Close()
 		} else if instant.state < StateEstablished {
 			if tc.Debug {
 				tc.Logger.Info("drainInputFromTransport", "", nil, "handshake ongoing, received: %+v", seg)
@@ -628,7 +628,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 				if tc.Debug {
 					tc.Logger.Info("drainInputFromTransport", "", nil, "received a reset segment %+v", seg)
 				}
-				tc.Close()
+				_ = tc.Close()
 			} else if seg.Flags.Has(FlagHandshakeSyn) || seg.Flags.Has(FlagHandshakeAck) {
 				if tc.Debug {
 					tc.Logger.Info("drainInputFromTransport", "", nil, "ignored a handshake segments %+v after handshake is already over", seg)
@@ -726,7 +726,7 @@ func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 		tc.mutex.Unlock()
 		if gotErrs >= tc.MaxTransportErrors {
 			tc.Logger.Warning("writeToOutputTransport", "", nil, "closing due to exceedingly many transport errors")
-			tc.Close()
+			_ = tc.Close()
 		}
 		return err
 	}
@@ -749,7 +749,7 @@ func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, total
 		tc.mutex.Unlock()
 		if gotErrs >= tc.MaxTransportErrors {
 			tc.Logger.Warning("readFromInputTransport", "", nil, "closing due to exceedingly many transport errors")
-			tc.Close()
+			_ = tc.Close()
 		}
 		return n, err
 	}

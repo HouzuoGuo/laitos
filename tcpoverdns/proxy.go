@@ -130,7 +130,6 @@ type Proxy struct {
 	context     context.Context
 	cancelFun   func()
 	mutex       *sync.Mutex
-	logger      lalog.Logger
 }
 
 // Start initialises the internal state of the proxy.

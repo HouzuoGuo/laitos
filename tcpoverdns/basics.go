@@ -135,7 +135,7 @@ func SegmentFromPacket(packet []byte) Segment {
 func ByteArrayLogString(data []byte) string {
 	var countBinaryBytes int
 	for _, b := range data {
-		if (b >= 0 && b <= 8) || // NUL...Backspace
+		if (b <= 8) || // NUL...Backspace
 			(b >= 14 && b <= 31) || // ShiftOut..UnitSeparator
 			(b >= 127) || // Past the basic ASCII table
 			(!unicode.IsPrint(rune(b)) && !unicode.IsSpace(rune(b))) { // Non-printable
