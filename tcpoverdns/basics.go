@@ -145,5 +145,5 @@ func ByteArrayLogString(data []byte) string {
 	if float32(countBinaryBytes)/float32(len(data)) > 0.5 {
 		return fmt.Sprintf("%#v", data)
 	}
-	return lalog.LintString(string(data), 100)
+	return lalog.LintString(string(data), 1000)
 }
