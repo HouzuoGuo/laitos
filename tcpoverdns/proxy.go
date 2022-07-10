@@ -28,20 +28,27 @@ type ProxyConnection struct {
 	inputSegments        net.Conn
 	outputSegmentBacklog []Segment
 	mutex                *sync.Mutex
+	logger               lalog.Logger
 }
 
 // Start piping data back and forth between proxy TCP connection and
 // transmission control.
 func (conn *ProxyConnection) Start() {
+	conn.logger = lalog.Logger{
+		ComponentName: "TCProxyConn",
+		ComponentID: []lalog.LoggerIDField{
+			{Key: "TCID", Value: conn.tc.ID},
+		},
+	}
 	if conn.proxy.Debug {
-		conn.proxy.Logger.Info("ProxyConnection.Start", "", nil, "starting now")
+		conn.logger.Info("ProxyConnection.Start", "", nil, "starting now")
 	}
 	defer func() {
 		_ = conn.Close()
 		conn.proxy.mutex.Lock()
+		conn.logger.Info("ProxyConnection.Start", "", nil, "deleting")
 		delete(conn.proxy.connections, conn.tc.ID)
 		conn.proxy.mutex.Unlock()
-
 	}()
 	// Absorb outgoing segments into the outgoing backlog.
 	conn.tc.OutputSegmentCallback = func(seg Segment) {
@@ -55,7 +62,7 @@ func (conn *ProxyConnection) Start() {
 		}
 	}
 	if conn.proxy.Debug {
-		conn.proxy.Logger.Info("ProxyConnection.Start", "", nil, "TC is established")
+		conn.logger.Info("ProxyConnection.Start", "", nil, "TC is established")
 	}
 	// Pipe data in both directions.
 	go func() {
@@ -63,14 +70,14 @@ func (conn *ProxyConnection) Start() {
 		// error.
 		if err := misc.Pipe(conn.proxy.ReadBufferSize, conn.tc, conn.tcpConn); err != nil {
 			if conn.proxy.Debug {
-				conn.proxy.Logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
+				conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
 			}
 
 		}
 	}()
 	if err := misc.Pipe(conn.proxy.ReadBufferSize, conn.tcpConn, conn.tc); err != nil {
 		if conn.proxy.Debug {
-			conn.proxy.Logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
+			conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
 		}
 		return
 	}
@@ -121,6 +128,10 @@ type Proxy struct {
 	// DialTimeout is the timeout used for creating new a proxy TCP connection.
 	DialTimeout time.Duration
 
+	// MaxSegmentLenExclHeader is the maximum length of the data portion in each
+	// outgoing segment.
+	MaxSegmentLenExclHeader int
+
 	// Debug enables verbose logging for IO activities.
 	Debug bool
 	// Logger is used to log IO activities when verbose logging is enabled.
@@ -142,7 +153,7 @@ func (proxy *Proxy) Start(ctx context.Context) {
 		proxy.MaxLifetime = 10 * time.Minute
 	}
 	if proxy.MaxReplyDelay == 0 {
-		proxy.MaxReplyDelay = 3 * time.Second
+		proxy.MaxReplyDelay = 15 * time.Second
 	}
 	if proxy.DialTimeout == 0 {
 		proxy.DialTimeout = 10 * time.Second
@@ -160,15 +171,7 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 	proxy.mutex.Lock()
 	conn, exists := proxy.connections[in.ID]
 	proxy.mutex.Unlock()
-	if exists {
-		// Pass the segment to transmission control's input transport.
-		if proxy.Debug {
-			proxy.Logger.Info("Receive", "", nil, "hand over segment %+v to a known TC", in)
-		}
-		if _, err := conn.inputSegments.Write(in.Packet()); err != nil {
-			conn.Close()
-		}
-	} else {
+	if !exists {
 		// Connect to the proxy destination.
 		var req ProxyRequest
 		if err := json.Unmarshal(in.Data, &req); err != nil {
@@ -194,8 +197,9 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			MaxLifetime:    proxy.MaxLifetime,
 			// The output transport is not used. Instead, the output segments
 			// are kept in a backlog.
-			OutputTransport: io.Discard,
-			ID:              9999, // TODO FIXME: change this to input TC ID.
+			OutputTransport:         io.Discard,
+			MaxSegmentLenExclHeader: proxy.MaxSegmentLenExclHeader,
+			ID:                      9999, // TODO FIXME: change this to input TC ID.
 		}
 		// Track the new connection.
 		conn = &ProxyConnection{
@@ -210,6 +214,10 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 		proxy.connections[in.ID] = conn
 		proxy.mutex.Unlock()
 		go conn.Start()
+		// Go ahead with handshake.
+	}
+	if _, err := conn.inputSegments.Write(in.Packet()); err != nil {
+		_ = conn.Close()
 	}
 	if proxy.Debug {
 		proxy.Logger.Info("Receive", "", nil, "waiting for a reply outbound segment")

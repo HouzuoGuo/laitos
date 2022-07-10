@@ -82,10 +82,9 @@ func readSegmentHeaderData(t *testing.T, ctx context.Context, in io.Reader) Segm
 }
 
 func TestProxy(t *testing.T) {
-	t.Skip("TODO FIXME")
 	echoTCPServer(t, 63238)
 
-	proxy := &Proxy{Debug: true}
+	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 2}
 	proxy.Start(context.Background())
 
 	testIn, inTransport := net.Pipe()
@@ -96,7 +95,9 @@ func TestProxy(t *testing.T) {
 		InputTransport:       inTransport,
 		OutputTransport:      outTransport,
 		InitiatorSegmentData: []byte(`{"p": 63238, "a": "127.0.0.1"}`),
-		Initiator:            true,
+		// Keep the segment length short for the test.
+		MaxSegmentLenExclHeader: 2,
+		Initiator:               true,
 	}
 	tc.Start(context.Background())
 	go func() {
@@ -117,25 +118,29 @@ func TestProxy(t *testing.T) {
 	}()
 	// Have a conversation with the echo server.
 	req := []string{
-		"a\n",
-		"end\n",
+		"aaaa\n",
+		"bbb\n",
+		"cc\n",
+		"d\n",
 	}
+	// req len = 5 + 4 + 3 + 2 = 14
+	reader := bufio.NewReader(tc)
 	for _, line := range req {
 		lalog.DefaultLogger.Info("", "", nil, "test is writing line: %v", line)
 		n, err := tc.Write([]byte(line))
 		if err != nil || n != len(line) {
 			t.Fatalf("failed to write request line - n: %v, err: %v", n, err)
 		}
-		buf := make([]byte, len(line))
-		n, err = tc.Read(buf)
-		if err != nil || n != len(line) {
+		readBack, err := reader.ReadString('\n')
+		if err != nil || readBack != line {
 			t.Fatalf("failed to read back line - n: %v, err: %v", n, err)
 		}
 	}
-	// The underlying TCP connection is closed after "end\n".
-	checkTC(t, tc, 10, StateClosed, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 10, 0, 0, 0)
-	if len(proxy.connections) != 0 {
-		t.Fatalf("got left over connection: %v", proxy.connections)
+	// Tell proxy to end the TC
+	if _, err := tc.Write([]byte("end\n")); err != nil {
+		t.Fatalf("failed to write request line: %v", err)
 	}
+	// The underlying TCP connection is closed after "end\n".
+	checkTC(t, tc, 5, StateClosed, 14, 14, 14+4, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }

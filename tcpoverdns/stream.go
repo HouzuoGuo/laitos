@@ -54,8 +54,8 @@ type TransmissionControl struct {
 	// flag (used for handhsake).
 	lastOutputSyn time.Time
 
-	// MaxSegmentLenExclHeader is the maximum length of a single segment in both
-	// directions, excluding the headers.
+	// MaxSegmentLenExclHeader is the maximum length of the data portion in an
+	// outgoing segment, the length excludes the headers.
 	MaxSegmentLenExclHeader int
 	// InputTransport transports inbound segments.
 	InputTransport io.Reader
@@ -391,7 +391,6 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				Flags:  FlagAckOnly,
 			}
 			if tc.Debug {
-
 				tc.Logger.Info("drainOutputToTransport", "", nil, "sending delayed ack: %+v", emptySeg)
 			}
 			_ = tc.writeToOutputTransport(emptySeg)
