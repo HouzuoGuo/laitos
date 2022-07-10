@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -84,7 +85,11 @@ func readSegmentHeaderData(t *testing.T, ctx context.Context, in io.Reader) Segm
 func TestProxy(t *testing.T) {
 	echoTCPServer(t, 63238)
 
-	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 2}
+	proxy := &Proxy{
+		Debug: true,
+		// Keep the segment length short for the test,
+		MaxSegmentLenExclHeader: 2,
+	}
 	proxy.Start(context.Background())
 
 	testIn, inTransport := net.Pipe()
@@ -133,7 +138,7 @@ func TestProxy(t *testing.T) {
 		}
 		readBack, err := reader.ReadString('\n')
 		if err != nil || readBack != line {
-			t.Fatalf("failed to read back line - n: %v, err: %v", n, err)
+			t.Fatalf("failed to read back line - n: %s, err: %v", readBack, err)
 		}
 	}
 	// Tell proxy to end the TC
@@ -141,6 +146,66 @@ func TestProxy(t *testing.T) {
 		t.Fatalf("failed to write request line: %v", err)
 	}
 	// The underlying TCP connection is closed after "end\n".
+	checkTC(t, tc, 5, StateClosed, 14, 14, 14+4, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
+}
+
+func TestProxyCloudflareConnection(t *testing.T) {
+	t.Skip("FIXME TODO")
+	proxy := &Proxy{Debug: true}
+	proxy.Start(context.Background())
+
+	testIn, inTransport := net.Pipe()
+	testOut, outTransport := net.Pipe()
+	tc := &TransmissionControl{
+		ID:                   1111,
+		Debug:                true,
+		InputTransport:       inTransport,
+		OutputTransport:      outTransport,
+		InitiatorSegmentData: []byte(`{"p": 80, "a": "1.1.1.1"}`),
+		Initiator:            true,
+	}
+	tc.Start(context.Background())
+
+	go func() {
+		for {
+			// Pipe segments from TC to proxy.
+			seg := readSegmentHeaderData(t, context.Background(), testOut)
+			lalog.DefaultLogger.Info("", "", nil, "testOut tc to proxy: %+v", seg)
+			resp, hasResp := proxy.Receive(seg)
+			lalog.DefaultLogger.Info("", "", nil, "proxy resp: %+v %+v", resp, hasResp)
+			if hasResp {
+				// Send the response segment back to TC.
+				_, err := testIn.Write(resp.Packet())
+				if err != nil {
+					panic("failed to write to testIn")
+				}
+			}
+		}
+	}()
+
+	req := []string{
+		"GET / HTTP/1.1",
+		"Host: 1.1.1.1",
+		"User-Agent: HouzuoGuo-laitos",
+		"Accept: */*",
+		"Connection: close",
+	}
+	for _, line := range req {
+		_, err := tc.Write([]byte(line + "\r\n"))
+		if err != nil {
+			t.Fatalf("write failure: %+v", err)
+		}
+	}
+	resp, err := io.ReadAll(tc)
+	if err != nil && err != io.EOF {
+		t.Fatalf("read failure: %v", err)
+	}
+	respStr := string(resp)
+	t.Logf("http response: %s", respStr)
+	if !strings.Contains(respStr, `</html>`) {
+		t.Fatalf("missing content")
+	}
 	checkTC(t, tc, 5, StateClosed, 14, 14, 14+4, nil, nil)
 	checkTCError(t, tc, 5, 0, 0, 0)
 }

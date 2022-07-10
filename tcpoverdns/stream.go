@@ -170,15 +170,19 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 		tc.MaxSlidingWindow = 256
 	}
 	if tc.RetransmissionInterval == 0 {
+		// 10 seconds
 		tc.RetransmissionInterval = tc.ReadTimeout / 2
 	}
 	if tc.KeepAliveInterval == 0 {
+		// 5 seconds
 		tc.KeepAliveInterval = tc.RetransmissionInterval / 2
 	}
 	if tc.SlidingWindowWaitDuration == 0 {
+		// 3 seconds
 		tc.SlidingWindowWaitDuration = tc.RetransmissionInterval / 3
 	}
 	if tc.AckDelay == 0 {
+		// 1 second
 		tc.AckDelay = tc.SlidingWindowWaitDuration / 3
 	}
 	if tc.MaxRetransmissions == 0 {

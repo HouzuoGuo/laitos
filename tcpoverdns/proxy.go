@@ -153,7 +153,7 @@ func (proxy *Proxy) Start(ctx context.Context) {
 		proxy.MaxLifetime = 10 * time.Minute
 	}
 	if proxy.MaxReplyDelay == 0 {
-		proxy.MaxReplyDelay = 15 * time.Second
+		proxy.MaxReplyDelay = 5 * time.Second
 	}
 	if proxy.DialTimeout == 0 {
 		proxy.DialTimeout = 10 * time.Second
