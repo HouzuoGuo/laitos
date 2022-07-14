@@ -9,6 +9,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 )
@@ -109,9 +110,9 @@ func TestProxy(t *testing.T) {
 		for {
 			// Pipe segments from TC to proxy.
 			seg := readSegmentHeaderData(t, context.Background(), testOut)
-			lalog.DefaultLogger.Info("", "", nil, "testOut tc to proxy: %+v", seg)
 			resp, hasResp := proxy.Receive(seg)
-			lalog.DefaultLogger.Info("", "", nil, "proxy resp: %+v %+v", resp, hasResp)
+			lalog.DefaultLogger.Info("", "", nil, "test tc -> proxy: %+v", seg)
+			lalog.DefaultLogger.Info("", "", nil, "proxy -> test tc: %+v, %v", resp, hasResp)
 			if hasResp {
 				// Send the response segment back to TC.
 				_, err := testIn.Write(resp.Packet())
@@ -151,7 +152,7 @@ func TestProxy(t *testing.T) {
 }
 
 func TestProxyCloudflareConnection(t *testing.T) {
-	t.Skip("FIXME TODO")
+	t.Skip("TODO FIXME")
 	proxy := &Proxy{Debug: true}
 	proxy.Start(context.Background())
 
@@ -164,6 +165,7 @@ func TestProxyCloudflareConnection(t *testing.T) {
 		OutputTransport:      outTransport,
 		InitiatorSegmentData: []byte(`{"p": 80, "a": "1.1.1.1"}`),
 		Initiator:            true,
+		ReadTimeout:          60 * time.Second,
 	}
 	tc.Start(context.Background())
 
@@ -171,9 +173,9 @@ func TestProxyCloudflareConnection(t *testing.T) {
 		for {
 			// Pipe segments from TC to proxy.
 			seg := readSegmentHeaderData(t, context.Background(), testOut)
-			lalog.DefaultLogger.Info("", "", nil, "testOut tc to proxy: %+v", seg)
 			resp, hasResp := proxy.Receive(seg)
-			lalog.DefaultLogger.Info("", "", nil, "proxy resp: %+v %+v", resp, hasResp)
+			lalog.DefaultLogger.Info("", "", nil, "test tc -> proxy: %+v", seg)
+			lalog.DefaultLogger.Info("", "", nil, "proxy -> test tc: %+v, %v", resp, hasResp)
 			if hasResp {
 				// Send the response segment back to TC.
 				_, err := testIn.Write(resp.Packet())
@@ -190,6 +192,7 @@ func TestProxyCloudflareConnection(t *testing.T) {
 		"User-Agent: HouzuoGuo-laitos",
 		"Accept: */*",
 		"Connection: close",
+		"",
 	}
 	for _, line := range req {
 		_, err := tc.Write([]byte(line + "\r\n"))

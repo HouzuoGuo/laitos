@@ -33,6 +33,7 @@ type ProxyConnection struct {
 
 // Start piping data back and forth between proxy TCP connection and
 // transmission control.
+// The function blocks until the underlying TC is closed.
 func (conn *ProxyConnection) Start() {
 	conn.logger = lalog.Logger{
 		ComponentName: "TCProxyConn",
@@ -44,43 +45,44 @@ func (conn *ProxyConnection) Start() {
 		conn.logger.Info("ProxyConnection.Start", "", nil, "starting now")
 	}
 	defer func() {
+		if conn.proxy.Debug {
+			conn.logger.Info("ProxyConnection.Start", "", nil, "done")
+		}
 		_ = conn.Close()
 		conn.proxy.mutex.Lock()
-		conn.logger.Info("ProxyConnection.Start", "", nil, "deleting")
 		delete(conn.proxy.connections, conn.tc.ID)
 		conn.proxy.mutex.Unlock()
 	}()
 	// Absorb outgoing segments into the outgoing backlog.
 	conn.tc.OutputSegmentCallback = func(seg Segment) {
+		conn.mutex.Lock()
 		conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
+		conn.mutex.Unlock()
 	}
 	// Carry on with the handshake.
 	conn.tc.Start(conn.context)
-	for {
-		if conn.tc.WaitState(conn.context, StateEstablished) {
-			break
-		}
-	}
+	conn.tc.WaitState(conn.context, StateEstablished)
 	if conn.proxy.Debug {
 		conn.logger.Info("ProxyConnection.Start", "", nil, "TC is established")
 	}
 	// Pipe data in both directions.
 	go func() {
-		// This goroutine automatically terminates when Pipe encounters an IO
-		// error.
 		if err := misc.Pipe(conn.proxy.ReadBufferSize, conn.tc, conn.tcpConn); err != nil {
 			if conn.proxy.Debug {
 				conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
 			}
-
 		}
 	}()
 	if err := misc.Pipe(conn.proxy.ReadBufferSize, conn.tcpConn, conn.tc); err != nil {
 		if conn.proxy.Debug {
 			conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
 		}
-		return
 	}
+	// Wait for the final few output segments to drain and then close the
+	// transmission control.
+	conn.tc.CloseAfterDrained()
+	conn.tc.WaitState(conn.context, StateClosed)
+	conn.tc.DumpState()
 }
 
 // WaitSegment busy-waits until a new segment is available from the output
@@ -107,7 +109,7 @@ func (conn *ProxyConnection) WaitSegment(ctx context.Context) (Segment, bool) {
 
 // Close and terminate the proxy TCP connection and its transmission control.
 func (conn *ProxyConnection) Close() error {
-	conn.tc.Close()
+	_ = conn.tc.Close()
 	_ = conn.tcpConn.Close()
 	return nil
 }
@@ -199,6 +201,7 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			// are kept in a backlog.
 			OutputTransport:         io.Discard,
 			MaxSegmentLenExclHeader: proxy.MaxSegmentLenExclHeader,
+			Debug:                   true,
 			ID:                      9999, // TODO FIXME: change this to input TC ID.
 		}
 		// Track the new connection.

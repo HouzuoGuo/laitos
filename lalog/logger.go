@@ -211,3 +211,21 @@ func LintString(in string, maxLength int) string {
 	}
 	return cleanedResult.String()
 }
+
+// ByteArrayLogString returns a human-readable string for the input byte array.
+// The returned string is only suitable for log messages.
+func ByteArrayLogString(data []byte) string {
+	var countBinaryBytes int
+	for _, b := range data {
+		if (b <= 8) || // NUL...Backspace
+			(b >= 14 && b <= 31) || // ShiftOut..UnitSeparator
+			(b >= 127) || // Past the basic ASCII table
+			(!unicode.IsPrint(rune(b)) && !unicode.IsSpace(rune(b))) { // Non-printable
+			countBinaryBytes++
+		}
+	}
+	if float32(countBinaryBytes)/float32(len(data)) > 0.5 {
+		return fmt.Sprintf("%#v", data)
+	}
+	return LintString(string(data), 1000)
+}

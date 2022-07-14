@@ -75,6 +75,9 @@ type TransmissionControl struct {
 
 	// State is the current transmission control connection state.
 	state State
+	// closeAfterDrained signals the transmission control to close as soon as
+	// the output buffer is drained.
+	closeAfterDrained bool
 	// Buffer input and output for callers.
 	inputBuf  []byte
 	outputBuf []byte
@@ -210,13 +213,13 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 }
 
 func (tc *TransmissionControl) Write(buf []byte) (int, error) {
+	if tc.Debug {
+		tc.Logger.Info("Write", "", nil, "(sliding window full? %v state? %v) writing buf %v", tc.slidingWindowFull(), tc.State(), lalog.ByteArrayLogString(buf))
+	}
 	if tc.State() == StateClosed {
 		return 0, io.EOF
 	}
 	start := time.Now()
-	if tc.Debug {
-		tc.Logger.Info("Write", ByteArrayLogString(buf), nil, "writing buf - sliding window full? %v", tc.slidingWindowFull())
-	}
 	for tc.slidingWindowFull() {
 		// Wait for peer to acknowledge before sending more.
 		if time.Since(start) < tc.WriteTimeout {
@@ -224,7 +227,7 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 			continue
 		} else {
 			if tc.Debug {
-				tc.Logger.Info("Write", ByteArrayLogString(buf), nil, "abort write due to timeout ")
+				tc.Logger.Info("Write", "", nil, "timed out writing buf %v", lalog.ByteArrayLogString(buf))
 			}
 			if tc.State() == StateClosed {
 				return 0, io.EOF
@@ -440,7 +443,11 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				toSend = toSend[:int(tc.MaxSlidingWindow)]
 			}
 			if len(toSend) == 0 {
-				// There is nothing to do.
+				// The output buffer has already been drained, there is no more
+				// data to send for the time being.
+				if instant.closeAfterDrained {
+					return
+				}
 				select {
 				case <-time.After(BusyWaitInterval):
 					continue
@@ -450,9 +457,6 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			} else {
 				// The segment data can be empty. An empty segment is for
 				// keep-alive.
-				if tc.Debug {
-					tc.Logger.Info("drainOutputToTransport", "", nil, "sending segments totalling %d bytes: %+v", len(toSend), ByteArrayLogString(toSend))
-				}
 				_ = tc.writeSegments(instant.inputSeq, instant.outputSeq, toSend, true)
 				// Always clear the retransmission counter after a regular
 				// transmission.
@@ -477,9 +481,6 @@ func (tc *TransmissionControl) writeSegments(ackInputSeq, seqNum uint32, buf []b
 			SeqNum: seqNum + uint32(i),
 			AckNum: ackInputSeq,
 			Data:   thisSeg,
-		}
-		if tc.Debug {
-			tc.Logger.Info("writeSegments", "", nil, "writing to output transport: %+v", seg)
 		}
 		err := tc.writeToOutputTransport(seg)
 		if err == nil {
@@ -513,7 +514,7 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 		tc.mutex.Unlock()
 		if readLen > 0 {
 			if tc.Debug {
-				tc.Logger.Info("Read", "", nil, "returning to caller %d bytes %v", readLen, buf[:readLen])
+				tc.Logger.Info("Read", "", nil, "returning to caller %d bytes %v", readLen, lalog.ByteArrayLogString(buf[:readLen]))
 			}
 			// Caller has got some data.
 			return readLen, nil
@@ -522,7 +523,7 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 			<-time.After(BusyWaitInterval)
 		} else {
 			if tc.Debug {
-				tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, ByteArrayLogString(buf[:readLen]))
+				tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, lalog.ByteArrayLogString(buf[:readLen]))
 			}
 			if tc.State() == StateClosed {
 				return readLen, io.EOF
@@ -569,7 +570,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		}
 		seg := SegmentFromPacket(append(segHeader, segData...))
 		if seg.Flags.Has(FlagMalformed) {
-			tc.Logger.Warning("drainInputFromTransport", "", nil, "failed to decode the segment, header: %v, data: %v", segHeader, ByteArrayLogString(segData))
+			tc.Logger.Warning("drainInputFromTransport", "", nil, "failed to decode the segment, header: %v, data: %v", segHeader, lalog.ByteArrayLogString(segData))
 			segDataCtxCancel()
 			continue
 		}
@@ -702,8 +703,8 @@ func (tc *TransmissionControl) DumpState() {
 		"output seq: %v\tlast output: %v\tlast ack-only seg: %v\toutput buf: %v\n"+
 		"ongoing retrans: %d\tinput transport errs: %d\toutput transport errs: %d\n",
 		tc.state, tc.lastOutputSyn,
-		tc.inputSeq, tc.inputAck, tc.lastInputAck, ByteArrayLogString(tc.inputBuf),
-		tc.outputSeq, tc.lastOutput, tc.lastAckOnlySeg, ByteArrayLogString(tc.outputBuf),
+		tc.inputSeq, tc.inputAck, tc.lastInputAck, lalog.ByteArrayLogString(tc.inputBuf),
+		tc.outputSeq, tc.lastOutput, tc.lastAckOnlySeg, lalog.ByteArrayLogString(tc.outputBuf),
 		tc.ongoingRetransmissions, tc.inputTransportErrors, tc.outputTransportErrors,
 	)
 }
@@ -722,9 +723,11 @@ func (tc *TransmissionControl) OutputSeq() uint32 {
 // If the output transport is experience an exceeding exceeding number of IO
 // errors then the transmission controll will be stopped.
 func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
+	if tc.Debug {
+		tc.Logger.Info("", "", nil, "writing to output transport %+v", seg)
+	}
 	_, err := tc.OutputTransport.Write(seg.Packet())
 	if tc.OutputSegmentCallback != nil {
-		tc.Logger.Warning("", "", nil, "writing to output transport %+v", seg)
 		tc.OutputSegmentCallback(seg)
 	}
 	tc.mutex.Lock()
@@ -776,6 +779,17 @@ func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, total
 		}
 		return data, err
 	}
+}
+
+// closeAfterDrained irreversibly sets an internal flag to signal the
+// transmission control to close when the output buffer is completely drained.
+func (tc *TransmissionControl) CloseAfterDrained() {
+	if tc.Debug {
+		tc.Logger.Info("CloseAfterDrained", "", nil, "will close the TC after emptying output buffer")
+	}
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	tc.closeAfterDrained = true
 }
 
 // Close terminates both directions of the transmission control connection.

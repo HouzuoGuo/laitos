@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strings"
-	"unicode"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 )
@@ -103,7 +102,7 @@ func (seg *Segment) Packet() (ret []byte) {
 // Stringer returns a human-readable representation of the segment for debug
 // logging.
 func (seg Segment) String() string {
-	return fmt.Sprintf("[ID=%d Seq=%d Ack=%d Flags=%v Data=%s]", seg.ID, seg.SeqNum, seg.AckNum, seg.Flags, ByteArrayLogString(seg.Data))
+	return fmt.Sprintf("[ID=%d Seq=%d Ack=%d Flags=%v Data=%s]", seg.ID, seg.SeqNum, seg.AckNum, seg.Flags, lalog.ByteArrayLogString(seg.Data))
 }
 
 // SegmentFromPacket decodes a segment from a byte array and returns the decoded
@@ -128,22 +127,4 @@ func SegmentFromPacket(packet []byte) Segment {
 		AckNum: ack,
 		Data:   data,
 	}
-}
-
-// ByteArrayLogString returns a human-readable string for the input byte array.
-// The returned string is only suitable for log messages.
-func ByteArrayLogString(data []byte) string {
-	var countBinaryBytes int
-	for _, b := range data {
-		if (b <= 8) || // NUL...Backspace
-			(b >= 14 && b <= 31) || // ShiftOut..UnitSeparator
-			(b >= 127) || // Past the basic ASCII table
-			(!unicode.IsPrint(rune(b)) && !unicode.IsSpace(rune(b))) { // Non-printable
-			countBinaryBytes++
-		}
-	}
-	if float32(countBinaryBytes)/float32(len(data)) > 0.5 {
-		return fmt.Sprintf("%#v", data)
-	}
-	return lalog.LintString(string(data), 1000)
 }
