@@ -1,6 +1,7 @@
 package tcpoverdns
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"strings"
@@ -85,6 +86,14 @@ type Segment struct {
 	// number expected from peer - oops!
 	AckNum uint32
 	Data   []byte
+}
+
+func (seg *Segment) Equals(other Segment) bool {
+	return seg.Flags == other.Flags &&
+		seg.ID == other.ID &&
+		seg.SeqNum == other.SeqNum &&
+		seg.AckNum == other.AckNum &&
+		bytes.Equal(seg.Data, other.Data)
 }
 
 // Packet serialises the segment into bytes and returns them.

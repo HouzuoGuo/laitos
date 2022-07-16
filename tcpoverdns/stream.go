@@ -782,7 +782,8 @@ func (tc *TransmissionControl) readFromInputTransport(ctx context.Context, total
 }
 
 // closeAfterDrained irreversibly sets an internal flag to signal the
-// transmission control to close when the output buffer is completely drained.
+// transmission control to terminate/close after completely draining the output
+// buffer to its transport.
 func (tc *TransmissionControl) CloseAfterDrained() {
 	if tc.Debug {
 		tc.Logger.Info("CloseAfterDrained", "", nil, "will close the TC after emptying output buffer")
@@ -792,8 +793,8 @@ func (tc *TransmissionControl) CloseAfterDrained() {
 	tc.closeAfterDrained = true
 }
 
-// Close terminates both directions of the transmission control connection.
-// The function always returns nil.
+// Close immediately terminates/closes this transmission control, and writes a
+// single output segment to instruct the peer to terminate itself as well.
 func (tc *TransmissionControl) Close() error {
 	tc.mutex.Lock()
 	if tc.state == StateClosed {

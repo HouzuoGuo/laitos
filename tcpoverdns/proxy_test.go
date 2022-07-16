@@ -43,6 +43,10 @@ func echoTCPServer(t *testing.T, port int) {
 				lalog.DefaultLogger.Panic("echoTCPServer", "", err, "echo tcp server read failure")
 				return
 			}
+			if line == "end\n" {
+				lalog.DefaultLogger.Info("echoTCPServer", "", err, "returning now")
+				return
+			}
 			_, err = writer.WriteString(line)
 			if err == io.EOF {
 				lalog.DefaultLogger.Panic("echoTCPServer", "", err, "write EOF")
@@ -54,10 +58,6 @@ func echoTCPServer(t *testing.T, port int) {
 			}
 			if err := writer.Flush(); err != nil {
 				lalog.DefaultLogger.Panic("echoTCPServer", "", err, "echo tcp server flush failure")
-				return
-			}
-			if line == "end\n" {
-				lalog.DefaultLogger.Info("echoTCPServer", "", err, "returning now")
 				return
 			}
 		}
@@ -123,13 +123,7 @@ func TestProxy(t *testing.T) {
 		}
 	}()
 	// Have a conversation with the echo server.
-	req := []string{
-		"aaaa\n",
-		"bbb\n",
-		"cc\n",
-		"d\n",
-	}
-	// req len = 5 + 4 + 3 + 2 = 14
+	req := []string{"aaa\n", "bb\n"} // 4 + 3 = 7
 	reader := bufio.NewReader(tc)
 	for _, line := range req {
 		lalog.DefaultLogger.Info("", "", nil, "test is writing line: %v", line)
@@ -142,13 +136,13 @@ func TestProxy(t *testing.T) {
 			t.Fatalf("failed to read back line - n: %s, err: %v", readBack, err)
 		}
 	}
-	// Tell proxy to end the TC
+	// Tell proxy to end the TC.
 	if _, err := tc.Write([]byte("end\n")); err != nil {
 		t.Fatalf("failed to write request line: %v", err)
 	}
 	// The underlying TCP connection is closed after "end\n".
-	checkTC(t, tc, 5, StateClosed, 14, 14, 14+4, nil, nil)
-	checkTCError(t, tc, 5, 0, 0, 0)
+	checkTC(t, tc, 20, StateClosed, 7, 7, 7+4, nil, nil)
+	checkTCError(t, tc, 2, 0, 0, 0)
 }
 
 func TestProxyCloudflareConnection(t *testing.T) {

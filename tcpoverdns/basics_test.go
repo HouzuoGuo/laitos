@@ -43,3 +43,31 @@ func TestFlags(t *testing.T) {
 		t.Fatalf("should not have had flag %d", 1<<4)
 	}
 }
+
+func TestSegment_Equals(t *testing.T) {
+	original := Segment{
+		ID:     12345,
+		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
+		SeqNum: 23456,
+		AckNum: 34567,
+		Data:   []byte{1, 2, 3, 4},
+	}
+	if !original.Equals(original) {
+		t.Errorf("should have been equal")
+	}
+
+	tests := []struct {
+		a, b Segment
+	}{
+		{a: Segment{ID: 1}, b: Segment{ID: 2}},
+		{a: Segment{Flags: 1}, b: Segment{Flags: 2}},
+		{a: Segment{SeqNum: 1}, b: Segment{SeqNum: 2}},
+		{a: Segment{AckNum: 1}, b: Segment{AckNum: 2}},
+		{a: Segment{Data: []byte{0}}, b: Segment{Data: []byte{1}}},
+	}
+	for _, test := range tests {
+		if test.a.Equals(test.b) {
+			t.Errorf("should not have been equal: %+v, %+v", test.a, test.b)
+		}
+	}
+}

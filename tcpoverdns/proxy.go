@@ -46,17 +46,32 @@ func (conn *ProxyConnection) Start() {
 	}
 	defer func() {
 		if conn.proxy.Debug {
-			conn.logger.Info("ProxyConnection.Start", "", nil, "done")
+			conn.logger.Info("ProxyConnection.Start", "", nil, "closed TCP connection")
 		}
 		_ = conn.Close()
-		conn.proxy.mutex.Lock()
-		delete(conn.proxy.connections, conn.tc.ID)
-		conn.proxy.mutex.Unlock()
+		go func() {
+			time.Sleep(conn.proxy.Linger)
+			conn.proxy.mutex.Lock()
+			delete(conn.proxy.connections, conn.tc.ID)
+			conn.proxy.mutex.Unlock()
+			if conn.proxy.Debug {
+				conn.logger.Info("ProxyConnection.Start", "", nil, "closed and removed from proxy after linger")
+			}
+		}()
 	}()
 	// Absorb outgoing segments into the outgoing backlog.
 	conn.tc.OutputSegmentCallback = func(seg Segment) {
+		// De-duplicate adjacent keep-alive/ack-only segments. Otherwise if the
+		// proxy client and proxy connection will not be able to exchange data
+		// when they have different keep-alive or ack intervals.
 		conn.mutex.Lock()
-		conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
+		var latest Segment
+		if len(conn.outputSegmentBacklog) > 0 {
+			latest = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
+		}
+		if !latest.Equals(seg) {
+			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
+		}
 		conn.mutex.Unlock()
 	}
 	// Carry on with the handshake.
@@ -78,10 +93,12 @@ func (conn *ProxyConnection) Start() {
 			conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
 		}
 	}
-	// Wait for the final few output segments to drain and then close the
-	// transmission control.
+	// Wait for the transmission control to close.
 	conn.tc.CloseAfterDrained()
 	conn.tc.WaitState(conn.context, StateClosed)
+	// The proxy connection lingers for a short while for the remainder of
+	// outputSegmentBacklog, incl. the segment with ResetTerminate flag, to be
+	// picked up by Receive.
 	conn.tc.DumpState()
 }
 
@@ -127,6 +144,12 @@ type Proxy struct {
 	// segment before returning from the Receive function.
 	MaxReplyDelay time.Duration
 
+	// Linger is a brief period of time for a proxy connection to stay before it
+	// is removed from the internal collection of proxy connections. The delay
+	// is crucial to allow the final segments of each proxy connection to be
+	// received by proxy client - including the segment with ResetTerminate.
+	Linger time.Duration
+
 	// DialTimeout is the timeout used for creating new a proxy TCP connection.
 	DialTimeout time.Duration
 
@@ -159,6 +182,9 @@ func (proxy *Proxy) Start(ctx context.Context) {
 	}
 	if proxy.DialTimeout == 0 {
 		proxy.DialTimeout = 10 * time.Second
+	}
+	if proxy.Linger == 0 {
+		proxy.Linger = 60 * time.Second
 	}
 	proxy.connections = make(map[uint16]*ProxyConnection)
 	proxy.context, proxy.cancelFun = context.WithCancel(ctx)
