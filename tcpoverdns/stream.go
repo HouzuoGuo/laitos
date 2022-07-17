@@ -3,8 +3,9 @@ package tcpoverdns
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"io"
+	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -20,10 +21,6 @@ const (
 	SegmentDataTimeout = 10 * time.Second
 	//MaxSegmentDataLen is the maximum permissible segment length.
 	MaxSegmentDataLen = 8192
-)
-
-var (
-	ErrTimeout = errors.New("transmission control IO timeout")
 )
 
 // TransmissionControl provides TCP-like features for duplex transportation of
@@ -222,17 +219,16 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 	start := time.Now()
 	for tc.slidingWindowFull() {
 		// Wait for peer to acknowledge before sending more.
-		if time.Since(start) < tc.WriteTimeout {
+		if tc.State() == StateClosed {
+			return 0, io.EOF
+		} else if time.Since(start) < tc.WriteTimeout {
 			<-time.After(BusyWaitInterval)
 			continue
 		} else {
 			if tc.Debug {
 				tc.Logger.Info("Write", "", nil, "timed out writing buf %v", lalog.ByteArrayLogString(buf))
 			}
-			if tc.State() == StateClosed {
-				return 0, io.EOF
-			}
-			return 0, ErrTimeout
+			return 0, os.ErrDeadlineExceeded
 		}
 	}
 	tc.mutex.Lock()
@@ -518,6 +514,8 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 			}
 			// Caller has got some data.
 			return readLen, nil
+		} else if tc.State() == StateClosed {
+			return readLen, io.EOF
 		} else if time.Since(start) < tc.ReadTimeout {
 			// Wait for more input data to arrive and then retry.
 			<-time.After(BusyWaitInterval)
@@ -525,10 +523,7 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 			if tc.Debug {
 				tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, lalog.ByteArrayLogString(buf[:readLen]))
 			}
-			if tc.State() == StateClosed {
-				return readLen, io.EOF
-			}
-			return readLen, ErrTimeout
+			return readLen, os.ErrDeadlineExceeded
 		}
 	}
 }
@@ -641,6 +636,11 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 				if tc.Debug {
 					tc.Logger.Info("drainInputFromTransport", "", nil, "received a reset segment %+v", seg)
 				}
+				tc.mutex.Lock()
+				// There should not be data in this segment though.
+				tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
+				tc.inputAck = seg.AckNum
+				tc.mutex.Unlock()
 				_ = tc.Close()
 			} else if seg.Flags.Has(FlagHandshakeSyn) || seg.Flags.Has(FlagHandshakeAck) {
 				if tc.Debug {
@@ -821,6 +821,21 @@ func (tc *TransmissionControl) Close() error {
 	}
 	return nil
 }
+
+// LocalAddr always returns nil.
+func (tc *TransmissionControl) LocalAddr() net.Addr { return nil }
+
+// RemoteAddr always returns nil.
+func (tc *TransmissionControl) RemoteAddr() net.Addr { return nil }
+
+// SetDeadline always returns nil.
+func (tc *TransmissionControl) SetDeadline(t time.Time) error { return nil }
+
+// SetReadDeadline always returns nil.
+func (tc *TransmissionControl) SetReadDeadline(t time.Time) error { return nil }
+
+// SetWriteDeadline always returns nil.
+func (tc *TransmissionControl) SetWriteDeadline(t time.Time) error { return nil }
 
 // readInput reads from transmission control's input transport for a total
 // number of bytes specified in totalLen.

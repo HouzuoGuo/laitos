@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 	tc.Start(context.Background())
 	// The next read times out due to lack of further input segments.
 	n, err := tc.Read(nil)
-	if n != 0 || err != ErrTimeout {
+	if n != 0 || err != os.ErrDeadlineExceeded {
 		t.Fatalf("read n: %+v, err: %+v", n, err)
 	}
 	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
@@ -94,7 +95,7 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 	}
 	// The next read times out due to lack of further input segments.
 	n, err := tc.Read(nil)
-	if n != 0 || err != ErrTimeout {
+	if n != 0 || err != os.ErrDeadlineExceeded {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
 	checkTC(t, tc, 1, StateEstablished, 10*3, 0, 0, nil, nil)
@@ -137,7 +138,7 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 	}
 	// The next read times out due to lack of further input segments.
 	n, err := tc.Read(nil)
-	if n != 0 || err != ErrTimeout {
+	if n != 0 || err != os.ErrDeadlineExceeded {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
 
@@ -420,7 +421,7 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t 
 	}
 	// The second write operation times out and does nothing.
 	n, err = tc.Write([]byte{5, 6, 7, 8, 9})
-	if n != 0 || err != ErrTimeout {
+	if n != 0 || err != os.ErrDeadlineExceeded {
 		t.Fatalf("write n %v, %+v", n, err)
 	}
 	checkTC(t, tc, 1, StateEstablished, 0, 0, 5, nil, []byte{0, 1, 2, 3, 4})
@@ -462,7 +463,7 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 	// Write another stream of data, which is going to fail due to saturated
 	// sliding window.
 	n, err = tc.Write([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30})
-	if n != 0 || err != ErrTimeout {
+	if n != 0 || err != os.ErrDeadlineExceeded {
 		t.Fatalf("write n: %+v, err: %+v", n, err)
 	}
 

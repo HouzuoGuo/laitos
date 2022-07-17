@@ -3,16 +3,33 @@ package tcpoverdns
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 )
+
+func pipeSegments(t *testing.T, testOut, testIn net.Conn, proxy *Proxy) {
+	for {
+		// Pipe segments from TC to proxy.
+		seg := readSegmentHeaderData(t, context.Background(), testOut)
+		lalog.DefaultLogger.Info("", "", nil, "relaying segment to proxy tc: %+v", seg)
+		resp, hasResp := proxy.Receive(seg)
+		lalog.DefaultLogger.Info("", "", nil, "proxy tc replies to test: %+v, %v", resp, hasResp)
+		if hasResp {
+			// Send the response segment back to TC.
+			_, err := testIn.Write(resp.Packet())
+			if err != nil {
+				panic("failed to write to testIn")
+			}
+		}
+	}
+}
 
 func echoTCPServer(t *testing.T, port int) {
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
@@ -88,7 +105,7 @@ func TestProxy(t *testing.T) {
 
 	proxy := &Proxy{
 		Debug: true,
-		// Keep the segment length short for the test,
+		// Keep the segment length short to test the segment buffer behaviour.
 		MaxSegmentLenExclHeader: 2,
 	}
 	proxy.Start(context.Background())
@@ -106,22 +123,7 @@ func TestProxy(t *testing.T) {
 		Initiator:               true,
 	}
 	tc.Start(context.Background())
-	go func() {
-		for {
-			// Pipe segments from TC to proxy.
-			seg := readSegmentHeaderData(t, context.Background(), testOut)
-			resp, hasResp := proxy.Receive(seg)
-			lalog.DefaultLogger.Info("", "", nil, "test tc -> proxy: %+v", seg)
-			lalog.DefaultLogger.Info("", "", nil, "proxy -> test tc: %+v, %v", resp, hasResp)
-			if hasResp {
-				// Send the response segment back to TC.
-				_, err := testIn.Write(resp.Packet())
-				if err != nil {
-					panic("failed to write to testIn")
-				}
-			}
-		}
-	}()
+	go pipeSegments(t, testOut, testIn, proxy)
 	// Have a conversation with the echo server.
 	req := []string{"aaa\n", "bb\n"} // 4 + 3 = 7
 	reader := bufio.NewReader(tc)
@@ -141,12 +143,12 @@ func TestProxy(t *testing.T) {
 		t.Fatalf("failed to write request line: %v", err)
 	}
 	// The underlying TCP connection is closed after "end\n".
-	checkTC(t, tc, 20, StateClosed, 7, 7, 7+4, nil, nil)
+	// The test TCP server does not reply when receiving "end\n".
+	checkTC(t, tc, 20, StateClosed, 7, 7+4, 7+4, nil, nil)
 	checkTCError(t, tc, 2, 0, 0, 0)
 }
 
-func TestProxyCloudflareConnection(t *testing.T) {
-	t.Skip("TODO FIXME")
+func TestProxyHTTPClient(t *testing.T) {
 	proxy := &Proxy{Debug: true}
 	proxy.Start(context.Background())
 
@@ -159,27 +161,12 @@ func TestProxyCloudflareConnection(t *testing.T) {
 		OutputTransport:      outTransport,
 		InitiatorSegmentData: []byte(`{"p": 80, "a": "1.1.1.1"}`),
 		Initiator:            true,
-		ReadTimeout:          60 * time.Second,
 	}
 	tc.Start(context.Background())
 
-	go func() {
-		for {
-			// Pipe segments from TC to proxy.
-			seg := readSegmentHeaderData(t, context.Background(), testOut)
-			resp, hasResp := proxy.Receive(seg)
-			lalog.DefaultLogger.Info("", "", nil, "test tc -> proxy: %+v", seg)
-			lalog.DefaultLogger.Info("", "", nil, "proxy -> test tc: %+v, %v", resp, hasResp)
-			if hasResp {
-				// Send the response segment back to TC.
-				_, err := testIn.Write(resp.Packet())
-				if err != nil {
-					panic("failed to write to testIn")
-				}
-			}
-		}
-	}()
+	go pipeSegments(t, testOut, testIn, proxy)
 
+	bytesWritten := 0
 	req := []string{
 		"GET / HTTP/1.1",
 		"Host: 1.1.1.1",
@@ -193,6 +180,7 @@ func TestProxyCloudflareConnection(t *testing.T) {
 		if err != nil {
 			t.Fatalf("write failure: %+v", err)
 		}
+		bytesWritten += len(line) + 2
 	}
 	resp, err := io.ReadAll(tc)
 	if err != nil && err != io.EOF {
@@ -200,9 +188,62 @@ func TestProxyCloudflareConnection(t *testing.T) {
 	}
 	respStr := string(resp)
 	t.Logf("http response: %s", respStr)
-	if !strings.Contains(respStr, `</html>`) {
+	if !strings.Contains(respStr, `<html>`) || !strings.Contains(respStr, `</html>`) {
 		t.Fatalf("missing content")
 	}
-	checkTC(t, tc, 5, StateClosed, 14, 14, 14+4, nil, nil)
-	checkTCError(t, tc, 5, 0, 0, 0)
+	checkTC(t, tc, 20, StateClosed, len(resp), bytesWritten, bytesWritten, nil, nil)
+	checkTCError(t, tc, 2, 0, 0, 0)
+}
+
+func TestProxyHTTPSClient(t *testing.T) {
+	t.Skip("FIXME TODO")
+	proxy := &Proxy{Debug: true}
+	proxy.Start(context.Background())
+
+	testIn, inTransport := net.Pipe()
+	testOut, outTransport := net.Pipe()
+	tc := &TransmissionControl{
+		ID:                   1111,
+		Debug:                true,
+		InputTransport:       inTransport,
+		OutputTransport:      outTransport,
+		InitiatorSegmentData: []byte(`{"p": 443, "a": "1.1.1.1"}`),
+		Initiator:            true,
+	}
+	tc.Start(context.Background())
+
+	go pipeSegments(t, testOut, testIn, proxy)
+
+	conn := tls.Client(tc, &tls.Config{InsecureSkipVerify: true})
+	if err := conn.Handshake(); err != nil {
+		t.Fatalf("TLS handshake error: %+v", err)
+	}
+
+	bytesWritten := 0
+	req := []string{
+		"GET / HTTP/1.1",
+		"Host: 1.1.1.1",
+		"User-Agent: HouzuoGuo-laitos",
+		"Accept: */*",
+		"Connection: close",
+		"",
+	}
+	for _, line := range req {
+		_, err := conn.Write([]byte(line + "\r\n"))
+		if err != nil {
+			t.Fatalf("write failure: %+v", err)
+		}
+		bytesWritten += len(line) + 2
+	}
+	resp, err := io.ReadAll(conn)
+	if err != nil && err != io.EOF {
+		t.Fatalf("read failure: %v", err)
+	}
+	respStr := string(resp)
+	t.Logf("http response: %s", respStr)
+	if !strings.Contains(respStr, `<html>`) || !strings.Contains(respStr, `</html>`) {
+		t.Fatalf("missing content")
+	}
+	checkTC(t, tc, 20, StateClosed, len(resp), bytesWritten, bytesWritten, nil, nil)
+	checkTCError(t, tc, 2, 0, 0, 0)
 }

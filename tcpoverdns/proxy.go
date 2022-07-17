@@ -41,6 +41,7 @@ func (conn *ProxyConnection) Start() {
 			{Key: "TCID", Value: conn.tc.ID},
 		},
 	}
+
 	if conn.proxy.Debug {
 		conn.logger.Info("ProxyConnection.Start", "", nil, "starting now")
 	}
@@ -61,15 +62,20 @@ func (conn *ProxyConnection) Start() {
 	}()
 	// Absorb outgoing segments into the outgoing backlog.
 	conn.tc.OutputSegmentCallback = func(seg Segment) {
-		// De-duplicate adjacent keep-alive/ack-only segments. Otherwise if the
-		// proxy client and proxy connection will not be able to exchange data
-		// when they have different keep-alive or ack intervals.
+		// Replace the latest keep-alive or ack-only segment (if any), and
+		// de-duplicate adjacent identical segments. These measures not only
+		// speed up the exchanges but also ensure that peers can communicate
+		// properly even if their timeout configuration differ.
 		conn.mutex.Lock()
 		var latest Segment
 		if len(conn.outputSegmentBacklog) > 0 {
 			latest = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
 		}
-		if !latest.Equals(seg) {
+		if latest.Flags.Has(FlagAckOnly) || latest.Flags.Has(FlagKeepAlive) {
+			// Substitute the ack-only or keep-alive segment with the latest.
+			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
+		} else if !latest.Equals(seg) {
+			// De-duplicate adjacent identical segments.
 			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
 		}
 		conn.mutex.Unlock()
@@ -227,7 +233,7 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			// are kept in a backlog.
 			OutputTransport:         io.Discard,
 			MaxSegmentLenExclHeader: proxy.MaxSegmentLenExclHeader,
-			Debug:                   true,
+			Debug:                   proxy.Debug,
 			ID:                      9999, // TODO FIXME: change this to input TC ID.
 		}
 		// Track the new connection.
