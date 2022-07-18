@@ -10,6 +10,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 )
@@ -131,7 +132,7 @@ func TestProxy(t *testing.T) {
 		lalog.DefaultLogger.Info("", "", nil, "test is writing line: %v", line)
 		n, err := tc.Write([]byte(line))
 		if err != nil || n != len(line) {
-			t.Fatalf("failed to write request line - n: %v, err: %v", n, err)
+			t.Fatalf("failed to write request line %q - n: %v, err: %v", line, n, err)
 		}
 		readBack, err := reader.ReadString('\n')
 		if err != nil || readBack != line {
@@ -149,6 +150,7 @@ func TestProxy(t *testing.T) {
 }
 
 func TestProxyHTTPClient(t *testing.T) {
+	t.Log("TODO FIXME: the terminate segment went missing in the end and was not received by test TC")
 	proxy := &Proxy{Debug: true}
 	proxy.Start(context.Background())
 
@@ -161,6 +163,7 @@ func TestProxyHTTPClient(t *testing.T) {
 		OutputTransport:      outTransport,
 		InitiatorSegmentData: []byte(`{"p": 80, "a": "1.1.1.1"}`),
 		Initiator:            true,
+		KeepAliveInterval:    1 * time.Second, // TODO FIXME: this is too short for practical use, how to tweak this number?
 	}
 	tc.Start(context.Background())
 
@@ -178,7 +181,7 @@ func TestProxyHTTPClient(t *testing.T) {
 	for _, line := range req {
 		_, err := tc.Write([]byte(line + "\r\n"))
 		if err != nil {
-			t.Fatalf("write failure: %+v", err)
+			t.Fatalf("write %q err: %+v", line, err)
 		}
 		bytesWritten += len(line) + 2
 	}
@@ -196,19 +199,21 @@ func TestProxyHTTPClient(t *testing.T) {
 }
 
 func TestProxyHTTPSClient(t *testing.T) {
-	t.Skip("FIXME TODO")
-	proxy := &Proxy{Debug: true}
+	t.Skip("TODO FIXME: when segment size is smaller than 1000 the TCs become stuck")
+	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 500}
 	proxy.Start(context.Background())
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
-		ID:                   1111,
-		Debug:                true,
-		InputTransport:       inTransport,
-		OutputTransport:      outTransport,
-		InitiatorSegmentData: []byte(`{"p": 443, "a": "1.1.1.1"}`),
-		Initiator:            true,
+		ID:                      1111,
+		Debug:                   true,
+		MaxSegmentLenExclHeader: 500,
+		InputTransport:          inTransport,
+		OutputTransport:         outTransport,
+		InitiatorSegmentData:    []byte(`{"p": 443, "a": "142.250.179.238"}`), // TODO FIXME: find another site to do this
+		Initiator:               true,
+		KeepAliveInterval:       1 * time.Second, // TODO FIXME: this is too short for practical use, how to tweak this number?
 	}
 	tc.Start(context.Background())
 
@@ -222,7 +227,7 @@ func TestProxyHTTPSClient(t *testing.T) {
 	bytesWritten := 0
 	req := []string{
 		"GET / HTTP/1.1",
-		"Host: 1.1.1.1",
+		"Host: google.com",
 		"User-Agent: HouzuoGuo-laitos",
 		"Accept: */*",
 		"Connection: close",
@@ -231,19 +236,21 @@ func TestProxyHTTPSClient(t *testing.T) {
 	for _, line := range req {
 		_, err := conn.Write([]byte(line + "\r\n"))
 		if err != nil {
-			t.Fatalf("write failure: %+v", err)
+			t.Fatalf("write %q err: %+v", line, err)
 		}
 		bytesWritten += len(line) + 2
 	}
-	resp, err := io.ReadAll(conn)
+	resp, err := io.ReadAll(conn) // TODO FIXME: if the web page was longer, this would time out.
 	if err != nil && err != io.EOF {
 		t.Fatalf("read failure: %v", err)
 	}
 	respStr := string(resp)
 	t.Logf("http response: %s", respStr)
-	if !strings.Contains(respStr, `<html>`) || !strings.Contains(respStr, `</html>`) {
+	if !strings.Contains(respStr, `<HTML>`) || !strings.Contains(respStr, `</HTML>`) {
 		t.Fatalf("missing content")
 	}
-	checkTC(t, tc, 20, StateClosed, len(resp), bytesWritten, bytesWritten, nil, nil)
+	// There is no meaningful way of checking the sequence numbers because there
+	// is a TLS handshake.
+	tc.WaitState(context.Background(), StateClosed)
 	checkTCError(t, tc, 2, 0, 0, 0)
 }

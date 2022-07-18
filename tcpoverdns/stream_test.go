@@ -39,10 +39,10 @@ func TestTransmissionControl_Closed(t *testing.T) {
 	_, inTransport := net.Pipe()
 	_, outTransport := net.Pipe()
 	tc := &TransmissionControl{
+		state:           StateEstablished,
 		Debug:           true,
 		InputTransport:  inTransport,
 		OutputTransport: outTransport,
-		ReadTimeout:     3 * time.Second,
 		MaxLifetime:     1 * time.Second,
 	}
 	tc.Start(context.Background())
@@ -58,6 +58,21 @@ func TestTransmissionControl_Closed(t *testing.T) {
 	}
 	checkTC(t, tc, 1, StateClosed, 0, 0, 0, nil, nil)
 	checkTCError(t, tc, 1, 0, 0, 0)
+}
+
+func TestTransmissionControl_CloseAfterDrained(t *testing.T) {
+	_, inTransport := net.Pipe()
+	_, outTransport := net.Pipe()
+	tc := &TransmissionControl{
+		Debug:           true,
+		InputTransport:  inTransport,
+		OutputTransport: outTransport,
+		state:           StateEstablished,
+	}
+	tc.Start(context.Background())
+	tc.CloseAfterDrained()
+	// Wait for TC to close.
+	checkTC(t, tc, 5, StateClosed, 0, 0, 0, nil, nil)
 }
 
 func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
@@ -155,7 +170,6 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		ReadTimeout:             3 * time.Second,
 		// This test is not concerned with keep-alive.
 		KeepAliveInterval: 999 * time.Second,
 		state:             StateEstablished,
@@ -518,20 +532,13 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
-		ID:                        1111,
-		Debug:                     true,
-		MaxSegmentLenExclHeader:   5,
-		InputTransport:            inTransport,
-		OutputTransport:           outTransport,
-		MaxSlidingWindow:          5,
-		SlidingWindowWaitDuration: 1 * time.Second,
-		RetransmissionInterval:    3 * time.Second,
-		MaxRetransmissions:        3,
-		ReadTimeout:               2 * time.Second,
-		WriteTimeout:              2 * time.Second,
-		KeepAliveInterval:         5 * time.Second,
-		AckDelay:                  2 * time.Second,
-		state:                     StateEstablished,
+		ID:                      1111,
+		Debug:                   true,
+		MaxSegmentLenExclHeader: 5,
+		InputTransport:          inTransport,
+		OutputTransport:         outTransport,
+		MaxSlidingWindow:        5,
+		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
 

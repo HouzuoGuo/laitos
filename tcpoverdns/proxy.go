@@ -66,6 +66,9 @@ func (conn *ProxyConnection) Start() {
 		// de-duplicate adjacent identical segments. These measures not only
 		// speed up the exchanges but also ensure that peers can communicate
 		// properly even if their timeout configuration differ.
+		if conn.proxy.Debug {
+			conn.logger.Info("ProxyConnection.Start", "", nil, "callback is handling segment %+v", seg)
+		}
 		conn.mutex.Lock()
 		var latest Segment
 		if len(conn.outputSegmentBacklog) > 0 {
@@ -73,10 +76,18 @@ func (conn *ProxyConnection) Start() {
 		}
 		if latest.Flags.Has(FlagAckOnly) || latest.Flags.Has(FlagKeepAlive) {
 			// Substitute the ack-only or keep-alive segment with the latest.
+			if conn.proxy.Debug {
+				conn.logger.Info("ProxyConnection.Start", "", nil, "callback is removing an ack/keepalive segment")
+			}
 			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
-		} else if !latest.Equals(seg) {
+		} else if latest.Equals(seg) {
 			// De-duplicate adjacent identical segments.
+			if conn.proxy.Debug {
+				conn.logger.Info("ProxyConnection.Start", "", nil, "callback is removing a duplicated segment")
+			}
+		} else {
 			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
+
 		}
 		conn.mutex.Unlock()
 	}
@@ -88,13 +99,13 @@ func (conn *ProxyConnection) Start() {
 	}
 	// Pipe data in both directions.
 	go func() {
-		if err := misc.Pipe(conn.proxy.ReadBufferSize, conn.tc, conn.tcpConn); err != nil {
+		if err := misc.Pipe(conn.proxy.MaxSegmentLenExclHeader, conn.tc, conn.tcpConn); err != nil {
 			if conn.proxy.Debug {
 				conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
 			}
 		}
 	}()
-	if err := misc.Pipe(conn.proxy.ReadBufferSize, conn.tcpConn, conn.tc); err != nil {
+	if err := misc.Pipe(conn.proxy.MaxSegmentLenExclHeader, conn.tcpConn, conn.tc); err != nil {
 		if conn.proxy.Debug {
 			conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
 		}
@@ -140,8 +151,6 @@ func (conn *ProxyConnection) Close() error {
 // Proxy manages the full life cycle of multiple transmission controls created
 // for the purpose of relaying TCP connections.
 type Proxy struct {
-	// ReadBufferSize is the buffer
-	ReadBufferSize int
 	// MaxLifetime is the maximum duration of a proxy TCP connection as well as
 	// its transmission control.
 	MaxLifetime time.Duration
@@ -176,15 +185,16 @@ type Proxy struct {
 
 // Start initialises the internal state of the proxy.
 func (proxy *Proxy) Start(ctx context.Context) {
-	if proxy.ReadBufferSize == 0 {
-		// Keep the buffer size small.
-		proxy.ReadBufferSize = 256
+	if proxy.MaxSegmentLenExclHeader == 0 {
+		proxy.MaxSegmentLenExclHeader = 256
 	}
 	if proxy.MaxLifetime == 0 {
 		proxy.MaxLifetime = 10 * time.Minute
 	}
 	if proxy.MaxReplyDelay == 0 {
-		proxy.MaxReplyDelay = 5 * time.Second
+		// This default should be greater/longer than transmission control's
+		// default AckDelay, or the performance will suffer quite a bit.
+		proxy.MaxReplyDelay = 2 * time.Second
 	}
 	if proxy.DialTimeout == 0 {
 		proxy.DialTimeout = 10 * time.Second
@@ -233,8 +243,10 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			// are kept in a backlog.
 			OutputTransport:         io.Discard,
 			MaxSegmentLenExclHeader: proxy.MaxSegmentLenExclHeader,
-			Debug:                   proxy.Debug,
-			ID:                      9999, // TODO FIXME: change this to input TC ID.
+			// TODO FIXME: optimise the sliding window length, is it worth raising it higher?
+			MaxSlidingWindow: uint32(proxy.MaxSegmentLenExclHeader) * 8,
+			Debug:            proxy.Debug,
+			ID:               9999, // TODO FIXME: change this to input TC ID.
 		}
 		// Track the new connection.
 		conn = &ProxyConnection{
