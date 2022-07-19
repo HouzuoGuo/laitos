@@ -47,16 +47,22 @@ func (conn *ProxyConnection) Start() {
 	}
 	defer func() {
 		if conn.proxy.Debug {
-			conn.logger.Info("ProxyConnection.Start", "", nil, "closed TCP connection")
+			conn.logger.Info("ProxyConnection.Start", "", nil, "closing and lingering")
+			conn.tc.DumpState()
 		}
 		_ = conn.Close()
 		go func() {
+			// Linger a short while before deleting (cease tracking) the
+			// connection, as the output segment buffer may still contain
+			// useful, final few segments - and crucially it contains the
+			// segment with ResetTerminate flag which is expected by the peer
+			// transmission control.
 			time.Sleep(conn.proxy.Linger)
 			conn.proxy.mutex.Lock()
 			delete(conn.proxy.connections, conn.tc.ID)
 			conn.proxy.mutex.Unlock()
 			if conn.proxy.Debug {
-				conn.logger.Info("ProxyConnection.Start", "", nil, "closed and removed from proxy after linger")
+				conn.logger.Info("ProxyConnection.Start", "", nil, "closed and removed from proxy")
 			}
 		}()
 	}()
@@ -66,10 +72,8 @@ func (conn *ProxyConnection) Start() {
 		// de-duplicate adjacent identical segments. These measures not only
 		// speed up the exchanges but also ensure that peers can communicate
 		// properly even if their timeout configuration differ.
-		if conn.proxy.Debug {
-			conn.logger.Info("ProxyConnection.Start", "", nil, "callback is handling segment %+v", seg)
-		}
 		conn.mutex.Lock()
+		defer conn.mutex.Unlock()
 		var latest Segment
 		if len(conn.outputSegmentBacklog) > 0 {
 			latest = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
@@ -77,19 +81,18 @@ func (conn *ProxyConnection) Start() {
 		if latest.Flags.Has(FlagAckOnly) || latest.Flags.Has(FlagKeepAlive) {
 			// Substitute the ack-only or keep-alive segment with the latest.
 			if conn.proxy.Debug {
-				conn.logger.Info("ProxyConnection.Start", "", nil, "callback is removing an ack/keepalive segment")
+				conn.logger.Info("ProxyConnection.Start", "", nil, "callback is removing ack/keepalive segment: %+v", seg)
 			}
 			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
 		} else if latest.Equals(seg) {
 			// De-duplicate adjacent identical segments.
 			if conn.proxy.Debug {
-				conn.logger.Info("ProxyConnection.Start", "", nil, "callback is removing a duplicated segment")
+				conn.logger.Info("ProxyConnection.Start", "", nil, "callback is removing duplicated segment: %+v", seg)
 			}
 		} else {
+			conn.logger.Info("ProxyConnection.Start", "", nil, "callback is handling segment %+v", seg)
 			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
-
 		}
-		conn.mutex.Unlock()
 	}
 	// Carry on with the handshake.
 	conn.tc.Start(conn.context)
@@ -113,10 +116,7 @@ func (conn *ProxyConnection) Start() {
 	// Wait for the transmission control to close.
 	conn.tc.CloseAfterDrained()
 	conn.tc.WaitState(conn.context, StateClosed)
-	// The proxy connection lingers for a short while for the remainder of
-	// outputSegmentBacklog, incl. the segment with ResetTerminate flag, to be
-	// picked up by Receive.
-	conn.tc.DumpState()
+	// The proxy connection lingers for a short while, see defer.
 }
 
 // WaitSegment busy-waits until a new segment is available from the output
@@ -143,8 +143,9 @@ func (conn *ProxyConnection) WaitSegment(ctx context.Context) (Segment, bool) {
 
 // Close and terminate the proxy TCP connection and its transmission control.
 func (conn *ProxyConnection) Close() error {
-	_ = conn.tc.Close()
 	_ = conn.tcpConn.Close()
+	_ = conn.inputSegments.Close()
+	_ = conn.tc.Close()
 	return nil
 }
 
@@ -235,6 +236,9 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 		// Establish the transmission control by completing the handshake.
 		proxyIn, tcIn := net.Pipe()
 		tc := &TransmissionControl{
+			Debug:  proxy.Debug,
+			LogTag: "ProxyConn",
+			ID:     in.ID,
 			// This transmission control is a responder during the handshake.
 			Initiator:      false,
 			InputTransport: tcIn,
@@ -243,10 +247,7 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			// are kept in a backlog.
 			OutputTransport:         io.Discard,
 			MaxSegmentLenExclHeader: proxy.MaxSegmentLenExclHeader,
-			// TODO FIXME: optimise the sliding window length, is it worth raising it higher?
-			MaxSlidingWindow: uint32(proxy.MaxSegmentLenExclHeader) * 8,
-			Debug:            proxy.Debug,
-			ID:               9999, // TODO FIXME: change this to input TC ID.
+			MaxSlidingWindow:        uint32(proxy.MaxSegmentLenExclHeader) * 8,
 		}
 		// Track the new connection.
 		conn = &ProxyConnection{

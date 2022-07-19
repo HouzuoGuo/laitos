@@ -150,20 +150,23 @@ func TestProxy(t *testing.T) {
 }
 
 func TestProxyHTTPClient(t *testing.T) {
-	t.Log("TODO FIXME: the terminate segment went missing in the end and was not received by test TC")
-	proxy := &Proxy{Debug: true}
+	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 101}
 	proxy.Start(context.Background())
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
-		ID:                   1111,
-		Debug:                true,
-		InputTransport:       inTransport,
-		OutputTransport:      outTransport,
-		InitiatorSegmentData: []byte(`{"p": 80, "a": "1.1.1.1"}`),
-		Initiator:            true,
-		KeepAliveInterval:    1 * time.Second, // TODO FIXME: this is too short for practical use, how to tweak this number?
+		LogTag:          "TestHttpClient",
+		Debug:           true,
+		ID:              1111,
+		InputTransport:  inTransport,
+		OutputTransport: outTransport,
+		// Test asymmetric segment length.
+		MaxSegmentLenExclHeader: 97,
+		InitiatorSegmentData:    []byte(`{"p": 80, "a": "1.1.1.1"}`),
+		Initiator:               true,
+		// A shorter interval gives the test TC more throughput.
+		KeepAliveInterval: 1 * time.Second,
 	}
 	tc.Start(context.Background())
 
@@ -189,9 +192,9 @@ func TestProxyHTTPClient(t *testing.T) {
 	if err != nil && err != io.EOF {
 		t.Fatalf("read failure: %v", err)
 	}
-	respStr := string(resp)
-	t.Logf("http response: %s", respStr)
-	if !strings.Contains(respStr, `<html>`) || !strings.Contains(respStr, `</html>`) {
+	t.Logf("http response: %s", string(resp))
+	respStr := strings.ToLower(string(resp))
+	if !strings.Contains(respStr, `content-type`) || !strings.Contains(respStr, `</html>`) {
 		t.Fatalf("missing content")
 	}
 	checkTC(t, tc, 20, StateClosed, len(resp), bytesWritten, bytesWritten, nil, nil)
@@ -199,21 +202,23 @@ func TestProxyHTTPClient(t *testing.T) {
 }
 
 func TestProxyHTTPSClient(t *testing.T) {
-	t.Skip("TODO FIXME: when segment size is smaller than 1000 the TCs become stuck")
-	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 500}
+	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 1993}
 	proxy.Start(context.Background())
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
-		ID:                      1111,
-		Debug:                   true,
-		MaxSegmentLenExclHeader: 500,
+		LogTag: "TestHttpClient",
+		Debug:  true,
+		ID:     1111,
+		// Test asymmetric segment length.
+		MaxSegmentLenExclHeader: 993,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		InitiatorSegmentData:    []byte(`{"p": 443, "a": "142.250.179.238"}`), // TODO FIXME: find another site to do this
+		InitiatorSegmentData:    []byte(`{"p": 443, "a": "1.1.1.1"}`),
 		Initiator:               true,
-		KeepAliveInterval:       1 * time.Second, // TODO FIXME: this is too short for practical use, how to tweak this number?
+		// A shorter interval gives the test TC more throughput.
+		KeepAliveInterval: 1 * time.Second,
 	}
 	tc.Start(context.Background())
 
@@ -227,7 +232,7 @@ func TestProxyHTTPSClient(t *testing.T) {
 	bytesWritten := 0
 	req := []string{
 		"GET / HTTP/1.1",
-		"Host: google.com",
+		"Host: 1.1.1.1",
 		"User-Agent: HouzuoGuo-laitos",
 		"Accept: */*",
 		"Connection: close",
@@ -240,13 +245,15 @@ func TestProxyHTTPSClient(t *testing.T) {
 		}
 		bytesWritten += len(line) + 2
 	}
-	resp, err := io.ReadAll(conn) // TODO FIXME: if the web page was longer, this would time out.
+	// Make sure the segment length is sufficiently high, otherwise ReadAll will
+	// run into TC timeout.
+	resp, err := io.ReadAll(conn)
 	if err != nil && err != io.EOF {
 		t.Fatalf("read failure: %v", err)
 	}
-	respStr := string(resp)
-	t.Logf("http response: %s", respStr)
-	if !strings.Contains(respStr, `<HTML>`) || !strings.Contains(respStr, `</HTML>`) {
+	t.Logf("http response: %s", string(resp))
+	respStr := strings.ToLower(string(resp))
+	if !strings.Contains(respStr, `content-type`) || !strings.Contains(respStr, `</html>`) {
 		t.Fatalf("missing content")
 	}
 	// There is no meaningful way of checking the sequence numbers because there

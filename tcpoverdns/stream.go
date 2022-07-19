@@ -38,6 +38,8 @@ type TransmissionControl struct {
 	Debug bool
 	// Logger is used to log IO activities when verbose logging is enabled.
 	Logger lalog.Logger
+	// LogTag is a string that shows up in all log entries.
+	LogTag string
 
 	// Initiator determines whether this transmission control will initiate
 	// the handshake sequence with the peer.
@@ -203,7 +205,10 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	tc.mutex = new(sync.Mutex)
 	tc.Logger = lalog.Logger{
 		ComponentName: "TC",
-		ComponentID:   []lalog.LoggerIDField{{Key: "ID", Value: tc.ID}},
+		ComponentID: []lalog.LoggerIDField{
+			{Key: "ID", Value: tc.ID},
+			{Key: "Tag", Value: tc.LogTag},
+		},
 	}
 	go tc.drainInputFromTransport()
 	go tc.drainOutputToTransport()
