@@ -2,11 +2,15 @@ package tcpoverdns
 
 import (
 	"bytes"
+	"compress/flate"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"golang.org/x/net/dns/dnsmessage"
 )
 
 // State is the transmission control stream's state.
@@ -108,6 +112,12 @@ func (seg *Segment) Packet() (ret []byte) {
 	return
 }
 
+// DNSQuestion converts the binary representation of this segment into a DNS
+// query question.
+func (seg *Segment) DNSQuestion() dnsmessage.Question {
+	return dnsmessage.Question{}
+}
+
 // Stringer returns a human-readable representation of the segment for debug
 // logging.
 func (seg Segment) String() string {
@@ -136,4 +146,38 @@ func SegmentFromPacket(packet []byte) Segment {
 		AckNum: ack,
 		Data:   data,
 	}
+}
+
+// CompressBytes compresses the input byte array using a scheme with the best
+// compress ratio.
+func CompressBytes(original []byte) (compressed []byte) {
+	var buf bytes.Buffer
+	w, err := flate.NewWriter(&buf, flate.BestCompression)
+	if err != nil {
+		panic(err)
+	}
+	_, _ = w.Write([]byte(original))
+	_ = w.Close()
+	return buf.Bytes()
+}
+
+// DecompressBytes recovers a byte array compressed by the CompressBytes
+// function.
+func DecompressBytes(compressed []byte) (original []byte, err error) {
+	r := flate.NewReader(bytes.NewReader(compressed))
+	original, err = io.ReadAll(r)
+	return
+}
+
+// EncodeBase64NoPadding encodes a byte array using base64 standard encoding,
+// the return string does not include padding "=".
+func EncodeBase64NoPadding(original []byte) string {
+	return strings.TrimRight(base64.StdEncoding.EncodeToString(original), "=")
+}
+
+// DecodeBase64Nopadding decodes a base64 encoded string (excl. padding) using
+// the standard encoding .
+func DecodeBase64Nopadding(encoded string) ([]byte, error) {
+	encoded += strings.Repeat("=", len(encoded)%4)
+	return base64.StdEncoding.DecodeString(encoded)
 }

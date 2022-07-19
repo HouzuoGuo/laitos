@@ -1,6 +1,13 @@
 package tcpoverdns
 
 import (
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
+	"compress/lzw"
+	"compress/zlib"
+	"encoding/base64"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -68,6 +75,90 @@ func TestSegment_Equals(t *testing.T) {
 	for _, test := range tests {
 		if test.a.Equals(test.b) {
 			t.Errorf("should not have been equal: %+v, %+v", test.a, test.b)
+		}
+	}
+}
+
+func TestCompression(t *testing.T) {
+	// original := `The words of the Teacher, son of David, king in Jerusalem: “Meaningless! Meaningless!” says the Teacher. “Utterly meaningless! Everything is meaningless.” What do people gain from all their labors at which they toil under the sun?`
+	original := `<!doctype html><html itemscope="" itemtype="http://schema.org/WebPage" lang="en-IE"><head><meta charset="UTF-8"><meta content="dark" name="color-scheme"><meta content="origin" name="referrer"><meta content="/images/branding/googleg/1x/googleg_standard_colo`
+
+	t.Run("zlib", func(t *testing.T) {
+		var b bytes.Buffer
+		w, err := zlib.NewWriterLevel(&b, zlib.BestCompression)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Write([]byte(original))
+		w.Close()
+		fmt.Println("zlib", len(b.Bytes()), len(base64.StdEncoding.EncodeToString(b.Bytes())))
+	})
+
+	t.Run("lzw", func(t *testing.T) {
+		var b bytes.Buffer
+		w := lzw.NewWriter(&b, lzw.MSB, 8)
+		w.Write([]byte(original))
+		w.Close()
+		fmt.Println("lzw", len(b.Bytes()), len(base64.StdEncoding.EncodeToString(b.Bytes())))
+	})
+
+	t.Run("flate", func(t *testing.T) {
+		var b bytes.Buffer
+		w, err := flate.NewWriter(&b, flate.BestCompression)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Write([]byte(original))
+		w.Close()
+		fmt.Println("flate", len(b.Bytes()), len(base64.StdEncoding.EncodeToString(b.Bytes())))
+	})
+
+	t.Run("gzip", func(t *testing.T) {
+		var b bytes.Buffer
+		w, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Write([]byte(original))
+		w.Close()
+		fmt.Println("gzip", len(b.Bytes()), len(base64.StdEncoding.EncodeToString(b.Bytes())))
+	})
+
+	t.Run("base64", func(t *testing.T) {
+		fmt.Println(base64.StdEncoding.DecodeString("TQ=="))
+	})
+}
+
+func TestCompressDecompressBytes(t *testing.T) {
+	tests := [][]byte{
+		{},
+		{0},
+		{0, 1},
+		{0, 1, 2},
+		[]byte(`<!doctype html><html itemscope="" itemtype="http://schema.org/WebPage" lang="en-IE"><head><meta charset="UTF-8"><meta content="dark" name="color-scheme"><meta content="origin" name="referrer"><meta content="/images/branding/googleg/1x/googleg_standard_colo`),
+	}
+	for _, original := range tests {
+		compressed := CompressBytes(original)
+		got, err := DecompressBytes(compressed)
+		if err != nil || !reflect.DeepEqual(got, original) {
+			t.Fatalf("DecompressBytes(%+v): got %+v, want %+v", compressed, got, original)
+		}
+	}
+}
+
+func TestEncodeDecodeBase64NoPadding(t *testing.T) {
+	tests := [][]byte{
+		{},
+		{0},
+		{0, 1},
+		{0, 1, 2},
+		[]byte(`<!doctype html><html itemscope="" itemtype="http://schema.org/WebPage" lang="en-IE"><head><meta charset="UTF-8"><meta content="dark" name="color-scheme"><meta content="origin" name="referrer"><meta content="/images/branding/googleg/1x/googleg_standard_colo`),
+	}
+	for _, original := range tests {
+		encoded := EncodeBase64NoPadding(original)
+		got, err := DecodeBase64Nopadding(encoded)
+		if err != nil || !reflect.DeepEqual(got, original) {
+			t.Fatalf("DecodeBase64Nopadding(%+v): got %+v, want %+v", encoded, got, original)
 		}
 	}
 }
