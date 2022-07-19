@@ -101,16 +101,18 @@ func (conn *ProxyConnection) Start() {
 		conn.logger.Info("ProxyConnection.Start", "", nil, "TC is established")
 	}
 	// Pipe data in both directions.
-	go func() {
-		if err := misc.Pipe(conn.proxy.MaxSegmentLenExclHeader, conn.tc, conn.tcpConn); err != nil {
-			if conn.proxy.Debug {
-				conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
+	if conn.tcpConn != nil {
+		go func() {
+			if err := misc.Pipe(conn.proxy.MaxSegmentLenExclHeader, conn.tc, conn.tcpConn); err != nil {
+				if conn.proxy.Debug {
+					conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
+				}
 			}
-		}
-	}()
-	if err := misc.Pipe(conn.proxy.MaxSegmentLenExclHeader, conn.tcpConn, conn.tc); err != nil {
-		if conn.proxy.Debug {
-			conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
+		}()
+		if err := misc.Pipe(conn.proxy.MaxSegmentLenExclHeader, conn.tcpConn, conn.tc); err != nil {
+			if conn.proxy.Debug {
+				conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
+			}
 		}
 	}
 	// Wait for the transmission control to close.
@@ -143,7 +145,9 @@ func (conn *ProxyConnection) WaitSegment(ctx context.Context) (Segment, bool) {
 
 // Close and terminate the proxy TCP connection and its transmission control.
 func (conn *ProxyConnection) Close() error {
-	_ = conn.tcpConn.Close()
+	if conn.tcpConn != nil {
+		_ = conn.tcpConn.Close()
+	}
 	_ = conn.inputSegments.Close()
 	_ = conn.tc.Close()
 	return nil
@@ -226,14 +230,7 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 		if proxy.Debug {
 			proxy.Logger.Info("Receive", "", nil, "new connection request - seg: %+v, req: %+v", in, req)
 		}
-		dest := fmt.Sprintf("%s:%d", req.Address, req.Port)
-		netConn, err := net.DialTimeout("tcp", dest, proxy.DialTimeout)
-		if err != nil {
-			proxy.Logger.Warning("Receive", "", err, "failed to connect to proxy destination %s", dest)
-		}
-		tcpConn := netConn.(*net.TCPConn)
-		misc.TweakTCPConnection(tcpConn, proxy.MaxLifetime)
-		// Establish the transmission control by completing the handshake.
+		// Construct the transmission control at proxy's side.
 		proxyIn, tcIn := net.Pipe()
 		tc := &TransmissionControl{
 			Debug:  proxy.Debug,
@@ -249,7 +246,22 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			MaxSegmentLenExclHeader: proxy.MaxSegmentLenExclHeader,
 			MaxSlidingWindow:        uint32(proxy.MaxSegmentLenExclHeader) * 8,
 		}
-		// Track the new connection.
+		// Connect to the intended destination.
+		dest := fmt.Sprintf("%s:%d", req.Address, req.Port)
+		netConn, err := net.DialTimeout("tcp", dest, proxy.DialTimeout)
+		if err != nil {
+			// Immediately close the transmission control if the destination is
+			// unreachable.
+			proxy.Logger.Warning("Receive", "", err, "failed to connect to proxy destination %s", dest)
+			// Proceed with handshake, but there will be no data coming through
+			// the transmission control and it will be closed shortly.
+		}
+		var tcpConn *net.TCPConn
+		if netConn != nil {
+			tcpConn = netConn.(*net.TCPConn)
+			misc.TweakTCPConnection(tcpConn, proxy.MaxLifetime)
+		}
+		// Track the new proxy connection.
 		conn = &ProxyConnection{
 			proxy:         proxy,
 			tcpConn:       tcpConn,
@@ -261,8 +273,8 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 		proxy.mutex.Lock()
 		proxy.connections[in.ID] = conn
 		proxy.mutex.Unlock()
+		// Go ahead with handshake and data transfer.
 		go conn.Start()
-		// Go ahead with handshake.
 	}
 	if _, err := conn.inputSegments.Write(in.Packet()); err != nil {
 		_ = conn.Close()

@@ -101,7 +101,7 @@ func readSegmentHeaderData(t *testing.T, ctx context.Context, in io.Reader) Segm
 	return SegmentFromPacket(append(segHeader, segData...))
 }
 
-func TestProxy(t *testing.T) {
+func TestProxy_TCPClient(t *testing.T) {
 	echoTCPServer(t, 63238)
 
 	proxy := &Proxy{
@@ -114,8 +114,9 @@ func TestProxy(t *testing.T) {
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &TransmissionControl{
-		ID:                   1111,
+		LogTag:               "TestTCPClient",
 		Debug:                true,
+		ID:                   1111,
 		InputTransport:       inTransport,
 		OutputTransport:      outTransport,
 		InitiatorSegmentData: []byte(`{"p": 63238, "a": "127.0.0.1"}`),
@@ -149,7 +150,7 @@ func TestProxy(t *testing.T) {
 	checkTCError(t, tc, 2, 0, 0, 0)
 }
 
-func TestProxyHTTPClient(t *testing.T) {
+func TestProxy_HTTPClient(t *testing.T) {
 	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 101}
 	proxy.Start(context.Background())
 
@@ -201,7 +202,7 @@ func TestProxyHTTPClient(t *testing.T) {
 	checkTCError(t, tc, 2, 0, 0, 0)
 }
 
-func TestProxyHTTPSClient(t *testing.T) {
+func TestProxy_HTTPSClient(t *testing.T) {
 	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 1993}
 	proxy.Start(context.Background())
 
@@ -260,4 +261,43 @@ func TestProxyHTTPSClient(t *testing.T) {
 	// is a TLS handshake.
 	tc.WaitState(context.Background(), StateClosed)
 	checkTCError(t, tc, 2, 0, 0, 0)
+}
+
+func TestProxy_CleanUp(t *testing.T) {
+	proxy := &Proxy{
+		Debug:  true,
+		Linger: 5 * time.Second,
+	}
+	proxy.Start(context.Background())
+
+	testIn, inTransport := net.Pipe()
+	testOut, outTransport := net.Pipe()
+	tc := &TransmissionControl{
+		LogTag:          "TestHttpClient",
+		Debug:           true,
+		ID:              1111,
+		InputTransport:  inTransport,
+		OutputTransport: outTransport,
+		// The destination is not going to respond.
+		InitiatorSegmentData: []byte(`{"p": 443, "a": "203.0.113.0"}`),
+		Initiator:            true,
+		// A shorter interval gives the test TC more throughput.
+		KeepAliveInterval: 1 * time.Second,
+	}
+	tc.Start(context.Background())
+	go pipeSegments(t, testOut, testIn, proxy)
+	// The destination is not going to be reachable, so this read operation does
+	// not return any data.
+	resp, err := io.ReadAll(tc)
+	if len(resp) != 0 || err != nil && err != io.EOF {
+		t.Fatalf("read failure - resp: %v, err: %v", resp, err)
+	}
+	checkTC(t, tc, 10, StateClosed, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 2, 0, 0, 0)
+	// Wait for linger to go by.
+	time.Sleep(proxy.Linger + 1*time.Second)
+	// The connection should disappear from the proxy.
+	if len(proxy.connections) != 0 {
+		t.Fatalf("left over connections: %+v", proxy.connections)
+	}
 }
