@@ -297,6 +297,8 @@ func TestProxy_CleanUp(t *testing.T) {
 	// Wait for linger to go by.
 	time.Sleep(proxy.Linger + 1*time.Second)
 	// The connection should disappear from the proxy.
+	proxy.mutex.Lock()
+	defer proxy.mutex.Unlock()
 	if len(proxy.connections) != 0 {
 		t.Fatalf("left over connections: %+v", proxy.connections)
 	}
