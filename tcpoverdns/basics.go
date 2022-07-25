@@ -3,15 +3,18 @@ package tcpoverdns
 import (
 	"bytes"
 	"compress/flate"
-	"encoding/base64"
+	"encoding/base32"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 	"golang.org/x/net/dns/dnsmessage"
 )
+
+var base32EncodingNoPadding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // State is the transmission control stream's state.
 type State int
@@ -113,9 +116,46 @@ func (seg *Segment) Packet() (ret []byte) {
 }
 
 // DNSQuestion converts the binary representation of this segment into a DNS
-// query question.
-func (seg *Segment) DNSQuestion() dnsmessage.Question {
-	return dnsmessage.Question{}
+// query question - "prefix.seg.seg.seg...domainName".
+// The function does not check whether the segment is sufficiently small for
+// the DNS protocol.
+func (seg *Segment) DNSQuestion(prefix, domainName string) dnsmessage.Question {
+	// Compress the binary representation of the segment.
+	packet := seg.Packet()
+	compressed := CompressBytes(packet)
+	// Encode using base32.
+	encoded := strings.ToLower(base32EncodingNoPadding.EncodeToString(compressed))
+	// Split into 63 characters per label.
+	// 63 is the maximum label size decided by the DNS protocol.
+	labels := misc.SplitIntoSlice(encoded, 63, MaxSegmentDataLen*2)
+	return dnsmessage.Question{
+		Name:  dnsmessage.MustNewName(fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)),
+		Type:  dnsmessage.TypeA,
+		Class: dnsmessage.ClassINET,
+	}
+}
+
+// DNSResource converts the binary representation of this segment into a DNS
+// address resource. The function does not check whether the segment is
+// sufficiently small for the DNS protocol.
+func (seg *Segment) DNSResource() (ret []dnsmessage.AResource) {
+	packet := seg.Packet()
+	compressed := CompressBytes(packet)
+	// Add the length prefix.
+	lenPrefix := make([]byte, 2)
+	binary.BigEndian.PutUint16(lenPrefix, uint16(len(compressed)))
+	// Split into address resource records.
+	compressed = append(lenPrefix, compressed...)
+	for i := 0; i < len(compressed); i += 4 {
+		end := i + 4
+		if end > len(compressed) {
+			end = len(compressed)
+		}
+		addr := [4]byte{}
+		copy(addr[:], compressed[i:end])
+		ret = append(ret, dnsmessage.AResource{A: addr})
+	}
+	return
 }
 
 // Stringer returns a human-readable representation of the segment for debug
@@ -148,6 +188,49 @@ func SegmentFromPacket(packet []byte) Segment {
 	}
 }
 
+// SegmentFromDNSQuestion decodes a segment from a DNS question.
+func SegmentFromDNSQuestion(numDomainNameLabels int, in dnsmessage.Question) Segment {
+	labels := strings.Split(in.Name.String(), ".")
+	if len(labels) < 1+1+numDomainNameLabels {
+		return Segment{Flags: FlagMalformed}
+	}
+	// Recover base32 encoded binary data by concatenating the labels.
+	labels = labels[1 : len(labels)-numDomainNameLabels]
+	compressed, err := base32EncodingNoPadding.DecodeString(strings.ToUpper(strings.Join(labels, "")))
+	if err != nil {
+		return Segment{Flags: FlagMalformed}
+	}
+	// Decompress the binary packet.
+	decompressed, err := DecompressBytes(compressed)
+	if err != nil {
+		return Segment{Flags: FlagMalformed}
+	}
+	return SegmentFromPacket(decompressed)
+}
+
+// SegmentFromDNSResources decodes a segment from DNS address resource records.
+func SegmentFromDNSResources(in []dnsmessage.AResource) Segment {
+	// Recover binary data from the resource records.
+	data := make([]byte, 0)
+	for _, rec := range in {
+		data = append(data, rec.A[:]...)
+	}
+	if len(data) < 3 {
+		return Segment{Flags: FlagMalformed}
+	}
+	// Decode the data length.
+	segLen := binary.BigEndian.Uint16(data[:2])
+	if len(data) < 2+int(segLen) {
+		return Segment{Flags: FlagMalformed}
+	}
+	// Decompress the segment packet.
+	decompressed, err := DecompressBytes(data[2 : 2+segLen])
+	if err != nil {
+		return Segment{Flags: FlagMalformed}
+	}
+	return SegmentFromPacket(decompressed)
+}
+
 // CompressBytes compresses the input byte array using a scheme with the best
 // compress ratio.
 func CompressBytes(original []byte) (compressed []byte) {
@@ -167,17 +250,4 @@ func DecompressBytes(compressed []byte) (original []byte, err error) {
 	r := flate.NewReader(bytes.NewReader(compressed))
 	original, err = io.ReadAll(r)
 	return
-}
-
-// EncodeBase64NoPadding encodes a byte array using base64 standard encoding,
-// the return string does not include padding "=".
-func EncodeBase64NoPadding(original []byte) string {
-	return strings.TrimRight(base64.StdEncoding.EncodeToString(original), "=")
-}
-
-// DecodeBase64Nopadding decodes a base64 encoded string (excl. padding) using
-// the standard encoding .
-func DecodeBase64Nopadding(encoded string) ([]byte, error) {
-	encoded += strings.Repeat("=", len(encoded)%4)
-	return base64.StdEncoding.DecodeString(encoded)
 }

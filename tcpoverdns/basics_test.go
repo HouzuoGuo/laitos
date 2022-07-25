@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"compress/lzw"
 	"compress/zlib"
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"reflect"
@@ -146,19 +147,42 @@ func TestCompressDecompressBytes(t *testing.T) {
 	}
 }
 
-func TestEncodeDecodeBase64NoPadding(t *testing.T) {
-	tests := [][]byte{
-		{},
-		{0},
-		{0, 1},
-		{0, 1, 2},
-		[]byte(`<!doctype html><html itemscope="" itemtype="http://schema.org/WebPage" lang="en-IE"><head><meta charset="UTF-8"><meta content="dark" name="color-scheme"><meta content="origin" name="referrer"><meta content="/images/branding/googleg/1x/googleg_standard_colo`),
+func TestSegment_DNSQuestion(t *testing.T) {
+	randData := make([]byte, 100)
+	if _, err := rand.Read(randData); err != nil {
+		t.Fatal(err)
 	}
-	for _, original := range tests {
-		encoded := EncodeBase64NoPadding(original)
-		got, err := DecodeBase64Nopadding(encoded)
-		if err != nil || !reflect.DeepEqual(got, original) {
-			t.Fatalf("DecodeBase64Nopadding(%+v): got %+v, want %+v", encoded, got, original)
-		}
+	want := Segment{
+		ID:     12345,
+		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
+		SeqNum: 23456,
+		AckNum: 34567,
+		Data:   randData,
+	}
+	dnsQuestion := want.DNSQuestion("prefix-label", "example.com")
+	fmt.Println(dnsQuestion.Name.String())
+	got := SegmentFromDNSQuestion(2, dnsQuestion)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("recovered: %+#v original: %+#v", got, want)
+	}
+}
+
+func TestSegment_DNSResource(t *testing.T) {
+	randData := make([]byte, 100)
+	if _, err := rand.Read(randData); err != nil {
+		t.Fatal(err)
+	}
+	want := Segment{
+		ID:     12345,
+		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
+		SeqNum: 23456,
+		AckNum: 34567,
+		Data:   randData,
+	}
+	ret := want.DNSResource()
+	fmt.Println(ret)
+	got := SegmentFromDNSResources(ret)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("recovered: %+#v original: %+#v", got, want)
 	}
 }
