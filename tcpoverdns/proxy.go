@@ -223,7 +223,7 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 	if !exists {
 		// Connect to the proxy destination.
 		var req ProxyRequest
-		if err := json.Unmarshal(in.Data, &req); err != nil {
+		if err := json.Unmarshal(in.Data[InitiatorConfigLen:], &req); err != nil {
 			proxy.Logger.Warning("Receive", "", err, "failed to deserialise proxy request")
 			return Segment{}, false
 		}

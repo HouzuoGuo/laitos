@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -179,13 +180,21 @@ func SegmentFromPacket(packet []byte) Segment {
 		return Segment{Flags: FlagMalformed}
 	}
 	data := packet[SegmentHeaderLen : SegmentHeaderLen+length]
-	return Segment{
+	seg := Segment{
 		ID:     id,
 		Flags:  flags,
 		SeqNum: seq,
 		AckNum: ack,
 		Data:   data,
 	}
+
+	// The HandshakeSyn segment must have the initiator config.
+	if seg.Flags == FlagHandshakeSyn {
+		if len(seg.Data) < InitiatorConfigLen {
+			return Segment{Flags: FlagMalformed}
+		}
+	}
+	return seg
 }
 
 // SegmentFromDNSQuestion decodes a segment from a DNS question.
@@ -250,4 +259,57 @@ func DecompressBytes(compressed []byte) (original []byte, err error) {
 	r := flate.NewReader(bytes.NewReader(compressed))
 	original, err = io.ReadAll(r)
 	return
+}
+
+const (
+	// InitiatorConfigLen is the length of the serialised InitiatorConfig.
+	InitiatorConfigLen = 19
+)
+
+// InitiatorConfig is a small piece of binary data inserted into the initiator's
+// handshake segment during the handshake. The parameters help configure the
+// responding transmission control.
+type InitiatorConfig struct {
+	// SetConfig instructs the responder to configure itself according to the
+	// parameters specified here.
+	SetConfig bool
+	// MaxSegmentLenExclHeader is the maximum length of the data portion in an
+	// outgoing segment, the length excludes the headers.
+	MaxSegmentLenExclHeader int
+	// ReadTimeout specifies a time limit for the Read function.
+	ReadTimeout time.Duration
+	// WriteTimeout specifies a time limit for the Write function.
+	WriteTimeout time.Duration
+}
+
+// Bytes returns the binary data representation of the configuration parameters.
+func (conf *InitiatorConfig) Bytes() []byte {
+	ret := make([]byte, InitiatorConfigLen)
+	if conf.SetConfig {
+		ret[0] = 1
+	}
+	binary.BigEndian.PutUint16(ret[1:3], uint16(conf.MaxSegmentLenExclHeader))
+	binary.BigEndian.PutUint64(ret[3:11], uint64(conf.ReadTimeout))
+	binary.BigEndian.PutUint64(ret[11:19], uint64(conf.WriteTimeout))
+	return ret
+}
+
+// Config copies the configuration parameters into the transmission control.
+func (conf *InitiatorConfig) Config(tc *TransmissionControl) {
+	if conf.SetConfig {
+		tc.MaxSegmentLenExclHeader = conf.MaxSegmentLenExclHeader
+		tc.ReadTimeout = conf.ReadTimeout
+		tc.WriteTimeout = conf.WriteTimeout
+	}
+}
+
+// DeserialiseInitiatorConfig decodes configuration parameters from the input
+// byte array.
+func DeserialiseInitiatorConfig(in []byte) *InitiatorConfig {
+	ret := new(InitiatorConfig)
+	ret.SetConfig = in[0] == 1
+	ret.MaxSegmentLenExclHeader = int(binary.BigEndian.Uint16(in[1:3]))
+	ret.ReadTimeout = time.Duration(binary.BigEndian.Uint64(in[3:11]))
+	ret.WriteTimeout = time.Duration(binary.BigEndian.Uint64(in[11:19]))
+	return ret
 }

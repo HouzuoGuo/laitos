@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestSegment_Packet(t *testing.T) {
@@ -27,9 +28,16 @@ func TestSegment_Packet(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("recovered: %+#v original: %+#v", got, want)
 	}
+
+	want.Flags = FlagHandshakeSyn
+	packet = want.Packet()
+	got = SegmentFromPacket(packet)
+	if !reflect.DeepEqual(got, Segment{Flags: FlagMalformed}) {
+		t.Fatal("did not identify malformed segment without initiator config")
+	}
 }
 
-func TestSegmentFromPacket(t *testing.T) {
+func TestSegmentFromMalformedPacket(t *testing.T) {
 	want := Segment{Flags: FlagMalformed}
 	segWithData := Segment{Data: []byte{1, 2}}
 	segWithMalformedLen := segWithData.Packet()
@@ -183,6 +191,31 @@ func TestSegment_DNSResource(t *testing.T) {
 	fmt.Println(ret)
 	got := SegmentFromDNSResources(ret)
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("recovered: %+#v original: %+#v", got, want)
+		t.Fatalf("got: %+#v want: %+#v", got, want)
+	}
+}
+
+func TestInitiatorConfig(t *testing.T) {
+	want := &InitiatorConfig{
+		SetConfig:               true,
+		MaxSegmentLenExclHeader: 123,
+		ReadTimeout:             234 * time.Second,
+		WriteTimeout:            345 * time.Second,
+	}
+	serialised := want.Bytes()
+	got := DeserialiseInitiatorConfig(serialised)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got: %+#v want: %+#v", got, want)
+	}
+
+	wantTC := &TransmissionControl{
+		MaxSegmentLenExclHeader: 123,
+		ReadTimeout:             234 * time.Second,
+		WriteTimeout:            345 * time.Second,
+	}
+	gotTC := &TransmissionControl{}
+	got.Config(gotTC)
+	if !reflect.DeepEqual(gotTC, wantTC) {
+		t.Fatalf("got: %+#v want: %+#v", gotTC, wantTC)
 	}
 }

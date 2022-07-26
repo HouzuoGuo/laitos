@@ -31,8 +31,8 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 	if n != 0 || err != os.ErrDeadlineExceeded {
 		t.Fatalf("read n: %+v, err: %+v", n, err)
 	}
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_Closed(t *testing.T) {
@@ -56,8 +56,8 @@ func TestTransmissionControl_Closed(t *testing.T) {
 	if n != 0 || err != io.EOF {
 		t.Fatalf("read n: %+v, err: %+v", n, err)
 	}
-	checkTC(t, tc, 1, StateClosed, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateClosed, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_CloseAfterDrained(t *testing.T) {
@@ -113,8 +113,8 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 	if n != 0 || err != os.ErrDeadlineExceeded {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
-	checkTC(t, tc, 1, StateEstablished, 10*3, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 10*3, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
@@ -157,8 +157,8 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 		t.Fatalf("should not have read data n: %+v, err: %+v", n, err)
 	}
 
-	checkTC(t, tc, 1, StateEstablished, 10*3, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 10*3, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
@@ -191,8 +191,8 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 		t.Fatalf("output seq: %v, retrans: %v, state: %v, in err: %d, out err: %d", tc.outputSeq, tc.ongoingRetransmissions, tc.state, tc.inputTransportErrors, tc.outputTransportErrors)
 	}
 
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_Callback(t *testing.T) {
@@ -227,8 +227,8 @@ func TestTransmissionControl_OutboundSegments_Callback(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+#v, want %+#v", got, want)
 	}
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 6, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 6, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
@@ -278,8 +278,8 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 	if len(data) != 0 || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 10*3, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 10*3, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
@@ -301,7 +301,7 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 			t.Fatalf("write: n %v, %+v", n, err)
 		}
 	}
-	checkTC(t, tc, 3, StateEstablished, 0, 0, 0, nil, []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4})
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 0, nil, []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4})
 	// Read all output segments and verify the data.
 	var gotData []byte
 	for len(gotData) < 10 {
@@ -310,7 +310,7 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 	}
 	// Wait for output sequence number to catch up and verify output buffer.
 	// In the absence of ack, the data remains in the buffer.
-	checkTC(t, tc, 3, StateEstablished, 0, 0, 10, nil, []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4})
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 10, nil, []byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4})
 
 	// There should not be anything else coming out.
 	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -320,8 +320,8 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 		t.Fatalf("read n: %+v, err: %+v", len(data), err)
 	}
 
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 5*2, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 5*2, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing.T) {
@@ -375,7 +375,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	if _, err := testIn.Write(ackSeg.Packet()); err != nil {
 		t.Fatalf("write ack: %+v", err)
 	}
-	checkTC(t, tc, 1, StateEstablished, 0, 3, 3, nil, nil)
+	checkTC(t, tc, 5, StateEstablished, 0, 3, 3, nil, nil)
 
 	// Write a second segment without acknowledging it.
 	n, err = tc.Write([]byte{2, 2, 2})
@@ -403,8 +403,8 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	}
 	time.Sleep(tc.SlidingWindowWaitDuration * 2)
 	// The TC is closed after exhausting all retransmission attempts.
-	checkTC(t, tc, 1, StateClosed, 0, 3, 3+3, nil, []byte{2, 2, 2})
-	checkTCError(t, tc, 1, 3, 0, 0)
+	checkTC(t, tc, 5, StateClosed, 0, 3, 3+3, nil, []byte{2, 2, 2})
+	checkTCError(t, tc, 5, 3, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t *testing.T) {
@@ -438,8 +438,8 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t 
 	if n != 0 || err != os.ErrDeadlineExceeded {
 		t.Fatalf("write n %v, %+v", n, err)
 	}
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 5, nil, []byte{0, 1, 2, 3, 4})
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 5, nil, []byte{0, 1, 2, 3, 4})
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *testing.T) {
@@ -524,8 +524,8 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 		t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
 	}
 
-	checkTC(t, tc, 1, StateEstablished, 0, 20, 20+5, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 0, 20, 20+5, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
@@ -610,13 +610,19 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 			t.Fatalf("keep alive came too early")
 		}
 	}
-	checkTC(t, tc, 1, StateEstablished, 1, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 1, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
+	conf := InitiatorConfig{
+		SetConfig:               true,
+		MaxSegmentLenExclHeader: 111,
+		ReadTimeout:             222 * time.Second,
+		WriteTimeout:            333 * time.Second,
+	}
 	tc := &TransmissionControl{
 		ID:                      1111,
 		Debug:                   true,
@@ -626,16 +632,19 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 		ReadTimeout:             2 * time.Second,
 		WriteTimeout:            2 * time.Second,
 		Initiator:               true,
+		InitiatorConfig:         conf,
 		InitiatorSegmentData:    []byte{3, 2, 1},
 		RetransmissionInterval:  5 * time.Second,
 	}
 	tc.Start(context.Background())
 
 	// Expect SYN with retransmissions.
+	synData := conf.Bytes()
+	synData = append(synData, 3, 2, 1)
 	for i := 0; i < 3; i++ {
 		lalog.DefaultLogger.Info("", "", nil, "test expects syn")
-		syn := readSegment(t, testOut, 3)
-		if !reflect.DeepEqual(syn, Segment{ID: 1111, Flags: FlagHandshakeSyn, Data: []byte{3, 2, 1}}) {
+		syn := readSegment(t, testOut, InitiatorConfigLen+3)
+		if !reflect.DeepEqual(syn, Segment{ID: 1111, Flags: FlagHandshakeSyn, Data: synData}) {
 			t.Fatalf("incorrect syn seg: %+v", syn)
 		}
 	}
@@ -657,8 +666,8 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	}
 	waitForState(t, tc, 10, StateEstablished)
 
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 
 	// Further SYN or SYN+ACK segments will not alter TC's state.
 	unexpectedSeg := Segment{Flags: FlagHandshakeSyn | FlagHandshakeAck}
@@ -666,8 +675,8 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write err: %+v", err)
 	}
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 1, 0) // the error is for the unexpected segment.
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 1, 0) // the error is for the unexpected segment.
 }
 
 func TestTransmissionControl_ResponderHandshake(t *testing.T) {
@@ -686,7 +695,8 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 	tc.Start(context.Background())
 
 	// Send SYN.
-	syn := Segment{Flags: FlagHandshakeSyn}
+	conf := InitiatorConfig{}
+	syn := Segment{Flags: FlagHandshakeSyn, Data: conf.Bytes()}
 	lalog.DefaultLogger.Info("", "", nil, "test writes syn")
 	_, err := testIn.Write(syn.Packet())
 	if err != nil {
@@ -712,8 +722,8 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 	}
 	waitForState(t, tc, 10, StateEstablished)
 
-	checkTC(t, tc, 1, StateEstablished, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateEstablished, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_PeerHandshake(t *testing.T) {
@@ -721,12 +731,20 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	rightIn, rightInTransport := net.Pipe()
 	start := time.Now()
 
+	conf := InitiatorConfig{
+		SetConfig:               true,
+		MaxSegmentLenExclHeader: 111,
+		ReadTimeout:             222 * time.Second,
+		WriteTimeout:            333 * time.Second,
+	}
 	leftTC := &TransmissionControl{
-		Debug:           true,
-		ID:              1111,
-		InputTransport:  leftInTransport,
-		OutputTransport: rightIn,
-		Initiator:       true,
+		Debug:                true,
+		ID:                   1111,
+		InputTransport:       leftInTransport,
+		OutputTransport:      rightIn,
+		Initiator:            true,
+		InitiatorConfig:      conf,
+		InitiatorSegmentData: []byte{1, 2, 3},
 	}
 	leftTC.Start(context.Background())
 	if !leftTC.slidingWindowFull() {
@@ -756,10 +774,15 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 		t.Fatalf("should have unblocked sending")
 	}
 
-	checkTC(t, leftTC, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTC(t, leftTC, 5, StateEstablished, 0, 0, 0, nil, nil)
 	checkTCError(t, leftTC, 1, 0, 0, 0)
-	checkTC(t, rightTC, 1, StateEstablished, 0, 0, 0, nil, nil)
+	checkTC(t, rightTC, 5, StateEstablished, 0, 0, 0, nil, nil)
 	checkTCError(t, rightTC, 1, 0, 0, 0)
+
+	// Check TC configuration.
+	if rightTC.MaxSegmentLenExclHeader != 111 || rightTC.ReadTimeout != 222*time.Second || rightTC.WriteTimeout != 333*time.Second {
+		t.Fatalf("did not configure tc: %+#v", rightTC)
+	}
 }
 
 func TestTransmissionControl_Reset(t *testing.T) {
@@ -794,8 +817,8 @@ func TestTransmissionControl_Reset(t *testing.T) {
 	if !reflect.DeepEqual(gotSeg, resetSeg) {
 		t.Fatalf("did not get a reset in return: %+v", gotSeg)
 	}
-	checkTC(t, tc, 1, StateClosed, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateClosed, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_MaxLifetime(t *testing.T) {
@@ -827,8 +850,8 @@ func TestTransmissionControl_MaxLifetime(t *testing.T) {
 	if !reflect.DeepEqual(gotSeg, resetSeg) {
 		t.Fatalf("did not get a reset in return: %+v", gotSeg)
 	}
-	checkTC(t, tc, 1, StateClosed, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 1, 0, 0, 0)
+	checkTC(t, tc, 5, StateClosed, 0, 0, 0, nil, nil)
+	checkTCError(t, tc, 5, 0, 0, 0)
 }
 
 func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
@@ -854,8 +877,8 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 	}
 	rightTC.Start(context.Background())
 
-	waitForState(t, leftTC, 1, StateEstablished)
-	waitForState(t, rightTC, 1, StateEstablished)
+	waitForState(t, leftTC, 5, StateEstablished)
+	waitForState(t, rightTC, 5, StateEstablished)
 
 	go func() {
 		for i := byte(0); i < 255; i++ {
@@ -889,16 +912,16 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 		}
 	}
 
-	checkTC(t, leftTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
+	checkTC(t, leftTC, 5, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
 	checkTCError(t, leftTC, 2, 0, 0, 0)
-	checkTC(t, rightTC, 2, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
+	checkTC(t, rightTC, 5, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
 	checkTCError(t, rightTC, 2, 0, 0, 0)
 
 	// Close one peer and the other will close too.
 	rightTC.Close()
-	checkTC(t, leftTC, 2, StateClosed, 3*255, 3*255, 3*255, nil, nil)
+	checkTC(t, leftTC, 5, StateClosed, 3*255, 3*255, 3*255, nil, nil)
 	checkTCError(t, leftTC, 2, 0, 0, 0)
-	checkTC(t, rightTC, 2, StateClosed, 3*255, 3*255, 3*255, nil, nil)
+	checkTC(t, rightTC, 5, StateClosed, 3*255, 3*255, 3*255, nil, nil)
 	checkTCError(t, rightTC, 2, 0, 0, 0)
 }
 
@@ -925,8 +948,8 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	}
 	rightTC.Start(context.Background())
 
-	waitForState(t, leftTC, 1, StateEstablished)
-	waitForState(t, rightTC, 1, StateEstablished)
+	waitForState(t, leftTC, 5, StateEstablished)
+	waitForState(t, rightTC, 5, StateEstablished)
 
 	errs := make(chan error, 4)
 	totalRounds := byte(255)
@@ -977,15 +1000,15 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	checkTC(t, leftTC, 10, StateEstablished, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
-	checkTCError(t, leftTC, 10, 0, 0, 0)
-	checkTC(t, rightTC, 10, StateEstablished, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
-	checkTCError(t, rightTC, 10, 0, 0, 0)
+	checkTC(t, leftTC, 5, StateEstablished, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
+	checkTCError(t, leftTC, 5, 0, 0, 0)
+	checkTC(t, rightTC, 5, StateEstablished, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
+	checkTCError(t, rightTC, 5, 0, 0, 0)
 
 	// Close one peer and the other will close too.
 	leftTC.Close()
-	checkTC(t, leftTC, 2, StateClosed, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
+	checkTC(t, leftTC, 5, StateClosed, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
 	checkTCError(t, leftTC, 2, 0, 0, 0)
-	checkTC(t, rightTC, 2, StateClosed, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
+	checkTC(t, rightTC, 5, StateClosed, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
 	checkTCError(t, rightTC, 2, 0, 0, 0)
 }

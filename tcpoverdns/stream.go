@@ -45,12 +45,16 @@ type TransmissionControl struct {
 	// the handshake sequence with the peer.
 	// Otherwise, this transmission control remains passive at the start.
 	Initiator bool
+	// InitiatorConfig is an optional set of configuration parameters that this
+	// transmission control will invite the peer to use.
+	InitiatorConfig InitiatorConfig
 	// InitiatorSegmentData is an optional byte array carried by initiator's
-	// handshake (SYN) segment. It must be shorter than MaxSegmentLenExclHeader.
+	// handshake (SYN) segment. It must be shorter than MaxSegmentLenExclHeader
+	// minus InitiatorConfigLen.
 	InitiatorSegmentData []byte
 
-	// lastOutputSyn is the timestamp of the latest outbound segment with with syn
-	// flag (used for handhsake).
+	// lastOutputSyn is the timestamp of the latest outbound segment with with
+	// syn flag (used for handhsake).
 	lastOutputSyn time.Time
 
 	// MaxSegmentLenExclHeader is the maximum length of the data portion in an
@@ -312,10 +316,12 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake syn has got no response after multiple attempts, closing.")
 						return
 					}
+					handshakeData := tc.InitiatorConfig.Bytes()
+					handshakeData = append(handshakeData, instant.InitiatorSegmentData...)
 					seg := Segment{
 						ID:    tc.ID,
 						Flags: FlagHandshakeSyn,
-						Data:  instant.InitiatorSegmentData,
+						Data:  handshakeData,
 					}
 					if tc.Debug {
 						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+v", instant.state, seg)
@@ -609,8 +615,10 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						if tc.Debug {
 							tc.Logger.Info("drainInputFromTransport", "", nil, "transition to StateSynReceived")
 						}
+						conf := DeserialiseInitiatorConfig(seg.Data[:InitiatorConfigLen])
 						tc.mutex.Lock()
 						tc.state = StateSynReceived
+						conf.Config(tc)
 						tc.mutex.Unlock()
 					} else {
 						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn, got: %+v", seg)
