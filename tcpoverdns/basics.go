@@ -276,10 +276,11 @@ type InitiatorConfig struct {
 	// MaxSegmentLenExclHeader is the maximum length of the data portion in an
 	// outgoing segment, the length excludes the headers.
 	MaxSegmentLenExclHeader int
-	// ReadTimeout specifies a time limit for the Read function.
-	ReadTimeout time.Duration
-	// WriteTimeout specifies a time limit for the Write function.
-	WriteTimeout time.Duration
+	// IOTimeoutSec is the time limit (in seconds) for both read and write
+	// functions.
+	IOTimeoutSec int
+	// KeepAliveIntervalSec is the keep alive interval in seconds.
+	KeepAliveIntervalSec int
 }
 
 // Bytes returns the binary data representation of the configuration parameters.
@@ -289,8 +290,8 @@ func (conf *InitiatorConfig) Bytes() []byte {
 		ret[0] = 1
 	}
 	binary.BigEndian.PutUint16(ret[1:3], uint16(conf.MaxSegmentLenExclHeader))
-	binary.BigEndian.PutUint64(ret[3:11], uint64(conf.ReadTimeout))
-	binary.BigEndian.PutUint64(ret[11:19], uint64(conf.WriteTimeout))
+	binary.BigEndian.PutUint16(ret[3:5], uint16(conf.IOTimeoutSec))
+	binary.BigEndian.PutUint16(ret[5:7], uint16(conf.KeepAliveIntervalSec))
 	return ret
 }
 
@@ -298,8 +299,9 @@ func (conf *InitiatorConfig) Bytes() []byte {
 func (conf *InitiatorConfig) Config(tc *TransmissionControl) {
 	if conf.SetConfig {
 		tc.MaxSegmentLenExclHeader = conf.MaxSegmentLenExclHeader
-		tc.ReadTimeout = conf.ReadTimeout
-		tc.WriteTimeout = conf.WriteTimeout
+		tc.ReadTimeout = time.Duration(conf.IOTimeoutSec) * time.Second
+		tc.WriteTimeout = tc.ReadTimeout
+		tc.KeepAliveInterval = time.Duration(conf.KeepAliveIntervalSec) * time.Second
 	}
 }
 
@@ -309,7 +311,7 @@ func DeserialiseInitiatorConfig(in []byte) *InitiatorConfig {
 	ret := new(InitiatorConfig)
 	ret.SetConfig = in[0] == 1
 	ret.MaxSegmentLenExclHeader = int(binary.BigEndian.Uint16(in[1:3]))
-	ret.ReadTimeout = time.Duration(binary.BigEndian.Uint64(in[3:11]))
-	ret.WriteTimeout = time.Duration(binary.BigEndian.Uint64(in[11:19]))
+	ret.IOTimeoutSec = int(binary.BigEndian.Uint16(in[3:5]))
+	ret.KeepAliveIntervalSec = int(binary.BigEndian.Uint16(in[5:7]))
 	return ret
 }

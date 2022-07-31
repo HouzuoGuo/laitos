@@ -620,8 +620,8 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	conf := InitiatorConfig{
 		SetConfig:               true,
 		MaxSegmentLenExclHeader: 111,
-		ReadTimeout:             222 * time.Second,
-		WriteTimeout:            333 * time.Second,
+		IOTimeoutSec:            222,
+		KeepAliveIntervalSec:    333,
 	}
 	tc := &TransmissionControl{
 		ID:                      1111,
@@ -734,8 +734,8 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	conf := InitiatorConfig{
 		SetConfig:               true,
 		MaxSegmentLenExclHeader: 111,
-		ReadTimeout:             222 * time.Second,
-		WriteTimeout:            333 * time.Second,
+		IOTimeoutSec:            222,
+		KeepAliveIntervalSec:    333,
 	}
 	leftTC := &TransmissionControl{
 		Debug:                true,
@@ -780,7 +780,7 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	checkTCError(t, rightTC, 1, 0, 0, 0)
 
 	// Check TC configuration.
-	if rightTC.MaxSegmentLenExclHeader != 111 || rightTC.ReadTimeout != 222*time.Second || rightTC.WriteTimeout != 333*time.Second {
+	if rightTC.MaxSegmentLenExclHeader != 111 || rightTC.ReadTimeout != 222*time.Second || rightTC.WriteTimeout != 222*time.Second || rightTC.KeepAliveInterval != 333*time.Second {
 		t.Fatalf("did not configure tc: %+#v", rightTC)
 	}
 }
