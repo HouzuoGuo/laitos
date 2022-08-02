@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
-	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -27,38 +26,6 @@ var httpTransport = &http.Transport{
 	IdleConnTimeout:       IOTimeout,
 	TLSHandshakeTimeout:   IOTimeout,
 	ExpectContinueTimeout: 1 * time.Second,
-}
-
-// PipeTCPConnection continuously reads packets from the source connection and writes it to the destination, one packet at a time.
-// When encountering an IO error from reading the source (e.g. connection closed), the function will close the destination as well.
-func PipeTCPConnection(logger lalog.Logger, ioTimeout time.Duration, srcConn, dstConn net.Conn) {
-	defer func() {
-		logger.MaybeMinorError(srcConn.Close())
-		logger.MaybeMinorError(dstConn.Close())
-	}()
-	if err := srcConn.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil {
-		return
-	}
-	if err := dstConn.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil {
-		return
-	}
-	// Read and write a small TCP segment at a time to avoid IP fragmentation
-	buf := make([]byte, 1280)
-	for {
-		if misc.EmergencyLockDown {
-			logger.Warning("PipeTCPConnection", "httpproxy", misc.ErrEmergencyLockDown, "")
-			return
-		}
-		length, err := srcConn.Read(buf)
-		if err != nil {
-			return
-		}
-		if length > 0 {
-			if _, err := dstConn.Write(buf[:length]); err != nil {
-				return
-			}
-		}
-	}
 }
 
 // ProxyHandler is an HTTP handler function that implements an HTTP proxy capable of handling HTTPS as well.
@@ -103,8 +70,8 @@ func (daemon Daemon) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		misc.TweakTCPConnection(innerMostReqConn.(*net.TCPConn), IOTimeout)
 		misc.TweakTCPConnection(dstConn.(*net.TCPConn), IOTimeout)
-		go PipeTCPConnection(daemon.logger, IOTimeout, dstConn, reqConn)
-		PipeTCPConnection(daemon.logger, IOTimeout, reqConn, dstConn)
+		go misc.PipeConn(daemon.logger, true, IOTimeout, 1280, dstConn, reqConn)
+		misc.PipeConn(daemon.logger, true, IOTimeout, 1280, reqConn, dstConn)
 	default:
 		// Execute the request as-is without handling higher-level mechanisms such as cookies and redirects
 		resp, err := httpTransport.RoundTrip(r)

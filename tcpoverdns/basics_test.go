@@ -171,7 +171,14 @@ func TestSegment_DNSQuestion(t *testing.T) {
 	fmt.Println(dnsQuestion.Name.String())
 	got := SegmentFromDNSQuestion(2, dnsQuestion)
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("recovered: %+#v original: %+#v", got, want)
+		t.Errorf("recovered: %+#v original: %+#v", got, want)
+	}
+	// Try the same conversion, but without the domain name.
+	qWithoutDomain := want.DNSQuestion("prefix-label", "")
+	fmt.Println(qWithoutDomain.Name.String())
+	gotWithoutDomain := SegmentFromDNSQuestion(0, qWithoutDomain)
+	if !reflect.DeepEqual(gotWithoutDomain, want) {
+		t.Errorf("recovered: %+#v original: %+#v", got, want)
 	}
 }
 

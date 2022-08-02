@@ -1,7 +1,6 @@
 package misc
 
 import (
-	"io"
 	"net"
 	"runtime/debug"
 	"strconv"
@@ -49,11 +48,24 @@ func TweakTCPConnection(conn *net.TCPConn, firstTransferTimeout time.Duration) {
 	_ = conn.SetLinger(5)
 }
 
-// Pipe continuously reads data from the source reader in blocks of no more than
-// the specified buffer length, and writes them to the destination.
-func Pipe(bufLen int, src io.Reader, dest io.Writer) error {
+// PipeConn continuously reads data from the source net connection in blocks of
+// no more than the specified buffer length, and writes them to the destination
+// connection.
+func PipeConn(logger lalog.Logger, autoClose bool, ioTimeout time.Duration, bufLen int, src, dest net.Conn) error {
+	if autoClose {
+		defer func() {
+			logger.MaybeMinorError(src.Close())
+			logger.MaybeMinorError(dest.Close())
+		}()
+	}
 	buf := make([]byte, bufLen)
 	for {
+		if EmergencyLockDown {
+			logger.Warning("Pipe", "", ErrEmergencyLockDown, "")
+			logger.MaybeMinorError(src.Close())
+			logger.MaybeMinorError(dest.Close())
+			return nil
+		}
 		n, err := src.Read(buf)
 		if err != nil {
 			return err

@@ -103,13 +103,13 @@ func (conn *ProxyConnection) Start() {
 	// Pipe data in both directions.
 	if conn.tcpConn != nil {
 		go func() {
-			if err := misc.Pipe(conn.proxy.MaxSegmentLenExclHeader, conn.tc, conn.tcpConn); err != nil {
+			if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, conn.proxy.MaxSegmentLenExclHeader, conn.tc, conn.tcpConn); err != nil {
 				if conn.proxy.Debug {
 					conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
 				}
 			}
 		}()
-		if err := misc.Pipe(conn.proxy.MaxSegmentLenExclHeader, conn.tcpConn, conn.tc); err != nil {
+		if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, conn.proxy.MaxSegmentLenExclHeader, conn.tcpConn, conn.tc); err != nil {
 			if conn.proxy.Debug {
 				conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
 			}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"golang.org/x/net/dns/dnsmessage"
 
 	"github.com/HouzuoGuo/laitos/misc"
@@ -64,7 +65,7 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, head
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	labels, isRecursive := daemon.queryLabels(name)
+	labels, _, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
 		return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 	}
@@ -88,26 +89,34 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, head
 
 func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	if name == "" {
-		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle non-name query")
-	} else {
+	_, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	if isRecursive {
 		if daemon.processQueryTestCaseFunc != nil {
 			daemon.processQueryTestCaseFunc(name)
 		}
 		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle name query %q", name)
+		if daemon.IsInBlacklist(name) {
+			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle black-listed name query %q", name)
+			respBody, err := BuildBlackHoleAddrResponse(header, question)
+			if err != nil {
+				daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, err, "failed to build response packet")
+				return nil
+			}
+			return respBody
+		}
+		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle non-name query")
+		return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 	}
-	if daemon.IsInBlacklist(name) {
-		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle black-listed name query %q", name)
-		var err error
-		respBody, err = BuildBlackHoleAddrResponse(header, question)
-		if err != nil {
-			daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, err, "failed to build response packet")
+	if len(name) > 0 && name[0] == ProxyPrefix {
+		// Send TCP-over-DNS fragment to the proxy.
+		seg := tcpoverdns.SegmentFromDNSQuestion(numDomainLabels, question)
+		respSegment, hasResp := daemon.tcpProxy.Receive(seg)
+		if !hasResp {
 			return nil
 		}
-	} else {
-		respBody = daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+		respSegment.DNSResource()
 	}
-	return
+	return nil
 }
 
 /*

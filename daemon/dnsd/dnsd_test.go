@@ -176,38 +176,46 @@ func TestDaemon_queryLabels(t *testing.T) {
 		t.Fatal(daemon.MyDomainNames)
 	}
 	var tests = []struct {
-		name            string
-		wantLabels      []string
-		wantIsRecursive bool
+		name                string
+		wantLabels          []string
+		wantNumDomainLabels int
+		wantIsRecursive     bool
 	}{
 		{
-			name:            "",
-			wantLabels:      []string{},
-			wantIsRecursive: false,
+			name:                "",
+			wantLabels:          []string{},
+			wantNumDomainLabels: 0,
+			wantIsRecursive:     false,
 		},
 		{
-			name:            "haha.example.com",
-			wantLabels:      []string{"haha", "example", "com"},
-			wantIsRecursive: true,
+			name:                "haha.example.com",
+			wantLabels:          []string{"haha", "example", "com"},
+			wantNumDomainLabels: 0,
+			wantIsRecursive:     true,
 		},
 		{
-			name:            "a.b.a.com",
-			wantLabels:      []string{"a", "b"},
-			wantIsRecursive: false,
+			name:                "a.b.a.com",
+			wantLabels:          []string{"a", "b"},
+			wantNumDomainLabels: 2,
+			wantIsRecursive:     false,
 		},
 		{
-			name:            "c.d.b.net.",
-			wantLabels:      []string{"c", "d"},
-			wantIsRecursive: false,
+			name:                "c.d.b.net.",
+			wantLabels:          []string{"c", "d"},
+			wantNumDomainLabels: 2,
+			wantIsRecursive:     false,
 		},
 	}
 	for _, test := range tests {
-		gotLabels, gotRecursive := daemon.queryLabels(test.name)
+		gotLabels, gotNumDomainLabels, gotRecursive := daemon.queryLabels(test.name)
 		if !reflect.DeepEqual(gotLabels, test.wantLabels) {
-			t.Errorf("got labels: %+#v, want: %+#v", gotLabels, test.wantLabels)
+			t.Errorf("name: %q, got labels: %+#v, want: %+#v", test.name, gotLabels, test.wantLabels)
+		}
+		if gotNumDomainLabels != test.wantNumDomainLabels {
+			t.Errorf("name: %q, got number of domain labels: %v, want: %v", test.name, gotNumDomainLabels, test.wantNumDomainLabels)
 		}
 		if gotRecursive != test.wantIsRecursive {
-			t.Errorf("got recursive: %v, want: %v", gotRecursive, test.wantIsRecursive)
+			t.Errorf("name: %q, got recursive: %v, want: %v", test.name, gotRecursive, test.wantIsRecursive)
 		}
 	}
 }

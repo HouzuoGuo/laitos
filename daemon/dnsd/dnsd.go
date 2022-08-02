@@ -13,6 +13,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/platform"
+	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 
@@ -38,6 +39,10 @@ const (
 		as DNS query input has to be pretty short.
 	*/
 	ToolboxCommandPrefix = '_'
+
+	// ProxyPrefix is the name prefix DNS clients need to put in front of their
+	// address queries to send the query to the TCP-over-DNS proxy.
+	ProxyPrefix = 't'
 )
 
 var (
@@ -105,28 +110,33 @@ type Daemon struct {
 
 	tcpServer *common.TCPServer
 	udpServer *common.UDPServer
-
-	allowQueryFromCidrNets []*net.IPNet
-
-	/*
-		blackList is a map of domain names (in lower case) and their resolved IP addresses that should be blocked. In
-		the context of DNS, queries made against the domain names will be answered 0.0.0.0 (black hole).
-		The DNS daemon itself isn't too concerned with the IP address, however, this black list serves as a valuable
-		input for blocking IP address access in sockd.
-	*/
-	blackList            map[string]struct{}
-	myPublicIP           string        // myPublicIP is the latest public IP address of the laitos server.
-	blackListMutex       *sync.RWMutex // Protect against concurrent access to black list
-	allowQueryMutex      *sync.Mutex
-	allowQueryLastUpdate int64
-	rateLimit            *misc.RateLimit // Rate limit counter
-	logger               lalog.Logger
+	tcpProxy  *tcpoverdns.Proxy
 
 	// latestCommands remembers the result of most recently executed toolbox commands.
 	latestCommands *LatestCommands
-
 	// processQueryTestCaseFunc works along side DNS query processing routine, it offers queried name to test case for inspection.
 	processQueryTestCaseFunc func(string)
+
+	// blackList is a map of domain names (in lower case) and IP addresses
+	// they resolve into. For DNS queries targeting these domain names, the DNS
+	// server will respond to the queries with a blackhole address e.g. 0.0.0.0.
+	//
+	// The IP addresses are not used by this daemon, instead they are used by
+	// other daemons that have built-in blacklist capability for IP addresses,
+	// such as the HTTP proxy and sockd.
+	blackList      map[string]struct{}
+	blackListMutex *sync.RWMutex
+
+	// myPublicIP is the latest public IP address of the laitos server.
+	myPublicIP           string
+	allowQueryMutex      *sync.Mutex
+	allowQueryLastUpdate int64
+
+	rateLimit              *misc.RateLimit
+	context                context.Context
+	cancelFunc             func()
+	logger                 lalog.Logger
+	allowQueryFromCidrNets []*net.IPNet
 }
 
 // Check configuration and initialise internal states.
@@ -199,6 +209,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.latestCommands = NewLatestCommands()
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
+	daemon.tcpProxy = new(tcpoverdns.Proxy)
 
 	// Always allow server itself to query the DNS servers via its public IP
 	daemon.allowMyPublicIP()
@@ -359,7 +370,10 @@ func (daemon *Daemon) StartAndBlock() error {
 		return err
 	}
 
-	// Start server listeners
+	daemon.context, daemon.cancelFunc = context.WithCancel(context.Background())
+	daemon.tcpProxy.Start(daemon.context)
+
+	// Start the DNS listeners on all ports.
 	numListeners := 0
 	errChan := make(chan error, 2)
 	if daemon.UDPPort != 0 {
@@ -389,6 +403,7 @@ func (daemon *Daemon) StartAndBlock() error {
 
 // Close all of open TCP and UDP listeners so that they will cease processing incoming connections.
 func (daemon *Daemon) Stop() {
+	daemon.cancelFunc()
 	daemon.tcpServer.Stop()
 	daemon.udpServer.Stop()
 }
@@ -440,9 +455,9 @@ func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
 
 // queryLabels returns the labels of a query, with the domain name removed if
 // the query was directed at this DNS server itself.
-func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, isRecursive bool) {
+func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, numDomainLabels int, isRecursive bool) {
 	if len(name) == 0 {
-		return []string{}, false
+		return []string{}, 0, false
 	}
 	if name[len(name)-1] == '.' {
 		name = name[:len(name)-1]
@@ -451,6 +466,8 @@ func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, is
 	// Remove all configured domain suffixes from the queried name.
 	for _, suffix := range daemon.MyDomainNames {
 		if strings.HasSuffix(name, suffix) {
+			// The suffix has a trailing full-stop.
+			numDomainLabels = len(strings.Split(suffix, ".")) - 1
 			isRecursive = false
 			name = strings.TrimSuffix(name, suffix)
 			break

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 )
 
 func TestPipeTCPConnection(t *testing.T) {
@@ -19,8 +20,8 @@ func TestPipeTCPConnection(t *testing.T) {
 	defer drainTo.Close()
 	defer readFrom.Close()
 
-	go PipeTCPConnection(*lalog.DefaultLogger, 1*time.Second, drainFrom, drainTo)
-	go PipeTCPConnection(*lalog.DefaultLogger, 1*time.Second, drainTo, drainFrom)
+	go misc.PipeConn(*lalog.DefaultLogger, true, 1*time.Second, 1280, drainFrom, drainTo)
+	go misc.PipeConn(*lalog.DefaultLogger, true, 1*time.Second, 1280, drainTo, drainFrom)
 
 	data := bytes.Repeat([]byte{1}, 1024*1024)
 	go func() {

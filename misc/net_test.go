@@ -1,10 +1,7 @@
 package misc
 
 import (
-	"bytes"
-	"io"
 	"net"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -27,16 +24,5 @@ func TestProbePort(t *testing.T) {
 	duration := time.Now().Sub(start)
 	if duration > 1100*time.Millisecond {
 		t.Fatalf("ProbePort took way too long")
-	}
-}
-
-func TestPipe(t *testing.T) {
-	src := []byte{0, 1, 2, 3, 4, 5}
-	var dest bytes.Buffer
-	if err := Pipe(2, bytes.NewReader(src), &dest); err != io.EOF {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(dest.Bytes(), src) {
-		t.Fatalf("got: %+#v, want: %+#v", dest.Bytes(), src)
 	}
 }
