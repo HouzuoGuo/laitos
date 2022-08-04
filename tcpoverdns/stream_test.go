@@ -721,8 +721,14 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 		t.Fatalf("write err: %+v", err)
 	}
 	waitForState(t, tc, 10, StateEstablished)
-
 	checkTC(t, tc, 5, StateEstablished, 0, 0, 0, nil, nil)
+	// The input and output handler race against each other and that leads to
+	// occasional negligible increment of the retransmission counter.
+	if tc.ongoingRetransmissions > 1 {
+		t.Fatalf("unexpected retransmission count: %v", tc.ongoingRetransmissions)
+	}
+	tc.ongoingRetransmissions = 0
+	// Check for other IO errors.
 	checkTCError(t, tc, 5, 0, 0, 0)
 }
 

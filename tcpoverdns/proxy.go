@@ -13,8 +13,15 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
+// ProxyRequest is the data sent by a proxy client to initiate a connection
+// toward a proxy destination.
 type ProxyRequest struct {
-	Port    int    `json:"p"`
+	// Network name of the address (e.g. "tcp"), this takes precedence over the
+	// port number when the network name is specified.
+	Network string `json:"n"`
+	// Port number in the absence of network name.
+	Port int `json:"p"`
+	// Address is the host IP address or network address (IP:port).
 	Address string `json:"a"`
 }
 
@@ -247,12 +254,19 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			MaxSlidingWindow:        uint32(proxy.MaxSegmentLenExclHeader) * 8,
 		}
 		// Connect to the intended destination.
-		dest := fmt.Sprintf("%s:%d", req.Address, req.Port)
-		netConn, err := net.DialTimeout("tcp", dest, proxy.DialTimeout)
+		var dialNet, dialDest string
+		if req.Network == "" {
+			dialNet = "tcp"
+			dialDest = fmt.Sprintf("%s:%d", req.Address, req.Port)
+		} else {
+			dialNet = req.Network
+			dialDest = req.Address
+		}
+		netConn, err := net.DialTimeout(dialNet, dialDest, proxy.DialTimeout)
 		if err != nil {
 			// Immediately close the transmission control if the destination is
 			// unreachable.
-			proxy.Logger.Warning("Receive", "", err, "failed to connect to proxy destination %s", dest)
+			proxy.Logger.Warning("Receive", "", err, "failed to connect to proxy destination %s %s", dialNet, dialDest)
 			// Proceed with handshake, but there will be no data coming through
 			// the transmission control and it will be closed shortly.
 		}

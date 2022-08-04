@@ -3,6 +3,7 @@ package tcpoverdns
 import (
 	"bytes"
 	"compress/flate"
+	"context"
 	"encoding/base32"
 	"encoding/binary"
 	"fmt"
@@ -314,4 +315,19 @@ func DeserialiseInitiatorConfig(in []byte) *InitiatorConfig {
 	ret.IOTimeoutSec = int(binary.BigEndian.Uint16(in[3:5]))
 	ret.KeepAliveIntervalSec = int(binary.BigEndian.Uint16(in[5:7]))
 	return ret
+}
+
+func ReadSegment(ctx context.Context, in io.Reader) Segment {
+	segHeader := make([]byte, SegmentHeaderLen)
+	n, err := in.Read(segHeader)
+	if err != nil || n != SegmentHeaderLen {
+		return Segment{Flags: FlagMalformed}
+	}
+	segDataLen := int(binary.BigEndian.Uint16(segHeader[SegmentHeaderLen-2 : SegmentHeaderLen]))
+	segData := make([]byte, segDataLen)
+	n, err = in.Read(segData)
+	if err != nil || n != segDataLen {
+		return Segment{Flags: FlagMalformed}
+	}
+	return SegmentFromPacket(append(segHeader, segData...))
 }
