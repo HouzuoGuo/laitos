@@ -2,7 +2,9 @@ package dnsclient
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -40,6 +42,13 @@ type Client struct {
 	// HTTPS (HTTP CONNECT) requests.
 	httpTransport *http.Transport
 
+	// DNSServerAddr is the address of the (public) recursive DNS resolver.
+	DNSServerAddr string
+	// DNSServerPort is the port number of the (public) recursive DNS resolver.
+	DNSServerPort int
+	// DNSHostName is the host name of the TCP-over-DNS proxy server.
+	DNSHostName string
+
 	proxyHandlerWithMiddleware http.HandlerFunc
 	logger                     lalog.Logger
 	httpServer                 *http.Server
@@ -55,51 +64,66 @@ func (client *Client) Initialise(ctx context.Context) error {
 	if client.Port == 0 {
 		client.Port = 8080
 	}
-	client.logger = lalog.Logger{ComponentName: "tcpoverdns-client", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(client.Port)}}}
+	if len(client.DNSHostName) < 3 {
+		return fmt.Errorf("dnsclient: DNSDomainName (%q) must be a valid host name", client.DNSHostName)
+	}
+	if client.DNSHostName[0] == '.' {
+		client.DNSHostName = client.DNSHostName[1:]
+	}
+	client.logger = lalog.Logger{ComponentName: "dnsclient", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(client.Port)}}}
 	client.proxyHandlerWithMiddleware = middleware.LogRequestStats(client.logger,
 		middleware.RecordInternalStats(misc.TCPOverDNSClientStats,
 			middleware.EmergencyLockdown(client.ProxyHandler)))
 	client.context, client.cancelFun = context.WithCancel(ctx)
 
 	client.httpTransport = &http.Transport{
-		Proxy: nil,
-		DialContext: (&net.Dialer{
-			Timeout:   120 * time.Second,
-			KeepAlive: 30 * time.Second,
-			DualStack: true,
-		}).DialContext,
+		Proxy:                 nil,
+		DialContext:           client.dialContext,
 		ForceAttemptHTTP2:     false,
 		MaxIdleConns:          100,
-		IdleConnTimeout:       120 * time.Second,
-		TLSHandshakeTimeout:   120 * time.Second,
-		ExpectContinueTimeout: 120 * time.Second,
+		IdleConnTimeout:       time.Duration(client.Config.IOTimeoutSec) * time.Second,
+		TLSHandshakeTimeout:   time.Duration(client.Config.IOTimeoutSec) * time.Second,
+		ExpectContinueTimeout: time.Duration(client.Config.IOTimeoutSec) * time.Second,
 	}
 	return nil
 }
 
-func (client *Client) pipeSegments(out, in net.Conn, tc *tcpoverdns.TransmissionControl, dnsServerAddr string) {
-	_ = &net.Resolver{
-		PreferGo: true,
+func (client *Client) pipeSegments(out, in net.Conn, tc *tcpoverdns.TransmissionControl) {
+	resolver := &net.Resolver{
+		PreferGo:     true,
+		StrictErrors: true,
 		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
-			var d net.Dialer
-			return d.DialContext(ctx, network, dnsServerAddr)
+			fmt.Println("contacting", network, address)
+			return net.Dial(network, fmt.Sprintf("%s:%d", client.DNSServerAddr, client.DNSServerPort))
 		},
 	}
 	for {
-		// Pipe segments from TC to proxy.
-		seg := tcpoverdns.ReadSegment(context.Background(), out)
-		if client.Debug {
-			lalog.DefaultLogger.Info("pipeSegments", fmt.Sprint(tc.ID), nil, "sending output segment %v over a DNS query", seg)
+		// Send the outgoing segments in DNS queries at a pace slightly faster
+		// than the keep-alive interval.
+		select {
+		case <-time.After(time.Duration(client.Config.KeepAliveIntervalSec) * time.Second * 80 / 100):
+		case <-client.context.Done():
+			return
 		}
-
-		// Send the output over DNS to the proxy destination TC.
-		// TODO FIXME: use a DNS client to send out the outbound segment in a query, and interpret the query response as an inbound segment.
-		lalog.DefaultLogger.Info("", "", nil, "proxy tc replies to test: %+v, %v", resp, hasResp)
-		if hasResp {
-			// Send the response segment back to TC.
-			_, err := testIn.Write(resp.Packet())
-			if err != nil {
-				panic("failed to write to testIn")
+		// out.Read -> DNS query (data.data.data.example.com).
+		outgoingSeg := tcpoverdns.ReadSegment(context.Background(), out)
+		if client.Debug {
+			client.logger.Info("pipeSegments", fmt.Sprint(tc.ID), nil, "sending output segment over DNS query: %v", outgoingSeg)
+		}
+		addrs, err := resolver.LookupIP(client.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), client.DNSHostName))
+		if err != nil {
+			client.logger.Warning("pipeSegments", fmt.Sprint(tc.ID), err, "failed to send output segment %v", outgoingSeg)
+			continue
+		}
+		// DNS response -> in.Write.
+		incomingSeg := tcpoverdns.SegmentFromIPs(addrs)
+		if client.Debug {
+			client.logger.Info("pipeSegments", fmt.Sprint(tc.ID), nil, "DNS query response segment: %v", incomingSeg)
+		}
+		if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
+			if _, err := in.Write(incomingSeg.Packet()); err != nil {
+				client.logger.Warning("pipeSegments", fmt.Sprint(tc.ID), err, "failed to receive input segment %v", incomingSeg)
+				continue
 			}
 		}
 	}
@@ -114,19 +138,20 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 	tcID := uint16(rand.Int())
 	clientIn, inTransport := net.Pipe()
 	clientOut, outTransport := net.Pipe()
-	// out.read -> DNS query (data.data.example.com)
-	// DNS query response -> in.write
-	client.logger.Info("dialContext", fmt.Sprint(tcID), nil, "dialing %s", string(initiatorSegment))
+	// Construct a client-side transmission control.
+	client.logger.Info("dialContext", fmt.Sprint(tcID), nil, "creating transmission control with %s", string(initiatorSegment))
 	tc := &tcpoverdns.TransmissionControl{
 		LogTag:               "dialContext",
 		ID:                   uint16(rand.Int()),
-		InitiatorSegmentData: []byte(`{"p": 443, "a": "203.0.113.0"}`),
+		InitiatorSegmentData: initiatorSegment,
 		Initiator:            true,
 		InputTransport:       inTransport,
 		OutputTransport:      outTransport,
 	}
 	client.Config.Config(tc)
 	tc.Start(client.context)
+	// Start transporting data segments over DNS.
+	go client.pipeSegments(clientOut, clientIn, tc)
 	return tc, nil
 }
 
@@ -162,11 +187,11 @@ func (client *Client) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 			client.logger.Warning("ProxyHandler", clientIP, err, "failed to tap into HTTP connection stream")
 			return
 		}
-		go misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, 1280, dstConn, reqConn)
-		misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, 1280, reqConn, dstConn)
+		go misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, client.Config.MaxSegmentLenExclHeader, dstConn, reqConn)
+		misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, client.Config.MaxSegmentLenExclHeader, reqConn, dstConn)
 	default:
 		// Execute the request as-is without handling higher-level mechanisms such as cookies and redirects
-		resp, err := httpTransport.RoundTrip(r)
+		resp, err := client.httpTransport.RoundTrip(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
@@ -181,6 +206,35 @@ func (client *Client) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(resp.StatusCode)
 		if _, err := io.Copy(w, resp.Body); err != nil {
 			client.logger.Warning("ProxyHandler", clientIP, err, "failed to copy response body back to client")
+		}
+	}
+}
+
+// StartAndBlock starts a web server to serve the HTTP(S) proxy endpoint.
+// The function will block caller until Stop is called.
+func (client *Client) StartAndBlock() error {
+	client.httpServer = &http.Server{
+		Addr:         net.JoinHostPort(client.Address, strconv.Itoa(client.Port)),
+		Handler:      client.proxyHandlerWithMiddleware,
+		ReadTimeout:  time.Duration(client.Config.IOTimeoutSec) * time.Second,
+		WriteTimeout: time.Duration(client.Config.IOTimeoutSec) * time.Second,
+		// TODO: figure out how to handle an HTTP/2 proxy client and then reenable HTTP/2 support
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+	}
+	client.logger.Info("StartAndBlock", "", nil, "starting now")
+	if err := client.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("httpproxy.StartAndBlock.: failed to listen on %s:%d - %v", client.Address, client.Port, err)
+	}
+	return nil
+}
+
+// Stop the client.
+func (client *Client) Stop() {
+	if client.httpServer != nil {
+		stopCtx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancelFunc()
+		if err := client.httpServer.Shutdown(stopCtx); err != nil {
+			client.logger.Warning("Stop", client.Address, err, "failed to shutdown")
 		}
 	}
 }

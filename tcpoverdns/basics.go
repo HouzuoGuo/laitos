@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"time"
 
@@ -137,6 +138,22 @@ func (seg *Segment) DNSQuestion(prefix, domainName string) dnsmessage.Question {
 	}
 }
 
+// DNSQuestion converts the binary representation of this segment into a DNS
+// name query - "prefix.seg.seg.seg...domainName".
+// The function does not check whether the segment is sufficiently small for
+// the DNS protocol.
+func (seg *Segment) DNSNameQuery(prefix, domainName string) string {
+	// Compress the binary representation of the segment.
+	packet := seg.Packet()
+	compressed := CompressBytes(packet)
+	// Encode using base32.
+	encoded := strings.ToLower(base32EncodingNoPadding.EncodeToString(compressed))
+	// Split into 63 characters per label.
+	// 63 is the maximum label size decided by the DNS protocol.
+	labels := misc.SplitIntoSlice(encoded, 63, MaxSegmentDataLen*2)
+	return fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)
+}
+
 // DNSResource converts the binary representation of this segment into a DNS
 // address resource. The function does not check whether the segment is
 // sufficiently small for the DNS protocol.
@@ -198,9 +215,15 @@ func SegmentFromPacket(packet []byte) Segment {
 	return seg
 }
 
-// SegmentFromDNSQuestion decodes a segment from a DNS question.
-func SegmentFromDNSQuestion(numDomainNameLabels int, in dnsmessage.Question) Segment {
-	labels := strings.Split(in.Name.String(), ".")
+// SegmentFromDNSQuery decodes a segment from a DNS query.
+func SegmentFromDNSQuery(numDomainNameLabels int, query string) Segment {
+	if len(query) < 3 {
+		return Segment{Flags: FlagMalformed}
+	}
+	if query[len(query)-1] == '.' {
+		query = query[:len(query)-1]
+	}
+	labels := strings.Split(query, ".")
 	if len(labels) < 1+1+numDomainNameLabels {
 		return Segment{Flags: FlagMalformed}
 	}
@@ -224,6 +247,30 @@ func SegmentFromDNSResources(in []dnsmessage.AResource) Segment {
 	data := make([]byte, 0)
 	for _, rec := range in {
 		data = append(data, rec.A[:]...)
+	}
+	if len(data) < 3 {
+		return Segment{Flags: FlagMalformed}
+	}
+	// Decode the data length.
+	segLen := binary.BigEndian.Uint16(data[:2])
+	if len(data) < 2+int(segLen) {
+		return Segment{Flags: FlagMalformed}
+	}
+	// Decompress the segment packet.
+	decompressed, err := DecompressBytes(data[2 : 2+segLen])
+	if err != nil {
+		return Segment{Flags: FlagMalformed}
+	}
+	return SegmentFromPacket(decompressed)
+}
+
+// SegmentFromDNSResources decodes a segment from IP addresses from a DNS query
+// response.
+func SegmentFromIPs(in []net.IP) Segment {
+	// Recover binary data from the resource records.
+	data := make([]byte, 0)
+	for _, addr := range in {
+		data = append(data, addr...)
 	}
 	if len(data) < 3 {
 		return Segment{Flags: FlagMalformed}

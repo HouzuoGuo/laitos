@@ -66,10 +66,12 @@ func PipeConn(logger lalog.Logger, autoClose bool, ioTimeout time.Duration, bufL
 			logger.MaybeMinorError(dest.Close())
 			return nil
 		}
+		logger.MaybeMinorError(src.SetReadDeadline(time.Now().Add(ioTimeout)))
 		n, err := src.Read(buf)
 		if err != nil {
 			return err
 		}
+		logger.MaybeMinorError(dest.SetWriteDeadline(time.Now().Add(ioTimeout)))
 		if _, err := dest.Write(buf[:n]); err != nil {
 			return err
 		}

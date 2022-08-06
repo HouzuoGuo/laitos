@@ -109,7 +109,7 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 	}
 	if len(name) > 0 && name[0] == ProxyPrefix {
 		// Send TCP-over-DNS fragment to the proxy.
-		seg := tcpoverdns.SegmentFromDNSQuestion(numDomainLabels, question)
+		seg := tcpoverdns.SegmentFromDNSQuery(numDomainLabels, name)
 		respSegment, hasResp := daemon.tcpProxy.Receive(seg)
 		if !hasResp {
 			return nil

@@ -169,14 +169,14 @@ func TestSegment_DNSQuestion(t *testing.T) {
 	}
 	dnsQuestion := want.DNSQuestion("prefix-label", "example.com")
 	fmt.Println(dnsQuestion.Name.String())
-	got := SegmentFromDNSQuestion(2, dnsQuestion)
+	got := SegmentFromDNSQuery(2, dnsQuestion.Name.String())
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("recovered: %+#v original: %+#v", got, want)
 	}
 	// Try the same conversion, but without the domain name.
 	qWithoutDomain := want.DNSQuestion("prefix-label", "")
 	fmt.Println(qWithoutDomain.Name.String())
-	gotWithoutDomain := SegmentFromDNSQuestion(0, qWithoutDomain)
+	gotWithoutDomain := SegmentFromDNSQuery(0, qWithoutDomain.Name.String())
 	if !reflect.DeepEqual(gotWithoutDomain, want) {
 		t.Errorf("recovered: %+#v original: %+#v", got, want)
 	}
@@ -225,5 +225,25 @@ func TestInitiatorConfig(t *testing.T) {
 	got.Config(gotTC)
 	if !reflect.DeepEqual(gotTC, wantTC) {
 		t.Fatalf("got: %+#v want: %+#v", gotTC, wantTC)
+	}
+}
+
+func TestSegment_DNSNameQuery(t *testing.T) {
+	randData := make([]byte, 100)
+	if _, err := rand.Read(randData); err != nil {
+		t.Fatal(err)
+	}
+	want := Segment{
+		ID:     12345,
+		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
+		SeqNum: 23456,
+		AckNum: 34567,
+		Data:   randData,
+	}
+	query := want.DNSNameQuery("prefix-label", "example.com")
+	fmt.Println(query)
+	got := SegmentFromDNSQuery(2, query)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("recovered: %+#v original: %+#v", got, want)
 	}
 }
