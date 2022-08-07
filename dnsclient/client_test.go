@@ -3,8 +3,10 @@ package dnsclient
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -41,8 +43,9 @@ func TestClient_HTTP(t *testing.T) {
 		Port:      61122,
 		DNSDaemon: dnsProxyServer,
 		Config: tcpoverdns.InitiatorConfig{
-			SetConfig:               true,
-			MaxSegmentLenExclHeader: 123,
+			SetConfig: true,
+			// There are the overhead of the length header and 1 index byte per 3 data bytes.
+			MaxSegmentLenExclHeader: 256 * 70 / 100,
 			IOTimeoutSec:            100,
 			KeepAliveIntervalSec:    1,
 		},
@@ -65,21 +68,57 @@ func TestClient_HTTP(t *testing.T) {
 		t.Fatal("HTTP proxy server did not start on time")
 	}
 
-	// Here comes the proxy request: HTTP proxy request -> HTTP proxy server -> local TC -> DNS client -> remote TC -> DNS server.
-	proxyURL, err := url.Parse(fmt.Sprintf("http://%s:%d", httpProxyServer.Address, httpProxyServer.Port))
-	if err != nil {
-		t.Fatal(err)
-	}
-	proxyClient := &http.Client{Transport: &http.Transport{
-		Proxy: http.ProxyURL(proxyURL),
-	}}
-	resp, err := proxyClient.Get("http://microsoft.com")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode/200 != 1 {
-		t.Fatal("unexpected http response status code", resp.StatusCode)
-	}
+	// HTTP proxy request -> HTTP proxy server -> local TC -> DNS client -> remote TC -> DNS server.
+	t.Run("http proxy request", func(t *testing.T) {
+		proxyURL, err := url.Parse(fmt.Sprintf("http://%s:%d", httpProxyServer.Address, httpProxyServer.Port))
+		if err != nil {
+			t.Fatal(err)
+		}
+		proxyClient := &http.Client{Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		}}
+		resp, err := proxyClient.Get("http://neverssl.com")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode/200 != 1 {
+			t.Fatal("unexpected http response status code", resp.StatusCode)
+		}
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("unexpected http response body error: %v", err)
+		}
+		if !strings.Contains(string(respBody), "https://twitter.com/neverssl") {
+			t.Fatalf("unexpected http resposne body: %v", string(respBody))
+		}
+	})
+
+	t.Run("https proxy request", func(t *testing.T) {
+		proxyURL, err := url.Parse(fmt.Sprintf("http://%s:%d", httpProxyServer.Address, httpProxyServer.Port))
+		if err != nil {
+			t.Fatal(err)
+		}
+		proxyClient := &http.Client{Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		}}
+		resp, err := proxyClient.Get("https://captive.apple.com/")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode/200 != 1 {
+			t.Fatal("unexpected https response status code", resp.StatusCode)
+		}
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("unexpected https response body error: %v", err)
+		}
+		if !strings.Contains(string(respBody), "SUCCESS") {
+			t.Fatalf("unexpected https response body: %v", string(respBody))
+		}
+		// TODO FIXME: this doesn't quite work yet, the sequence number of client-side TC seems to be stuck at 256.
+		// TODO FIXME: use the dedup trick on the tc output and see if that helps.
+	})
+
 	httpProxyServer.Stop()
 	<-daemonStopped
 	// Repeatedly stopping the daemon should have no negative consequences

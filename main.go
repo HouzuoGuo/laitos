@@ -128,18 +128,17 @@ main runs one of several distinct routines according to the presented combinatio
 
 - Maintain encrypted program data files: -datautil=encrypt|decrypt
 
-- Launch an AWS Lambda handler that proxies HTTP requests to laitos web server: -awslambda=true
-	This routine handles the requests in an independent goroutine, it is compatible with supervisor but incompatible with "-pwdserver".
+  - Launch an AWS Lambda handler that proxies HTTP requests to laitos web server: -awslambda=true
+    This routine handles the requests in an independent goroutine, it is compatible with supervisor but incompatible with "-pwdserver".
 
-- Launch a supervisor that automatically restarts laitos main process in case of crash: -supervisor=true (already true by default)
-  This is the routine of choice for launching laitos as an OS daemon service.
+  - Launch a supervisor that automatically restarts laitos main process in case of crash: -supervisor=true (already true by default)
+    This is the routine of choice for launching laitos as an OS daemon service.
 
-- Launch all specified daemons: -config c.json -daemons httpd,smtpd... -supervisor=false
-  Supervisor launches laitos main process this way.
+  - Launch all specified daemons: -config c.json -daemons httpd,smtpd... -supervisor=false
+    Supervisor launches laitos main process this way.
 
-- Launch a benchmark routine that feeds random input to (nearly) all started daemons: -benchmark=true
-  This routine is occasionally used for fuzzy-test daemons.
-
+  - Launch a benchmark routine that feeds random input to (nearly) all started daemons: -benchmark=true
+    This routine is occasionally used for fuzzy-test daemons.
 */
 func main() {
 	hzgl.HZGL()

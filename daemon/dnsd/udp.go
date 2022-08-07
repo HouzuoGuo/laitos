@@ -99,7 +99,7 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle black-listed name query %q", name)
 			respBody, err := BuildBlackHoleAddrResponse(header, question)
 			if err != nil {
-				daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, err, "failed to build response packet")
+				daemon.logger.Warning("handleUDPNameOrOtherQuery", clientIP, err, "failed to build response packet")
 				return nil
 			}
 			return respBody
@@ -110,13 +110,22 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 	if len(name) > 0 && name[0] == ProxyPrefix {
 		// Send TCP-over-DNS fragment to the proxy.
 		seg := tcpoverdns.SegmentFromDNSQuery(numDomainLabels, name)
+		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
+			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "received a malformed TCP-over-DNS segment")
+			return
+		}
 		respSegment, hasResp := daemon.tcpProxy.Receive(seg)
 		if !hasResp {
-			return nil
+			return
 		}
-		respSegment.DNSResource()
+		var err error
+		respBody, err = TCPOverDNSSegmentResponse(header, question, respSegment.DNSResource())
+		if err != nil {
+			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
+			return
+		}
 	}
-	return nil
+	return
 }
 
 /*

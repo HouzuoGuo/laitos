@@ -139,11 +139,13 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 	clientIn, inTransport := net.Pipe()
 	clientOut, outTransport := net.Pipe()
 	// Construct a client-side transmission control.
-	client.logger.Info("dialContext", fmt.Sprint(tcID), nil, "creating transmission control with %s", string(initiatorSegment))
+	client.logger.Info("dialContext", fmt.Sprint(tcID), nil, "creating transmission control for %s", string(initiatorSegment))
 	tc := &tcpoverdns.TransmissionControl{
 		LogTag:               "dialContext",
 		ID:                   uint16(rand.Int()),
+		Debug:                client.Debug,
 		InitiatorSegmentData: initiatorSegment,
+		InitiatorConfig:      client.Config,
 		Initiator:            true,
 		InputTransport:       inTransport,
 		OutputTransport:      outTransport,
@@ -152,6 +154,7 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 	tc.Start(client.context)
 	// Start transporting data segments over DNS.
 	go client.pipeSegments(clientOut, clientIn, tc)
+	// TODO FIXME: use the same trick of proxy.go to de-duplicate identical output packets to improve the throughput.
 	return tc, nil
 }
 
@@ -218,7 +221,6 @@ func (client *Client) StartAndBlock() error {
 		Handler:      client.proxyHandlerWithMiddleware,
 		ReadTimeout:  time.Duration(client.Config.IOTimeoutSec) * time.Second,
 		WriteTimeout: time.Duration(client.Config.IOTimeoutSec) * time.Second,
-		// TODO: figure out how to handle an HTTP/2 proxy client and then reenable HTTP/2 support
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 	client.logger.Info("StartAndBlock", "", nil, "starting now")
@@ -230,6 +232,7 @@ func (client *Client) StartAndBlock() error {
 
 // Stop the client.
 func (client *Client) Stop() {
+	client.cancelFun()
 	if client.httpServer != nil {
 		stopCtx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancelFunc()

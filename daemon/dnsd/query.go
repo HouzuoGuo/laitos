@@ -123,3 +123,33 @@ func DecodeDTMFCommandInput(labels []string) (decodedCommand string) {
 	}
 	return
 }
+
+// TCPOverDNSSegmentResponse constructs a DNS query response packet for the
+// address record representation of a single TCP-over-DNS response.
+func TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Question, addrs []dnsmessage.AResource) ([]byte, error) {
+	// Retain the original transaction ID.
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = true
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	// Repeat the question back to the client, this is required by DNS protocol.
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	for _, addr := range addrs {
+		builder.AResource(dnsmessage.ResourceHeader{
+			Name:  dnsmessage.MustNewName(question.Name.String()),
+			Class: dnsmessage.ClassINET,
+			TTL:   60,
+		}, addr)
+	}
+	return builder.Finish()
+}

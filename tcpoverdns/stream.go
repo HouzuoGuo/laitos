@@ -26,11 +26,12 @@ const (
 // TransmissionControl provides TCP-like features for duplex transportation of
 // data between an initiator and a responder, with flow sliding window control,
 // customisable segment size, and guaranteed in-order delivery.
-// The behaviour is inspired by but not a replica of the Internet standard TCP.
+// The behaviour is inspired by (though not compatible with) the Internet
+// standard TCP.
+//
+// Transmission control is intended to be used as the transport of a data stream
+// that would otherwise be transported over TCP,
 type TransmissionControl struct {
-	io.ReadCloser
-	io.WriteCloser
-
 	// ID is a file descriptor-like number that identifies all outgoing segments
 	// as well as used for logging.
 	ID uint16

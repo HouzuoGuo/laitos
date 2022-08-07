@@ -11,11 +11,11 @@ import (
 )
 
 /*
-	ParentOID is the very top of OID hierarchy used in laitos SNMP server.
-	It contains a private enterprise number registered by Houzuo (Howard) Guo, 52535:
-	{iso(1) identified-organization(3) dod(6) internet(1) private(4) enterprise(1) 52535}
+ParentOID is the very top of OID hierarchy used in laitos SNMP server.
+It contains a private enterprise number registered by Houzuo (Howard) Guo, 52535:
+{iso(1) identified-organization(3) dod(6) internet(1) private(4) enterprise(1) 52535}
 
-	And laitos occupies number 121 underneath it.
+And laitos occupies number 121 underneath it.
 */
 var ParentOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 52535, 121}
 

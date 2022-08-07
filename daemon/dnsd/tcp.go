@@ -110,7 +110,6 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, numDomainLabels, isRecursive := daemon.queryLabels(name)
-
 	if isRecursive {
 		if daemon.processQueryTestCaseFunc != nil {
 			daemon.processQueryTestCaseFunc(name)
@@ -131,13 +130,22 @@ func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, query
 	if len(name) > 0 && name[0] == ProxyPrefix {
 		// Send TCP-over-DNSOverTCP fragment to the proxy.
 		seg := tcpoverdns.SegmentFromDNSQuery(numDomainLabels, name)
+		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
+			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "received a malformed TCP-over-DNS segment")
+			return
+		}
 		respSegment, hasResp := daemon.tcpProxy.Receive(seg)
 		if !hasResp {
-			return nil
+			return
 		}
-		respSegment.DNSResource()
+		var err error
+		respBody, err = TCPOverDNSSegmentResponse(header, question, respSegment.DNSResource())
+		if err != nil {
+			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
+			return
+		}
 	}
-	return nil
+	return
 }
 
 /*

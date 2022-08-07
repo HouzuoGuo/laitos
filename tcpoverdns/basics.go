@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sort"
 	"strings"
 	"time"
 
@@ -165,13 +166,16 @@ func (seg *Segment) DNSResource() (ret []dnsmessage.AResource) {
 	binary.BigEndian.PutUint16(lenPrefix, uint16(len(compressed)))
 	// Split into address resource records.
 	compressed = append(lenPrefix, compressed...)
-	for i := 0; i < len(compressed); i += 4 {
-		end := i + 4
-		if end > len(compressed) {
-			end = len(compressed)
-		}
+	for i := 0; i < len(compressed); i += 3 {
 		addr := [4]byte{}
-		copy(addr[:], compressed[i:end])
+		addr[0] = compressed[i]
+		if i+1 < len(compressed) {
+			addr[1] = compressed[i+1]
+		}
+		addr[2] = byte(i) // the index byte
+		if i+2 < len(compressed) {
+			addr[3] = compressed[i+2]
+		}
 		ret = append(ret, dnsmessage.AResource{A: addr})
 	}
 	return
@@ -241,36 +245,20 @@ func SegmentFromDNSQuery(numDomainNameLabels int, query string) Segment {
 	return SegmentFromPacket(decompressed)
 }
 
-// SegmentFromDNSResources decodes a segment from DNS address resource records.
-func SegmentFromDNSResources(in []dnsmessage.AResource) Segment {
-	// Recover binary data from the resource records.
-	data := make([]byte, 0)
-	for _, rec := range in {
-		data = append(data, rec.A[:]...)
-	}
-	if len(data) < 3 {
-		return Segment{Flags: FlagMalformed}
-	}
-	// Decode the data length.
-	segLen := binary.BigEndian.Uint16(data[:2])
-	if len(data) < 2+int(segLen) {
-		return Segment{Flags: FlagMalformed}
-	}
-	// Decompress the segment packet.
-	decompressed, err := DecompressBytes(data[2 : 2+segLen])
-	if err != nil {
-		return Segment{Flags: FlagMalformed}
-	}
-	return SegmentFromPacket(decompressed)
-}
-
 // SegmentFromDNSResources decodes a segment from IP addresses from a DNS query
 // response.
 func SegmentFromIPs(in []net.IP) Segment {
-	// Recover binary data from the resource records.
+	// Put the IP entries in the original order.
+	ordered := make([]net.IP, len(in))
+	copy(ordered, in)
+	sort.Slice(ordered, func(a, b int) bool {
+		return ordered[a][2] < ordered[b][2]
+	})
+	// Recover binary data from the addresses.
 	data := make([]byte, 0)
-	for _, addr := range in {
-		data = append(data, addr...)
+	for _, addr := range ordered {
+		// addr[2] is the index.
+		data = append(data, addr[0], addr[1], addr[3])
 	}
 	if len(data) < 3 {
 		return Segment{Flags: FlagMalformed}
