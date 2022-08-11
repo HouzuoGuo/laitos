@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
@@ -19,6 +20,118 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
+
+// ProxiedConnection handles an individual proxy connection to transport
+// data between local transmission control and the one on the remote DNS proxy
+// server.
+type ProxiedConnection struct {
+	client               *Client
+	out, in              net.Conn
+	tc                   *tcpoverdns.TransmissionControl
+	outputSegmentBacklog []tcpoverdns.Segment
+	mutex                *sync.Mutex
+	context              context.Context
+	logger               lalog.Logger
+}
+
+// Start configures and then starts the transmission control on local side, and
+// spawns a background goroutine to transport segments back and forth using
+// DNS queries.
+// The function returns when the local transmission control transitions to the
+// established state, or an error.
+func (conn *ProxiedConnection) Start() error {
+	if conn.client.Debug {
+		conn.logger.Info("ProxyConnection.Start", "", nil, "starting now")
+	}
+	// Absorb outgoing segments into the outgoing backlog.
+	conn.tc.OutputSegmentCallback = func(seg tcpoverdns.Segment) {
+		// Replace the latest keep-alive or ack-only segment (if any), and
+		// de-duplicate adjacent identical segments. These measures not only
+		// speed up the exchanges but also ensure that peers can communicate
+		// properly even if their timing characteristics differ.
+		conn.mutex.Lock()
+		defer conn.mutex.Unlock()
+		var latest tcpoverdns.Segment
+		if len(conn.outputSegmentBacklog) > 0 {
+			latest = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
+		}
+		if latest.Flags.Has(tcpoverdns.FlagAckOnly) || latest.Flags.Has(tcpoverdns.FlagKeepAlive) {
+			// Substitute the ack-only or keep-alive segment with the latest.
+			if conn.client.Debug {
+				conn.logger.Info("Start", "", nil, "callback is removing ack/keepalive segment: %+v", seg)
+			}
+			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
+		} else if latest.Equals(seg) {
+			// De-duplicate adjacent identical segments.
+			if conn.client.Debug {
+				conn.logger.Info("Start", "", nil, "callback is removing duplicated segment: %+v", seg)
+			}
+		} else {
+			conn.logger.Info("Start", "", nil, "callback is handling segment %+v", seg)
+			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
+		}
+	}
+	conn.tc.Start(conn.context)
+	// Start transporting segments back and forth.
+	go func() {
+		resolver := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				return net.Dial(network, fmt.Sprintf("%s:%d", conn.client.DNSServerAddr, conn.client.DNSServerPort))
+			},
+		}
+		for {
+			// Pop a segment.
+			conn.mutex.Lock()
+			if len(conn.outputSegmentBacklog) == 0 {
+				conn.mutex.Unlock()
+				continue
+			}
+			outgoingSeg := conn.outputSegmentBacklog[0]
+			conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
+			conn.mutex.Unlock()
+			// Turn the segment into a DNS query and send the query out
+			// (data.data.data.example.com).
+			if conn.client.Debug {
+				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %v", outgoingSeg)
+			}
+			addrs, err := resolver.LookupIP(conn.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
+			if err != nil {
+				conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
+				continue
+			}
+			// Decode a segment from DNS query response and give it to the local TC.
+			incomingSeg := tcpoverdns.SegmentFromIPs(addrs)
+			if conn.client.Debug {
+				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
+			}
+			if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
+				if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
+					conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
+					continue
+				}
+			}
+			// If there are more segments waiting to be sent, then send the next one
+			// right away without waiting for the keep-alive interval.
+			conn.mutex.Lock()
+			lenRemaining := len(conn.outputSegmentBacklog)
+			conn.mutex.Unlock()
+			if lenRemaining > 0 {
+				continue
+			}
+			// Wait for keep-alive interval.
+			select {
+			case <-time.After(time.Duration(conn.client.Config.KeepAliveIntervalSec) * time.Second * 80 / 100):
+			case <-conn.context.Done():
+				return
+			}
+		}
+	}()
+	if !conn.tc.WaitState(conn.context, tcpoverdns.StateEstablished) {
+		return fmt.Errorf("local transmission control failed to complete handshake")
+	}
+	return nil
+}
 
 // Client is an HTTP proxy server that tunnels its HTTP clients' traffic through
 // TCP-over-DNS proxy.
@@ -88,47 +201,6 @@ func (client *Client) Initialise(ctx context.Context) error {
 	return nil
 }
 
-func (client *Client) pipeSegments(out, in net.Conn, tc *tcpoverdns.TransmissionControl) {
-	resolver := &net.Resolver{
-		PreferGo:     true,
-		StrictErrors: true,
-		Dial: func(ctx context.Context, network, address string) (conn net.Conn, e error) {
-			fmt.Println("contacting", network, address)
-			return net.Dial(network, fmt.Sprintf("%s:%d", client.DNSServerAddr, client.DNSServerPort))
-		},
-	}
-	for {
-		// Send the outgoing segments in DNS queries at a pace slightly faster
-		// than the keep-alive interval.
-		select {
-		case <-time.After(time.Duration(client.Config.KeepAliveIntervalSec) * time.Second * 80 / 100):
-		case <-client.context.Done():
-			return
-		}
-		// out.Read -> DNS query (data.data.data.example.com).
-		outgoingSeg := tcpoverdns.ReadSegment(context.Background(), out)
-		if client.Debug {
-			client.logger.Info("pipeSegments", fmt.Sprint(tc.ID), nil, "sending output segment over DNS query: %v", outgoingSeg)
-		}
-		addrs, err := resolver.LookupIP(client.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), client.DNSHostName))
-		if err != nil {
-			client.logger.Warning("pipeSegments", fmt.Sprint(tc.ID), err, "failed to send output segment %v", outgoingSeg)
-			continue
-		}
-		// DNS response -> in.Write.
-		incomingSeg := tcpoverdns.SegmentFromIPs(addrs)
-		if client.Debug {
-			client.logger.Info("pipeSegments", fmt.Sprint(tc.ID), nil, "DNS query response segment: %v", incomingSeg)
-		}
-		if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
-			if _, err := in.Write(incomingSeg.Packet()); err != nil {
-				client.logger.Warning("pipeSegments", fmt.Sprint(tc.ID), err, "failed to receive input segment %v", incomingSeg)
-				continue
-			}
-		}
-	}
-}
-
 // dialContet returns a network connection tunnelled by the TCP-over-DNS proxy.
 func (client *Client) dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	initiatorSegment, err := json.Marshal(tcpoverdns.ProxyRequest{Network: network, Address: addr})
@@ -137,7 +209,6 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 	}
 	tcID := uint16(rand.Int())
 	clientIn, inTransport := net.Pipe()
-	clientOut, outTransport := net.Pipe()
 	// Construct a client-side transmission control.
 	client.logger.Info("dialContext", fmt.Sprint(tcID), nil, "creating transmission control for %s", string(initiatorSegment))
 	tc := &tcpoverdns.TransmissionControl{
@@ -148,14 +219,28 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 		InitiatorConfig:      client.Config,
 		Initiator:            true,
 		InputTransport:       inTransport,
-		OutputTransport:      outTransport,
+		// The output transport is not used. Instead, the output segments
+		// are kept in a backlog.
+		OutputTransport: io.Discard,
 	}
 	client.Config.Config(tc)
-	tc.Start(client.context)
-	// Start transporting data segments over DNS.
-	go client.pipeSegments(clientOut, clientIn, tc)
-	// TODO FIXME: use the same trick of proxy.go to de-duplicate identical output packets to improve the throughput.
-	return tc, nil
+	conn := &ProxiedConnection{
+		client:               client,
+		in:                   clientIn,
+		tc:                   tc,
+		context:              client.context,
+		outputSegmentBacklog: make([]tcpoverdns.Segment, 0),
+		mutex:                new(sync.Mutex),
+		logger: lalog.Logger{
+			ComponentName: "DNSClientProxyConn",
+			ComponentID: []lalog.LoggerIDField{
+				{Key: "TCID", Value: tc.ID},
+			},
+		},
+	}
+	// Start returns after the local transmission control transitions to the
+	// established state.
+	return conn.tc, conn.Start()
 }
 
 // ProxyHandler is an HTTP handler function that uses TCP-over-DNS proxy to

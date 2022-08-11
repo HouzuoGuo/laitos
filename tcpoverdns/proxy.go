@@ -42,19 +42,12 @@ type ProxyConnection struct {
 // transmission control.
 // The function blocks until the underlying TC is closed.
 func (conn *ProxyConnection) Start() {
-	conn.logger = lalog.Logger{
-		ComponentName: "TCProxyConn",
-		ComponentID: []lalog.LoggerIDField{
-			{Key: "TCID", Value: conn.tc.ID},
-		},
-	}
-
 	if conn.proxy.Debug {
-		conn.logger.Info("ProxyConnection.Start", "", nil, "starting now")
+		conn.logger.Info("Start", "", nil, "starting now")
 	}
 	defer func() {
 		if conn.proxy.Debug {
-			conn.logger.Info("ProxyConnection.Start", "", nil, "closing and lingering")
+			conn.logger.Info("Start", "", nil, "closing and lingering")
 			conn.tc.DumpState()
 		}
 		_ = conn.Close()
@@ -69,7 +62,7 @@ func (conn *ProxyConnection) Start() {
 			delete(conn.proxy.connections, conn.tc.ID)
 			conn.proxy.mutex.Unlock()
 			if conn.proxy.Debug {
-				conn.logger.Info("ProxyConnection.Start", "", nil, "closed and removed from proxy")
+				conn.logger.Info("Start", "", nil, "closed and removed from proxy")
 			}
 		}()
 	}()
@@ -78,7 +71,7 @@ func (conn *ProxyConnection) Start() {
 		// Replace the latest keep-alive or ack-only segment (if any), and
 		// de-duplicate adjacent identical segments. These measures not only
 		// speed up the exchanges but also ensure that peers can communicate
-		// properly even if their timeout configuration differ.
+		// properly even if their timing characteristics differ.
 		conn.mutex.Lock()
 		defer conn.mutex.Unlock()
 		var latest Segment
@@ -88,16 +81,16 @@ func (conn *ProxyConnection) Start() {
 		if latest.Flags.Has(FlagAckOnly) || latest.Flags.Has(FlagKeepAlive) {
 			// Substitute the ack-only or keep-alive segment with the latest.
 			if conn.proxy.Debug {
-				conn.logger.Info("ProxyConnection.Start", "", nil, "callback is removing ack/keepalive segment: %+v", seg)
+				conn.logger.Info("Start", "", nil, "callback is removing ack/keepalive segment: %+v", seg)
 			}
 			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
 		} else if latest.Equals(seg) {
 			// De-duplicate adjacent identical segments.
 			if conn.proxy.Debug {
-				conn.logger.Info("ProxyConnection.Start", "", nil, "callback is removing duplicated segment: %+v", seg)
+				conn.logger.Info("Start", "", nil, "callback is removing duplicated segment: %+v", seg)
 			}
 		} else {
-			conn.logger.Info("ProxyConnection.Start", "", nil, "callback is handling segment %+v", seg)
+			conn.logger.Info("Start", "", nil, "callback is handling segment %+v", seg)
 			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
 		}
 	}
@@ -283,6 +276,12 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			tc:            tc,
 			inputSegments: proxyIn,
 			mutex:         new(sync.Mutex),
+			logger: lalog.Logger{
+				ComponentName: "TCProxyConn",
+				ComponentID: []lalog.LoggerIDField{
+					{Key: "TCID", Value: tc.ID},
+				},
+			},
 		}
 		proxy.mutex.Lock()
 		proxy.connections[in.ID] = conn

@@ -44,8 +44,9 @@ func TestClient_HTTP(t *testing.T) {
 		DNSDaemon: dnsProxyServer,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig: true,
-			// There are the overhead of the length header and 1 index byte per 3 data bytes.
-			MaxSegmentLenExclHeader: 256 * 70 / 100,
+			// The max size of DNS query response should be 512 bytes, but the
+			// localhost communication does not mind a little extra.
+			MaxSegmentLenExclHeader: 120,
 			IOTimeoutSec:            100,
 			KeepAliveIntervalSec:    1,
 		},
@@ -88,7 +89,7 @@ func TestClient_HTTP(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected http response body error: %v", err)
 		}
-		if !strings.Contains(string(respBody), "https://twitter.com/neverssl") {
+		if !strings.Contains(strings.ToLower(string(respBody)), "</html>") {
 			t.Fatalf("unexpected http resposne body: %v", string(respBody))
 		}
 	})
@@ -112,11 +113,9 @@ func TestClient_HTTP(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected https response body error: %v", err)
 		}
-		if !strings.Contains(string(respBody), "SUCCESS") {
+		if !strings.Contains(strings.ToLower(string(respBody)), "</html>") {
 			t.Fatalf("unexpected https response body: %v", string(respBody))
 		}
-		// TODO FIXME: this doesn't quite work yet, the sequence number of client-side TC seems to be stuck at 256.
-		// TODO FIXME: use the dedup trick on the tc output and see if that helps.
 	})
 
 	httpProxyServer.Stop()
