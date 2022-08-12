@@ -164,3 +164,19 @@ func GetUnlockingPasswordWithRetry(ctx context.Context, useTLS bool, logger lalo
 		time.Sleep(3 * PasswdRPCTimeout)
 	}
 }
+
+// HandleSecurityDataUtil the main routine of data file maintenance utilities.
+func HandleSecurityDataUtil(dataUtil, dataUtilFile string, logger lalog.Logger) {
+	if dataUtilFile == "" {
+		logger.Abort("main", "", nil, "please provide data utility target file in parameter \"-datautilfile\"")
+		return
+	}
+	switch dataUtil {
+	case "encrypt":
+		EncryptFile(dataUtilFile)
+	case "decrypt":
+		DecryptFile(dataUtilFile)
+	default:
+		logger.Abort("main", "", nil, "please provide mode of operation (encrypt|decrypt) for parameter \"-datautil\"")
+	}
+}

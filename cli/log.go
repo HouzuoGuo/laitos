@@ -3,12 +3,21 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/awsinteg"
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/aws/aws-xray-sdk-go/awsplugins/beanstalk"
+	"github.com/aws/aws-xray-sdk-go/awsplugins/ec2"
+	"github.com/aws/aws-xray-sdk-go/awsplugins/ecs"
+	"github.com/aws/aws-xray-sdk-go/strategy/ctxmissing"
+	"github.com/aws/aws-xray-sdk-go/xray"
+	"github.com/aws/aws-xray-sdk-go/xraylog"
 )
 
 var (
@@ -68,5 +77,20 @@ func InstallOptionalLoggerSQSCallback(logger lalog.Logger, sqsURL string) {
 				_ = sqsClient.SendMessage(sendTimeoutCtx, sqsURL, string(logMessageRecord.GetJSON()))
 			}
 		})
+	}
+}
+
+func InitialiseAWS() {
+	if inet.IsAWS() {
+		// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
+		_ = os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
+		_ = xray.Configure(xray.Config{ContextMissingStrategy: ctxmissing.NewDefaultIgnoreErrorStrategy()})
+		xray.SetLogger(xraylog.NewDefaultLogger(ioutil.Discard, xraylog.LogLevelWarn))
+		go func() {
+			// These functions of aws lib take their sweet time, don't let them block main's progress. It's OK to miss a couple of traces.
+			beanstalk.Init()
+			ecs.Init()
+			ec2.Init()
+		}()
 	}
 }

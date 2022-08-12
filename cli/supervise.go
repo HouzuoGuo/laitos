@@ -1,15 +1,20 @@
 package cli
 
 import (
+	"bufio"
+	"context"
 	cryptoRand "crypto/rand"
 	"encoding/binary"
 	pseudoRand "math/rand"
 	"os"
 	"os/signal"
+	"path/filepath"
 	runtimePprof "runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -84,4 +89,88 @@ func ReseedPseudoRandAndInBackground(logger lalog.Logger) {
 			logger.Info("ReseedPseudoRandAndInBackground", "", nil, "successfully re-seeded PRNG")
 		}
 	}()
+}
+
+// GetConfig returns the laitos program configuration content (JSON) by
+// retrieving it from program environment, or a text file.
+// If the text file is encrypted, the function will retrieve its encryption
+// password from STDIN, password unlocking server, or a web server for password
+// input, and then return the text file decrypted.
+func GetConfig(logger lalog.Logger, pwdServer bool, pwdServerPort int, pwdServerURL string, passwordUnlockServers string) []byte {
+	configBytes := []byte(strings.TrimSpace(os.Getenv("LAITOS_CONFIG")))
+	if len(configBytes) == 0 {
+		// Proceed to read the config file
+		if misc.ConfigFilePath == "" {
+			logger.Abort("main", "config", nil, "please provide a configuration file (-config)")
+			return nil
+		}
+		var err error
+		misc.ConfigFilePath, err = filepath.Abs(misc.ConfigFilePath)
+		if err != nil {
+			logger.Abort("main", "config", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
+			return nil
+		}
+		// If config file is encrypted, read its password from standard input.
+		var isEncrypted bool
+		configBytes, isEncrypted, err = misc.IsEncrypted(misc.ConfigFilePath)
+		if err != nil {
+			logger.Abort("main", "config", err, "failed to read configuration file \"%s\"", misc.ConfigFilePath)
+			return nil
+		}
+		if isEncrypted {
+			logger.Info("main", "config", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
+			// There are multiple ways to collect the decryption password
+			passwdRPCContext, passwdRPCCancel := context.WithCancel(context.Background())
+			passwordCollectionServer := passwdserver.WebServer{
+				Port: pwdServerPort,
+				URL:  pwdServerURL,
+			}
+			if password := strings.TrimSpace(os.Getenv(misc.EnvironmentDecryptionPassword)); password != "" {
+				logger.Info("main", "config", nil, "got decryption password of %d characters from environment variable %s", len(password), misc.EnvironmentDecryptionPassword)
+				misc.ProgramDataDecryptionPasswordInput <- password
+			} else {
+				go func() {
+					// Collect program data decryption password from STDIN, there is not an explicit cancellation for the buffered read.
+					stdinReader := bufio.NewReader(os.Stdin)
+					pwdFromStdin, err := stdinReader.ReadString('\n')
+					if err == nil {
+						logger.Info("main", "config", nil, "got decryption password from stdin")
+						misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(pwdFromStdin)
+					} else {
+						logger.Warning("main", "config", err, "failed to read decryption password from STDIN")
+					}
+				}()
+				go func() {
+					// Collect program data decryption password from gRPC servers dedicated to this purpose
+					if passwordUnlockServers != "" {
+						serverAddrs := strings.Split(passwordUnlockServers, ",")
+						if password := GetUnlockingPasswordWithRetry(passwdRPCContext, true, logger, serverAddrs...); password != "" {
+							misc.ProgramDataDecryptionPasswordInput <- password
+						}
+					}
+				}()
+				if pwdServer {
+					// The web server launched here is distinct from the regular HTTP daemon. The sole purpose of the web server
+					// is to present a web page to visitor for them to enter decryption password for program config and data files.
+					// On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching
+					// the new version, which means the web server often runs into port conflicts when its updated version starts
+					// up. AutoRestart function helps to restart the server in such case.
+					go AutoRestart(logger, "pwdserver", passwordCollectionServer.Start)
+				}
+				// The AWS lambda handler is also able to retrieve the password from API gateway stage configuration and place it into the channel.
+			}
+			plainTextPassword := <-misc.ProgramDataDecryptionPasswordInput
+			misc.ProgramDataDecryptionPassword = plainTextPassword
+			// Explicitly stop background routines that may be still trying to obtain a decryption password
+			passwdRPCCancel()
+			passwordCollectionServer.Shutdown()
+			if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.ProgramDataDecryptionPassword); err != nil {
+				logger.Abort("main", "config", err, "failed to decrypt config file")
+				return nil
+			}
+		}
+	} else {
+		logger.Info("main", "", nil, "reading %d bytes of JSON configuration from environment variable LAITOS_CONFIG", len(configBytes))
+	}
+	return configBytes
 }

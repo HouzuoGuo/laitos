@@ -20,43 +20,21 @@
 package main
 
 import (
-	"bufio"
-	"context"
 	"flag"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"net/http/pprof"
 	"os"
-	"path"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
-	"strings"
 
 	"github.com/HouzuoGuo/laitos/cli"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/hzgl"
-	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/lambda"
 	"github.com/HouzuoGuo/laitos/launcher"
 	"github.com/HouzuoGuo/laitos/launcher/passwdserver"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/platform"
-	"github.com/aws/aws-xray-sdk-go/awsplugins/beanstalk"
-	"github.com/aws/aws-xray-sdk-go/awsplugins/ec2"
-	"github.com/aws/aws-xray-sdk-go/awsplugins/ecs"
-	"github.com/aws/aws-xray-sdk-go/strategy/ctxmissing"
-	"github.com/aws/aws-xray-sdk-go/xray"
-	"github.com/aws/aws-xray-sdk-go/xraylog"
-)
-
-const (
-	// AppEngineDataDir is the relative path to a data directory that contains config files and data files required for launching laitos program
-	// on GCP app engine.
-	AppEngineDataDir = "./gcp_appengine_data"
 )
 
 var (
@@ -119,61 +97,32 @@ func main() {
 
 	flag.Parse()
 
-	logger.Info("main", "", nil, "program is starting, here is a summary of the runtime environment:\n%s", platform.GetProgramStatusSummary(false))
-	// FIXME: TODO: this main function is way too long >:-|
-	if os.Getenv("GAE_ENV") == "standard" {
-		misc.EnablePrometheusIntegration = true
-		// Change working directory to the data directory (if not done yet).
-		// All program config files and data files are expected to reside in the data directory.
-		cwd, err := os.Getwd()
-		if err != nil {
-			logger.Abort("main", "", err, "failed to determine current working directory")
-		}
-		if path.Base(cwd) != path.Base(AppEngineDataDir) {
-			if err := os.Chdir(AppEngineDataDir); err != nil {
-				logger.Abort("main", "", err, "failed to change directory to %s", AppEngineDataDir)
-				return
-			}
-		}
-		// Read the value of CLI parameter "-daemons" from a text file
-		daemonListContent, err := ioutil.ReadFile("daemonList")
-		if err != nil {
-			logger.Abort("main", "", err, "failed to read daemonList")
-			return
-		}
-		// Find program configuration data (encrypted or otherwise) in "config.json"
-		misc.ConfigFilePath = "config.json"
-		daemonList = string(daemonListContent)
+	// ========================================================================
+	// Non-daemon utility routines - laitos configuration data encryption
+	// ========================================================================
+	if dataUtil != "" {
+		cli.HandleSecurityDataUtil(dataUtil, dataUtilFile, logger)
+		return
 	}
 
-	// Common diagnosis and security practices
+	// Enable common diagnosis and security features.
+	logger.Info("main", "", nil, "program is starting, here is a summary of the runtime environment:\n%s", platform.GetProgramStatusSummary(false))
 	platform.LockMemory()
 	cli.ReseedPseudoRandAndInBackground(logger)
 	if debug {
 		cli.DumpGoroutinesOnInterrupt()
 	}
 
-	// ========================================================================
-	// Utility routines - maintain encrypted laitos program data, no need to run any daemon.
-	// ========================================================================
-	if dataUtil != "" {
-		if dataUtilFile == "" {
-			logger.Abort("main", "", nil, "please provide data utility target file in parameter \"-datautilfile\"")
-			return
-		}
-		switch dataUtil {
-		case "encrypt":
-			cli.EncryptFile(dataUtilFile)
-		case "decrypt":
-			cli.DecryptFile(dataUtilFile)
-		default:
-			logger.Abort("main", "", nil, "please provide mode of operation (encrypt|decrypt) for parameter \"-datautil\"")
-		}
-		return
+	// Manipulate the daemon list parameter if running on Google App Engine.
+	if newDaemonList := cli.GAEDaemonList(logger); newDaemonList != "" {
+		daemonList = newDaemonList
 	}
 
 	// ========================================================================
-	// AWS lambda handler starts an independent goroutine to proxy HTTP requests to laitos web server.
+	// AWS lambda handler starts an independent goroutine to proxy HTTP requests
+	// to laitos web server.
+	// The handler also retrieves the decryption password for the program
+	// configuration from API gateway stage configuration, if provided.
 	// ========================================================================
 	if awsLambda {
 		// Use environment variable PORT to tell HTTP (not HTTPS) server to listen on port expected by lambda handler
@@ -185,94 +134,17 @@ func main() {
 	}
 
 	// Read unencrypted configuration data from environment variable, or possibly encrypted configuration from JSON file.
-	configBytes := []byte(strings.TrimSpace(os.Getenv("LAITOS_CONFIG")))
-	if len(configBytes) == 0 {
-		// Proceed to read the config file
-		if misc.ConfigFilePath == "" {
-			logger.Abort("main", "config", nil, "please provide a configuration file (-config)")
-			return
-		}
-		var err error
-		misc.ConfigFilePath, err = filepath.Abs(misc.ConfigFilePath)
-		if err != nil {
-			logger.Abort("main", "config", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
-			return
-		}
-		// If config file is encrypted, read its password from standard input.
-		var isEncrypted bool
-		configBytes, isEncrypted, err = misc.IsEncrypted(misc.ConfigFilePath)
-		if err != nil {
-			logger.Abort("main", "config", err, "failed to read configuration file \"%s\"", misc.ConfigFilePath)
-			return
-		}
-		if isEncrypted {
-			logger.Info("main", "config", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
-			// There are multiple ways to collect the decryption password
-			passwdRPCContext, passwdRPCCancel := context.WithCancel(context.Background())
-			passwordCollectionServer := passwdserver.WebServer{
-				Port: pwdServerPort,
-				URL:  pwdServerURL,
-			}
-			if password := strings.TrimSpace(os.Getenv(misc.EnvironmentDecryptionPassword)); password != "" {
-				logger.Info("main", "config", nil, "got decryption password of %d characters from environment variable %s", len(password), misc.EnvironmentDecryptionPassword)
-				misc.ProgramDataDecryptionPasswordInput <- password
-			} else {
-				go func() {
-					// Collect program data decryption password from STDIN, there is not an explicit cancellation for the buffered read.
-					stdinReader := bufio.NewReader(os.Stdin)
-					pwdFromStdin, err := stdinReader.ReadString('\n')
-					if err == nil {
-						logger.Info("main", "config", nil, "got decryption password from stdin")
-						misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(pwdFromStdin)
-					} else {
-						logger.Warning("main", "config", err, "failed to read decryption password from STDIN")
-					}
-				}()
-				go func() {
-					// Collect program data decryption password from gRPC servers dedicated to this purpose
-					if passwordUnlockServers != "" {
-						serverAddrs := strings.Split(passwordUnlockServers, ",")
-						if password := cli.GetUnlockingPasswordWithRetry(passwdRPCContext, true, logger, serverAddrs...); password != "" {
-							misc.ProgramDataDecryptionPasswordInput <- password
-						}
-					}
-				}()
-				if pwdServer {
-					// The web server launched here is distinct from the regular HTTP daemon. The sole purpose of the web server
-					// is to present a web page to visitor for them to enter decryption password for program config and data files.
-					// On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching
-					// the new version, which means the web server often runs into port conflicts when its updated version starts
-					// up. AutoRestart function helps to restart the server in such case.
-					go cli.AutoRestart(logger, "pwdserver", passwordCollectionServer.Start)
-				}
-				// The AWS lambda handler is also able to retrieve the password from API gateway stage configuration and place it into the channel
-			}
-			plainTextPassword := <-misc.ProgramDataDecryptionPasswordInput
-			misc.ProgramDataDecryptionPassword = plainTextPassword
-			// Explicitly stop background routines that may be still trying to obtain a decryption password
-			passwdRPCCancel()
-			passwordCollectionServer.Shutdown()
-			if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.ProgramDataDecryptionPassword); err != nil {
-				logger.Abort("main", "config", err, "failed to decrypt config file")
-				return
-			}
-		}
-	} else {
-		logger.Info("main", "", nil, "reading %d bytes of JSON configuration from environment variable LAITOS_CONFIG", len(configBytes))
-	}
-
 	var config launcher.Config
-	if err := config.DeserialiseFromJSON(configBytes); err != nil {
-		logger.Abort("main", "", err, "failed to deserialise/initialise program configuration")
+	if err := config.DeserialiseFromJSON(cli.GetConfig(logger, pwdServer, pwdServerPort, pwdServerURL, passwordUnlockServers)); err != nil {
+		logger.Abort("main", "", err, "failed to retrieve/deserialise program configuration")
 		return
 	}
-	// Figure out what daemons are to be started
+	// Figure out which daemons to start, make sure the names are valid.
 	daemonNames := regexp.MustCompile(`\w+`).FindAllString(daemonList, -1)
 	if len(daemonNames) == 0 {
 		logger.Abort("main", "", nil, "please provide comma-separated list of daemon services to start (-daemons).")
 		return
 	}
-	// Make sure all daemon names are valid
 	for _, daemonName := range daemonNames {
 		var found bool
 		for _, goodName := range launcher.AllDaemons {
@@ -301,26 +173,11 @@ func main() {
 		supervisor.Start()
 		return
 	}
-	// From this point and onward, the code enjoys the supervision and safety provided by the supervisor.
+	// The code after this point are supervised by the launcher supervisor,
+	// which will automatically recover from crashes and shed components/options
+	// as needed.
 
-	if misc.EnableAWSIntegration && inet.IsAWS() {
-		// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
-		_ = os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
-		_ = xray.Configure(xray.Config{ContextMissingStrategy: ctxmissing.NewDefaultIgnoreErrorStrategy()})
-		xray.SetLogger(xraylog.NewDefaultLogger(ioutil.Discard, xraylog.LogLevelWarn))
-		go func() {
-			// These functions of aws lib take their sweet time, don't let them block main's progress. It's OK to miss a couple of traces.
-			beanstalk.Init()
-			ecs.Init()
-			ec2.Init()
-		}()
-	}
-
-	// ========================================================================
-	// Daemon routine - launch all daemons at once.
-	// ========================================================================
-
-	// Prepare environmental changes
+	// Prepare to start the daemons.
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
 		logger.Warning("main", "gomaxprocs", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
@@ -330,9 +187,18 @@ func main() {
 	if disableConflicts {
 		cli.DisableConflicts(logger)
 	}
+	if misc.EnableAWSIntegration {
+		cli.InitialiseAWS()
+	}
 	cli.CopyNonEssentialUtilitiesInBackground(logger)
 	cli.InstallOptionalLoggerSQSCallback(logger, config.AWSIntegration.SendWarningLogToSQSURL)
+	cli.StartProfilingServer(logger, pprofHTTPPort)
 
+	// ========================================================================
+	// Daemon routine - launch all daemons at once.
+	// ========================================================================
+
+	// Prepare environmental changes
 	for _, daemonName := range daemonNames {
 		// Daemons are started asynchronously and the order does not matter
 		switch daemonName {
@@ -374,22 +240,7 @@ func main() {
 		}
 	}
 
-	// Start an HTTP server on localhost to serve program profiling data
-	if pprofHTTPPort > 0 {
-		// Expose the entire selection of profiling profiles identical to the ones installed by pprof standard library package
-		pprofMux := http.NewServeMux()
-		pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
-		pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		logger.Info("main", "pprof", nil, "serving program profiling data over HTTP server on port %d", pprofHTTPPort)
-		if err := http.ListenAndServe(net.JoinHostPort("localhost", strconv.Itoa(pprofHTTPPort)), pprofMux); err != nil {
-			// This server is not expected to shutdown
-			logger.Warning("main", "pprof", err, "failed to start HTTP server for program profiling data")
-		}
-	}
-
-	// Daemons are already started in background goroutines, the main function now waits indefinitely.
+	// At this point the enabled daemons are running in their own background
+	// goroutines. the main function now waits/blocks indefinitely.
 	select {}
 }
