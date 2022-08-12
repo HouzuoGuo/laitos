@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/HouzuoGuo/laitos/cli"
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
 	"github.com/HouzuoGuo/laitos/hzgl"
 	"github.com/HouzuoGuo/laitos/inet"
@@ -64,64 +65,6 @@ var (
 	pprofHTTPPort int
 	logger        = lalog.Logger{ComponentName: "main", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 )
-
-/*
-DecryptFile is a distinct routine of laitos main program, it reads password from standard input and uses it to decrypt the
-input file in-place.
-*/
-func DecryptFile(filePath string) {
-	platform.SetTermEcho(false)
-	defer platform.SetTermEcho(true)
-	reader := bufio.NewReader(os.Stdin)
-	lalog.DefaultLogger.Info("DecryptFile", "", nil, "Please enter a password to decrypt file \"%s\" (terminal won't echo):\n", filePath)
-	password, err := reader.ReadString('\n')
-	if err != nil {
-		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to read password")
-		return
-	}
-	content, err := misc.Decrypt(filePath, strings.TrimSpace(password))
-	if err != nil {
-		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
-		return
-	}
-	if err := ioutil.WriteFile(filePath, content, 0600); err != nil {
-		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
-		return
-	}
-	lalog.DefaultLogger.Info("DecryptFile", "main", nil, "the file has been decrypted in-place")
-}
-
-/*
-EncryptFile is a distinct routine of laitos main program, it reads password from standard input and uses it to encrypt
-the input file in-place.
-*/
-func EncryptFile(filePath string) {
-	platform.SetTermEcho(false)
-	defer platform.SetTermEcho(true)
-	reader := bufio.NewReader(os.Stdin)
-	lalog.DefaultLogger.Info("EncryptFile", "", nil, "please enter a password to encrypt the file \"%s\" (terminal won't echo):\n", filePath)
-	password, err := reader.ReadString('\n')
-	if err != nil {
-		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to read password")
-		return
-	}
-	lalog.DefaultLogger.Info("EncryptFile", "", nil, "enter the same password again (terminal won't echo):")
-	passwordAgain, err := reader.ReadString('\n')
-	if err != nil {
-		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to read password")
-		return
-	}
-	if password != passwordAgain {
-		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "The two passwords must match")
-		return
-	}
-	password = strings.TrimSpace(password)
-	if err := misc.Encrypt(filePath, password); err != nil {
-		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to encrypt file")
-		return
-	}
-	lalog.DefaultLogger.Info("EncryptFile", "", nil, "the file has been encrypted in-place with a password %d characters long", len(password))
-}
 
 /*
 main runs one of several distinct routines according to the presented combination of command line flags:
@@ -205,9 +148,9 @@ func main() {
 
 	// Common diagnosis and security practices
 	platform.LockMemory()
-	ReseedPseudoRandAndInBackground()
+	cli.ReseedPseudoRandAndInBackground(logger)
 	if debug {
-		DumpGoroutinesOnInterrupt()
+		cli.DumpGoroutinesOnInterrupt()
 	}
 
 	// ========================================================================
@@ -220,9 +163,9 @@ func main() {
 		}
 		switch dataUtil {
 		case "encrypt":
-			EncryptFile(dataUtilFile)
+			cli.EncryptFile(dataUtilFile)
 		case "decrypt":
-			DecryptFile(dataUtilFile)
+			cli.DecryptFile(dataUtilFile)
 		default:
 			logger.Abort("main", "", nil, "please provide mode of operation (encrypt|decrypt) for parameter \"-datautil\"")
 		}
@@ -289,7 +232,7 @@ func main() {
 					// Collect program data decryption password from gRPC servers dedicated to this purpose
 					if passwordUnlockServers != "" {
 						serverAddrs := strings.Split(passwordUnlockServers, ",")
-						if password := GetUnlockingPasswordWithRetry(passwdRPCContext, true, logger, serverAddrs...); password != "" {
+						if password := cli.GetUnlockingPasswordWithRetry(passwdRPCContext, true, logger, serverAddrs...); password != "" {
 							misc.ProgramDataDecryptionPasswordInput <- password
 						}
 					}
@@ -300,7 +243,7 @@ func main() {
 					// On Amazon ElasitcBeanstalk, application update cannot reliably kill the old program prior to launching
 					// the new version, which means the web server often runs into port conflicts when its updated version starts
 					// up. AutoRestart function helps to restart the server in such case.
-					go AutoRestart(logger, "pwdserver", passwordCollectionServer.Start)
+					go cli.AutoRestart(logger, "pwdserver", passwordCollectionServer.Start)
 				}
 				// The AWS lambda handler is also able to retrieve the password from API gateway stage configuration and place it into the channel
 			}
@@ -385,49 +328,49 @@ func main() {
 		logger.Warning("main", "gomaxprocs", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
 	}
 	if disableConflicts {
-		DisableConflicts()
+		cli.DisableConflicts(logger)
 	}
-	CopyNonEssentialUtilitiesInBackground()
-	InstallOptionalLoggerSQSCallback(config.AWSIntegration.SendWarningLogToSQSURL)
+	cli.CopyNonEssentialUtilitiesInBackground(logger)
+	cli.InstallOptionalLoggerSQSCallback(logger, config.AWSIntegration.SendWarningLogToSQSURL)
 
 	for _, daemonName := range daemonNames {
 		// Daemons are started asynchronously and the order does not matter
 		switch daemonName {
 		case launcher.DNSDName:
-			go AutoRestart(logger, daemonName, config.GetDNSD().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetDNSD().StartAndBlock)
 		case launcher.HTTPDName:
-			go AutoRestart(logger, daemonName, config.GetHTTPD().StartAndBlockWithTLS)
+			go cli.AutoRestart(logger, daemonName, config.GetHTTPD().StartAndBlockWithTLS)
 		case launcher.InsecureHTTPDName:
 			/*
 				There is not an independent port settings for launching both TLS-enabled and TLS-free HTTP servers
 				at the same time. If user really wishes to launch both at the same time, the TLS-free HTTP server
 				will fallback to use port number 80.
 			*/
-			go AutoRestart(logger, daemonName, func() error {
+			go cli.AutoRestart(logger, daemonName, func() error {
 				return config.GetHTTPD().StartAndBlockNoTLS(80)
 			})
 		case launcher.MaintenanceName:
-			go AutoRestart(logger, daemonName, config.GetMaintenance().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetMaintenance().StartAndBlock)
 		case launcher.PhoneHomeName:
-			go AutoRestart(logger, daemonName, config.GetPhoneHomeDaemon().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetPhoneHomeDaemon().StartAndBlock)
 		case launcher.PlainSocketName:
-			go AutoRestart(logger, daemonName, config.GetPlainSocketDaemon().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetPlainSocketDaemon().StartAndBlock)
 		case launcher.SimpleIPSvcName:
-			go AutoRestart(logger, daemonName, config.GetSimpleIPSvcD().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetSimpleIPSvcD().StartAndBlock)
 		case launcher.SMTPDName:
-			go AutoRestart(logger, daemonName, config.GetMailDaemon().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetMailDaemon().StartAndBlock)
 		case launcher.SNMPDName:
-			go AutoRestart(logger, daemonName, config.GetSNMPD().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetSNMPD().StartAndBlock)
 		case launcher.SOCKDName:
-			go AutoRestart(logger, daemonName, config.GetSockDaemon().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetSockDaemon().StartAndBlock)
 		case launcher.TelegramName:
-			go AutoRestart(logger, daemonName, config.GetTelegramBot().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetTelegramBot().StartAndBlock)
 		case launcher.AutoUnlockName:
-			go AutoRestart(logger, daemonName, config.GetAutoUnlock().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetAutoUnlock().StartAndBlock)
 		case launcher.PasswdRPCName:
-			go AutoRestart(logger, daemonName, config.GetPasswdRPCDaemon().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetPasswdRPCDaemon().StartAndBlock)
 		case launcher.HTTPProxyName:
-			go AutoRestart(logger, daemonName, config.GetHTTPProxyDaemon().StartAndBlock)
+			go cli.AutoRestart(logger, daemonName, config.GetHTTPProxyDaemon().StartAndBlock)
 		}
 	}
 

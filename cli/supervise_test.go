@@ -1,27 +1,14 @@
-package main
+package cli
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"net"
-	"strconv"
 	"testing"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/passwdrpc"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
-	"github.com/HouzuoGuo/laitos/netboundfileenc"
 )
-
-func TestReseedPseudoRandAndInBackground(t *testing.T) {
-	ReseedPseudoRandAndInBackground()
-}
-
-func TestCopyNonEssentialUtilitiesInBackground(t *testing.T) {
-	CopyNonEssentialUtilitiesInBackground()
-}
 
 func TestAutoRestart(t *testing.T) {
 	// The sample function returns error three times and then returns nothing.
@@ -78,30 +65,4 @@ func TestAutoRestartDuringLockDown(t *testing.T) {
 		done <- struct{}{}
 	}()
 	<-done
-}
-
-func TestGetUnlockingPassword(t *testing.T) {
-	daemon := &passwdrpc.Daemon{
-		Address:          "127.0.0.1",
-		Port:             8972,
-		PasswordRegister: netboundfileenc.NewPasswordRegister(10, 10, lalog.DefaultLogger),
-	}
-	go func() {
-		if err := daemon.StartAndBlock(); err != nil {
-			t.Error(err)
-			return
-		}
-	}()
-	if !misc.ProbePort(30*time.Second, daemon.Address, daemon.Port) {
-		t.Fatal("daemon did not start on time")
-	}
-	password := getUnlockingPassword(context.Background(), false, *lalog.DefaultLogger, "test-challenge-str", net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)))
-	if password != "" {
-		t.Fatal("should not have got a password at this point")
-	}
-	daemon.PasswordRegister.FulfilIntent("test-challenge-str", "good-password")
-	password = getUnlockingPassword(context.Background(), false, *lalog.DefaultLogger, "test-challenge-str", net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)))
-	if password != "good-password" {
-		t.Fatalf("did not get the password: %s", password)
-	}
 }
