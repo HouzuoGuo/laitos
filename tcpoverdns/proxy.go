@@ -51,6 +51,8 @@ func (conn *ProxyConnection) Start() {
 			conn.tc.DumpState()
 		}
 		_ = conn.Close()
+		misc.TCPOverDNSUpStats.Trigger(float64(conn.tc.InputSeq()))
+		misc.TCPOverDNSDownStats.Trigger(float64(conn.tc.OutputSeq()))
 		go func() {
 			// Linger a short while before deleting (cease tracking) the
 			// connection, as the output segment buffer may still contain
@@ -227,9 +229,7 @@ func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
 			proxy.Logger.Warning("Receive", "", err, "failed to deserialise proxy request")
 			return Segment{}, false
 		}
-		if proxy.Debug {
-			proxy.Logger.Info("Receive", "", nil, "new connection request - seg: %+v, req: %+v", in, req)
-		}
+		proxy.Logger.Info("Receive", "", nil, "new connection request - seg: %+v, req: %+v", in, req)
 		// Construct the transmission control at proxy's side.
 		proxyIn, tcIn := net.Pipe()
 		tc := &TransmissionControl{

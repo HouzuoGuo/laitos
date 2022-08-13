@@ -723,7 +723,14 @@ func (tc *TransmissionControl) DumpState() {
 	)
 }
 
-// OutputSeq returns the latest output sequence number.
+// InputSeq returns the input sequence number.
+func (tc *TransmissionControl) InputSeq() uint32 {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	return tc.inputSeq
+}
+
+// OutputSeq returns the output sequence number.
 func (tc *TransmissionControl) OutputSeq() uint32 {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()

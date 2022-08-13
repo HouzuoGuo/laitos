@@ -184,9 +184,7 @@ func (client *Client) Initialise(ctx context.Context) error {
 		client.DNSHostName = client.DNSHostName[1:]
 	}
 	client.logger = lalog.Logger{ComponentName: "dnsclient", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(client.Port)}}}
-	client.proxyHandlerWithMiddleware = middleware.LogRequestStats(client.logger,
-		middleware.RecordInternalStats(misc.TCPOverDNSClientStats,
-			middleware.EmergencyLockdown(client.ProxyHandler)))
+	client.proxyHandlerWithMiddleware = middleware.LogRequestStats(client.logger, middleware.EmergencyLockdown(client.ProxyHandler))
 	client.context, client.cancelFun = context.WithCancel(ctx)
 
 	client.httpTransport = &http.Transport{
