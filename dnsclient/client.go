@@ -85,7 +85,13 @@ func (conn *ProxiedConnection) Start() error {
 			conn.mutex.Lock()
 			if len(conn.outputSegmentBacklog) == 0 {
 				conn.mutex.Unlock()
-				continue
+				// Wait for a segment.
+				select {
+				case <-time.After(tcpoverdns.BusyWaitInterval):
+					continue
+				case <-conn.context.Done():
+					return
+				}
 			}
 			outgoingSeg := conn.outputSegmentBacklog[0]
 			conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
