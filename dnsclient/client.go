@@ -198,7 +198,7 @@ func (client *Client) Initialise(ctx context.Context) error {
 
 // dialContet returns a network connection tunnelled by the TCP-over-DNS proxy.
 func (client *Client) dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	initiatorSegment, err := json.Marshal(tcpoverdns.ProxyRequest{Network: network, Address: addr})
+	initiatorSegment, err := json.Marshal(dnsd.ProxyRequest{Network: network, Address: addr})
 	if err != nil {
 		return nil, err
 	}

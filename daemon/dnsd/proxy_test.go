@@ -1,10 +1,9 @@
-package tcpoverdns
+package dnsd
 
 import (
 	"bufio"
 	"context"
 	"crypto/tls"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -13,12 +12,13 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
 func pipeSegments(t *testing.T, testOut, testIn net.Conn, proxy *Proxy) {
 	for {
 		// Pipe segments from TC to proxy.
-		seg := readSegmentHeaderData(t, context.Background(), testOut)
+		seg := tcpoverdns.ReadSegmentHeaderData(t, context.Background(), testOut)
 		lalog.DefaultLogger.Info("", "", nil, "relaying segment to proxy tc: %+v", seg)
 		resp, hasResp := proxy.Receive(seg)
 		lalog.DefaultLogger.Info("", "", nil, "proxy tc replies to test: %+v, %v", resp, hasResp)
@@ -82,25 +82,6 @@ func echoTCPServer(t *testing.T, port int) {
 	}()
 }
 
-func readSegmentHeaderData(t *testing.T, ctx context.Context, in io.Reader) Segment {
-	segHeader := make([]byte, SegmentHeaderLen)
-	n, err := in.Read(segHeader)
-	if err != nil || n != SegmentHeaderLen {
-		t.Fatalf("failed to read segment header: %v %v", n, err)
-		return Segment{}
-	}
-
-	segDataLen := int(binary.BigEndian.Uint16(segHeader[SegmentHeaderLen-2 : SegmentHeaderLen]))
-	segData := make([]byte, segDataLen)
-	n, err = in.Read(segData)
-	if err != nil || n != segDataLen {
-		t.Fatalf("failed to read segment data: %v %v", segDataLen, err)
-		return Segment{}
-	}
-
-	return SegmentFromPacket(append(segHeader, segData...))
-}
-
 func TestProxy_TCPClient(t *testing.T) {
 	echoTCPServer(t, 63238)
 
@@ -113,7 +94,7 @@ func TestProxy_TCPClient(t *testing.T) {
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
-	tc := &TransmissionControl{
+	tc := &tcpoverdns.TransmissionControl{
 		LogTag:               "TestTCPClient",
 		Debug:                true,
 		ID:                   1111,
@@ -146,8 +127,8 @@ func TestProxy_TCPClient(t *testing.T) {
 	}
 	// The underlying TCP connection is closed after "end\n".
 	// The test TCP server does not reply when receiving "end\n".
-	checkTC(t, tc, 20, StateClosed, 7, 7+4, 7+4, nil, nil)
-	checkTCError(t, tc, 2, 0, 0, 0)
+	tcpoverdns.CheckTC(t, tc, 20, tcpoverdns.StateClosed, 7, 7+4, 7+4, nil, nil)
+	tcpoverdns.CheckTCError(t, tc, 2, 0, 0, 0)
 }
 
 func TestProxy_HTTPClient(t *testing.T) {
@@ -156,7 +137,7 @@ func TestProxy_HTTPClient(t *testing.T) {
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
-	tc := &TransmissionControl{
+	tc := &tcpoverdns.TransmissionControl{
 		LogTag:          "TestHttpClient",
 		Debug:           true,
 		ID:              1111,
@@ -198,8 +179,8 @@ func TestProxy_HTTPClient(t *testing.T) {
 	if !strings.Contains(respStr, `content-type`) || !strings.Contains(respStr, `</html>`) {
 		t.Fatalf("missing content")
 	}
-	checkTC(t, tc, 20, StateClosed, len(resp), bytesWritten, bytesWritten, nil, nil)
-	checkTCError(t, tc, 2, 0, 0, 0)
+	tcpoverdns.CheckTC(t, tc, 20, tcpoverdns.StateClosed, len(resp), bytesWritten, bytesWritten, nil, nil)
+	tcpoverdns.CheckTCError(t, tc, 2, 0, 0, 0)
 }
 
 func TestProxy_HTTPSClient(t *testing.T) {
@@ -208,7 +189,7 @@ func TestProxy_HTTPSClient(t *testing.T) {
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
-	tc := &TransmissionControl{
+	tc := &tcpoverdns.TransmissionControl{
 		LogTag: "TestHttpClient",
 		Debug:  true,
 		ID:     1111,
@@ -259,8 +240,8 @@ func TestProxy_HTTPSClient(t *testing.T) {
 	}
 	// There is no meaningful way of checking the sequence numbers because there
 	// is a TLS handshake.
-	tc.WaitState(context.Background(), StateClosed)
-	checkTCError(t, tc, 2, 0, 0, 0)
+	tc.WaitState(context.Background(), tcpoverdns.StateClosed)
+	tcpoverdns.CheckTCError(t, tc, 2, 0, 0, 0)
 }
 
 func TestProxy_CleanUp(t *testing.T) {
@@ -272,7 +253,7 @@ func TestProxy_CleanUp(t *testing.T) {
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
-	tc := &TransmissionControl{
+	tc := &tcpoverdns.TransmissionControl{
 		LogTag:          "TestHttpClient",
 		Debug:           true,
 		ID:              1111,
@@ -292,8 +273,8 @@ func TestProxy_CleanUp(t *testing.T) {
 	if len(resp) != 0 || err != nil && err != io.EOF {
 		t.Fatalf("read failure - resp: %v, err: %v", resp, err)
 	}
-	checkTC(t, tc, 10, StateClosed, 0, 0, 0, nil, nil)
-	checkTCError(t, tc, 2, 0, 0, 0)
+	tcpoverdns.CheckTC(t, tc, 10, tcpoverdns.StateClosed, 0, 0, 0, nil, nil)
+	tcpoverdns.CheckTCError(t, tc, 2, 0, 0, 0)
 	// Wait for linger to go by.
 	time.Sleep(proxy.Linger + 1*time.Second)
 	// The connection should disappear from the proxy.

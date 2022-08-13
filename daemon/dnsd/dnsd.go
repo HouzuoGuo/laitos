@@ -14,7 +14,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/platform"
-	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 
@@ -111,7 +110,7 @@ type Daemon struct {
 
 	tcpServer *common.TCPServer
 	udpServer *common.UDPServer
-	tcpProxy  *tcpoverdns.Proxy
+	tcpProxy  *Proxy
 
 	// latestCommands remembers the result of most recently executed toolbox commands.
 	latestCommands *LatestCommands
@@ -215,7 +214,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.latestCommands = NewLatestCommands()
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
-	daemon.tcpProxy = new(tcpoverdns.Proxy)
+	daemon.tcpProxy = new(Proxy)
 
 	// Always allow server itself to query the DNS servers via its public IP
 	daemon.allowMyPublicIP()

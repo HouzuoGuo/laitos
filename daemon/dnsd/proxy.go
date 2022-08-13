@@ -1,4 +1,4 @@
-package tcpoverdns
+package dnsd
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
 // ProxyRequest is the data sent by a proxy client to initiate a connection
@@ -31,9 +32,9 @@ type ProxyConnection struct {
 	proxy                *Proxy
 	tcpConn              *net.TCPConn
 	context              context.Context
-	tc                   *TransmissionControl
+	tc                   *tcpoverdns.TransmissionControl
 	inputSegments        net.Conn
-	outputSegmentBacklog []Segment
+	outputSegmentBacklog []tcpoverdns.Segment
 	mutex                *sync.Mutex
 	logger               lalog.Logger
 }
@@ -69,18 +70,18 @@ func (conn *ProxyConnection) Start() {
 		}()
 	}()
 	// Absorb outgoing segments into the outgoing backlog.
-	conn.tc.OutputSegmentCallback = func(seg Segment) {
+	conn.tc.OutputSegmentCallback = func(seg tcpoverdns.Segment) {
 		// Replace the latest keep-alive or ack-only segment (if any), and
 		// de-duplicate adjacent identical segments. These measures not only
 		// speed up the exchanges but also ensure that peers can communicate
 		// properly even if their timing characteristics differ.
 		conn.mutex.Lock()
 		defer conn.mutex.Unlock()
-		var latest Segment
+		var latest tcpoverdns.Segment
 		if len(conn.outputSegmentBacklog) > 0 {
 			latest = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
 		}
-		if latest.Flags.Has(FlagAckOnly) || latest.Flags.Has(FlagKeepAlive) {
+		if latest.Flags.Has(tcpoverdns.FlagAckOnly) || latest.Flags.Has(tcpoverdns.FlagKeepAlive) {
 			// Substitute the ack-only or keep-alive segment with the latest.
 			if conn.proxy.Debug {
 				conn.logger.Info("Start", "", nil, "callback is removing ack/keepalive segment: %+v", seg)
@@ -98,7 +99,7 @@ func (conn *ProxyConnection) Start() {
 	}
 	// Carry on with the handshake.
 	conn.tc.Start(conn.context)
-	conn.tc.WaitState(conn.context, StateEstablished)
+	conn.tc.WaitState(conn.context, tcpoverdns.StateEstablished)
 	if conn.proxy.Debug {
 		conn.logger.Info("ProxyConnection.Start", "", nil, "TC is established")
 	}
@@ -119,13 +120,13 @@ func (conn *ProxyConnection) Start() {
 	}
 	// Wait for the transmission control to close.
 	conn.tc.CloseAfterDrained()
-	conn.tc.WaitState(conn.context, StateClosed)
+	conn.tc.WaitState(conn.context, tcpoverdns.StateClosed)
 	// The proxy connection lingers for a short while, see defer.
 }
 
 // WaitSegment busy-waits until a new segment is available from the output
 // segment backlog, and then pops the segment.
-func (conn *ProxyConnection) WaitSegment(ctx context.Context) (Segment, bool) {
+func (conn *ProxyConnection) WaitSegment(ctx context.Context) (tcpoverdns.Segment, bool) {
 	for {
 		conn.mutex.Lock()
 		if len(conn.outputSegmentBacklog) > 0 {
@@ -137,8 +138,8 @@ func (conn *ProxyConnection) WaitSegment(ctx context.Context) (Segment, bool) {
 			conn.mutex.Unlock()
 			select {
 			case <-ctx.Done():
-				return Segment{}, false
-			case <-time.After(BusyWaitInterval):
+				return tcpoverdns.Segment{}, false
+			case <-time.After(tcpoverdns.BusyWaitInterval):
 				continue
 			}
 		}
@@ -218,21 +219,21 @@ func (proxy *Proxy) Start(ctx context.Context) {
 // Receive processes an incoming segment and relay the segment to an existing
 // transmission control, or create a new transmission control for the proxy
 // destination.
-func (proxy *Proxy) Receive(in Segment) (Segment, bool) {
+func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 	proxy.mutex.Lock()
 	conn, exists := proxy.connections[in.ID]
 	proxy.mutex.Unlock()
 	if !exists {
 		// Connect to the proxy destination.
 		var req ProxyRequest
-		if err := json.Unmarshal(in.Data[InitiatorConfigLen:], &req); err != nil {
+		if err := json.Unmarshal(in.Data[tcpoverdns.InitiatorConfigLen:], &req); err != nil {
 			proxy.Logger.Warning("Receive", "", err, "failed to deserialise proxy request")
-			return Segment{}, false
+			return tcpoverdns.Segment{}, false
 		}
 		proxy.Logger.Info("Receive", "", nil, "new connection request - seg: %+v, req: %+v", in, req)
 		// Construct the transmission control at proxy's side.
 		proxyIn, tcIn := net.Pipe()
-		tc := &TransmissionControl{
+		tc := &tcpoverdns.TransmissionControl{
 			Debug:  proxy.Debug,
 			LogTag: "ProxyConn",
 			ID:     in.ID,

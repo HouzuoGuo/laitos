@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"reflect"
 	runtimePprof "runtime/pprof"
 	"testing"
 	"time"
@@ -31,58 +30,6 @@ func readSegment(t *testing.T, reader io.Reader, dataLen int) Segment {
 		t.Fatalf("readSegment unexpected segData length: %v, want: %v", len(segData), dataLen)
 	}
 	return SegmentFromPacket(segData)
-}
-
-func checkTC(t *testing.T, tc *TransmissionControl, timeoutSec int, wantState State, wantInputSeq, wantInputAck, wantOutputSeq int, wantInputBuf, wantOutputBuf []byte) {
-	t.Helper()
-	for i := 0; i < timeoutSec*10; i++ {
-		tc.mutex.Lock()
-		instant := *tc
-		tc.mutex.Unlock()
-		if !reflect.DeepEqual(instant.state, wantState) {
-			goto retry
-		} else if int(instant.inputSeq) != wantInputSeq {
-			goto retry
-		} else if int(instant.inputAck) != wantInputAck {
-			goto retry
-		} else if int(instant.outputSeq) != wantOutputSeq {
-			goto retry
-		} else if (instant.inputBuf != nil && wantInputBuf != nil) && !reflect.DeepEqual(instant.inputBuf, wantInputBuf) {
-			goto retry
-		} else if (instant.outputBuf != nil && wantOutputBuf != nil) && !reflect.DeepEqual(instant.outputBuf, wantOutputBuf) {
-			goto retry
-		} else {
-			return
-		}
-	retry:
-		time.Sleep(100 * time.Millisecond)
-	}
-	tc.DumpState()
-	t.Fatalf("want state: %d, input seq: %d, input ack: %d, output seq: %d, input buf: %v, output buf: %v",
-		wantState, wantInputSeq, wantInputAck, wantOutputSeq, wantInputBuf, wantOutputBuf)
-}
-
-func checkTCError(t *testing.T, tc *TransmissionControl, timeoutSec int, wantOngoingTransmission, wantInputTransportErrors, wantOutputTransportErrors int) {
-	t.Helper()
-	for i := 0; i < timeoutSec*10; i++ {
-		tc.mutex.Lock()
-		instant := *tc
-		tc.mutex.Unlock()
-		if instant.ongoingRetransmissions != wantOngoingTransmission {
-			goto retry
-		} else if instant.inputTransportErrors != wantInputTransportErrors {
-			goto retry
-		} else if instant.outputTransportErrors != wantOutputTransportErrors {
-			goto retry
-		} else {
-			return
-		}
-	retry:
-		time.Sleep(100 * time.Millisecond)
-	}
-	tc.DumpState()
-	t.Fatalf("want ongiong retrans: %d, input transport errs: %d, output transport errs: %d",
-		wantOngoingTransmission, wantInputTransportErrors, wantOutputTransportErrors)
 }
 
 func waitForOutputSeq(t *testing.T, tc *TransmissionControl, timeoutSec int, want int) {

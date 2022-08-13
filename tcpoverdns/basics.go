@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
 	"golang.org/x/net/dns/dnsmessage"
 )
 
@@ -365,4 +367,75 @@ func ReadSegment(ctx context.Context, in io.Reader) Segment {
 		return Segment{Flags: FlagMalformed}
 	}
 	return SegmentFromPacket(append(segHeader, segData...))
+}
+
+func ReadSegmentHeaderData(t testingstub.T, ctx context.Context, in io.Reader) Segment {
+	segHeader := make([]byte, SegmentHeaderLen)
+	n, err := in.Read(segHeader)
+	if err != nil || n != SegmentHeaderLen {
+		t.Fatalf("failed to read segment header: %v %v", n, err)
+		return Segment{}
+	}
+
+	segDataLen := int(binary.BigEndian.Uint16(segHeader[SegmentHeaderLen-2 : SegmentHeaderLen]))
+	segData := make([]byte, segDataLen)
+	n, err = in.Read(segData)
+	if err != nil || n != segDataLen {
+		t.Fatalf("failed to read segment data: %v %v", segDataLen, err)
+		return Segment{}
+	}
+
+	return SegmentFromPacket(append(segHeader, segData...))
+}
+
+func CheckTC(t testingstub.T, tc *TransmissionControl, timeoutSec int, wantState State, wantInputSeq, wantInputAck, wantOutputSeq int, wantInputBuf, wantOutputBuf []byte) {
+	t.Helper()
+	for i := 0; i < timeoutSec*10; i++ {
+		tc.mutex.Lock()
+		instant := *tc
+		tc.mutex.Unlock()
+		if !reflect.DeepEqual(instant.state, wantState) {
+			goto retry
+		} else if int(instant.inputSeq) != wantInputSeq {
+			goto retry
+		} else if int(instant.inputAck) != wantInputAck {
+			goto retry
+		} else if int(instant.outputSeq) != wantOutputSeq {
+			goto retry
+		} else if (instant.inputBuf != nil && wantInputBuf != nil) && !reflect.DeepEqual(instant.inputBuf, wantInputBuf) {
+			goto retry
+		} else if (instant.outputBuf != nil && wantOutputBuf != nil) && !reflect.DeepEqual(instant.outputBuf, wantOutputBuf) {
+			goto retry
+		} else {
+			return
+		}
+	retry:
+		time.Sleep(100 * time.Millisecond)
+	}
+	tc.DumpState()
+	t.Fatalf("want state: %d, input seq: %d, input ack: %d, output seq: %d, input buf: %v, output buf: %v",
+		wantState, wantInputSeq, wantInputAck, wantOutputSeq, wantInputBuf, wantOutputBuf)
+}
+
+func CheckTCError(t testingstub.T, tc *TransmissionControl, timeoutSec int, wantOngoingTransmission, wantInputTransportErrors, wantOutputTransportErrors int) {
+	t.Helper()
+	for i := 0; i < timeoutSec*10; i++ {
+		tc.mutex.Lock()
+		instant := *tc
+		tc.mutex.Unlock()
+		if instant.ongoingRetransmissions != wantOngoingTransmission {
+			goto retry
+		} else if instant.inputTransportErrors != wantInputTransportErrors {
+			goto retry
+		} else if instant.outputTransportErrors != wantOutputTransportErrors {
+			goto retry
+		} else {
+			return
+		}
+	retry:
+		time.Sleep(100 * time.Millisecond)
+	}
+	tc.DumpState()
+	t.Fatalf("want ongiong retrans: %d, input transport errs: %d, output transport errs: %d",
+		wantOngoingTransmission, wantInputTransportErrors, wantOutputTransportErrors)
 }
