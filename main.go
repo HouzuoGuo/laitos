@@ -94,14 +94,33 @@ func main() {
 	var dataUtil, dataUtilFile string
 	flag.StringVar(&dataUtil, "datautil", "", "(Optional) program data encryption utility: encrypt|decrypt")
 	flag.StringVar(&dataUtilFile, "datautilfile", "", "(Optional) program data encryption utility: encrypt/decrypt file location")
+	// TCP-over-DNS proxy client flags.
+	var proxyPort int
+	var proxyDNSResolverAddr string
+	var proxyDNSResolverPort int
+	var proxyDNSHostName string
+	var proxyDebug bool
+	flag.IntVar(&proxyPort, "proxyport", 0, "(TCP-over-DNS) port to start local HTTP proxy on")
+	flag.BoolVar(&proxyDebug, "proxydebug", false, "(TCP-over-DNS) turn on debug logs")
+	flag.StringVar(&proxyDNSResolverAddr, "proxydnsresolveraddr", "", "(TCP-over-DNS) recursive resolver address")
+	flag.IntVar(&proxyDNSResolverPort, "proxydnsresolverport", 0, "(TCP-over-DNS) recursive resolver port")
+	flag.StringVar(&proxyDNSHostName, "proxydnshostname", "", "(TCP-over-DNS) proxy DNS server host name")
 
 	flag.Parse()
 
 	// ========================================================================
-	// Non-daemon utility routines - laitos configuration data encryption
+	// Non-daemon utility routines - laitos configuration data encryption.
 	// ========================================================================
 	if dataUtil != "" {
 		cli.HandleSecurityDataUtil(dataUtil, dataUtilFile, logger)
+		return
+	}
+
+	// ========================================================================
+	// Non-daemon utility routines - TCP-over-DNS client.
+	// ========================================================================
+	if proxyPort > 0 {
+		cli.HandleTCPOverDNSClient(logger, debug, proxyPort, proxyDNSResolverAddr, proxyDNSResolverPort, proxyDNSHostName)
 		return
 	}
 

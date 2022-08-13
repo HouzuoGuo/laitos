@@ -167,12 +167,12 @@ func TestDefaultForwarders(t *testing.T) {
 
 func TestDaemon_queryLabels(t *testing.T) {
 	daemon := Daemon{
-		MyDomainNames: []string{"a.com", "b.net."},
+		MyDomainNames: []string{"a.com", "b.net.", "b.a.com"},
 	}
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(daemon.MyDomainNames, []string{".a.com", ".b.net"}) {
+	if !reflect.DeepEqual(daemon.MyDomainNames, []string{".b.a.com", ".a.com", ".b.net"}) {
 		t.Fatal(daemon.MyDomainNames)
 	}
 	var tests = []struct {
@@ -188,15 +188,21 @@ func TestDaemon_queryLabels(t *testing.T) {
 			wantIsRecursive:     false,
 		},
 		{
+			name:                "haha.b.a.com",
+			wantLabels:          []string{"haha"},
+			wantNumDomainLabels: 3,
+			wantIsRecursive:     false,
+		},
+		{
 			name:                "haha.example.com",
 			wantLabels:          []string{"haha", "example", "com"},
 			wantNumDomainLabels: 0,
 			wantIsRecursive:     true,
 		},
 		{
-			name:                "a.b.a.com",
-			wantLabels:          []string{"a", "b"},
-			wantNumDomainLabels: 2,
+			name:                "c.b.a.com",
+			wantLabels:          []string{"c"},
+			wantNumDomainLabels: 3,
 			wantIsRecursive:     false,
 		},
 		{

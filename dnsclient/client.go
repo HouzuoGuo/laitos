@@ -77,7 +77,7 @@ func (conn *ProxiedConnection) Start() error {
 		resolver := &net.Resolver{
 			PreferGo: true,
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				return net.Dial(network, fmt.Sprintf("%s:%d", conn.client.DNSServerAddr, conn.client.DNSServerPort))
+				return net.Dial(network, fmt.Sprintf("%s:%d", conn.client.DNSResolverAddr, conn.client.DNSResovlerPort))
 			},
 		}
 		for {
@@ -141,9 +141,6 @@ type Client struct {
 	Address string `json:"Address"`
 	// Port to listen on.
 	Port int `json:"Port"`
-	// DNSDaemon is an initialised DNS daemon. The proxy server uses the daemon
-	// to provide protection against advertising, malware, and tracking.
-	DNSDaemon *dnsd.Daemon `json:"-"`
 	// Config contains the parameters for the initiator of the proxy
 	// connections to configure the remote transmission control.
 	Config tcpoverdns.InitiatorConfig
@@ -155,10 +152,10 @@ type Client struct {
 	// HTTPS (HTTP CONNECT) requests.
 	httpTransport *http.Transport
 
-	// DNSServerAddr is the address of the (public) recursive DNS resolver.
-	DNSServerAddr string
-	// DNSServerPort is the port number of the (public) recursive DNS resolver.
-	DNSServerPort int
+	// DNSResolverAddr is the address of the (public) recursive DNS resolver.
+	DNSResolverAddr string
+	// DNSResovlerPort is the port number of the (public) recursive DNS resolver.
+	DNSResovlerPort int
 	// DNSHostName is the host name of the TCP-over-DNS proxy server.
 	DNSHostName string
 
@@ -244,11 +241,6 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 // ProxyHandler is an HTTP handler function that uses TCP-over-DNS proxy to
 // transport requests and responses.
 func (client *Client) ProxyHandler(w http.ResponseWriter, r *http.Request) {
-	// Pass the intended destination through DNS daemon's blacklist filter
-	if client.DNSDaemon != nil && client.DNSDaemon.IsInBlacklist(r.Host) {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
 	clientIP := middleware.GetRealClientIP(r)
 	switch r.Method {
 	case http.MethodConnect:

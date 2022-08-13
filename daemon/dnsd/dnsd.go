@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -182,6 +183,11 @@ func (daemon *Daemon) Initialise() error {
 		}
 		daemon.MyDomainNames[i] = name
 	}
+	// Sort the domain name from the longest to shortest, this allows the
+	// longest domain name to be first matched against an incoming query.
+	sort.Slice(daemon.MyDomainNames, func(i, j int) bool {
+		return len(daemon.MyDomainNames[i]) > len(daemon.MyDomainNames[j])
+	})
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("dnsd.Initialise: %+v", errs)
 	}

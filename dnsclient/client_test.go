@@ -39,9 +39,8 @@ func TestClient_HTTP(t *testing.T) {
 
 	// Start an HTTP proxy server - tcp-over-DNS proxy client.
 	httpProxyServer := &Client{
-		Address:   "127.0.0.1",
-		Port:      61122,
-		DNSDaemon: dnsProxyServer,
+		Address: "127.0.0.1",
+		Port:    61122,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig: true,
 			// The max size of DNS query response should be 512 bytes, but the
@@ -50,10 +49,10 @@ func TestClient_HTTP(t *testing.T) {
 			IOTimeoutSec:            100,
 			KeepAliveIntervalSec:    1,
 		},
-		Debug:         true,
-		DNSServerAddr: dnsProxyServer.Address,
-		DNSServerPort: dnsProxyServer.UDPPort,
-		DNSHostName:   dnsProxyServer.MyDomainNames[0],
+		Debug:           true,
+		DNSResolverAddr: dnsProxyServer.Address,
+		DNSResovlerPort: dnsProxyServer.UDPPort,
+		DNSHostName:     dnsProxyServer.MyDomainNames[0],
 	}
 	if err := httpProxyServer.Initialise(context.Background()); err != nil {
 		t.Fatal(err)
