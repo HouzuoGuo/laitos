@@ -163,6 +163,10 @@ type Proxy struct {
 	// its transmission control.
 	MaxLifetime time.Duration
 
+	// DNSDaemon helps the proxy to identify advertising/malware proxy
+	// destinations and to refuse serving their clients.
+	DNSDaemon *Daemon
+
 	// MaxReplyLatency is the maximum duration to wait for a reply (outgoing)
 	// segment before returning from the Receive function.
 	MaxReplyDelay time.Duration
@@ -231,6 +235,10 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			return tcpoverdns.Segment{}, false
 		}
 		proxy.Logger.Info("Receive", "", nil, "new connection request - seg: %+v, req: %+v", in, req)
+		if proxy.DNSDaemon != nil && proxy.DNSDaemon.IsInBlacklist(req.Address) {
+			proxy.Logger.Info("Receive", "", nil, "refusing connection to blacklisted destination %q", req.Address)
+			return tcpoverdns.Segment{ID: in.ID, Flags: tcpoverdns.FlagReset}, true
+		}
 		// Construct the transmission control at proxy's side.
 		proxyIn, tcIn := net.Pipe()
 		tc := &tcpoverdns.TransmissionControl{

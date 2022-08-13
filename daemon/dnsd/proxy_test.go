@@ -13,6 +13,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 func pipeSegments(t *testing.T, testOut, testIn net.Conn, proxy *Proxy) {
@@ -184,7 +185,10 @@ func TestProxy_HTTPClient(t *testing.T) {
 }
 
 func TestProxy_HTTPSClient(t *testing.T) {
-	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 1993}
+	proxy := &Proxy{
+		Debug:                   true,
+		MaxSegmentLenExclHeader: 1993,
+	}
 	proxy.Start(context.Background())
 
 	testIn, inTransport := net.Pipe()
@@ -242,6 +246,43 @@ func TestProxy_HTTPSClient(t *testing.T) {
 	// is a TLS handshake.
 	tc.WaitState(context.Background(), tcpoverdns.StateClosed)
 	tcpoverdns.CheckTCError(t, tc, 2, 0, 0, 0)
+}
+
+func TestProxy_Blacklisted(t *testing.T) {
+	daemon := &Daemon{
+		Address:       "127.0.0.1",
+		UDPPort:       62151,
+		TCPPort:       18519,
+		PerIPLimit:    100, // must be sufficient for test case
+		MyDomainNames: []string{"example.com"},
+	}
+	daemon.Processor = toolbox.GetTestCommandProcessor()
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	daemon.blackList["1.1.1.1"] = struct{}{}
+	proxy := &Proxy{Debug: true, DNSDaemon: daemon}
+	proxy.Start(context.Background())
+
+	testIn, inTransport := net.Pipe()
+	testOut, outTransport := net.Pipe()
+	tc := &tcpoverdns.TransmissionControl{
+		LogTag: "TestHttpClient",
+		Debug:  true,
+		ID:     1111,
+		// Test asymmetric segment length.
+		InputTransport:       inTransport,
+		OutputTransport:      outTransport,
+		InitiatorSegmentData: []byte(`{"p": 443, "a": "1.1.1.1"}`),
+		Initiator:            true,
+		// A shorter interval gives the test TC more throughput.
+		KeepAliveInterval: 1 * time.Second,
+	}
+	tc.Start(context.Background())
+	go pipeSegments(t, testOut, testIn, proxy)
+	tc.WaitState(context.Background(), tcpoverdns.StateClosed)
+	tcpoverdns.CheckTC(t, tc, 5, tcpoverdns.StateClosed, 0, 0, 0, nil, nil)
+	tcpoverdns.CheckTCError(t, tc, 5, 1, 0, 0)
 }
 
 func TestProxy_CleanUp(t *testing.T) {

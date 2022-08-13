@@ -214,7 +214,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.latestCommands = NewLatestCommands()
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
-	daemon.tcpProxy = new(Proxy)
+	daemon.tcpProxy = &Proxy{DNSDaemon: daemon}
 
 	// Always allow server itself to query the DNS servers via its public IP
 	daemon.allowMyPublicIP()

@@ -580,6 +580,18 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 			tc.Logger.Warning("drainInputFromTransport", "", nil, "failed to decode the segment, header: %v, data: %v", segHeader, lalog.ByteArrayLogString(segData))
 			segDataCtxCancel()
 			continue
+		} else if seg.Flags.Has(FlagReset) {
+			if tc.Debug {
+				tc.Logger.Info("drainInputFromTransport", "", nil, "received a reset segment %+v", seg)
+			}
+			segDataCtxCancel()
+			tc.mutex.Lock()
+			// There should not be data in this segment though.
+			tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
+			tc.inputAck = seg.AckNum
+			tc.mutex.Unlock()
+			_ = tc.Close()
+			continue
 		}
 		tc.mutex.Lock()
 		instant := *tc
@@ -646,17 +658,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 				}
 			}
 		} else {
-			if seg.Flags.Has(FlagReset) {
-				if tc.Debug {
-					tc.Logger.Info("drainInputFromTransport", "", nil, "received a reset segment %+v", seg)
-				}
-				tc.mutex.Lock()
-				// There should not be data in this segment though.
-				tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
-				tc.inputAck = seg.AckNum
-				tc.mutex.Unlock()
-				_ = tc.Close()
-			} else if seg.Flags.Has(FlagHandshakeSyn) || seg.Flags.Has(FlagHandshakeAck) {
+			if seg.Flags.Has(FlagHandshakeSyn) || seg.Flags.Has(FlagHandshakeAck) {
 				if tc.Debug {
 					tc.Logger.Info("drainInputFromTransport", "", nil, "ignored a handshake segments %+v after handshake is already over", seg)
 				}
