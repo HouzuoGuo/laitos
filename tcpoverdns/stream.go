@@ -681,8 +681,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					tc.inputAck = seg.AckNum
 					tc.lastInputAck = time.Now()
 					tc.inputTransportErrors = 0
-					if !seg.Flags.Has(FlagKeepAlive) {
-						// Ignore the data of keep-alive segments.
+					// Keep-alive and ack-only segments are not expected to
+					// carry useful data, though they may carry arbitrary data.
+					if !seg.Flags.Has(FlagKeepAlive) && !seg.Flags.Has(FlagAckOnly) {
 						tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
 						tc.inputBuf = append(tc.inputBuf, seg.Data...)
 					}
