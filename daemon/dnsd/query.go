@@ -148,7 +148,7 @@ func TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Que
 		builder.AResource(dnsmessage.ResourceHeader{
 			Name:  dnsmessage.MustNewName(question.Name.String()),
 			Class: dnsmessage.ClassINET,
-			TTL:   60,
+			TTL:   30,
 		}, addr)
 	}
 	return builder.Finish()

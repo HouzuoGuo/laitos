@@ -94,7 +94,7 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 		if daemon.processQueryTestCaseFunc != nil {
 			daemon.processQueryTestCaseFunc(name)
 		}
-		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle name query %q", name)
+		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle recursive name query %q", name)
 		if daemon.IsInBlacklist(name) {
 			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle black-listed name query %q", name)
 			respBody, err := BuildBlackHoleAddrResponse(header, question)
@@ -104,7 +104,7 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 			}
 			return respBody
 		}
-		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle non-name query")
+		daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handle recursive non-name query")
 		return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 	}
 	if len(name) > 0 && name[0] == ProxyPrefix {

@@ -10,7 +10,10 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 const (
@@ -203,4 +206,14 @@ func SplitIntoSlice(in string, maxElemLen, maxOverallLen int) (ret []string) {
 		}
 	}
 	return
+}
+
+// RandomBytes returns a slice of bytes with crypto-grade random content.
+func RandomBytes(n int) []byte {
+	ret := make([]byte, n)
+	_, err := rand.Read(ret)
+	if err != nil {
+		lalog.DefaultLogger.Warning("RandomBytes", strconv.Itoa(n), err, "failed to get random bytes")
+	}
+	return ret
 }

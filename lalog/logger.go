@@ -23,7 +23,7 @@ const (
 	truncatedLabel   = "...(truncated)..."
 )
 
-type LogWarningCallbackFunc func(componentName, componentID, funcName, actorName string, err error, msg string)
+type LogWarningCallbackFunc func(componentName, componentID, funcName string, actorName interface{}, err error, msg string)
 
 var (
 	// LatestWarnings are a small number of the most recent log messages (warnings and info messages ) kept in memory for retrieval and inspection.
@@ -77,7 +77,7 @@ func (logger *Logger) getComponentIDs() string {
 }
 
 // Format a log message and return, but do not print it.
-func (logger *Logger) Format(functionName, actorName string, err error, template string, values ...interface{}) string {
+func (logger *Logger) Format(functionName string, actorName interface{}, err error, template string, values ...interface{}) string {
 	// Message is going to look like this:
 	// ComponentName[IDKey1-IDVal1;IDKey2-IDVal2].FunctionName(actorName): Error "no such file" - failed to start component
 	var msg bytes.Buffer
@@ -89,7 +89,7 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 		if msg.Len() > 0 {
 			msg.WriteRune('.')
 		}
-		msg.WriteString(functionName)
+		msg.WriteString(fmt.Sprint(functionName))
 	}
 	if actorName != "" {
 		msg.WriteString(fmt.Sprintf("(%s)", actorName))
@@ -108,7 +108,7 @@ func (logger *Logger) Format(functionName, actorName string, err error, template
 }
 
 // Print a log message and keep the message in warnings buffer.
-func (logger *Logger) Warning(functionName, actorName string, err error, template string, values ...interface{}) {
+func (logger *Logger) Warning(functionName string, actorName interface{}, err error, template string, values ...interface{}) {
 	msg := logger.Format(functionName, actorName, err, template, values...)
 	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
 	log.Print(msg)
@@ -117,7 +117,7 @@ func (logger *Logger) Warning(functionName, actorName string, err error, templat
 	// As determined by the LRU buffer, only the first instance of warning from this actor (identified by component name + function name +
 	// actor name) will be added to the in-memory warning log buffer, this helps to gain a more comprehensive picture of actors behind latest
 	// warning messages by suppressing the noisest actors.
-	if alreadyPresent, _ := LatestWarningActors.Add(functionName + actorName); !alreadyPresent {
+	if alreadyPresent, _ := LatestWarningActors.Add(functionName + fmt.Sprint(actorName)); !alreadyPresent {
 		LatestWarnings.Push(msgWithTime)
 		if GlobalLogWarningCallback != nil {
 			go GlobalLogWarningCallback(logger.ComponentName, logger.getComponentIDs(), functionName, actorName, err, fmt.Sprintf(template, values...))
@@ -126,7 +126,7 @@ func (logger *Logger) Warning(functionName, actorName string, err error, templat
 }
 
 // Print a log message and keep the message in latest log buffer. If there is an error, also keep the message in warnings buffer.
-func (logger *Logger) Info(functionName, actorName string, err error, template string, values ...interface{}) {
+func (logger *Logger) Info(functionName string, actorName interface{}, err error, template string, values ...interface{}) {
 	// If the log message comes with an error, upgrade it to a warning.
 	if err != nil {
 		logger.Warning(functionName, actorName, err, template, values...)
@@ -138,11 +138,11 @@ func (logger *Logger) Info(functionName, actorName string, err error, template s
 	log.Print(msg)
 }
 
-func (logger *Logger) Abort(functionName, actorName string, err error, template string, values ...interface{}) {
+func (logger *Logger) Abort(functionName string, actorName interface{}, err error, template string, values ...interface{}) {
 	log.Fatal(logger.Format(functionName, actorName, err, template, values...))
 }
 
-func (logger *Logger) Panic(functionName, actorName string, err error, template string, values ...interface{}) {
+func (logger *Logger) Panic(functionName string, actorName interface{}, err error, template string, values ...interface{}) {
 	log.Panic(logger.Format(functionName, actorName, err, template, values...))
 }
 

@@ -221,3 +221,14 @@ func TestSplitIntoSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestRandomBytes(t *testing.T) {
+	b1 := RandomBytes(10)
+	b2 := RandomBytes(10)
+	if len(b1) != 10 || len(b2) != 10 {
+		t.Errorf("incorrect length: %v, %v", b1, b2)
+	}
+	if reflect.DeepEqual(b1, b2) {
+		t.Errorf("crypto fail: %v %v", b1, b2)
+	}
+}

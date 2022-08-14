@@ -16,7 +16,7 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, resolverA
 			SetConfig: true,
 			// TODO FIXME: let cli configure these parameters
 			MaxSegmentLenExclHeader: 100,
-			IOTimeoutSec:            60,
+			IOTimeoutSec:            120,
 			KeepAliveIntervalSec:    1,
 		},
 		Debug:           debug,

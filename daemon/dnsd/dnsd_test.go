@@ -188,9 +188,33 @@ func TestDaemon_queryLabels(t *testing.T) {
 			wantIsRecursive:     false,
 		},
 		{
+			name:                "b.a.com",
+			wantLabels:          []string{},
+			wantNumDomainLabels: 3,
+			wantIsRecursive:     false,
+		},
+		{
+			name:                "a.com",
+			wantLabels:          []string{},
+			wantNumDomainLabels: 2,
+			wantIsRecursive:     false,
+		},
+		{
 			name:                "haha.b.a.com",
 			wantLabels:          []string{"haha"},
 			wantNumDomainLabels: 3,
+			wantIsRecursive:     false,
+		},
+		{
+			name:                "hehe.haha.b.a.com",
+			wantLabels:          []string{"hehe", "haha"},
+			wantNumDomainLabels: 3,
+			wantIsRecursive:     false,
+		},
+		{
+			name:                "hoho.a.com",
+			wantLabels:          []string{"hoho"},
+			wantNumDomainLabels: 2,
 			wantIsRecursive:     false,
 		},
 		{
@@ -198,12 +222,6 @@ func TestDaemon_queryLabels(t *testing.T) {
 			wantLabels:          []string{"haha", "example", "com"},
 			wantNumDomainLabels: 0,
 			wantIsRecursive:     true,
-		},
-		{
-			name:                "c.b.a.com",
-			wantLabels:          []string{"c"},
-			wantNumDomainLabels: 3,
-			wantIsRecursive:     false,
 		},
 		{
 			name:                "c.d.b.net.",

@@ -461,11 +461,18 @@ func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
 // queryLabels returns the labels of a query, with the domain name removed if
 // the query was directed at this DNS server itself.
 func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, numDomainLabels int, isRecursive bool) {
-	if len(name) == 0 {
+	if len(name) < 3 {
 		return []string{}, 0, false
 	}
+	// Remove the suffix full-stop to aid in matching daemon's own domain names
+	// (e.g. ".example.com").
 	if name[len(name)-1] == '.' {
 		name = name[:len(name)-1]
+	}
+	// Add a prefix full-stop to aid in matching daemon's own domain names (e.g.
+	// ".example.com").
+	if name[0] != '.' {
+		name = "." + name
 	}
 	isRecursive = true
 	// Remove all configured domain suffixes from the queried name.
@@ -478,7 +485,7 @@ func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, nu
 			break
 		}
 	}
-	labelsWithoutDomain = strings.Split(name, ".")
+	labelsWithoutDomain = strings.Split(name, ".")[1:]
 	return
 }
 

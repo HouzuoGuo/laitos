@@ -84,7 +84,7 @@ func (conn *ProxyConnection) Start() {
 		if latest.Flags.Has(tcpoverdns.FlagAckOnly) || latest.Flags.Has(tcpoverdns.FlagKeepAlive) {
 			// Substitute the ack-only or keep-alive segment with the latest.
 			if conn.proxy.Debug {
-				conn.logger.Info("Start", "", nil, "callback is removing ack/keepalive segment: %+v", seg)
+				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", seg)
 			}
 			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
 		} else if latest.Equals(seg) {
@@ -230,13 +230,17 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 	if !exists {
 		// Connect to the proxy destination.
 		var req ProxyRequest
+		if len(in.Data) < tcpoverdns.InitiatorConfigLen {
+			proxy.Logger.Warning("Receive", in.ID, nil, "received a malformed segment possibly from a stale TC")
+			return tcpoverdns.Segment{}, false
+		}
 		if err := json.Unmarshal(in.Data[tcpoverdns.InitiatorConfigLen:], &req); err != nil {
-			proxy.Logger.Warning("Receive", "", err, "failed to deserialise proxy request")
+			proxy.Logger.Warning("Receive", in.ID, err, "failed to deserialise proxy request")
 			return tcpoverdns.Segment{}, false
 		}
 		proxy.Logger.Info("Receive", "", nil, "new connection request - seg: %+v, req: %+v", in, req)
 		if proxy.DNSDaemon != nil && proxy.DNSDaemon.IsInBlacklist(req.Address) {
-			proxy.Logger.Info("Receive", "", nil, "refusing connection to blacklisted destination %q", req.Address)
+			proxy.Logger.Info("Receive", in.ID, nil, "refusing connection to blacklisted destination %q", req.Address)
 			return tcpoverdns.Segment{ID: in.ID, Flags: tcpoverdns.FlagReset}, true
 		}
 		// Construct the transmission control at proxy's side.
@@ -268,7 +272,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 		if err != nil {
 			// Immediately close the transmission control if the destination is
 			// unreachable.
-			proxy.Logger.Warning("Receive", "", err, "failed to connect to proxy destination %s %s", dialNet, dialDest)
+			proxy.Logger.Warning("Receive", in.ID, err, "failed to connect to proxy destination %s %s", dialNet, dialDest)
 			// Proceed with handshake, but there will be no data coming through
 			// the transmission control and it will be closed shortly.
 		}
@@ -302,7 +306,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 		_ = conn.Close()
 	}
 	if proxy.Debug {
-		proxy.Logger.Info("Receive", "", nil, "waiting for a reply outbound segment")
+		proxy.Logger.Info("Receive", in.ID, nil, "waiting for a reply outbound segment")
 	}
 	waitCtx, cancel := context.WithTimeout(proxy.context, proxy.MaxReplyDelay)
 	defer cancel()

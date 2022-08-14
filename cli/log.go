@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -60,7 +61,7 @@ func InstallOptionalLoggerSQSCallback(logger lalog.Logger, sqsURL string) {
 				return
 			}
 			// Give SQS a copy of each warning message
-			lalog.GlobalLogWarningCallback = func(componentName, componentID, funcName, actorName string, err error, msg string) {
+			lalog.GlobalLogWarningCallback = func(componentName, componentID, funcName string, actorName interface{}, err error, msg string) {
 				// By contract, the function body must avoid generating a warning log message to avoid infinite recurison.
 				sendTimeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
@@ -70,7 +71,7 @@ func InstallOptionalLoggerSQSCallback(logger lalog.Logger, sqsURL string) {
 					ComponentName: componentName,
 					ComponentID:   componentID,
 					FunctionName:  funcName,
-					ActorName:     actorName,
+					ActorName:     fmt.Sprint(actorName),
 					Error:         err,
 					Message:       msg,
 				}

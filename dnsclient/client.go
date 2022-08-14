@@ -45,6 +45,10 @@ func (conn *ProxiedConnection) Start() error {
 	}
 	// Absorb outgoing segments into the outgoing backlog.
 	conn.tc.OutputSegmentCallback = func(seg tcpoverdns.Segment) {
+		if seg.Flags.Has(tcpoverdns.FlagKeepAlive) {
+			// Add random data to the segment to prevent caching.
+			seg.Data = misc.RandomBytes(10)
+		}
 		// Replace the latest keep-alive or ack-only segment (if any), and
 		// de-duplicate adjacent identical segments. These measures not only
 		// speed up the exchanges but also ensure that peers can communicate
@@ -58,7 +62,7 @@ func (conn *ProxiedConnection) Start() error {
 		if latest.Flags.Has(tcpoverdns.FlagAckOnly) || latest.Flags.Has(tcpoverdns.FlagKeepAlive) {
 			// Substitute the ack-only or keep-alive segment with the latest.
 			if conn.client.Debug {
-				conn.logger.Info("Start", "", nil, "callback is removing ack/keepalive segment: %+v", seg)
+				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", seg)
 			}
 			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
 		} else if latest.Equals(seg) {
@@ -84,7 +88,6 @@ func (conn *ProxiedConnection) Start() error {
 			},
 		}
 		for {
-			fmt.Println("loopy loop 1")
 			// Pop a segment.
 			conn.mutex.Lock()
 			if len(conn.outputSegmentBacklog) == 0 {
@@ -97,8 +100,7 @@ func (conn *ProxiedConnection) Start() error {
 					return
 				}
 			}
-			fmt.Println("loopy loop 2")
-			// TODO FIXME betwen loop2 and loop3 there is some code eating up CPU
+			// TODO FIXME possible go memory leak in resolver.LookupIP
 			outgoingSeg := conn.outputSegmentBacklog[0]
 			conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
 			conn.mutex.Unlock()
@@ -112,7 +114,6 @@ func (conn *ProxiedConnection) Start() error {
 				conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
 				continue
 			}
-			fmt.Println("loopy loop 3")
 			// Decode a segment from DNS query response and give it to the local TC.
 			incomingSeg := tcpoverdns.SegmentFromIPs(addrs)
 			if conn.client.Debug {
@@ -124,7 +125,6 @@ func (conn *ProxiedConnection) Start() error {
 					continue
 				}
 			}
-			fmt.Println("loopy loop 4")
 			// If there are more segments waiting to be sent, then send the next one
 			// right away without waiting for the keep-alive interval.
 			conn.mutex.Lock()
@@ -237,7 +237,7 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 		client:               client,
 		in:                   clientIn,
 		tc:                   tc,
-		context:              client.context,
+		context:              ctx,
 		outputSegmentBacklog: make([]tcpoverdns.Segment, 0),
 		mutex:                new(sync.Mutex),
 		logger: lalog.Logger{
