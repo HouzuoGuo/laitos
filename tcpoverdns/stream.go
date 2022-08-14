@@ -586,8 +586,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 			}
 			segDataCtxCancel()
 			tc.mutex.Lock()
-			// There should not be data in this segment though.
-			tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
+			// There's no use of the data coming from a reset segment.
 			tc.inputAck = seg.AckNum
 			tc.mutex.Unlock()
 			_ = tc.Close()
@@ -677,13 +676,16 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					if tc.Debug {
 						tc.Logger.Info("drainInputFromTransport", "", nil, "received a good segment %+v", seg)
 					}
-					tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
 					// Pop the acknowledged bytes from the output buffer.
 					tc.outputBuf = tc.outputBuf[seg.AckNum-tc.inputAck:]
 					tc.inputAck = seg.AckNum
 					tc.lastInputAck = time.Now()
-					tc.inputBuf = append(tc.inputBuf, seg.Data...)
 					tc.inputTransportErrors = 0
+					if !seg.Flags.Has(FlagKeepAlive) {
+						// Ignore the data of keep-alive segments.
+						tc.inputSeq = seg.SeqNum + uint32(len(seg.Data))
+						tc.inputBuf = append(tc.inputBuf, seg.Data...)
+					}
 				}
 				tc.mutex.Unlock()
 			} else {

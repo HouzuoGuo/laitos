@@ -88,20 +88,19 @@ func (conn *ProxiedConnection) Start() error {
 			},
 		}
 		for {
+			var incomingSeg, outgoingSeg tcpoverdns.Segment
+			var lenRemaining int
+			var addrs []net.IP
+			var err error
 			// Pop a segment.
 			conn.mutex.Lock()
 			if len(conn.outputSegmentBacklog) == 0 {
 				conn.mutex.Unlock()
 				// Wait for a segment.
-				select {
-				case <-time.After(tcpoverdns.BusyWaitInterval):
-					continue
-				case <-conn.context.Done():
-					return
-				}
+				goto busyWaitInterval
 			}
 			// TODO FIXME possible go memory leak in resolver.LookupIP
-			outgoingSeg := conn.outputSegmentBacklog[0]
+			outgoingSeg = conn.outputSegmentBacklog[0]
 			conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
 			conn.mutex.Unlock()
 			// Turn the segment into a DNS query and send the query out
@@ -109,26 +108,26 @@ func (conn *ProxiedConnection) Start() error {
 			if conn.client.Debug {
 				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %v", outgoingSeg)
 			}
-			addrs, err := resolver.LookupIP(conn.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
+			addrs, err = resolver.LookupIP(conn.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 			if err != nil {
 				conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
-				continue
+				goto busyWaitInterval
 			}
 			// Decode a segment from DNS query response and give it to the local TC.
-			incomingSeg := tcpoverdns.SegmentFromIPs(addrs)
+			incomingSeg = tcpoverdns.SegmentFromIPs(addrs)
 			if conn.client.Debug {
 				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
 			}
 			if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
 				if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
 					conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
-					continue
+					goto busyWaitInterval
 				}
 			}
 			// If there are more segments waiting to be sent, then send the next one
 			// right away without waiting for the keep-alive interval.
 			conn.mutex.Lock()
-			lenRemaining := len(conn.outputSegmentBacklog)
+			lenRemaining = len(conn.outputSegmentBacklog)
 			conn.mutex.Unlock()
 			if lenRemaining > 0 {
 				continue
@@ -136,6 +135,13 @@ func (conn *ProxiedConnection) Start() error {
 			// Wait for keep-alive interval.
 			select {
 			case <-time.After(time.Duration(conn.client.Config.KeepAliveIntervalSec) * time.Second * 80 / 100):
+			case <-conn.context.Done():
+				return
+			}
+		busyWaitInterval:
+			select {
+			case <-time.After(tcpoverdns.BusyWaitInterval):
+				continue
 			case <-conn.context.Done():
 				return
 			}
