@@ -199,7 +199,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 		tc.MaxTransportErrors = 10
 	}
 	if tc.MaxLifetime == 0 {
-		tc.MaxLifetime = 10 * time.Minute
+		tc.MaxLifetime = 30 * time.Minute
 	}
 
 	tc.context, tc.cancelFun = context.WithCancel(ctx)

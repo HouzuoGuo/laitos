@@ -234,6 +234,7 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 		InitiatorConfig:      client.Config,
 		Initiator:            true,
 		InputTransport:       inTransport,
+		MaxLifetime:          30 * time.Minute,
 		// The output transport is not used. Instead, the output segments
 		// are kept in a backlog.
 		OutputTransport: io.Discard,

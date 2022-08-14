@@ -201,7 +201,7 @@ func (proxy *Proxy) Start(ctx context.Context) {
 		proxy.MaxSegmentLenExclHeader = 256
 	}
 	if proxy.MaxLifetime == 0 {
-		proxy.MaxLifetime = 10 * time.Minute
+		proxy.MaxLifetime = 30 * time.Minute
 	}
 	if proxy.MaxReplyDelay == 0 {
 		// This default should be greater/longer than transmission control's
