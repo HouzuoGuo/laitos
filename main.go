@@ -108,6 +108,15 @@ func main() {
 
 	flag.Parse()
 
+	// Enable common diagnosis and security features.
+	logger.Info("main", "", nil, "program is starting, here is a summary of the runtime environment:\n%s", platform.GetProgramStatusSummary(false))
+	platform.LockMemory()
+	cli.ReseedPseudoRandAndInBackground(logger)
+	cli.StartProfilingServer(logger, pprofHTTPPort)
+	if debug {
+		cli.DumpGoroutinesOnInterrupt()
+	}
+
 	// ========================================================================
 	// Non-daemon utility routines - laitos configuration data encryption.
 	// ========================================================================
@@ -122,14 +131,6 @@ func main() {
 	if proxyPort > 0 {
 		cli.HandleTCPOverDNSClient(logger, debug, proxyPort, proxyDNSResolverAddr, proxyDNSResolverPort, proxyDNSHostName)
 		return
-	}
-
-	// Enable common diagnosis and security features.
-	logger.Info("main", "", nil, "program is starting, here is a summary of the runtime environment:\n%s", platform.GetProgramStatusSummary(false))
-	platform.LockMemory()
-	cli.ReseedPseudoRandAndInBackground(logger)
-	if debug {
-		cli.DumpGoroutinesOnInterrupt()
 	}
 
 	// Manipulate the daemon list parameter if running on Google App Engine.
@@ -211,7 +212,6 @@ func main() {
 	}
 	cli.CopyNonEssentialUtilitiesInBackground(logger)
 	cli.InstallOptionalLoggerSQSCallback(logger, config.AWSIntegration.SendWarningLogToSQSURL)
-	cli.StartProfilingServer(logger, pprofHTTPPort)
 
 	// ========================================================================
 	// Daemon routine - launch all daemons at once.

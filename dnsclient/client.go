@@ -77,10 +77,14 @@ func (conn *ProxiedConnection) Start() error {
 		resolver := &net.Resolver{
 			PreferGo: true,
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				if conn.client.Debug {
+					conn.logger.Info("Start", "", nil, "dialing resolver %q %s:%d", network, conn.client.DNSResolverAddr, conn.client.DNSResovlerPort)
+				}
 				return net.Dial(network, fmt.Sprintf("%s:%d", conn.client.DNSResolverAddr, conn.client.DNSResovlerPort))
 			},
 		}
 		for {
+			fmt.Println("loopy loop 1")
 			// Pop a segment.
 			conn.mutex.Lock()
 			if len(conn.outputSegmentBacklog) == 0 {
@@ -93,6 +97,8 @@ func (conn *ProxiedConnection) Start() error {
 					return
 				}
 			}
+			fmt.Println("loopy loop 2")
+			// TODO FIXME betwen loop2 and loop3 there is some code eating up CPU
 			outgoingSeg := conn.outputSegmentBacklog[0]
 			conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
 			conn.mutex.Unlock()
@@ -106,6 +112,7 @@ func (conn *ProxiedConnection) Start() error {
 				conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
 				continue
 			}
+			fmt.Println("loopy loop 3")
 			// Decode a segment from DNS query response and give it to the local TC.
 			incomingSeg := tcpoverdns.SegmentFromIPs(addrs)
 			if conn.client.Debug {
@@ -117,6 +124,7 @@ func (conn *ProxiedConnection) Start() error {
 					continue
 				}
 			}
+			fmt.Println("loopy loop 4")
 			// If there are more segments waiting to be sent, then send the next one
 			// right away without waiting for the keep-alive interval.
 			conn.mutex.Lock()

@@ -14,10 +14,9 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, resolverA
 		Port:    port,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig: true,
-			// The max size of DNS query response should be 512 bytes, but the
-			// localhost communication does not mind a little extra.
-			MaxSegmentLenExclHeader: 120,
-			IOTimeoutSec:            100,
+			// TODO FIXME: let cli configure these parameters
+			MaxSegmentLenExclHeader: 100,
+			IOTimeoutSec:            60,
 			KeepAliveIntervalSec:    1,
 		},
 		Debug:           debug,
