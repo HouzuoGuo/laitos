@@ -47,7 +47,7 @@ func (conn *ProxiedConnection) Start() error {
 	conn.tc.OutputSegmentCallback = func(seg tcpoverdns.Segment) {
 		if seg.Flags.Has(tcpoverdns.FlagKeepAlive) {
 			// Add random data to the segment to prevent caching.
-			seg.Data = misc.RandomBytes(10)
+			seg.Data = misc.RandomBytes(4)
 		}
 		// Replace the latest keep-alive or ack-only segment (if any), and
 		// de-duplicate adjacent identical segments. These measures not only

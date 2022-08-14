@@ -15,8 +15,8 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, resolverA
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig: true,
 			// TODO FIXME: let cli configure these parameters
-			MaxSegmentLenExclHeader: 100,
-			IOTimeoutSec:            120,
+			MaxSegmentLenExclHeader: 120,
+			IOTimeoutSec:            100,
 			KeepAliveIntervalSec:    1,
 		},
 		Debug:           debug,

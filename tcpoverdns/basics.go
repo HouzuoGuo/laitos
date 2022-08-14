@@ -131,9 +131,10 @@ func (seg *Segment) DNSQuestion(prefix, domainName string) dnsmessage.Question {
 	compressed := CompressBytes(packet)
 	// Encode using base32.
 	encoded := strings.ToLower(base32EncodingNoPadding.EncodeToString(compressed))
-	// Split into 63 characters per label.
-	// 63 is the maximum label size decided by the DNS protocol.
-	labels := misc.SplitIntoSlice(encoded, 63, MaxSegmentDataLen*2)
+	// Split into labels.
+	// 63 is the maximum label length decided by the DNS protocol.
+	// But many recursive resolvers don't like long labels, so be conservative.
+	labels := misc.SplitIntoSlice(encoded, 60, MaxSegmentDataLen)
 	return dnsmessage.Question{
 		Name:  dnsmessage.MustNewName(fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)),
 		Type:  dnsmessage.TypeA,
@@ -151,9 +152,10 @@ func (seg *Segment) DNSNameQuery(prefix, domainName string) string {
 	compressed := CompressBytes(packet)
 	// Encode using base32.
 	encoded := strings.ToLower(base32EncodingNoPadding.EncodeToString(compressed))
-	// Split into 63 characters per label.
-	// 63 is the maximum label size decided by the DNS protocol.
-	labels := misc.SplitIntoSlice(encoded, 63, MaxSegmentDataLen*2)
+	// Split into labels.
+	// 63 is the maximum label length decided by the DNS protocol.
+	// But many recursive resolvers don't like long labels, so be conservative.
+	labels := misc.SplitIntoSlice(encoded, 60, MaxSegmentDataLen)
 	return fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)
 }
 

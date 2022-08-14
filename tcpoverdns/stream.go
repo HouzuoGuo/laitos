@@ -174,7 +174,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 		tc.WriteTimeout = 20 * time.Second
 	}
 	if tc.MaxSlidingWindow == 0 {
-		tc.MaxSlidingWindow = 256 // TODO FIXME: how about changing this default to several x the max segment length?
+		tc.MaxSlidingWindow = 4 * 256
 	}
 	if tc.RetransmissionInterval == 0 {
 		// 10 seconds
