@@ -183,7 +183,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 		tc.WriteTimeout = 20 * time.Second
 	}
 	if tc.MaxSlidingWindow == 0 {
-		tc.MaxSlidingWindow = 4 * 256
+		tc.MaxSlidingWindow = 8 * 256
 	}
 	if tc.RetransmissionInterval == 0 {
 		// 10 seconds
@@ -650,6 +650,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						tc.state = StateSynReceived
 						conf.Config(tc)
 						tc.mutex.Unlock()
+						if conf.SetConfig {
+							tc.Logger.Info("drainInputFromTransport", "", nil, "connection config: %+v", conf)
+						}
 					} else {
 						tc.Logger.Warning("drainInputFromTransport", "", nil, "expecting syn, got: %+v", seg)
 						tc.mutex.Lock()
@@ -659,9 +662,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 				default:
 					// Expect SYN+ACK.
 					if seg.Flags == FlagHandshakeSyn|FlagHandshakeAck {
-						if tc.Debug {
-							tc.Logger.Info("drainInputFromTransport", "", nil, "transition to StateEstablished")
-						}
+						tc.Logger.Info("drainInputFromTransport", "", nil, "handshake completed")
 						tc.mutex.Lock()
 						tc.ongoingRetransmissions = 0
 						tc.state = StateEstablished

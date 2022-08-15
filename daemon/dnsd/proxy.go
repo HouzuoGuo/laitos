@@ -105,14 +105,17 @@ func (conn *ProxyConnection) Start() {
 	}
 	// Pipe data in both directions.
 	if conn.tcpConn != nil {
+		// The pipe buffer only needs to be larger than the largest amount
+		// of data a single DNS request or response can carry.
+		pipeBufSize := 1024
 		go func() {
-			if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, conn.proxy.MaxSegmentLenExclHeader, conn.tc, conn.tcpConn); err != nil {
+			if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, pipeBufSize, conn.tc, conn.tcpConn); err != nil {
 				if conn.proxy.Debug {
 					conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
 				}
 			}
 		}()
-		if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, conn.proxy.MaxSegmentLenExclHeader, conn.tcpConn, conn.tc); err != nil {
+		if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, pipeBufSize, conn.tcpConn, conn.tc); err != nil {
 			if conn.proxy.Debug {
 				conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
 			}
@@ -181,7 +184,9 @@ type Proxy struct {
 	DialTimeout time.Duration
 
 	// MaxSegmentLenExclHeader is the maximum length of the data portion in each
-	// outgoing segment.
+	// outgoing segment. This only serves as the initial value, as the actual
+	// value is almost always set by proxy client using the InitiatorConfig
+	// mechanism.
 	MaxSegmentLenExclHeader int
 
 	// Debug enables verbose logging for IO activities.
@@ -198,14 +203,9 @@ type Proxy struct {
 // Start initialises the internal state of the proxy.
 func (proxy *Proxy) Start(ctx context.Context) {
 	if proxy.MaxSegmentLenExclHeader == 0 {
-		// There's a ton of overhead in the construction of DNS response.
-		// It takes 16 bytes to encode 3 bytes of arbitrary data in a query
-		// answer, and conventionally DNS packets should not exceed 512 bytes in
-		// total length - which includes both a repetition of the query and the
-		// answer.
-		// Some popular public recursive resolvers do not mind handling large
-		// UDP query response.
-		proxy.MaxSegmentLenExclHeader = 256
+		// The proxy client really should use the InitiatorConfig mechanism to
+		// set this value instead.
+		proxy.MaxSegmentLenExclHeader = 128
 	}
 	if proxy.MaxLifetime == 0 {
 		proxy.MaxLifetime = 30 * time.Minute
@@ -262,7 +262,10 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			MaxLifetime:    proxy.MaxLifetime,
 			// The output transport is not used. Instead, the output segments
 			// are kept in a backlog.
-			OutputTransport:         io.Discard,
+			OutputTransport: io.Discard,
+			// Here the initial configuration of the segment length is set.
+			// The proxy client really should use InitiatorConfig to set the
+			// desired segment length, which in turn sets the sliding window.
 			MaxSegmentLenExclHeader: proxy.MaxSegmentLenExclHeader,
 			MaxSlidingWindow:        uint32(proxy.MaxSegmentLenExclHeader) * 8,
 		}

@@ -108,6 +108,12 @@ type Daemon struct {
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
 
+	// soaHostName is the Internet host name served in the SOA record (SOA MNANE
+	// and RNAME) from this daemon.
+	// Note that the daemon does not accept dynamic DNS, so the appearance of
+	// the MNAME is solely for on-the-wire compliance with DNS protocol.
+	soaHostName string `json:"SOADomain"`
+
 	tcpServer *common.TCPServer
 	udpServer *common.UDPServer
 	tcpProxy  *Proxy
@@ -187,6 +193,11 @@ func (daemon *Daemon) Initialise() error {
 	sort.Slice(daemon.MyDomainNames, func(i, j int) bool {
 		return len(daemon.MyDomainNames[i]) > len(daemon.MyDomainNames[j])
 	})
+	if len(daemon.MyDomainNames) > 0 {
+		// Set the SOA host name too.
+		daemon.soaHostName = daemon.MyDomainNames[len(daemon.MyDomainNames)-1]
+	}
+
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("dnsd.Initialise: %+v", errs)
 	}
@@ -554,18 +565,6 @@ testResolveNameAndBlackList is a common test case that tests name resolution of 
 list domain names.
 */
 func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
-	if platform.HostIsWindows() {
-		/*
-			As of 2019-08, net.Resolver does not use custom dialer on Windows due to:
-			- https://github.com/golang/go/issues/33621 (net: Resolver does not appear to use its dialer function on Windows)
-			- https://github.com/golang/go/issues/29621 (net: DNS default resolver vs custom resolver behaviors)
-			- https://github.com/golang/go/issues/33086 (net.Resolver Ignores Custom Dialer)
-			- https://github.com/golang/go/issues/33097 (proposal: net: Enable built-in DNS stub resolver on Windows)
-		*/
-		t.Log("due to outstanding issues in Go, DNS server resolution routines cannot be tested on on Windows.")
-		return
-	}
-
 	// Track and verify the last resolved name
 	var lastResolvedName string
 	daemon.processQueryTestCaseFunc = func(queryInput string) {

@@ -189,6 +189,7 @@ func TestInitiatorConfig(t *testing.T) {
 		MaxSegmentLenExclHeader: 123,
 		IOTimeoutSec:            234,
 		KeepAliveIntervalSec:    345,
+		Debug:                   true,
 	}
 	serialised := want.Bytes()
 	got := DeserialiseInitiatorConfig(serialised)
@@ -198,9 +199,11 @@ func TestInitiatorConfig(t *testing.T) {
 
 	wantTC := &TransmissionControl{
 		MaxSegmentLenExclHeader: 123,
+		MaxSlidingWindow:        123 * 8,
 		ReadTimeout:             234 * time.Second,
 		WriteTimeout:            234 * time.Second,
 		KeepAliveInterval:       345 * time.Second,
+		Debug:                   true,
 	}
 	gotTC := &TransmissionControl{}
 	got.Config(gotTC)

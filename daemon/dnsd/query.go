@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"golang.org/x/net/dns/dnsmessage"
@@ -150,6 +151,46 @@ func TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Que
 			Class: dnsmessage.ClassINET,
 			TTL:   30,
 		}, addr)
+	}
+	return builder.Finish()
+}
+
+// BuildSOAResponse returns an SOA record response.
+func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mName, rName string) ([]byte, error) {
+	// Retain the original transaction ID.
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = true
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	// Repeat the question back to the client, this is required by DNS protocol.
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	soa := dnsmessage.SOAResource{
+		NS:      dnsmessage.MustNewName(mName),
+		MBox:    dnsmessage.MustNewName(rName),
+		Serial:  uint32(now.Year()-2000)*10000000 + uint32(now.Month())*100000 + uint32(now.Day())*1000 + uint32(now.Hour())*10 + uint32(now.Minute())/6,
+		Refresh: 30,
+		Retry:   30,
+		Expire:  30,
+		MinTTL:  30,
+	}
+	err := builder.SOAResource(dnsmessage.ResourceHeader{
+		Name:  dnsmessage.MustNewName(question.Name.String()),
+		Class: dnsmessage.ClassINET,
+		TTL:   30,
+	}, soa)
+	if err != nil {
+		return nil, err
 	}
 	return builder.Finish()
 }

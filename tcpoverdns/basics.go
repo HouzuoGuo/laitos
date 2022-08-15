@@ -303,7 +303,7 @@ func DecompressBytes(compressed []byte) (original []byte, err error) {
 
 const (
 	// InitiatorConfigLen is the length of the serialised InitiatorConfig.
-	InitiatorConfigLen = 19
+	InitiatorConfigLen = 8
 )
 
 // InitiatorConfig is a small piece of binary data inserted into the initiator's
@@ -321,6 +321,8 @@ type InitiatorConfig struct {
 	IOTimeoutSec int
 	// KeepAliveIntervalSec is the keep alive interval in seconds.
 	KeepAliveIntervalSec int
+	// Debug asks the transmission control to turn on debug logging.
+	Debug bool
 }
 
 // Bytes returns the binary data representation of the configuration parameters.
@@ -332,16 +334,23 @@ func (conf *InitiatorConfig) Bytes() []byte {
 	binary.BigEndian.PutUint16(ret[1:3], uint16(conf.MaxSegmentLenExclHeader))
 	binary.BigEndian.PutUint16(ret[3:5], uint16(conf.IOTimeoutSec))
 	binary.BigEndian.PutUint16(ret[5:7], uint16(conf.KeepAliveIntervalSec))
+	if conf.Debug {
+		ret[7] = 1
+	}
 	return ret
 }
 
 // Config copies the configuration parameters into the transmission control.
 func (conf *InitiatorConfig) Config(tc *TransmissionControl) {
 	if conf.SetConfig {
-		tc.MaxSegmentLenExclHeader = conf.MaxSegmentLenExclHeader
+		if conf.MaxSegmentLenExclHeader > 0 {
+			tc.MaxSegmentLenExclHeader = conf.MaxSegmentLenExclHeader
+			tc.MaxSlidingWindow = uint32(8 * conf.MaxSegmentLenExclHeader)
+		}
 		tc.ReadTimeout = time.Duration(conf.IOTimeoutSec) * time.Second
 		tc.WriteTimeout = tc.ReadTimeout
 		tc.KeepAliveInterval = time.Duration(conf.KeepAliveIntervalSec) * time.Second
+		tc.Debug = conf.Debug || tc.Debug
 	}
 }
 
@@ -353,6 +362,7 @@ func DeserialiseInitiatorConfig(in []byte) *InitiatorConfig {
 	ret.MaxSegmentLenExclHeader = int(binary.BigEndian.Uint16(in[1:3]))
 	ret.IOTimeoutSec = int(binary.BigEndian.Uint16(in[3:5]))
 	ret.KeepAliveIntervalSec = int(binary.BigEndian.Uint16(in[5:7]))
+	ret.Debug = in[7] == 1
 	return ret
 }
 

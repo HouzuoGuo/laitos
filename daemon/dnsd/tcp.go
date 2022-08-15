@@ -56,6 +56,8 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	if question.Type == dnsmessage.TypeTXT {
 		// The TXT query may be carrying an app command.
 		respBody = daemon.handleTCPTextQuery(ip, queryLen, queryBody, header, question)
+	} else if question.Type == dnsmessage.TypeSOA {
+		respBody = daemon.handleTCPSOA(ip, queryLen, queryBody, header, question)
 	} else {
 		// Handle all other query types.
 		respBody = daemon.handleTCPNameOrOtherQuery(ip, queryLen, queryBody, header, question)
@@ -103,6 +105,23 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 		}
 	} else {
 		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
+	}
+	return
+}
+
+func (daemon *Daemon) handleTCPSOA(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+	name := question.Name.String()
+	daemon.logger.Info("handleTCPSOA", clientIP, nil, "handling SOA query %q", name)
+	if daemon.processQueryTestCaseFunc != nil {
+		daemon.processQueryTestCaseFunc(name)
+	}
+	_, _, isRecursive := daemon.queryLabels(name)
+	if isRecursive {
+		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
+	}
+	respBody, err := BuildSOAResponse(header, question, daemon.soaHostName, daemon.soaHostName)
+	if err != nil {
+		daemon.logger.Warning("handleTCPSOA", clientIP, err, "failed to build response packet")
 	}
 	return
 }
