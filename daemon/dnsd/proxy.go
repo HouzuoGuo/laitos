@@ -46,14 +46,14 @@ func (conn *ProxyConnection) Start() {
 	if conn.proxy.Debug {
 		conn.logger.Info("Start", "", nil, "starting now")
 	}
+	beginTimeNano := time.Now().UnixNano()
 	defer func() {
 		if conn.proxy.Debug {
 			conn.logger.Info("Start", "", nil, "closing and lingering")
 			conn.tc.DumpState()
 		}
 		_ = conn.Close()
-		misc.TCPOverDNSUpStats.Trigger(float64(conn.tc.InputSeq()))
-		misc.TCPOverDNSDownStats.Trigger(float64(conn.tc.OutputSeq()))
+		misc.TCPOverDNSStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 		go func() {
 			// Linger a short while before deleting (cease tracking) the
 			// connection, as the output segment buffer may still contain

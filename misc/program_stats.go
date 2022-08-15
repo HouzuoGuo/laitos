@@ -11,8 +11,7 @@ var (
 	DNSDStatsUDP        = NewStats()
 	HTTPDStats          = NewStats()
 	HTTPProxyStats      = NewStats()
-	TCPOverDNSUpStats   = NewStats()
-	TCPOverDNSDownStats = NewStats()
+	TCPOverDNSStats     = NewStats()
 	PlainSocketStatsTCP = NewStats()
 	PlainSocketStatsUDP = NewStats()
 	SerialDevicesStats  = NewStats()
@@ -35,8 +34,7 @@ func GetLatestStats() string {
 	return fmt.Sprintf(`Auto-unlock events        %s
 Commands processed        %s
 DNS server TCP|UDP        %s | %s
-TCP-over-DNS proxy up:    %s
-TCP-over-DNS proxy down:  %s
+TCP-over-DNS proxy:       %s
 HTTP/S server             %s
 Plain text server TCP|UDP %s | %s
 Serial port devices       %s
@@ -50,8 +48,7 @@ Mail to deliver:          %d KiloBytes
 		AutoUnlockStats.Format(factor, numDecimals),
 		CommandStats.Format(factor, numDecimals),
 		DNSDStatsTCP.Format(factor, numDecimals), DNSDStatsUDP.Format(factor, numDecimals),
-		TCPOverDNSUpStats.Format(factor, numDecimals),
-		TCPOverDNSDownStats.Format(factor, numDecimals),
+		TCPOverDNSStats.Format(factor, numDecimals),
 		HTTPDStats.Format(factor, numDecimals),
 		PlainSocketStatsTCP.Format(factor, numDecimals), PlainSocketStatsUDP.Format(factor, numDecimals),
 		SerialDevicesStats.Format(factor, numDecimals),
