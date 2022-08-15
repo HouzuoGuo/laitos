@@ -105,17 +105,16 @@ func (conn *ProxyConnection) Start() {
 	}
 	// Pipe data in both directions.
 	if conn.tcpConn != nil {
-		// The pipe buffer only needs to be larger than the largest amount
-		// of data a single DNS request or response can carry.
-		pipeBufSize := 1024
+		// Keep the buffer to minimum to improve responsiveness.
+		// The buffer size has nothing to do with segment size.
 		go func() {
-			if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, pipeBufSize, conn.tc, conn.tcpConn); err != nil {
+			if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, 1, conn.tc, conn.tcpConn); err != nil {
 				if conn.proxy.Debug {
 					conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
 				}
 			}
 		}()
-		if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, pipeBufSize, conn.tcpConn, conn.tc); err != nil {
+		if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, 1, conn.tcpConn, conn.tc); err != nil {
 			if conn.proxy.Debug {
 				conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
 			}

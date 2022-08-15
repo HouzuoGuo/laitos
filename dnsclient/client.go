@@ -298,8 +298,10 @@ func (client *Client) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 			client.logger.Warning("ProxyHandler", clientIP, err, "failed to tap into HTTP connection stream")
 			return
 		}
-		go misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, client.Config.MaxSegmentLenExclHeader, dstConn, reqConn)
-		misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, client.Config.MaxSegmentLenExclHeader, reqConn, dstConn)
+		// Keep the buffer to minimum to improve responsiveness.
+		// The buffer size has nothing to do with segment size.
+		go misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, 1, dstConn, reqConn)
+		misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, 1, reqConn, dstConn)
 	default:
 		// Execute the request as-is without handling higher-level mechanisms such as cookies and redirects
 		resp, err := client.httpTransport.RoundTrip(r)

@@ -195,7 +195,9 @@ func (daemon *Daemon) Initialise() error {
 	})
 	if len(daemon.MyDomainNames) > 0 {
 		// Set the SOA host name too.
-		daemon.soaHostName = daemon.MyDomainNames[len(daemon.MyDomainNames)-1] + "."
+		// (MyDomainName[x] looks like ".example.com")
+		daemon.soaHostName = daemon.MyDomainNames[len(daemon.MyDomainNames)-1][1:] + "."
+		daemon.logger.Info("Initialise", "", nil, "SOA mname and rname is %q", daemon.soaHostName)
 	}
 
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
