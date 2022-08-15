@@ -112,7 +112,7 @@ type Daemon struct {
 	// and RNAME) from this daemon.
 	// Note that the daemon does not accept dynamic DNS, so the appearance of
 	// the MNAME is solely for on-the-wire compliance with DNS protocol.
-	soaHostName string `json:"SOADomain"`
+	soaHostName string
 
 	tcpServer *common.TCPServer
 	udpServer *common.UDPServer

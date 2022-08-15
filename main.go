@@ -95,7 +95,7 @@ func main() {
 	flag.StringVar(&dataUtil, "datautil", "", "(Optional) program data encryption utility: encrypt|decrypt")
 	flag.StringVar(&dataUtilFile, "datautilfile", "", "(Optional) program data encryption utility: encrypt/decrypt file location")
 	// TCP-over-DNS proxy client flags.
-	var proxyPort int
+	var proxyPort, proxySegLen int
 	var proxyDNSResolverAddr string
 	var proxyDNSResolverPort int
 	var proxyDNSHostName string
@@ -104,6 +104,7 @@ func main() {
 	flag.BoolVar(&proxyDebug, "proxydebug", false, "(TCP-over-DNS) turn on debug logs")
 	flag.StringVar(&proxyDNSResolverAddr, "proxydnsresolveraddr", "", "(TCP-over-DNS) recursive resolver address")
 	flag.IntVar(&proxyDNSResolverPort, "proxydnsresolverport", 0, "(TCP-over-DNS) recursive resolver port")
+	flag.IntVar(&proxySegLen, "proxyseglen", 120, "(TCP-over-DNS) max segment length (must be less than 200)")
 	flag.StringVar(&proxyDNSHostName, "proxydnshostname", "", "(TCP-over-DNS) proxy DNS server host name")
 
 	flag.Parse()
@@ -129,7 +130,7 @@ func main() {
 	// Non-daemon utility routines - TCP-over-DNS client.
 	// ========================================================================
 	if proxyPort > 0 {
-		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyPort, proxyDNSResolverAddr, proxyDNSResolverPort, proxyDNSHostName)
+		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyPort, proxySegLen, proxyDNSResolverAddr, proxyDNSResolverPort, proxyDNSHostName)
 		return
 	}
 

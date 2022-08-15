@@ -8,7 +8,7 @@ import (
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
-func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, resolverAddr string, resolverPort int, dnsHostName string) {
+func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegLen int, resolverAddr string, resolverPort int, dnsHostName string) {
 	// There's a ton of overhead in the construction of a DNS response.
 	// It takes 16 bytes to encode 3 bytes of arbitrary data in a query
 	// answer, and conventionally DNS packets should not exceed 512 bytes in
@@ -20,12 +20,11 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, resolverA
 		Address: "127.0.0.1",
 		Port:    port,
 		Config: tcpoverdns.InitiatorConfig{
-			SetConfig:    true,
-			Debug:        debug,
-			IOTimeoutSec: 300,
-			// TODO FIXME: let cli configure these parameters
-			MaxSegmentLenExclHeader: 120,
+			SetConfig:               true,
+			Debug:                   debug,
+			IOTimeoutSec:            10 * 60,
 			KeepAliveIntervalSec:    1,
+			MaxSegmentLenExclHeader: proxySegLen,
 		},
 		Debug:           debug,
 		DNSResolverAddr: resolverAddr,
