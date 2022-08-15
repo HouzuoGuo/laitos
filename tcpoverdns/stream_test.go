@@ -1018,3 +1018,62 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	CheckTC(t, rightTC, 5, StateClosed, 3*int(totalRounds), 3*int(totalRounds), 3*int(totalRounds), nil, nil)
 	CheckTCError(t, rightTC, 2, 0, 0, 0)
 }
+
+func TestRuntimeIntervalConfig(t *testing.T) {
+	_, inTransport := net.Pipe()
+	_, outTransport := net.Pipe()
+	tc := &TransmissionControl{
+		state:             StateEstablished,
+		Debug:             true,
+		InputTransport:    inTransport,
+		OutputTransport:   outTransport,
+		MaxLifetime:       1 * time.Second,
+		AckDelay:          2 * time.Second,
+		KeepAliveInterval: 3 * time.Second,
+	}
+	tc.Start(context.Background())
+	if tc.LiveAckDelay() != tc.AckDelay {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	}
+	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	}
+
+	tc.DecreaseKeepAliveInterval()
+	tc.DecreaseKeepAliveInterval()
+	tc.DecreaseKeepAliveInterval()
+	tc.DecreaseKeepAliveInterval()
+	if tc.LiveAckDelay() != tc.AckDelay/16 {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	}
+	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval/16 {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	}
+	// It won't decrease any further
+	tc.DecreaseKeepAliveInterval()
+	if tc.LiveAckDelay() != tc.AckDelay/16 {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	}
+	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval/16 {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	}
+
+	tc.IncreaseKeepAliveInterval()
+	tc.IncreaseKeepAliveInterval()
+	tc.IncreaseKeepAliveInterval()
+	tc.IncreaseKeepAliveInterval()
+	if tc.LiveAckDelay() != tc.AckDelay {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	}
+	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	}
+	// It won't increase any further.
+	tc.IncreaseKeepAliveInterval()
+	if tc.LiveAckDelay() != tc.AckDelay {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	}
+	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	}
+}

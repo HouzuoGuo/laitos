@@ -198,6 +198,13 @@ type Proxy struct {
 // Start initialises the internal state of the proxy.
 func (proxy *Proxy) Start(ctx context.Context) {
 	if proxy.MaxSegmentLenExclHeader == 0 {
+		// There's a ton of overhead in the construction of DNS response.
+		// It takes 16 bytes to encode 3 bytes of arbitrary data in a query
+		// answer, and conventionally DNS packets should not exceed 512 bytes in
+		// total length - which includes both a repetition of the query and the
+		// answer.
+		// Some popular public recursive resolvers do not mind handling large
+		// UDP query response.
 		proxy.MaxSegmentLenExclHeader = 256
 	}
 	if proxy.MaxLifetime == 0 {

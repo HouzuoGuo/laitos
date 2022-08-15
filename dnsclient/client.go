@@ -99,7 +99,6 @@ func (conn *ProxiedConnection) Start() error {
 				// Wait for a segment.
 				goto busyWaitInterval
 			}
-			// TODO FIXME possible go memory leak in resolver.LookupIP
 			outgoingSeg = conn.outputSegmentBacklog[0]
 			conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
 			conn.mutex.Unlock()
@@ -111,16 +110,29 @@ func (conn *ProxiedConnection) Start() error {
 			addrs, err = resolver.LookupIP(conn.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 			if err != nil {
 				conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
+				conn.tc.IncreaseKeepAliveInterval()
 				goto busyWaitInterval
 			}
-			// Decode a segment from DNS query response and give it to the local TC.
+			// Decode a segment from DNS query response and give it to the local
+			// TC.
 			incomingSeg = tcpoverdns.SegmentFromIPs(addrs)
 			if conn.client.Debug {
 				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
 			}
 			if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
+				if incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
+					// Increase the timing interval interval with each input
+					// segment that does not carry data.
+					conn.tc.IncreaseKeepAliveInterval()
+				} else {
+					// Decrease the timing interval with each input segment that
+					// carries data. This helps to temporarily increase the
+					// throughput.
+					conn.tc.DecreaseKeepAliveInterval()
+				}
 				if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
 					conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
+					conn.tc.IncreaseKeepAliveInterval()
 					goto busyWaitInterval
 				}
 			}

@@ -3,6 +3,7 @@ package tcpoverdns
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -105,6 +106,10 @@ type TransmissionControl struct {
 	// outbound ack segment in the absence of outbound data.
 	// This internal must be longer than the peer's retransmission interval.
 	KeepAliveInterval time.Duration
+	// liveKeepAliveInterval is used for internal timing, it starts off equal to
+	// KeepAliveInterval, and may increase or decrease depending on the
+	// bandwidth needs of this transmission control's owner.
+	liveKeepAliveInterval time.Duration
 	// MaxTransportErrors is the maximum number of consecutive errors to
 	// tolerate from input and output transports before closing down the
 	// transmission control.
@@ -120,6 +125,10 @@ type TransmissionControl struct {
 	// sending an outbound acknowledgement-only segment.
 	// It should shorter than the retransmission interval by a magnitude.
 	AckDelay time.Duration
+	// liveAckDelay is used for internal timing, it starts off equal to
+	// AckDelay, and may increase or decrease depending on the bandwidth needs
+	// of this transmission control's owner.
+	liveAckDelay time.Duration
 	// lastAckOnlySeg is the timestamp of the latest acknowledgment-only segment
 	// (i.e. delayed ack or keep-alive) sent to the output transport.
 	lastAckOnlySeg time.Time
@@ -201,6 +210,9 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	if tc.MaxLifetime == 0 {
 		tc.MaxLifetime = 30 * time.Minute
 	}
+
+	tc.liveAckDelay = tc.AckDelay
+	tc.liveKeepAliveInterval = tc.KeepAliveInterval
 
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
 	tc.lastInputAck = time.Now()
@@ -396,7 +408,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			case <-tc.context.Done():
 				return
 			}
-		} else if time.Since(instant.lastInputAck) > tc.AckDelay && instant.lastAckOnlySeg.Before(instant.lastInputAck) && instant.inputSeq > 0 {
+		} else if time.Since(instant.lastInputAck) > instant.liveAckDelay && instant.lastAckOnlySeg.Before(instant.lastInputAck) && instant.inputSeq > 0 {
 			// Send a delayed ack segment.
 			emptySeg := Segment{
 				ID:     tc.ID,
@@ -412,7 +424,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			tc.mutex.Lock()
 			tc.lastAckOnlySeg = time.Now()
 			tc.mutex.Unlock()
-		} else if time.Since(instant.lastAckOnlySeg) > tc.KeepAliveInterval {
+		} else if time.Since(instant.lastAckOnlySeg) > instant.liveKeepAliveInterval {
 			// Send an empty segment for keep-alive.
 			emptySeg := Segment{
 				ID:     tc.ID,
@@ -558,6 +570,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 			if tc.Debug {
 				tc.Logger.Info("drainInputFromTransport", "", nil, "failed to read segment header: %+v", err)
 			}
+			if errors.Is(err, context.Canceled) {
+				return
+			}
 			continue
 		}
 		// Read the segment data.
@@ -570,6 +585,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		segData, err := tc.readFromInputTransport(segDataCtx, segDataLen)
 		if err != nil {
 			segDataCtxCancel()
+			if errors.Is(err, context.Canceled) {
+				return
+			}
 			if tc.Debug {
 				tc.Logger.Info("drainInputFromTransport", "", nil, "failed to read segment data: %+v", err)
 			}
@@ -862,6 +880,55 @@ func (tc *TransmissionControl) SetReadDeadline(t time.Time) error { return nil }
 
 // SetWriteDeadline always returns nil.
 func (tc *TransmissionControl) SetWriteDeadline(t time.Time) error { return nil }
+
+// DecreaseKeepAliveInterval decreases the keep-alive interval and the ack-only
+// delay. In the context of TCP-over-DNS tunneling, this means increasing the
+// throughput of the TCP-over-DNS proxy client.
+func (tc *TransmissionControl) DecreaseKeepAliveInterval() {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	if tc.liveKeepAliveInterval < tc.KeepAliveInterval/10 {
+		return
+	}
+	tc.liveKeepAliveInterval /= 2
+	tc.liveAckDelay /= 2
+	if tc.Debug {
+		tc.Logger.Info("DecreaseKeepAliveInterval", "", nil, "keep-alive is now %v", tc.liveKeepAliveInterval)
+	}
+}
+
+// IncreaseKeepAliveInterval increases the keep-alive interval and the ack-only
+// delay. In the context of TCP-over-DNS tunneling, this means decreasing the
+// throughput of the TCP-over-DNS proxy client.
+func (tc *TransmissionControl) IncreaseKeepAliveInterval() {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	tc.liveKeepAliveInterval *= 2
+	tc.liveAckDelay *= 2
+	if tc.liveKeepAliveInterval > tc.KeepAliveInterval {
+		tc.liveKeepAliveInterval = tc.KeepAliveInterval
+	}
+	if tc.liveAckDelay > tc.AckDelay {
+		tc.liveAckDelay = tc.AckDelay
+	}
+	if tc.Debug {
+		tc.Logger.Info("IncreaseKeepAliveInterval", "", nil, "keep-alive is now %v", tc.liveKeepAliveInterval)
+	}
+}
+
+// LiveKeepAliveInterval returns the latest live keep-alive interval.
+func (tc *TransmissionControl) LiveKeepAliveInterval() time.Duration {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	return tc.liveKeepAliveInterval
+}
+
+// liveAckDelay returns the latest live ack-delay.
+func (tc *TransmissionControl) LiveAckDelay() time.Duration {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	return tc.liveAckDelay
+}
 
 // readInput reads from transmission control's input transport for a total
 // number of bytes specified in totalLen.

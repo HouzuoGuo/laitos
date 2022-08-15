@@ -129,7 +129,7 @@ func main() {
 	// Non-daemon utility routines - TCP-over-DNS client.
 	// ========================================================================
 	if proxyPort > 0 {
-		cli.HandleTCPOverDNSClient(logger, debug, proxyPort, proxyDNSResolverAddr, proxyDNSResolverPort, proxyDNSHostName)
+		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyPort, proxyDNSResolverAddr, proxyDNSResolverPort, proxyDNSHostName)
 		return
 	}
 
