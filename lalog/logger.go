@@ -92,7 +92,7 @@ func (logger *Logger) Format(functionName string, actorName interface{}, err err
 		msg.WriteString(fmt.Sprint(functionName))
 	}
 	if actorName != "" {
-		msg.WriteString(fmt.Sprintf("(%s)", actorName))
+		msg.WriteString(fmt.Sprintf("(%v)", actorName))
 	}
 	if msg.Len() > 0 {
 		msg.WriteString(": ")

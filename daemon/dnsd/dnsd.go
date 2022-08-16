@@ -23,7 +23,6 @@ import (
 )
 
 const (
-	RateLimitIntervalSec        = 1         // RateLimitIntervalSec is the interval (seconds) at which rate limit is measured and applied to DNS clients.
 	ForwarderTimeoutSec         = 1 * 2     // ForwarderTimeoutSec is the IO timeout for a round trip interaction with forwarders
 	ClientTimeoutSec            = 30 * 2    // AnswerTimeoutSec is the IO timeout for a round trip interaction with DNS clients
 	MaxPacketSize               = 9038      // Maximum acceptable UDP packet size
@@ -138,7 +137,6 @@ type Daemon struct {
 	allowQueryMutex      *sync.Mutex
 	allowQueryLastUpdate int64
 
-	rateLimit              *misc.RateLimit
 	context                context.Context
 	cancelFunc             func()
 	logger                 lalog.Logger
@@ -216,13 +214,6 @@ func (daemon *Daemon) Initialise() error {
 	daemon.allowQueryMutex = new(sync.Mutex)
 	daemon.blackListMutex = new(sync.RWMutex)
 	daemon.blackList = make(map[string]struct{})
-
-	daemon.rateLimit = &misc.RateLimit{
-		MaxCount: daemon.PerIPLimit,
-		UnitSecs: RateLimitIntervalSec,
-		Logger:   daemon.logger,
-	}
-	daemon.rateLimit.Initialise()
 
 	daemon.latestCommands = NewLatestCommands()
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)

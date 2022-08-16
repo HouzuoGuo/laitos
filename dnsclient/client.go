@@ -146,7 +146,7 @@ func (conn *ProxiedConnection) Start() error {
 			}
 			// Wait for keep-alive interval.
 			select {
-			case <-time.After(time.Duration(conn.client.Config.KeepAliveIntervalSec) * time.Second * 80 / 100):
+			case <-time.After(time.Duration(conn.tc.LiveKeepAliveInterval())):
 			case <-conn.context.Done():
 				return
 			}

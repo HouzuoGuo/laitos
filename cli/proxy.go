@@ -31,6 +31,7 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 		DNSResovlerPort: resolverPort,
 		DNSHostName:     dnsHostName,
 	}
+
 	if err := httpProxyServer.Initialise(context.Background()); err != nil {
 		logger.Panic("HandleTCPOverDNSClient", "", err, "failed to initialise the client http proxy")
 		return
