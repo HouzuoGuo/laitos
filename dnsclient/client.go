@@ -150,6 +150,7 @@ func (conn *ProxiedConnection) Start() error {
 			case <-conn.context.Done():
 				return
 			}
+			continue
 		busyWaitInterval:
 			select {
 			case <-time.After(tcpoverdns.BusyWaitInterval):
