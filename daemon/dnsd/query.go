@@ -188,8 +188,8 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 		return nil, err
 	}
 	soa := dnsmessage.SOAResource{
-		NS:     dnsmessage.MustNewName("ns-hzgleu.ard.how."),
-		MBox:   dnsmessage.MustNewName("ard.how."),
+		NS:     dnsmessage.MustNewName(mName),
+		MBox:   dnsmessage.MustNewName(rName),
 		Serial: 1,
 		// "Number of seconds after which secondary name servers should query the master for the SOA record, to detect zone changes." (wikipedia)
 		Refresh: 3600,
