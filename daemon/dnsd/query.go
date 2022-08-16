@@ -4,10 +4,13 @@ import (
 	"errors"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"golang.org/x/net/dns/dnsmessage"
+)
+
+const (
+	ednsBufferSize = 1232
 )
 
 // BuildTextResponse constructs a TXT record response packet, the record TTL is
@@ -32,7 +35,7 @@ func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessag
 	}
 	err := builder.TXTResource(dnsmessage.ResourceHeader{
 		Name:  dnsmessage.MustNewName(name),
-		Class: dnsmessage.ClassINET, TTL: 30}, dnsmessage.TXTResource{TXT: txt})
+		Class: dnsmessage.ClassINET, TTL: 60}, dnsmessage.TXTResource{TXT: txt})
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +152,18 @@ func TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Que
 		builder.AResource(dnsmessage.ResourceHeader{
 			Name:  dnsmessage.MustNewName(question.Name.String()),
 			Class: dnsmessage.ClassINET,
-			TTL:   30,
+			TTL:   60,
 		}, addr)
+	}
+	if err := builder.StartAdditionals(); err != nil {
+		return nil, err
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
 	}
 	return builder.Finish()
 }
@@ -174,22 +187,35 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	if err := builder.StartAnswers(); err != nil {
 		return nil, err
 	}
-	now := time.Now()
 	soa := dnsmessage.SOAResource{
-		NS:      dnsmessage.MustNewName(mName),
-		MBox:    dnsmessage.MustNewName(rName),
-		Serial:  uint32(now.Year()-2000)*10000000 + uint32(now.Month())*100000 + uint32(now.Day())*1000 + uint32(now.Hour())*10 + uint32(now.Minute())/6,
-		Refresh: 30,
-		Retry:   30,
-		Expire:  30,
-		MinTTL:  30,
+		NS:     dnsmessage.MustNewName("ns-hzgleu.ard.how."),
+		MBox:   dnsmessage.MustNewName("ard.how."),
+		Serial: 1,
+		// "Number of seconds after which secondary name servers should query the master for the SOA record, to detect zone changes." (wikipedia)
+		Refresh: 3600,
+		// "Number of seconds after which secondary name servers should retry to request the serial number from the master if the master does not respond. It must be less than Refresh." (wikipedia)
+		Retry: 300,
+		// "Number of seconds after which secondary name servers should stop answering request for this zone if the master does not respond. This value must be bigger than the sum of Refresh and Retry." (wikipedia)
+		Expire: 259200,
+		// "Used in calculating the time to live for purposes of negative caching." (wikipedia)
+		MinTTL: 60,
 	}
 	err := builder.SOAResource(dnsmessage.ResourceHeader{
 		Name:  dnsmessage.MustNewName(question.Name.String()),
 		Class: dnsmessage.ClassINET,
-		TTL:   30,
+		TTL:   60,
 	}, soa)
 	if err != nil {
+		return nil, err
+	}
+	if err := builder.StartAdditionals(); err != nil {
+		return nil, err
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
 		return nil, err
 	}
 	return builder.Finish()

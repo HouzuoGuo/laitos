@@ -183,7 +183,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 		tc.WriteTimeout = 20 * time.Second
 	}
 	if tc.MaxSlidingWindow == 0 {
-		tc.MaxSlidingWindow = 8 * 256
+		tc.MaxSlidingWindow = 4 * 256
 	}
 	if tc.RetransmissionInterval == 0 {
 		// 10 seconds
@@ -232,9 +232,6 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 }
 
 func (tc *TransmissionControl) Write(buf []byte) (int, error) {
-	if tc.Debug {
-		tc.Logger.Info("Write", "", nil, "(sliding window full? %v state? %v) writing buf %v", tc.slidingWindowFull(), tc.State(), lalog.ByteArrayLogString(buf))
-	}
 	if tc.State() == StateClosed {
 		return 0, io.EOF
 	}
@@ -533,9 +530,6 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 		tc.inputBuf = tc.inputBuf[readLen:]
 		tc.mutex.Unlock()
 		if readLen > 0 {
-			if tc.Debug {
-				tc.Logger.Info("Read", "", nil, "returning to caller %d bytes %v", readLen, lalog.ByteArrayLogString(buf[:readLen]))
-			}
 			// Caller has got some data.
 			return readLen, nil
 		} else if tc.State() == StateClosed {

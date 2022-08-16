@@ -266,7 +266,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			// The proxy client really should use InitiatorConfig to set the
 			// desired segment length, which in turn sets the sliding window.
 			MaxSegmentLenExclHeader: proxy.MaxSegmentLenExclHeader,
-			MaxSlidingWindow:        uint32(proxy.MaxSegmentLenExclHeader) * 8,
+			MaxSlidingWindow:        uint32(proxy.MaxSegmentLenExclHeader) * 4,
 		}
 		// Connect to the intended destination.
 		var dialNet, dialDest string
