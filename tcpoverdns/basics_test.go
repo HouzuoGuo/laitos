@@ -199,7 +199,7 @@ func TestInitiatorConfig(t *testing.T) {
 
 	wantTC := &TransmissionControl{
 		MaxSegmentLenExclHeader: 123,
-		MaxSlidingWindow:        123 * 8,
+		MaxSlidingWindow:        123 * 4,
 		ReadTimeout:             234 * time.Second,
 		WriteTimeout:            234 * time.Second,
 		KeepAliveInterval:       345 * time.Second,
