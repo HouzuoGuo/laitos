@@ -78,6 +78,7 @@ DownloadAllBlacklists attempts to download all hosts files and return combined l
 The special cases of white listed names are removed from return value.
 */
 func DownloadAllBlacklists(maxEntries int, logger lalog.Logger) []string {
+	return nil // @@@@@@@@@@@ FIXME TODO remove this
 	wg := new(sync.WaitGroup)
 	wg.Add(len(HostsFileURLs))
 

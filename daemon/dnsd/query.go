@@ -2,6 +2,8 @@ package dnsd
 
 import (
 	"errors"
+	"fmt"
+	"net"
 	"regexp"
 	"strings"
 
@@ -207,6 +209,111 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	}, soa)
 	if err != nil {
 		return nil, err
+	}
+	if err := builder.StartAdditionals(); err != nil {
+		return nil, err
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
+	}
+	return builder.Finish()
+}
+
+// BuildNSResponse returns an NS record response.
+func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, domainName string) ([]byte, error) {
+	// Retain the original transaction ID.
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = true
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	// Repeat the question back to the client, this is required by DNS protocol.
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	ns := dnsmessage.NSResource{
+		// ns.laitos-example.net
+		NS: dnsmessage.MustNewName(fmt.Sprintf("%s.%s.", NSRecordName, domainName)),
+	}
+	err := builder.NSResource(dnsmessage.ResourceHeader{
+		Name:  dnsmessage.MustNewName(question.Name.String()),
+		Class: dnsmessage.ClassINET,
+		TTL:   60,
+	}, ns)
+	if err != nil {
+		return nil, err
+	}
+	if err := builder.StartAdditionals(); err != nil {
+		return nil, err
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
+	}
+	return builder.Finish()
+}
+
+// BuildIPv4AddrResponse constructs an IPv4 address record response. The record
+// TTL is hard coded to 60 seconds.
+func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Question, ipAddr net.IP) ([]byte, error) {
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = true
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	switch question.Type {
+	case dnsmessage.TypeA:
+		v4Addr := ipAddr.To4()
+		if v4Addr != nil {
+			err := builder.AResource(dnsmessage.ResourceHeader{
+				Name:  dnsmessage.MustNewName(question.Name.String()),
+				Class: dnsmessage.ClassINET,
+				TTL:   60,
+			}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}})
+			if err != nil {
+				return nil, err
+			}
+		}
+	case dnsmessage.TypeAAAA:
+		v6Addr := ipAddr.To16()
+		if v6Addr != nil {
+			var aaaa [16]byte
+			copy(aaaa[:], v6Addr)
+			err := builder.AAAAResource(dnsmessage.ResourceHeader{
+				Name:  dnsmessage.MustNewName(question.Name.String()),
+				Class: dnsmessage.ClassINET,
+				TTL:   60,
+			}, dnsmessage.AAAAResource{
+				AAAA: aaaa,
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	if err := builder.StartAdditionals(); err != nil {
 		return nil, err

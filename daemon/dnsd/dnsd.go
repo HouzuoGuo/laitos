@@ -42,6 +42,15 @@ const (
 	// ProxyPrefix is the name prefix DNS clients need to put in front of their
 	// address queries to send the query to the TCP-over-DNS proxy.
 	ProxyPrefix = 't'
+
+	// NSRecordName is the name of the NS record that laitos DNS server will
+	// advertise as its authoritive name server. The laitos DNS server will
+	// resolve this record to the public IP address of the server itself.
+	NSRecordName = "ns1"
+
+	// SelfAddrRecordName is the name of an address record (A) that resolves to
+	// the address of the laitos DNS server itself.
+	SelfAddrRecordName = "laitosaddr"
 )
 
 var (
@@ -133,7 +142,7 @@ type Daemon struct {
 	blackListMutex *sync.RWMutex
 
 	// myPublicIP is the latest public IP address of the laitos server.
-	myPublicIP           string
+	myPublicIP           net.IP
 	allowQueryMutex      *sync.Mutex
 	allowQueryLastUpdate int64
 
@@ -237,7 +246,7 @@ func (daemon *Daemon) allowMyPublicIP() {
 		daemon.allowQueryLastUpdate = time.Now().Unix()
 	}()
 	latestIP := inet.GetPublicIP()
-	if latestIP == "" {
+	if latestIP.String() == "0.0.0.0" {
 		// Not a fatal error if IP cannot be determined
 		daemon.logger.Warning("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
 		return
@@ -253,7 +262,7 @@ func (daemon *Daemon) isRecursiveQueryAllowed(clientIP string) bool {
 		return false
 	}
 	// Fast track - always allow localhost to query.
-	if strings.HasPrefix(clientIP, "127.") || clientIP == "::1" || clientIP == daemon.myPublicIP {
+	if strings.HasPrefix(clientIP, "127.") || clientIP == "::1" || clientIP == daemon.myPublicIP.String() {
 		return true
 	}
 	// Update my public IP at regular interval.
@@ -464,9 +473,9 @@ func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
 
 // queryLabels returns the labels of a query, with the domain name removed if
 // the query was directed at this DNS server itself.
-func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, numDomainLabels int, isRecursive bool) {
+func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, domainName string, numDomainLabels int, isRecursive bool) {
 	if len(name) < 3 {
-		return []string{}, 0, false
+		return []string{}, "", 0, false
 	}
 	// Remove the suffix full-stop to aid in matching daemon's own domain names
 	// (e.g. ".example.com").
@@ -486,6 +495,7 @@ func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, nu
 			numDomainLabels = len(strings.Split(suffix, ".")) - 1
 			isRecursive = false
 			name = strings.TrimSuffix(name, suffix)
+			domainName = suffix[1:]
 			break
 		}
 	}

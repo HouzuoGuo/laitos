@@ -9,7 +9,7 @@ func TestGetPublicIP(t *testing.T) {
 	if len(ip) < 7 || len(ip) > 46 {
 		t.Fatal(ip)
 	}
-	if ip2 := GetPublicIP(); ip2 != ip {
+	if ip2 := GetPublicIP(); ip2.String() != ip.String() {
 		t.Fatal(ip, ip2)
 	}
 }

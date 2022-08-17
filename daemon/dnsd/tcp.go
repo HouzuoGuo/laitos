@@ -2,8 +2,10 @@ package dnsd
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"net"
+	"regexp"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -56,6 +58,8 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	if question.Type == dnsmessage.TypeTXT {
 		// The TXT query may be carrying an app command.
 		respBody = daemon.handleTCPTextQuery(ip, queryLen, queryBody, header, question)
+	} else if question.Type == dnsmessage.TypeNS {
+		respBody = daemon.handleTCPNS(ip, queryLen, queryBody, header, question)
 	} else if question.Type == dnsmessage.TypeSOA {
 		respBody = daemon.handleTCPSOA(ip, queryLen, queryBody, header, question)
 	} else {
@@ -87,7 +91,7 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	labels, _, isRecursive := daemon.queryLabels(name)
+	labels, _, _, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
@@ -115,39 +119,51 @@ func (daemon *Daemon) handleTCPSOA(clientIP string, queryLen, queryBody []byte, 
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	_, _, isRecursive := daemon.queryLabels(name)
+	_, domainName, _, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
-	respBody, err := BuildSOAResponse(header, question, daemon.soaHostName, daemon.soaHostName)
+	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("%s.%s.", NSRecordName, domainName), domainName)
 	if err != nil {
 		daemon.logger.Warning("handleTCPSOA", clientIP, err, "failed to build response packet")
 	}
 	return
 }
 
-func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+func (daemon *Daemon) handleTCPNS(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	_, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	daemon.logger.Info("handleTCPNS", clientIP, nil, "handling NS query %q", name)
+	if daemon.processQueryTestCaseFunc != nil {
+		daemon.processQueryTestCaseFunc(name)
+	}
+	_, domainName, _, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
-		if daemon.processQueryTestCaseFunc != nil {
-			daemon.processQueryTestCaseFunc(name)
-		}
-		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle recursive name query %q", name)
-		if daemon.IsInBlacklist(name) {
-			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle black-listed name query %q", name)
-			respBody, err := BuildBlackHoleAddrResponse(header, question)
-			if err != nil {
-				daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, err, "failed to build response packet")
-				return nil
-			}
-			return respBody
-		}
-		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle recursive non-name query")
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
-	if len(name) > 0 && name[0] == ProxyPrefix {
-		// Send TCP-over-DNSOverTCP fragment to the proxy.
+	respBody, err := BuildNSResponse(header, question, domainName)
+	if err != nil {
+		daemon.logger.Warning("handleTCPNS", clientIP, err, "failed to build response packet")
+	}
+	return
+}
+
+func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+	name := question.Name.String()
+	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v", question.Type, name, domainName, numDomainLabels, isRecursive)
+	if regexp.MustCompile(fmt.Sprintf(`ns[0-9]*\.%s\.`, domainName)).MatchString(name) ||
+		regexp.MustCompile(fmt.Sprintf(`dns[0-9]*\.%s\.`, domainName)).MatchString(name) ||
+		name == fmt.Sprintf("%s.%s.", SelfAddrRecordName, domainName) ||
+		name == domainName+"." {
+		// Non-recursive, resolve to laitos DNS server's own IP.
+		var err error
+		respBody, err = BuildIPv4AddrResponse(header, question, daemon.myPublicIP)
+		if err != nil {
+			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response")
+			return
+		}
+	} else if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
+		// Non-recursive, send TCP-over-DNS fragment to the proxy.
 		seg := tcpoverdns.SegmentFromDNSQuery(numDomainLabels, name)
 		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
 			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "received a malformed TCP-over-DNS segment")
@@ -163,6 +179,22 @@ func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, query
 			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
 			return
 		}
+	} else {
+		// Recursive queries.
+		if daemon.processQueryTestCaseFunc != nil {
+			daemon.processQueryTestCaseFunc(name)
+		}
+		if daemon.IsInBlacklist(name) {
+			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle black-listed name query %q", name)
+			respBody, err := BuildBlackHoleAddrResponse(header, question)
+			if err != nil {
+				daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, err, "failed to build response packet")
+				return nil
+			}
+			return respBody
+		}
+		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle recursive non-name query")
+		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	return
 }

@@ -148,6 +148,7 @@ func (daemon *Daemon) runPortsCheck() error {
 
 // Check TCP ports and features, return all-OK or not.
 func (daemon *Daemon) Execute(ctx context.Context) (string, bool) {
+	return "", false // @@@@@@@@@@@ FIXME TODO remove this
 	daemon.logger.Info("Execute", "", nil, "running now")
 	// Conduct system maintenance first to ensure an accurate reading of runtime information later on
 	maintResult := daemon.SystemMaintenance()

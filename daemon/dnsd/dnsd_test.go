@@ -49,7 +49,7 @@ func TestCheckAllowClientIP(t *testing.T) {
 	}
 
 	// Allowed by fast track
-	for _, client := range []string{"127.0.0.1", "::1", "127.0.100.1", inet.GetPublicIP()} {
+	for _, client := range []string{"127.0.0.1", "::1", "127.0.100.1", inet.GetPublicIP().String()} {
 		if !daemon.isRecursiveQueryAllowed(client) {
 			t.Fatal("should have allowed", client)
 		}
@@ -181,62 +181,74 @@ func TestDaemon_queryLabels(t *testing.T) {
 	var tests = []struct {
 		name                string
 		wantLabels          []string
+		wantDomainName      string
 		wantNumDomainLabels int
 		wantIsRecursive     bool
 	}{
 		{
 			name:                "",
 			wantLabels:          []string{},
+			wantDomainName:      "",
 			wantNumDomainLabels: 0,
 			wantIsRecursive:     false,
 		},
 		{
 			name:                "b.a.com",
 			wantLabels:          []string{},
+			wantDomainName:      "b.a.com",
 			wantNumDomainLabels: 3,
 			wantIsRecursive:     false,
 		},
 		{
 			name:                "a.com",
 			wantLabels:          []string{},
+			wantDomainName:      "a.com",
 			wantNumDomainLabels: 2,
 			wantIsRecursive:     false,
 		},
 		{
 			name:                "haha.b.a.com",
 			wantLabels:          []string{"haha"},
+			wantDomainName:      "b.a.com",
 			wantNumDomainLabels: 3,
 			wantIsRecursive:     false,
 		},
 		{
 			name:                "hehe.haha.b.a.com",
 			wantLabels:          []string{"hehe", "haha"},
+			wantDomainName:      "b.a.com",
 			wantNumDomainLabels: 3,
 			wantIsRecursive:     false,
 		},
 		{
 			name:                "hoho.a.com",
 			wantLabels:          []string{"hoho"},
+			wantDomainName:      "a.com",
 			wantNumDomainLabels: 2,
 			wantIsRecursive:     false,
 		},
 		{
 			name:                "haha.example.com",
 			wantLabels:          []string{"haha", "example", "com"},
+			wantDomainName:      "",
 			wantNumDomainLabels: 0,
 			wantIsRecursive:     true,
 		},
 		{
 			name:                "c.d.b.net.",
 			wantLabels:          []string{"c", "d"},
+			wantDomainName:      "b.net",
 			wantNumDomainLabels: 2,
 			wantIsRecursive:     false,
 		},
 	}
 	for _, test := range tests {
-		gotLabels, gotNumDomainLabels, gotRecursive := daemon.queryLabels(test.name)
+		gotLabels, gotDomainName, gotNumDomainLabels, gotRecursive := daemon.queryLabels(test.name)
 		if !reflect.DeepEqual(gotLabels, test.wantLabels) {
 			t.Errorf("name: %q, got labels: %+#v, want: %+#v", test.name, gotLabels, test.wantLabels)
+		}
+		if gotDomainName != test.wantDomainName {
+			t.Errorf("name: %q, got number of domain labels: %v, want: %v", test.name, gotNumDomainLabels, test.wantNumDomainLabels)
 		}
 		if gotNumDomainLabels != test.wantNumDomainLabels {
 			t.Errorf("name: %q, got number of domain labels: %v, want: %v", test.name, gotNumDomainLabels, test.wantNumDomainLabels)

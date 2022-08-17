@@ -2,6 +2,7 @@ package inet
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -30,7 +31,7 @@ var (
 	isAlibabaOnce = new(sync.Once)
 
 	// lastIP is the latest public IP retrieved recently.
-	lastPublicIP string
+	lastPublicIP net.IP
 	//lastIPMutex protects last public IP from concurrent modifcation.
 	lastPublicIPMutex = new(sync.Mutex)
 	// lastIPTimeStamp is the time at which the last public IP was determined.
@@ -130,7 +131,7 @@ func IsAlibaba() bool {
 getPublicIP is an internal function that determines the public IP address of this computer. If the IP address cannot be
 determined, it will return "0.0.0.0". It may take up to 10 seconds to return.
 */
-func getPublicIP() string {
+func getPublicIP() net.IP {
 	/*
 		Kick off multiple routines to determine public IP at the same time. Each routine uses a different approach, the
 		fastest valid response will be returned to caller. Usually the cloud metadata endpoints are the fastest and slightly
@@ -138,7 +139,7 @@ func getPublicIP() string {
 		Avoid contacting cloud metadata endpoints unless the host is actually on public cloud. Otherwise, the connection will
 		remain half open for quite a while until OS or router cleans it up.
 	*/
-	ip := make(chan string, 5)
+	ip := make(chan net.IP, 5)
 	// GCE internal
 	go func() {
 		if IsGCE() {
@@ -149,7 +150,7 @@ func getPublicIP() string {
 			}, "http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
 			if err == nil && resp.StatusCode/200 == 1 {
 				if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-					ip <- respBody
+					ip <- net.ParseIP(respBody)
 				}
 			}
 		}
@@ -163,7 +164,7 @@ func getPublicIP() string {
 			}, "http://169.254.169.254/2018-03-28/meta-data/public-ipv4")
 			if err == nil && resp.StatusCode/200 == 1 {
 				if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-					ip <- respBody
+					ip <- net.ParseIP(respBody)
 				}
 			}
 		}
@@ -178,7 +179,7 @@ func getPublicIP() string {
 			}, "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-12-01&format=text")
 			if err == nil && resp.StatusCode/200 == 1 {
 				if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-					ip <- respBody
+					ip <- net.ParseIP(respBody)
 				}
 			}
 		}
@@ -191,7 +192,7 @@ func getPublicIP() string {
 		}, "http://checkip.amazonaws.com")
 		if err == nil && resp.StatusCode/200 == 1 {
 			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-				ip <- respBody
+				ip <- net.ParseIP(respBody)
 			}
 		}
 	}()
@@ -203,7 +204,7 @@ func getPublicIP() string {
 		}, "https://api.ipify.org")
 		if err == nil && resp.StatusCode/200 == 1 {
 			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
-				ip <- respBody
+				ip <- net.ParseIP(respBody)
 			}
 		}
 	}()
@@ -211,7 +212,7 @@ func getPublicIP() string {
 	case s := <-ip:
 		return s
 	case <-time.After(HTTPPublicIPTimeoutSec * time.Second):
-		return "0.0.0.0"
+		return net.IPv4(0, 0, 0, 0)
 	}
 }
 
@@ -220,7 +221,7 @@ GetPublicIP returns the latest public IP address of the computer. If the IP addr
 an empty string. If the public IP has been determined recently (less than 3 minutes ago), the cached public IP will be
 returned.
 */
-func GetPublicIP() string {
+func GetPublicIP() net.IP {
 	/*
 		Normally it is quite harmless to retrieve public IP address in short succession, however when laitos host's network
 		fails to reach some of the IP address retrieval endpoints, such as when a home server tries to contact cloud metadata

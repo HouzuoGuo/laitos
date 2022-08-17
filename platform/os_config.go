@@ -641,7 +641,7 @@ func GetProgramStatusSummary(withPublicIP bool) ProgramStatusSummary {
 		EnvironmentVars:   envVars,
 	}
 	if withPublicIP {
-		summary.PublicIP = inet.GetPublicIP()
+		summary.PublicIP = inet.GetPublicIP().String()
 	}
 	return summary
 }

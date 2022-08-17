@@ -136,7 +136,7 @@ func TestGetSysSummary(t *testing.T) {
 	summary := GetProgramStatusSummary(true)
 	hostName, _ := os.Hostname()
 	if summary.HostName != hostName ||
-		summary.PublicIP != inet.GetPublicIP() ||
+		summary.PublicIP != inet.GetPublicIP().String() ||
 		summary.PID == 0 || summary.PPID == 0 ||
 		summary.ExePath == "" || summary.WorkingDirPath == "" ||
 		time.Since(summary.ClockTime).Seconds() > 3 {
