@@ -258,3 +258,8 @@ func TestDaemon_queryLabels(t *testing.T) {
 		}
 	}
 }
+
+func TestA(t *testing.T) {
+	ip := net.ParseIP("::1")
+	t.Fatal(ip.To4(), ip.To16())
+}

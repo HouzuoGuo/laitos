@@ -299,8 +299,9 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 			}
 		}
 	case dnsmessage.TypeAAAA:
-		v6Addr := ipAddr.To16()
-		if v6Addr != nil {
+		if ipAddr.To4() == nil {
+			// To16 always returns a non-nil slice for an IPv4 address.
+			v6Addr := ipAddr.To16()
 			var aaaa [16]byte
 			copy(aaaa[:], v6Addr)
 			err := builder.AAAAResource(dnsmessage.ResourceHeader{
