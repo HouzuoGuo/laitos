@@ -103,7 +103,7 @@ func (daemon *Daemon) handleUDPSOA(clientIP string, queryBody []byte, header dns
 	if isRecursive {
 		return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 	}
-	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("%s.%s.", NSRecordName, domainName), domainName+".")
+	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s.", domainName), domainName+".")
 	if err != nil {
 		daemon.logger.Warning("handleUDPSOA", clientIP, err, "failed to build response packet")
 	}
@@ -159,6 +159,19 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 		respBody, err = TCPOverDNSSegmentResponse(header, question, respSegment.DNSResource())
 		if err != nil {
 			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
+			return
+		}
+	} else if !isRecursive {
+		// Non-recursive, other name queries. There must be a response.
+		// Recursive resolvers have a habit of resolving a shorter version (e.g.
+		// b.example.com) of the desired name (a.b.example.com), often missing
+		// a couple of the leading labels, before resolving the actual name
+		// demanded by DNS clients. Without a valid response the recursive
+		// resolver will consider the DNS authoritative server unresponsive.
+		var err error
+		respBody, err = BuildIPv4AddrResponse(header, question, daemon.myPublicIP)
+		if err != nil {
+			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response")
 			return
 		}
 	} else {

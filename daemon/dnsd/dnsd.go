@@ -43,11 +43,6 @@ const (
 	// address queries to send the query to the TCP-over-DNS proxy.
 	ProxyPrefix = 't'
 
-	// NSRecordName is the name of the NS record that laitos DNS server will
-	// advertise as its authoritive name server. The laitos DNS server will
-	// resolve this record to the public IP address of the server itself.
-	NSRecordName = "ns1"
-
 	// SelfAddrRecordName is the name of an address record (A) that resolves to
 	// the address of the laitos DNS server itself.
 	SelfAddrRecordName = "laitosaddr"

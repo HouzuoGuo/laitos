@@ -242,17 +242,19 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	if err := builder.StartAnswers(); err != nil {
 		return nil, err
 	}
-	ns := dnsmessage.NSResource{
-		// ns.laitos-example.net
-		NS: dnsmessage.MustNewName(fmt.Sprintf("%s.%s.", NSRecordName, domainName)),
-	}
-	err := builder.NSResource(dnsmessage.ResourceHeader{
-		Name:  dnsmessage.MustNewName(question.Name.String()),
-		Class: dnsmessage.ClassINET,
-		TTL:   60,
-	}, ns)
-	if err != nil {
-		return nil, err
+	for i := 1; i <= 2; i++ {
+		ns := dnsmessage.NSResource{
+			// ns[1-4].laitos-example.net
+			NS: dnsmessage.MustNewName(fmt.Sprintf("ns%d.%s.", i, domainName)),
+		}
+		err := builder.NSResource(dnsmessage.ResourceHeader{
+			Name:  dnsmessage.MustNewName(question.Name.String()),
+			Class: dnsmessage.ClassINET,
+			TTL:   60,
+		}, ns)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := builder.StartAdditionals(); err != nil {
 		return nil, err
