@@ -149,7 +149,9 @@ func TestProxy_HTTPClient(t *testing.T) {
 		InitiatorSegmentData:    []byte(`{"p": 80, "a": "1.1.1.1"}`),
 		Initiator:               true,
 		// A shorter interval gives the test TC more throughput.
-		KeepAliveInterval: 1 * time.Second,
+		InitialTiming: tcpoverdns.TimingConfig{
+			KeepAliveInterval: 1 * time.Second,
+		},
 	}
 	tc.Start(context.Background())
 
@@ -204,7 +206,9 @@ func TestProxy_HTTPSClient(t *testing.T) {
 		InitiatorSegmentData:    []byte(`{"p": 443, "a": "1.1.1.1"}`),
 		Initiator:               true,
 		// A shorter interval gives the test TC more throughput.
-		KeepAliveInterval: 1 * time.Second,
+		InitialTiming: tcpoverdns.TimingConfig{
+			KeepAliveInterval: 1 * time.Second,
+		},
 	}
 	tc.Start(context.Background())
 
@@ -276,7 +280,9 @@ func TestProxy_Blacklisted(t *testing.T) {
 		InitiatorSegmentData: []byte(`{"p": 443, "a": "1.1.1.1"}`),
 		Initiator:            true,
 		// A shorter interval gives the test TC more throughput.
-		KeepAliveInterval: 1 * time.Second,
+		InitialTiming: tcpoverdns.TimingConfig{
+			KeepAliveInterval: 1 * time.Second,
+		},
 	}
 	tc.Start(context.Background())
 	go pipeSegments(t, testOut, testIn, proxy)
@@ -304,7 +310,9 @@ func TestProxy_CleanUp(t *testing.T) {
 		InitiatorSegmentData: []byte(`{"p": 443, "a": "203.0.113.0"}`),
 		Initiator:            true,
 		// A shorter interval gives the test TC more throughput.
-		KeepAliveInterval: 1 * time.Second,
+		InitialTiming: tcpoverdns.TimingConfig{
+			KeepAliveInterval: 1 * time.Second,
+		},
 	}
 	tc.Start(context.Background())
 	go pipeSegments(t, testOut, testIn, proxy)

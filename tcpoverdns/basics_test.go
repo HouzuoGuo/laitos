@@ -184,12 +184,19 @@ func TestSegment_DNSQuestion(t *testing.T) {
 }
 
 func TestInitiatorConfig(t *testing.T) {
+	wantTiming := TimingConfig{
+		SlidingWindowWaitDuration: 1000 * time.Millisecond,
+		RetransmissionInterval:    1234 * time.Millisecond,
+		AckDelay:                  3456 * time.Millisecond,
+		KeepAliveInterval:         4567 * time.Millisecond,
+		ReadTimeout:               5678 * time.Millisecond,
+		WriteTimeout:              7890 * time.Millisecond,
+	}
 	want := &InitiatorConfig{
 		SetConfig:               true,
 		MaxSegmentLenExclHeader: 123,
-		IOTimeoutSec:            234,
-		KeepAliveIntervalSec:    345,
 		Debug:                   true,
+		Timing:                  wantTiming,
 	}
 	serialised := want.Bytes()
 	got := DeserialiseInitiatorConfig(serialised)
@@ -200,9 +207,8 @@ func TestInitiatorConfig(t *testing.T) {
 	wantTC := &TransmissionControl{
 		MaxSegmentLenExclHeader: 123,
 		MaxSlidingWindow:        123 * 4,
-		ReadTimeout:             234 * time.Second,
-		WriteTimeout:            234 * time.Second,
-		KeepAliveInterval:       345 * time.Second,
+		InitialTiming:           wantTiming,
+		LiveTiming:              wantTiming,
 		Debug:                   true,
 	}
 	gotTC := &TransmissionControl{}

@@ -165,12 +165,15 @@ func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, query
 	} else if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
 		seg := tcpoverdns.SegmentFromDNSQuery(numDomainLabels, name)
+		emptySegment := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
 		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
 			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "received a malformed TCP-over-DNS segment")
+			respBody, _ = TCPOverDNSSegmentResponse(header, question, emptySegment.DNSResource())
 			return
 		}
 		respSegment, hasResp := daemon.tcpProxy.Receive(seg)
 		if !hasResp {
+			respBody, _ = TCPOverDNSSegmentResponse(header, question, emptySegment.DNSResource())
 			return
 		}
 		var err error

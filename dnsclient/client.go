@@ -61,6 +61,7 @@ func (conn *ProxiedConnection) Start() error {
 		}
 		if latest.Flags.Has(tcpoverdns.FlagAckOnly) || latest.Flags.Has(tcpoverdns.FlagKeepAlive) {
 			// Substitute the ack-only or keep-alive segment with the latest.
+			// These segments may contain random data that are not useful.
 			if conn.client.Debug {
 				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", seg)
 			}
@@ -105,12 +106,12 @@ func (conn *ProxiedConnection) Start() error {
 			// Turn the segment into a DNS query and send the query out
 			// (data.data.data.example.com).
 			if conn.client.Debug {
-				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %v", outgoingSeg)
+				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %+v", outgoingSeg)
 			}
 			addrs, err = resolver.LookupIP(conn.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 			if err != nil {
 				conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
-				conn.tc.IncreaseKeepAliveInterval()
+				conn.tc.IncreaseTimingInterval()
 				goto busyWaitInterval
 			}
 			// Decode a segment from DNS query response and give it to the local
@@ -123,16 +124,16 @@ func (conn *ProxiedConnection) Start() error {
 				if incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
 					// Increase the timing interval interval with each input
 					// segment that does not carry data.
-					conn.tc.IncreaseKeepAliveInterval()
+					conn.tc.IncreaseTimingInterval()
 				} else {
 					// Decrease the timing interval with each input segment that
 					// carries data. This helps to temporarily increase the
 					// throughput.
-					conn.tc.DecreaseKeepAliveInterval()
+					conn.tc.DecreaseTimingInterval()
 				}
 				if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
 					conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
-					conn.tc.IncreaseKeepAliveInterval()
+					conn.tc.IncreaseTimingInterval()
 					goto busyWaitInterval
 				}
 			}
@@ -146,7 +147,7 @@ func (conn *ProxiedConnection) Start() error {
 			}
 			// Wait for keep-alive interval.
 			select {
-			case <-time.After(time.Duration(conn.tc.LiveKeepAliveInterval())):
+			case <-time.After(time.Duration(conn.tc.LiveTimingInterval().KeepAliveInterval)):
 			case <-conn.context.Done():
 				return
 			}
@@ -222,9 +223,9 @@ func (client *Client) Initialise(ctx context.Context) error {
 		DialContext:           client.dialContext,
 		ForceAttemptHTTP2:     false,
 		MaxIdleConns:          100,
-		IdleConnTimeout:       time.Duration(client.Config.IOTimeoutSec) * time.Second,
-		TLSHandshakeTimeout:   time.Duration(client.Config.IOTimeoutSec) * time.Second,
-		ExpectContinueTimeout: time.Duration(client.Config.IOTimeoutSec) * time.Second,
+		IdleConnTimeout:       client.Config.Timing.ReadTimeout,
+		TLSHandshakeTimeout:   client.Config.Timing.ReadTimeout,
+		ExpectContinueTimeout: client.Config.Timing.ReadTimeout,
 	}
 	return nil
 }
@@ -301,8 +302,8 @@ func (client *Client) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		// Keep the buffer to minimum to improve responsiveness.
 		// The buffer size has nothing to do with segment size.
-		go misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, 1, dstConn, reqConn)
-		misc.PipeConn(client.logger, true, time.Duration(client.Config.IOTimeoutSec)*time.Second, 1, reqConn, dstConn)
+		go misc.PipeConn(client.logger, true, client.Config.Timing.ReadTimeout, 1, dstConn, reqConn)
+		misc.PipeConn(client.logger, true, client.Config.Timing.ReadTimeout, 1, reqConn, dstConn)
 	default:
 		// Execute the request as-is without handling higher-level mechanisms such as cookies and redirects
 		resp, err := client.httpTransport.RoundTrip(r)
@@ -330,8 +331,8 @@ func (client *Client) StartAndBlock() error {
 	client.httpServer = &http.Server{
 		Addr:         net.JoinHostPort(client.Address, strconv.Itoa(client.Port)),
 		Handler:      client.proxyHandlerWithMiddleware,
-		ReadTimeout:  time.Duration(client.Config.IOTimeoutSec) * time.Second,
-		WriteTimeout: time.Duration(client.Config.IOTimeoutSec) * time.Second,
+		ReadTimeout:  client.Config.Timing.ReadTimeout,
+		WriteTimeout: client.Config.Timing.WriteTimeout,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 	client.logger.Info("StartAndBlock", "", nil, "starting now")

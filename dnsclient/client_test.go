@@ -46,8 +46,14 @@ func TestClient_HTTP(t *testing.T) {
 			// The max size of DNS query response should be 512 bytes, but the
 			// localhost communication does not mind a little extra.
 			MaxSegmentLenExclHeader: 120,
-			IOTimeoutSec:            100,
-			KeepAliveIntervalSec:    1,
+			Timing: tcpoverdns.TimingConfig{
+				ReadTimeout:               120 * time.Second,
+				WriteTimeout:              120 * time.Second,
+				RetransmissionInterval:    15 * time.Second,
+				SlidingWindowWaitDuration: 5 * time.Second,
+				KeepAliveInterval:         1000 * time.Millisecond,
+				AckDelay:                  500 * time.Millisecond,
+			},
 		},
 		Debug:           true,
 		DNSResolverAddr: dnsProxyServer.Address,

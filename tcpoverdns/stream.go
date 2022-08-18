@@ -54,6 +54,12 @@ type TransmissionControl struct {
 	// handshake (SYN) segment. It must be shorter than MaxSegmentLenExclHeader
 	// minus InitiatorConfigLen.
 	InitiatorSegmentData []byte
+	// InitialTiming has the initial timing characteristics of this transmission
+	// control without runtime adjustments.
+	InitialTiming TimingConfig
+	// InitialTiming has the live timing characteristics of this transmission
+	// control including runtime adjustments.
+	LiveTiming TimingConfig
 
 	// lastOutputSyn is the timestamp of the latest outbound segment with with
 	// syn flag (used for handhsake).
@@ -69,11 +75,6 @@ type TransmissionControl struct {
 	// OutputSegmentCallback (optional) is invoked for each outbound segment as
 	// they are written to output transport.
 	OutputSegmentCallback func(Segment)
-
-	// ReadTimeout specifies a time limit for the Read function.
-	ReadTimeout time.Duration
-	// WriteTimeout specifies a time limit for the Write function.
-	WriteTimeout time.Duration
 
 	context   context.Context
 	cancelFun func()
@@ -91,25 +92,10 @@ type TransmissionControl struct {
 	// direction without receiving acknowledge from the peer.
 	// This number is comparable to the TCP flow control sliding window.
 	MaxSlidingWindow uint32
-	// SlidingWindowWaitDuration is a short duration to wait the peer's
-	// acknowledgement before this transmission control sends more data to the
-	// output transport.
-	SlidingWindowWaitDuration time.Duration
-	// RetransmissionInterval is a short duration to wait before re-transmitting
-	// the unacknowledged outbound segments (if any).
-	RetransmissionInterval time.Duration
 	// MaxRetransmissions is the maximum number of retransmissions that can be
 	// made for handshake and data segments before the transmission control is
 	// irreversably closed.
 	MaxRetransmissions int
-	// KeepAliveInterval is a short duration to wait before transmitting an
-	// outbound ack segment in the absence of outbound data.
-	// This internal must be longer than the peer's retransmission interval.
-	KeepAliveInterval time.Duration
-	// liveKeepAliveInterval is used for internal timing, it starts off equal to
-	// KeepAliveInterval, and may increase or decrease depending on the
-	// bandwidth needs of this transmission control's owner.
-	liveKeepAliveInterval time.Duration
 	// MaxTransportErrors is the maximum number of consecutive errors to
 	// tolerate from input and output transports before closing down the
 	// transmission control.
@@ -121,14 +107,6 @@ type TransmissionControl struct {
 	// without being properly closed/terminated.
 	MaxLifetime time.Duration
 
-	// AckDelay is a short delay between receiving the latest segment and
-	// sending an outbound acknowledgement-only segment.
-	// It should shorter than the retransmission interval by a magnitude.
-	AckDelay time.Duration
-	// liveAckDelay is used for internal timing, it starts off equal to
-	// AckDelay, and may increase or decrease depending on the bandwidth needs
-	// of this transmission control's owner.
-	liveAckDelay time.Duration
 	// lastAckOnlySeg is the timestamp of the latest acknowledgment-only segment
 	// (i.e. delayed ack or keep-alive) sent to the output transport.
 	lastAckOnlySeg time.Time
@@ -172,34 +150,12 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	if tc.state == StateClosed {
 		panic("caller may not restart an already stopped transmission control")
 	}
-	// Give parameters a default value.
+	// Give all parameters a default value.
 	if tc.MaxSegmentLenExclHeader == 0 {
 		tc.MaxSegmentLenExclHeader = 256
 	}
-	if tc.ReadTimeout == 0 {
-		tc.ReadTimeout = 20 * time.Second
-	}
-	if tc.WriteTimeout == 0 {
-		tc.WriteTimeout = 20 * time.Second
-	}
 	if tc.MaxSlidingWindow == 0 {
-		tc.MaxSlidingWindow = 4 * 256
-	}
-	if tc.RetransmissionInterval == 0 {
-		// 10 seconds
-		tc.RetransmissionInterval = tc.ReadTimeout / 2
-	}
-	if tc.KeepAliveInterval == 0 {
-		// 5 seconds
-		tc.KeepAliveInterval = tc.RetransmissionInterval / 2
-	}
-	if tc.SlidingWindowWaitDuration == 0 {
-		// 3 seconds
-		tc.SlidingWindowWaitDuration = tc.RetransmissionInterval / 3
-	}
-	if tc.AckDelay == 0 {
-		// 1 second
-		tc.AckDelay = tc.SlidingWindowWaitDuration / 3
+		tc.MaxSlidingWindow = 4 * uint32(tc.MaxSegmentLenExclHeader)
 	}
 	if tc.MaxRetransmissions == 0 {
 		tc.MaxRetransmissions = 3
@@ -211,8 +167,29 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 		tc.MaxLifetime = 30 * time.Minute
 	}
 
-	tc.liveAckDelay = tc.AckDelay
-	tc.liveKeepAliveInterval = tc.KeepAliveInterval
+	if tc.InitialTiming.ReadTimeout == 0 {
+		tc.InitialTiming.ReadTimeout = 20 * time.Second
+	}
+	if tc.InitialTiming.WriteTimeout == 0 {
+		tc.InitialTiming.WriteTimeout = 20 * time.Second
+	}
+	if tc.InitialTiming.RetransmissionInterval == 0 {
+		// 10 seconds
+		tc.InitialTiming.RetransmissionInterval = tc.InitialTiming.ReadTimeout / 2
+	}
+	if tc.InitialTiming.KeepAliveInterval == 0 {
+		// 5 seconds
+		tc.InitialTiming.KeepAliveInterval = tc.InitialTiming.RetransmissionInterval / 2
+	}
+	if tc.InitialTiming.SlidingWindowWaitDuration == 0 {
+		// 3 seconds
+		tc.InitialTiming.SlidingWindowWaitDuration = tc.InitialTiming.RetransmissionInterval / 3
+	}
+	if tc.InitialTiming.AckDelay == 0 {
+		// 1 second
+		tc.InitialTiming.AckDelay = tc.InitialTiming.SlidingWindowWaitDuration / 3
+	}
+	tc.LiveTiming = tc.InitialTiming
 
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
 	tc.lastInputAck = time.Now()
@@ -240,7 +217,7 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 		// Wait for peer to acknowledge before sending more.
 		if tc.State() == StateClosed {
 			return 0, io.EOF
-		} else if time.Since(start) < tc.WriteTimeout {
+		} else if time.Since(start) < tc.LiveTiming.WriteTimeout {
 			<-time.After(BusyWaitInterval)
 			continue
 		} else {
@@ -318,7 +295,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				switch instant.state {
 				case StateEmpty:
 					// Got nothing yet, send SYN.
-					if time.Since(instant.lastOutputSyn) < tc.RetransmissionInterval {
+					if time.Since(instant.lastOutputSyn) < instant.LiveTiming.RetransmissionInterval {
 						// Avoid flooding the peer with repeated SYN.
 						continue
 					}
@@ -362,7 +339,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				switch instant.state {
 				case StateSynReceived:
 					// Got SYN, send ACK.
-					if time.Since(instant.lastOutputSyn) < tc.RetransmissionInterval {
+					if time.Since(instant.lastOutputSyn) < instant.LiveTiming.RetransmissionInterval {
 						// Avoid flooding the peer with repeated ACK.
 						continue
 					}
@@ -381,7 +358,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					tc.mutex.Unlock()
 				}
 			}
-		} else if instant.state == StateEstablished && time.Since(instant.lastInputAck) > instant.RetransmissionInterval && instant.inputAck < instant.outputSeq {
+		} else if instant.state == StateEstablished && time.Since(instant.lastInputAck) > instant.LiveTiming.RetransmissionInterval && instant.inputAck < instant.outputSeq {
 			// Re-transmit the segments since the latest acknowledgement.
 			tc.mutex.Lock()
 			tc.ongoingRetransmissions++
@@ -400,12 +377,12 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			_ = tc.writeSegments(instant.inputSeq, instant.inputAck, instant.outputBuf[:instant.outputSeq-instant.inputAck], false)
 			// Wait a short duration before the next transmission.
 			select {
-			case <-time.After(tc.SlidingWindowWaitDuration):
+			case <-time.After(instant.LiveTiming.SlidingWindowWaitDuration):
 				continue
 			case <-tc.context.Done():
 				return
 			}
-		} else if time.Since(instant.lastInputAck) > instant.liveAckDelay && instant.lastAckOnlySeg.Before(instant.lastInputAck) && instant.inputSeq > 0 {
+		} else if time.Since(instant.lastInputAck) > instant.LiveTiming.AckDelay && instant.lastAckOnlySeg.Before(instant.lastInputAck) && instant.inputSeq > 0 {
 			// Send a delayed ack segment.
 			emptySeg := Segment{
 				ID:     tc.ID,
@@ -421,7 +398,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			tc.mutex.Lock()
 			tc.lastAckOnlySeg = time.Now()
 			tc.mutex.Unlock()
-		} else if time.Since(instant.lastAckOnlySeg) > instant.liveKeepAliveInterval {
+		} else if time.Since(instant.lastAckOnlySeg) > instant.LiveTiming.KeepAliveInterval {
 			// Send an empty segment for keep-alive.
 			emptySeg := Segment{
 				ID:     tc.ID,
@@ -445,7 +422,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					instant.outputSeq, instant.inputAck, tc.MaxSlidingWindow)
 			}
 			select {
-			case <-time.After(tc.SlidingWindowWaitDuration):
+			case <-time.After(instant.LiveTiming.SlidingWindowWaitDuration):
 				continue
 			case <-tc.context.Done():
 				return
@@ -534,7 +511,7 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 			return readLen, nil
 		} else if tc.State() == StateClosed {
 			return readLen, io.EOF
-		} else if time.Since(start) < tc.ReadTimeout {
+		} else if time.Since(start) < tc.LiveTiming.ReadTimeout {
 			// Wait for more input data to arrive and then retry.
 			<-time.After(BusyWaitInterval)
 		} else {
@@ -876,53 +853,41 @@ func (tc *TransmissionControl) SetReadDeadline(t time.Time) error { return nil }
 // SetWriteDeadline always returns nil.
 func (tc *TransmissionControl) SetWriteDeadline(t time.Time) error { return nil }
 
-// DecreaseKeepAliveInterval decreases the keep-alive interval and the ack-only
-// delay. In the context of TCP-over-DNS tunneling, this means increasing the
+// DecreaseTimingInterval decreases the timing interval numbers to half.
+// In the context of TCP-over-DNS tunneling, this means an increase of the
 // throughput of the TCP-over-DNS proxy client.
-func (tc *TransmissionControl) DecreaseKeepAliveInterval() {
+func (tc *TransmissionControl) DecreaseTimingInterval() {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
-	if tc.liveKeepAliveInterval < tc.KeepAliveInterval/10 {
+	if tc.LiveTiming.KeepAliveInterval < tc.InitialTiming.KeepAliveInterval/10 {
 		return
 	}
-	tc.liveKeepAliveInterval /= 2
-	tc.liveAckDelay /= 2
+	tc.LiveTiming.HalfInterval()
 	if tc.Debug {
-		tc.Logger.Info("DecreaseKeepAliveInterval", "", nil, "keep-alive is now %v", tc.liveKeepAliveInterval)
+		tc.Logger.Info("DecreaseTimingInterval", "", nil, "timing is now %+v", tc.LiveTiming)
 	}
 }
 
-// IncreaseKeepAliveInterval increases the keep-alive interval and the ack-only
-// delay. In the context of TCP-over-DNS tunneling, this means decreasing the
+// IncreaseTimingInterval increases the timing interval numbers by doubling
+// them. In the context of TCP-over-DNS tunneling, this means a decrease of the
 // throughput of the TCP-over-DNS proxy client.
-func (tc *TransmissionControl) IncreaseKeepAliveInterval() {
+func (tc *TransmissionControl) IncreaseTimingInterval() {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
-	tc.liveKeepAliveInterval *= 2
-	tc.liveAckDelay *= 2
-	if tc.liveKeepAliveInterval > tc.KeepAliveInterval {
-		tc.liveKeepAliveInterval = tc.KeepAliveInterval
+	if tc.LiveTiming.KeepAliveInterval*2 > tc.InitialTiming.KeepAliveInterval {
+		return
 	}
-	if tc.liveAckDelay > tc.AckDelay {
-		tc.liveAckDelay = tc.AckDelay
-	}
+	tc.LiveTiming.DoubleInterval()
 	if tc.Debug {
-		tc.Logger.Info("IncreaseKeepAliveInterval", "", nil, "keep-alive is now %v", tc.liveKeepAliveInterval)
+		tc.Logger.Info("IncreaseTimingInterval", "", nil, "timing is now %+v", tc.LiveTiming)
 	}
 }
 
-// LiveKeepAliveInterval returns the latest live keep-alive interval.
-func (tc *TransmissionControl) LiveKeepAliveInterval() time.Duration {
+// LiveTimingInterval returns the live timing interval characteristics.
+func (tc *TransmissionControl) LiveTimingInterval() TimingConfig {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
-	return tc.liveKeepAliveInterval
-}
-
-// liveAckDelay returns the latest live ack-delay.
-func (tc *TransmissionControl) LiveAckDelay() time.Duration {
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-	return tc.liveAckDelay
+	return tc.LiveTiming
 }
 
 // readInput reads from transmission control's input transport for a total

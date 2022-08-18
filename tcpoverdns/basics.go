@@ -303,8 +303,45 @@ func DecompressBytes(compressed []byte) (original []byte, err error) {
 
 const (
 	// InitiatorConfigLen is the length of the serialised InitiatorConfig.
-	InitiatorConfigLen = 8
+	InitiatorConfigLen = 28
 )
+
+// TimingConfig has the timing characteristics of a transmission control.
+type TimingConfig struct {
+	// SlidingWindowWaitDuration is a short duration to wait the peer's
+	// acknowledgement before this transmission control sends more data to the
+	// output transport.
+	SlidingWindowWaitDuration time.Duration
+	// RetransmissionInterval is a short duration to wait before re-transmitting
+	// the unacknowledged outbound segments (if any).
+	RetransmissionInterval time.Duration
+	// AckDelay is a short delay between receiving the latest segment and
+	// sending an outbound acknowledgement-only segment.
+	// It should shorter than the retransmission interval by a magnitude.
+	AckDelay time.Duration
+	// KeepAliveInterval is a short duration to wait before transmitting an
+	// outbound ack segment in the absence of outbound data.
+	// This internal must be longer than the peer's retransmission interval.
+	KeepAliveInterval time.Duration
+	// ReadTimeout specifies a time limit for the Read function.
+	ReadTimeout time.Duration
+	// WriteTimeout specifies a time limit for the Write function.
+	WriteTimeout time.Duration
+}
+
+// HalfInterval divides all interval timing attributes by half.
+func (conf *TimingConfig) HalfInterval() {
+	conf.SlidingWindowWaitDuration /= 2
+	conf.AckDelay /= 2
+	conf.KeepAliveInterval /= 2
+}
+
+// DoubleInterval doubles all interval timing attributes.
+func (conf *TimingConfig) DoubleInterval() {
+	conf.SlidingWindowWaitDuration *= 2
+	conf.AckDelay *= 2
+	conf.KeepAliveInterval *= 2
+}
 
 // InitiatorConfig is a small piece of binary data inserted into the initiator's
 // handshake segment during the handshake. The parameters help configure the
@@ -316,13 +353,11 @@ type InitiatorConfig struct {
 	// MaxSegmentLenExclHeader is the maximum length of the data portion in an
 	// outgoing segment, the length excludes the headers.
 	MaxSegmentLenExclHeader int
-	// IOTimeoutSec is the time limit (in seconds) for both read and write
-	// functions.
-	IOTimeoutSec int
-	// KeepAliveIntervalSec is the keep alive interval in seconds.
-	KeepAliveIntervalSec int
-	// Debug asks the transmission control to turn on debug logging.
+	// Debug enables verbose logging for IO activities.
 	Debug bool
+	// Timing configures the transmission control's timing
+	// characteristics.
+	Timing TimingConfig
 }
 
 // Bytes returns the binary data representation of the configuration parameters.
@@ -331,12 +366,17 @@ func (conf *InitiatorConfig) Bytes() []byte {
 	if conf.SetConfig {
 		ret[0] = 1
 	}
-	binary.BigEndian.PutUint16(ret[1:3], uint16(conf.MaxSegmentLenExclHeader))
-	binary.BigEndian.PutUint16(ret[3:5], uint16(conf.IOTimeoutSec))
-	binary.BigEndian.PutUint16(ret[5:7], uint16(conf.KeepAliveIntervalSec))
 	if conf.Debug {
-		ret[7] = 1
+		ret[1] = 1
 	}
+	binary.BigEndian.PutUint16(ret[2:4], uint16(conf.MaxSegmentLenExclHeader))
+	// For timing configuration, round to the nearest milliseconds.
+	binary.BigEndian.PutUint32(ret[4:8], uint32(conf.Timing.SlidingWindowWaitDuration/time.Millisecond))
+	binary.BigEndian.PutUint32(ret[8:12], uint32(conf.Timing.RetransmissionInterval/time.Millisecond))
+	binary.BigEndian.PutUint32(ret[12:16], uint32(conf.Timing.AckDelay/time.Millisecond))
+	binary.BigEndian.PutUint32(ret[16:20], uint32(conf.Timing.ReadTimeout/time.Millisecond))
+	binary.BigEndian.PutUint32(ret[20:24], uint32(conf.Timing.WriteTimeout/time.Millisecond))
+	binary.BigEndian.PutUint32(ret[24:28], uint32(conf.Timing.KeepAliveInterval/time.Millisecond))
 	return ret
 }
 
@@ -347,10 +387,11 @@ func (conf *InitiatorConfig) Config(tc *TransmissionControl) {
 			tc.MaxSegmentLenExclHeader = conf.MaxSegmentLenExclHeader
 			tc.MaxSlidingWindow = uint32(4 * conf.MaxSegmentLenExclHeader)
 		}
-		tc.ReadTimeout = time.Duration(conf.IOTimeoutSec) * time.Second
-		tc.WriteTimeout = tc.ReadTimeout
-		tc.KeepAliveInterval = time.Duration(conf.KeepAliveIntervalSec) * time.Second
 		tc.Debug = conf.Debug || tc.Debug
+		if conf.Timing.ReadTimeout > 0 {
+			tc.InitialTiming = conf.Timing
+			tc.LiveTiming = conf.Timing
+		}
 	}
 }
 
@@ -359,10 +400,15 @@ func (conf *InitiatorConfig) Config(tc *TransmissionControl) {
 func DeserialiseInitiatorConfig(in []byte) *InitiatorConfig {
 	ret := new(InitiatorConfig)
 	ret.SetConfig = in[0] == 1
-	ret.MaxSegmentLenExclHeader = int(binary.BigEndian.Uint16(in[1:3]))
-	ret.IOTimeoutSec = int(binary.BigEndian.Uint16(in[3:5]))
-	ret.KeepAliveIntervalSec = int(binary.BigEndian.Uint16(in[5:7]))
-	ret.Debug = in[7] == 1
+	ret.Debug = in[1] == 1
+	ret.MaxSegmentLenExclHeader = int(binary.BigEndian.Uint16(in[2:4]))
+	// All timing configuration are in milliseconds.
+	ret.Timing.SlidingWindowWaitDuration = time.Duration(binary.BigEndian.Uint32(in[4:8])) * time.Millisecond
+	ret.Timing.RetransmissionInterval = time.Duration(binary.BigEndian.Uint32(in[8:12])) * time.Millisecond
+	ret.Timing.AckDelay = time.Duration(binary.BigEndian.Uint32(in[12:16])) * time.Millisecond
+	ret.Timing.ReadTimeout = time.Duration(binary.BigEndian.Uint32(in[16:20])) * time.Millisecond
+	ret.Timing.WriteTimeout = time.Duration(binary.BigEndian.Uint32(in[20:24])) * time.Millisecond
+	ret.Timing.KeepAliveInterval = time.Duration(binary.BigEndian.Uint32(in[24:28])) * time.Millisecond
 	return ret
 }
 

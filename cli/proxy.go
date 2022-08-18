@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/dnsclient"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -21,10 +22,16 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 		Port:    port,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
-			Debug:                   debug,
-			IOTimeoutSec:            10 * 60,
-			KeepAliveIntervalSec:    1,
 			MaxSegmentLenExclHeader: proxySegLen,
+			Debug:                   debug,
+			Timing: tcpoverdns.TimingConfig{
+				ReadTimeout:               120 * time.Second,
+				WriteTimeout:              120 * time.Second,
+				RetransmissionInterval:    15 * time.Second,
+				SlidingWindowWaitDuration: 5 * time.Second,
+				KeepAliveInterval:         1500 * time.Millisecond,
+				AckDelay:                  500 * time.Millisecond,
+			},
 		},
 		Debug:           debug,
 		DNSResolverAddr: resolverAddr,

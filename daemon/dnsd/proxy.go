@@ -83,6 +83,7 @@ func (conn *ProxyConnection) Start() {
 		}
 		if latest.Flags.Has(tcpoverdns.FlagAckOnly) || latest.Flags.Has(tcpoverdns.FlagKeepAlive) {
 			// Substitute the ack-only or keep-alive segment with the latest.
+			// These segments may contain random data that are not useful.
 			if conn.proxy.Debug {
 				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", seg)
 			}

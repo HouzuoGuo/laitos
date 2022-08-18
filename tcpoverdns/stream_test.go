@@ -22,8 +22,10 @@ func TestTransmissionControl_InboundSegments_ReadNothing(t *testing.T) {
 		Debug:           true,
 		InputTransport:  inTransport,
 		OutputTransport: outTransport,
-		ReadTimeout:     3 * time.Second,
-		state:           StateEstablished,
+		InitialTiming: TimingConfig{
+			ReadTimeout: 3 * time.Second,
+		},
+		state: StateEstablished,
 	}
 	tc.Start(context.Background())
 	// The next read times out due to lack of further input segments.
@@ -84,8 +86,10 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
 		MaxSlidingWindow:        10,
-		ReadTimeout:             3 * time.Second,
-		state:                   StateEstablished,
+		InitialTiming: TimingConfig{
+			ReadTimeout: 3 * time.Second,
+		},
+		state: StateEstablished,
 	}
 	tc.Start(context.Background())
 	for i := byte(0); i < 10; i++ {
@@ -104,7 +108,7 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 		if nRead != 3 || err != nil || !reflect.DeepEqual(readBuf[:nRead], []byte{i, i, i}) {
 			t.Fatalf("read n: %v, err: %+#v, buf: %+v", nRead, err, readBuf)
 		}
-		if tc.inputSeq != uint32(i+1)*3 || time.Since(tc.lastInputAck) > tc.ReadTimeout*2 {
+		if tc.inputSeq != uint32(i+1)*3 || time.Since(tc.lastInputAck) > tc.LiveTiming.ReadTimeout*2 {
 			t.Fatalf("input seq: %v, last input ack: %+v", tc.inputSeq, tc.lastInputAck)
 		}
 	}
@@ -125,8 +129,10 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		ReadTimeout:             2 * time.Second,
-		state:                   StateEstablished,
+		InitialTiming: TimingConfig{
+			ReadTimeout: 2 * time.Second,
+		},
+		state: StateEstablished,
 	}
 	tc.Start(context.Background())
 	var wantData []byte
@@ -148,7 +154,7 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(gotData, wantData) {
 		t.Fatalf("read err: %+#v, got: %+v", err, gotData)
 	}
-	if tc.inputSeq != 30 || time.Since(tc.lastInputAck) > tc.ReadTimeout {
+	if tc.inputSeq != 30 || time.Since(tc.lastInputAck) > tc.LiveTiming.ReadTimeout {
 		t.Fatalf("input seq: %v, last input ack: %+v", tc.inputSeq, tc.lastInputAck)
 	}
 	// The next read times out due to lack of further input segments.
@@ -171,8 +177,10 @@ func TestTransmissionControl_OutboundSegments_WriteNothing(t *testing.T) {
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
 		// This test is not concerned with keep-alive.
-		KeepAliveInterval: 999 * time.Second,
-		state:             StateEstablished,
+		InitialTiming: TimingConfig{
+			KeepAliveInterval: 999 * time.Second,
+		},
+		state: StateEstablished,
 	}
 	tc.Start(context.Background())
 	n, err := tc.Write([]byte{})
@@ -209,9 +217,11 @@ func TestTransmissionControl_OutboundSegments_Callback(t *testing.T) {
 			callBackSegments <- seg
 		},
 		// Leave retransmission, keep-alive, and delayed ack out of this test.
-		KeepAliveInterval:      999 * time.Second,
-		RetransmissionInterval: 999 * time.Second,
-		AckDelay:               999 * time.Second,
+		InitialTiming: TimingConfig{
+			KeepAliveInterval:      999 * time.Second,
+			RetransmissionInterval: 999 * time.Second,
+			AckDelay:               999 * time.Second,
+		},
 	}
 	tc.Start(context.Background())
 	n, err := tc.Write([]byte{0, 1, 2, 3, 4, 5})
@@ -333,13 +343,15 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		// Leave the retransmission interval short to shorten the test case
-		// execution.
-		RetransmissionInterval: 1 * time.Second,
-		// This test is not concerned with keep-alive.
-		KeepAliveInterval:  999 * time.Second,
+		InitialTiming: TimingConfig{
+			// Leave the retransmission interval short to shorten the test case
+			// execution.
+			RetransmissionInterval: 1 * time.Second,
+			// This test is not concerned with keep-alive.
+			KeepAliveInterval: 999 * time.Second,
+			ReadTimeout:       2 * time.Second,
+		},
 		MaxRetransmissions: 3,
-		ReadTimeout:        2 * time.Second,
 		state:              StateEstablished,
 	}
 	tc.Start(context.Background())
@@ -401,7 +413,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 			t.Fatalf("got retrans seg %+#v, want %+#v", gotSeg, wantSeg)
 		}
 	}
-	time.Sleep(tc.SlidingWindowWaitDuration * 2)
+	time.Sleep(tc.LiveTiming.SlidingWindowWaitDuration * 2)
 	// The TC is closed after exhausting all retransmission attempts.
 	CheckTC(t, tc, 5, StateClosed, 0, 3, 3+3, nil, []byte{2, 2, 2})
 	CheckTCError(t, tc, 5, 3, 0, 0)
@@ -416,11 +428,13 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t 
 		InputTransport:          inTransport,
 		OutputTransport:         io.Discard,
 		// Leave sliding window sufficient small for this test.
-		MaxSlidingWindow:          5,
-		SlidingWindowWaitDuration: 1 * time.Second,
-		RetransmissionInterval:    30 * time.Second,
-		WriteTimeout:              5 * time.Second,
-		state:                     StateEstablished,
+		MaxSlidingWindow: 5,
+		InitialTiming: TimingConfig{
+			SlidingWindowWaitDuration: 1 * time.Second,
+			RetransmissionInterval:    30 * time.Second,
+			WriteTimeout:              5 * time.Second,
+		},
+		state: StateEstablished,
 	}
 	tc.Start(context.Background())
 
@@ -430,7 +444,7 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t 
 	if n != 5 || err != nil {
 		t.Fatalf("write n %v, %+v", n, err)
 	}
-	if time.Since(start) > tc.WriteTimeout/3 {
+	if time.Since(start) > tc.LiveTiming.WriteTimeout/3 {
 		t.Fatalf("write took unusually long to complete")
 	}
 	// The second write operation times out and does nothing.
@@ -453,16 +467,18 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithAck(t *te
 		OutputTransport:         outTransport,
 		// Leave sliding window sufficient small for this test.
 		MaxSlidingWindow: 5,
-		// Keep the sliding window wait duration short to shorten the test case
-		// execution.
-		SlidingWindowWaitDuration: 1 * time.Second,
-		// Leave retransmission, keep-alive, and delayed ack out of this test.
-		KeepAliveInterval:      999 * time.Second,
-		RetransmissionInterval: 999 * time.Second,
-		AckDelay:               999 * time.Second,
-		ReadTimeout:            5 * time.Second,
-		WriteTimeout:           5 * time.Second,
-		state:                  StateEstablished,
+		InitialTiming: TimingConfig{
+			// Keep the sliding window wait duration short to shorten the test case
+			// execution.
+			SlidingWindowWaitDuration: 1 * time.Second,
+			// Leave retransmission, keep-alive, and delayed ack out of this test.
+			KeepAliveInterval:      999 * time.Second,
+			RetransmissionInterval: 999 * time.Second,
+			AckDelay:               999 * time.Second,
+			ReadTimeout:            5 * time.Second,
+			WriteTimeout:           5 * time.Second,
+		},
+		state: StateEstablished,
 	}
 	tc.Start(context.Background())
 
@@ -557,7 +573,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 	if !reflect.DeepEqual(gotSeg, wantSeg) {
 		t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
 	}
-	if time.Since(start) < tc.KeepAliveInterval {
+	if time.Since(start) < tc.LiveTiming.KeepAliveInterval {
 		t.Fatalf("keep alive came too early")
 	}
 
@@ -584,7 +600,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 		tc.DumpState()
 		t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
 	}
-	if time.Since(start) < tc.AckDelay || time.Since(start) > tc.KeepAliveInterval {
+	if time.Since(start) < tc.LiveTiming.AckDelay || time.Since(start) > tc.LiveTiming.KeepAliveInterval {
 		tc.DumpState()
 		t.Fatalf("delayed ack came too early or too late")
 	}
@@ -605,7 +621,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 			tc.DumpState()
 			t.Fatalf("got seg: %+v want: %+v", gotSeg, wantSeg)
 		}
-		if time.Since(start) < tc.KeepAliveInterval {
+		if time.Since(start) < tc.LiveTiming.KeepAliveInterval {
 			tc.DumpState()
 			t.Fatalf("keep alive came too early")
 		}
@@ -620,8 +636,11 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	conf := InitiatorConfig{
 		SetConfig:               true,
 		MaxSegmentLenExclHeader: 111,
-		IOTimeoutSec:            222,
-		KeepAliveIntervalSec:    333,
+		Timing: TimingConfig{
+			ReadTimeout:       100 * time.Second,
+			WriteTimeout:      100 * time.Second,
+			KeepAliveInterval: 333 * time.Second,
+		},
 	}
 	tc := &TransmissionControl{
 		ID:                      1111,
@@ -629,12 +648,14 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		ReadTimeout:             2 * time.Second,
-		WriteTimeout:            2 * time.Second,
-		Initiator:               true,
-		InitiatorConfig:         conf,
-		InitiatorSegmentData:    []byte{3, 2, 1},
-		RetransmissionInterval:  5 * time.Second,
+		InitialTiming: TimingConfig{
+			ReadTimeout:            2 * time.Second,
+			WriteTimeout:           2 * time.Second,
+			RetransmissionInterval: 5 * time.Second,
+		},
+		Initiator:            true,
+		InitiatorConfig:      conf,
+		InitiatorSegmentData: []byte{3, 2, 1},
 	}
 	tc.Start(context.Background())
 
@@ -688,9 +709,11 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		ReadTimeout:             2 * time.Second,
-		WriteTimeout:            2 * time.Second,
-		RetransmissionInterval:  5 * time.Second,
+		InitialTiming: TimingConfig{
+			ReadTimeout:            2 * time.Second,
+			WriteTimeout:           2 * time.Second,
+			RetransmissionInterval: 5 * time.Second,
+		},
 	}
 	tc.Start(context.Background())
 
@@ -737,11 +760,20 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	rightIn, rightInTransport := net.Pipe()
 	start := time.Now()
 
+	wantTiming := TimingConfig{
+		SlidingWindowWaitDuration: 1000 * time.Millisecond,
+		RetransmissionInterval:    1234 * time.Millisecond,
+		AckDelay:                  3456 * time.Millisecond,
+		KeepAliveInterval:         4567 * time.Millisecond,
+		ReadTimeout:               5678 * time.Millisecond,
+		WriteTimeout:              7890 * time.Millisecond,
+	}
+
 	conf := InitiatorConfig{
 		SetConfig:               true,
 		MaxSegmentLenExclHeader: 111,
-		IOTimeoutSec:            222,
-		KeepAliveIntervalSec:    333,
+		Debug:                   false,
+		Timing:                  wantTiming,
 	}
 	leftTC := &TransmissionControl{
 		Debug:                true,
@@ -770,7 +802,7 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 
 	waitForState(t, leftTC, 10, StateEstablished)
 	waitForState(t, rightTC, 10, StateEstablished)
-	if time.Since(start) > leftTC.RetransmissionInterval/2 {
+	if time.Since(start) > leftTC.LiveTiming.RetransmissionInterval/2 {
 		t.Fatalf("the handshake took unusually long")
 	}
 	if leftTC.slidingWindowFull() {
@@ -786,8 +818,11 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	CheckTCError(t, rightTC, 1, 0, 0, 0)
 
 	// Check TC configuration.
-	if rightTC.MaxSegmentLenExclHeader != 111 || rightTC.ReadTimeout != 222*time.Second || rightTC.WriteTimeout != 222*time.Second || rightTC.KeepAliveInterval != 333*time.Second {
-		t.Fatalf("did not configure tc: %+#v", rightTC)
+	if !reflect.DeepEqual(rightTC.InitialTiming, wantTiming) {
+		t.Fatalf("got: %+v, want: %+v", rightTC.InitialTiming, wantTiming)
+	}
+	if !reflect.DeepEqual(rightTC.LiveTiming, wantTiming) {
+		t.Fatalf("got: %+v, want: %+v", rightTC.LiveTiming, wantTiming)
 	}
 }
 
@@ -1023,57 +1058,59 @@ func TestRuntimeIntervalConfig(t *testing.T) {
 	_, inTransport := net.Pipe()
 	_, outTransport := net.Pipe()
 	tc := &TransmissionControl{
-		state:             StateEstablished,
-		Debug:             true,
-		InputTransport:    inTransport,
-		OutputTransport:   outTransport,
-		MaxLifetime:       1 * time.Second,
-		AckDelay:          2 * time.Second,
-		KeepAliveInterval: 3 * time.Second,
+		state:           StateEstablished,
+		Debug:           true,
+		InputTransport:  inTransport,
+		OutputTransport: outTransport,
+		MaxLifetime:     1 * time.Second,
+		InitialTiming: TimingConfig{
+			AckDelay:          2 * time.Second,
+			KeepAliveInterval: 3 * time.Second,
+		},
 	}
 	tc.Start(context.Background())
-	if tc.LiveAckDelay() != tc.AckDelay {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
-	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
 	}
 
-	tc.DecreaseKeepAliveInterval()
-	tc.DecreaseKeepAliveInterval()
-	tc.DecreaseKeepAliveInterval()
-	tc.DecreaseKeepAliveInterval()
-	if tc.LiveAckDelay() != tc.AckDelay/16 {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	tc.DecreaseTimingInterval()
+	tc.DecreaseTimingInterval()
+	tc.DecreaseTimingInterval()
+	tc.DecreaseTimingInterval()
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/16 {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
-	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval/16 {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/16 {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
 	}
 	// It won't decrease any further
-	tc.DecreaseKeepAliveInterval()
-	if tc.LiveAckDelay() != tc.AckDelay/16 {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	tc.DecreaseTimingInterval()
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/16 {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
-	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval/16 {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/16 {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
 	}
 
-	tc.IncreaseKeepAliveInterval()
-	tc.IncreaseKeepAliveInterval()
-	tc.IncreaseKeepAliveInterval()
-	tc.IncreaseKeepAliveInterval()
-	if tc.LiveAckDelay() != tc.AckDelay {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	tc.IncreaseTimingInterval()
+	tc.IncreaseTimingInterval()
+	tc.IncreaseTimingInterval()
+	tc.IncreaseTimingInterval()
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
-	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval {
+		t.Fatalf("unexpected keep-alive delay, got  %v, want %v", tc.LiveTiming.AckDelay, tc.InitialTiming.AckDelay)
 	}
 	// It won't increase any further.
-	tc.IncreaseKeepAliveInterval()
-	if tc.LiveAckDelay() != tc.AckDelay {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveAckDelay())
+	tc.IncreaseTimingInterval()
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
-	if tc.LiveKeepAliveInterval() != tc.KeepAliveInterval {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveKeepAliveInterval())
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval {
+		t.Fatalf("unexpected keep-alive delay, got  %v, want %v", tc.LiveTiming.AckDelay, tc.InitialTiming.AckDelay)
 	}
 }
