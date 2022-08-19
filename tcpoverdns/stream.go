@@ -751,10 +751,6 @@ func (tc *TransmissionControl) writeToOutputTransport(seg Segment) error {
 		tc.outputTransportErrors = 0
 		tc.mutex.Unlock()
 		return nil
-	} else if err == io.EOF {
-		tc.mutex.Unlock()
-		_ = tc.Close()
-		return nil
 	} else {
 		tc.outputTransportErrors++
 		gotErrs := tc.outputTransportErrors

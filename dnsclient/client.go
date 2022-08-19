@@ -80,7 +80,8 @@ func (conn *ProxiedConnection) Start() error {
 	// Start transporting segments back and forth.
 	go func() {
 		resolver := &net.Resolver{
-			PreferGo: true,
+			PreferGo:     true,
+			StrictErrors: true,
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 				if conn.client.Debug {
 					conn.logger.Info("Start", "", nil, "dialing resolver %q %s:%d", network, conn.client.DNSResolverAddr, conn.client.DNSResovlerPort)

@@ -51,7 +51,7 @@ func TestClient_HTTP(t *testing.T) {
 				WriteTimeout:              120 * time.Second,
 				RetransmissionInterval:    15 * time.Second,
 				SlidingWindowWaitDuration: 5 * time.Second,
-				KeepAliveInterval:         1000 * time.Millisecond,
+				KeepAliveInterval:         1500 * time.Millisecond,
 				AckDelay:                  500 * time.Millisecond,
 			},
 		},
