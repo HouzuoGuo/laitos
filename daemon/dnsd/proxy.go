@@ -254,7 +254,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 		proxyIn, tcIn := net.Pipe()
 		tc := &tcpoverdns.TransmissionControl{
 			Debug:  proxy.Debug,
-			LogTag: "ProxyConn",
+			LogTag: "ProxyServer",
 			ID:     in.ID,
 			// This transmission control is a responder during the handshake.
 			Initiator:      false,

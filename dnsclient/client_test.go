@@ -83,7 +83,7 @@ func TestClient_HTTP(t *testing.T) {
 		proxyClient := &http.Client{Transport: &http.Transport{
 			Proxy: http.ProxyURL(proxyURL),
 		}}
-		resp, err := proxyClient.Get("http://neverssl.com")
+		resp, err := proxyClient.Get("http://hz.gl") // TODO FIXME: pick another site
 		if err != nil {
 			t.Fatal(err)
 		}

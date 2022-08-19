@@ -244,7 +244,7 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 	// Construct a client-side transmission control.
 	client.logger.Info("dialContext", fmt.Sprint(tcID), nil, "creating transmission control for %s", string(initiatorSegment))
 	tc := &tcpoverdns.TransmissionControl{
-		LogTag:               "dialContext",
+		LogTag:               "ProxyClient",
 		ID:                   uint16(rand.Int()),
 		Debug:                client.Debug,
 		InitiatorSegmentData: initiatorSegment,

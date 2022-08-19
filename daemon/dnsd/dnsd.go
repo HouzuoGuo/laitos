@@ -688,13 +688,25 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 	}
 	// If the query asked for an address, then the second RR is a dummy address
 	// to the CNAME.
-	if question.Type == dnsmessage.TypeA {
+	// There is no useful data in the address.
+	switch question.Type {
+	case dnsmessage.TypeA:
 		err := builder.AResource(dnsmessage.ResourceHeader{
 			Name:  dnsmessage.MustNewName(cname),
 			Class: dnsmessage.ClassINET,
 			TTL:   60,
-			// There is no useful data in the address.
 		}, dnsmessage.AResource{A: [4]byte{0, 0, 0, 0}})
+		if err != nil {
+			return nil, err
+		}
+	case dnsmessage.TypeAAAA:
+		err := builder.AAAAResource(dnsmessage.ResourceHeader{
+			Name:  dnsmessage.MustNewName(cname),
+			Class: dnsmessage.ClassINET,
+			TTL:   60,
+		}, dnsmessage.AAAAResource{
+			AAAA: [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		})
 		if err != nil {
 			return nil, err
 		}
