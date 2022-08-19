@@ -85,7 +85,7 @@ func (conn *ProxyConnection) Start() {
 			// Substitute the ack-only or keep-alive segment with the latest.
 			// These segments may contain random data that are not useful.
 			if conn.proxy.Debug {
-				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", seg)
+				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1])
 			}
 			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
 		} else if latest.Equals(seg) {

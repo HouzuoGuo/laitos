@@ -121,11 +121,12 @@ func (seg *Segment) Packet() (ret []byte) {
 	return
 }
 
-// DNSQuestion converts the binary representation of this segment into a DNS
-// query question - "prefix.seg.seg.seg...domainName".
+// DNSName converts the binary representation of this segment into a DNS name -
+// "prefix.seg.seg.seg...domainName". The return string does not have a suffix
+// period.
 // The function does not check whether the segment is sufficiently small for
 // the DNS protocol.
-func (seg *Segment) DNSQuestion(prefix, domainName string) dnsmessage.Question {
+func (seg *Segment) DNSName(prefix, domainName string) string {
 	// Compress the binary representation of the segment.
 	packet := seg.Packet()
 	compressed := CompressBytes(packet)
@@ -135,8 +136,16 @@ func (seg *Segment) DNSQuestion(prefix, domainName string) dnsmessage.Question {
 	// 63 is the maximum label length decided by the DNS protocol.
 	// But many recursive resolvers don't like long labels, so be conservative.
 	labels := misc.SplitIntoSlice(encoded, 60, MaxSegmentDataLen)
+	return fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)
+}
+
+// DNSQuestion converts the binary representation of this segment into a DNS
+// query question - "prefix.seg.seg.seg...domainName".
+// The function does not check whether the segment is sufficiently small for
+// the DNS protocol.
+func (seg *Segment) DNSQuestion(prefix, domainName string) dnsmessage.Question {
 	return dnsmessage.Question{
-		Name:  dnsmessage.MustNewName(fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)),
+		Name:  dnsmessage.MustNewName(seg.DNSName(prefix, domainName)),
 		Type:  dnsmessage.TypeA,
 		Class: dnsmessage.ClassINET,
 	}
@@ -223,19 +232,23 @@ func SegmentFromPacket(packet []byte) Segment {
 	return seg
 }
 
-// SegmentFromDNSQuery decodes a segment from a DNS query.
-func SegmentFromDNSQuery(numDomainNameLabels int, query string) Segment {
+// SegmentFromDNSName decodes a segment from a DNS name, for example, the name
+// of a query, or a CNAME from a response.
+func SegmentFromDNSName(numDomainNameLabels int, query string) Segment {
 	if len(query) < 3 {
 		return Segment{Flags: FlagMalformed}
 	}
+	// Remove trailing full-stop.
 	if query[len(query)-1] == '.' {
 		query = query[:len(query)-1]
 	}
 	labels := strings.Split(query, ".")
+	// "prefix.data-data-data.mydomain.com"
 	if len(labels) < 1+1+numDomainNameLabels {
 		return Segment{Flags: FlagMalformed}
 	}
 	// Recover base32 encoded binary data by concatenating the labels.
+	// The first label is a prefix only and does not carry binary data.
 	labels = labels[1 : len(labels)-numDomainNameLabels]
 	compressed, err := base32EncodingNoPadding.DecodeString(strings.ToUpper(strings.Join(labels, "")))
 	if err != nil {
@@ -278,6 +291,10 @@ func SegmentFromIPs(in []net.IP) Segment {
 		return Segment{Flags: FlagMalformed}
 	}
 	return SegmentFromPacket(decompressed)
+	// Note 20220819: encapsulating binary data in IPv4 addresses doesn't quite
+	// work. Public recursive resolvers cherry-pick the addresses from the
+	// responses (e.g. pick up every second IP address), and that results in
+	// random data loss.
 }
 
 // CompressBytes compresses the input byte array using a scheme with the best

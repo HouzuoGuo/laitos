@@ -63,7 +63,7 @@ func (conn *ProxiedConnection) Start() error {
 			// Substitute the ack-only or keep-alive segment with the latest.
 			// These segments may contain random data that are not useful.
 			if conn.client.Debug {
-				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", seg)
+				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1])
 			}
 			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
 		} else if latest.Equals(seg) {
@@ -89,10 +89,11 @@ func (conn *ProxiedConnection) Start() error {
 				return net.Dial(network, fmt.Sprintf("%s:%d", conn.client.DNSResolverAddr, conn.client.DNSResovlerPort))
 			},
 		}
+		countHostNameLabels := dnsd.CountNameLabels(conn.client.DNSHostName)
 		for {
 			var incomingSeg, outgoingSeg tcpoverdns.Segment
 			var lenRemaining int
-			var addrs []net.IP
+			var cname string
 			var err error
 			// Pop a segment.
 			conn.mutex.Lock()
@@ -109,7 +110,8 @@ func (conn *ProxiedConnection) Start() error {
 			if conn.client.Debug {
 				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %+v", outgoingSeg)
 			}
-			addrs, err = resolver.LookupIP(conn.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
+			// addrs, err = resolver.LookupIP(conn.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
+			cname, err = resolver.LookupCNAME(conn.context, outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 			if err != nil {
 				conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
 				conn.tc.IncreaseTimingInterval()
@@ -117,7 +119,7 @@ func (conn *ProxiedConnection) Start() error {
 			}
 			// Decode a segment from DNS query response and give it to the local
 			// TC.
-			incomingSeg = tcpoverdns.SegmentFromIPs(addrs)
+			incomingSeg = tcpoverdns.SegmentFromDNSName(countHostNameLabels, cname)
 			if conn.client.Debug {
 				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
 			}

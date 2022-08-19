@@ -143,20 +143,20 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 		}
 	} else if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
-		seg := tcpoverdns.SegmentFromDNSQuery(numDomainLabels, name)
+		seg := tcpoverdns.SegmentFromDNSName(numDomainLabels, name)
 		emptySegment := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
 		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
 			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "received a malformed TCP-over-DNS segment")
-			respBody, _ = TCPOverDNSSegmentResponse(header, question, emptySegment.DNSResource())
+			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment)
 			return
 		}
 		respSegment, hasResp := daemon.tcpProxy.Receive(seg)
 		if !hasResp {
-			respBody, _ = TCPOverDNSSegmentResponse(header, question, emptySegment.DNSResource())
+			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment)
 			return
 		}
 		var err error
-		respBody, err = TCPOverDNSSegmentResponse(header, question, respSegment.DNSResource())
+		respBody, err = daemon.TCPOverDNSSegmentResponse(header, question, respSegment)
 		if err != nil {
 			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
 			return

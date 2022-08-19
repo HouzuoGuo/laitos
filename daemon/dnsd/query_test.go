@@ -31,3 +31,22 @@ func TestDecodeDTMFCommandInput(t *testing.T) {
 		}
 	}
 }
+
+func TestCountNameLabels(t *testing.T) {
+	var tests = []struct {
+		in   string
+		want int
+	}{
+		{"", 0},
+		{".", 0},
+		{"a.", 1},
+		{"a.b", 2},
+		{".a.b", 2},
+		{".a.b.", 2},
+	}
+	for _, test := range tests {
+		if got := CountNameLabels(test.in); got != test.want {
+			t.Errorf("CountNameLabels(%q): got %v, want %v", test.in, got, test.want)
+		}
+	}
+}

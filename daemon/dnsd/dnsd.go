@@ -14,8 +14,10 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/platform"
+	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"golang.org/x/net/dns/dnsmessage"
 
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -487,10 +489,10 @@ func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, do
 	for _, suffix := range daemon.MyDomainNames {
 		if strings.HasSuffix(name, suffix) {
 			// The suffix has a trailing full-stop.
-			numDomainLabels = len(strings.Split(suffix, ".")) - 1
 			isRecursive = false
 			name = strings.TrimSuffix(name, suffix)
 			domainName = suffix[1:]
+			numDomainLabels = CountNameLabels(domainName)
 			break
 		}
 	}
@@ -650,4 +652,62 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	if !strings.HasPrefix(lastResolvedName, appCmdQueryWithGoodPassword) {
 		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
 	}
+}
+
+// TCPOverDNSSegmentResponse constructs a DNS query response packet that
+// encapsulates a TCP-over-DNS segment.
+func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Question, segment tcpoverdns.Segment) ([]byte, error) {
+	// Retain the original transaction ID.
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = true
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	// Repeat the question back to the client, this is required by DNS protocol.
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	// The first answer RR is a CNAME ("r.data-data-data.example.com") that
+	// carries the segment data.
+	cname := segment.DNSName("r", daemon.soaHostName)
+	if err := builder.CNAMEResource(dnsmessage.ResourceHeader{
+		Name:  dnsmessage.MustNewName(question.Name.String()),
+		Class: dnsmessage.ClassINET,
+		TTL:   60,
+	}, dnsmessage.CNAMEResource{
+		CNAME: dnsmessage.MustNewName(cname),
+	}); err != nil {
+		return nil, err
+	}
+	// If the query asked for an address, then the second RR is a dummy address
+	// to the CNAME.
+	if question.Type == dnsmessage.TypeA {
+		err := builder.AResource(dnsmessage.ResourceHeader{
+			Name:  dnsmessage.MustNewName(cname),
+			Class: dnsmessage.ClassINET,
+			TTL:   60,
+			// There is no useful data in the address.
+		}, dnsmessage.AResource{A: [4]byte{0, 0, 0, 0}})
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := builder.StartAdditionals(); err != nil {
+		return nil, err
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
+	}
+	return builder.Finish()
 }

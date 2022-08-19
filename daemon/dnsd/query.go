@@ -130,46 +130,6 @@ func DecodeDTMFCommandInput(labels []string) (decodedCommand string) {
 	return
 }
 
-// TCPOverDNSSegmentResponse constructs a DNS query response packet for the
-// address record representation of a single TCP-over-DNS response.
-func TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Question, addrs []dnsmessage.AResource) ([]byte, error) {
-	// Retain the original transaction ID.
-	header.Response = true
-	header.Truncated = false
-	header.Authoritative = true
-	header.RecursionAvailable = true
-	builder := dnsmessage.NewBuilder(nil, header)
-	builder.EnableCompression()
-	// Repeat the question back to the client, this is required by DNS protocol.
-	if err := builder.StartQuestions(); err != nil {
-		return nil, err
-	}
-	if err := builder.Question(question); err != nil {
-		return nil, err
-	}
-	if err := builder.StartAnswers(); err != nil {
-		return nil, err
-	}
-	for _, addr := range addrs {
-		builder.AResource(dnsmessage.ResourceHeader{
-			Name:  dnsmessage.MustNewName(question.Name.String()),
-			Class: dnsmessage.ClassINET,
-			TTL:   60,
-		}, addr)
-	}
-	if err := builder.StartAdditionals(); err != nil {
-		return nil, err
-	}
-	var rh dnsmessage.ResourceHeader
-	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
-		return nil, err
-	}
-	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
-		return nil, err
-	}
-	return builder.Finish()
-}
-
 // BuildSOAResponse returns an SOA record response.
 func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mName, rName string) ([]byte, error) {
 	// Retain the original transaction ID.
@@ -329,4 +289,19 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 		return nil, err
 	}
 	return builder.Finish()
+}
+
+// CountNameLabels returns the number of labels in the DNS name.
+func CountNameLabels(in string) int {
+	in = strings.TrimSpace(in)
+	if strings.HasPrefix(in, ".") {
+		in = in[1:]
+	}
+	if in == "" {
+		return 0
+	}
+	if strings.HasSuffix(in, ".") {
+		in = in[:len(in)-1]
+	}
+	return strings.Count(in, ".") + 1
 }
