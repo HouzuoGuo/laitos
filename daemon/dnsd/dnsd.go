@@ -14,7 +14,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/platform"
-	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"golang.org/x/net/dns/dnsmessage"
@@ -35,6 +34,8 @@ const (
 	BlackListDownloadTimeoutSec = 30        // BlackListDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
 	BlacklistMaxEntries         = 100000    // BlackListMaxEntries is the maximum number of entries to be accepted into black list after retireving them from public sources.
 	TextCommandReplyTTL         = 30        // TextCommandReplyTTL is the TTL of text command reply, in number of seconds. Leave it low.
+	// ResponseCacheExpiry is the expiry of query response cache items.
+	ResponseCacheExpiry = time.Duration(15) * time.Second
 	/*
 		ToolboxCommandPrefix is a short string that indicates a TXT query is most likely toolbox command. Keep it short,
 		as DNS query input has to be pretty short.
@@ -123,8 +124,10 @@ type Daemon struct {
 	udpServer *common.UDPServer
 	tcpProxy  *Proxy
 
-	// latestCommands remembers the result of most recently executed toolbox commands.
+	// latestCommands caches the result of recently executed toolbox commands.
 	latestCommands *LatestCommands
+	// responseCache caches the responses of recently made queries.
+	responseCache *ResponseCache
 	// processQueryTestCaseFunc works along side DNS query processing routine, it offers queried name to test case for inspection.
 	processQueryTestCaseFunc func(string)
 
@@ -222,6 +225,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.blackList = make(map[string]struct{})
 
 	daemon.latestCommands = NewLatestCommands()
+	daemon.responseCache = NewResponseCache(ResponseCacheExpiry, 200)
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.tcpProxy = &Proxy{DNSDaemon: daemon}
@@ -656,7 +660,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 
 // TCPOverDNSSegmentResponse constructs a DNS query response packet that
 // encapsulates a TCP-over-DNS segment.
-func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Question, segment tcpoverdns.Segment) ([]byte, error) {
+func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Question, cname string) ([]byte, error) {
 	// Retain the original transaction ID.
 	header.Response = true
 	header.Truncated = false
@@ -676,7 +680,6 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 	}
 	// The first answer RR is a CNAME ("r.data-data-data.example.com") that
 	// carries the segment data.
-	cname := segment.DNSName("r", daemon.soaHostName)
 	if err := builder.CNAMEResource(dnsmessage.ResourceHeader{
 		Name:  dnsmessage.MustNewName(question.Name.String()),
 		Class: dnsmessage.ClassINET,

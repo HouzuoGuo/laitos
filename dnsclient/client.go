@@ -110,7 +110,6 @@ func (conn *ProxiedConnection) Start() error {
 			if conn.client.Debug {
 				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %+v", outgoingSeg)
 			}
-			// addrs, err = resolver.LookupIP(conn.context, "ip4", outgoingSeg.DNSNameQuery(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 			cname, err = resolver.LookupCNAME(conn.context, outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 			if err != nil {
 				conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)

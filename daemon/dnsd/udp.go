@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"regexp"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -130,37 +129,28 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v", question.Type, name, domainName, numDomainLabels, isRecursive)
-	if regexp.MustCompile(fmt.Sprintf(`ns[0-9]*\.%s\.`, domainName)).MatchString(name) ||
-		regexp.MustCompile(fmt.Sprintf(`dns[0-9]*\.%s\.`, domainName)).MatchString(name) ||
-		name == fmt.Sprintf("%s.%s.", SelfAddrRecordName, domainName) ||
-		name == domainName+"." {
-		// Non-recursive, resolve to laitos DNS server's own IP.
-		var err error
-		respBody, err = BuildIPv4AddrResponse(header, question, daemon.myPublicIP)
-		if err != nil {
-			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response")
-			return
-		}
-	} else if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
+	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
 		seg := tcpoverdns.SegmentFromDNSName(numDomainLabels, name)
 		emptySegment := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
 		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
 			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "received a malformed TCP-over-DNS segment")
-			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment)
-			return
+			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment.DNSName("r", daemon.soaHostName))
+			return respBody
 		}
-		respSegment, hasResp := daemon.tcpProxy.Receive(seg)
-		if !hasResp {
-			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment)
-			return
-		}
-		var err error
-		respBody, err = daemon.TCPOverDNSSegmentResponse(header, question, respSegment)
+		cname := string(daemon.responseCache.GetOrSet(name, func() []byte {
+			respSegment, hasResp := daemon.tcpProxy.Receive(seg)
+			if !hasResp {
+				return []byte(emptySegment.DNSName("r", daemon.soaHostName))
+			}
+			return []byte(respSegment.DNSName("r", daemon.soaHostName))
+		}))
+		respBody, err := daemon.TCPOverDNSSegmentResponse(header, question, cname)
 		if err != nil {
 			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
-			return
+			return nil
 		}
+		return respBody
 	} else if !isRecursive {
 		// Non-recursive, other name queries. There must be a response.
 		// Recursive resolvers have a habit of resolving a shorter version (e.g.
