@@ -51,8 +51,8 @@ func TestClient_HTTP(t *testing.T) {
 				ReadTimeout:               120 * time.Second,
 				WriteTimeout:              120 * time.Second,
 				RetransmissionInterval:    15 * time.Second,
-				SlidingWindowWaitDuration: 500 * time.Millisecond,
 				KeepAliveInterval:         1500 * time.Millisecond,
+				SlidingWindowWaitDuration: 750 * time.Millisecond,
 				AckDelay:                  500 * time.Millisecond,
 			},
 		},
@@ -84,7 +84,7 @@ func TestClient_HTTP(t *testing.T) {
 		proxyClient := &http.Client{Transport: &http.Transport{
 			Proxy: http.ProxyURL(proxyURL),
 		}}
-		resp, err := proxyClient.Get("http://hz.gl") // TODO FIXME: pick another site
+		resp, err := proxyClient.Get("http://neverssl.com")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -101,7 +101,6 @@ func TestClient_HTTP(t *testing.T) {
 	})
 
 	t.Run("https proxy request", func(t *testing.T) {
-		return // TODO FIXME go ahead with this test
 		proxyURL, err := url.Parse(fmt.Sprintf("http://%s:%d", httpProxyServer.Address, httpProxyServer.Port))
 		if err != nil {
 			t.Fatal(err)
