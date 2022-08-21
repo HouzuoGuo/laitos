@@ -40,9 +40,7 @@ type ProxiedConnection struct {
 // The function returns when the local transmission control transitions to the
 // established state, or an error.
 func (conn *ProxiedConnection) Start() error {
-	if conn.client.Debug {
-		conn.logger.Info("ProxyConnection.Start", "", nil, "starting now")
-	}
+	conn.logger.Info("Start", "", nil, "start transporting data over DNS")
 	// Absorb outgoing segments into the outgoing backlog.
 	conn.tc.OutputSegmentCallback = func(seg tcpoverdns.Segment) {
 		if seg.Flags.Has(tcpoverdns.FlagKeepAlive) {
@@ -72,13 +70,16 @@ func (conn *ProxiedConnection) Start() error {
 				conn.logger.Info("Start", "", nil, "callback is removing duplicated segment: %+v", seg)
 			}
 		} else {
-			conn.logger.Info("Start", "", nil, "callback is handling segment %+v", seg)
 			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
 		}
+		conn.logger.Info("Start", "", nil, "queued segment for outbound over DNS: %v", seg)
 	}
 	conn.tc.Start(conn.context)
 	// Start transporting segments back and forth.
 	go func() {
+		defer func() {
+			conn.logger.Info("Start", "", nil, "DNS data transport finished")
+		}()
 		resolver := &net.Resolver{
 			PreferGo:     true,
 			StrictErrors: true,

@@ -226,9 +226,7 @@ func (tc *TransmissionControl) Write(buf []byte) (int, error) {
 			<-time.After(BusyWaitInterval)
 			continue
 		} else {
-			if tc.Debug {
-				tc.Logger.Info("Write", "", nil, "timed out writing buf %v", lalog.ByteArrayLogString(buf))
-			}
+			tc.Logger.Info("Write", "", nil, "timed out writing buf %v", lalog.ByteArrayLogString(buf))
 			return 0, os.ErrDeadlineExceeded
 		}
 	}
@@ -305,7 +303,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						continue
 					}
 					if instant.ongoingRetransmissions >= tc.MaxRetransmissions {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake syn has got no response after multiple attempts, closing.")
+						tc.Logger.Warning("drainOutputToTransport", "", nil, "handshake syn has got no response after multiple attempts, closing.")
 						return
 					}
 					handshakeData := tc.InitiatorConfig.Bytes()
@@ -315,9 +313,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						Flags: FlagHandshakeSyn,
 						Data:  handshakeData,
 					}
-					if tc.Debug {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+v", instant.state, seg)
-					}
+					tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+v", instant.state, seg)
 					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
 					tc.lastOutputSyn = time.Now()
@@ -326,9 +322,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 				case StatePeerAck:
 					// Got ack, send SYN + ACK.
 					seg := Segment{ID: tc.ID, Flags: FlagHandshakeSyn | FlagHandshakeAck}
-					if tc.Debug {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "handshake completed, sending syn+ack: %+v", seg)
-					}
+					tc.Logger.Info("drainOutputToTransport", "", nil, "handshake completed, sending syn+ack: %+v", seg)
 					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
 					tc.state = StateEstablished
@@ -353,9 +347,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						return
 					}
 					seg := Segment{ID: tc.ID, Flags: FlagHandshakeAck}
-					if tc.Debug {
-						tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake ack, state: %v, seg: %+v", instant.state, seg)
-					}
+					tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake ack, state: %v, seg: %+v", instant.state, seg)
 					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
 					tc.lastOutputSyn = time.Now()
@@ -368,11 +360,9 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			tc.mutex.Lock()
 			tc.ongoingRetransmissions++
 			tc.mutex.Unlock()
-			if tc.Debug {
-				tc.Logger.Warning("drainOutputToTransport", "", nil,
-					"re-transmitting, last input ack time: %+v, input ack: %+v, output seq: %+v, ongoing retransmissions: %v",
-					instant.lastInputAck, instant.inputAck, instant.outputSeq, tc.ongoingRetransmissions)
-			}
+			tc.Logger.Warning("drainOutputToTransport", "", nil,
+				"re-transmitting, last input ack time: %+v, input ack: %+v, output seq: %+v, ongoing retransmissions: %v",
+				instant.lastInputAck, instant.inputAck, instant.outputSeq, tc.ongoingRetransmissions)
 			if tc.ongoingRetransmissions >= tc.MaxRetransmissions {
 				if tc.Debug {
 					tc.Logger.Info("drainOutputToTransport", "", nil, "reached max retransmissions")
@@ -520,9 +510,7 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 			// Wait for more input data to arrive and then retry.
 			<-time.After(BusyWaitInterval)
 		} else {
-			if tc.Debug {
-				tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, lalog.ByteArrayLogString(buf[:readLen]))
-			}
+			tc.Logger.Info("Read", "", nil, "time out, want %d, got %d, got data: %v", len(buf), readLen, lalog.ByteArrayLogString(buf[:readLen]))
 			return readLen, os.ErrDeadlineExceeded
 		}
 	}
@@ -543,12 +531,10 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 		// Read the segment header first.
 		segHeader, err := tc.readFromInputTransport(tc.context, SegmentHeaderLen)
 		if err != nil {
-			if tc.Debug {
-				tc.Logger.Info("drainInputFromTransport", "", nil, "failed to read segment header: %+v", err)
-			}
 			if errors.Is(err, context.Canceled) {
 				return
 			}
+			tc.Logger.Warning("drainInputFromTransport", "", err, "failed to read segment header")
 			continue
 		}
 		// Read the segment data.
@@ -564,9 +550,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 			if errors.Is(err, context.Canceled) {
 				return
 			}
-			if tc.Debug {
-				tc.Logger.Info("drainInputFromTransport", "", nil, "failed to read segment data: %+v", err)
-			}
+			tc.Logger.Warning("drainInputFromTransport", "", err, "failed to read segment data")
 			continue
 		}
 		seg := SegmentFromPacket(append(segHeader, segData...))
@@ -575,9 +559,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 			segDataCtxCancel()
 			continue
 		} else if seg.Flags.Has(FlagReset) {
-			if tc.Debug {
-				tc.Logger.Info("drainInputFromTransport", "", nil, "received a reset segment %+v", seg)
-			}
+			tc.Logger.Info("drainInputFromTransport", "", nil, "received a reset segment %+v", seg)
 			segDataCtxCancel()
 			tc.mutex.Lock()
 			// There's no use of the data coming from a reset segment.
@@ -818,9 +800,7 @@ func (tc *TransmissionControl) Close() error {
 		tc.mutex.Unlock()
 		return nil
 	}
-	if tc.Debug {
-		tc.Logger.Info("Close", "", nil, "terminating now")
-	}
+	tc.Logger.Info("Close", "", nil, "terminating now")
 	tc.state = StateClosed
 	tc.mutex.Unlock()
 	tc.cancelFun()
