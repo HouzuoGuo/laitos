@@ -43,6 +43,7 @@ func TestClient_HTTP(t *testing.T) {
 		Port:    61122,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig: true,
+			Debug:     true,
 			// The max size of DNS query response should be 512 bytes, but the
 			// localhost communication does not mind a little extra.
 			MaxSegmentLenExclHeader: 120,
@@ -50,7 +51,7 @@ func TestClient_HTTP(t *testing.T) {
 				ReadTimeout:               120 * time.Second,
 				WriteTimeout:              120 * time.Second,
 				RetransmissionInterval:    15 * time.Second,
-				SlidingWindowWaitDuration: 5 * time.Second,
+				SlidingWindowWaitDuration: 500 * time.Millisecond,
 				KeepAliveInterval:         1500 * time.Millisecond,
 				AckDelay:                  500 * time.Millisecond,
 			},

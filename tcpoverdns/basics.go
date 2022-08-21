@@ -328,6 +328,8 @@ type TimingConfig struct {
 	// SlidingWindowWaitDuration is a short duration to wait the peer's
 	// acknowledgement before this transmission control sends more data to the
 	// output transport.
+	// This duration should be approximately in line with the peer's keep-alive
+	// duration.
 	SlidingWindowWaitDuration time.Duration
 	// RetransmissionInterval is a short duration to wait before re-transmitting
 	// the unacknowledged outbound segments (if any).

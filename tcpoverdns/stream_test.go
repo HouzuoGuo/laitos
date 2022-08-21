@@ -772,11 +772,11 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	conf := InitiatorConfig{
 		SetConfig:               true,
 		MaxSegmentLenExclHeader: 111,
-		Debug:                   false,
+		Debug:                   true,
 		Timing:                  wantTiming,
 	}
 	leftTC := &TransmissionControl{
-		Debug:                true,
+		Debug:                false,
 		ID:                   1111,
 		InputTransport:       leftInTransport,
 		OutputTransport:      rightIn,
@@ -790,7 +790,7 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	}
 
 	rightTC := &TransmissionControl{
-		Debug:           true,
+		Debug:           false,
 		ID:              2222,
 		InputTransport:  rightInTransport,
 		OutputTransport: leftIn,
@@ -823,6 +823,9 @@ func TestTransmissionControl_PeerHandshake(t *testing.T) {
 	}
 	if !reflect.DeepEqual(rightTC.LiveTiming, wantTiming) {
 		t.Fatalf("got: %+v, want: %+v", rightTC.LiveTiming, wantTiming)
+	}
+	if !rightTC.Debug {
+		t.Fatalf("did not set debug")
 	}
 }
 

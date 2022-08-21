@@ -300,7 +300,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			inputSegments: proxyIn,
 			mutex:         new(sync.Mutex),
 			logger: lalog.Logger{
-				ComponentName: "TCProxyConn",
+				ComponentName: "ProxyServer",
 				ComponentID: []lalog.LoggerIDField{
 					{Key: "TCID", Value: tc.ID},
 				},

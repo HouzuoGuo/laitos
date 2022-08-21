@@ -91,8 +91,7 @@ func (conn *ProxiedConnection) Start() error {
 		}
 		countHostNameLabels := dnsd.CountNameLabels(conn.client.DNSHostName)
 		for {
-			var incomingSeg, outgoingSeg tcpoverdns.Segment
-			var lenRemaining int
+			var incomingSeg, outgoingSeg, nextInBacklog tcpoverdns.Segment
 			var cname string
 			var err error
 			// Pop a segment.
@@ -108,11 +107,11 @@ func (conn *ProxiedConnection) Start() error {
 			// Turn the segment into a DNS query and send the query out
 			// (data.data.data.example.com).
 			if conn.client.Debug {
-				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %+v", outgoingSeg)
+				conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %+v", outgoingSeg)
 			}
 			cname, err = resolver.LookupCNAME(conn.context, outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 			if err != nil {
-				conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
+				conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
 				conn.tc.IncreaseTimingInterval()
 				goto busyWaitInterval
 			}
@@ -120,7 +119,7 @@ func (conn *ProxiedConnection) Start() error {
 			// TC.
 			incomingSeg = tcpoverdns.SegmentFromDNSName(countHostNameLabels, cname)
 			if conn.client.Debug {
-				conn.client.logger.Info("pipeSegments", fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
+				conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
 			}
 			if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
 				if incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
@@ -134,17 +133,20 @@ func (conn *ProxiedConnection) Start() error {
 					conn.tc.DecreaseTimingInterval()
 				}
 				if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
-					conn.client.logger.Warning("pipeSegments", fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
+					conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
 					conn.tc.IncreaseTimingInterval()
 					goto busyWaitInterval
 				}
 			}
-			// If there are more segments waiting to be sent, then send the next one
-			// right away without waiting for the keep-alive interval.
+			// If there are more segments carrying data (or ACK) and are waiting
+			// to be sent, then send the next one right away without waiting for
+			// the keep-alive interval.
 			conn.mutex.Lock()
-			lenRemaining = len(conn.outputSegmentBacklog)
+			if len(conn.outputSegmentBacklog) > 0 {
+				nextInBacklog = conn.outputSegmentBacklog[0]
+			}
 			conn.mutex.Unlock()
-			if lenRemaining > 0 {
+			if len(nextInBacklog.Data) > 0 && !nextInBacklog.Flags.Has(tcpoverdns.FlagKeepAlive) {
 				continue
 			}
 			// Wait for keep-alive interval.

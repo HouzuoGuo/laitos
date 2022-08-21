@@ -209,6 +209,11 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 }
 
 func (tc *TransmissionControl) Write(buf []byte) (int, error) {
+	/*
+		if tc.Debug {
+			tc.Logger.Info("Write", "", nil, "state? %v, sliding window full? %v, writing %v", tc.State(), tc.slidingWindowFull(), lalog.ByteArrayLogString(buf))
+		}
+	*/
 	if tc.State() == StateClosed {
 		return 0, io.EOF
 	}
