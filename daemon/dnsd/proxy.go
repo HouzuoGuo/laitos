@@ -183,12 +183,6 @@ type Proxy struct {
 	// DialTimeout is the timeout used for creating new a proxy TCP connection.
 	DialTimeout time.Duration
 
-	// MaxSegmentLenExclHeader is the maximum length of the data portion in each
-	// outgoing segment. This only serves as the initial value, as the actual
-	// value is almost always set by proxy client using the InitiatorConfig
-	// mechanism.
-	MaxSegmentLenExclHeader int
-
 	// Debug enables verbose logging for IO activities.
 	Debug bool
 	// Logger is used to log IO activities when verbose logging is enabled.
@@ -202,11 +196,6 @@ type Proxy struct {
 
 // Start initialises the internal state of the proxy.
 func (proxy *Proxy) Start(ctx context.Context) {
-	if proxy.MaxSegmentLenExclHeader == 0 {
-		// The proxy client really should use the InitiatorConfig mechanism to
-		// set this value instead.
-		proxy.MaxSegmentLenExclHeader = 128
-	}
 	if proxy.MaxLifetime == 0 {
 		proxy.MaxLifetime = 30 * time.Minute
 	}
@@ -260,14 +249,13 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			Initiator:      false,
 			InputTransport: tcIn,
 			MaxLifetime:    proxy.MaxLifetime,
+			// In practice there are often bursts of tens of errors at a time.
+			MaxTransportErrors: 100,
 			// The output transport is not used. Instead, the output segments
 			// are kept in a backlog.
 			OutputTransport: io.Discard,
-			// Here the initial configuration of the segment length is set.
-			// The proxy client really should use InitiatorConfig to set the
-			// desired segment length, which in turn sets the sliding window.
-			MaxSegmentLenExclHeader: proxy.MaxSegmentLenExclHeader,
-			MaxSlidingWindow:        uint32(proxy.MaxSegmentLenExclHeader) * 4,
+			// The segment length and sliding window length are set by the
+			// initiator using InitiatorConfig.
 		}
 		// Connect to the intended destination.
 		var dialNet, dialDest string

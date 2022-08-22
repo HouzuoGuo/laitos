@@ -254,6 +254,8 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 		Initiator:            true,
 		InputTransport:       inTransport,
 		MaxLifetime:          30 * time.Minute,
+		// In practice there are often bursts of tens of errors at a time.
+		MaxTransportErrors: 100,
 		// The output transport is not used. Instead, the output segments
 		// are kept in a backlog.
 		OutputTransport: io.Discard,

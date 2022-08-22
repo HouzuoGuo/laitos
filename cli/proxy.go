@@ -22,8 +22,8 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 		Port:    port,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
-			MaxSegmentLenExclHeader: proxySegLen,
 			Debug:                   debug,
+			MaxSegmentLenExclHeader: proxySegLen,
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               120 * time.Second,
 				WriteTimeout:              120 * time.Second,

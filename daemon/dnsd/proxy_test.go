@@ -88,8 +88,6 @@ func TestProxy_TCPClient(t *testing.T) {
 
 	proxy := &Proxy{
 		Debug: true,
-		// Keep the segment length short to test the segment buffer behaviour.
-		MaxSegmentLenExclHeader: 2,
 	}
 	proxy.Start(context.Background())
 
@@ -133,24 +131,33 @@ func TestProxy_TCPClient(t *testing.T) {
 }
 
 func TestProxy_HTTPClient(t *testing.T) {
-	proxy := &Proxy{Debug: true, MaxSegmentLenExclHeader: 101}
+	proxy := &Proxy{Debug: true}
 	proxy.Start(context.Background())
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &tcpoverdns.TransmissionControl{
-		LogTag:          "TestHttpClient",
-		Debug:           true,
-		ID:              1111,
-		InputTransport:  inTransport,
-		OutputTransport: outTransport,
-		// Test asymmetric segment length.
-		MaxSegmentLenExclHeader: 97,
+		LogTag:                  "TestHttpClient",
+		Debug:                   true,
+		ID:                      1111,
+		InputTransport:          inTransport,
+		OutputTransport:         outTransport,
+		MaxSegmentLenExclHeader: 993,
 		InitiatorSegmentData:    []byte(`{"p": 80, "a": "1.1.1.1"}`),
 		Initiator:               true,
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{
 			KeepAliveInterval: 1 * time.Second,
+		},
+		InitiatorConfig: tcpoverdns.InitiatorConfig{
+			SetConfig: true,
+			// The initiator and responder do not have to use the same segment
+			// length.
+			MaxSegmentLenExclHeader: 1993,
+			Debug:                   true,
+			Timing: tcpoverdns.TimingConfig{
+				KeepAliveInterval: 1 * time.Second,
+			},
 		},
 	}
 	tc.Start(context.Background())
@@ -187,19 +194,15 @@ func TestProxy_HTTPClient(t *testing.T) {
 }
 
 func TestProxy_HTTPSClient(t *testing.T) {
-	proxy := &Proxy{
-		Debug:                   true,
-		MaxSegmentLenExclHeader: 1993,
-	}
+	proxy := &Proxy{Debug: true}
 	proxy.Start(context.Background())
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
 	tc := &tcpoverdns.TransmissionControl{
-		LogTag: "TestHttpClient",
-		Debug:  true,
-		ID:     1111,
-		// Test asymmetric segment length.
+		LogTag:                  "TestHttpClient",
+		Debug:                   true,
+		ID:                      1111,
 		MaxSegmentLenExclHeader: 993,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
@@ -208,6 +211,16 @@ func TestProxy_HTTPSClient(t *testing.T) {
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{
 			KeepAliveInterval: 1 * time.Second,
+		},
+		InitiatorConfig: tcpoverdns.InitiatorConfig{
+			SetConfig: true,
+			// The initiator and responder do not have to use the same segment
+			// length.
+			MaxSegmentLenExclHeader: 1993,
+			Debug:                   true,
+			Timing: tcpoverdns.TimingConfig{
+				KeepAliveInterval: 1 * time.Second,
+			},
 		},
 	}
 	tc.Start(context.Background())
@@ -283,6 +296,14 @@ func TestProxy_Blacklisted(t *testing.T) {
 		InitialTiming: tcpoverdns.TimingConfig{
 			KeepAliveInterval: 1 * time.Second,
 		},
+		InitiatorConfig: tcpoverdns.InitiatorConfig{
+			SetConfig:               true,
+			MaxSegmentLenExclHeader: 1993,
+			Debug:                   true,
+			Timing: tcpoverdns.TimingConfig{
+				KeepAliveInterval: 1 * time.Second,
+			},
+		},
 	}
 	tc.Start(context.Background())
 	go pipeSegments(t, testOut, testIn, proxy)
@@ -312,6 +333,14 @@ func TestProxy_CleanUp(t *testing.T) {
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{
 			KeepAliveInterval: 1 * time.Second,
+		},
+		InitiatorConfig: tcpoverdns.InitiatorConfig{
+			SetConfig:               true,
+			MaxSegmentLenExclHeader: 1993,
+			Debug:                   true,
+			Timing: tcpoverdns.TimingConfig{
+				KeepAliveInterval: 1 * time.Second,
+			},
 		},
 	}
 	tc.Start(context.Background())
