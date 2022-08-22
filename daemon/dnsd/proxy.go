@@ -249,8 +249,10 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			Initiator:      false,
 			InputTransport: tcIn,
 			MaxLifetime:    proxy.MaxLifetime,
-			// In practice there are often bursts of tens of errors at a time.
-			MaxTransportErrors: 100,
+			// In practice there are occasionally bursts of tens of errors at a
+			// time before recovery.
+			MaxTransportErrors: 120,
+			MaxRetransmissions: 30,
 			// The output transport is not used. Instead, the output segments
 			// are kept in a backlog.
 			OutputTransport: io.Discard,
