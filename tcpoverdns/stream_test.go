@@ -248,9 +248,11 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 		Debug:                   true,
 		ID:                      1111,
 		MaxSegmentLenExclHeader: 5,
-		InputTransport:          inTransport,
-		OutputTransport:         outTransport,
-		state:                   StateEstablished,
+		// The sliding window should be large enough for all of the bytes written by the test.
+		MaxSlidingWindow: 30,
+		InputTransport:   inTransport,
+		OutputTransport:  outTransport,
+		state:            StateEstablished,
 	}
 	tc.Start(context.Background())
 	var wantOutputBuf []byte
