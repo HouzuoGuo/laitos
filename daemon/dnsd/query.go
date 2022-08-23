@@ -132,6 +132,15 @@ func DecodeDTMFCommandInput(labels []string) (decodedCommand string) {
 
 // BuildSOAResponse returns an SOA record response.
 func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mName, rName string) ([]byte, error) {
+	if mName == "" || rName == "" {
+		return nil, errors.New("mName and rName must not be empty")
+	}
+	if mName[len(mName)-1] != '.' {
+		mName += "."
+	}
+	if rName[len(rName)-1] != '.' {
+		rName += "."
+	}
 	// Retain the original transaction ID.
 	header.Response = true
 	header.Truncated = false
@@ -185,6 +194,12 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 
 // BuildNSResponse returns an NS record response.
 func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, domainName string) ([]byte, error) {
+	if domainName == "" {
+		return nil, errors.New("domainName must not be empty")
+	}
+	if domainName[len(domainName)-1] != '.' {
+		domainName += "."
+	}
 	// Retain the original transaction ID.
 	header.Response = true
 	header.Truncated = false

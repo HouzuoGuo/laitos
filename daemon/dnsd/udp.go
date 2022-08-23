@@ -29,12 +29,12 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 	parser := new(dnsmessage.Parser)
 	header, err := parser.Start(packet)
 	if err != nil {
-		logger.Warning("HandleTCPConnection", ip, err, "failed to parse query header")
+		logger.Warning("HandleUDPClient", ip, err, "failed to parse query header")
 		return
 	}
 	question, err := parser.Question()
 	if err != nil {
-		logger.Warning("HandleTCPConnection", ip, err, "failed to parse query question")
+		logger.Warning("HandleUDPClient", ip, err, "failed to parse query question")
 		return
 	}
 	var respBody []byte
@@ -76,7 +76,7 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, head
 	}
 	if dtmfDecoded := DecodeDTMFCommandInput(labels); len(dtmfDecoded) > 1 {
 		cmdResult := daemon.latestCommands.Execute(context.Background(), daemon.Processor, clientIP, dtmfDecoded)
-		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "executed a toolbox command")
+		daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "executed a toolbox command")
 		// Try to fit the response into a single TXT entry.
 		// Keep in mind that by convention DNS uses 512 bytes as the overall
 		// message size limit - including both question and response.
@@ -87,22 +87,22 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, head
 			daemon.logger.Warning("handleUDPTextQuery", clientIP, err, "failed to build response packet")
 		}
 	} else {
-		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
+		daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
 	}
 	return
 }
 
 func (daemon *Daemon) handleUDPSOA(clientIP string, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	daemon.logger.Info("handleUDPSOA", clientIP, nil, "handling SOA query %q", name)
+	_, domainName, _, isRecursive := daemon.queryLabels(name)
+	daemon.logger.Info("handleUDPSOA", clientIP, nil, "handling SOA query %q, domain name: %q, is recursive: %v", name, domainName, isRecursive)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	_, domainName, _, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
 		return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 	}
-	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s.", domainName), domainName+".")
+	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s", domainName), domainName)
 	if err != nil {
 		daemon.logger.Warning("handleUDPSOA", clientIP, err, "failed to build response packet")
 	}
@@ -111,11 +111,11 @@ func (daemon *Daemon) handleUDPSOA(clientIP string, queryBody []byte, header dns
 
 func (daemon *Daemon) handleUDPNS(clientIP string, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	daemon.logger.Info("handleUDPNS", clientIP, nil, "handling NS query %q", name)
+	_, domainName, _, isRecursive := daemon.queryLabels(name)
+	daemon.logger.Info("handleUDPNS", clientIP, nil, "handling NS query %q, domain name: %q, is recursive: %v", name, domainName, isRecursive)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	_, domainName, _, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
 		return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 	}
@@ -135,15 +135,15 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 		emptySegment := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
 		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
 			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "received a malformed TCP-over-DNS segment")
-			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment.DNSName("r", daemon.soaHostName))
+			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment.DNSName("r", domainName))
 			return respBody
 		}
 		cname := string(daemon.responseCache.GetOrSet(name, func() []byte {
 			respSegment, hasResp := daemon.tcpProxy.Receive(seg)
 			if !hasResp {
-				return []byte(emptySegment.DNSName("r", daemon.soaHostName))
+				return []byte(emptySegment.DNSName("r", domainName))
 			}
-			return []byte(respSegment.DNSName("r", daemon.soaHostName))
+			return []byte(respSegment.DNSName("r", domainName))
 		}))
 		respBody, err := daemon.TCPOverDNSSegmentResponse(header, question, cname)
 		if err != nil {

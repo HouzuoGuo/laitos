@@ -8,9 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
 	"reflect"
-	"sort"
 	"strings"
 	"time"
 
@@ -127,6 +125,12 @@ func (seg *Segment) Packet() (ret []byte) {
 // The function does not check whether the segment is sufficiently small for
 // the DNS protocol.
 func (seg *Segment) DNSName(prefix, domainName string) string {
+	if len(prefix) == 0 || len(domainName) == 0 {
+		return ""
+	}
+	if domainName[len(domainName)-1] != '.' {
+		domainName += "."
+	}
 	// Compress the binary representation of the segment.
 	packet := seg.Packet()
 	compressed := CompressBytes(packet)
@@ -144,6 +148,9 @@ func (seg *Segment) DNSName(prefix, domainName string) string {
 // The function does not check whether the segment is sufficiently small for
 // the DNS protocol.
 func (seg *Segment) DNSQuestion(prefix, domainName string) dnsmessage.Question {
+	if prefix == "" || domainName == "" {
+		return dnsmessage.Question{}
+	}
 	return dnsmessage.Question{
 		Name:  dnsmessage.MustNewName(seg.DNSName(prefix, domainName)),
 		Type:  dnsmessage.TypeA,
@@ -156,6 +163,9 @@ func (seg *Segment) DNSQuestion(prefix, domainName string) dnsmessage.Question {
 // The function does not check whether the segment is sufficiently small for
 // the DNS protocol.
 func (seg *Segment) DNSNameQuery(prefix, domainName string) string {
+	if prefix == "" || domainName == "" {
+		return ""
+	}
 	// Compress the binary representation of the segment.
 	packet := seg.Packet()
 	compressed := CompressBytes(packet)
@@ -166,32 +176,6 @@ func (seg *Segment) DNSNameQuery(prefix, domainName string) string {
 	// But many recursive resolvers don't like long labels, so be conservative.
 	labels := misc.SplitIntoSlice(encoded, 60, MaxSegmentDataLen)
 	return fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)
-}
-
-// DNSResource converts the binary representation of this segment into a DNS
-// address resource. The function does not check whether the segment is
-// sufficiently small for the DNS protocol.
-func (seg *Segment) DNSResource() (ret []dnsmessage.AResource) {
-	packet := seg.Packet()
-	compressed := CompressBytes(packet)
-	// Add the length prefix.
-	lenPrefix := make([]byte, 2)
-	binary.BigEndian.PutUint16(lenPrefix, uint16(len(compressed)))
-	// Split into address resource records.
-	compressed = append(lenPrefix, compressed...)
-	for i := 0; i < len(compressed); i += 3 {
-		addr := [4]byte{}
-		addr[0] = compressed[i]
-		if i+1 < len(compressed) {
-			addr[1] = compressed[i+1]
-		}
-		addr[2] = byte(i) // the index byte
-		if i+2 < len(compressed) {
-			addr[3] = compressed[i+2]
-		}
-		ret = append(ret, dnsmessage.AResource{A: addr})
-	}
-	return
 }
 
 // Stringer returns a human-readable representation of the segment for debug
@@ -260,41 +244,6 @@ func SegmentFromDNSName(numDomainNameLabels int, query string) Segment {
 		return Segment{Flags: FlagMalformed}
 	}
 	return SegmentFromPacket(decompressed)
-}
-
-// SegmentFromDNSResources decodes a segment from IP addresses from a DNS query
-// response.
-func SegmentFromIPs(in []net.IP) Segment {
-	// Put the IP entries in the original order.
-	ordered := make([]net.IP, len(in))
-	copy(ordered, in)
-	sort.Slice(ordered, func(a, b int) bool {
-		return ordered[a][2] < ordered[b][2]
-	})
-	// Recover binary data from the addresses.
-	data := make([]byte, 0)
-	for _, addr := range ordered {
-		// addr[2] is the index.
-		data = append(data, addr[0], addr[1], addr[3])
-	}
-	if len(data) < 3 {
-		return Segment{Flags: FlagMalformed}
-	}
-	// Decode the data length.
-	segLen := binary.BigEndian.Uint16(data[:2])
-	if len(data) < 2+int(segLen) {
-		return Segment{Flags: FlagMalformed}
-	}
-	// Decompress the segment packet.
-	decompressed, err := DecompressBytes(data[2 : 2+segLen])
-	if err != nil {
-		return Segment{Flags: FlagMalformed}
-	}
-	return SegmentFromPacket(decompressed)
-	// Note 20220819: encapsulating binary data in IPv4 addresses doesn't quite
-	// work. Public recursive resolvers cherry-pick the addresses from the
-	// responses (e.g. pick up every second IP address), and that results in
-	// random data loss.
 }
 
 // CompressBytes compresses the input byte array using a scheme with the best

@@ -114,12 +114,6 @@ type Daemon struct {
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
 
-	// soaHostName is the Internet host name served in the SOA record (SOA MNANE
-	// and RNAME) from this daemon.
-	// Note that the daemon does not accept dynamic DNS, so the appearance of
-	// the MNAME is solely for on-the-wire compliance with DNS protocol.
-	soaHostName string
-
 	tcpServer *common.TCPServer
 	udpServer *common.UDPServer
 	tcpProxy  *Proxy
@@ -200,12 +194,6 @@ func (daemon *Daemon) Initialise() error {
 	sort.Slice(daemon.MyDomainNames, func(i, j int) bool {
 		return len(daemon.MyDomainNames[i]) > len(daemon.MyDomainNames[j])
 	})
-	if len(daemon.MyDomainNames) > 0 {
-		// Set the SOA host name too.
-		// (MyDomainName[x] looks like ".example.com")
-		daemon.soaHostName = daemon.MyDomainNames[len(daemon.MyDomainNames)-1][1:] + "."
-		daemon.logger.Info("Initialise", "", nil, "SOA mname and rname is %q", daemon.soaHostName)
-	}
 
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("dnsd.Initialise: %+v", errs)

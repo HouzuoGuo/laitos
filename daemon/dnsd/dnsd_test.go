@@ -124,9 +124,6 @@ func TestDNSD(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
-	if daemon.soaHostName != "example.com." {
-		t.Fatal("unexpected soa name", daemon.soaHostName)
-	}
 	// Prepare settings for test
 	// Non-functioning forwarders should not abort initialisation or fail the daemon operation
 	daemon.Forwarders = append(daemon.Forwarders, "does-not-exist:53", "also-does-not-exist:12")

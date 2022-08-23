@@ -114,15 +114,15 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 
 func (daemon *Daemon) handleTCPSOA(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	daemon.logger.Info("handleTCPSOA", clientIP, nil, "handling SOA query %q", name)
+	_, domainName, _, isRecursive := daemon.queryLabels(name)
+	daemon.logger.Info("handleTCPSOA", clientIP, nil, "handling SOA query %q, domain name: %q, is recursive: %v", name, domainName, isRecursive)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	_, domainName, _, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
-	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s.", domainName), domainName+".")
+	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s.", domainName), domainName)
 	if err != nil {
 		daemon.logger.Warning("handleTCPSOA", clientIP, err, "failed to build response packet")
 	}
@@ -131,11 +131,11 @@ func (daemon *Daemon) handleTCPSOA(clientIP string, queryLen, queryBody []byte, 
 
 func (daemon *Daemon) handleTCPNS(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	daemon.logger.Info("handleTCPNS", clientIP, nil, "handling NS query %q", name)
+	_, domainName, _, isRecursive := daemon.queryLabels(name)
+	daemon.logger.Info("handleTCPNS", clientIP, nil, "handling NS query %q, domain name: %q, is recursive: %v", name, domainName, isRecursive)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	_, domainName, _, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
@@ -156,15 +156,15 @@ func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, query
 		emptySegment := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
 		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
 			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "received a malformed TCP-over-DNS segment")
-			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment.DNSName("r", daemon.soaHostName))
+			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment.DNSName("r", domainName))
 			return respBody
 		}
 		cname := string(daemon.responseCache.GetOrSet(name, func() []byte {
 			respSegment, hasResp := daemon.tcpProxy.Receive(seg)
 			if !hasResp {
-				return []byte(emptySegment.DNSName("r", daemon.soaHostName))
+				return []byte(emptySegment.DNSName("r", domainName))
 			}
-			return []byte(respSegment.DNSName("r", daemon.soaHostName))
+			return []byte(respSegment.DNSName("r", domainName))
 		}))
 		respBody, err := daemon.TCPOverDNSSegmentResponse(header, question, cname)
 		if err != nil {
@@ -182,7 +182,7 @@ func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, query
 		var err error
 		respBody, err = BuildIPv4AddrResponse(header, question, daemon.myPublicIP)
 		if err != nil {
-			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response")
+			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response")
 			return
 		}
 	} else {

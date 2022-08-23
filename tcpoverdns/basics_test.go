@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -235,31 +234,5 @@ func TestSegment_DNSNameQuery(t *testing.T) {
 	got := SegmentFromDNSName(2, query)
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("recovered: %+#v original: %+#v", got, want)
-	}
-}
-
-func TestSegment_DNSResource(t *testing.T) {
-	randData := make([]byte, 100)
-	if _, err := rand.Read(randData); err != nil {
-		t.Fatal(err)
-	}
-	want := Segment{
-		ID:     12345,
-		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
-		SeqNum: 23456,
-		AckNum: 34567,
-		Data:   randData,
-	}
-
-	addrResource := want.DNSResource()
-	addrs := make([]net.IP, 0)
-	for _, addr := range addrResource {
-		ip := make([]byte, 4)
-		copy(ip[:], addr.A[:])
-		addrs = append(addrs, net.IP(ip))
-	}
-	got := SegmentFromIPs(addrs)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got: %v, want: %v", got, want)
 	}
 }
