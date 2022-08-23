@@ -29,7 +29,7 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 				WriteTimeout:              120 * time.Second,
 				RetransmissionInterval:    15 * time.Second,
 				KeepAliveInterval:         1500 * time.Millisecond,
-				SlidingWindowWaitDuration: 750 * time.Millisecond,
+				SlidingWindowWaitDuration: 1000 * time.Millisecond,
 				AckDelay:                  500 * time.Millisecond,
 			},
 		},

@@ -327,12 +327,13 @@ const (
 type TimingConfig struct {
 	// SlidingWindowWaitDuration is a short duration to wait the peer's
 	// acknowledgement before this transmission control sends more data to the
-	// output transport.
-	// This duration should be approximately in line with the peer's keep-alive
-	// duration.
+	// output transport, including during consecutive retransmissions.
+	// In practice, the duration should be slightly lower than the initial
+	// KeepAliveInterval.
 	SlidingWindowWaitDuration time.Duration
 	// RetransmissionInterval is a short duration to wait before re-transmitting
-	// the unacknowledged outbound segments (if any).
+	// the unacknowledged outbound segments (if any). Subsequent retransmissions
+	// occur at the interval of SlidingWindowWaitDuration.
 	RetransmissionInterval time.Duration
 	// AckDelay is a short delay between receiving the latest segment and
 	// sending an outbound acknowledgement-only segment.

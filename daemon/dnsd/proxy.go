@@ -162,10 +162,6 @@ func (conn *ProxyConnection) Close() error {
 // Proxy manages the full life cycle of multiple transmission controls created
 // for the purpose of relaying TCP connections.
 type Proxy struct {
-	// MaxLifetime is the maximum duration of a proxy TCP connection as well as
-	// its transmission control.
-	MaxLifetime time.Duration
-
 	// DNSDaemon helps the proxy to identify advertising/malware proxy
 	// destinations and to refuse serving their clients.
 	DNSDaemon *Daemon
@@ -196,9 +192,6 @@ type Proxy struct {
 
 // Start initialises the internal state of the proxy.
 func (proxy *Proxy) Start(ctx context.Context) {
-	if proxy.MaxLifetime == 0 {
-		proxy.MaxLifetime = 30 * time.Minute
-	}
 	if proxy.MaxReplyDelay == 0 {
 		// This default should be greater/longer than transmission control's
 		// default AckDelay, or the performance will suffer quite a bit.
@@ -248,11 +241,13 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			// This transmission control is a responder during the handshake.
 			Initiator:      false,
 			InputTransport: tcIn,
-			MaxLifetime:    proxy.MaxLifetime,
+			MaxLifetime:    30 * time.Minute,
 			// In practice there are occasionally bursts of tens of errors at a
 			// time before recovery.
-			MaxTransportErrors: 120,
-			MaxRetransmissions: 30,
+			MaxTransportErrors: 200,
+			// The duration of all retransmissions (if all go unacknowledged) is
+			// MaxRetransmissions x SlidingWindowWaitDuration.
+			MaxRetransmissions: 200,
 			// The output transport is not used. Instead, the output segments
 			// are kept in a backlog.
 			OutputTransport: io.Discard,
@@ -279,7 +274,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 		var tcpConn *net.TCPConn
 		if netConn != nil {
 			tcpConn = netConn.(*net.TCPConn)
-			misc.TweakTCPConnection(tcpConn, proxy.MaxLifetime)
+			misc.TweakTCPConnection(tcpConn, tc.MaxLifetime)
 		}
 		// Track the new proxy connection.
 		conn = &ProxyConnection{
