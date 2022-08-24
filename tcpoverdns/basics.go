@@ -15,7 +15,6 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
-	"golang.org/x/net/dns/dnsmessage"
 )
 
 var base32EncodingNoPadding = base32.StdEncoding.WithPadding(base32.NoPadding)
@@ -141,21 +140,6 @@ func (seg *Segment) DNSName(prefix, domainName string) string {
 	// But many recursive resolvers don't like long labels, so be conservative.
 	labels := misc.SplitIntoSlice(encoded, 60, MaxSegmentDataLen)
 	return fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)
-}
-
-// DNSQuestion converts the binary representation of this segment into a DNS
-// query question - "prefix.seg.seg.seg...domainName".
-// The function does not check whether the segment is sufficiently small for
-// the DNS protocol.
-func (seg *Segment) DNSQuestion(prefix, domainName string) dnsmessage.Question {
-	if prefix == "" || domainName == "" {
-		return dnsmessage.Question{}
-	}
-	return dnsmessage.Question{
-		Name:  dnsmessage.MustNewName(seg.DNSName(prefix, domainName)),
-		Type:  dnsmessage.TypeA,
-		Class: dnsmessage.ClassINET,
-	}
 }
 
 // DNSQuestion converts the binary representation of this segment into a DNS

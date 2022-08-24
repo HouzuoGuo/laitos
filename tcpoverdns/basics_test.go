@@ -155,26 +155,6 @@ func TestCompressDecompressBytes(t *testing.T) {
 	}
 }
 
-func TestSegment_DNSQuestion(t *testing.T) {
-	randData := make([]byte, 100)
-	if _, err := rand.Read(randData); err != nil {
-		t.Fatal(err)
-	}
-	want := Segment{
-		ID:     12345,
-		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
-		SeqNum: 23456,
-		AckNum: 34567,
-		Data:   randData,
-	}
-	dnsQuestion := want.DNSQuestion("prefix-label", "example.com")
-	fmt.Println(dnsQuestion.Name.String())
-	got := SegmentFromDNSName(2, dnsQuestion.Name.String())
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("recovered: \n%+#v\noriginal: \n%+#v\n", got, want)
-	}
-}
-
 func TestInitiatorConfig(t *testing.T) {
 	wantTiming := TimingConfig{
 		SlidingWindowWaitDuration: 1000 * time.Millisecond,
