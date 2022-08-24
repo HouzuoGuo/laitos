@@ -233,7 +233,10 @@ func GetPublicIP() net.IP {
 	lastPublicIPMutex.Lock()
 	defer lastPublicIPMutex.Unlock()
 	if time.Now().Unix()-lastPublicIPTimeStamp.Unix() > 3*60 {
-		lastPublicIP = getPublicIP()
+		newPublicIP := getPublicIP()
+		if lastPublicIP.Equal(net.IPv4(0, 0, 0, 0)) || !newPublicIP.Equal(net.IPv4(0, 0, 0, 0)) {
+			lastPublicIP = newPublicIP
+		}
 		lastPublicIPTimeStamp = time.Now()
 	}
 	return lastPublicIP
