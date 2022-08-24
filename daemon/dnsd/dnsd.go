@@ -669,14 +669,22 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 	if err := builder.StartAnswers(); err != nil {
 		return nil, err
 	}
+	dnsName, err := dnsmessage.NewName(question.Name.String())
+	if err != nil {
+		return nil, err
+	}
+	dnsCName, err := dnsmessage.NewName(cname)
+	if err != nil {
+		return nil, err
+	}
 	// The first answer RR is a CNAME ("r.data-data-data.example.com") that
 	// carries the segment data.
 	if err := builder.CNAMEResource(dnsmessage.ResourceHeader{
-		Name:  dnsmessage.MustNewName(question.Name.String()),
+		Name:  dnsName,
 		Class: dnsmessage.ClassINET,
 		TTL:   60,
 	}, dnsmessage.CNAMEResource{
-		CNAME: dnsmessage.MustNewName(cname),
+		CNAME: dnsCName,
 	}); err != nil {
 		return nil, err
 	}
@@ -686,7 +694,7 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 	switch question.Type {
 	case dnsmessage.TypeA:
 		err := builder.AResource(dnsmessage.ResourceHeader{
-			Name:  dnsmessage.MustNewName(cname),
+			Name:  dnsCName,
 			Class: dnsmessage.ClassINET,
 			TTL:   60,
 		}, dnsmessage.AResource{A: [4]byte{0, 0, 0, 0}})
@@ -695,7 +703,7 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 		}
 	case dnsmessage.TypeAAAA:
 		err := builder.AAAAResource(dnsmessage.ResourceHeader{
-			Name:  dnsmessage.MustNewName(cname),
+			Name:  dnsCName,
 			Class: dnsmessage.ClassINET,
 			TTL:   60,
 		}, dnsmessage.AAAAResource{

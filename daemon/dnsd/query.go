@@ -35,10 +35,13 @@ func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessag
 	if err := builder.StartAnswers(); err != nil {
 		return nil, err
 	}
-	err := builder.TXTResource(dnsmessage.ResourceHeader{
-		Name:  dnsmessage.MustNewName(name),
-		Class: dnsmessage.ClassINET, TTL: 60}, dnsmessage.TXTResource{TXT: txt})
+	dnsName, err := dnsmessage.NewName(name)
 	if err != nil {
+		return nil, err
+	}
+	if err := builder.TXTResource(dnsmessage.ResourceHeader{
+		Name:  dnsName,
+		Class: dnsmessage.ClassINET, TTL: 60}, dnsmessage.TXTResource{TXT: txt}); err != nil {
 		return nil, err
 	}
 	return builder.Finish()
@@ -64,10 +67,14 @@ func BuildBlackHoleAddrResponse(header dnsmessage.Header, question dnsmessage.Qu
 	if err := builder.StartAnswers(); err != nil {
 		return nil, err
 	}
+	dnsName, err := dnsmessage.NewName(question.Name.String())
+	if err != nil {
+		return nil, err
+	}
 	switch question.Type {
 	case dnsmessage.TypeA:
 		err := builder.AResource(dnsmessage.ResourceHeader{
-			Name:  dnsmessage.MustNewName(question.Name.String()),
+			Name:  dnsName,
 			Class: dnsmessage.ClassINET,
 			TTL:   600,
 			// 0.0.0.0 - any network interface.
@@ -77,7 +84,7 @@ func BuildBlackHoleAddrResponse(header dnsmessage.Header, question dnsmessage.Qu
 		}
 	case dnsmessage.TypeAAAA:
 		err := builder.AAAAResource(dnsmessage.ResourceHeader{
-			Name:  dnsmessage.MustNewName(question.Name.String()),
+			Name:  dnsName,
 			Class: dnsmessage.ClassINET,
 			TTL:   600,
 		}, dnsmessage.AAAAResource{
@@ -158,9 +165,17 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	if err := builder.StartAnswers(); err != nil {
 		return nil, err
 	}
+	dnsMName, err := dnsmessage.NewName(mName)
+	if err != nil {
+		return nil, err
+	}
+	dnsRName, err := dnsmessage.NewName(rName)
+	if err != nil {
+		return nil, err
+	}
 	soa := dnsmessage.SOAResource{
-		NS:     dnsmessage.MustNewName(mName),
-		MBox:   dnsmessage.MustNewName(rName),
+		NS:     dnsMName,
+		MBox:   dnsRName,
 		Serial: 1,
 		// "Number of seconds after which secondary name servers should query the master for the SOA record, to detect zone changes." (wikipedia)
 		Refresh: 3600,
@@ -171,12 +186,15 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 		// "Used in calculating the time to live for purposes of negative caching." (wikipedia)
 		MinTTL: 60,
 	}
-	err := builder.SOAResource(dnsmessage.ResourceHeader{
-		Name:  dnsmessage.MustNewName(question.Name.String()),
+	dnsName, err := dnsmessage.NewName(question.Name.String())
+	if err != nil {
+		return nil, err
+	}
+	if err := builder.SOAResource(dnsmessage.ResourceHeader{
+		Name:  dnsName,
 		Class: dnsmessage.ClassINET,
 		TTL:   60,
-	}, soa)
-	if err != nil {
+	}, soa); err != nil {
 		return nil, err
 	}
 	if err := builder.StartAdditionals(); err != nil {
@@ -217,17 +235,24 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	if err := builder.StartAnswers(); err != nil {
 		return nil, err
 	}
+	dnsName, err := dnsmessage.NewName(question.Name.String())
+	if err != nil {
+		return nil, err
+	}
 	for i := 1; i <= 2; i++ {
-		ns := dnsmessage.NSResource{
-			// ns[1-4].laitos-example.net
-			NS: dnsmessage.MustNewName(fmt.Sprintf("ns%d.%s.", i, domainName)),
+		dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s.", i, domainName))
+		if err != nil {
+			return nil, err
 		}
-		err := builder.NSResource(dnsmessage.ResourceHeader{
-			Name:  dnsmessage.MustNewName(question.Name.String()),
+		ns := dnsmessage.NSResource{
+			// ns[1-2].laitos-example.net
+			NS: dnsNSName,
+		}
+		if err := builder.NSResource(dnsmessage.ResourceHeader{
+			Name:  dnsName,
 			Class: dnsmessage.ClassINET,
 			TTL:   60,
-		}, ns)
-		if err != nil {
+		}, ns); err != nil {
 			return nil, err
 		}
 	}
@@ -262,12 +287,16 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 	if err := builder.StartAnswers(); err != nil {
 		return nil, err
 	}
+	dnsName, err := dnsmessage.NewName(question.Name.String())
+	if err != nil {
+		return nil, err
+	}
 	switch question.Type {
 	case dnsmessage.TypeA:
 		v4Addr := ipAddr.To4()
 		if v4Addr != nil {
 			err := builder.AResource(dnsmessage.ResourceHeader{
-				Name:  dnsmessage.MustNewName(question.Name.String()),
+				Name:  dnsName,
 				Class: dnsmessage.ClassINET,
 				TTL:   60,
 			}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}})
@@ -282,7 +311,7 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 			var aaaa [16]byte
 			copy(aaaa[:], v6Addr)
 			err := builder.AAAAResource(dnsmessage.ResourceHeader{
-				Name:  dnsmessage.MustNewName(question.Name.String()),
+				Name:  dnsName,
 				Class: dnsmessage.ClassINET,
 				TTL:   60,
 			}, dnsmessage.AAAAResource{
@@ -309,14 +338,10 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 // CountNameLabels returns the number of labels in the DNS name.
 func CountNameLabels(in string) int {
 	in = strings.TrimSpace(in)
-	if strings.HasPrefix(in, ".") {
-		in = in[1:]
-	}
+	in = strings.TrimPrefix(in, ".")
+	in = strings.TrimSuffix(in, ".")
 	if in == "" {
 		return 0
-	}
-	if strings.HasSuffix(in, ".") {
-		in = in[:len(in)-1]
 	}
 	return strings.Count(in, ".") + 1
 }
