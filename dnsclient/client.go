@@ -80,15 +80,20 @@ func (conn *ProxiedConnection) Start() error {
 		defer func() {
 			conn.logger.Info("Start", "", nil, "DNS data transport finished")
 		}()
-		resolver := &net.Resolver{
-			PreferGo:     true,
-			StrictErrors: true,
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+		var dialFun func(ctx context.Context, network, address string) (net.Conn, error)
+		if conn.client.DNSResolverAddr != "" {
+			// Use the custom specified recursive resolver instead of the system
+			// default.
+			dialFun = func(ctx context.Context, network, address string) (net.Conn, error) {
 				if conn.client.Debug {
 					conn.logger.Info("Start", "", nil, "dialing resolver %q %s:%d", network, conn.client.DNSResolverAddr, conn.client.DNSResovlerPort)
 				}
 				return net.Dial(network, fmt.Sprintf("%s:%d", conn.client.DNSResolverAddr, conn.client.DNSResovlerPort))
-			},
+			}
+		}
+		resolver := &net.Resolver{
+			PreferGo: true,
+			Dial:     dialFun,
 		}
 		countHostNameLabels := dnsd.CountNameLabels(conn.client.DNSHostName)
 		for {

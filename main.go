@@ -100,10 +100,10 @@ func main() {
 	var proxyDNSResolverPort int
 	var proxyDNSHostName string
 	var proxyDebug bool
-	flag.IntVar(&proxyPort, "proxyport", 0, "(TCP-over-DNS) port to start local HTTP proxy on")
+	flag.IntVar(&proxyPort, "proxyport", 8080, "(TCP-over-DNS) port to start local HTTP proxy on")
 	flag.BoolVar(&proxyDebug, "proxydebug", false, "(TCP-over-DNS) turn on debug logs")
 	flag.StringVar(&proxyDNSResolverAddr, "proxydnsresolveraddr", "", "(TCP-over-DNS) recursive resolver address")
-	flag.IntVar(&proxyDNSResolverPort, "proxydnsresolverport", 0, "(TCP-over-DNS) recursive resolver port")
+	flag.IntVar(&proxyDNSResolverPort, "proxydnsresolverport", 53, "(TCP-over-DNS) recursive resolver port")
 	flag.IntVar(&proxySegLen, "proxyseglen", 120, "(TCP-over-DNS) max segment length (must be less than 200)")
 	flag.StringVar(&proxyDNSHostName, "proxydnshostname", "", "(TCP-over-DNS) proxy DNS server host name")
 
