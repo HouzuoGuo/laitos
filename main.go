@@ -98,7 +98,7 @@ func main() {
 	var proxyPort, proxySegLen int
 	var proxyDNSResolverAddr string
 	var proxyDNSResolverPort int
-	var proxyDNSHostName string
+	var proxyDNSHostName, proxyOTPSecret string
 	var proxyDebug bool
 	flag.IntVar(&proxyPort, "proxyport", 8080, "(TCP-over-DNS) port to start local HTTP proxy on")
 	flag.BoolVar(&proxyDebug, "proxydebug", false, "(TCP-over-DNS) turn on debug logs")
@@ -106,6 +106,7 @@ func main() {
 	flag.IntVar(&proxyDNSResolverPort, "proxydnsresolverport", 53, "(TCP-over-DNS) recursive resolver port")
 	flag.IntVar(&proxySegLen, "proxyseglen", 120, "(TCP-over-DNS) max segment length (must be less than 200)")
 	flag.StringVar(&proxyDNSHostName, "proxydnshostname", "", "(TCP-over-DNS) proxy DNS server host name")
+	flag.StringVar(&proxyOTPSecret, "proxyotpsecret", "", "(TCP-over-DNS) proxy OTP secret for authorising connection requests")
 
 	flag.Parse()
 
@@ -130,7 +131,7 @@ func main() {
 	// Non-daemon utility routines - TCP-over-DNS client.
 	// ========================================================================
 	if proxyPort > 0 {
-		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyPort, proxySegLen, proxyDNSResolverAddr, proxyDNSResolverPort, proxyDNSHostName)
+		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyPort, proxySegLen, proxyDNSResolverAddr, proxyDNSResolverPort, proxyDNSHostName, proxyOTPSecret)
 		return
 	}
 

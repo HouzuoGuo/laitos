@@ -12,6 +12,7 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 // ProxyRequest is the data sent by a proxy client to initiate a connection
@@ -24,6 +25,8 @@ type ProxyRequest struct {
 	Port int `json:"p"`
 	// Address is the host IP address or network address (IP:port).
 	Address string `json:"a"`
+	// AccessTOTP is a time-based OTP that authorises the connection request.
+	AccessTOTP string `json:"t"`
 }
 
 // ProxyConnection consists of a transmission control paired to a TCP connection
@@ -164,25 +167,29 @@ func (conn *ProxyConnection) Close() error {
 type Proxy struct {
 	// DNSDaemon helps the proxy to identify advertising/malware proxy
 	// destinations and to refuse serving their clients.
-	DNSDaemon *Daemon
+	DNSDaemon *Daemon `json:"-"`
 
 	// MaxReplyLatency is the maximum duration to wait for a reply (outgoing)
 	// segment before returning from the Receive function.
-	MaxReplyDelay time.Duration
+	MaxReplyDelay time.Duration `json:"-"`
+
+	// RequestOTPSecret is a TOTP secret for authorising incoming connection
+	// requests.
+	RequestOTPSecret string `json:"RequestOTPSecret"`
+	// Debug enables verbose logging for IO activities.
+	Debug bool `json:"Debug"`
 
 	// Linger is a brief period of time for a proxy connection to stay before it
 	// is removed from the internal collection of proxy connections. The delay
 	// is crucial to allow the final segments of each proxy connection to be
 	// received by proxy client - including the segment with ResetTerminate.
-	Linger time.Duration
+	Linger time.Duration `json:"-"`
 
 	// DialTimeout is the timeout used for creating new a proxy TCP connection.
-	DialTimeout time.Duration
+	DialTimeout time.Duration `json:"-"`
 
-	// Debug enables verbose logging for IO activities.
-	Debug bool
-	// Logger is used to log IO activities when verbose logging is enabled.
-	Logger lalog.Logger
+	// logger is used to log IO activities when verbose logging is enabled.
+	logger lalog.Logger `json:"-"`
 
 	connections map[uint16]*ProxyConnection
 	context     context.Context
@@ -206,7 +213,7 @@ func (proxy *Proxy) Start(ctx context.Context) {
 	proxy.connections = make(map[uint16]*ProxyConnection)
 	proxy.context, proxy.cancelFun = context.WithCancel(ctx)
 	proxy.mutex = new(sync.Mutex)
-	proxy.Logger = lalog.Logger{ComponentName: "TCProxy"}
+	proxy.logger = lalog.Logger{ComponentName: "TCProxy"}
 }
 
 // Receive processes an incoming segment and relay the segment to an existing
@@ -219,17 +226,26 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 	if !exists {
 		// Connect to the proxy destination.
 		var req ProxyRequest
+		proxy.logger.Info("Receive", in.ID, nil, "new connection request - seg: %+v, req: %+v", in, req)
 		if len(in.Data) < tcpoverdns.InitiatorConfigLen {
-			proxy.Logger.Warning("Receive", in.ID, nil, "received a malformed segment possibly from a stale TC")
+			proxy.logger.Warning("Receive", in.ID, nil, "received a malformed segment possibly from a stale TC")
 			return tcpoverdns.Segment{}, false
 		}
 		if err := json.Unmarshal(in.Data[tcpoverdns.InitiatorConfigLen:], &req); err != nil {
-			proxy.Logger.Warning("Receive", in.ID, err, "failed to deserialise proxy request")
+			proxy.logger.Warning("Receive", in.ID, err, "failed to deserialise proxy request")
 			return tcpoverdns.Segment{}, false
 		}
-		proxy.Logger.Info("Receive", "", nil, "new connection request - seg: %+v, req: %+v", in, req)
 		if proxy.DNSDaemon != nil && proxy.DNSDaemon.IsInBlacklist(req.Address) {
-			proxy.Logger.Info("Receive", in.ID, nil, "refusing connection to blacklisted destination %q", req.Address)
+			proxy.logger.Info("Receive", in.ID, nil, "refusing connection to blacklisted destination %q", req.Address)
+			return tcpoverdns.Segment{ID: in.ID, Flags: tcpoverdns.FlagReset}, true
+		}
+		prev, curr, next, err := toolbox.GetTwoFACodes(proxy.RequestOTPSecret)
+		if err != nil {
+			proxy.logger.Info("Receive", in.ID, nil, "failed to calculate TOTP codes")
+			return tcpoverdns.Segment{ID: in.ID, Flags: tcpoverdns.FlagReset}, true
+		}
+		if req.AccessTOTP != prev && req.AccessTOTP != curr && req.AccessTOTP != next {
+			proxy.logger.Warning("Receive", in.ID, nil, "the request failed OTP check")
 			return tcpoverdns.Segment{ID: in.ID, Flags: tcpoverdns.FlagReset}, true
 		}
 		// Construct the transmission control at proxy's side.
@@ -267,7 +283,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 		if err != nil {
 			// Immediately close the transmission control if the destination is
 			// unreachable.
-			proxy.Logger.Warning("Receive", in.ID, err, "failed to connect to proxy destination %s %s", dialNet, dialDest)
+			proxy.logger.Warning("Receive", in.ID, err, "failed to connect to proxy destination %s %s", dialNet, dialDest)
 			// Proceed with handshake, but there will be no data coming through
 			// the transmission control and it will be closed shortly.
 		}
@@ -301,7 +317,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 		_ = conn.Close()
 	}
 	if proxy.Debug {
-		proxy.Logger.Info("Receive", in.ID, nil, "waiting for a reply outbound segment")
+		proxy.logger.Info("Receive", in.ID, nil, "waiting for a reply outbound segment")
 	}
 	waitCtx, cancel := context.WithTimeout(proxy.context, proxy.MaxReplyDelay)
 	defer cancel()

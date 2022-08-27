@@ -9,7 +9,7 @@ import (
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
-func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegLen int, resolverAddr string, resolverPort int, dnsHostName string) {
+func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegLen int, resolverAddr string, resolverPort int, dnsHostName, otpSecret string) {
 	// There's a ton of overhead in the construction of a DNS response.
 	// It takes 16 bytes to encode 3 bytes of arbitrary data in a query
 	// answer, and conventionally DNS packets should not exceed 512 bytes in
@@ -33,10 +33,11 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 				AckDelay:                  500 * time.Millisecond,
 			},
 		},
-		Debug:           debug,
-		DNSResolverAddr: resolverAddr,
-		DNSResovlerPort: resolverPort,
-		DNSHostName:     dnsHostName,
+		Debug:            debug,
+		DNSResolverAddr:  resolverAddr,
+		DNSResovlerPort:  resolverPort,
+		DNSHostName:      dnsHostName,
+		RequestOTPSecret: otpSecret,
 	}
 
 	if err := httpProxyServer.Initialise(context.Background()); err != nil {

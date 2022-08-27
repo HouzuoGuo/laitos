@@ -131,6 +131,10 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 	daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v", question.Type, name, domainName, numDomainLabels, isRecursive)
 	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
+		if daemon.TCPProxy == nil {
+			daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "received a TCP-over-DNS segment but the server is not configured to handle it.")
+			return
+		}
 		seg := tcpoverdns.SegmentFromDNSName(numDomainLabels, name)
 		emptySegment := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
 		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
@@ -139,7 +143,7 @@ func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byt
 			return respBody
 		}
 		cname := string(daemon.responseCache.GetOrSet(name, func() []byte {
-			respSegment, hasResp := daemon.tcpProxy.Receive(seg)
+			respSegment, hasResp := daemon.TCPProxy.Receive(seg)
 			if !hasResp {
 				return []byte(emptySegment.DNSName("r", domainName))
 			}

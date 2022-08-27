@@ -85,11 +85,15 @@ func echoTCPServer(t *testing.T, port int) {
 
 func TestProxy_TCPClient(t *testing.T) {
 	echoTCPServer(t, 63238)
-
 	proxy := &Proxy{
-		Debug: true,
+		Debug:            true,
+		RequestOTPSecret: "testtest",
 	}
 	proxy.Start(context.Background())
+	_, curr, _, err := toolbox.GetTwoFACodes(proxy.RequestOTPSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
@@ -99,7 +103,7 @@ func TestProxy_TCPClient(t *testing.T) {
 		ID:                   1111,
 		InputTransport:       inTransport,
 		OutputTransport:      outTransport,
-		InitiatorSegmentData: []byte(`{"p": 63238, "a": "127.0.0.1"}`),
+		InitiatorSegmentData: []byte(fmt.Sprintf(`{"p": 63238, "a": "127.0.0.1", "t": "%s"}`, curr)),
 		// Keep the segment length short for the test.
 		MaxSegmentLenExclHeader: 2,
 		Initiator:               true,
@@ -196,6 +200,10 @@ func TestProxy_HTTPClient(t *testing.T) {
 func TestProxy_HTTPSClient(t *testing.T) {
 	proxy := &Proxy{Debug: true}
 	proxy.Start(context.Background())
+	_, curr, _, err := toolbox.GetTwoFACodes(proxy.RequestOTPSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
@@ -206,7 +214,7 @@ func TestProxy_HTTPSClient(t *testing.T) {
 		MaxSegmentLenExclHeader: 993,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		InitiatorSegmentData:    []byte(`{"p": 443, "a": "1.1.1.1"}`),
+		InitiatorSegmentData:    []byte(fmt.Sprintf(`{"p": 443, "a": "1.1.1.1", "t": "%s"}`, curr)),
 		Initiator:               true,
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{
@@ -278,7 +286,15 @@ func TestProxy_Blacklisted(t *testing.T) {
 		t.Fatal(err)
 	}
 	daemon.blackList["1.1.1.1"] = struct{}{}
-	proxy := &Proxy{Debug: true, DNSDaemon: daemon}
+	proxy := &Proxy{
+		Debug:            true,
+		DNSDaemon:        daemon,
+		RequestOTPSecret: "testtest",
+	}
+	_, curr, _, err := toolbox.GetTwoFACodes(proxy.RequestOTPSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
 	proxy.Start(context.Background())
 
 	testIn, inTransport := net.Pipe()
@@ -290,7 +306,7 @@ func TestProxy_Blacklisted(t *testing.T) {
 		// Test asymmetric segment length.
 		InputTransport:       inTransport,
 		OutputTransport:      outTransport,
-		InitiatorSegmentData: []byte(`{"p": 443, "a": "1.1.1.1"}`),
+		InitiatorSegmentData: []byte(fmt.Sprintf(`{"p": 443, "a": "1.1.1.1", "t": "%v"}`, curr)),
 		Initiator:            true,
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{
@@ -314,8 +330,13 @@ func TestProxy_Blacklisted(t *testing.T) {
 
 func TestProxy_CleanUp(t *testing.T) {
 	proxy := &Proxy{
-		Debug:  true,
-		Linger: 5 * time.Second,
+		Debug:            true,
+		Linger:           5 * time.Second,
+		RequestOTPSecret: "testtest",
+	}
+	_, curr, _, err := toolbox.GetTwoFACodes(proxy.RequestOTPSecret)
+	if err != nil {
+		t.Fatal(err)
 	}
 	proxy.Start(context.Background())
 
@@ -328,7 +349,7 @@ func TestProxy_CleanUp(t *testing.T) {
 		InputTransport:  inTransport,
 		OutputTransport: outTransport,
 		// The destination is not going to respond.
-		InitiatorSegmentData: []byte(`{"p": 443, "a": "203.0.113.0"}`),
+		InitiatorSegmentData: []byte(fmt.Sprintf(`{"p": 443, "a": "203.0.113.0", "t": "%s"}`, curr)),
 		Initiator:            true,
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{

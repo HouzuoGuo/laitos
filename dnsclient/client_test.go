@@ -24,6 +24,9 @@ func TestClient_HTTP(t *testing.T) {
 		MyDomainNames:       []string{"example.test"},
 		UDPPort:             45278,
 		TCPPort:             32148,
+		TCPProxy: &dnsd.Proxy{
+			RequestOTPSecret: "testtest",
+		},
 	}
 	if err := dnsProxyServer.Initialise(); err != nil {
 		t.Fatal(err)
@@ -39,8 +42,9 @@ func TestClient_HTTP(t *testing.T) {
 
 	// Start an HTTP proxy server - tcp-over-DNS proxy client.
 	httpProxyServer := &Client{
-		Address: "127.0.0.1",
-		Port:    61122,
+		Address:          "127.0.0.1",
+		Port:             61122,
+		RequestOTPSecret: dnsProxyServer.TCPProxy.RequestOTPSecret,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig: true,
 			Debug:     true,

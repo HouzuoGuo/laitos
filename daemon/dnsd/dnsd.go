@@ -45,10 +45,6 @@ const (
 	// ProxyPrefix is the name prefix DNS clients need to put in front of their
 	// address queries to send the query to the TCP-over-DNS proxy.
 	ProxyPrefix = 't'
-
-	// SelfAddrRecordName is the name of an address record (A) that resolves to
-	// the address of the laitos DNS server itself.
-	SelfAddrRecordName = "laitosaddr"
 )
 
 var (
@@ -116,7 +112,9 @@ type Daemon struct {
 
 	tcpServer *common.TCPServer
 	udpServer *common.UDPServer
-	tcpProxy  *Proxy
+
+	// TCPProxy is a TCP-over-DNS proxy server.
+	TCPProxy *Proxy
 
 	// latestCommands caches the result of recently executed toolbox commands.
 	latestCommands *LatestCommands
@@ -216,9 +214,8 @@ func (daemon *Daemon) Initialise() error {
 	daemon.responseCache = NewResponseCache(ResponseCacheExpiry, 200)
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
-	daemon.tcpProxy = &Proxy{
-		DNSDaemon: daemon,
-		// Debug: true,
+	if daemon.TCPProxy != nil {
+		daemon.TCPProxy.DNSDaemon = daemon
 	}
 
 	// Always allow server itself to query the DNS servers via its public IP
@@ -381,7 +378,9 @@ func (daemon *Daemon) StartAndBlock() error {
 	}
 
 	daemon.context, daemon.cancelFunc = context.WithCancel(context.Background())
-	daemon.tcpProxy.Start(daemon.context)
+	if daemon.TCPProxy != nil {
+		daemon.TCPProxy.Start(daemon.context)
+	}
 
 	// Start the DNS listeners on all ports.
 	numListeners := 0

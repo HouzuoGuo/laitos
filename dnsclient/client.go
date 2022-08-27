@@ -19,6 +19,7 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
+	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
 // ProxiedConnection handles an individual proxy connection to transport
@@ -190,6 +191,9 @@ type Client struct {
 	Config tcpoverdns.InitiatorConfig
 	// Debug enables verbose logging for IO activities.
 	Debug bool
+	// RequestOTPSecret is a TOTP secret for authorising outgoing connection
+	// requests.
+	RequestOTPSecret string `json:"RequestOTPSecret"`
 
 	// httpTransport is the HTTP round tripper used by the proxy handler for
 	// HTTP (unencrypted) proxy requests. This transport is not used for handling
@@ -242,7 +246,15 @@ func (client *Client) Initialise(ctx context.Context) error {
 
 // dialContet returns a network connection tunnelled by the TCP-over-DNS proxy.
 func (client *Client) dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	initiatorSegment, err := json.Marshal(dnsd.ProxyRequest{Network: network, Address: addr})
+	_, curr, _, err := toolbox.GetTwoFACodes(client.RequestOTPSecret)
+	if err != nil {
+		return nil, err
+	}
+	initiatorSegment, err := json.Marshal(dnsd.ProxyRequest{
+		Network:    network,
+		Address:    addr,
+		AccessTOTP: curr,
+	})
 	if err != nil {
 		return nil, err
 	}
