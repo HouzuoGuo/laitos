@@ -137,6 +137,10 @@ func TestProxy_TCPClient(t *testing.T) {
 func TestProxy_HTTPClient(t *testing.T) {
 	proxy := &Proxy{Debug: true}
 	proxy.Start(context.Background())
+	_, curr, _, err := toolbox.GetTwoFACodes(proxy.RequestOTPSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	testIn, inTransport := net.Pipe()
 	testOut, outTransport := net.Pipe()
@@ -147,7 +151,7 @@ func TestProxy_HTTPClient(t *testing.T) {
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
 		MaxSegmentLenExclHeader: 993,
-		InitiatorSegmentData:    []byte(`{"p": 80, "a": "1.1.1.1"}`),
+		InitiatorSegmentData:    []byte(fmt.Sprintf(`{"p": 80, "a": "1.1.1.1", "t": "%s"}`, curr)),
 		Initiator:               true,
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{
