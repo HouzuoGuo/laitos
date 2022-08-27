@@ -114,7 +114,7 @@ type Daemon struct {
 	udpServer *common.UDPServer
 
 	// TCPProxy is a TCP-over-DNS proxy server.
-	TCPProxy *Proxy
+	TCPProxy *Proxy `json:"TCPProxy"`
 
 	// latestCommands caches the result of recently executed toolbox commands.
 	latestCommands *LatestCommands
@@ -284,7 +284,7 @@ func (daemon *Daemon) UpdateBlackList(blacklistedNames []string) {
 	newBlackList := make(map[string]struct{})
 	newBlackListMutex := new(sync.Mutex)
 	// Populate the list faster when getting started
-	numRoutines := 12
+	numRoutines := 8
 	daemon.blackListMutex.RLock()
 	if len(daemon.blackList) > 0 {
 		// Slow down when updating the blacklist, there is no hurry. This helps to reduce DNS resolution load on the server host.
