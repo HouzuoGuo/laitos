@@ -97,7 +97,9 @@ func (conn *ProxyConnection) Start() {
 				conn.logger.Info("Start", "", nil, "callback is removing duplicated segment: %+v", seg)
 			}
 		} else {
-			conn.logger.Info("Start", "", nil, "callback is handling segment %+v", seg)
+			if conn.proxy.Debug {
+				conn.logger.Info("Start", "", nil, "callback is handling segment %+v", seg)
+			}
 			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
 		}
 	}
