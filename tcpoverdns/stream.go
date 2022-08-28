@@ -300,7 +300,12 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					// Got nothing yet, send SYN.
 					if time.Since(instant.lastOutputSyn) < instant.LiveTiming.RetransmissionInterval {
 						// Avoid flooding the peer with repeated SYN.
-						continue
+						select {
+						case <-time.After(BusyWaitInterval):
+							continue
+						case <-tc.context.Done():
+							return
+						}
 					}
 					if instant.ongoingRetransmissions >= tc.MaxRetransmissions {
 						tc.Logger.Warning("drainOutputToTransport", "", nil, "handshake syn has got no response after multiple attempts, closing.")
@@ -340,7 +345,12 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 					// Got SYN, send ACK.
 					if time.Since(instant.lastOutputSyn) < instant.LiveTiming.RetransmissionInterval {
 						// Avoid flooding the peer with repeated ACK.
-						continue
+						select {
+						case <-time.After(BusyWaitInterval):
+							continue
+						case <-tc.context.Done():
+							return
+						}
 					}
 					if instant.ongoingRetransmissions >= tc.MaxRetransmissions {
 						tc.Logger.Warning("drainOutputToTransport", "", nil, "handshake ack has got no response after multiple attempts, closing.")

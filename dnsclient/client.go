@@ -381,3 +381,16 @@ func (client *Client) Stop() {
 		}
 	}
 }
+
+// OptimalSegLen returns the optimal segment length appropriate for the DNS host
+// name.
+func OptimalSegLen(dnsHostName string) int {
+	// The maximum DNS host name is 253 characters.
+	// At present the encoding efficiency is ~50% at the worst case scenario.
+	approxLen := float64(250-len(dnsHostName)) * 0.50
+	ret := int(approxLen)
+	if ret < 0 {
+		return 0
+	}
+	return ret
+}

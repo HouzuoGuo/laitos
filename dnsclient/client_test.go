@@ -46,11 +46,9 @@ func TestClient_HTTP(t *testing.T) {
 		Port:             61122,
 		RequestOTPSecret: dnsProxyServer.TCPProxy.RequestOTPSecret,
 		Config: tcpoverdns.InitiatorConfig{
-			SetConfig: true,
-			Debug:     true,
-			// The max size of DNS query response should be 512 bytes, but the
-			// localhost communication does not mind a little extra.
-			MaxSegmentLenExclHeader: 120,
+			SetConfig:               true,
+			Debug:                   true,
+			MaxSegmentLenExclHeader: OptimalSegLen(dnsProxyServer.MyDomainNames[0]),
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               120 * time.Second,
 				WriteTimeout:              120 * time.Second,
@@ -133,4 +131,12 @@ func TestClient_HTTP(t *testing.T) {
 	// Repeatedly stopping the daemon should have no negative consequences
 	httpProxyServer.Stop()
 	httpProxyServer.Stop()
+}
+
+func TestOptimalSegLen(t *testing.T) {
+	got := OptimalSegLen("example.com")
+	want := 119
+	if got != want {
+		t.Fatalf("got: %v, want: %v", got, want)
+	}
 }

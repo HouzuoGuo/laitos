@@ -10,13 +10,10 @@ import (
 )
 
 func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegLen int, resolverAddr string, resolverPort int, dnsHostName, otpSecret string) {
-	// There's a ton of overhead in the construction of a DNS response.
-	// It takes 16 bytes to encode 3 bytes of arbitrary data in a query
-	// answer, and conventionally DNS packets should not exceed 512 bytes in
-	// total length - which includes both a repetition of the query and the
-	// answer.
-	// Some popular public recursive resolvers do not mind handling large
-	// UDP query response (e.g. Google public DNS).
+	if proxySegLen == 0 {
+		proxySegLen = dnsclient.OptimalSegLen(dnsHostName)
+		logger.Info("HandleTCPOverDNSClient", "", nil, "using segment length %d", proxySegLen)
+	}
 	httpProxyServer := &dnsclient.Client{
 		Address: "127.0.0.1",
 		Port:    port,

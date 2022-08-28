@@ -104,7 +104,7 @@ func main() {
 	flag.BoolVar(&proxyDebug, "proxydebug", false, "(TCP-over-DNS) turn on debug logs")
 	flag.StringVar(&proxyDNSResolverAddr, "proxydnsresolveraddr", "", "(TCP-over-DNS) recursive resolver address")
 	flag.IntVar(&proxyDNSResolverPort, "proxydnsresolverport", 53, "(TCP-over-DNS) recursive resolver port")
-	flag.IntVar(&proxySegLen, "proxyseglen", 120, "(TCP-over-DNS) max segment length (must be less than 200)")
+	flag.IntVar(&proxySegLen, "proxyseglen", 0, "(TCP-over-DNS) max segment length (must be less than 200)")
 	flag.StringVar(&proxyDNSHostName, "proxydnshostname", "", "(TCP-over-DNS) proxy DNS server host name")
 	flag.StringVar(&proxyOTPSecret, "proxyotpsecret", "", "(TCP-over-DNS) proxy OTP secret for authorising connection requests")
 
