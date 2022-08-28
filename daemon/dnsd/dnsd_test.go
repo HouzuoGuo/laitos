@@ -83,7 +83,7 @@ func TestEmtpyDNSD(t *testing.T) {
 }
 
 func TestDaemon_Initialise(t *testing.T) {
-	daemon := Daemon{AllowQueryFromCidrs: []string{"192.0.0.0/8", ""}, MyDomainNames: []string{"example.com"}}
+	daemon := &Daemon{AllowQueryFromCidrs: []string{"192.0.0.0/8", ""}, MyDomainNames: []string{"example.com"}}
 	// Initialise with bad CIDR.
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "failed to parse") {
 		t.Fatal(err)
@@ -107,8 +107,20 @@ func TestDaemon_Initialise(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Test default settings
-	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 48 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
+	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 50 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
 		t.Fatalf("%+v", daemon)
+	}
+	// Initialise with TCP-over-DNS proxy.
+	daemon = &Daemon{
+		AllowQueryFromCidrs: []string{"192.0.0.0/8"},
+		MyDomainNames:       []string{"example.com"},
+		TCPProxy:            &Proxy{},
+		Processor:           toolbox.GetTestCommandProcessor(),
+	}
+	if err := daemon.Initialise(); err != nil ||
+		daemon.PerIPLimit != 150 || daemon.TCPProxy.DNSDaemon != daemon ||
+		daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
+		t.Fatalf("err: %+v, daemon: %+v", err, daemon)
 	}
 }
 

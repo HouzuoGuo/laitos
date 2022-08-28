@@ -156,7 +156,13 @@ func (daemon *Daemon) Initialise() error {
 		daemon.UDPPort = 53
 	}
 	if daemon.PerIPLimit < 1 {
-		daemon.PerIPLimit = 48 // reasonable for a network of 3 users
+		if daemon.TCPProxy == nil {
+			// This should be good enough for a small network of 5 users.
+			daemon.PerIPLimit = 50
+		} else {
+			// TCP-over-DNS sends a LOT of queries.
+			daemon.PerIPLimit = 150
+		}
 	}
 	if daemon.Forwarders == nil || len(daemon.Forwarders) == 0 {
 		daemon.Forwarders = make([]string, len(DefaultForwarders))
