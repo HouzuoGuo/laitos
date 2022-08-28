@@ -318,7 +318,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						Flags: FlagHandshakeSyn,
 						Data:  handshakeData,
 					}
-					tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, seg: %+v", instant.state, seg)
+					tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake, state: %v, retrans: %v, seg: %+v", instant.state, instant.ongoingRetransmissions, seg)
 					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
 					tc.lastOutputSyn = time.Now()
@@ -357,7 +357,7 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 						return
 					}
 					seg := Segment{ID: tc.ID, Flags: FlagHandshakeAck}
-					tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake ack, state: %v, seg: %+v", instant.state, seg)
+					tc.Logger.Info("drainOutputToTransport", "", nil, "sending handshake ack, state: %v, retrans: %v, seg: %+v", instant.state, instant.ongoingRetransmissions, seg)
 					_ = tc.writeToOutputTransport(seg)
 					tc.mutex.Lock()
 					tc.lastOutputSyn = time.Now()
