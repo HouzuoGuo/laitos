@@ -840,7 +840,7 @@ func (tc *TransmissionControl) SetWriteDeadline(t time.Time) error { return nil 
 func (tc *TransmissionControl) DecreaseTimingInterval() {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
-	if tc.LiveTiming.KeepAliveInterval < tc.InitialTiming.KeepAliveInterval/10 {
+	if tc.LiveTiming.KeepAliveInterval < BusyWaitInterval {
 		return
 	}
 	tc.LiveTiming.HalfInterval()
