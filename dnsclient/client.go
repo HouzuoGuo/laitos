@@ -98,6 +98,9 @@ func (conn *ProxiedConnection) Start() error {
 		}
 		countHostNameLabels := dnsd.CountNameLabels(conn.client.DNSHostName)
 		for {
+			if conn.tc.State() == tcpoverdns.StateClosed {
+				return
+			}
 			var incomingSeg, outgoingSeg, nextInBacklog tcpoverdns.Segment
 			var cname string
 			var err error

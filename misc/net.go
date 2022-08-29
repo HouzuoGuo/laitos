@@ -61,7 +61,7 @@ func PipeConn(logger lalog.Logger, autoClose bool, ioTimeout time.Duration, bufL
 	buf := make([]byte, bufLen)
 	for {
 		if EmergencyLockDown {
-			logger.Warning("Pipe", "", ErrEmergencyLockDown, "")
+			logger.Warning("PipeConn", "", ErrEmergencyLockDown, "")
 			logger.MaybeMinorError(src.Close())
 			logger.MaybeMinorError(dest.Close())
 			return nil

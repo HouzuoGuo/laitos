@@ -33,6 +33,7 @@ const (
 // Transmission control is intended to be used as the transport of a data stream
 // that would otherwise be transported over TCP,
 type TransmissionControl struct {
+	net.Conn
 	// ID is a file descriptor-like number that identifies all outgoing segments
 	// as well as used for logging.
 	ID uint16

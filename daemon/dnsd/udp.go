@@ -125,6 +125,7 @@ func (daemon *Daemon) handleUDPNS(clientIP string, queryBody []byte, header dnsm
 	}
 	return
 }
+
 func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
