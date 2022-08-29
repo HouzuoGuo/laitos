@@ -28,7 +28,7 @@ func TestJoke(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if result := joke.Execute(context.Background(), Command{TimeoutSec: 10}); result.Error != nil || len(result.Output) < 30 {
+	if result := joke.Execute(context.Background(), Command{TimeoutSec: 10}); result.Error != nil || len(result.Output) < 10 {
 		t.Fatal(result)
 	} else {
 		t.Log(result)
