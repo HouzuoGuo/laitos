@@ -22,7 +22,7 @@ func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessag
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = true
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -54,7 +54,7 @@ func BuildBlackHoleAddrResponse(header dnsmessage.Header, question dnsmessage.Qu
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = true
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -152,7 +152,7 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = true
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -222,7 +222,7 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = true
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -275,7 +275,7 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = true
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	if err := builder.StartQuestions(); err != nil {

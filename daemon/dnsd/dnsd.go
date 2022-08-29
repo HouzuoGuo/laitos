@@ -661,7 +661,7 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = true
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -682,8 +682,6 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 	if err != nil {
 		return nil, err
 	}
-	// The first answer RR is a CNAME ("r.data-data-data.example.com") that
-	// carries the segment data.
 	if err := builder.CNAMEResource(dnsmessage.ResourceHeader{
 		Name:  dnsName,
 		Class: dnsmessage.ClassINET,
@@ -692,31 +690,6 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 		CNAME: dnsCName,
 	}); err != nil {
 		return nil, err
-	}
-	// If the query asked for an address, then the second RR is a dummy address
-	// to the CNAME.
-	// There is no useful data in the address.
-	switch question.Type {
-	case dnsmessage.TypeA:
-		err := builder.AResource(dnsmessage.ResourceHeader{
-			Name:  dnsCName,
-			Class: dnsmessage.ClassINET,
-			TTL:   60,
-		}, dnsmessage.AResource{A: [4]byte{0, 0, 0, 0}})
-		if err != nil {
-			return nil, err
-		}
-	case dnsmessage.TypeAAAA:
-		err := builder.AAAAResource(dnsmessage.ResourceHeader{
-			Name:  dnsCName,
-			Class: dnsmessage.ClassINET,
-			TTL:   60,
-		}, dnsmessage.AAAAResource{
-			AAAA: [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-		})
-		if err != nil {
-			return nil, err
-		}
 	}
 	if err := builder.StartAdditionals(); err != nil {
 		return nil, err
