@@ -78,9 +78,6 @@ func (conn *ProxiedConnection) Start() error {
 	conn.tc.Start(conn.context)
 	// Start transporting segments back and forth.
 	go func() {
-		defer func() {
-			conn.logger.Info("Start", "", nil, "DNS data transport finished")
-		}()
 		var dialFun func(ctx context.Context, network, address string) (net.Conn, error)
 		if conn.client.DNSResolverAddr != "" {
 			// Use the custom specified recursive resolver instead of the system
@@ -96,6 +93,25 @@ func (conn *ProxiedConnection) Start() error {
 			PreferGo: true,
 			Dial:     dialFun,
 		}
+		defer func() {
+			// Linger briefly, then send the last segment. The brief waiting
+			// time allows the TC to transition to the closed state.
+			time.Sleep(5 * time.Second)
+			conn.mutex.Lock()
+			var finalSeg tcpoverdns.Segment
+			if len(conn.outputSegmentBacklog) > 0 {
+				finalSeg = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
+			}
+			conn.mutex.Unlock()
+			if finalSeg.Flags != 0 {
+				timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				if _, err := resolver.LookupCNAME(timeoutCtx, finalSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName)); err != nil {
+					conn.logger.Warning("Start", "", err, "failed to send the final segment")
+				}
+			}
+			conn.logger.Info("Start", "", nil, "DNS data transport finished, the final segment was: %v", finalSeg)
+		}()
 		countHostNameLabels := dnsd.CountNameLabels(conn.client.DNSHostName)
 		for {
 			if conn.tc.State() == tcpoverdns.StateClosed {
