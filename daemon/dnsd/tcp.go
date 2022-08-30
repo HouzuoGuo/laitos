@@ -149,7 +149,7 @@ func (daemon *Daemon) handleTCPNS(clientIP string, queryLen, queryBody []byte, h
 func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
-	daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v", question.Type, name, domainName, numDomainLabels, isRecursive)
+	daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
 		if daemon.TCPProxy == nil {

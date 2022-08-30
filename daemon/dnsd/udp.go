@@ -129,7 +129,7 @@ func (daemon *Daemon) handleUDPNS(clientIP string, queryBody []byte, header dnsm
 func (daemon *Daemon) handleUDPNameOrOtherQuery(clientIP string, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
-	daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v", question.Type, name, domainName, numDomainLabels, isRecursive)
+	daemon.logger.Info("handleUDPNameOrOtherQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
 		if daemon.TCPProxy == nil {
