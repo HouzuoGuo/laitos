@@ -70,8 +70,9 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, head
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	labels, _, _, isRecursive := daemon.queryLabels(name)
+	labels, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
+		daemon.logger.Info("handleUDPTextQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 		return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 	}
 	if dtmfDecoded := DecodeDTMFCommandInput(labels); len(dtmfDecoded) > 1 {
@@ -94,8 +95,8 @@ func (daemon *Daemon) handleUDPTextQuery(clientIP string, queryBody []byte, head
 
 func (daemon *Daemon) handleUDPSOA(clientIP string, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	_, domainName, _, isRecursive := daemon.queryLabels(name)
-	daemon.logger.Info("handleUDPSOA", clientIP, nil, "handling SOA query %q, domain name: %q, is recursive: %v", name, domainName, isRecursive)
+	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	daemon.logger.Info("handleUDPSOA", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
@@ -111,8 +112,8 @@ func (daemon *Daemon) handleUDPSOA(clientIP string, queryBody []byte, header dns
 
 func (daemon *Daemon) handleUDPNS(clientIP string, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	_, domainName, _, isRecursive := daemon.queryLabels(name)
-	daemon.logger.Info("handleUDPNS", clientIP, nil, "handling NS query %q, domain name: %q, is recursive: %v", name, domainName, isRecursive)
+	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	daemon.logger.Info("handleUDPNS", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}

@@ -238,13 +238,13 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	if err != nil {
 		return nil, err
 	}
-	for i := 1; i <= 2; i++ {
-		dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s.", i, domainName))
+	for i := 1; i <= 4; i++ {
+		dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s", i, domainName))
 		if err != nil {
 			return nil, err
 		}
 		ns := dnsmessage.NSResource{
-			// ns[1-2].laitos-example.net
+			// ns[1-4].laitos-example.net
 			NS: dnsNSName,
 		}
 		if err := builder.NSResource(dnsmessage.ResourceHeader{

@@ -570,6 +570,37 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		lastResolvedName = queryInput
 	}
 
+	// Go's name resolution library unfortunately doesn't work for SOA.
+	domainName := daemon.MyDomainNames[0]
+	// Resolve NS records.
+	// Keep in mind that the daemon initialises itself by placing a full-stop
+	// in front of the domain name.
+	ns, err := resolver.LookupNS(context.Background(), domainName[1:])
+	if len(ns) != 4 {
+		t.Fatalf("unexpected number of ns: %v", ns)
+	}
+	for i := 1; i < 4; i++ {
+		got := ns[i-1].Host
+		want := fmt.Sprintf("ns%d%s.", i, domainName)
+		if got != want {
+			t.Fatalf("got ns %q, want %q", got, want)
+		}
+	}
+
+	// Resolve address of NS.
+	for i := 1; i < 4; i++ {
+		ip, err := resolver.LookupIP(context.Background(), "ip", fmt.Sprintf("ns%d%s", i, domainName))
+		if err != nil {
+			t.Fatalf("failed to resolve ns: %v", err)
+		}
+		if len(ip) != 1 {
+			t.Fatalf("did not resolve ns%d", i)
+		}
+		if !ip[0].Equal(daemon.myPublicIP) {
+			t.Fatalf("got %v, want %v", ip[0], daemon.myPublicIP)
+		}
+	}
+
 	// Resolve A and TXT records from popular domains
 	for _, domain := range []string{"biNg.cOM.", "wikipedIA.oRg."} {
 		lastResolvedName = ""
