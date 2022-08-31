@@ -15,8 +15,7 @@ const (
 	ednsBufferSize = 1232
 )
 
-// BuildTextResponse constructs a TXT record response packet, the record TTL is
-// hard coded to 30 seconds.
+// BuildTextResponse constructs a TXT record response packet.
 func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessage.Question, txt []string) ([]byte, error) {
 	// Retain the original transaction ID.
 	header.Response = true
@@ -41,7 +40,7 @@ func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessag
 	}
 	if err := builder.TXTResource(dnsmessage.ResourceHeader{
 		Name:  dnsName,
-		Class: dnsmessage.ClassINET, TTL: 60}, dnsmessage.TXTResource{TXT: txt}); err != nil {
+		Class: dnsmessage.ClassINET, TTL: CommonResponseTTL}, dnsmessage.TXTResource{TXT: txt}); err != nil {
 		return nil, err
 	}
 	return builder.Finish()
@@ -184,7 +183,7 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 		// "Number of seconds after which secondary name servers should stop answering request for this zone if the master does not respond. This value must be bigger than the sum of Refresh and Retry." (wikipedia)
 		Expire: 259200,
 		// "Used in calculating the time to live for purposes of negative caching." (wikipedia)
-		MinTTL: 60,
+		MinTTL: CommonResponseTTL,
 	}
 	dnsName, err := dnsmessage.NewName(question.Name.String())
 	if err != nil {
@@ -193,7 +192,7 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	if err := builder.SOAResource(dnsmessage.ResourceHeader{
 		Name:  dnsName,
 		Class: dnsmessage.ClassINET,
-		TTL:   60,
+		TTL:   CommonResponseTTL,
 	}, soa); err != nil {
 		return nil, err
 	}
@@ -251,7 +250,7 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 		if err := builder.NSResource(dnsmessage.ResourceHeader{
 			Name:  dnsName,
 			Class: dnsmessage.ClassINET,
-			TTL:   60,
+			TTL:   CommonResponseTTL,
 		}, ns); err != nil {
 			return nil, err
 		}
@@ -298,7 +297,7 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 			err := builder.AResource(dnsmessage.ResourceHeader{
 				Name:  dnsName,
 				Class: dnsmessage.ClassINET,
-				TTL:   60,
+				TTL:   CommonResponseTTL,
 			}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}})
 			if err != nil {
 				return nil, err
@@ -313,7 +312,7 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 			err := builder.AAAAResource(dnsmessage.ResourceHeader{
 				Name:  dnsName,
 				Class: dnsmessage.ClassINET,
-				TTL:   60,
+				TTL:   CommonResponseTTL,
 			}, dnsmessage.AAAAResource{
 				AAAA: aaaa,
 			})

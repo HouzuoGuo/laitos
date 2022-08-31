@@ -33,9 +33,8 @@ const (
 	PublicIPRefreshIntervalSec  = 900       // PublicIPRefreshIntervalSec is how often the program places its latest public IP address into array of IPs that may query the server.
 	BlackListDownloadTimeoutSec = 30        // BlackListDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
 	BlacklistMaxEntries         = 100000    // BlackListMaxEntries is the maximum number of entries to be accepted into black list after retireving them from public sources.
-	TextCommandReplyTTL         = 30        // TextCommandReplyTTL is the TTL of text command reply, in number of seconds. Leave it low.
-	// ResponseCacheExpiry is the expiry of query response cache items.
-	ResponseCacheExpiry = time.Duration(15) * time.Second
+	// CommonResponseTTL is the TTL of outgoing authoritative response records.
+	CommonResponseTTL = 30
 	/*
 		ToolboxCommandPrefix is a short string that indicates a TXT query is most likely toolbox command. Keep it short,
 		as DNS query input has to be pretty short.
@@ -217,7 +216,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.blackList = make(map[string]struct{})
 
 	daemon.latestCommands = NewLatestCommands()
-	daemon.responseCache = NewResponseCache(ResponseCacheExpiry, 200)
+	daemon.responseCache = NewResponseCache((CommonResponseTTL*2)*time.Second, 200)
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
 	if daemon.TCPProxy != nil {
@@ -645,7 +644,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		}
 	}
 	// Wait for TTL to expire and repeat the same request, it should receive a new response.
-	time.Sleep((TextCommandReplyTTL + 1) * time.Second)
+	time.Sleep((CommonResponseTTL + 1) * time.Second)
 	if repeatResult, err := resolver.LookupTXT(context.Background(), appCmdQueryWithGoodPassword); err != nil || reflect.DeepEqual(repeatResult, result) || !strings.Contains(result[0], thisYear) {
 		t.Fatal(repeatResult, result, err)
 	}
@@ -687,7 +686,7 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 	if err := builder.CNAMEResource(dnsmessage.ResourceHeader{
 		Name:  dnsName,
 		Class: dnsmessage.ClassINET,
-		TTL:   60,
+		TTL:   CommonResponseTTL,
 	}, dnsmessage.CNAMEResource{
 		CNAME: dnsCName,
 	}); err != nil {
@@ -702,7 +701,7 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 			err := builder.AResource(dnsmessage.ResourceHeader{
 				Name:  dnsCName,
 				Class: dnsmessage.ClassINET,
-				TTL:   60,
+				TTL:   CommonResponseTTL,
 			}, dnsmessage.AResource{A: [4]byte{0, 0, 0, 0}})
 			if err != nil {
 				return nil, err
@@ -711,7 +710,7 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 			err := builder.AAAAResource(dnsmessage.ResourceHeader{
 				Name:  dnsCName,
 				Class: dnsmessage.ClassINET,
-				TTL:   60,
+				TTL:   CommonResponseTTL,
 			}, dnsmessage.AAAAResource{
 				AAAA: [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 			})

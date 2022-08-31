@@ -204,7 +204,9 @@ func (proxy *Proxy) Start(ctx context.Context) {
 	if proxy.MaxReplyDelay == 0 {
 		// This default should be greater/longer than transmission control's
 		// default AckDelay, or the performance will suffer quite a bit.
-		proxy.MaxReplyDelay = 2 * time.Second
+		// Also, keep the delay short, many recursive resolvers do not tolerate
+		// long delays in the response.
+		proxy.MaxReplyDelay = 750 * time.Millisecond
 	}
 	if proxy.DialTimeout == 0 {
 		proxy.DialTimeout = 10 * time.Second

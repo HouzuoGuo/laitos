@@ -55,7 +55,7 @@ func TestLatestCommands(t *testing.T) {
 	}
 
 	// Wait until TTL expires, date command must not return the same content.
-	time.Sleep((TextCommandReplyTTL + 1) * time.Second)
+	time.Sleep((CommonResponseTTL + 1) * time.Second)
 	result := rec.Execute(context.Background(), testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; date")
 	if result == nil || result.CombinedOutput == "" || result.CombinedOutput == oldResult.CombinedOutput {
 		t.Fatal(result)

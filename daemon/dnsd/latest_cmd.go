@@ -29,7 +29,7 @@ func NewLatestCommands() (rec *LatestCommands) {
 
 // purgeAfterTTL removes all stored command records if a period of TTL has elapsed. Caller must lock the mutex.
 func (rec *LatestCommands) purgeAfterTTL() {
-	if time.Now().Unix()-rec.lastPurge > TextCommandReplyTTL {
+	if time.Now().Unix()-rec.lastPurge > CommonResponseTTL {
 		rec.lastPurge = time.Now().Unix()
 		rec.latestResult = make(map[string]*toolbox.Result)
 	}
@@ -74,7 +74,7 @@ execute:
 	result = cmdProcessor.Process(ctx, toolbox.Command{
 		ClientTag:  clientIP,
 		DaemonName: "dnsd",
-		TimeoutSec: TextCommandReplyTTL - 1,
+		TimeoutSec: CommonResponseTTL - 1,
 		Content:    cmdInput,
 	}, true)
 	// After the command execution has completed, store the result into map for potential retrieval.
