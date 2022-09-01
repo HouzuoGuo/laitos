@@ -4,10 +4,10 @@ module github.com/HouzuoGuo/laitos
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.44.86
+	github.com/aws/aws-sdk-go v1.44.90
 	github.com/aws/aws-xray-sdk-go v1.7.0
-	github.com/prometheus/client_golang v1.13.0
-	golang.org/x/crypto v0.0.0-20220826181053-bd7e27e6170d
+	github.com/prometheus/client_golang v1.12.2
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
@@ -25,12 +25,12 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
-	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.39.0 // indirect
-	golang.org/x/sys v0.0.0-20220825204002-c680a09ffe64 // indirect
+	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/genproto v0.0.0-20220822174746-9e6da59bd2fc // indirect
+	google.golang.org/genproto v0.0.0-20220829175752-36a9c930ecbf // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -298,7 +299,7 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 		MaxRetransmissions: 200,
 		// The output transport is not used. Instead, the output segments
 		// are kept in a backlog.
-		OutputTransport: io.Discard,
+		OutputTransport: ioutil.Discard,
 	}
 	client.Config.Config(tc)
 	conn := &ProxiedConnection{

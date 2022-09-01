@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net"
 	"sync"
 	"time"
@@ -270,7 +270,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			MaxRetransmissions: 200,
 			// The output transport is not used. Instead, the output segments
 			// are kept in a backlog.
-			OutputTransport: io.Discard,
+			OutputTransport: ioutil.Discard,
 			// The segment length and sliding window length are set by the
 			// initiator using InitiatorConfig.
 		}
