@@ -363,7 +363,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	defer cancelBlacklistUpdate()
 	periodicBlacklistUpdate := &misc.Periodic{
 		LogActorName: "dnsd-update-blacklist",
-		Interval:     BlacklistInitialDelaySec * time.Second,
+		Interval:     BlacklistUpdateIntervalSec * time.Second,
 		MaxInt:       1,
 		Func: func(ctx context.Context, round, _ int) error {
 			if round == 0 {
