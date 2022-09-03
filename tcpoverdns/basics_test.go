@@ -7,7 +7,7 @@ import (
 	"compress/lzw"
 	"compress/zlib"
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/base32"
 	"fmt"
 	"reflect"
 	"testing"
@@ -88,53 +88,123 @@ func TestSegment_Equals(t *testing.T) {
 	}
 }
 
+func TestBase62(t *testing.T) {
+	randBuf := make([]byte, 2000)
+	if _, err := rand.Read(randBuf); err != nil {
+		t.Fatal(err)
+	}
+	encoded := ToBase62(randBuf)
+	got, err := ParseBase62(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, randBuf) {
+		t.Fatalf("got: %v, want: %v", got, randBuf)
+	}
+}
+
 func TestCompression(t *testing.T) {
-	// original := `The words of the Teacher, son of David, king in Jerusalem: “Meaningless! Meaningless!” says the Teacher. “Utterly meaningless! Everything is meaningless.” What do people gain from all their labors at which they toil under the sun?`
-	original := `<!doctype html><html itemscope="" itemtype="http://schema.org/WebPage" lang="en-IE"><head><meta charset="UTF-8"><meta content="dark" name="color-scheme"><meta content="origin" name="referrer"><meta content="/images/branding/googleg/1x/googleg_standard_colo`
+	base32EncodingNoPadding := base32.StdEncoding.WithPadding(base32.NoPadding)
+	randBuf := make([]byte, 234)
+	if _, err := rand.Read(randBuf); err != nil {
+		t.Fatal(err)
+	}
+	var input = []struct {
+		name    string
+		content []byte
+	}{
+		{
+			name:    "natural language (short)",
+			content: []byte(`NIV The words of the Teacher, son of David, king in Jerusalem: “Meaningless! Meaningless!” says the Teacher. “Utterly meaningless! Everything is meaningless.” What do people gain from all their labors at which they toil under the sun?`),
+		},
+		{
+			name:    "natural language (long)",
+			content: []byte(`NIV The words of the Teacher, son of David, king in Jerusalem: “Meaningless! Meaningless!” says the Teacher. “Utterly meaningless! Everything is meaningless.” What do people gain from all their labors at which they toil under the sun? Generations come and generations go, but the earth remains forever. The sun rises and the sun sets, and hurries back to where it rises. The wind blows to the south and turns to the north; round and round it goes, ever returning on its course.`),
+		},
+		{
+			name:    "html",
+			content: []byte(`<!doctype html><html itemscope="" itemtype="http://schema.org/SearchResultsPage" lang="en-IE"><head><meta charset="UTF-8"><meta content="dark" name="color-scheme"><meta content="origin" name="referrer"><meta content="/images/branding/`),
+		},
+		{
+			name:    "random",
+			content: randBuf,
+		},
+	}
+
+	t.Run("no-compression", func(t *testing.T) {
+		for _, example := range input {
+			var b bytes.Buffer
+			b.Write(example.content)
+			encodedLen := len(base32EncodingNoPadding.EncodeToString(b.Bytes()))
+			fmt.Printf("no-compression - %v, original: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
+		}
+	})
 
 	t.Run("zlib", func(t *testing.T) {
-		var b bytes.Buffer
-		w, err := zlib.NewWriterLevel(&b, zlib.BestCompression)
-		if err != nil {
-			t.Fatal(err)
+		for _, example := range input {
+			var b bytes.Buffer
+			w, err := zlib.NewWriterLevel(&b, zlib.BestCompression)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.Write(example.content)
+			w.Close()
+			encodedLen := len(base32EncodingNoPadding.EncodeToString(b.Bytes()))
+			fmt.Printf("zlib - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
 		}
-		w.Write([]byte(original))
-		w.Close()
-		fmt.Println("zlib", len(b.Bytes()), len(base64.StdEncoding.EncodeToString(b.Bytes())))
 	})
 
 	t.Run("lzw", func(t *testing.T) {
-		var b bytes.Buffer
-		w := lzw.NewWriter(&b, lzw.MSB, 8)
-		w.Write([]byte(original))
-		w.Close()
-		fmt.Println("lzw", len(b.Bytes()), len(base64.StdEncoding.EncodeToString(b.Bytes())))
+		for _, example := range input {
+			var b bytes.Buffer
+			w := lzw.NewWriter(&b, lzw.MSB, 8)
+			w.Write(example.content)
+			w.Close()
+			encodedLen := len(base32EncodingNoPadding.EncodeToString(b.Bytes()))
+			fmt.Printf("lzm - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
+		}
 	})
 
 	t.Run("flate", func(t *testing.T) {
-		var b bytes.Buffer
-		w, err := flate.NewWriter(&b, flate.BestCompression)
-		if err != nil {
-			t.Fatal(err)
+		for _, example := range input {
+			var b bytes.Buffer
+			w, err := flate.NewWriter(&b, flate.BestCompression)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.Write(example.content)
+			w.Close()
+			encodedLen := len(base32EncodingNoPadding.EncodeToString(b.Bytes()))
+			fmt.Printf("flate - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
 		}
-		w.Write([]byte(original))
-		w.Close()
-		fmt.Println("flate", len(b.Bytes()), len(base64.StdEncoding.EncodeToString(b.Bytes())))
+	})
+
+	t.Run("flate+base62", func(t *testing.T) {
+		for _, example := range input {
+			var b bytes.Buffer
+			w, err := flate.NewWriter(&b, flate.BestCompression)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.Write(example.content)
+			w.Close()
+			encodedLen := len(ToBase62(b.Bytes()))
+			fmt.Printf("flate - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
+		}
 	})
 
 	t.Run("gzip", func(t *testing.T) {
-		var b bytes.Buffer
-		w, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
-		if err != nil {
-			t.Fatal(err)
+		for _, example := range input {
+			var b bytes.Buffer
+			w, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.Write(example.content)
+			w.Close()
+			encodedLen := len(base32EncodingNoPadding.EncodeToString(b.Bytes()))
+			fmt.Printf("gzip - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
 		}
-		w.Write([]byte(original))
-		w.Close()
-		fmt.Println("gzip", len(b.Bytes()), len(base64.StdEncoding.EncodeToString(b.Bytes())))
-	})
-
-	t.Run("base64", func(t *testing.T) {
-		fmt.Println(base64.StdEncoding.DecodeString("TQ=="))
 	})
 }
 

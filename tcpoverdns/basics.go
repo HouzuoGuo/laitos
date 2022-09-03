@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"compress/flate"
 	"context"
-	"encoding/base32"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"reflect"
 	"strings"
 	"time"
@@ -17,8 +17,6 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
 )
-
-var base32EncodingNoPadding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // State is the transmission control stream's state.
 type State int
@@ -135,7 +133,7 @@ func (seg *Segment) DNSName(prefix, domainName string) string {
 	packet := seg.Packet()
 	compressed := CompressBytes(packet)
 	// Encode using base32.
-	encoded := strings.ToLower(base32EncodingNoPadding.EncodeToString(compressed))
+	encoded := ToBase62(compressed)
 	// Split into labels.
 	// 63 is the maximum label length decided by the DNS protocol.
 	// But many recursive resolvers don't like long labels, so be conservative.
@@ -155,7 +153,7 @@ func (seg *Segment) DNSNameQuery(prefix, domainName string) string {
 	packet := seg.Packet()
 	compressed := CompressBytes(packet)
 	// Encode using base32.
-	encoded := strings.ToLower(base32EncodingNoPadding.EncodeToString(compressed))
+	encoded := ToBase62(compressed)
 	// Split into labels.
 	// 63 is the maximum label length decided by the DNS protocol.
 	// But many recursive resolvers don't like long labels, so be conservative.
@@ -219,14 +217,19 @@ func SegmentFromDNSName(numDomainNameLabels int, query string) Segment {
 	// Recover base32 encoded binary data by concatenating the labels.
 	// The first label is a prefix only and does not carry binary data.
 	labels = labels[1 : len(labels)-numDomainNameLabels]
-	compressed, err := base32EncodingNoPadding.DecodeString(strings.ToUpper(strings.Join(labels, "")))
+	compressed, err := ParseBase62(strings.Join(labels, ""))
 	if err != nil {
 		return Segment{Flags: FlagMalformed}
 	}
 	// Decompress the binary packet.
 	decompressed, err := DecompressBytes(compressed)
 	if err != nil {
-		return Segment{Flags: FlagMalformed}
+		// Add a possibly missing leading 0 to work around ToBase62's bug.
+		withLeadingZero := append([]byte{0}, compressed...)
+		decompressed, err = DecompressBytes(withLeadingZero)
+		if err != nil {
+			return Segment{Flags: FlagMalformed}
+		}
 	}
 	return SegmentFromPacket(decompressed)
 }
@@ -398,6 +401,24 @@ func ReadSegmentHeaderData(t testingstub.T, ctx context.Context, in io.Reader) S
 	}
 
 	return SegmentFromPacket(append(segHeader, segData...))
+}
+
+// ToBase62 encodes the input in a Base62-encoded string.
+// BUG: the encoded content may be missing a leading 0.
+func ToBase62(content []byte) string {
+	var i big.Int
+	i.SetBytes(content[:])
+	return i.Text(62)
+}
+
+// ParseBase62 recovers the original content from a Base62-encoded string.
+func ParseBase62(s string) ([]byte, error) {
+	var i big.Int
+	_, ok := i.SetString(s, 62)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse base62 encoded string: %q", s)
+	}
+	return i.Bytes(), nil
 }
 
 func CheckTC(t testingstub.T, tc *TransmissionControl, timeoutSec int, wantState State, wantInputSeq, wantInputAck, wantOutputSeq int, wantInputBuf, wantOutputBuf []byte) {
