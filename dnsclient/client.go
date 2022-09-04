@@ -72,9 +72,11 @@ func (conn *ProxiedConnection) Start() error {
 				conn.logger.Info("Start", "", nil, "callback is removing duplicated segment: %+v", seg)
 			}
 		} else {
+			if conn.client.Debug {
+				conn.logger.Info("Start", "", nil, "queued segment for outbound over DNS: %v", seg)
+			}
 			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
 		}
-		conn.logger.Info("Start", "", nil, "queued segment for outbound over DNS: %v", seg)
 	}
 	conn.tc.Start(conn.context)
 	// Start transporting segments back and forth.
@@ -133,9 +135,7 @@ func (conn *ProxiedConnection) Start() error {
 			conn.mutex.Unlock()
 			// Turn the segment into a DNS query and send the query out
 			// (data.data.data.example.com).
-			if conn.client.Debug {
-				conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %+v", outgoingSeg)
-			}
+			conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %+v", outgoingSeg)
 			cname, err = resolver.LookupCNAME(conn.context, outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 			if err != nil {
 				conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
