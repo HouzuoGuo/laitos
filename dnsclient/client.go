@@ -406,8 +406,8 @@ func (client *Client) Stop() {
 // name.
 func OptimalSegLen(dnsHostName string) int {
 	// The maximum DNS host name is 253 characters.
-	// At present the encoding efficiency is ~63% at the worst case scenario.
-	approxLen := float64(250-len(dnsHostName)) * 0.63
+	// At present the encoding efficiency is ~62% at the worst case scenario.
+	approxLen := float64(250-len(dnsHostName)) * 0.62
 	ret := int(approxLen)
 	if ret < 0 {
 		return 0
