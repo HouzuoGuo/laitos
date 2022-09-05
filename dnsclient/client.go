@@ -123,6 +123,7 @@ func (conn *ProxiedConnection) Start() error {
 			var incomingSeg, outgoingSeg, nextInBacklog tcpoverdns.Segment
 			var cname string
 			var err error
+			begin := time.Now()
 			// Pop a segment.
 			conn.mutex.Lock()
 			if len(conn.outputSegmentBacklog) == 0 {
@@ -135,8 +136,8 @@ func (conn *ProxiedConnection) Start() error {
 			conn.mutex.Unlock()
 			// Turn the segment into a DNS query and send the query out
 			// (data.data.data.example.com).
-			conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sending output segment over DNS query: %+v", outgoingSeg)
 			cname, err = resolver.LookupCNAME(conn.context, outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
+			conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sent over DNS query in %dms: %+v", time.Since(begin).Milliseconds(), outgoingSeg)
 			if err != nil {
 				conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
 				conn.tc.IncreaseTimingInterval()
@@ -165,24 +166,34 @@ func (conn *ProxiedConnection) Start() error {
 					goto busyWaitInterval
 				}
 			}
-			// If there are more segments carrying data (or ACK) and are waiting
-			// to be sent, then send the next one right away without waiting for
-			// the keep-alive interval.
+			// If the next output segment carries useful data or flags, then
+			// send it out without delay.
 			conn.mutex.Lock()
 			if len(conn.outputSegmentBacklog) > 0 {
 				nextInBacklog = conn.outputSegmentBacklog[0]
 			}
 			conn.mutex.Unlock()
-			if len(nextInBacklog.Data) > 0 && !nextInBacklog.Flags.Has(tcpoverdns.FlagKeepAlive) {
+			if len(nextInBacklog.Data) > 0 || nextInBacklog.Flags != 0 {
 				continue
 			}
-			// Wait for keep-alive interval.
+			// If the input segment carried useful data, then shorten the
+			// waiting interval. Transmission control should be sending out an
+			// acknowledgement fairly soon.
+			if len(incomingSeg.Data) > 0 && !incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
+				select {
+				case <-time.After(time.Duration(conn.tc.LiveTimingInterval().AckDelay * 8 / 7)):
+					continue
+				case <-conn.context.Done():
+					return
+				}
+			}
+			// Wait slightly longer than the keep-alive interval.
 			select {
-			case <-time.After(time.Duration(conn.tc.LiveTimingInterval().KeepAliveInterval)):
+			case <-time.After(time.Duration(conn.tc.LiveTimingInterval().KeepAliveInterval * 8 / 7)):
+				continue
 			case <-conn.context.Done():
 				return
 			}
-			continue
 		busyWaitInterval:
 			select {
 			case <-time.After(tcpoverdns.BusyWaitInterval):
