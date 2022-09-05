@@ -1086,21 +1086,22 @@ func TestRuntimeIntervalConfig(t *testing.T) {
 	tc.DecreaseTimingInterval()
 	tc.DecreaseTimingInterval()
 	tc.DecreaseTimingInterval()
-	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/16 {
+	tc.DecreaseTimingInterval()
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/32 {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
-	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/16 {
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/32 {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
 	}
 	// It won't decrease any further
-	tc.DecreaseTimingInterval()
-	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/16 {
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/32 {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
-	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/16 {
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/32 {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
 	}
 
+	tc.IncreaseTimingInterval()
 	tc.IncreaseTimingInterval()
 	tc.IncreaseTimingInterval()
 	tc.IncreaseTimingInterval()
