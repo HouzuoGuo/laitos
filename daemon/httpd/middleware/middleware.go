@@ -206,12 +206,13 @@ func LogRequestStats(logger lalog.Logger, next http.HandlerFunc) http.HandlerFun
 			timeToFirstByte = time.Since(responseRecorder.timestampAtWriteCall)
 			totalWritten = responseRecorder.totalWritten
 		}
+		kiloBytesPerSec := float64(totalWritten/1000) / (processingDuration.Seconds())
 		if timeToFirstByte == 0 {
-			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus",
-				r.Method, r.URL.EscapedPath(), r.Proto, r.Host, r.Header.Get("User-Agent"), r.Header.Get("Referer"), responseRecorder.statusCode, totalWritten, processingDuration.Microseconds())
+			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus (%.2f KB/s)",
+				r.Method, r.URL.EscapedPath(), r.Proto, r.Host, r.Header.Get("User-Agent"), r.Header.Get("Referer"), responseRecorder.statusCode, totalWritten, processingDuration.Microseconds(), kiloBytesPerSec)
 		} else {
-			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus (time to 1st byte %dus)",
-				r.Method, r.URL.EscapedPath(), r.Proto, r.Host, r.Header.Get("User-Agent"), r.Header.Get("Referer"), responseRecorder.statusCode, totalWritten, processingDuration.Microseconds(), timeToFirstByte.Microseconds())
+			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus (%.2f KB/s, time to 1st byte %dus)",
+				r.Method, r.URL.EscapedPath(), r.Proto, r.Host, r.Header.Get("User-Agent"), r.Header.Get("Referer"), responseRecorder.statusCode, totalWritten, processingDuration.Microseconds(), kiloBytesPerSec, timeToFirstByte.Microseconds())
 		}
 	}
 }
