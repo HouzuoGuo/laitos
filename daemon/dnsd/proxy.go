@@ -320,12 +320,11 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 	if _, err := conn.inputSegments.Write(in.Packet()); err != nil {
 		_ = conn.Close()
 	}
-	if proxy.Debug {
-		proxy.logger.Info("Receive", in.ID, nil, "waiting for a reply outbound segment")
-	}
 	waitCtx, cancel := context.WithTimeout(proxy.context, proxy.MaxReplyDelay)
 	defer cancel()
+	begin := time.Now()
 	seg, hasSeg := conn.WaitSegment(waitCtx)
+	proxy.logger.Info("Receive", in.ID, nil, "waited %dms for the outbound segment: %+v", time.Since(begin).Milliseconds(), seg)
 	return seg, hasSeg
 }
 
