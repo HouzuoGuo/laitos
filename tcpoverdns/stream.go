@@ -16,7 +16,7 @@ import (
 const (
 	// BusyWaitInterval specifies a short duration in between consecutive
 	// busy-wait operations.
-	BusyWaitInterval = 50 * time.Millisecond
+	BusyWaitInterval = 10 * time.Millisecond
 	// SegmentDataTimeout specifies the timeout between the arrival of a segment
 	// header and the segment data.
 	SegmentDataTimeout = 10 * time.Second
