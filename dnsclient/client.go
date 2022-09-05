@@ -21,6 +21,7 @@ import (
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/miekg/dns"
 )
 
 // ProxiedConnection handles an individual proxy connection to transport
@@ -80,133 +81,143 @@ func (conn *ProxiedConnection) Start() error {
 	}
 	conn.tc.Start(conn.context)
 	// Start transporting segments back and forth.
-	go func() {
-		var dialFun func(ctx context.Context, network, address string) (net.Conn, error)
-		if conn.client.DNSResolverAddr != "" {
-			// Use the custom specified recursive resolver instead of the system
-			// default.
-			dialFun = func(ctx context.Context, network, address string) (net.Conn, error) {
-				if conn.client.Debug {
-					conn.logger.Info("Start", "", nil, "dialing resolver %q %s:%d", network, conn.client.DNSResolverAddr, conn.client.DNSResovlerPort)
-				}
-				return net.Dial(network, fmt.Sprintf("%s:%d", conn.client.DNSResolverAddr, conn.client.DNSResovlerPort))
-			}
-		}
-		resolver := &net.Resolver{
-			PreferGo: true,
-			Dial:     dialFun,
-		}
-		defer func() {
-			// Linger briefly, then send the last segment. The brief waiting
-			// time allows the TC to transition to the closed state.
-			time.Sleep(5 * time.Second)
-			conn.mutex.Lock()
-			var finalSeg tcpoverdns.Segment
-			if len(conn.outputSegmentBacklog) > 0 {
-				finalSeg = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
-			}
-			conn.mutex.Unlock()
-			if finalSeg.Flags != 0 {
-				timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				defer cancel()
-				if _, err := resolver.LookupCNAME(timeoutCtx, finalSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName)); err != nil {
-					conn.logger.Warning("Start", "", err, "failed to send the final segment")
-				}
-			}
-			conn.logger.Info("Start", "", nil, "DNS data transport finished, the final segment was: %v", finalSeg)
-		}()
-		countHostNameLabels := dnsd.CountNameLabels(conn.client.DNSHostName)
-		for {
-			if conn.tc.State() == tcpoverdns.StateClosed {
-				return
-			}
-			var incomingSeg, outgoingSeg, nextInBacklog tcpoverdns.Segment
-			var cname string
-			var err error
-			begin := time.Now()
-			// Pop a segment.
-			conn.mutex.Lock()
-			if len(conn.outputSegmentBacklog) == 0 {
-				conn.mutex.Unlock()
-				// Wait for a segment.
-				goto busyWaitInterval
-			}
-			outgoingSeg = conn.outputSegmentBacklog[0]
-			conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
-			conn.mutex.Unlock()
-			// Turn the segment into a DNS query and send the query out
-			// (data.data.data.example.com).
-			cname, err = resolver.LookupCNAME(conn.context, outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
-			conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sent over DNS query in %dms: %+v", time.Since(begin).Milliseconds(), outgoingSeg)
-			if err != nil {
-				conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
-				conn.tc.IncreaseTimingInterval()
-				goto busyWaitInterval
-			}
-			// Decode a segment from DNS query response and give it to the local
-			// TC.
-			incomingSeg = tcpoverdns.SegmentFromDNSName(countHostNameLabels, cname)
-			if conn.client.Debug {
-				conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
-			}
-			if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
-				if incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
-					// Increase the timing interval interval with each input
-					// segment that does not carry data.
-					conn.tc.IncreaseTimingInterval()
-				} else {
-					// Decrease the timing interval with each input segment that
-					// carries data. This helps to temporarily increase the
-					// throughput.
-					conn.tc.DecreaseTimingInterval()
-				}
-				if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
-					conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
-					conn.tc.IncreaseTimingInterval()
-					goto busyWaitInterval
-				}
-			}
-			// If the next output segment carries useful data or flags, then
-			// send it out without delay.
-			conn.mutex.Lock()
-			if len(conn.outputSegmentBacklog) > 0 {
-				nextInBacklog = conn.outputSegmentBacklog[0]
-			}
-			conn.mutex.Unlock()
-			if len(nextInBacklog.Data) > 0 || nextInBacklog.Flags != 0 {
-				continue
-			}
-			// If the input segment carried useful data, then shorten the
-			// waiting interval. Transmission control should be sending out an
-			// acknowledgement fairly soon.
-			if len(incomingSeg.Data) > 0 && !incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
-				select {
-				case <-time.After(time.Duration(conn.tc.LiveTimingInterval().AckDelay * 8 / 7)):
-					continue
-				case <-conn.context.Done():
-					return
-				}
-			}
-			// Wait slightly longer than the keep-alive interval.
-			select {
-			case <-time.After(time.Duration(conn.tc.LiveTimingInterval().KeepAliveInterval * 8 / 7)):
-				continue
-			case <-conn.context.Done():
-				return
-			}
-		busyWaitInterval:
-			select {
-			case <-time.After(tcpoverdns.BusyWaitInterval):
-				continue
-			case <-conn.context.Done():
-				return
-			}
-		}
-	}()
+	go conn.transportLoop()
 	if !conn.tc.WaitState(conn.context, tcpoverdns.StateEstablished) {
 		return fmt.Errorf("local transmission control failed to complete handshake")
 	}
 	return nil
+}
+
+func (conn *ProxiedConnection) lookupCNAME(queryName string) (string, error) {
+	if len(queryName) < 3 {
+		return "", errors.New("the input query name is too short")
+	}
+	if queryName[len(queryName)-1] != '.' {
+		queryName += "."
+	}
+	client := new(dns.Client)
+	query := new(dns.Msg)
+	query.SetQuestion(queryName, dns.TypeA)
+	query.RecursionDesired = true
+	response, _, err := client.Exchange(query, fmt.Sprintf("%s:%s", conn.client.dnsConfig.Servers[0], conn.client.dnsConfig.Port))
+	if err != nil {
+		return "", err
+	}
+	if len(response.Answer) == 0 {
+		return "", errors.New("the DNS query did not receive a response")
+	}
+	if cname, ok := response.Answer[0].(*dns.CNAME); ok {
+		return cname.Target, nil
+	} else {
+		return "", fmt.Errorf("the response answer %v is not a CNAME", response.Answer[0])
+	}
+}
+
+func (conn *ProxiedConnection) transportLoop() {
+	defer func() {
+		// Linger briefly, then send the last segment. The brief waiting
+		// time allows the TC to transition to the closed state.
+		time.Sleep(5 * time.Second)
+		conn.mutex.Lock()
+		var finalSeg tcpoverdns.Segment
+		if len(conn.outputSegmentBacklog) > 0 {
+			finalSeg = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
+		}
+		conn.mutex.Unlock()
+		if finalSeg.Flags != 0 {
+			if _, err := conn.lookupCNAME(finalSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName)); err != nil {
+				conn.logger.Warning("Start", "", err, "failed to send the final segment")
+			}
+		}
+		conn.logger.Info("Start", "", nil, "DNS data transport finished, the final segment was: %v", finalSeg)
+	}()
+	countHostNameLabels := dnsd.CountNameLabels(conn.client.DNSHostName)
+	for {
+		if conn.tc.State() == tcpoverdns.StateClosed {
+			return
+		}
+		var incomingSeg, outgoingSeg, nextInBacklog tcpoverdns.Segment
+		var cname string
+		var err error
+		begin := time.Now()
+		// Pop a segment.
+		conn.mutex.Lock()
+		if len(conn.outputSegmentBacklog) == 0 {
+			conn.mutex.Unlock()
+			// Wait for a segment.
+			goto busyWaitInterval
+		}
+		outgoingSeg = conn.outputSegmentBacklog[0]
+		conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
+		conn.mutex.Unlock()
+		// Turn the segment into a DNS query and send the query out
+		// (data.data.data.example.com).
+		cname, err = conn.lookupCNAME(outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
+		conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sent over DNS query in %dms: %+v", time.Since(begin).Milliseconds(), outgoingSeg)
+		if err != nil {
+			conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
+			conn.tc.IncreaseTimingInterval()
+			goto busyWaitInterval
+		}
+		// Decode a segment from DNS query response and give it to the local
+		// TC.
+		incomingSeg = tcpoverdns.SegmentFromDNSName(countHostNameLabels, cname)
+		if conn.client.Debug {
+			conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
+		}
+		if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
+			if incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
+				// Increase the timing interval interval with each input
+				// segment that does not carry data.
+				conn.tc.IncreaseTimingInterval()
+			} else {
+				// Decrease the timing interval with each input segment that
+				// carries data. This helps to temporarily increase the
+				// throughput.
+				conn.tc.DecreaseTimingInterval()
+			}
+			if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
+				conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
+				conn.tc.IncreaseTimingInterval()
+				goto busyWaitInterval
+			}
+		}
+		// If the next output segment carries useful data or flags, then
+		// send it out without delay.
+		conn.mutex.Lock()
+		if len(conn.outputSegmentBacklog) > 0 {
+			nextInBacklog = conn.outputSegmentBacklog[0]
+		}
+		conn.mutex.Unlock()
+		if len(nextInBacklog.Data) > 0 || nextInBacklog.Flags != 0 {
+			continue
+		}
+		// If the input segment carried useful data, then shorten the
+		// waiting interval. Transmission control should be sending out an
+		// acknowledgement fairly soon.
+		if len(incomingSeg.Data) > 0 && !incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
+			select {
+			case <-time.After(time.Duration(conn.tc.LiveTimingInterval().AckDelay * 8 / 7)):
+				continue
+			case <-conn.context.Done():
+				return
+			}
+		}
+		// Wait slightly longer than the keep-alive interval.
+		select {
+		case <-time.After(time.Duration(conn.tc.LiveTimingInterval().KeepAliveInterval * 8 / 7)):
+			continue
+		case <-conn.context.Done():
+			return
+		}
+	busyWaitInterval:
+		select {
+		case <-time.After(tcpoverdns.BusyWaitInterval):
+			continue
+		case <-conn.context.Done():
+			return
+		}
+	}
 }
 
 // Client is an HTTP proxy server that tunnels its HTTP clients' traffic through
@@ -238,6 +249,7 @@ type Client struct {
 	// DNSHostName is the host name of the TCP-over-DNS proxy server.
 	DNSHostName string
 
+	dnsConfig                  *dns.ClientConfig
 	proxyHandlerWithMiddleware http.HandlerFunc
 	logger                     lalog.Logger
 	httpServer                 *http.Server
@@ -271,6 +283,22 @@ func (client *Client) Initialise(ctx context.Context) error {
 		IdleConnTimeout:       client.Config.Timing.ReadTimeout,
 		TLSHandshakeTimeout:   client.Config.Timing.ReadTimeout,
 		ExpectContinueTimeout: client.Config.Timing.ReadTimeout,
+	}
+
+	var err error
+	if client.DNSResolverAddr == "" {
+		client.dnsConfig, err = dns.ClientConfigFromFile("/etc/resolv.conf")
+		if err != nil {
+			return err
+		}
+		if len(client.dnsConfig.Servers) == 0 {
+			return fmt.Errorf("client.Initialise: resolv.conf appears to be malformed or empty, try specifying an explicit DNS resolver address instead.")
+		}
+	} else {
+		client.dnsConfig = &dns.ClientConfig{
+			Servers: []string{client.DNSResolverAddr},
+			Port:    strconv.Itoa(client.DNSResovlerPort),
+		}
 	}
 	return nil
 }
@@ -417,8 +445,8 @@ func (client *Client) Stop() {
 // name.
 func OptimalSegLen(dnsHostName string) int {
 	// The maximum DNS host name is 253 characters.
-	// At present the encoding efficiency is ~62% at the worst case scenario.
-	approxLen := float64(250-len(dnsHostName)) * 0.62
+	// At present the encoding efficiency is ~55% at the worst case scenario.
+	approxLen := float64(250-len(dnsHostName)) * 0.55
 	ret := int(approxLen)
 	if ret < 0 {
 		return 0

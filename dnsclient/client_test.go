@@ -135,7 +135,7 @@ func TestClient_HTTP(t *testing.T) {
 
 func TestOptimalSegLen(t *testing.T) {
 	got := OptimalSegLen("example.com")
-	want := 148
+	want := 131
 	if got != want {
 		t.Fatalf("got: %v, want: %v", got, want)
 	}
