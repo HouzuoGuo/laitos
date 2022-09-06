@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	ednsBufferSize = 1232
+	// EDNSBufferSize is the maximum DNS buffer size advertised to DNS clients.
+	EDNSBufferSize = 1232
 )
 
 // BuildTextResponse constructs a TXT record response packet.
@@ -200,7 +201,7 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 		return nil, err
 	}
 	var rh dnsmessage.ResourceHeader
-	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
 		return nil, err
 	}
 	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
@@ -259,7 +260,7 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 		return nil, err
 	}
 	var rh dnsmessage.ResourceHeader
-	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
 		return nil, err
 	}
 	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
@@ -325,7 +326,7 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 		return nil, err
 	}
 	var rh dnsmessage.ResourceHeader
-	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
 		return nil, err
 	}
 	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {

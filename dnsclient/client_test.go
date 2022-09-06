@@ -126,6 +126,31 @@ func TestClient_HTTP(t *testing.T) {
 		}
 	})
 
+	t.Run("https proxy with heavy client losses", func(t *testing.T) {
+		httpProxyServer.dropPercentage = 40
+		proxyURL, err := url.Parse(fmt.Sprintf("http://%s:%d", httpProxyServer.Address, httpProxyServer.Port))
+		if err != nil {
+			t.Fatal(err)
+		}
+		proxyClient := &http.Client{Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		}}
+		resp, err := proxyClient.Get("https://captive.apple.com/")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode/200 != 1 {
+			t.Fatal("unexpected https response status code", resp.StatusCode)
+		}
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("unexpected https response body error: %v", err)
+		}
+		if !strings.Contains(strings.ToLower(string(respBody)), "</html>") {
+			t.Fatalf("unexpected https response body: %v", string(respBody))
+		}
+	})
+
 	httpProxyServer.Stop()
 	<-daemonStopped
 	// Repeatedly stopping the daemon should have no negative consequences

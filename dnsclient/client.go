@@ -97,8 +97,9 @@ func (conn *ProxiedConnection) lookupCNAME(queryName string) (string, error) {
 	}
 	client := new(dns.Client)
 	query := new(dns.Msg)
-	query.SetQuestion(queryName, dns.TypeA)
 	query.RecursionDesired = true
+	query.SetQuestion(queryName, dns.TypeA)
+	query.SetEdns0(dnsd.EDNSBufferSize, false)
 	response, _, err := client.Exchange(query, fmt.Sprintf("%s:%s", conn.client.dnsConfig.Servers[0], conn.client.dnsConfig.Port))
 	if err != nil {
 		return "", err
@@ -107,6 +108,9 @@ func (conn *ProxiedConnection) lookupCNAME(queryName string) (string, error) {
 		return "", errors.New("the DNS query did not receive a response")
 	}
 	if cname, ok := response.Answer[0].(*dns.CNAME); ok {
+		if rand.Intn(100) < conn.client.dropPercentage {
+			return "", errors.New("dropped for testing")
+		}
 		return cname.Target, nil
 	} else {
 		return "", fmt.Errorf("the response answer %v is not a CNAME", response.Answer[0])
@@ -249,7 +253,10 @@ type Client struct {
 	// DNSHostName is the host name of the TCP-over-DNS proxy server.
 	DNSHostName string
 
-	dnsConfig                  *dns.ClientConfig
+	dnsConfig *dns.ClientConfig
+	// dropPercentage is the percentage of resposnes to be dropped (returned as
+	// error). This is for internal testing only.
+	dropPercentage             int
 	proxyHandlerWithMiddleware http.HandlerFunc
 	logger                     lalog.Logger
 	httpServer                 *http.Server

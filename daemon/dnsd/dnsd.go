@@ -755,7 +755,7 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 		return nil, err
 	}
 	var rh dnsmessage.ResourceHeader
-	if err := rh.SetEDNS0(ednsBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
 		return nil, err
 	}
 	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
