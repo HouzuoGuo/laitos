@@ -656,7 +656,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 				// Ensure the new segment is consecutive to the ones already
 				// received. There is no selective acknowledgement going on here.
 				tc.mutex.Lock()
-				if seg.AckNum > tc.outputSeq || seg.AckNum < tc.inputAck {
+				if seg.AckNum > tc.outputSeq || seg.AckNum <= tc.inputAck {
 					// This will be (hopefully) resolved by a retransmission.
 					tc.Logger.Warning("drainInputFromTransport", "", nil, "received segment %+v with an out-of-range ack numbers, my output seq: %d", seg, tc.outputSeq)
 					tc.inputTransportErrors++
