@@ -101,20 +101,20 @@ func (conn *ProxiedConnection) transportLoop() {
 		if conn.tc.State() == tcpoverdns.StateClosed {
 			return
 		}
-		var incomingSeg, outgoingSeg, nextInBacklog, popped tcpoverdns.Segment
+		var incomingSeg, outgoingSeg, nextInBacklog tcpoverdns.Segment
 		var exists bool
 		var cname string
 		var err error
 		begin := time.Now()
 		// Pop a segment.
-		popped, exists = conn.buf.Pop()
+		outgoingSeg, exists = conn.buf.Pop()
 		if !exists {
 			// Wait for a segment.
 			goto busyWaitInterval
 		}
 		// Turn the segment into a DNS query and send the query out
 		// (data.data.data.example.com).
-		cname, err = conn.lookupCNAME(popped.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
+		cname, err = conn.lookupCNAME(outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 		conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sent over DNS query in %dms: %+v", time.Since(begin).Milliseconds(), outgoingSeg)
 		if err != nil {
 			conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
