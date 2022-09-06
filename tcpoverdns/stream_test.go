@@ -415,22 +415,11 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 		if err != nil || !reflect.DeepEqual(gotSeg, wantSeg) {
 			t.Fatalf("got retrans seg %+#v, want %+#v", gotSeg, wantSeg)
 		}
-
-		// Acknowledging the same number over and over.
-		ackSeg := Segment{
-			SeqNum: 0,
-			AckNum: 3,
-			Data:   []byte{},
-		}
-		if _, err := testIn.Write(ackSeg.Packet()); err != nil {
-			t.Fatalf("write ack: %+v", err)
-		}
 	}
 	time.Sleep(tc.LiveTiming.SlidingWindowWaitDuration * 2)
 	// The TC is closed after exhausting all retransmission attempts.
 	CheckTC(t, tc, 5, StateClosed, 0, 3, 3+3, nil, []byte{2, 2, 2})
-	// There were 3 useless acknowledgements.
-	CheckTCError(t, tc, 5, 3, 3, 0)
+	CheckTCError(t, tc, 5, 3, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t *testing.T) {
