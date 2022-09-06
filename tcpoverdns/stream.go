@@ -76,6 +76,9 @@ type TransmissionControl struct {
 	// OutputSegmentCallback (optional) is invoked for each outbound segment as
 	// they are written to output transport.
 	OutputSegmentCallback func(Segment)
+	// PostHandshakeCallback (optional) is invoked immediately after the
+	// initiator config is applied in this transmission control.
+	PostConfigCallback func()
 
 	context   context.Context
 	cancelFun func()
@@ -619,6 +622,9 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						tc.state = StateSynReceived
 						conf.Config(tc)
 						tc.mutex.Unlock()
+						if tc.PostConfigCallback != nil {
+							tc.PostConfigCallback()
+						}
 						if conf.SetConfig {
 							tc.Logger.Info("drainInputFromTransport", "", nil, "connection config: %+v", conf)
 						}
@@ -853,7 +859,7 @@ func (tc *TransmissionControl) SetWriteDeadline(t time.Time) error { return nil 
 func (tc *TransmissionControl) DecreaseTimingInterval() {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
-	if tc.LiveTiming.KeepAliveInterval < BusyWaitInterval*4 {
+	if tc.LiveTiming.KeepAliveInterval < 100*time.Millisecond {
 		return
 	}
 	tc.LiveTiming.HalfInterval()

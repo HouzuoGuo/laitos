@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
@@ -28,13 +27,12 @@ import (
 // data between local transmission control and the one on the remote DNS proxy
 // server.
 type ProxiedConnection struct {
-	client               *Client
-	out, in              net.Conn
-	tc                   *tcpoverdns.TransmissionControl
-	outputSegmentBacklog []tcpoverdns.Segment
-	mutex                *sync.Mutex
-	context              context.Context
-	logger               lalog.Logger
+	client  *Client
+	in      net.Conn
+	tc      *tcpoverdns.TransmissionControl
+	buf     *tcpoverdns.SegmentBuffer
+	context context.Context
+	logger  lalog.Logger
 }
 
 // Start configures and then starts the transmission control on local side, and
@@ -44,41 +42,9 @@ type ProxiedConnection struct {
 // established state, or an error.
 func (conn *ProxiedConnection) Start() error {
 	conn.logger.Info("Start", "", nil, "start transporting data over DNS")
+	conn.buf = tcpoverdns.NewSegmentBuffer(conn.logger, conn.tc.Debug, conn.tc.MaxSegmentLenExclHeader)
 	// Absorb outgoing segments into the outgoing backlog.
-	conn.tc.OutputSegmentCallback = func(seg tcpoverdns.Segment) {
-		if seg.Flags.Has(tcpoverdns.FlagKeepAlive) {
-			// Add random data to the segment to prevent caching.
-			seg.Data = misc.RandomBytes(4)
-		}
-		// Replace the latest keep-alive or ack-only segment (if any), and
-		// de-duplicate adjacent identical segments. These measures not only
-		// speed up the exchanges but also ensure that peers can communicate
-		// properly even if their timing characteristics differ.
-		conn.mutex.Lock()
-		defer conn.mutex.Unlock()
-		var latest tcpoverdns.Segment
-		if len(conn.outputSegmentBacklog) > 0 {
-			latest = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
-		}
-		if latest.Flags.Has(tcpoverdns.FlagAckOnly) || latest.Flags.Has(tcpoverdns.FlagKeepAlive) {
-			// Substitute the ack-only or keep-alive segment with the latest.
-			// These segments may contain random data that are not useful.
-			if conn.client.Debug {
-				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1])
-			}
-			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
-		} else if latest.Equals(seg) {
-			// De-duplicate adjacent identical segments.
-			if conn.client.Debug {
-				conn.logger.Info("Start", "", nil, "callback is removing duplicated segment: %+v", seg)
-			}
-		} else {
-			if conn.client.Debug {
-				conn.logger.Info("Start", "", nil, "queued segment for outbound over DNS: %v", seg)
-			}
-			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
-		}
-	}
+	conn.tc.OutputSegmentCallback = conn.buf.Absorb
 	conn.tc.Start(conn.context)
 	// Start transporting segments back and forth.
 	go conn.transportLoop()
@@ -122,41 +88,33 @@ func (conn *ProxiedConnection) transportLoop() {
 		// Linger briefly, then send the last segment. The brief waiting
 		// time allows the TC to transition to the closed state.
 		time.Sleep(5 * time.Second)
-		conn.mutex.Lock()
-		var finalSeg tcpoverdns.Segment
-		if len(conn.outputSegmentBacklog) > 0 {
-			finalSeg = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
-		}
-		conn.mutex.Unlock()
-		if finalSeg.Flags != 0 {
-			if _, err := conn.lookupCNAME(finalSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName)); err != nil {
+		final, exists := conn.buf.Latest()
+		if exists && final.Flags != 0 {
+			if _, err := conn.lookupCNAME(final.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName)); err != nil {
 				conn.logger.Warning("Start", "", err, "failed to send the final segment")
 			}
 		}
-		conn.logger.Info("Start", "", nil, "DNS data transport finished, the final segment was: %v", finalSeg)
+		conn.logger.Info("Start", "", nil, "DNS data transport finished, the final segment was: %v", final)
 	}()
 	countHostNameLabels := dnsd.CountNameLabels(conn.client.DNSHostName)
 	for {
 		if conn.tc.State() == tcpoverdns.StateClosed {
 			return
 		}
-		var incomingSeg, outgoingSeg, nextInBacklog tcpoverdns.Segment
+		var incomingSeg, outgoingSeg, nextInBacklog, popped tcpoverdns.Segment
+		var exists bool
 		var cname string
 		var err error
 		begin := time.Now()
 		// Pop a segment.
-		conn.mutex.Lock()
-		if len(conn.outputSegmentBacklog) == 0 {
-			conn.mutex.Unlock()
+		popped, exists = conn.buf.Pop()
+		if !exists {
 			// Wait for a segment.
 			goto busyWaitInterval
 		}
-		outgoingSeg = conn.outputSegmentBacklog[0]
-		conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
-		conn.mutex.Unlock()
 		// Turn the segment into a DNS query and send the query out
 		// (data.data.data.example.com).
-		cname, err = conn.lookupCNAME(outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
+		cname, err = conn.lookupCNAME(popped.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
 		conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sent over DNS query in %dms: %+v", time.Since(begin).Milliseconds(), outgoingSeg)
 		if err != nil {
 			conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
@@ -188,12 +146,8 @@ func (conn *ProxiedConnection) transportLoop() {
 		}
 		// If the next output segment carries useful data or flags, then
 		// send it out without delay.
-		conn.mutex.Lock()
-		if len(conn.outputSegmentBacklog) > 0 {
-			nextInBacklog = conn.outputSegmentBacklog[0]
-		}
-		conn.mutex.Unlock()
-		if len(nextInBacklog.Data) > 0 || nextInBacklog.Flags != 0 {
+		nextInBacklog, exists = conn.buf.First()
+		if exists && len(nextInBacklog.Data) > 0 || nextInBacklog.Flags != 0 {
 			continue
 		}
 		// If the input segment carried useful data, then shorten the
@@ -349,12 +303,10 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 	}
 	client.Config.Config(tc)
 	conn := &ProxiedConnection{
-		client:               client,
-		in:                   clientIn,
-		tc:                   tc,
-		context:              ctx,
-		outputSegmentBacklog: make([]tcpoverdns.Segment, 0),
-		mutex:                new(sync.Mutex),
+		client:  client,
+		in:      clientIn,
+		tc:      tc,
+		context: ctx,
 		logger: lalog.Logger{
 			ComponentName: "DNSClientProxyConn",
 			ComponentID: []lalog.LoggerIDField{

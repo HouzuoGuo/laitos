@@ -1082,11 +1082,9 @@ func TestRuntimeIntervalConfig(t *testing.T) {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
 	}
 
-	tc.DecreaseTimingInterval()
-	tc.DecreaseTimingInterval()
-	tc.DecreaseTimingInterval()
-	tc.DecreaseTimingInterval()
-	tc.DecreaseTimingInterval()
+	for i := 0; i < 20; i++ {
+		tc.DecreaseTimingInterval()
+	}
 	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/32 {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
@@ -1101,11 +1099,9 @@ func TestRuntimeIntervalConfig(t *testing.T) {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
 	}
 
-	tc.IncreaseTimingInterval()
-	tc.IncreaseTimingInterval()
-	tc.IncreaseTimingInterval()
-	tc.IncreaseTimingInterval()
-	tc.IncreaseTimingInterval()
+	for i := 0; i < 20; i++ {
+		tc.IncreaseTimingInterval()
+	}
 	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}

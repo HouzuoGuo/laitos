@@ -32,14 +32,13 @@ type ProxyRequest struct {
 // ProxyConnection consists of a transmission control paired to a TCP connection
 // relayed by the transmission control.
 type ProxyConnection struct {
-	proxy                *Proxy
-	tcpConn              *net.TCPConn
-	context              context.Context
-	tc                   *tcpoverdns.TransmissionControl
-	inputSegments        net.Conn
-	outputSegmentBacklog []tcpoverdns.Segment
-	mutex                *sync.Mutex
-	logger               lalog.Logger
+	proxy         *Proxy
+	tcpConn       *net.TCPConn
+	context       context.Context
+	tc            *tcpoverdns.TransmissionControl
+	buf           *tcpoverdns.SegmentBuffer
+	inputSegments net.Conn
+	logger        lalog.Logger
 }
 
 // Start piping data back and forth between proxy TCP connection and
@@ -49,6 +48,7 @@ func (conn *ProxyConnection) Start() {
 	if conn.proxy.Debug {
 		conn.logger.Info("Start", "", nil, "starting now")
 	}
+	conn.buf = tcpoverdns.NewSegmentBuffer(conn.logger, conn.tc.Debug, 0)
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
 		if conn.proxy.Debug {
@@ -73,36 +73,7 @@ func (conn *ProxyConnection) Start() {
 		}()
 	}()
 	// Absorb outgoing segments into the outgoing backlog.
-	conn.tc.OutputSegmentCallback = func(seg tcpoverdns.Segment) {
-		// Replace the latest keep-alive or ack-only segment (if any), and
-		// de-duplicate adjacent identical segments. These measures not only
-		// speed up the exchanges but also ensure that peers can communicate
-		// properly even if their timing characteristics differ.
-		conn.mutex.Lock()
-		defer conn.mutex.Unlock()
-		var latest tcpoverdns.Segment
-		if len(conn.outputSegmentBacklog) > 0 {
-			latest = conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1]
-		}
-		if latest.Flags.Has(tcpoverdns.FlagAckOnly) || latest.Flags.Has(tcpoverdns.FlagKeepAlive) {
-			// Substitute the ack-only or keep-alive segment with the latest.
-			// These segments may contain random data that are not useful.
-			if conn.proxy.Debug {
-				conn.logger.Info("Start", "", nil, "callback is removing duplicated ack/keepalive segment: %+v", conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1])
-			}
-			conn.outputSegmentBacklog[len(conn.outputSegmentBacklog)-1] = seg
-		} else if latest.Equals(seg) {
-			// De-duplicate adjacent identical segments.
-			if conn.proxy.Debug {
-				conn.logger.Info("Start", "", nil, "callback is removing duplicated segment: %+v", seg)
-			}
-		} else {
-			if conn.proxy.Debug {
-				conn.logger.Info("Start", "", nil, "callback is handling segment %+v", seg)
-			}
-			conn.outputSegmentBacklog = append(conn.outputSegmentBacklog, seg)
-		}
-	}
+	conn.tc.OutputSegmentCallback = conn.buf.Absorb
 	// Carry on with the handshake.
 	conn.tc.Start(conn.context)
 	conn.tc.WaitState(conn.context, tcpoverdns.StateEstablished)
@@ -136,20 +107,15 @@ func (conn *ProxyConnection) Start() {
 // segment backlog, and then pops the segment.
 func (conn *ProxyConnection) WaitSegment(ctx context.Context) (tcpoverdns.Segment, bool) {
 	for {
-		conn.mutex.Lock()
-		if len(conn.outputSegmentBacklog) > 0 {
-			ret := conn.outputSegmentBacklog[0]
-			conn.outputSegmentBacklog = conn.outputSegmentBacklog[1:]
-			conn.mutex.Unlock()
-			return ret, true
-		} else {
-			conn.mutex.Unlock()
-			select {
-			case <-ctx.Done():
-				return tcpoverdns.Segment{}, false
-			case <-time.After(tcpoverdns.BusyWaitInterval):
-				continue
-			}
+		popped, exists := conn.buf.Pop()
+		if exists {
+			return popped, true
+		}
+		select {
+		case <-ctx.Done():
+			return tcpoverdns.Segment{}, false
+		case <-time.After(tcpoverdns.BusyWaitInterval):
+			continue
 		}
 	}
 }
@@ -254,26 +220,6 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 		}
 		// Construct the transmission control at proxy's side.
 		proxyIn, tcIn := net.Pipe()
-		tc := &tcpoverdns.TransmissionControl{
-			Debug:  proxy.Debug,
-			LogTag: "ProxyServer",
-			ID:     in.ID,
-			// This transmission control is a responder during the handshake.
-			Initiator:      false,
-			InputTransport: tcIn,
-			MaxLifetime:    30 * time.Minute,
-			// In practice there are occasionally bursts of tens of errors at a
-			// time before recovery.
-			MaxTransportErrors: 200,
-			// The duration of all retransmissions (if all go unacknowledged) is
-			// MaxRetransmissions x SlidingWindowWaitDuration.
-			MaxRetransmissions: 200,
-			// The output transport is not used. Instead, the output segments
-			// are kept in a backlog.
-			OutputTransport: ioutil.Discard,
-			// The segment length and sliding window length are set by the
-			// initiator using InitiatorConfig.
-		}
 		// Connect to the intended destination.
 		var dialNet, dialDest string
 		if req.Network == "" {
@@ -294,23 +240,48 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 		var tcpConn *net.TCPConn
 		if netConn != nil {
 			tcpConn = netConn.(*net.TCPConn)
-			misc.TweakTCPConnection(tcpConn, tc.MaxLifetime)
+			misc.TweakTCPConnection(tcpConn, 30*time.Minute)
 		}
 		// Track the new proxy connection.
 		conn = &ProxyConnection{
 			proxy:         proxy,
 			tcpConn:       tcpConn,
 			context:       proxy.context,
-			tc:            tc,
 			inputSegments: proxyIn,
-			mutex:         new(sync.Mutex),
 			logger: lalog.Logger{
 				ComponentName: "ProxyServer",
 				ComponentID: []lalog.LoggerIDField{
-					{Key: "TCID", Value: tc.ID},
+					{Key: "TCID", Value: in.ID},
 				},
 			},
 		}
+		tc := &tcpoverdns.TransmissionControl{
+			Debug:  proxy.Debug,
+			LogTag: "ProxyServer",
+			ID:     in.ID,
+			// This transmission control is a responder during the handshake.
+			Initiator:      false,
+			InputTransport: tcIn,
+			MaxLifetime:    30 * time.Minute,
+			// In practice there are occasionally bursts of tens of errors at a
+			// time before recovery.
+			MaxTransportErrors: 200,
+			// The duration of all retransmissions (if all go unacknowledged) is
+			// MaxRetransmissions x SlidingWindowWaitDuration.
+			MaxRetransmissions: 200,
+			// The output transport is not used. Instead, the output segments
+			// are kept in a backlog.
+			OutputTransport: ioutil.Discard,
+			// The segment length and sliding window length are set by the
+			// initiator using InitiatorConfig.
+		}
+		tc.PostConfigCallback = func() {
+			// After completing handshake and applying the initiator's desired
+			// config, tell the segment buffer the desired max. segment length.
+			// The buffer will then be able to merge adjacent short segments.
+			conn.buf.SetParameters(tc.MaxSegmentLenExclHeader, tc.Debug)
+		}
+		conn.tc = tc
 		proxy.mutex.Lock()
 		proxy.connections[in.ID] = conn
 		proxy.mutex.Unlock()
