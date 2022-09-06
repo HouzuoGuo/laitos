@@ -664,10 +664,12 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					if tc.Debug {
 						tc.Logger.Info("drainInputFromTransport", "", nil, "received a good segment %+v", seg)
 					}
-					// Pop the acknowledged bytes from the output buffer.
-					tc.outputBuf = tc.outputBuf[seg.AckNum-tc.inputAck:]
-					tc.inputAck = seg.AckNum
-					tc.lastInputAck = time.Now()
+					if seg.AckNum > tc.inputAck {
+						// Pop the acknowledged bytes from the output buffer.
+						tc.outputBuf = tc.outputBuf[seg.AckNum-tc.inputAck:]
+						tc.inputAck = seg.AckNum
+						tc.lastInputAck = time.Now()
+					}
 					tc.inputTransportErrors = 0
 					// Keep-alive and ack-only segments are not expected to
 					// carry useful data, though they may carry arbitrary data.

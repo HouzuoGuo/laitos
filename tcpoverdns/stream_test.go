@@ -928,7 +928,7 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 	waitForState(t, rightTC, 5, StateEstablished)
 
 	go func() {
-		for i := byte(0); i < 255; i++ {
+		for i := byte(0); i < 50; i++ {
 			n, err := leftTC.Write([]byte{i, i, i})
 			if n != 3 {
 				log.Panicf("left tc write, i: %v, n: %v, err: %v", i, n, err)
@@ -936,7 +936,7 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 		}
 	}()
 
-	for i := byte(0); i < 255; i++ {
+	for i := byte(0); i < 50; i++ {
 		got, err := readInput(context.Background(), rightTC, 3)
 		if err != nil || !reflect.DeepEqual(got, []byte{i, i, i}) {
 			t.Fatalf("right tc read, i: %d, err: %v, got: %v", i, err, got)
@@ -945,30 +945,30 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 
 	// Switch to the other direction.
 	go func() {
-		for i := byte(0); i < 255; i++ {
+		for i := byte(0); i < 50; i++ {
 			n, err := rightTC.Write([]byte{i, i, i})
 			if n != 3 {
 				log.Panicf("right tc write, i: %v, n: %v, err: %v", i, n, err)
 			}
 		}
 	}()
-	for i := byte(0); i < 255; i++ {
+	for i := byte(0); i < 50; i++ {
 		got, err := readInput(context.Background(), leftTC, 3)
 		if err != nil || !reflect.DeepEqual(got, []byte{i, i, i}) {
 			t.Fatalf("left tc read, i: %d, err: %v, got: %v", i, err, got)
 		}
 	}
 
-	CheckTC(t, leftTC, 5, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
+	CheckTC(t, leftTC, 5, StateEstablished, 3*50, 3*50, 3*50, nil, nil)
 	CheckTCError(t, leftTC, 2, 0, 0, 0)
-	CheckTC(t, rightTC, 5, StateEstablished, 3*255, 3*255, 3*255, nil, nil)
+	CheckTC(t, rightTC, 5, StateEstablished, 3*50, 3*50, 3*50, nil, nil)
 	CheckTCError(t, rightTC, 2, 0, 0, 0)
 
 	// Close one peer and the other will close too.
 	rightTC.Close()
-	CheckTC(t, leftTC, 5, StateClosed, 3*255, 3*255, 3*255, nil, nil)
+	CheckTC(t, leftTC, 5, StateClosed, 3*50, 3*50, 3*50, nil, nil)
 	CheckTCError(t, leftTC, 2, 0, 0, 0)
-	CheckTC(t, rightTC, 5, StateClosed, 3*255, 3*255, 3*255, nil, nil)
+	CheckTC(t, rightTC, 5, StateClosed, 3*50, 3*50, 3*50, nil, nil)
 	CheckTCError(t, rightTC, 2, 0, 0, 0)
 }
 
