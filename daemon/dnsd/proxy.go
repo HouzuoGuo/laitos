@@ -137,10 +137,6 @@ type Proxy struct {
 	// destinations and to refuse serving their clients.
 	DNSDaemon *Daemon `json:"-"`
 
-	// MaxReplyLatency is the maximum duration to wait for a reply (outgoing)
-	// segment before returning from the Receive function.
-	MaxReplyDelay time.Duration `json:"-"`
-
 	// RequestOTPSecret is a TOTP secret for authorising incoming connection
 	// requests.
 	RequestOTPSecret string `json:"RequestOTPSecret"`
@@ -167,13 +163,6 @@ type Proxy struct {
 
 // Start initialises the internal state of the proxy.
 func (proxy *Proxy) Start(ctx context.Context) {
-	if proxy.MaxReplyDelay == 0 {
-		// This default should be greater/longer than transmission control's
-		// default AckDelay, or the performance will suffer quite a bit.
-		// Also, keep the delay short, many recursive resolvers do not tolerate
-		// long delays in the response.
-		proxy.MaxReplyDelay = 750 * time.Millisecond
-	}
 	if proxy.DialTimeout == 0 {
 		proxy.DialTimeout = 10 * time.Second
 	}
@@ -262,13 +251,12 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			// This transmission control is a responder during the handshake.
 			Initiator:      false,
 			InputTransport: tcIn,
-			MaxLifetime:    30 * time.Minute,
 			// In practice there are occasionally bursts of tens of errors at a
 			// time before recovery.
-			MaxTransportErrors: 200,
+			MaxTransportErrors: 300,
 			// The duration of all retransmissions (if all go unacknowledged) is
 			// MaxRetransmissions x SlidingWindowWaitDuration.
-			MaxRetransmissions: 200,
+			MaxRetransmissions: 300,
 			// The output transport is not used. Instead, the output segments
 			// are kept in a backlog.
 			OutputTransport: ioutil.Discard,
@@ -291,7 +279,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 	if _, err := conn.inputSegments.Write(in.Packet()); err != nil {
 		_ = conn.Close()
 	}
-	waitCtx, cancel := context.WithTimeout(proxy.context, proxy.MaxReplyDelay)
+	waitCtx, cancel := context.WithTimeout(proxy.context, conn.tc.LiveTiming.AckDelay * 8 / 7)
 	defer cancel()
 	begin := time.Now()
 	seg, hasSeg := conn.WaitSegment(waitCtx)

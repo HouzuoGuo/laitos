@@ -290,13 +290,12 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 		InitiatorConfig:      client.Config,
 		Initiator:            true,
 		InputTransport:       inTransport,
-		MaxLifetime:          30 * time.Minute,
 		// In practice there are occasionally bursts of tens of errors at a
 		// time before recovery.
-		MaxTransportErrors: 200,
+		MaxTransportErrors: 300,
 		// The duration of all retransmissions (if all go unacknowledged) is
 		// MaxRetransmissions x SlidingWindowWaitDuration.
-		MaxRetransmissions: 200,
+		MaxRetransmissions: 300,
 		// The output transport is not used. Instead, the output segments
 		// are kept in a backlog.
 		OutputTransport: ioutil.Discard,

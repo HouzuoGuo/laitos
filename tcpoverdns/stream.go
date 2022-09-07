@@ -181,17 +181,17 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 		// 10 seconds
 		tc.InitialTiming.RetransmissionInterval = tc.InitialTiming.ReadTimeout / 2
 	}
-	if tc.InitialTiming.KeepAliveInterval == 0 {
-		// 5 seconds
-		tc.InitialTiming.KeepAliveInterval = tc.InitialTiming.RetransmissionInterval / 2
-	}
 	if tc.InitialTiming.SlidingWindowWaitDuration == 0 {
+		// 5 seconds
+		tc.InitialTiming.SlidingWindowWaitDuration = tc.InitialTiming.RetransmissionInterval / 2
+	}
+	if tc.InitialTiming.KeepAliveInterval == 0 {
 		// 3 seconds
-		tc.InitialTiming.SlidingWindowWaitDuration = tc.InitialTiming.RetransmissionInterval / 3
+		tc.InitialTiming.KeepAliveInterval = tc.InitialTiming.RetransmissionInterval / 3
 	}
 	if tc.InitialTiming.AckDelay == 0 {
 		// 1 second
-		tc.InitialTiming.AckDelay = tc.InitialTiming.SlidingWindowWaitDuration / 3
+		tc.InitialTiming.AckDelay = tc.InitialTiming.KeepAliveInterval/ 3
 	}
 	tc.LiveTiming = tc.InitialTiming
 
