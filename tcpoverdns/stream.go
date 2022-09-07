@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -670,7 +671,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 					if tc.Debug {
 						tc.Logger.Info("drainInputFromTransport", "", nil, "received a good segment %+v", seg)
 					}
-					if seg.AckNum > tc.inputAck {
+					if seg.AckNum > tc.inputAck || tc.outputSeq == 0 && seg.AckNum == 0 {
 						// Pop the acknowledged bytes from the output buffer.
 						tc.outputBuf = tc.outputBuf[seg.AckNum-tc.inputAck:]
 						tc.inputAck = seg.AckNum
