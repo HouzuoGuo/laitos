@@ -117,6 +117,10 @@ type TransmissionControl struct {
 
 	// ongoingRetransmissions is the number of retransmissions being made for a
 	// handshake or data segment.
+	// The number is reset to zero when:
+	// - The state transitions to Established.
+	// - Writing a segment carrying data (excl. keep-alive) to the output
+	//   transport, the segment is not part of a retransmission.
 	ongoingRetransmissions int
 
 	// inputTransportErrors is the number of IO errors that have occurred when
@@ -191,7 +195,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	}
 	if tc.InitialTiming.AckDelay == 0 {
 		// 1 second
-		tc.InitialTiming.AckDelay = tc.InitialTiming.KeepAliveInterval/ 3
+		tc.InitialTiming.AckDelay = tc.InitialTiming.KeepAliveInterval / 3
 	}
 	tc.LiveTiming = tc.InitialTiming
 

@@ -279,7 +279,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 	if _, err := conn.inputSegments.Write(in.Packet()); err != nil {
 		_ = conn.Close()
 	}
-	waitCtx, cancel := context.WithTimeout(proxy.context, conn.tc.LiveTiming.AckDelay * 8 / 7)
+	waitCtx, cancel := context.WithTimeout(proxy.context, conn.tc.LiveTiming.AckDelay*8/7)
 	defer cancel()
 	begin := time.Now()
 	seg, hasSeg := conn.WaitSegment(waitCtx)

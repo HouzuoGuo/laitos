@@ -343,83 +343,90 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	tc := &TransmissionControl{
 		ID:                      1111,
 		Debug:                   true,
-		MaxSegmentLenExclHeader: 5,
+		MaxSegmentLenExclHeader: 3,
+		MaxSlidingWindow:        64 * 3,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
 		InitialTiming: TimingConfig{
-			// Leave the retransmission interval short to shorten the test case
-			// execution.
-			RetransmissionInterval: 1 * time.Second,
-			// This test is not concerned with keep-alive.
-			KeepAliveInterval: 999 * time.Second,
-			ReadTimeout:       2 * time.Second,
+			// Leave keep-alive and retransmission out of this test.
+			KeepAliveInterval:         999 * time.Second,
+			AckDelay:                  999 * time.Second,
+			RetransmissionInterval:    2 * time.Second,
+			SlidingWindowWaitDuration: 1 * time.Second,
 		},
-		MaxRetransmissions: 3,
+		MaxRetransmissions: 5,
 		state:              StateEstablished,
 	}
 	tc.Start(context.Background())
-	// Write a segment without acknowledging it.
-	n, err := tc.Write([]byte{1, 1, 1})
-	if n != 3 || err != nil {
+	n, err := tc.Write([]byte{0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3})
+	if n != 12 || err != nil {
 		t.Fatalf("write n %v, %+v", n, err)
 	}
-	// Anticipate one retransmission and then acknowledge it.
-	segData, err := readInput(context.Background(), testOut, SegmentHeaderLen+3)
-	if err != nil {
-		t.Fatalf("err: %+v", err)
-	}
-	gotSeg := SegmentFromPacket(segData)
-	wantSeg := Segment{
-		ID:     1111,
-		SeqNum: 0,
-		AckNum: 0,
-		Data:   []byte{1, 1, 1},
-	}
-	if err != nil || !reflect.DeepEqual(gotSeg, wantSeg) {
-		t.Fatalf("retrans first seg data: %+v, got seg: %+v want: %+v", segData, gotSeg, wantSeg)
-	}
-	// Acknowledge the next retransmission.
-	// The short wait is important because otherwise TC rejects the ack number
-	// as out-of-range and the ack is lost.
-	waitForOutputSeq(t, tc, 2, 3)
-	ackSeg := Segment{
-		SeqNum: 0,
-		AckNum: 3,
-		Data:   []byte{},
-	}
-	if _, err := testIn.Write(ackSeg.Packet()); err != nil {
-		t.Fatalf("write ack: %+v", err)
-	}
-	CheckTC(t, tc, 5, StateEstablished, 0, 3, 3, nil, nil)
-
-	// Write a second segment without acknowledging it.
-	n, err = tc.Write([]byte{2, 2, 2})
-	if n != 3 || err != nil {
-		t.Fatalf("write n %v, %+v", n, err)
-	}
-	// Look for three retransmissions.
-	for i := 0; i < 3; i++ {
-		t.Log("i", i)
-		segData, err := readInput(context.Background(), testOut, SegmentHeaderLen+3)
+	// Discard all 4 segments without acknowledging to them.
+	for i := 0; i < 4; i++ {
+		got := readSegment(t, testOut, 3)
 		if err != nil {
 			t.Fatalf("err: %+v", err)
 		}
-		t.Logf("seg data: %+v", segData)
-		gotSeg := SegmentFromPacket(segData)
-		wantSeg := Segment{
+		want := Segment{
 			ID:     1111,
-			SeqNum: 3,
+			SeqNum: uint32(i * 3),
 			AckNum: 0,
-			Data:   []byte{2, 2, 2},
+			Data:   []byte{byte(i), byte(i), byte(i)},
 		}
-		if err != nil || !reflect.DeepEqual(gotSeg, wantSeg) {
-			t.Fatalf("got retrans seg %+#v, want %+#v", gotSeg, wantSeg)
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("got: %+v, want: %+v", got, want)
 		}
 	}
-	time.Sleep(tc.LiveTiming.SlidingWindowWaitDuration * 2)
+	// Wait for re-transmission.
+	CheckTCError(t, tc, 3, 1, 0, 0)
+	// Discard all 4 retransmitted segments.
+	for i := 0; i < 4; i++ {
+		got := readSegment(t, testOut, 3)
+		if err != nil {
+			t.Fatalf("err: %+v", err)
+		}
+		want := Segment{
+			ID:     1111,
+			SeqNum: uint32(i * 3),
+			AckNum: 0,
+			Data:   []byte{byte(i), byte(i), byte(i)},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("got: %+v, want: %+v", got, want)
+		}
+	}
+	// Gradually acknowledge segments.
+	for i := 1; i < 4; i++ {
+		ackSeg := Segment{
+			SeqNum: 0,
+			AckNum: uint32(i * 3),
+			Data:   []byte{},
+		}
+		if _, err := testIn.Write(ackSeg.Packet()); err != nil {
+			t.Fatalf("write ack: %+v", err)
+		}
+		// Wait for retransmission.
+		CheckTCError(t, tc, 3, i+1, 0, 0)
+		for j := i; j < 4; j++ {
+			got := readSegment(t, testOut, 3)
+			if err != nil {
+				t.Fatalf("err: %+v", err)
+			}
+			want := Segment{
+				ID:     1111,
+				SeqNum: uint32(j * 3),
+				AckNum: 0,
+				Data:   []byte{byte(j), byte(j), byte(j)},
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("got: %+v, want: %+v", got, want)
+			}
+		}
+	}
 	// The TC is closed after exhausting all retransmission attempts.
-	CheckTC(t, tc, 5, StateClosed, 0, 3, 3+3, nil, []byte{2, 2, 2})
-	CheckTCError(t, tc, 5, 3, 0, 0)
+	CheckTC(t, tc, 3, StateClosed, 0, 9, 12, nil, []byte{3, 3, 3})
+	CheckTCError(t, tc, 3, 5, 0, 0)
 }
 
 func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t *testing.T) {

@@ -26,7 +26,7 @@ func TestProbePort(t *testing.T) {
 		t.Fatal("should not have seen an unoccupied port")
 	}
 	duration := time.Now().Sub(start)
-	if duration > 5 * time.Second{
+	if duration > 5*time.Second {
 		t.Fatalf("ProbePort took way too long")
 	}
 }
