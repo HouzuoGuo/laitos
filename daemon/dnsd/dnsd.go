@@ -216,7 +216,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.blackList = make(map[string]struct{})
 
 	daemon.latestCommands = NewLatestCommands()
-	daemon.responseCache = NewResponseCache((CommonResponseTTL*2)*time.Second, 200)
+	daemon.responseCache = NewResponseCache(2*time.Second, 200)
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
 	if daemon.TCPProxy != nil {

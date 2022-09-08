@@ -52,7 +52,7 @@ func TestClient_HTTP(t *testing.T) {
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               120 * time.Second,
 				WriteTimeout:              120 * time.Second,
-				RetransmissionInterval:    10 * time.Second,
+				RetransmissionInterval:    5 * time.Second,
 				SlidingWindowWaitDuration: 3000 * time.Millisecond,
 				KeepAliveInterval:         1500 * time.Millisecond,
 				AckDelay:                  500 * time.Millisecond,
@@ -127,7 +127,7 @@ func TestClient_HTTP(t *testing.T) {
 	})
 
 	t.Run("https proxy with heavy client losses", func(t *testing.T) {
-		httpProxyServer.dropPercentage = 3
+		httpProxyServer.dropPercentage = 10
 		proxyURL, err := url.Parse(fmt.Sprintf("http://%s:%d", httpProxyServer.Address, httpProxyServer.Port))
 		if err != nil {
 			t.Fatal(err)

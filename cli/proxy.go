@@ -24,7 +24,7 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               120 * time.Second,
 				WriteTimeout:              120 * time.Second,
-				RetransmissionInterval:    10 * time.Second,
+				RetransmissionInterval:    5 * time.Second,
 				SlidingWindowWaitDuration: 3000 * time.Millisecond,
 				KeepAliveInterval:         1500 * time.Millisecond,
 				AckDelay:                  500 * time.Millisecond,

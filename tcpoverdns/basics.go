@@ -342,7 +342,7 @@ func (conf *InitiatorConfig) Config(tc *TransmissionControl) {
 	if conf.SetConfig {
 		if conf.MaxSegmentLenExclHeader > 0 {
 			tc.MaxSegmentLenExclHeader = conf.MaxSegmentLenExclHeader
-			tc.MaxSlidingWindow = uint32(16 * conf.MaxSegmentLenExclHeader)
+			tc.MaxSlidingWindow = uint32(64 * conf.MaxSegmentLenExclHeader)
 		}
 		tc.Debug = conf.Debug || tc.Debug
 		if conf.Timing.ReadTimeout > 0 {

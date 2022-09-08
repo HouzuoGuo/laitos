@@ -248,7 +248,7 @@ func TestInitiatorConfig(t *testing.T) {
 
 	wantTC := &TransmissionControl{
 		MaxSegmentLenExclHeader: 123,
-		MaxSlidingWindow:        123 * 16,
+		MaxSlidingWindow:        123 * 64,
 		InitialTiming:           wantTiming,
 		LiveTiming:              wantTiming,
 		Debug:                   true,
