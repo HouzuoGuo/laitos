@@ -71,31 +71,36 @@ func TestSegmentBuffer_MergeSeg(t *testing.T) {
 	if seg, exists := buf.Latest(); !exists || !reflect.DeepEqual(seg, Segment{SeqNum: 0, AckNum: 2, Data: []byte{0, 1, 2, 3, 4, 5}}) {
 		t.Fatalf("%+v", buf.backlog)
 	}
-	// Simulate a couple of retransmissions.
-	buf.Absorb(Segment{SeqNum: 3, AckNum: 2, Data: []byte{3, 4, 5}})
+	// This next segment is too large to merge into a single segment.
+	buf.Absorb(Segment{SeqNum: 6, AckNum: 2, Data: []byte{3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3}})
 	if len(buf.backlog) != 2 {
 		t.Fatalf("%+v", buf.backlog)
 	}
-	if seg, exists := buf.First(); !exists || !reflect.DeepEqual(seg, Segment{SeqNum: 0, AckNum: 2, Data: []byte{0, 1, 2, 3, 4, 5}}) {
+	if seg, exists := buf.Latest(); !exists || !reflect.DeepEqual(seg, Segment{SeqNum: 6, AckNum: 2, Data: []byte{3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3}}) {
+		t.Fatalf("%+v", buf.backlog)
+	}
+	// Followed by a keep-alive.
+	buf.Absorb(Segment{SeqNum: 6, AckNum: 2, Data: []byte{99, 99, 99}, Flags: FlagKeepAlive})
+	if len(buf.backlog) != 3 {
+		t.Fatalf("%+v", buf.backlog)
+	}
+	latest, exists := buf.Latest()
+	if !exists || latest.SeqNum != 6 || latest.AckNum != 2 || len(latest.Data) != 4 || latest.Flags != FlagKeepAlive {
+		t.Fatalf("%v, %+v", exists, latest)
+	}
+	// Simulate two retransmissions.
+	buf.Absorb(Segment{SeqNum: 3, AckNum: 2, Data: []byte{3, 4, 5}})
+	if len(buf.backlog) != 1 {
 		t.Fatalf("%+v", buf.backlog)
 	}
 	if seg, exists := buf.Latest(); !exists || !reflect.DeepEqual(seg, Segment{SeqNum: 3, AckNum: 2, Data: []byte{3, 4, 5}}) {
 		t.Fatalf("%+v", buf.backlog)
 	}
-
-	buf.Absorb(Segment{SeqNum: 0, AckNum: 1, Data: []byte{0, 1, 2}})
+	buf.Absorb(Segment{SeqNum: 1, AckNum: 2, Data: []byte{0, 1}})
 	if len(buf.backlog) != 1 {
 		t.Fatalf("%+v", buf.backlog)
 	}
-	if seg, exists := buf.Latest(); !exists || !reflect.DeepEqual(seg, Segment{SeqNum: 0, AckNum: 1, Data: []byte{0, 1, 2}}) {
-		t.Fatalf("%+v", buf.backlog)
-	}
-	// This next segment is too large to merge into a single segment.
-	buf.Absorb(Segment{SeqNum: 3, AckNum: 2, Data: []byte{3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3}})
-	if len(buf.backlog) != 2 {
-		t.Fatalf("%+v", buf.backlog)
-	}
-	if seg, exists := buf.Latest(); !exists || !reflect.DeepEqual(seg, Segment{SeqNum: 3, AckNum: 2, Data: []byte{3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3}}) {
+	if seg, exists := buf.Latest(); !exists || !reflect.DeepEqual(seg, Segment{SeqNum: 1, AckNum: 2, Data: []byte{0, 1}}) {
 		t.Fatalf("%+v", buf.backlog)
 	}
 }

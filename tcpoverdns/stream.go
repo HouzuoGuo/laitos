@@ -379,8 +379,8 @@ func (tc *TransmissionControl) drainOutputToTransport() {
 			tc.ongoingRetransmissions++
 			tc.mutex.Unlock()
 			tc.Logger.Warning("drainOutputToTransport", "", nil,
-				"re-transmitting, last input ack time: %+v, input ack: %+v, output seq: %+v, ongoing retransmissions: %v",
-				instant.lastInputAck, instant.inputAck, instant.outputSeq, tc.ongoingRetransmissions)
+				"retransmitting, input seq: %d, last input ack time: %+v, input ack: %+v, output seq: %+v, ongoing retransmissions: %v",
+				instant.inputSeq, instant.lastInputAck, instant.inputAck, instant.outputSeq, tc.ongoingRetransmissions)
 			if tc.ongoingRetransmissions >= tc.MaxRetransmissions {
 				if tc.Debug {
 					tc.Logger.Info("drainOutputToTransport", "", nil, "reached max retransmissions")
