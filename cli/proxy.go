@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/dnsclient"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
-func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegLen int, resolverAddr string, resolverPort int, dnsHostName, otpSecret string) {
+func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegLen int, resolver string, dnsHostName, otpSecret string) {
 	if proxySegLen == 0 {
 		proxySegLen = dnsclient.OptimalSegLen(dnsHostName)
 		logger.Info("HandleTCPOverDNSClient", "", nil, "using segment length %d", proxySegLen)
@@ -22,8 +23,8 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 			Debug:                   debug,
 			MaxSegmentLenExclHeader: proxySegLen,
 			Timing: tcpoverdns.TimingConfig{
-				ReadTimeout:               120 * time.Second,
-				WriteTimeout:              120 * time.Second,
+				ReadTimeout:               dnsd.MaxProxyConnectionLifetime,
+				WriteTimeout:              dnsd.MaxProxyConnectionLifetime,
 				RetransmissionInterval:    5 * time.Second,
 				SlidingWindowWaitDuration: 3000 * time.Millisecond,
 				KeepAliveInterval:         1500 * time.Millisecond,
@@ -31,8 +32,7 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 			},
 		},
 		Debug:            debug,
-		DNSResolverAddr:  resolverAddr,
-		DNSResovlerPort:  resolverPort,
+		DNSResolver:      resolver,
 		DNSHostName:      dnsHostName,
 		RequestOTPSecret: otpSecret,
 	}

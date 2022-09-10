@@ -15,6 +15,13 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
+const (
+	// MaxProxyConnectionLifetime is the maximum lifetime of a transmission
+	// control. The transmission controls are unconditionally closed after this
+	// duration.
+	MaxProxyConnectionLifetime = 30 * time.Minute
+)
+
 // ProxyRequest is the data sent by a proxy client to initiate a connection
 // toward a proxy destination.
 type ProxyRequest struct {
@@ -251,6 +258,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			// This transmission control is a responder during the handshake.
 			Initiator:      false,
 			InputTransport: tcIn,
+			MaxLifetime:    MaxProxyConnectionLifetime,
 			// In practice there are occasionally bursts of tens of errors at a
 			// time before recovery.
 			MaxTransportErrors: 300,

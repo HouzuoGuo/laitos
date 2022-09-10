@@ -96,16 +96,14 @@ func main() {
 	flag.StringVar(&dataUtilFile, "datautilfile", "", "(Optional) program data encryption utility: encrypt/decrypt file location")
 	// TCP-over-DNS proxy client flags.
 	var proxyPort, proxySegLen int
-	var proxyDNSResolverAddr string
-	var proxyDNSResolverPort int
-	var proxyDNSHostName, proxyOTPSecret string
+	var proxyResolver string
+	var proxyDNSName, proxyOTPSecret string
 	var proxyDebug bool
 	flag.IntVar(&proxyPort, "proxyport", 8080, "(TCP-over-DNS) port to start local HTTP proxy on")
 	flag.BoolVar(&proxyDebug, "proxydebug", false, "(TCP-over-DNS) turn on debug logs")
-	flag.StringVar(&proxyDNSResolverAddr, "proxydnsresolveraddr", "", "(TCP-over-DNS) recursive resolver address")
-	flag.IntVar(&proxyDNSResolverPort, "proxydnsresolverport", 53, "(TCP-over-DNS) recursive resolver port")
+	flag.StringVar(&proxyResolver, "proxyresolver", "", `(TCP-over-DNS) recursive resolver address - "ip:port"`)
 	flag.IntVar(&proxySegLen, "proxyseglen", 0, "(TCP-over-DNS) max segment length (must be less than 200)")
-	flag.StringVar(&proxyDNSHostName, "proxydnshostname", "", "(TCP-over-DNS) proxy DNS server host name")
+	flag.StringVar(&proxyDNSName, "proxydnsname", "", "(TCP-over-DNS) host name of the laitos DNS server")
 	flag.StringVar(&proxyOTPSecret, "proxyotpsecret", "", "(TCP-over-DNS) proxy OTP secret for authorising connection requests")
 
 	flag.Parse()
@@ -130,8 +128,8 @@ func main() {
 	// ========================================================================
 	// Non-daemon utility routines - TCP-over-DNS client.
 	// ========================================================================
-	if proxyDNSHostName != "" {
-		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyPort, proxySegLen, proxyDNSResolverAddr, proxyDNSResolverPort, proxyDNSHostName, proxyOTPSecret)
+	if proxyDNSName != "" {
+		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyPort, proxySegLen, proxyResolver, proxyDNSName, proxyOTPSecret)
 		return
 	}
 

@@ -200,10 +200,8 @@ type Client struct {
 	// HTTPS (HTTP CONNECT) requests.
 	httpTransport *http.Transport
 
-	// DNSResolverAddr is the address of the (public) recursive DNS resolver.
-	DNSResolverAddr string
-	// DNSResovlerPort is the port number of the (public) recursive DNS resolver.
-	DNSResovlerPort int
+	// DNSResolver is the address (ip:port) of the public recursive DNS resolver.
+	DNSResolver string
 	// DNSHostName is the host name of the TCP-over-DNS proxy server.
 	DNSHostName string
 
@@ -247,7 +245,7 @@ func (client *Client) Initialise(ctx context.Context) error {
 	}
 
 	var err error
-	if client.DNSResolverAddr == "" {
+	if client.DNSResolver == "" {
 		client.dnsConfig, err = dns.ClientConfigFromFile("/etc/resolv.conf")
 		if err != nil {
 			return err
@@ -256,9 +254,17 @@ func (client *Client) Initialise(ctx context.Context) error {
 			return fmt.Errorf("client.Initialise: resolv.conf appears to be malformed or empty, try specifying an explicit DNS resolver address instead.")
 		}
 	} else {
+		host, port, err := net.SplitHostPort(client.DNSResolver)
+		if err != nil {
+			return fmt.Errorf("client.Initialise: failed to parse ip:port from DNS resolver %q", err)
+		}
+		portInt, err := strconv.Atoi(port)
+		if err != nil {
+			return fmt.Errorf("client.Initialise: failed to parse ip:port from DNS resolver %q", err)
+		}
 		client.dnsConfig = &dns.ClientConfig{
-			Servers: []string{client.DNSResolverAddr},
-			Port:    strconv.Itoa(client.DNSResovlerPort),
+			Servers: []string{host},
+			Port:    strconv.Itoa(portInt),
 		}
 	}
 	return nil
@@ -290,6 +296,7 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 		InitiatorConfig:      client.Config,
 		Initiator:            true,
 		InputTransport:       inTransport,
+		MaxLifetime:          dnsd.MaxProxyConnectionLifetime,
 		// In practice there are occasionally bursts of tens of errors at a
 		// time before recovery.
 		MaxTransportErrors: 300,
@@ -348,7 +355,7 @@ func (client *Client) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		// Keep the buffer to minimum to improve responsiveness.
 		// The buffer size has nothing to do with segment size.
 		go misc.PipeConn(client.logger, true, client.Config.Timing.ReadTimeout, 1, dstConn, reqConn)
-		misc.PipeConn(client.logger, true, client.Config.Timing.ReadTimeout, 1, reqConn, dstConn)
+		misc.PipeConn(client.logger, true, client.Config.Timing.WriteTimeout, 1, reqConn, dstConn)
 	default:
 		// Execute the request as-is without handling higher-level mechanisms such as cookies and redirects
 		resp, err := client.httpTransport.RoundTrip(r)

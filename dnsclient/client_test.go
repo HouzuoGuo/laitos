@@ -58,10 +58,9 @@ func TestClient_HTTP(t *testing.T) {
 				AckDelay:                  500 * time.Millisecond,
 			},
 		},
-		Debug:           true,
-		DNSResolverAddr: dnsProxyServer.Address,
-		DNSResovlerPort: dnsProxyServer.UDPPort,
-		DNSHostName:     dnsProxyServer.MyDomainNames[0],
+		Debug:       true,
+		DNSResolver: fmt.Sprintf("%s:%d", dnsProxyServer.Address, dnsProxyServer.UDPPort),
+		DNSHostName: dnsProxyServer.MyDomainNames[0],
 	}
 	if err := httpProxyServer.Initialise(context.Background()); err != nil {
 		t.Fatal(err)
