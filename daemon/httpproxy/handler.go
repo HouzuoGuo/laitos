@@ -50,13 +50,13 @@ func (daemon Daemon) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		hijackedStream, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "", http.StatusInternalServerError)
-			daemon.logger.Warning("ProxyHandler", clientIP, nil, "connection stream cannot be tapped into")
+			daemon.logger.Warning(clientIP, nil, "connection stream cannot be tapped into")
 			return
 		}
 		reqConn, _, err := hijackedStream.Hijack()
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
-			daemon.logger.Warning("ProxyHandler", clientIP, err, "failed to tap into HTTP connection stream")
+			daemon.logger.Warning(clientIP, err, "failed to tap into HTTP connection stream")
 			return
 		}
 		// Apply optimistaions to the inner-most TCP connection that may have been wrapped around several layers of connection recorder middleware
@@ -88,7 +88,7 @@ func (daemon Daemon) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		// Copy status code and response body to the client
 		w.WriteHeader(resp.StatusCode)
 		if _, err := io.Copy(w, resp.Body); err != nil {
-			daemon.logger.Warning("ProxyHandler", clientIP, err, "failed to copy response body back to client")
+			daemon.logger.Warning(clientIP, err, "failed to copy response body back to client")
 		}
 	}
 }
@@ -112,7 +112,7 @@ func (daemon *Daemon) CheckClientIPMiddleware(next http.HandlerFunc) http.Handle
 				}
 			}
 			http.Error(w, "Your IP is not allowed to use this HTTP proxy server", http.StatusForbidden)
-			daemon.logger.Warning("CheckClientIPMiddleware", clientIP.String(), nil, "the client IP is not among the allowed CIDRs")
+			daemon.logger.Warning(clientIP.String(), nil, "the client IP is not among the allowed CIDRs")
 		}
 	}
 }

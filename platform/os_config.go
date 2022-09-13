@@ -184,13 +184,13 @@ aggresively clears /tmp at regular interval, caller should consider invoking thi
 */
 func CopyNonEssentialUtilities(progress lalog.Logger) {
 	if HostIsWindows() {
-		progress.Info("PrepareUtilities", "", nil, "will not do anything on Windows")
+		progress.Info("", nil, "will not do anything on Windows")
 		return
 	}
-	progress.Info("PrepareUtilities", "", nil, "going to reset program environment PATH and copy non-essential utility programs to "+UtilityDir)
+	progress.Info("", nil, "going to reset program environment PATH and copy non-essential utility programs to "+UtilityDir)
 	_ = os.Setenv("PATH", CommonPATH)
 	if err := os.MkdirAll(UtilityDir, 0755); err != nil {
-		progress.Warning("PrepareUtilities", "", err, "failed to create directory %s", UtilityDir)
+		progress.Warning("", err, "failed to create directory %s", UtilityDir)
 		return
 	}
 	srcDestName := []string{
@@ -237,7 +237,7 @@ func CopyNonEssentialUtilities(progress lalog.Logger) {
 				continue
 			}
 			if _, err = io.Copy(to, from); err == nil {
-				progress.Info("PrepareUtilities", destName, err, "successfully copied from %s to %s", srcPath, destPath)
+				progress.Info(destName, err, "successfully copied from %s to %s", srcPath, destPath)
 			}
 		}
 	}

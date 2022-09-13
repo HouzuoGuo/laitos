@@ -70,9 +70,9 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	go func() {
 		exitErr := proc.Wait()
 		if exitErr == nil {
-			logger.Info("InvokeProgram", program, nil, "process exited normally after %d seconds", time.Now().Unix()-unixSecAtStart)
+			logger.Info(program, nil, "process exited normally after %d seconds", time.Now().Unix()-unixSecAtStart)
 		} else {
-			logger.Info("InvokeProgram", program, nil, "process exited after %d seconds due to: %v", time.Now().Unix()-unixSecAtStart, exitErr)
+			logger.Info(program, nil, "process exited after %d seconds due to: %v", time.Now().Unix()-unixSecAtStart, exitErr)
 		}
 		processExitChan <- exitErr
 	}()
@@ -86,14 +86,14 @@ processMonitorLoop:
 			if timeoutSec >= 10*60 {
 				spentMinutes := (time.Now().Unix() - unixSecAtStart) / 60
 				timeoutRemainingMinutes := (timeoutSec - int(time.Now().Unix()-unixSecAtStart)) / 60
-				logger.Info("InvokeProgram", program, nil, "external process %d has been running for %d minutes and will time out in %d minutes",
+				logger.Info(program, nil, "external process %d has been running for %d minutes and will time out in %d minutes",
 					proc.Process.Pid, spentMinutes, timeoutRemainingMinutes)
 			}
 		case <-timeLimitExceeded:
 			// Forcibly kill the process upon exceeding time limit
-			logger.Warning("InvokeProgram", program, nil, "killing the program due to time limit (%d seconds)", timeoutSec)
+			logger.Warning(program, nil, "killing the program due to time limit (%d seconds)", timeoutSec)
 			if proc.Process != nil && !KillProcess(proc.Process) {
-				logger.Warning("InvokeProgram", program, nil, "failed to kill after time limit exceeded")
+				logger.Warning(program, nil, "failed to kill after time limit exceeded")
 			}
 			err = errors.New("time limit exceeded")
 			minuteTicker.Stop()
@@ -152,11 +152,11 @@ func LockMemory() {
 			See https://github.com/golang/go/issues/28114 for more background information.
 		*/
 		if err := syscall.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE | 0x4); err == nil {
-			logger.Warning("LockMemory", "", nil, "program has been locked into memory for safety reasons")
+			logger.Warning("", nil, "program has been locked into memory for safety reasons")
 		} else {
-			logger.Warning("LockMemory", "mlockall", err, "failed to lock memory")
+			logger.Warning("mlockall", err, "failed to lock memory")
 		}
 	} else {
-		logger.Warning("LockMemory", "", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information may leak onto disk.")
+		logger.Warning("", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information may leak onto disk.")
 	}
 }

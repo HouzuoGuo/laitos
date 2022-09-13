@@ -73,7 +73,7 @@ func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 			if err := mm.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
 				prompt = "发出去了。可以接着写。"
 			} else {
-				mm.logger.Warning("HandleMailMe", r.RemoteAddr, err, "failed to deliver mail")
+				mm.logger.Warning(r.RemoteAddr, err, "failed to deliver mail")
 			}
 			_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), prompt)))
 		}

@@ -208,7 +208,7 @@ func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam
 				// Return the response upon success
 				if retry > 0 {
 					// Let operator know that this URL endpoint may not be quite reliable
-					lalog.DefaultLogger.Info("DoHTTP", urlTemplate, nil, "took %d retries to complete this %s request", retry, reqParam.Method)
+					lalog.DefaultLogger.Info(urlTemplate, nil, "took %d retries to complete this %s request", retry, reqParam.Method)
 				}
 				return lastResponse, nil
 			}

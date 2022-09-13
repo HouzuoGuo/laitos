@@ -34,7 +34,7 @@ func CopyNonEssentialUtilitiesInBackground(logger lalog.Logger) {
 		MaxInt:       1,
 		Func: func(_ context.Context, _, _ int) error {
 			platform.CopyNonEssentialUtilities(logger)
-			logger.Info("CopyNonEssentialUtilitiesInBackground", "", nil, "successfully copied non-essential utility programs")
+			logger.Info("", nil, "successfully copied non-essential utility programs")
 			return nil
 		},
 	}
@@ -47,7 +47,7 @@ func CopyNonEssentialUtilitiesInBackground(logger lalog.Logger) {
 func DisableConflicts(logger lalog.Logger) {
 	if !platform.HostIsWindows() && os.Getuid() != 0 {
 		// Sorry, I do not know how to detect administrator privilege on Windows.
-		logger.Abort("DisableConflicts", "", nil, "you must run laitos as root user if you wish to automatically disable system conflicts")
+		logger.Abort("", nil, "you must run laitos as root user if you wish to automatically disable system conflicts")
 	}
 	// All of these names are Linux services
 	// Do not stop nginx for Linux, because Amazon ElasticBeanstalk uses it to receive and proxy web traffic.
@@ -58,12 +58,12 @@ func DisableConflicts(logger lalog.Logger) {
 		go func(name string) {
 			defer waitGroup.Done()
 			if platform.DisableStopDaemon(name) {
-				logger.Info("DisableConflicts", name, nil, "the daemon has been successfully stopped and disabled")
+				logger.Info(name, nil, "the daemon has been successfully stopped and disabled")
 			}
 		}(name)
 	}
 	waitGroup.Wait()
-	logger.Info("DisableConflicts", "systemd-resolved", nil, "%s", platform.DisableInterferingResolved())
+	logger.Info("systemd-resolved", nil, "%s", platform.DisableInterferingResolved())
 }
 
 // GAEDaemonList changes the PWD to App Engine's data directory and then returns
@@ -77,18 +77,18 @@ func GAEDaemonList(logger lalog.Logger) string {
 		// All program config files and data files are expected to reside in the data directory.
 		cwd, err := os.Getwd()
 		if err != nil {
-			logger.Abort("main", "", err, "failed to determine current working directory")
+			logger.Abort("", err, "failed to determine current working directory")
 		}
 		if path.Base(cwd) != path.Base(AppEngineDataDir) {
 			if err := os.Chdir(AppEngineDataDir); err != nil {
-				logger.Abort("main", "", err, "failed to change directory to %s", AppEngineDataDir)
+				logger.Abort("", err, "failed to change directory to %s", AppEngineDataDir)
 				return ""
 			}
 		}
 		// Read the value of CLI parameter "-daemons" from a text file
 		daemonListContent, err := ioutil.ReadFile("daemonList")
 		if err != nil {
-			logger.Abort("main", "", err, "failed to read daemonList")
+			logger.Abort("", err, "failed to read daemonList")
 			return ""
 		}
 		// Find program configuration data (encrypted or otherwise) in "config.json"
@@ -109,10 +109,10 @@ func StartProfilingServer(logger lalog.Logger, pprofHTTPPort int) {
 			pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 			pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 			pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-			logger.Info("main", "pprof", nil, "serving program profiling data over HTTP server on port %d", pprofHTTPPort)
+			logger.Info("pprof", nil, "serving program profiling data over HTTP server on port %d", pprofHTTPPort)
 			if err := http.ListenAndServe(net.JoinHostPort("localhost", strconv.Itoa(pprofHTTPPort)), pprofMux); err != nil {
 				// This server is not expected to shutdown
-				logger.Warning("main", "pprof", err, "failed to start HTTP server for program profiling data")
+				logger.Warning("pprof", err, "failed to start HTTP server for program profiling data")
 
 			}
 		}()

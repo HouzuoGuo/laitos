@@ -570,9 +570,9 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 
 	// The first empty segment is for keep-alive.
 	start := time.Now()
-	lalog.DefaultLogger.Info("", "", nil, "tests expects the first keep-alive")
+	lalog.DefaultLogger.Info("", nil, "tests expects the first keep-alive")
 	gotSeg := readSegment(t, testOut, 0)
-	lalog.DefaultLogger.Info("", "", nil, "test got the first keep-alive")
+	lalog.DefaultLogger.Info("", nil, "test got the first keep-alive")
 	wantSeg := Segment{
 		ID:     1111,
 		SeqNum: 0,
@@ -597,7 +597,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 		t.Fatal(err)
 	}
 	start = time.Now()
-	lalog.DefaultLogger.Info("", "", nil, "test expects a delayed ack")
+	lalog.DefaultLogger.Info("", nil, "test expects a delayed ack")
 	gotSeg = readSegment(t, testOut, 0)
 	wantSeg = Segment{
 		ID:     1111,
@@ -618,7 +618,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 	// All further segments are for keep-alive only.
 	for i := 0; i < 3; i++ {
 		start = time.Now()
-		lalog.DefaultLogger.Info("", "", nil, "test expects a keep-alive")
+		lalog.DefaultLogger.Info("", nil, "test expects a keep-alive")
 		gotSeg := readSegment(t, testOut, 0)
 		wantSeg := Segment{
 			ID:     1111,
@@ -673,7 +673,7 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	synData := conf.Bytes()
 	synData = append(synData, 3, 2, 1)
 	for i := 0; i < 3; i++ {
-		lalog.DefaultLogger.Info("", "", nil, "test expects syn")
+		lalog.DefaultLogger.Info("", nil, "test expects syn")
 		syn := readSegment(t, testOut, InitiatorConfigLen+3)
 		if !reflect.DeepEqual(syn, Segment{ID: 1111, Flags: FlagHandshakeSyn, Data: synData}) {
 			t.Fatalf("incorrect syn seg: %+v", syn)
@@ -682,7 +682,7 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 
 	// Send ACK and expect state transition.
 	ack := Segment{Flags: FlagHandshakeAck}
-	lalog.DefaultLogger.Info("", "", nil, "test writes ack")
+	lalog.DefaultLogger.Info("", nil, "test writes ack")
 	_, err := testIn.Write(ack.Packet())
 	if err != nil {
 		t.Fatalf("write err: %+v", err)
@@ -690,7 +690,7 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	waitForState(t, tc, 10, StatePeerAck)
 
 	// Expect SYN+ACK and expect state transition.
-	lalog.DefaultLogger.Info("", "", nil, "test expects syn+ack")
+	lalog.DefaultLogger.Info("", nil, "test expects syn+ack")
 	synAck := readSegment(t, testOut, 0)
 	if !reflect.DeepEqual(synAck, Segment{ID: 1111, Flags: FlagHandshakeSyn | FlagHandshakeAck, Data: []byte{}}) {
 		t.Fatalf("incorrect syn seg: %+v", synAck)
@@ -730,7 +730,7 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 	// Send SYN.
 	conf := InitiatorConfig{}
 	syn := Segment{Flags: FlagHandshakeSyn, Data: conf.Bytes()}
-	lalog.DefaultLogger.Info("", "", nil, "test writes syn")
+	lalog.DefaultLogger.Info("", nil, "test writes syn")
 	_, err := testIn.Write(syn.Packet())
 	if err != nil {
 		t.Fatalf("write err: %+v", err)
@@ -739,7 +739,7 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 
 	// Expect ACK with retransmissions.
 	for i := 0; i < 3; i++ {
-		lalog.DefaultLogger.Info("", "", nil, "test expects ack")
+		lalog.DefaultLogger.Info("", nil, "test expects ack")
 		ack := readSegment(t, testOut, 0)
 		if !reflect.DeepEqual(ack, Segment{ID: 1111, Flags: FlagHandshakeAck, Data: []byte{}}) {
 			t.Fatalf("incorrect ack seg: %+v", ack)
@@ -748,7 +748,7 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 
 	// Send SYN+ACK.
 	synAck := Segment{Flags: FlagHandshakeSyn | FlagHandshakeAck}
-	lalog.DefaultLogger.Info("", "", nil, "test writes syn+ack")
+	lalog.DefaultLogger.Info("", nil, "test writes syn+ack")
 	_, err = testIn.Write(synAck.Packet())
 	if err != nil {
 		t.Fatalf("write err: %+v", err)

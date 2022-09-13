@@ -36,7 +36,7 @@ func (buf *SegmentBuffer) SetParameters(segLen int, debug bool) {
 	buf.debug = debug
 	buf.maxSegLen = segLen
 	if buf.debug {
-		buf.logger.Info("SetParameters", nil, nil, "new max seg len is %d", segLen)
+		buf.logger.Info(nil, nil, "new max seg len is %d", segLen)
 	}
 }
 
@@ -55,7 +55,7 @@ func (buf *SegmentBuffer) Absorb(seg Segment) {
 	}
 	if seg.SeqNum < latest.SeqNum {
 		if buf.debug {
-			buf.logger.Info("Absorb", "", nil, "(backlog len %d) clearing backlog to make way for retransmission: %v", len(buf.backlog), seg)
+			buf.logger.Info(nil, nil, "(backlog len %d) clearing backlog to make way for retransmission: %v", len(buf.backlog), seg)
 		}
 		buf.backlog = make([]Segment, 0, 128)
 		buf.backlog = append(buf.backlog, seg)
@@ -64,19 +64,19 @@ func (buf *SegmentBuffer) Absorb(seg Segment) {
 		// do not carry useful data and the newer ones are more useful than
 		// the older ones.
 		if buf.debug {
-			buf.logger.Info("Absorb", "", nil, "(backlog len %d) substituting the older ack/keepalive segment with: %+v", len(buf.backlog), buf.backlog[len(buf.backlog)-1])
+			buf.logger.Info(nil, nil, "(backlog len %d) substituting the older ack/keepalive segment with: %+v", len(buf.backlog), buf.backlog[len(buf.backlog)-1])
 		}
 		buf.backlog[len(buf.backlog)-1] = seg
 	} else if latest.Equals(seg) {
 		// De-duplicate adjacent identical segments.
 		if buf.debug {
-			buf.logger.Info("Absorb", "", nil, "(backlog len %d) removing duplicated segment: %+v", len(buf.backlog), seg)
+			buf.logger.Info(nil, nil, "(backlog len %d) removing duplicated segment: %+v", len(buf.backlog), seg)
 		}
 		// Nothing to do.
 	} else {
 		if seg.SeqNum > 0 && seg.Flags == 0 && seg.SeqNum == latest.SeqNum+uint32(len(latest.Data)) && len(seg.Data)+len(latest.Data) <= buf.maxSegLen {
 			if buf.debug {
-				buf.logger.Info("Absorb", "", nil, "(backlog len %d) merging previous latest data segment with: %v", len(buf.backlog), seg)
+				buf.logger.Info(nil, nil, "(backlog len %d) merging previous latest data segment with: %v", len(buf.backlog), seg)
 			}
 			buf.backlog[len(buf.backlog)-1] = Segment{
 				ID: seg.ID,
@@ -88,7 +88,7 @@ func (buf *SegmentBuffer) Absorb(seg Segment) {
 			}
 		} else {
 			if buf.debug {
-				buf.logger.Info("Absorb", "", nil, "(backlog len %d) queued segment for outbound over DNS: %v", len(buf.backlog), seg)
+				buf.logger.Info(nil, nil, "(backlog len %d) queued segment for outbound over DNS: %v", len(buf.backlog), seg)
 			}
 			buf.backlog = append(buf.backlog, seg)
 		}

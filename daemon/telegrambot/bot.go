@@ -139,23 +139,23 @@ func (bot *Daemon) ProcessMessages(ctx context.Context, updates APIUpdates) {
 		}
 		if !bot.userRateLimit.Add(origin, true) {
 			if err := bot.ReplyTo(ding.Message.Chat.ID, "rate limited"); err != nil {
-				bot.logger.Warning("ProcessMessages", origin, err, "failed to reply rate limited response")
+				bot.logger.Warning(origin, err, "failed to reply rate limited response")
 			}
 			continue
 		}
 		// Do not process messages that arrived prior to server startup
 		if ding.Message.Timestamp < misc.StartupTime.Unix() {
-			bot.logger.Warning("ProcessMessages", origin, nil, "ignore message from \"%s\" that arrived before server started up", ding.Message.Chat.UserName)
+			bot.logger.Warning(origin, nil, "ignore message from \"%s\" that arrived before server started up", ding.Message.Chat.UserName)
 			continue
 		}
 		// Do not process non-private chats
 		if ding.Message.Chat.Type != ChatTypePrivate {
-			bot.logger.Warning("ProcessMessages", origin, nil, "ignore non-private chat %d", ding.Message.Chat.ID)
+			bot.logger.Warning(origin, nil, "ignore non-private chat %d", ding.Message.Chat.ID)
 			continue
 		}
 		// /start is not a command
 		if ding.Message.Text == "/start" {
-			bot.logger.Info("ProcessMessages", origin, nil, "chat %d is started by %s", ding.Message.Chat.ID, ding.Message.Chat.UserName)
+			bot.logger.Info(origin, nil, "chat %d is started by %s", ding.Message.Chat.ID, ding.Message.Chat.UserName)
 			continue
 		}
 		// Find and run command in background
@@ -167,7 +167,7 @@ func (bot *Daemon) ProcessMessages(ctx context.Context, updates APIUpdates) {
 				Content:    ding.Message.Text,
 			}, true)
 			if err := bot.ReplyTo(ding.Message.Chat.ID, result.CombinedOutput); err != nil {
-				bot.logger.Warning("ProcessMessages", ding.Message.Chat.UserName, err, "failed to send message reply")
+				bot.logger.Warning(ding.Message.Chat.UserName, err, "failed to send message reply")
 			}
 			misc.TelegramBotStats.Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 		}(ding, beginTimeNano)
@@ -189,7 +189,7 @@ func (bot *Daemon) StartAndBlock() error {
 	if testErr == nil && testResp.StatusCode == http.StatusNotFound {
 		return errors.New("telegrambot.StartAndBlock: test call failed due to HTTP 404, is the AuthorizationToken correct?")
 	}
-	bot.logger.Info("StartAndBlock", "", nil, "going to poll for messages")
+	bot.logger.Info("", nil, "going to poll for messages")
 	periodicFunc := func(ctx context.Context, _, _ int) error {
 		select {
 		case <-ctx.Done():
@@ -213,17 +213,17 @@ func (bot *Daemon) StartAndBlock() error {
 				wait between polling attempts.
 			*/
 			if updatesResp.StatusCode != http.StatusConflict {
-				bot.logger.Warning("Loop", "", updatesErr, "failed to poll due to HTTP error")
+				bot.logger.Warning("", updatesErr, "failed to poll due to HTTP error")
 			}
 			return nil
 		}
 		// Deserialise new messages
 		if err := json.Unmarshal(updatesResp.Body, &newMessages); err != nil {
-			bot.logger.Warning("Loop", "", err, "failed to decode response JSON")
+			bot.logger.Warning("", err, "failed to decode response JSON")
 			return nil
 		}
 		if !newMessages.OK {
-			bot.logger.Warning("Loop", "", nil, "API response is not OK - %s", string(updatesResp.Body))
+			bot.logger.Warning("", nil, "API response is not OK - %s", string(updatesResp.Body))
 			return nil
 		}
 		// Process new messages

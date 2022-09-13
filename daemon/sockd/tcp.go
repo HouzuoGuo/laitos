@@ -51,29 +51,29 @@ func (daemon *TCPDaemon) HandleTCPConnection(logger lalog.Logger, ip string, cli
 	encryptedClientConn := &EncryptedTCPConn{Conn: client, DerivedPassword: daemon.derivedPassword}
 	proxyDestAddr, err := ReadProxyDestAddr(encryptedClientConn, make([]byte, LenProxyConnectRequest))
 	if err != nil {
-		logger.Info("HandleTCPConnection", ip, nil, "failed to get destination address - %v", err)
+		logger.Info(ip, nil, "failed to get destination address - %v", err)
 		WriteRandomToTCP(client)
 		return
 	}
 	destNameOrIP, destPort := proxyDestAddr.HostPort()
 	if destNameOrIP == "" || destPort == 0 || strings.ContainsRune(destNameOrIP, 0) {
-		logger.Info("HandleTCPConnection", ip, nil, "invalid destination IP (%s) or port (%d)", destNameOrIP, destPort)
+		logger.Info(ip, nil, "invalid destination IP (%s) or port (%d)", destNameOrIP, destPort)
 		WriteRandomToTCP(client)
 		return
 	}
 	if parsedIP := net.ParseIP(destNameOrIP); parsedIP != nil {
 		if IsReservedAddr(parsedIP) {
-			logger.Info("HandleTCPConnection", ip, nil, "will not serve reserved address %s", destNameOrIP)
+			logger.Info(ip, nil, "will not serve reserved address %s", destNameOrIP)
 			return
 		}
 	}
 	if daemon.DNSDaemon.IsInBlacklist(destNameOrIP) {
-		logger.Info("HandleTCPConnection", ip, nil, "will not serve blacklisted destination %s", destNameOrIP)
+		logger.Info(ip, nil, "will not serve blacklisted destination %s", destNameOrIP)
 		return
 	}
 	proxyDestConn, err := net.Dial("tcp", net.JoinHostPort(destNameOrIP, strconv.Itoa(destPort)))
 	if err != nil {
-		logger.Info("HandleTCPConnection", ip, err, "failed to connect to destination \"%s:%d\"", destNameOrIP, destPort)
+		logger.Info(ip, err, "failed to connect to destination \"%s:%d\"", destNameOrIP, destPort)
 		return
 	}
 	misc.TweakTCPConnection(encryptedClientConn.Conn.(*net.TCPConn), IOTimeout)

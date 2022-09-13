@@ -178,7 +178,7 @@ func (sup *Supervisor) initialise() {
 // notifyFailure sends an Email notification to inform administrator about a main program crash or launch failure.
 func (sup *Supervisor) notifyFailure(cliFlags []string, launchErr error) {
 	if !sup.MailClient.IsConfigured() || sup.NotificationRecipients == nil || len(sup.NotificationRecipients) == 0 {
-		sup.logger.Warning("notifyFailure", "", nil, "will not send Email notification due to missing recipients or mail client config")
+		sup.logger.Warning("", nil, "will not send Email notification due to missing recipients or mail client config")
 		return
 	}
 
@@ -206,7 +206,7 @@ Latest stderr: %s
 		and limit the size to 1MB, better facilitating successful and speedy delivery.
 	*/
 	if err := sup.MailClient.Send(subject, lalog.LintString(body, 1048576), sup.NotificationRecipients...); err != nil {
-		sup.logger.Warning("notifyFailure", "", err, "failed to send failure notification email")
+		sup.logger.Warning("", err, "failed to send failure notification email")
 	}
 }
 
@@ -240,19 +240,19 @@ func (sup *Supervisor) Start() {
 	lastAttemptTime := time.Now().Unix()
 	executablePath, err := os.Executable()
 	if err != nil {
-		sup.logger.Abort("Start", "", err, "failed to determine path to this program executable")
+		sup.logger.Abort("", err, "failed to determine path to this program executable")
 		return
 	}
 
 	for {
 		cliFlags, _ := sup.GetLaunchParameters(paramChoice)
-		sup.logger.Info("Start", strconv.Itoa(paramChoice), nil, "attempting to start main program with CLI flags - %v", cliFlags)
+		sup.logger.Info(strconv.Itoa(paramChoice), nil, "attempting to start main program with CLI flags - %v", cliFlags)
 
 		mainProgram := exec.Command(executablePath, cliFlags...)
 		mainProgram.Stdout = sup.mainStdout
 		mainProgram.Stderr = sup.mainStderr
 		if err := FeedDecryptionPasswordToStdinAndStart(misc.ProgramDataDecryptionPassword, mainProgram); err != nil {
-			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "failed to start main program")
+			sup.logger.Warning(strconv.Itoa(paramChoice), err, "failed to start main program")
 			// Avoid incidentally overwhelming the user with notification emails
 			time.Sleep(StartAttemptIntervalSec * time.Second)
 			sup.notifyFailure(cliFlags, err)
@@ -263,7 +263,7 @@ func (sup *Supervisor) Start() {
 		}
 		lastAttemptTime = time.Now().Unix()
 		if err := mainProgram.Wait(); err != nil {
-			sup.logger.Warning("Start", strconv.Itoa(paramChoice), err, "main program has crashed")
+			sup.logger.Warning(strconv.Itoa(paramChoice), err, "main program has crashed")
 			// Avoid incidentally overwhelming the user with notification emails
 			time.Sleep(StartAttemptIntervalSec * time.Second)
 			sup.notifyFailure(cliFlags, err)

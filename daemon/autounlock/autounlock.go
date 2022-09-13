@@ -63,7 +63,7 @@ func (daemon *Daemon) Initialise() error {
 
 // StartAndBlock starts the loop that probes URLs.
 func (daemon *Daemon) StartAndBlock() error {
-	daemon.logger.Info("StartAndBlock", "", nil, "going to probe %d URLs", len(daemon.URLAndPassword))
+	daemon.logger.Info("", nil, "going to probe %d URLs", len(daemon.URLAndPassword))
 	// Build an index to map key mapping
 	urlIndexMap := make(map[int]string)
 	i := 0
@@ -91,7 +91,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			if probeErr == nil && probeResp.StatusCode/200 == 1 && probeResp.Header.Get("Content-Location") == ContentLocationMagic {
 				// The URL is responding successfully and is indeed a password input web server
 				begin := time.Now().UnixNano()
-				daemon.logger.Warning("StartAndBlock", aURL, nil, "trying to unlock data on domain %s", parsedURL.Host)
+				daemon.logger.Warning(aURL, nil, "trying to unlock data on domain %s", parsedURL.Host)
 				// Use form submission to input password
 				submitResp, submitErr := inet.DoHTTP(context.Background(), inet.HTTPRequest{
 					// While unlocking is going on, the system is often freshly booted and quite busy, hence giving it plenty of time to respond.
@@ -102,11 +102,11 @@ func (daemon *Daemon) StartAndBlock() error {
 					UseNeutralDNSResolver: useNeutralDNSResolver,
 				}, strings.Replace(aURL, "%", "%%", -1))
 				if submitErr != nil {
-					daemon.logger.Warning("StartAndBlock", aURL, submitErr, "failed to submit password to domain %s", parsedURL.Host)
+					daemon.logger.Warning(aURL, submitErr, "failed to submit password to domain %s", parsedURL.Host)
 				} else if submitHTTPErr := submitResp.Non2xxToError(); submitHTTPErr != nil {
-					daemon.logger.Warning("StartAndBlock", aURL, submitHTTPErr, "failed to submit password to domain %s", parsedURL.Host)
+					daemon.logger.Warning(aURL, submitHTTPErr, "failed to submit password to domain %s", parsedURL.Host)
 				} else {
-					daemon.logger.Warning("StartAndBlock", aURL, nil, "successfully unlocked domain %s, response is: %s", parsedURL.Host, submitResp.GetBodyUpTo(1024))
+					daemon.logger.Warning(aURL, nil, "successfully unlocked domain %s, response is: %s", parsedURL.Host, submitResp.GetBodyUpTo(1024))
 				}
 				misc.AutoUnlockStats.Trigger(float64(time.Now().UnixNano() - begin))
 			}

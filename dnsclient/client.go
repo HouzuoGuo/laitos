@@ -41,7 +41,7 @@ type ProxiedConnection struct {
 // The function returns when the local transmission control transitions to the
 // established state, or an error.
 func (conn *ProxiedConnection) Start() error {
-	conn.logger.Info("Start", "", nil, "start transporting data over DNS")
+	conn.logger.Info("", nil, "start transporting data over DNS")
 	conn.buf = tcpoverdns.NewSegmentBuffer(conn.logger, conn.tc.Debug, conn.tc.MaxSegmentLenExclHeader)
 	// Absorb outgoing segments into the outgoing backlog.
 	conn.tc.OutputSegmentCallback = conn.buf.Absorb
@@ -91,10 +91,10 @@ func (conn *ProxiedConnection) transportLoop() {
 		final, exists := conn.buf.Latest()
 		if exists && final.Flags != 0 {
 			if _, err := conn.lookupCNAME(final.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName)); err != nil {
-				conn.logger.Warning("Start", "", err, "failed to send the final segment")
+				conn.logger.Warning("", err, "failed to send the final segment")
 			}
 		}
-		conn.logger.Info("Start", "", nil, "DNS data transport finished, the final segment was: %v", final)
+		conn.logger.Info("", nil, "DNS data transport finished, the final segment was: %v", final)
 	}()
 	countHostNameLabels := dnsd.CountNameLabels(conn.client.DNSHostName)
 	for {
@@ -115,9 +115,9 @@ func (conn *ProxiedConnection) transportLoop() {
 		// Turn the segment into a DNS query and send the query out
 		// (data.data.data.example.com).
 		cname, err = conn.lookupCNAME(outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.client.DNSHostName))
-		conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "sent over DNS query in %dms: %+v", time.Since(begin).Milliseconds(), outgoingSeg)
+		conn.client.logger.Info(fmt.Sprint(conn.tc.ID), nil, "sent over DNS query in %dms: %+v", time.Since(begin).Milliseconds(), outgoingSeg)
 		if err != nil {
-			conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
+			conn.client.logger.Warning(fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
 			conn.tc.IncreaseTimingInterval()
 			goto busyWaitInterval
 		}
@@ -125,7 +125,7 @@ func (conn *ProxiedConnection) transportLoop() {
 		// TC.
 		incomingSeg = tcpoverdns.SegmentFromDNSName(countHostNameLabels, cname)
 		if conn.client.Debug {
-			conn.client.logger.Info("Start", fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
+			conn.client.logger.Info(fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
 		}
 		if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
 			if incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
@@ -139,7 +139,7 @@ func (conn *ProxiedConnection) transportLoop() {
 				conn.tc.DecreaseTimingInterval()
 			}
 			if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
-				conn.client.logger.Warning("Start", fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
+				conn.client.logger.Warning(fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
 				conn.tc.IncreaseTimingInterval()
 				goto busyWaitInterval
 			}
@@ -287,7 +287,7 @@ func (client *Client) dialContext(ctx context.Context, network, addr string) (ne
 	tcID := uint16(rand.Int())
 	clientIn, inTransport := net.Pipe()
 	// Construct a client-side transmission control.
-	client.logger.Info("dialContext", fmt.Sprint(tcID), nil, "creating transmission control for %s", string(initiatorSegment))
+	client.logger.Info(fmt.Sprint(tcID), nil, "creating transmission control for %s", string(initiatorSegment))
 	tc := &tcpoverdns.TransmissionControl{
 		LogTag:               "ProxyClient",
 		ID:                   uint16(rand.Int()),
@@ -343,13 +343,13 @@ func (client *Client) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		hijackedStream, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "", http.StatusInternalServerError)
-			client.logger.Warning("ProxyHandler", clientIP, nil, "connection stream cannot be tapped into")
+			client.logger.Warning(clientIP, nil, "connection stream cannot be tapped into")
 			return
 		}
 		reqConn, _, err := hijackedStream.Hijack()
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
-			client.logger.Warning("ProxyHandler", clientIP, err, "failed to tap into HTTP connection stream")
+			client.logger.Warning(clientIP, err, "failed to tap into HTTP connection stream")
 			return
 		}
 		// Keep the buffer to minimum to improve responsiveness.
@@ -372,7 +372,7 @@ func (client *Client) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		// Copy status code and response body to the client
 		w.WriteHeader(resp.StatusCode)
 		if _, err := io.Copy(w, resp.Body); err != nil {
-			client.logger.Warning("ProxyHandler", clientIP, err, "failed to copy response body back to client")
+			client.logger.Warning(clientIP, err, "failed to copy response body back to client")
 		}
 	}
 }
@@ -387,7 +387,7 @@ func (client *Client) StartAndBlock() error {
 		WriteTimeout: client.Config.Timing.WriteTimeout,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
-	client.logger.Info("StartAndBlock", "", nil, "starting now")
+	client.logger.Info("", nil, "starting now")
 	if err := client.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("httpproxy.StartAndBlock.: failed to listen on %s:%d - %v", client.Address, client.Port, err)
 	}
@@ -401,7 +401,7 @@ func (client *Client) Stop() {
 		stopCtx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancelFunc()
 		if err := client.httpServer.Shutdown(stopCtx); err != nil {
-			client.logger.Warning("Stop", client.Address, err, "failed to shutdown")
+			client.logger.Warning(client.Address, err, "failed to shutdown")
 		}
 	}
 }

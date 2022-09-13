@@ -78,7 +78,7 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	reader := textproto.NewReader(bufio.NewReader(io.LimitReader(conn, 1*1048576)))
 	for {
 		if misc.EmergencyLockDown {
-			logger.Warning("HandleTCPConnection", "", misc.ErrEmergencyLockDown, "")
+			logger.Warning("", misc.ErrEmergencyLockDown, "")
 			return
 		}
 		// Read one line of command that may be at most 1MB long
@@ -88,7 +88,7 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 		line, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				logger.Info("HandleTCPConnection", ip, nil, "failed to read from client - %v", err)
+				logger.Info(ip, nil, "failed to read from client - %v", err)
 			}
 			return
 		}
@@ -129,14 +129,14 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 	reader := textproto.NewReader(bufio.NewReader(bytes.NewReader(packet)))
 	for {
 		if misc.EmergencyLockDown {
-			logger.Warning("HandleUDPClient", "", misc.ErrEmergencyLockDown, "")
+			logger.Warning("", misc.ErrEmergencyLockDown, "")
 			return
 		}
 		// Read one line of command
 		line, err := reader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				logger.Warning("HandleUDPClient", ip, err, "failed to read received packet")
+				logger.Warning(ip, err, "failed to read received packet")
 			}
 			return
 		}
@@ -157,10 +157,10 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 			TimeoutSec: CommandTimeoutSec,
 		}, true)
 		if err := srv.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-			logger.Warning("HandleUDPClient", ip, err, "failed to write response")
+			logger.Warning(ip, err, "failed to write response")
 			return
 		} else if _, err := srv.WriteToUDP([]byte(result.CombinedOutput+"\r\n"), client); err != nil {
-			logger.Warning("HandleUDPClient", ip, err, "failed to write response")
+			logger.Warning(ip, err, "failed to write response")
 			return
 		}
 	}

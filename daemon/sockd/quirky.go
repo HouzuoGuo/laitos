@@ -24,7 +24,7 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 	buf := make([]byte, RandNum(1024, 128, 256))
 	for {
 		if misc.EmergencyLockDown {
-			lalog.DefaultLogger.Warning("PipeTCPConnection", "sockd", misc.ErrEmergencyLockDown, "")
+			lalog.DefaultLogger.Warning("sockd", misc.ErrEmergencyLockDown, "")
 			return
 		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeout)); err != nil {
 			return
@@ -63,7 +63,7 @@ func WriteRandomToTCP(conn net.Conn) (totalBytes int) {
 		}
 	}
 	if rand.Intn(100) < 2 {
-		lalog.DefaultLogger.Info("sockd.quirky.WriteRandomToTCP", conn.RemoteAddr().String(), nil, "wrote %d rand bytes", totalBytes)
+		lalog.DefaultLogger.Info(conn.RemoteAddr().String(), nil, "wrote %d rand bytes", totalBytes)
 	}
 	return
 }
@@ -81,7 +81,7 @@ func WriteRandomToUDP(srv *net.UDPConn, client *net.UDPAddr) (totalBytes int) {
 		return
 	}
 	if rand.Intn(100) < 2 {
-		lalog.DefaultLogger.Info("sockd.quirky.WriteRandomToUDP", client.IP.String(), nil, "wrote %d rand bytes", totalBytes)
+		lalog.DefaultLogger.Info(client.IP.String(), nil, "wrote %d rand bytes", totalBytes)
 	}
 	return
 }
@@ -105,7 +105,7 @@ func ReadWithRetry(conn net.Conn, buf []byte) (n int, err error) {
 		time.Sleep(time.Duration((attempts+1)*500) * time.Millisecond)
 	}
 	if rand.Intn(500) < 1 {
-		lalog.DefaultLogger.Info("sockd.quirky.ReadWithRetry", conn.RemoteAddr().String(), err, "read %d bytes after %d attempts", n, attempts+1)
+		lalog.DefaultLogger.Info(conn.RemoteAddr().String(), err, "read %d bytes after %d attempts", n, attempts+1)
 	}
 	return
 }
@@ -145,7 +145,7 @@ dataTransfer:
 		time.Sleep(time.Duration(RandNum(1, 0, maxPortions)) * time.Millisecond)
 	}
 	if rand.Intn(500) < 1 {
-		lalog.DefaultLogger.Info("sockd.quirky.WriteWithRetry", conn.RemoteAddr().String(), err, "wrote %d bytes in %d portions after %d attempts", totalWritten, maxPortions, attempts+1)
+		lalog.DefaultLogger.Info(conn.RemoteAddr().String(), err, "wrote %d bytes in %d portions after %d attempts", totalWritten, maxPortions, attempts+1)
 	}
 	return
 }

@@ -107,7 +107,7 @@ func (reg *PasswordRegister) PostUnlockIntent(ctx context.Context, req *unlocksv
 	} else if randChallengeLen := len(req.Identification.RandomChallenge); randChallengeLen < 3 || randChallengeLen > MaxRandomChallengeLen {
 		return nil, fmt.Errorf("identification random challenge must be more than 2 characters and less than %d characters in length (actual: %d characters)", MaxRandomChallengeLen, randChallengeLen)
 	}
-	reg.logger.Warning("PostUnlockIntent", clientIP, nil, "Received request: %+v", req.Identification)
+	reg.logger.Warning(clientIP, nil, "Received request: %+v", req.Identification)
 	// Memorise the intent by the random challenge string
 	_, evicted := reg.IntentsChallenge.Add(req.Identification.RandomChallenge)
 	clientIDInfo := &UnlockAttemptRPCClientInfo{ClientIP: clientIP, Time: time.Now()}
@@ -128,7 +128,7 @@ func (reg *PasswordRegister) GetUnlockPassword(ctx context.Context, req *unlocks
 	defer reg.mutex.RUnlock()
 	password, exists := reg.FulfilledIntents[req.Identification.RandomChallenge]
 	if exists {
-		reg.logger.Warning("GetUnlockPassword", clientIP, nil, "Host name \"%s\", PID %d, has retrieved its unlocking password using random challenge \"%s\"",
+		reg.logger.Warning(clientIP, nil, "Host name \"%s\", PID %d, has retrieved its unlocking password using random challenge \"%s\"",
 			req.Identification.HostName, req.Identification.PID, req.Identification.RandomChallenge)
 		// Delete the unlocking password after use. Even if the program instance may restart and request the password again, it will have generated a new random challenge string.
 		delete(reg.FulfilledIntents, req.Identification.RandomChallenge)

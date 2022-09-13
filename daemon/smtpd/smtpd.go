@@ -126,7 +126,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	// Initialise the optional toolbox command runner
 	if daemon.CommandRunner == nil || daemon.CommandRunner.Processor == nil || daemon.CommandRunner.Processor.IsEmpty() {
-		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
+		daemon.logger.Info("", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 	} else {
 		if err := daemon.CommandRunner.Initialise(); err != nil {
 			return fmt.Errorf("smtpd.Initialise: %+v", err)
@@ -160,23 +160,23 @@ func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
 	// Run feature command from mail body
 	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
 		if err := daemon.CommandRunner.Process(clientIP, bodyBytes); err != nil {
-			daemon.logger.Info("ProcessMail", fromAddr, nil, "failed to process toolbox command from mail body - %v", err)
+			daemon.logger.Info(fromAddr, nil, "failed to process toolbox command from mail body - %v", err)
 		}
 	}
 	// Determine whether the sender enforces DMARC policy
 	fromAddrWithoutDmarc := GetFromAddressWithDmarcWorkaround(fromAddr, rand.Intn(100000))
 	if fromAddrWithoutDmarc != fromAddr {
 		// Change the sender's domain to the non-existent domain without a DMARC policy
-		daemon.logger.Info("ProcessMail", fromAddr, nil, "rewriting From address from %s to %s to evade DMARC validation", fromAddr, fromAddrWithoutDmarc)
+		daemon.logger.Info(fromAddr, nil, "rewriting From address from %s to %s to evade DMARC validation", fromAddr, fromAddrWithoutDmarc)
 		fromAddr = fromAddrWithoutDmarc
 		// Change the sender's domain in "From:" header
 		bodyBytes = WithHeaderFromAddr(bodyBytes, fromAddrWithoutDmarc)
 	}
 	// Forward the mail to all recipients
 	if err := daemon.ForwardMailClient.SendRaw(daemon.ForwardMailClient.MailFrom, bodyBytes, daemon.ForwardTo...); err == nil {
-		daemon.logger.Info("ProcessMail", fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
+		daemon.logger.Info(fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
 	} else {
-		daemon.logger.Warning("ProcessMail", fromAddr, err, "failed to forward email")
+		daemon.logger.Warning(fromAddr, err, "failed to forward email")
 	}
 	// Offer the processed mail to test case
 	if daemon.processMailTestCaseFunc != nil {
@@ -203,7 +203,7 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, client
 	smtpConn := smtp.NewConnection(client, daemon.smtpConfig, nil)
 	for {
 		if misc.EmergencyLockDown {
-			daemon.logger.Warning("HandleConnection", "", misc.ErrEmergencyLockDown, "")
+			daemon.logger.Warning("", misc.ErrEmergencyLockDown, "")
 			return
 		}
 		if numCommands >= MaxConversationLength {
@@ -251,21 +251,21 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, client
 	}
 done:
 	if fromAddr != "" && len(toAddrs) > 0 && mailBody != "" {
-		daemon.logger.Info("HandleTCPConnection", ip, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
+		daemon.logger.Info(ip, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
 		// Check sender IP against blacklist, do not proceed further if the sender IP has been blacklisted.
 		if blacklistDomainName := IsSuspectIPBlacklisted(ip); blacklistDomainName == "" {
 			// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 			daemon.ProcessMail(ip, fromAddr, mailBody)
 		} else {
 			completionStatus += " & rejected mail due to blacklist"
-			daemon.logger.Warning("HandleTCPConnection", ip, nil, "not going to process the mail further because the client IP was blacklisted by %s. The mail content was: %s", blacklistDomainName, mailBody)
+			daemon.logger.Warning(ip, nil, "not going to process the mail further because the client IP was blacklisted by %s. The mail content was: %s", blacklistDomainName, mailBody)
 			smtpConn.AnswerNegative()
 		}
 	} else {
 		smtpConn.AnswerNegative()
 		completionStatus += " & rejected mail due to missing parameters or blacklist"
 	}
-	daemon.logger.Info("HandleTCPConnection", ip, nil, "%s after %d conversations (TLS: %s), last commands: %s",
+	daemon.logger.Info(ip, nil, "%s after %d conversations (TLS: %s), last commands: %s",
 		completionStatus, numCommands, smtpConn.TLSHelp, strings.Join(latestConv.GetAll(), " | "))
 }
 

@@ -35,22 +35,22 @@ func DecryptFile(filePath string) {
 	platform.SetTermEcho(false)
 	defer platform.SetTermEcho(true)
 	reader := bufio.NewReader(os.Stdin)
-	lalog.DefaultLogger.Info("DecryptFile", "", nil, "Please enter a password to decrypt file \"%s\" (terminal won't echo):\n", filePath)
+	lalog.DefaultLogger.Info("", nil, "Please enter a password to decrypt file \"%s\" (terminal won't echo):\n", filePath)
 	password, err := reader.ReadString('\n')
 	if err != nil {
-		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to read password")
+		lalog.DefaultLogger.Abort("main", err, "failed to read password")
 		return
 	}
 	content, err := misc.Decrypt(filePath, strings.TrimSpace(password))
 	if err != nil {
-		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
+		lalog.DefaultLogger.Abort("main", err, "failed to decrypt file")
 		return
 	}
 	if err := ioutil.WriteFile(filePath, content, 0600); err != nil {
-		lalog.DefaultLogger.Abort("DecryptFile", "main", err, "failed to decrypt file")
+		lalog.DefaultLogger.Abort("main", err, "failed to decrypt file")
 		return
 	}
-	lalog.DefaultLogger.Info("DecryptFile", "main", nil, "the file has been decrypted in-place")
+	lalog.DefaultLogger.Info("main", nil, "the file has been decrypted in-place")
 }
 
 /*
@@ -61,28 +61,28 @@ func EncryptFile(filePath string) {
 	platform.SetTermEcho(false)
 	defer platform.SetTermEcho(true)
 	reader := bufio.NewReader(os.Stdin)
-	lalog.DefaultLogger.Info("EncryptFile", "", nil, "please enter a password to encrypt the file \"%s\" (terminal won't echo):\n", filePath)
+	lalog.DefaultLogger.Info("", nil, "please enter a password to encrypt the file \"%s\" (terminal won't echo):\n", filePath)
 	password, err := reader.ReadString('\n')
 	if err != nil {
-		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to read password")
+		lalog.DefaultLogger.Abort("main", err, "failed to read password")
 		return
 	}
-	lalog.DefaultLogger.Info("EncryptFile", "", nil, "enter the same password again (terminal won't echo):")
+	lalog.DefaultLogger.Info("", nil, "enter the same password again (terminal won't echo):")
 	passwordAgain, err := reader.ReadString('\n')
 	if err != nil {
-		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to read password")
+		lalog.DefaultLogger.Abort("main", err, "failed to read password")
 		return
 	}
 	if password != passwordAgain {
-		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "The two passwords must match")
+		lalog.DefaultLogger.Abort("main", err, "The two passwords must match")
 		return
 	}
 	password = strings.TrimSpace(password)
 	if err := misc.Encrypt(filePath, password); err != nil {
-		lalog.DefaultLogger.Abort("EncryptFile", "main", err, "failed to encrypt file")
+		lalog.DefaultLogger.Abort("main", err, "failed to encrypt file")
 		return
 	}
-	lalog.DefaultLogger.Info("EncryptFile", "", nil, "the file has been encrypted in-place with a password %d characters long", len(password))
+	lalog.DefaultLogger.Info("", nil, "the file has been encrypted in-place with a password %d characters long", len(password))
 }
 
 // GetUnlockingPassword uses a gRPC client to contact the gRPC server, registering intent to obtain unlocking password and then attempts to obtain
@@ -101,7 +101,7 @@ func GetUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger,
 	}
 	clientConn, err := grpc.DialContext(dialTimeoutCtx, serverAddr, clientOpts...)
 	if err != nil {
-		logger.Warning("GetUnlockPassword", serverAddr, err, "failed to establish RPC client connection")
+		logger.Warning(serverAddr, err, "failed to establish RPC client connection")
 		return ""
 	}
 	defer func() {
@@ -121,7 +121,7 @@ func GetUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger,
 		GOARCH:          runtime.GOARCH,
 	}})
 	if err != nil {
-		logger.Warning("GetUnlockPassword", serverAddr, err, "failed to invoke RPC PostUnlockIntent")
+		logger.Warning(serverAddr, err, "failed to invoke RPC PostUnlockIntent")
 		return ""
 	}
 	resp, err := client.GetUnlockPassword(invokeTimeoutCtx, &unlocksvc.GetUnlockPasswordRequest{Identification: &unlocksvc.UnlockAttemptIdentification{
@@ -130,11 +130,11 @@ func GetUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger,
 		HostName:        hostName,
 	}})
 	if err != nil {
-		logger.Warning("GetUnlockPassword", serverAddr, err, "failed to invoke RPC PostUnlockIntent")
+		logger.Warning(serverAddr, err, "failed to invoke RPC PostUnlockIntent")
 		return ""
 	}
 	if resp.Exists {
-		logger.Info("GetUnlockPassword", serverAddr, nil, "successfully obtained password")
+		logger.Info(serverAddr, nil, "successfully obtained password")
 		return resp.Password
 	}
 	return ""
@@ -146,17 +146,17 @@ func GetUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger,
 // The default source of PRNG must be seeded prior to calling this function.
 func GetUnlockingPasswordWithRetry(ctx context.Context, useTLS bool, logger lalog.Logger, serverAddrs ...string) string {
 	challengeStr := netboundfileenc.GetRandomChallenge()
-	logger.Info("GetUnlockingPasswordWithRetry", "", nil, "trying to obtain config file decryption password from %d servers via gRPC, using magic challenge \"%s\"", len(serverAddrs), challengeStr)
+	logger.Info("", nil, "trying to obtain config file decryption password from %d servers via gRPC, using magic challenge \"%s\"", len(serverAddrs), challengeStr)
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("GetUnlockingPasswordWithRetry", "", nil, "quit on command")
+			logger.Info("", nil, "quit on command")
 			return ""
 		default:
 			// The context permits the next attempt to be made
 		}
 		serverAddr := serverAddrs[pseudoRand.Intn(len(serverAddrs))]
-		logger.Info("GetUnlockingPasswordWithRetry", serverAddr, nil, "contacting the server over RPC")
+		logger.Info(serverAddr, nil, "contacting the server over RPC")
 		if password := GetUnlockingPassword(ctx, useTLS, logger, challengeStr, serverAddr); password != "" {
 			return password
 		}
@@ -168,7 +168,7 @@ func GetUnlockingPasswordWithRetry(ctx context.Context, useTLS bool, logger lalo
 // HandleSecurityDataUtil the main routine of data file maintenance utilities.
 func HandleSecurityDataUtil(dataUtil, dataUtilFile string, logger lalog.Logger) {
 	if dataUtilFile == "" {
-		logger.Abort("main", "", nil, "please provide data utility target file in parameter \"-datautilfile\"")
+		logger.Abort("", nil, "please provide data utility target file in parameter \"-datautilfile\"")
 		return
 	}
 	switch dataUtil {
@@ -177,6 +177,6 @@ func HandleSecurityDataUtil(dataUtil, dataUtilFile string, logger lalog.Logger) 
 	case "decrypt":
 		DecryptFile(dataUtilFile)
 	default:
-		logger.Abort("main", "", nil, "please provide mode of operation (encrypt|decrypt) for parameter \"-datautil\"")
+		logger.Abort("", nil, "please provide mode of operation (encrypt|decrypt) for parameter \"-datautil\"")
 	}
 }

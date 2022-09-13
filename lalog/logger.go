@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 	"unicode"
@@ -107,8 +109,24 @@ func (logger *Logger) Format(functionName string, actorName interface{}, err err
 	return LintString(TruncateString(msg.String(), MaxLogMessageLen), MaxLogMessageLen)
 }
 
+func callerName(skip int) string {
+	pc, file, _, ok := runtime.Caller(skip)
+	if !ok {
+		file = "?"
+	}
+	fun := runtime.FuncForPC(pc)
+	var funName string
+	if fun == nil {
+		funName = "?"
+	} else {
+		funName = strings.TrimLeft(filepath.Ext(fun.Name()), ".")
+	}
+	return filepath.Base(file) + ":" + funName
+}
+
 // Print a log message and keep the message in warnings buffer.
-func (logger *Logger) Warning(functionName string, actorName interface{}, err error, template string, values ...interface{}) {
+func (logger *Logger) Warning(actorName interface{}, err error, template string, values ...interface{}) {
+	functionName := callerName(2)
 	msg := logger.Format(functionName, actorName, err, template, values...)
 	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
 	log.Print(msg)
@@ -116,7 +134,7 @@ func (logger *Logger) Warning(functionName string, actorName interface{}, err er
 	LatestLogs.Push(msgWithTime)
 	// As determined by the LRU buffer, only the first instance of warning from this actor (identified by component name + function name +
 	// actor name) will be added to the in-memory warning log buffer, this helps to gain a more comprehensive picture of actors behind latest
-	// warning messages by suppressing the noisest actors.
+	// warning messages by suppressing the most noisy actors.
 	if alreadyPresent, _ := LatestWarningActors.Add(functionName + fmt.Sprint(actorName)); !alreadyPresent {
 		LatestWarnings.Push(msgWithTime)
 		if GlobalLogWarningCallback != nil {
@@ -126,23 +144,34 @@ func (logger *Logger) Warning(functionName string, actorName interface{}, err er
 }
 
 // Print a log message and keep the message in latest log buffer. If there is an error, also keep the message in warnings buffer.
-func (logger *Logger) Info(functionName string, actorName interface{}, err error, template string, values ...interface{}) {
-	// If the log message comes with an error, upgrade it to a warning.
-	if err != nil {
-		logger.Warning(functionName, actorName, err, template, values...)
-		return
-	}
+func (logger *Logger) Info(actorName interface{}, err error, template string, values ...interface{}) {
+	functionName := callerName(2)
 	msg := logger.Format(functionName, actorName, err, template, values...)
 	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
 	LatestLogs.Push(msgWithTime)
 	log.Print(msg)
+	// If the log message comes with an error, treat it as a warning.
+	if err != nil {
+		// As determined by the LRU buffer, only the first instance of warning from this actor (identified by component name + function name +
+		// actor name) will be added to the in-memory warning log buffer, this helps to gain a more comprehensive picture of actors behind latest
+		// warning messages by suppressing the most noisy actors.
+		if alreadyPresent, _ := LatestWarningActors.Add(functionName + fmt.Sprint(actorName)); !alreadyPresent {
+			LatestWarnings.Push(msgWithTime)
+			if GlobalLogWarningCallback != nil {
+				go GlobalLogWarningCallback(logger.ComponentName, logger.getComponentIDs(), functionName, actorName, err, fmt.Sprintf(template, values...))
+			}
+		}
+		return
+	}
 }
 
-func (logger *Logger) Abort(functionName string, actorName interface{}, err error, template string, values ...interface{}) {
+func (logger *Logger) Abort(actorName interface{}, err error, template string, values ...interface{}) {
+	functionName := callerName(2)
 	log.Fatal(logger.Format(functionName, actorName, err, template, values...))
 }
 
-func (logger *Logger) Panic(functionName string, actorName interface{}, err error, template string, values ...interface{}) {
+func (logger *Logger) Panic(actorName interface{}, err error, template string, values ...interface{}) {
+	functionName := callerName(2)
 	log.Panic(logger.Format(functionName, actorName, err, template, values...))
 }
 
@@ -151,7 +180,10 @@ func (logger *Logger) Panic(functionName string, actorName interface{}, err erro
 // then no log message will be written.
 func (logger *Logger) MaybeMinorError(err error) {
 	if err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
-		logger.Info("", "", nil, "minor error - %s", err.Error())
+		msg := logger.Format(callerName(1), "", err, "minor error")
+		msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
+		LatestLogs.Push(msgWithTime)
+		log.Print(msg)
 	}
 }
 

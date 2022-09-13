@@ -13,7 +13,7 @@ import (
 func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegLen int, resolver string, dnsHostName, otpSecret string) {
 	if proxySegLen == 0 {
 		proxySegLen = dnsclient.OptimalSegLen(dnsHostName)
-		logger.Info("HandleTCPOverDNSClient", "", nil, "using segment length %d", proxySegLen)
+		logger.Info("", nil, "using segment length %d", proxySegLen)
 	}
 	httpProxyServer := &dnsclient.Client{
 		Address: "127.0.0.1",
@@ -38,7 +38,7 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 	}
 
 	if err := httpProxyServer.Initialise(context.Background()); err != nil {
-		logger.Panic("HandleTCPOverDNSClient", "", err, "failed to initialise the client http proxy")
+		logger.Panic("", err, "failed to initialise the client http proxy")
 		return
 	}
 	if err := httpProxyServer.StartAndBlock(); err != nil {

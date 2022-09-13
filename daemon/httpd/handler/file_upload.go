@@ -76,7 +76,7 @@ func (upload *HandleFileUpload) periodicallyDeleteExpiredFiles() {
 		time.Sleep(FileUploadCleanUpIntervalSec * time.Second)
 		files, err := ioutil.ReadDir(fileUploadStorage)
 		if err != nil {
-			upload.logger.Warning("periodicallyDeleteExpiredFiles", "", err, "failed to read file upload directory")
+			upload.logger.Warning("", err, "failed to read file upload directory")
 			continue
 		}
 		var anyFileExpired bool
@@ -84,11 +84,11 @@ func (upload *HandleFileUpload) periodicallyDeleteExpiredFiles() {
 			// fileInfo, err := fileEntry.Info()
 			if fileEntry.ModTime().Before(time.Now().Add(-(FileUploadExpireInSec * time.Second))) {
 				anyFileExpired = true
-				upload.logger.Info("periodicallyDeleteExpiredFiles", "", os.Remove(fileEntry.Name()), "delete expired file")
+				upload.logger.Info("", os.Remove(fileEntry.Name()), "delete expired file")
 			}
 		}
 		if !anyFileExpired {
-			upload.logger.Info("periodicallyDeleteExpiredFiles", "", nil, "did not find an expired file")
+			upload.logger.Info("", nil, "did not find an expired file")
 		}
 	}
 }
@@ -145,7 +145,7 @@ func (upload *HandleFileUpload) Handle(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `failed to close file`, http.StatusInternalServerError)
 			return
 		}
-		upload.logger.Info("HandleFileUpload", middleware.GetRealClientIP(r), nil, "successfully saved file \"%s\" as \"%s\"", fileHeader.Filename, tmpFile.Name())
+		upload.logger.Info(middleware.GetRealClientIP(r), nil, "successfully saved file \"%s\" as \"%s\"", fileHeader.Filename, tmpFile.Name())
 		upload.render(w, r, "Uploaded successfully. Your file is available for 24 hours under name: "+tmpFileName)
 		return
 	case "Download":

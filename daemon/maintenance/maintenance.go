@@ -125,7 +125,7 @@ func (daemon *Daemon) runPortsCheck() error {
 		}
 		for _, port := range ports {
 			if port == 25 && (inet.IsAWS() || inet.IsGCE() || inet.IsAzure() || inet.IsAlibaba()) {
-				daemon.logger.Info("runPortsCheck", "", nil, "because Alibaba, Azure, AWS, and Google forbid outgoing connection to port 25, port check will skip %s:25", host)
+				daemon.logger.Info("", nil, "because Alibaba, Azure, AWS, and Google forbid outgoing connection to port 25, port check will skip %s:25", host)
 				continue
 			}
 			wait.Add(1)
@@ -148,7 +148,7 @@ func (daemon *Daemon) runPortsCheck() error {
 
 // Check TCP ports and features, return all-OK or not.
 func (daemon *Daemon) Execute(ctx context.Context) (string, bool) {
-	daemon.logger.Info("Execute", "", nil, "running now")
+	daemon.logger.Info("", nil, "running now")
 	// Conduct system maintenance first to ensure an accurate reading of runtime information later on
 	maintResult := daemon.SystemMaintenance()
 	// Do three checks in parallel - ports, toolbox features, and mail command runner
@@ -226,29 +226,29 @@ func (daemon *Daemon) Execute(ctx context.Context) (string, bool) {
 	result.WriteString(toolbox.GetGoroutineStacktraces())
 	// Send away!
 	if allOK {
-		daemon.logger.Info("Execute", "", nil, "completed with everything being OK")
+		daemon.logger.Info("", nil, "completed with everything being OK")
 	} else {
-		daemon.logger.Warning("Execute", "", nil, "completed with some errors")
+		daemon.logger.Warning("", nil, "completed with some errors")
 	}
 	// If there are no recipients, print the report to standard output.
 	if daemon.Recipients == nil || len(daemon.Recipients) == 0 {
-		daemon.logger.Info("Execute", "", nil, "report will now be printed to standard output")
+		daemon.logger.Info("", nil, "report will now be printed to standard output")
 		fmt.Println("Maintenance report:")
 		fmt.Println(result.String())
 	} else if err := daemon.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-maintenance", result.String(), daemon.Recipients...); err != nil {
-		daemon.logger.Warning("Execute", "", err, "failed to send notification mail")
+		daemon.logger.Warning("", err, "failed to send notification mail")
 	}
 	// Leave the latest maintenance report in system temporary directory for inspection, overwrite existing report if there is any.
 	if err := ioutil.WriteFile(ReportFilePath, result.Bytes(), 0600); err != nil {
-		daemon.logger.Warning("Execute", "", err, "failed to persist latest maintenance report in %s, you may still find the report in Email or laitos program output.", ReportFilePath)
+		daemon.logger.Warning("", err, "failed to persist latest maintenance report in %s, you may still find the report in Email or laitos program output.", ReportFilePath)
 	}
 	if misc.EnableAWSIntegration {
 		// Upload the latest maintenance report to S3 bucket, named the object after the date and time of the system wall clock.
 		go func() {
-			daemon.logger.Info("Execute", "", nil, "will store a copy of the report in S3 bucket %s", daemon.UploadReportToS3Bucket)
+			daemon.logger.Info("", nil, "will store a copy of the report in S3 bucket %s", daemon.UploadReportToS3Bucket)
 			s3Client, err := awsinteg.NewS3Client()
 			if err != nil {
-				daemon.logger.Warning("Execute", daemon.UploadReportToS3Bucket, err, "failed to initialise S3 client")
+				daemon.logger.Warning(daemon.UploadReportToS3Bucket, err, "failed to initialise S3 client")
 				return
 			}
 			// Spend at most 60 seconds at uploading the report file
@@ -270,7 +270,7 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.RegisterPrometheusMetrics && misc.EnablePrometheusIntegration {
 		daemon.processExplorerMetrics = NewProcessExplorerMetrics()
 		if err := daemon.processExplorerMetrics.RegisterGlobally(); err != nil {
-			daemon.logger.Warning("Initialise", "prometheus", err, "failed to register metrics with prometheus")
+			daemon.logger.Warning("prometheus", err, "failed to register metrics with prometheus")
 		}
 	}
 	return nil
@@ -293,7 +293,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		MaxInt:         1,
 		Func: func(ctx context.Context, round, _ int) error {
 			if round == 0 {
-				daemon.logger.Info("StartAndBlock", "", nil, "the first run will begin in about two minutes")
+				daemon.logger.Info("", nil, "the first run will begin in about two minutes")
 				select {
 				case <-time.After(2 * time.Minute):
 				case <-ctx.Done():
@@ -310,7 +310,7 @@ func (daemon *Daemon) StartAndBlock() error {
 
 	// Collect latest performance measurements at regular interval
 	if daemon.processExplorerMetrics != nil {
-		daemon.logger.Info("StartAndBlock", "", nil, "will regularly take program performance measurements and give them to prometheus metrics.")
+		daemon.logger.Info("", nil, "will regularly take program performance measurements and give them to prometheus metrics.")
 		periodicProcMetrics := &misc.Periodic{
 			LogActorName: "refresh-process-explorer-metrics",
 			Interval:     PrometheusProcessMetricsInterval,
@@ -318,7 +318,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			Func: func(context.Context, int, int) error {
 				if daemon.processExplorerMetrics != nil {
 					if err := daemon.processExplorerMetrics.Refresh(); err != nil {
-						daemon.logger.Warning("StartAndBlock", "prometheus", err, "failed to collect the latest process performance measurements")
+						daemon.logger.Warning("prometheus", err, "failed to collect the latest process performance measurements")
 					}
 				}
 				return nil
@@ -342,7 +342,7 @@ func (daemon *Daemon) logPrintStage(out *bytes.Buffer, template string, a ...int
 		out.WriteString(fmt.Sprintf("(it took %d seconds)\n", duration))
 	}
 	out.WriteString(lalog.TruncateString(fmt.Sprintf("\n---"+template+"\n", a...), lalog.MaxLogMessageLen))
-	daemon.logger.Info("maintenance", "", nil, "Stage: "+template, a...)
+	daemon.logger.Info("", nil, "Stage: "+template, a...)
 	daemon.lastStepTimestamp = time.Now().Unix()
 }
 
@@ -352,7 +352,7 @@ func (daemon *Daemon) logPrintStageStep(out *bytes.Buffer, template string, a ..
 		out.WriteString(fmt.Sprintf("(it took %d seconds)\n", duration))
 	}
 	out.WriteString(lalog.TruncateString(fmt.Sprintf("---"+template+"\n", a...), lalog.MaxLogMessageLen))
-	daemon.logger.Info("maintenance", "", nil, "Step: "+template, a...)
+	daemon.logger.Info("", nil, "Step: "+template, a...)
 	daemon.lastStepTimestamp = time.Now().Unix()
 }
 

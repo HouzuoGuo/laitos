@@ -109,7 +109,7 @@ func main() {
 	flag.Parse()
 
 	// Enable common diagnosis and security features.
-	logger.Info("main", "", nil, "program is starting, here is a summary of the runtime environment:\n%s", platform.GetProgramStatusSummary(false))
+	logger.Info(nil, nil, "program is starting, here is a summary of the runtime environment:\n%s", platform.GetProgramStatusSummary(false))
 	platform.LockMemory()
 	cli.ReseedPseudoRandAndInBackground(logger)
 	cli.StartProfilingServer(logger, pprofHTTPPort)
@@ -156,13 +156,13 @@ func main() {
 	// Read unencrypted configuration data from environment variable, or possibly encrypted configuration from JSON file.
 	var config launcher.Config
 	if err := config.DeserialiseFromJSON(cli.GetConfig(logger, pwdServer, pwdServerPort, pwdServerURL, passwordUnlockServers)); err != nil {
-		logger.Abort("main", "", err, "failed to retrieve/deserialise program configuration")
+		logger.Abort(nil, err, "failed to retrieve/deserialise program configuration")
 		return
 	}
 	// Figure out which daemons to start, make sure the names are valid.
 	daemonNames := regexp.MustCompile(`\w+`).FindAllString(daemonList, -1)
 	if len(daemonNames) == 0 {
-		logger.Abort("main", "", nil, "please provide comma-separated list of daemon services to start (-daemons).")
+		logger.Abort(nil, nil, "please provide comma-separated list of daemon services to start (-daemons).")
 		return
 	}
 	for _, daemonName := range daemonNames {
@@ -173,7 +173,7 @@ func main() {
 			}
 		}
 		if !found {
-			logger.Abort("main", "", nil, "unrecognised daemon name \"%s\"", daemonName)
+			logger.Abort(nil, nil, "unrecognised daemon name \"%s\"", daemonName)
 		}
 	}
 
@@ -200,9 +200,9 @@ func main() {
 	// Prepare to start the daemons.
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
-		logger.Warning("main", "gomaxprocs", nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
+		logger.Warning(nil, nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
 	} else {
-		logger.Warning("main", "gomaxprocs", nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
+		logger.Warning(nil, nil, "GOMAXPROCS is unchanged at %d", runtime.GOMAXPROCS(0))
 	}
 	if disableConflicts {
 		cli.DisableConflicts(logger)

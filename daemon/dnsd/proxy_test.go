@@ -20,9 +20,9 @@ func pipeSegments(t *testing.T, testOut, testIn net.Conn, proxy *Proxy) {
 	for {
 		// Pipe segments from TC to proxy.
 		seg := tcpoverdns.ReadSegmentHeaderData(t, context.Background(), testOut)
-		lalog.DefaultLogger.Info("", "", nil, "relaying segment to proxy tc: %+v", seg)
+		lalog.DefaultLogger.Info(nil, nil, "relaying segment to proxy tc: %+v", seg)
 		resp, hasResp := proxy.Receive(seg)
-		lalog.DefaultLogger.Info("", "", nil, "proxy tc replies to test: %+v, %v", resp, hasResp)
+		lalog.DefaultLogger.Info(nil, nil, "proxy tc replies to test: %+v, %v", resp, hasResp)
 		if hasResp {
 			// Send the response segment back to TC.
 			_, err := testIn.Write(resp.Packet())
@@ -39,12 +39,12 @@ func echoTCPServer(t *testing.T, port int) {
 		t.Fatalf("echo tcp server failed to listen: %v", err)
 		return
 	}
-	lalog.DefaultLogger.Info("echoTCPServer", "", nil, "listening")
+	lalog.DefaultLogger.Info(nil, nil, "listening")
 	go func() {
 		conn, err := listener.Accept()
-		lalog.DefaultLogger.Info("echoTCPServer", "", nil, "connected")
+		lalog.DefaultLogger.Info(nil, nil, "connected")
 		if err != nil {
-			lalog.DefaultLogger.Panic("echoTCPServer", "", err, "echo tcp server failed to accept")
+			lalog.DefaultLogger.Panic(nil, err, "echo tcp server failed to accept")
 			return
 		}
 		defer conn.Close()
@@ -54,29 +54,29 @@ func echoTCPServer(t *testing.T, port int) {
 		for {
 			line, err := reader.ReadString('\n')
 			if err == io.EOF {
-				lalog.DefaultLogger.Info("echoTCPServer", "", err, "read EOF")
+				lalog.DefaultLogger.Info(nil, err, "read EOF")
 				return
 			}
-			lalog.DefaultLogger.Info("echoTCPServer", "", err, "received: %+v", line)
+			lalog.DefaultLogger.Info(nil, err, "received: %+v", line)
 			if err != nil {
-				lalog.DefaultLogger.Panic("echoTCPServer", "", err, "echo tcp server read failure")
+				lalog.DefaultLogger.Panic(nil, err, "echo tcp server read failure")
 				return
 			}
 			if line == "end\n" {
-				lalog.DefaultLogger.Info("echoTCPServer", "", err, "returning now")
+				lalog.DefaultLogger.Info(nil, err, "returning now")
 				return
 			}
 			_, err = writer.WriteString(line)
 			if err == io.EOF {
-				lalog.DefaultLogger.Panic("echoTCPServer", "", err, "write EOF")
+				lalog.DefaultLogger.Panic(nil, err, "write EOF")
 				return
 			}
 			if err != nil {
-				lalog.DefaultLogger.Panic("echoTCPServer", "", err, "echo tcp server write failure")
+				lalog.DefaultLogger.Panic(nil, err, "echo tcp server write failure")
 				return
 			}
 			if err := writer.Flush(); err != nil {
-				lalog.DefaultLogger.Panic("echoTCPServer", "", err, "echo tcp server flush failure")
+				lalog.DefaultLogger.Panic(nil, err, "echo tcp server flush failure")
 				return
 			}
 		}
@@ -114,7 +114,7 @@ func TestProxy_TCPClient(t *testing.T) {
 	req := []string{"aaa\n", "bb\n"} // 4 + 3 = 7
 	reader := bufio.NewReader(tc)
 	for _, line := range req {
-		lalog.DefaultLogger.Info("", "", nil, "test is writing line: %v", line)
+		lalog.DefaultLogger.Info(nil, nil, "test is writing line: %v", line)
 		n, err := tc.Write([]byte(line))
 		if err != nil || n != len(line) {
 			t.Fatalf("failed to write request line %q - n: %v, err: %v", line, n, err)

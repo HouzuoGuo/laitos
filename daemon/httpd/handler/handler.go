@@ -29,7 +29,7 @@ func XMLEscape(in string) string {
 	out := new(bytes.Buffer)
 	err := xml.EscapeText(out, []byte(in))
 	if err != nil {
-		lalog.DefaultLogger.Warning("XMLEscape", "", err, "failed to escape XML")
+		lalog.DefaultLogger.Warning("", err, "failed to escape XML")
 	}
 	return out.String()
 }

@@ -44,14 +44,22 @@ func TestLogger_Panicf(t *testing.T) {
 		_ = recover()
 	}()
 	logger := Logger{}
-	logger.Panic("", "", nil, "")
+	logger.Panic("", nil, "")
 	t.Fatal("did not panic")
 }
 
 func TestLogger_Printf(t *testing.T) {
-	logger := Logger{}
-	logger.Info("TestLogger_Printf", "adam", nil, "alpha")
-	logger.Info("TestLogger_Printf", "adam", nil, "beta")
+	logger := Logger{
+		ComponentName: "test-comp-name",
+		ComponentID: []LoggerIDField{
+			{
+				Key:   "logger-id",
+				Value: "logger-id-val",
+			},
+		},
+	}
+	logger.Info("adam", nil, "alpha")
+	logger.Info("adam", nil, "beta")
 
 	var countLog, countWarn int
 	LatestLogs.IterateReverse(func(msg string) bool {
@@ -70,8 +78,8 @@ func TestLogger_Printf(t *testing.T) {
 		t.Fatal(countLog, countWarn)
 	}
 
-	logger.Info("TestLogger_Printf", "eve", errors.New(""), "")
-	logger.Info("TestLogger_Printf-anotherfunc", "adam", errors.New(""), "")
+	logger.Info("eve", errors.New(""), "")
+	logger.Info("adam", errors.New(""), "")
 
 	countLog = 0
 	countWarn = 0
@@ -97,9 +105,9 @@ func TestLogger_Printf(t *testing.T) {
 func TestLogger_Warningf(t *testing.T) {
 	logger := Logger{}
 	// The first warning originated from Adam went into in-memory warning buffer
-	logger.Warning("TestLogger_Warningf", "adam", nil, "")
+	logger.Warning("adam", nil, "")
 	// The second warning also originated from Adam, therefore it still gets printed though it is excluded from the buffer.
-	logger.Warning("TestLogger_Warningf", "adam", nil, "")
+	logger.Warning("adam", nil, "")
 
 	var countLog, countWarn int
 	LatestLogs.IterateReverse(func(msg string) bool {
@@ -119,8 +127,8 @@ func TestLogger_Warningf(t *testing.T) {
 	}
 
 	// Both warnings will end up in the in-memory warning buffer
-	logger.Warning("TestLogger_Warningf", "eve", errors.New(""), "")
-	logger.Warning("TestLogger_Warningf-anotherfunc", "adam", errors.New(""), "")
+	logger.Warning("eve", errors.New(""), "")
+	logger.Warning("adam", errors.New(""), "")
 
 	countWarn = 0
 	countLog = 0
@@ -136,7 +144,7 @@ func TestLogger_Warningf(t *testing.T) {
 		}
 		return true
 	})
-	if countLog != 4 || countWarn != 3 {
+	if countLog != 4 || countWarn != 2 {
 		t.Fatal(countLog, countWarn)
 	}
 }

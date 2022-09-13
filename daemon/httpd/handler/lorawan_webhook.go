@@ -149,7 +149,7 @@ type Downlinks struct {
 func (msg Downlinks) JSONString() string {
 	b, err := json.Marshal(msg)
 	if err != nil {
-		lalog.DefaultLogger.Warning("Downlinks.JSONString", "", err, "failed to marshal message")
+		lalog.DefaultLogger.Warning("", err, "failed to marshal message")
 		return ""
 	}
 	return string(b)
@@ -165,19 +165,19 @@ func (hand *HandleLoraWANWebhook) Handle(w http.ResponseWriter, r *http.Request)
 	}()
 	var uplinkInfo WebHookPayload
 	if err := json.Unmarshal(body, &uplinkInfo); err != nil || len(uplinkInfo.EndDeviceIDs.DeviceID) == 0 {
-		hand.logger.Warning("Handle", middleware.GetRealClientIP(r), err, "failed to unmarshal webhook payload")
+		hand.logger.Warning(middleware.GetRealClientIP(r), err, "failed to unmarshal webhook payload")
 		http.Error(w, "failed to decode uplink message", http.StatusBadRequest)
 		return
 	}
 	// Decode the raw payload sent by transmitter
 	payloadBytes, err := base64.StdEncoding.DecodeString(uplinkInfo.UplinkMessage.RawPayloadBase64)
 	if err != nil {
-		hand.logger.Warning("Handle", middleware.GetRealClientIP(r), err, "failed to unmarshal uplink message payload")
+		hand.logger.Warning(middleware.GetRealClientIP(r), err, "failed to unmarshal uplink message payload")
 		http.Error(w, "failed to decode uplink message payload", http.StatusBadRequest)
 		return
 	}
 	if len(payloadBytes) > 2048 {
-		hand.logger.Warning("Handle", middleware.GetRealClientIP(r), err, "received an unusually large uplink payload")
+		hand.logger.Warning(middleware.GetRealClientIP(r), err, "received an unusually large uplink payload")
 		http.Error(w, "the size of raw payload is unusually large", http.StatusBadRequest)
 		return
 	}
@@ -186,7 +186,7 @@ func (hand *HandleLoraWANWebhook) Handle(w http.ResponseWriter, r *http.Request)
 	if len(uplinkInfo.UplinkMessage.GatewayMetadata) > 0 {
 		firstGW = uplinkInfo.UplinkMessage.GatewayMetadata[0]
 	}
-	hand.logger.Info("Handle", uplinkInfo.EndDeviceIDs.DeviceID, nil,
+	hand.logger.Info(uplinkInfo.EndDeviceIDs.DeviceID, nil,
 		"received transmission from device EUI %s (addr %s) packet #%d on port %d, located at %f, %f, received by gateway %s (RSSI %f), payload size %d bytes.",
 		uplinkInfo.EndDeviceIDs.DeviceEUI, uplinkInfo.EndDeviceIDs.DeviceAddr,
 		uplinkInfo.UplinkMessage.Counter, uplinkInfo.UplinkMessage.PortNumber,
@@ -237,7 +237,7 @@ func (hand *HandleLoraWANWebhook) Handle(w http.ResponseWriter, r *http.Request)
 			// Put the text message into message bank.
 			err := hand.cmdProc.Features.MessageBank.Store(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionIncoming, time.Now(), messageReception)
 			if err != nil {
-				hand.logger.Warning("Handle", messageReception.DeviceID, err, "failed to store uplink message in message bank")
+				hand.logger.Warning(messageReception.DeviceID, err, "failed to store uplink message in message bank")
 			}
 		}
 	} else {
@@ -286,7 +286,7 @@ func (hand *HandleLoraWANWebhook) Handle(w http.ResponseWriter, r *http.Request)
 			err = downlinkResp.Non2xxToError()
 		}
 		if err != nil {
-			hand.logger.Warning("HandleLoraWANWebhook.Handler", middleware.GetRealClientIP(r), err, "failed to send downlink reply message")
+			hand.logger.Warning(middleware.GetRealClientIP(r), err, "failed to send downlink reply message")
 		}
 	}
 	w.WriteHeader(http.StatusOK)

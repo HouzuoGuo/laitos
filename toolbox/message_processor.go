@@ -204,9 +204,9 @@ func (proc *MessageProcessor) StoreReport(ctx context.Context, request SubjectRe
 	proc.mutex.Unlock()
 	cmdResponse := proc.processCommandRequest(ctx, request, clientTag, daemonName)
 	if outgoingCommandForSubject == "" {
-		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from %s", daemonName)
+		proc.logger.Info(fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from %s", daemonName)
 	} else {
-		proc.logger.Info("StoreReport", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from %s, replying with a pending app command.", daemonName)
+		proc.logger.Info(fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil, "store report from %s, replying with a pending app command.", daemonName)
 	}
 	return SubjectReportResponse{
 		CommandRequest: AppCommandRequest{
@@ -234,7 +234,7 @@ func (proc *MessageProcessor) processCommandRequest(ctx context.Context, request
 	if appCmd == "" || exists && prevCmd.Request.CommandRequest.Command == appCmd {
 		// The subject does not make a command request or has made the identical request. Retrieve previously requested command result if there is any.
 		if exists {
-			proc.logger.Info("processCommandRequest", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil,
+			proc.logger.Info(fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil,
 				"retrieve result from app command submitted at %s and completed in %d seconds", prevCmd.Request.ServerTime, prevCmd.RunDurationSec)
 			if prevCmd.Request.ServerTime.Before(time.Now().Add(-CommandResponseRetentionSec * time.Second)) {
 				// Erase the result from memory beyond the retention period
@@ -260,7 +260,7 @@ func (proc *MessageProcessor) processCommandRequest(ctx context.Context, request
 				ReceivedAt: request.ServerTime,
 				Result:     "error: will not run a recursive store&forward command",
 			}
-			proc.logger.Warning("processCommandRequest", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil,
+			proc.logger.Warning(fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), nil,
 				"will not run a recursive store&forward command - %s", appCmd)
 			return
 		}
@@ -296,7 +296,7 @@ func (proc *MessageProcessor) processCommandRequest(ctx context.Context, request
 			Result:         result.CombinedOutput,
 			RunDurationSec: int(durationSec),
 		}
-		proc.logger.Info("processCommandRequest", fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), result.Error, "command completed in %d seconds", durationSec)
+		proc.logger.Info(fmt.Sprintf("%s-%s", request.SubjectHostName, clientTag), result.Error, "command completed in %d seconds", durationSec)
 	}
 	return
 }
@@ -420,7 +420,7 @@ func (proc *MessageProcessor) removeExpiredSubjects() {
 		}
 	}
 	for subject, lastReport := range subjectsToRemove {
-		proc.logger.Warning("removeExpiredSubjects", subject, nil, "removing the inactive subject, its last report was: %+v", lastReport)
+		proc.logger.Warning(subject, nil, "removing the inactive subject, its last report was: %+v", lastReport)
 		delete(proc.SubjectReports, subject)
 		delete(proc.IncomingAppCommands, subject)
 		delete(proc.OutgoingAppCommands, subject)
@@ -471,7 +471,7 @@ func (proc *MessageProcessor) Execute(ctx context.Context, cmd Command) *Result 
 	// Subject report arrives as a compacted string
 	var incomingReport SubjectReportRequest
 	if err := incomingReport.DeserialiseFromCompact(cmd.Content); err == ErrSubjectReportTruncated {
-		proc.logger.Info("Execute", cmd.ClientTag, nil, "the subject report request was truncated")
+		proc.logger.Info(cmd.ClientTag, nil, "the subject report request was truncated")
 		// It is OK to continue with a truncated report
 	} else if err != nil {
 		return &Result{Error: fmt.Errorf("failed to decode subject report: %w", err)}

@@ -19,7 +19,7 @@ func NewKinesisHoseClient() (*KinesisHoseClient, error) {
 	if regionName == "" {
 		return nil, fmt.Errorf("NewKinesisHoseClient: unable to determine AWS region, is it set in environment variable AWS_REGION?")
 	}
-	logger.Info("NewKinesisHoseClient", "", nil, "initialising using AWS region name \"%s\"", regionName)
+	logger.Info(nil, nil, "initialising using AWS region name \"%s\"", regionName)
 	apiSession, err := session.NewSession(&aws.Config{Region: aws.String(regionName)})
 	if err != nil {
 		return nil, err
@@ -46,6 +46,6 @@ func (hoseClient *KinesisHoseClient) PutRecord(ctx context.Context, streamName s
 		Record:             &firehose.Record{Data: recordData},
 	})
 	durationMilli := (time.Now().UnixNano() - startTimeNano) / 1000000
-	hoseClient.logger.Info("PutRecord", streamName, err, "PutRecordWithContext completed in %d milliseconds for a %d bytes long record", durationMilli, len(recordData))
+	hoseClient.logger.Info(streamName, err, "PutRecordWithContext completed in %d milliseconds for a %d bytes long record", durationMilli, len(recordData))
 	return err
 }

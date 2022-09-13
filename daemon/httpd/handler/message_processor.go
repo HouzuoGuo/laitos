@@ -70,20 +70,20 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 		hand.cmdProc.Features.MessageProcessor.GetSubjectReportCount()
 		w.WriteHeader(http.StatusOK)
 		if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetSubjectReportCount()); err != nil {
-			lalog.DefaultLogger.Warning("HandleReportsRetrieval", r.Host, err, "failed to serialise JSON response")
+			lalog.DefaultLogger.Warning(r.Host, err, "failed to serialise JSON response")
 		}
 	} else {
 		if host == "" {
 			// Get the latest reports across all hosts
 			w.WriteHeader(http.StatusOK)
 			if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetLatestReports(limitNum)); err != nil {
-				lalog.DefaultLogger.Warning("HandleReportsRetrieval", r.Host, err, "failed to serialise JSON response")
+				lalog.DefaultLogger.Warning(r.Host, err, "failed to serialise JSON response")
 			}
 		} else {
 			// Get the latest reports from a particular host
 			w.WriteHeader(http.StatusOK)
 			if err := jsonWriter.Encode(hand.cmdProc.Features.MessageProcessor.GetLatestReportsFromSubject(host, limitNum)); err != nil {
-				lalog.DefaultLogger.Warning("HandleReportsRetrieval", r.Host, err, "failed to serialise JSON response")
+				lalog.DefaultLogger.Warning(r.Host, err, "failed to serialise JSON response")
 			}
 		}
 	}

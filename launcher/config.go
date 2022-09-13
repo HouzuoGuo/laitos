@@ -201,19 +201,19 @@ func (config *Config) Initialise() error {
 	var firehoseClient *awsinteg.KinesisHoseClient
 	var err error
 	if streamName := config.AWSIntegration.ForwardMessageProcessorReportsToFirehoseStreamName; streamName != "" && misc.EnableAWSIntegration {
-		config.logger.Info("Initialise", "", nil, "initialising kinesis firehose client for stream \"%s\"", streamName)
+		config.logger.Info("", nil, "initialising kinesis firehose client for stream \"%s\"", streamName)
 		firehoseClient, err = awsinteg.NewKinesisHoseClient()
 		if err != nil {
-			config.logger.Warning("Initialise", "", err, "failed to initialise kinesis firehose client")
+			config.logger.Warning("", err, "failed to initialise kinesis firehose client")
 		}
 	}
 	// Initialise the optional AWS SNS client for a topic to get a copy of every report received by message processor
 	var snsClient *awsinteg.SNSClient
 	if arn := config.AWSIntegration.ForwardMessageProcessorReportsToSNSTopicARN; arn != "" && misc.EnableAWSIntegration {
-		config.logger.Info("Initialise", "", nil, "initialising SNS client for topic ARN \"%s\"", arn)
+		config.logger.Info("", nil, "initialising SNS client for topic ARN \"%s\"", arn)
 		snsClient, err = awsinteg.NewSNSClient()
 		if err != nil {
-			config.logger.Warning("Initialise", "", err, "failed to initialise SNS client")
+			config.logger.Warning("", err, "failed to initialise SNS client")
 		}
 	}
 
@@ -321,7 +321,7 @@ func (config *Config) Initialise() error {
 	// Password RPC daemon shares the embedded gRPC service with the network bound file encryption app
 	config.PasswordRPCDaemon.PasswordRegister = config.Features.NetBoundFileEncryption.PasswordRegister
 
-	config.logger.Info("Initialise", "", nil, "enabled features are - %v", config.Features.GetTriggers())
+	config.logger.Info("", nil, "enabled features are - %v", config.Features.GetTriggers())
 	return nil
 }
 
@@ -357,7 +357,7 @@ func (config *Config) GetDNSD() *dnsd.Daemon {
 			},
 		}
 		if err := config.DNSDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetDNSD", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -368,7 +368,7 @@ func (config *Config) GetDNSD() *dnsd.Daemon {
 func (config *Config) GetSNMPD() *snmpd.Daemon {
 	config.snmpDaemonInit.Do(func() {
 		if err := config.SNMPDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetSNMP", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -379,7 +379,7 @@ func (config *Config) GetSNMPD() *snmpd.Daemon {
 func (config *Config) GetSimpleIPSvcD() *simpleipsvcd.Daemon {
 	config.simpleIPSvcDaemonInit.Do(func() {
 		if err := config.SimpleIPSvcDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetSimpleIPSvcD", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -394,7 +394,7 @@ func (config *Config) GetMaintenance() *maintenance.Daemon {
 		config.Maintenance.MailCmdRunnerToTest = config.GetMailCommandRunner()
 		config.Maintenance.HTTPHandlersToCheck = config.GetHTTPD().HandlerCollection
 		if err := config.Maintenance.Initialise(); err != nil {
-			config.logger.Abort("GetMaintenance", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -431,7 +431,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			randBytes := make([]byte, 32)
 			_, err := rand.Read(randBytes)
 			if err != nil {
-				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
+				config.logger.Abort("", err, "failed to read random number")
 				return
 			}
 			// The screenshot endpoint
@@ -501,7 +501,7 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 			randBytes := make([]byte, 32)
 			_, err := rand.Read(randBytes)
 			if err != nil {
-				config.logger.Abort("GetHTTPD", "", err, "failed to read random number")
+				config.logger.Abort("", err, "failed to read random number")
 				return
 			}
 			callbackEndpoint := "/twilio-callback-" + hex.EncodeToString(randBytes)
@@ -534,9 +534,9 @@ func (config *Config) GetHTTPD() *httpd.Daemon {
 		config.HTTPDaemon.HandlerCollection = handlers
 		stripURLPrefixFromRequest := os.Getenv(EnvironmentStripURLPrefixFromRequest)
 		stripURLPrefixFromResponse := os.Getenv(EnvironmentStripURLPrefixFromResponse)
-		config.logger.Info("GetHTTPD", "", nil, "will strip \"%s\" from requested URLs and strip \"%s\" from HTML response", stripURLPrefixFromRequest, stripURLPrefixFromResponse)
+		config.logger.Info("", nil, "will strip \"%s\" from requested URLs and strip \"%s\" from HTML response", stripURLPrefixFromRequest, stripURLPrefixFromResponse)
 		if err := config.HTTPDaemon.Initialise(stripURLPrefixFromRequest, stripURLPrefixFromResponse); err != nil {
-			config.logger.Abort("GetHTTPD", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -578,7 +578,7 @@ func (config *Config) GetMailDaemon() *smtpd.Daemon {
 		config.MailDaemon.CommandRunner = config.GetMailCommandRunner()
 		config.MailDaemon.ForwardMailClient = config.MailClient
 		if err := config.MailDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetMailDaemon", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -602,7 +602,7 @@ func (config *Config) GetPhoneHomeDaemon() *phonehome.Daemon {
 		}
 		// Call initialise so that daemon is ready to start
 		if err := config.PhoneHomeDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetPhoneHomeDaemon", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -630,7 +630,7 @@ func (config *Config) GetPlainSocketDaemon() *plainsocket.Daemon {
 		}
 		// Call initialise so that daemon is ready to start
 		if err := config.PlainSocketDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetPlainSocketDaemon", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -642,7 +642,7 @@ func (config *Config) GetSockDaemon() *sockd.Daemon {
 	config.sockDaemonInit.Do(func() {
 		config.SockDaemon.DNSDaemon = config.GetDNSD()
 		if err := config.SockDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetSockDaemon", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -666,7 +666,7 @@ func (config *Config) GetTelegramBot() *telegrambot.Daemon {
 			},
 		}
 		if err := config.TelegramBot.Initialise(); err != nil {
-			config.logger.Abort("GetTelegramBot", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -677,7 +677,7 @@ func (config *Config) GetTelegramBot() *telegrambot.Daemon {
 func (config *Config) GetAutoUnlock() *autounlock.Daemon {
 	config.autoUnlockInit.Do(func() {
 		if err := config.AutoUnlock.Initialise(); err != nil {
-			config.logger.Abort("GetAutoUnlock", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -689,7 +689,7 @@ func (config *Config) GetAutoUnlock() *autounlock.Daemon {
 func (config *Config) GetPasswdRPCDaemon() *passwdrpc.Daemon {
 	config.passwdrpcDaemonInit.Do(func() {
 		if err := config.PasswordRPCDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetPasswdRPCDaemon", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})
@@ -703,7 +703,7 @@ func (config *Config) GetHTTPProxyDaemon() *httpproxy.Daemon {
 		config.HTTPProxyDaemon.CommandProcessor.Features = config.Features
 		config.HTTPProxyDaemon.DNSDaemon = config.GetDNSD()
 		if err := config.HTTPProxyDaemon.Initialise(); err != nil {
-			config.logger.Abort("GetHTTPProxyDaemon", "", err, "the daemon failed to initialise")
+			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
 		}
 	})

@@ -54,12 +54,12 @@ func (hand *Handler) StartAndBlock() {
 	lambdaTaskRoot := os.Getenv("LAMBDA_TASK_ROOT")
 	lambdaHandlerName := os.Getenv("_HANDLER")
 	// Log crucial environment input for diagnosis on CloudWatch log group
-	hand.logger.Info("StartAndBlock", "", nil, "AWS_LAMBDA_RUNTIME_API is \"%s\", LAMBDA_TASK_ROOT is \"%s\", _HANDLER is \"%s\"",
+	hand.logger.Info("", nil, "AWS_LAMBDA_RUNTIME_API is \"%s\", LAMBDA_TASK_ROOT is \"%s\", _HANDLER is \"%s\"",
 		lambdaAPIHostNamePort, lambdaTaskRoot, lambdaHandlerName)
 	for {
-		hand.logger.Info("StartAndBlock", lambdaHandlerName, nil, "looking for the next lambda invocation")
+		hand.logger.Info(lambdaHandlerName, nil, "looking for the next lambda invocation")
 		if err := hand.getAndProcessLambdaInvocation(lambdaAPIHostNamePort, UpstreamWebServerPort); err != nil {
-			hand.logger.Warning("StartAndBlock", lambdaHandlerName, err, "failed to process invocation")
+			hand.logger.Warning(lambdaHandlerName, err, "failed to process invocation")
 		}
 	}
 }
@@ -79,13 +79,13 @@ func (hand *Handler) getAndProcessLambdaInvocation(lambdaAPIHostNamePort string,
 	}
 	// Lambda-Runtime-Aws-Request-Id comes from next invocation's response header, not to be confused with requestContext.requestId.
 	awsRequestID := nextInvocResp.Header.Get("Lambda-Runtime-Aws-Request-Id")
-	hand.logger.Info("processLambdaInvocation", lambdaAPIHostNamePort, nil,
+	hand.logger.Info(lambdaAPIHostNamePort, nil,
 		"request ID \"%s\" of %d bytes just arrived: %s", awsRequestID, len(nextInvocResp.Body), nextInvocResp.GetBodyUpTo(2000))
 	invocResult, err := hand.decodeAndHandleHTTPRequest(awsRequestID, nextInvocResp.Body, webServerPort)
 	if err != nil {
 		return err
 	}
-	hand.logger.Info("processLambdaInvocation", lambdaAPIHostNamePort, nil,
+	hand.logger.Info(lambdaAPIHostNamePort, nil,
 		"responding to request ID %s with %d bytes: %s", awsRequestID, len(invocResult), string(invocResult))
 	invokResultResp, err := inet.DoHTTP(
 		context.TODO(),
@@ -118,7 +118,7 @@ func (hand *Handler) decodeAndHandleHTTPRequest(awsRequestID string, invocationJ
 			os.Setenv(launcher.EnvironmentStripURLPrefixFromRequest, "/"+input.RequestContext.Stage)
 			os.Setenv(launcher.EnvironmentStripURLPrefixFromResponse, "/"+input.RequestContext.Stage)
 			// The main function awaits program data password
-			hand.logger.Info("decodeAndHandleHTTPRequest", awsRequestID, err, "decrypting program data using a password %d bytes long", len(decryptionPass))
+			hand.logger.Info(awsRequestID, err, "decrypting program data using a password %d bytes long", len(decryptionPass))
 			// Even though the channel is not buffered, HTTP server is not going to be ready immediately.
 			misc.ProgramDataDecryptionPasswordInput <- decryptionPass
 		}
@@ -128,7 +128,7 @@ func (hand *Handler) decodeAndHandleHTTPRequest(awsRequestID string, invocationJ
 	if input.IsBase64Encoded {
 		reqBody, err = base64.StdEncoding.DecodeString(input.Body)
 		if err != nil {
-			hand.logger.Warning("decodeAndHandleHTTPRequest", awsRequestID, err, "failed to decode base64-encoded request body")
+			hand.logger.Warning(awsRequestID, err, "failed to decode base64-encoded request body")
 			return
 		}
 	} else {
@@ -147,16 +147,16 @@ func (hand *Handler) decodeAndHandleHTTPRequest(awsRequestID string, invocationJ
 	if len(input.MultiValueQueryStringParameters) > 0 {
 		reqURL += "?" + input.MultiValueQueryStringParameters.Encode()
 	}
-	hand.logger.Info("decodeAndHandleHTTPRequest", awsRequestID, err, "%s %s with %d bytes of request body", reqParams.Method, reqURL, len(reqBody))
+	hand.logger.Info(awsRequestID, err, "%s %s with %d bytes of request body", reqParams.Method, reqURL, len(reqBody))
 	// Wait for HTTP server to start
 	if !misc.ProbePort(30*time.Second, "localhost", webServerPort) {
-		hand.logger.Warning("decodeAndHandleHTTPRequest", awsRequestID, nil, "the web server failed to start in time")
+		hand.logger.Warning(awsRequestID, nil, "the web server failed to start in time")
 		return nil, errors.New("the web server failed to start in time")
 	}
 	// Send the request forth to laitos web server
 	resp, err := inet.DoHTTP(context.TODO(), reqParams, strings.Replace(reqURL, "%", "%%", -1))
 	if err != nil {
-		hand.logger.Warning("decodeAndHandleHTTPRequest", awsRequestID, err, "failed to reach laitos web server")
+		hand.logger.Warning(awsRequestID, err, "failed to reach laitos web server")
 		return
 	}
 	// Formulate the response for AWS lambda

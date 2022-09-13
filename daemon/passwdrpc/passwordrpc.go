@@ -72,7 +72,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			return fmt.Errorf("passwdrpc.StartAndBlock: failed to load certificate or key - %v", err)
 		}
 		serverOpts = append(serverOpts, grpc.Creds(credentials.NewServerTLSFromCert(&tlsCert)))
-		daemon.logger.Info("StartAndBlock", "", nil, "using TLS certificate located at %s", daemon.TLSCertPath)
+		daemon.logger.Info(nil, nil, "using TLS certificate located at %s", daemon.TLSCertPath)
 	}
 	// Prepare network listener and serve clients
 	listener, err := net.Listen("tcp", net.JoinHostPort(daemon.Address, strconv.Itoa(daemon.Port)))
@@ -82,7 +82,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	daemon.rpcServer = grpc.NewServer(serverOpts...)
 	defer daemon.Stop()
 	unlocksvc.RegisterPasswordUnlockServiceServer(daemon.rpcServer, daemon.PasswordRegister)
-	daemon.logger.Info("StartAndBlock", "", nil, "listening on address %s, port %d", daemon.Address, daemon.Port)
+	daemon.logger.Info(nil, nil, "listening on address %s, port %d", daemon.Address, daemon.Port)
 	return daemon.rpcServer.Serve(listener)
 }
 

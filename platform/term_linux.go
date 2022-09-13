@@ -12,7 +12,7 @@ func SetTermEcho(echo bool) {
 	stdout := os.Stdout.Fd()
 	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, stdout, syscall.TCGETS, uintptr(unsafe.Pointer(term)))
 	if err != 0 {
-		logger.Warning("SetTermEcho", "", err, "syscall failed")
+		logger.Warning("", err, "syscall failed")
 		return
 	}
 	if echo {
@@ -22,7 +22,7 @@ func SetTermEcho(echo bool) {
 	}
 	_, _, err = syscall.Syscall(syscall.SYS_IOCTL, stdout, uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(term)))
 	if err != 0 {
-		logger.Warning("SetTermEcho", "", err, "syscall failed")
+		logger.Warning("", err, "syscall failed")
 		return
 	}
 }

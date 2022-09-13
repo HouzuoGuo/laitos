@@ -119,7 +119,7 @@ func (vm *VM) Start(isoFilePath string) error {
 	if vm.emulatorCmd != nil {
 		return errors.New("VM.Start: already started")
 	}
-	vm.logger.Info("Start", isoFilePath, nil, "starting emulator %s, this may take a minute", vm.emulatorExecutable)
+	vm.logger.Info(isoFilePath, nil, "starting emulator %s, this may take a minute", vm.emulatorExecutable)
 	fmt.Fprintf(vm.emulatorDebugOutput, "Starting emulator %s for ISO file %s, this may take a minute.\n", vm.emulatorExecutable, isoFilePath)
 	vm.emulatorCmd = exec.Command(vm.emulatorExecutable,
 		"-smp", strconv.Itoa(vm.NumCPU), "-m", fmt.Sprintf("%dM", vm.MemSizeMB),
@@ -144,7 +144,7 @@ func (vm *VM) Start(isoFilePath string) error {
 	if err := vm.emulatorCmd.Start(); err != nil {
 		return err
 	}
-	vm.logger.Info("Start", vm.emulatorExecutable, nil, "emulator successfully started %s", isoFilePath)
+	vm.logger.Info(vm.emulatorExecutable, nil, "emulator successfully started %s", isoFilePath)
 	fmt.Fprintf(vm.emulatorDebugOutput, "emulator %s successfully started %s\n", vm.emulatorExecutable, isoFilePath)
 	return nil
 }
@@ -188,7 +188,7 @@ func (vm *VM) connectToQMP() error {
 	if _, err := vm.qmpClient.ReadLine(); err != nil {
 		return fmt.Errorf("Failed to exchange initialisation QMP command - %w", err)
 	}
-	vm.logger.Info("connectToQMP", strconv.Itoa(vm.QMPPort), nil, "successfully connected to emulator QMP")
+	vm.logger.Info(strconv.Itoa(vm.QMPPort), nil, "successfully connected to emulator QMP")
 	return nil
 }
 
@@ -206,9 +206,9 @@ func (vm *VM) Kill() {
 	vm.qmpConn = nil
 	if cmd := vm.emulatorCmd; cmd != nil {
 		if proc := cmd.Process; proc != nil {
-			vm.logger.Info("Kill", "", nil, "killing emulator process PID %d", proc.Pid)
+			vm.logger.Info("", nil, "killing emulator process PID %d", proc.Pid)
 			if !platform.KillProcess(proc) {
-				vm.logger.Warning("Kill", "", nil, "failed to kill emulator process")
+				vm.logger.Warning("", nil, "failed to kill emulator process")
 			}
 		}
 	}

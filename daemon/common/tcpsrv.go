@@ -89,7 +89,7 @@ func (srv *TCPServer) StartAndBlock() error {
 		srv.mutex.Unlock()
 		return fmt.Errorf("TCPServer.StartAndBlock(%s): listener on port %d must not be started a second time", srv.AppName, srv.ListenPort)
 	}
-	srv.logger.Info("StartAndBlock", "", nil, "starting TCP listener")
+	srv.logger.Info("", nil, "starting TCP listener")
 	var err error
 	listener, err := net.Listen("tcp", net.JoinHostPort(srv.ListenAddr, strconv.Itoa(srv.ListenPort)))
 	if err != nil {
@@ -100,7 +100,7 @@ func (srv *TCPServer) StartAndBlock() error {
 	srv.mutex.Unlock()
 	for {
 		if misc.EmergencyLockDown {
-			srv.logger.Warning("StartAndBlock", srv.AppName, misc.ErrEmergencyLockDown, "")
+			srv.logger.Warning(srv.AppName, misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		client, err := listener.Accept()
@@ -134,21 +134,21 @@ func (srv *TCPServer) handleConnection(clientIP string, client *net.TCPConn) {
 		srv.logger.MaybeMinorError(client.Close())
 		srv.App.GetTCPStatsCollector().Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
-	srv.logger.Info("handleConnection", clientIP, nil, "connection is accepted")
+	srv.logger.Info(clientIP, nil, "connection is accepted")
 	// Turn on keep-alive for OS to detect and remove dead clients
 	if err := client.SetKeepAlive(true); err != nil {
-		srv.logger.Warning("handleConnection", clientIP, err, "failed to turn on keep alive")
+		srv.logger.Warning(clientIP, err, "failed to turn on keep alive")
 	}
 	if err := client.SetKeepAlivePeriod(ServerDefaultIOTimeoutSec / 3); err != nil {
-		srv.logger.Warning("handleConnection", clientIP, err, "failed to turn on keep alive")
+		srv.logger.Warning(clientIP, err, "failed to turn on keep alive")
 	}
 	// Apply the default IO timeout to prevent a potentially malfunctioning connection handler from hanging
 	if err := client.SetReadDeadline(time.Now().Add(ServerDefaultIOTimeoutSec * time.Second)); err != nil {
-		srv.logger.Warning("handleConnection", clientIP, err, "failed to set default read deadline, terminating the connection.")
+		srv.logger.Warning(clientIP, err, "failed to set default read deadline, terminating the connection.")
 		return
 	}
 	if err := client.SetWriteDeadline(time.Now().Add(ServerDefaultIOTimeoutSec * time.Second)); err != nil {
-		srv.logger.Warning("handleConnection", clientIP, err, "failed to set default write deadline, terminating the connection.")
+		srv.logger.Warning(clientIP, err, "failed to set default write deadline, terminating the connection.")
 		return
 	}
 	srv.App.HandleTCPConnection(srv.logger, clientIP, client)
@@ -160,9 +160,9 @@ func (srv *TCPServer) Stop() {
 	defer srv.mutex.Unlock()
 	if srv.listener != nil {
 		if err := srv.listener.Close(); err != nil {
-			srv.logger.Warning("Stop", srv.AppName, err, "failed to stop TCP server listener")
+			srv.logger.Warning(srv.AppName, err, "failed to stop TCP server listener")
 		}
 		srv.listener = nil
 	}
-	srv.logger.Info("Stop", srv.AppName, nil, "TCP server has shut down successfully")
+	srv.logger.Info(srv.AppName, nil, "TCP server has shut down successfully")
 }

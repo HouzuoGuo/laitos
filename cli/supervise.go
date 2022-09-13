@@ -28,18 +28,18 @@ func AutoRestart(logger lalog.Logger, logActorName string, fun func() error) {
 	delaySec := 0
 	for {
 		if misc.EmergencyLockDown {
-			logger.Warning("AutoRestart", logActorName, nil, "emergency lock-down has been activated, no further restart is performed.")
+			logger.Warning(logActorName, nil, "emergency lock-down has been activated, no further restart is performed.")
 			return
 		}
 		err := fun()
 		if err == nil {
-			logger.Info("AutoRestart", logActorName, nil, "the function has returned successfully, no further restart is required.")
+			logger.Info(logActorName, nil, "the function has returned successfully, no further restart is required.")
 			return
 		}
 		if delaySec == 0 {
-			logger.Warning("AutoRestart", logActorName, err, "restarting immediately")
+			logger.Warning(logActorName, err, "restarting immediately")
 		} else {
-			logger.Warning("AutoRestart", logActorName, err, "restarting in %d seconds", delaySec)
+			logger.Warning(logActorName, err, "restarting in %d seconds", delaySec)
 		}
 		time.Sleep(time.Duration(delaySec) * time.Second)
 		if delaySec < 60 {
@@ -71,7 +71,7 @@ func ReseedPseudoRandAndInBackground(logger lalog.Logger) {
 		seedBytes := make([]byte, 8)
 		_, err := cryptoRand.Read(seedBytes)
 		if err != nil {
-			logger.Abort("ReseedPseudoRandAndInBackground", "", err, "failed to read from random generator")
+			logger.Abort("", err, "failed to read from random generator")
 		}
 		seed, _ := binary.Varint(seedBytes)
 		if seed <= 0 {
@@ -86,7 +86,7 @@ func ReseedPseudoRandAndInBackground(logger lalog.Logger) {
 		for {
 			time.Sleep(5 * time.Minute)
 			reseedFun()
-			logger.Info("ReseedPseudoRandAndInBackground", "", nil, "successfully re-seeded PRNG")
+			logger.Info("", nil, "successfully re-seeded PRNG")
 		}
 	}()
 }
@@ -101,24 +101,24 @@ func GetConfig(logger lalog.Logger, pwdServer bool, pwdServerPort int, pwdServer
 	if len(configBytes) == 0 {
 		// Proceed to read the config file
 		if misc.ConfigFilePath == "" {
-			logger.Abort("main", "config", nil, "please provide a configuration file (-config)")
+			logger.Abort(nil, nil, "please provide a configuration file (-config)")
 			return nil
 		}
 		var err error
 		misc.ConfigFilePath, err = filepath.Abs(misc.ConfigFilePath)
 		if err != nil {
-			logger.Abort("main", "config", err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
+			logger.Abort(nil, err, "failed to determine absolute path of config file \"%s\"", misc.ConfigFilePath)
 			return nil
 		}
 		// If config file is encrypted, read its password from standard input.
 		var isEncrypted bool
 		configBytes, isEncrypted, err = misc.IsEncrypted(misc.ConfigFilePath)
 		if err != nil {
-			logger.Abort("main", "config", err, "failed to read configuration file \"%s\"", misc.ConfigFilePath)
+			logger.Abort(nil, err, "failed to read configuration file \"%s\"", misc.ConfigFilePath)
 			return nil
 		}
 		if isEncrypted {
-			logger.Info("main", "config", nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
+			logger.Info(nil, nil, "the configuration file is encrypted, please pipe or type decryption password followed by Enter (new-line).")
 			// There are multiple ways to collect the decryption password
 			passwdRPCContext, passwdRPCCancel := context.WithCancel(context.Background())
 			passwordCollectionServer := passwdserver.WebServer{
@@ -126,7 +126,7 @@ func GetConfig(logger lalog.Logger, pwdServer bool, pwdServerPort int, pwdServer
 				URL:  pwdServerURL,
 			}
 			if password := strings.TrimSpace(os.Getenv(misc.EnvironmentDecryptionPassword)); password != "" {
-				logger.Info("main", "config", nil, "got decryption password of %d characters from environment variable %s", len(password), misc.EnvironmentDecryptionPassword)
+				logger.Info(nil, nil, "got decryption password of %d characters from environment variable %s", len(password), misc.EnvironmentDecryptionPassword)
 				misc.ProgramDataDecryptionPasswordInput <- password
 			} else {
 				go func() {
@@ -134,10 +134,10 @@ func GetConfig(logger lalog.Logger, pwdServer bool, pwdServerPort int, pwdServer
 					stdinReader := bufio.NewReader(os.Stdin)
 					pwdFromStdin, err := stdinReader.ReadString('\n')
 					if err == nil {
-						logger.Info("main", "config", nil, "got decryption password from stdin")
+						logger.Info(nil, nil, "got decryption password from stdin")
 						misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(pwdFromStdin)
 					} else {
-						logger.Warning("main", "config", err, "failed to read decryption password from STDIN")
+						logger.Warning(nil, err, "failed to read decryption password from STDIN")
 					}
 				}()
 				go func() {
@@ -165,12 +165,12 @@ func GetConfig(logger lalog.Logger, pwdServer bool, pwdServerPort int, pwdServer
 			passwdRPCCancel()
 			passwordCollectionServer.Shutdown()
 			if configBytes, err = misc.Decrypt(misc.ConfigFilePath, misc.ProgramDataDecryptionPassword); err != nil {
-				logger.Abort("main", "config", err, "failed to decrypt config file")
+				logger.Abort(nil, err, "failed to decrypt config file")
 				return nil
 			}
 		}
 	} else {
-		logger.Info("main", "", nil, "reading %d bytes of JSON configuration from environment variable LAITOS_CONFIG", len(configBytes))
+		logger.Info(nil, nil, "reading %d bytes of JSON configuration from environment variable LAITOS_CONFIG", len(configBytes))
 	}
 	return configBytes
 }

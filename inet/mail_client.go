@@ -142,7 +142,7 @@ func (client *MailClient) sendMailWithRetry(from string, recipients []string, me
 		atomic.AddInt64(&misc.OutstandingMailBytes, -int64(len(message)))
 	}()
 
-	CommonMailLogger.Info("sendMailWithRetry", from, nil, "attempting to deliver mail to %v", recipients)
+	CommonMailLogger.Info(from, nil, "attempting to deliver mail to %v", recipients)
 	// Retry mail delivery up to couple of days, introduce a random initial delay to avoid triggering MTA's rate limit.
 	sleep := time.Duration(30+rand.Intn(30)) * time.Second
 	for i := 0; i < 12; i++ {
@@ -171,22 +171,22 @@ func (client *MailClient) sendMailWithRetry(from string, recipients []string, me
 		}
 		// Success!
 		cancel()
-		CommonMailLogger.Info("sendMailWithRetry", from, nil, "successfully delivered mail to %v", recipients)
+		CommonMailLogger.Info(from, nil, "successfully delivered mail to %v", recipients)
 		smtpClient.Close()
 		return
 	sleepAndRetry:
 		cancel()
-		CommonMailLogger.Warning("sendMailWithRetry", from, err, "failed to deliver mail to %v in the attempt %d (tls error? %v)", recipients, i, tlsErr)
+		CommonMailLogger.Warning(from, err, "failed to deliver mail to %v in the attempt %d (tls error? %v)", recipients, i, tlsErr)
 		// At least one attempt of mail delivery must have been made in order to consider dropping the mail
 		if atomic.LoadInt64(&misc.OutstandingMailBytes) > MaxOutstandingMailSize {
-			CommonMailLogger.Warning("sendMailWithRetry", from, nil, "max outstanding mail size is reached, permanently dropping mail of size %d", len(message))
+			CommonMailLogger.Warning(from, nil, "max outstanding mail size is reached, permanently dropping mail of size %d", len(message))
 			return
 		}
 		// Exponentially prolong sleep interval
 		time.Sleep(sleep)
 		sleep = sleep * 2
 	}
-	CommonMailLogger.Warning("sendMailWithRetry", from, nil, "all attempts ultimately failed to deliver mail to %v", recipients)
+	CommonMailLogger.Warning(from, nil, "all attempts ultimately failed to deliver mail to %v", recipients)
 }
 
 // Deliver mail to all recipients. Block until mail is sent or an error has occurred.

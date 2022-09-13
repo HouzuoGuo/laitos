@@ -19,7 +19,7 @@ func NewSNSClient() (*SNSClient, error) {
 	if regionName == "" {
 		return nil, fmt.Errorf("NewSNSClient: unable to determine AWS region, is it set in environment variable AWS_REGION?")
 	}
-	logger.Info("NewSQSClient", "", nil, "initialising using AWS region name \"%s\"", regionName)
+	logger.Info("", nil, "initialising using AWS region name \"%s\"", regionName)
 	apiSession, err := session.NewSession(&aws.Config{Region: aws.String(regionName)})
 	if err != nil {
 		return nil, err
@@ -41,11 +41,10 @@ type SNSClient struct {
 
 func (snsClient *SNSClient) Publish(ctx context.Context, topicARN, text string) error {
 	startTimeNano := time.Now().UnixNano()
-	snsClient.logger.Info("Publish", topicARN, nil, "publishing a %d bytes long message", len(text))
+	snsClient.logger.Info(topicARN, nil, "publishing a %d bytes long message", len(text))
 	_, err := snsClient.client.PublishWithContext(ctx, &sns.PublishInput{Message: aws.String(text), TopicArn: aws.String(topicARN)})
 	durationMilli := (time.Now().UnixNano() - startTimeNano) / 1000000
-	snsClient.logger.Info(
-		"Publish", topicARN, nil, "PublishWithContext completed in %d milliseconds for a %d bytes long message (err? %v)",
+	snsClient.logger.Info(topicARN, nil, "PublishWithContext completed in %d milliseconds for a %d bytes long message (err? %v)",
 		durationMilli, len(text), err)
 	return err
 }

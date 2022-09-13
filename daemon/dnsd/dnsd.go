@@ -175,11 +175,11 @@ func (daemon *Daemon) Initialise() error {
 		ComponentID:   []lalog.LoggerIDField{{Key: "TCP", Value: daemon.TCPPort}, {Key: "UDP", Value: daemon.UDPPort}},
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
-		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
+		daemon.logger.Info("", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = toolbox.GetEmptyCommandProcessor()
 	}
 	if len(daemon.MyDomainNames) == 0 {
-		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands because MyDomainNames is empty")
+		daemon.logger.Info("", nil, "daemon will not be able to execute toolbox commands because MyDomainNames is empty")
 		daemon.Processor = toolbox.GetEmptyCommandProcessor()
 	}
 	for i, name := range daemon.MyDomainNames {
@@ -245,11 +245,11 @@ func (daemon *Daemon) allowMyPublicIP() {
 	latestIP := inet.GetPublicIP()
 	if latestIP.String() == "0.0.0.0" {
 		// Not a fatal error if IP cannot be determined
-		daemon.logger.Warning("allowMyPublicIP", "", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
+		daemon.logger.Warning("", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
 		return
 	}
 	daemon.myPublicIP = latestIP
-	daemon.logger.Info("allowMyPublicIP", "", nil, "the computer may send DNS queries to its public IP address %s", daemon.myPublicIP)
+	daemon.logger.Info("", nil, "the computer may send DNS queries to its public IP address %s", daemon.myPublicIP)
 }
 
 // isRecursiveQueryAllowed checks whether the input client IP is allowed to make
@@ -318,7 +318,7 @@ func (daemon *Daemon) UpdateBlackList(blacklistedNames []string) {
 				// Count number of resolution attempts only for logging the progress
 				atomic.AddInt64(&countResolutionAttempts, 1)
 				if atomic.LoadInt64(&countResolutionAttempts)%500 == 1 {
-					daemon.logger.Info("UpdateBlackList", "", nil, "resolving %d of %d black listed domain names",
+					daemon.logger.Info("", nil, "resolving %d of %d black listed domain names",
 						atomic.LoadInt64(&countResolutionAttempts), len(blacklistedNames))
 				}
 				name := strings.ToLower(strings.TrimSpace(blacklistedNames[j]))
@@ -350,8 +350,7 @@ func (daemon *Daemon) UpdateBlackList(blacklistedNames []string) {
 	daemon.blackListMutex.Lock()
 	daemon.blackList = newBlackList
 	daemon.blackListMutex.Unlock()
-	daemon.logger.Info("UpdateBlackList", "", nil,
-		"successfully resolved %d blocked IPs from %d domains, the process took %d minutes and used %d parallel routines. The blacklist now contains %d entries in total.",
+	daemon.logger.Info("", nil, "successfully resolved %d blocked IPs from %d domains, the process took %d minutes and used %d parallel routines. The blacklist now contains %d entries in total.",
 		countResolvedIPs, len(blacklistedNames), (time.Now().Unix()-beginUnixSec)/60, numRoutines, len(newBlackList))
 }
 
@@ -370,7 +369,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		MaxInt:       1,
 		Func: func(ctx context.Context, round, _ int) error {
 			if round == 0 {
-				daemon.logger.Info("UpdateBlacklist", "", nil, "will download blacklists in %d seconds", BlacklistInitialDelaySec)
+				daemon.logger.Info("", nil, "will download blacklists in %d seconds", BlacklistInitialDelaySec)
 				select {
 				case <-time.After(BlacklistInitialDelaySec * time.Second):
 				case <-ctx.Done():

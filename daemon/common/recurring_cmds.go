@@ -135,10 +135,10 @@ func (cmds *RecurringCommands) Start() {
 	cmds.mutex.Lock()
 	defer cmds.mutex.Unlock()
 	if cmds.cancelFunc != nil {
-		cmds.logger.Warning("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "starting an already started RecurringCommands becomes a nop")
+		cmds.logger.Warning(fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "starting an already started RecurringCommands becomes a nop")
 		return
 	}
-	cmds.logger.Info("RecurringCommands.Start", fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "command execution now starts")
+	cmds.logger.Info(fmt.Sprintf("Intv=%d", cmds.IntervalSec), nil, "command execution now starts")
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	cmds.cancelFunc = cancelFunc
 	periodicFunc := func(ctx context.Context, _, _ int) error {
@@ -170,7 +170,7 @@ func (cmds *RecurringCommands) Stop() {
 		cmds.cancelFunc()
 		cmds.cancelFunc = nil
 	}
-	cmds.logger.Info("Stop", "", nil, "stopped on request")
+	cmds.logger.Info("", nil, "stopped on request")
 }
 
 // AddArbitraryTextToResult simply places an arbitrary text string into result.

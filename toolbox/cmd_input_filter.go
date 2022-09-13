@@ -90,7 +90,7 @@ func getTOTP(password string) (ret map[string]bool) {
 	// Calculate TOTP using password PIN - list 1
 	prev1, current1, next1, err := GetTwoFACodes(password)
 	if err != nil {
-		lalog.DefaultLogger.Info("getTOTP", "", err, "failed to calculate TOTP")
+		lalog.DefaultLogger.Info(nil, err, "failed to calculate TOTP")
 		return
 	}
 	// Reverse the password PIN
@@ -102,14 +102,14 @@ func getTOTP(password string) (ret map[string]bool) {
 	// Calculate TOTP using reversed password PIN - list 2
 	prev2, current2, next2, err := GetTwoFACodes(reversedStr)
 	if err != nil {
-		lalog.DefaultLogger.Info("getTOTP", "", err, "failed to calculate TOTP")
+		lalog.DefaultLogger.Info(nil, err, "failed to calculate TOTP")
 		return
 	}
 	// Concatenate codes from the first list and second list
 	for _, s1 := range []string{prev1, current1, next1} {
 		for _, s2 := range []string{prev2, current2, next2} {
 			if code := s1 + s2; len(code) != 12 {
-				lalog.DefaultLogger.Info("getTOTP", "", nil, "wrong code length - %d", len(code))
+				lalog.DefaultLogger.Info(nil, nil, "wrong code length - %d", len(code))
 				return
 			}
 			ret[s1+s2] = true

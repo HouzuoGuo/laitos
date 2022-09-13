@@ -54,36 +54,36 @@ func (daemon *UDPDaemon) GetUDPStatsCollector() *misc.Stats {
 func (daemon *UDPDaemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
 	decryptedLen, err := DecryptUDPPacket(len(packet), packet, daemon.derivedPassword)
 	if err != nil {
-		logger.Info("HandleUDPClient", ip, nil, "failed to decrypt packet - %v", err)
+		logger.Info(ip, nil, "failed to decrypt packet - %v", err)
 		WriteRandomToUDP(srv, client)
 		return
 	}
 	packet = packet[:decryptedLen]
 	proxyDestAddr := ParseDestAddr(packet)
 	if proxyDestAddr == nil {
-		logger.Info("HandleUDPClient", ip, nil, "failed to get destination address - %v", err)
+		logger.Info(ip, nil, "failed to get destination address - %v", err)
 		WriteRandomToUDP(srv, client)
 		return
 	}
 	destNameOrIP, destPort := proxyDestAddr.HostPort()
 	if destNameOrIP == "" || destPort == 0 || strings.ContainsRune(destNameOrIP, 0) {
-		logger.Info("HandleUDPClient", ip, nil, "invalid destination IP (%s) or port (%d)", destNameOrIP, destPort)
+		logger.Info(ip, nil, "invalid destination IP (%s) or port (%d)", destNameOrIP, destPort)
 		WriteRandomToUDP(srv, client)
 		return
 	}
 	if parsedIP := net.ParseIP(destNameOrIP); parsedIP != nil {
 		if IsReservedAddr(parsedIP) {
-			logger.Info("HandleUDPClient", ip, nil, "will not serve reserved address %s", destNameOrIP)
+			logger.Info(ip, nil, "will not serve reserved address %s", destNameOrIP)
 			return
 		}
 	}
 	if daemon.DNSDaemon.IsInBlacklist(destNameOrIP) {
-		logger.Info("HandleUDPClient", ip, nil, "will not serve blacklisted destination %s", destNameOrIP)
+		logger.Info(ip, nil, "will not serve blacklisted destination %s", destNameOrIP)
 		return
 	}
 	resolvedAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(destNameOrIP, strconv.Itoa(destPort)))
 	if err != nil {
-		logger.Info("HandleUDPClient", ip, err, "failed to resolve destination \"%s\"", destNameOrIP)
+		logger.Info(ip, err, "failed to resolve destination \"%s\"", destNameOrIP)
 		return
 	}
 	payload := packet[len(proxyDestAddr):]
@@ -91,14 +91,14 @@ func (daemon *UDPDaemon) HandleUDPClient(logger lalog.Logger, ip string, client 
 	if backlogConn == nil {
 		backlogConn, err = net.ListenPacket("udp", "")
 		if err != nil {
-			logger.Info("HandleUDPClient", ip, nil, "failed to listen for destination %s - %v", destNameOrIP, err)
+			logger.Info(ip, nil, "failed to listen for destination %s - %v", destNameOrIP, err)
 			return
 		}
 		daemon.udpBacklog.Add(client, &EncryptedUDPConn{PacketConn: srv, DerivedPassword: daemon.derivedPassword, buf: make([]byte, MaxPacketSize)}, backlogConn)
 	}
 	_, err = backlogConn.WriteTo(payload, resolvedAddr)
 	if err != nil {
-		logger.Info("HandleUDPClient", ip, nil, "failed to write for destination %s - %v", destNameOrIP, err)
+		logger.Info(ip, nil, "failed to write for destination %s - %v", destNameOrIP, err)
 		return
 	}
 }
@@ -115,15 +115,15 @@ func (daemon *UDPDaemon) WriteRand(server net.PacketConn, dest net.Addr) {
 	randBuf := make([]byte, RandNum(4, 50, 600))
 	_, err := rand.Read(randBuf)
 	if err != nil {
-		daemon.logger.Info("WriteRand", dest.String(), nil, "failed to get random bytes - %v", err)
+		daemon.logger.Info(dest.String(), nil, "failed to get random bytes - %v", err)
 		return
 	}
 	if err := server.SetWriteDeadline(time.Now().Add(IOTimeout)); err != nil {
-		daemon.logger.Info("WriteRand", dest.String(), nil, "failed to write random bytes - %v", err)
+		daemon.logger.Info(dest.String(), nil, "failed to write random bytes - %v", err)
 		return
 	}
 	if _, err := server.WriteTo(randBuf, dest); err != nil && !strings.Contains(err.Error(), "closed") {
-		daemon.logger.Info("WriteRand", dest.String(), nil, "failed to write random bytes - %v", err)
+		daemon.logger.Info(dest.String(), nil, "failed to write random bytes - %v", err)
 		return
 	}
 }

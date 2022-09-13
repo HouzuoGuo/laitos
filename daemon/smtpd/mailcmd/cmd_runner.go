@@ -130,9 +130,9 @@ func (runner *CommandRunner) Process(clientIP string, mailContent []byte, replyA
 		if strings.Contains(prop.Subject, inet.OutgoingMailSubjectKeyword) {
 			return false, errors.New("ignore email sent by this program itself")
 		}
-		runner.logger.Info("Process", prop.FromAddress, nil, "process message subject \"%s\", content type \"%s\"", prop.Subject, prop.ContentType)
+		runner.logger.Info(prop.FromAddress, nil, "process message subject \"%s\", content type \"%s\"", prop.Subject, prop.ContentType)
 		if partSize := len(body); partSize > MaxMailSizeForAppCommand {
-			runner.logger.Info("Process", prop.FromAddress, nil, "the mail part size (%d) is too large to be carrying an app command", partSize)
+			runner.logger.Info(prop.FromAddress, nil, "the mail part size (%d) is too large to be carrying an app command", partSize)
 			return false, nil
 		}
 		// By contract, PIN processor finds command among input lines.
@@ -158,7 +158,7 @@ func (runner *CommandRunner) Process(clientIP string, mailContent []byte, replyA
 		commandIsProcessed = true
 		// Normally the result should be sent as Email reply, but there are undocumented scenarios.
 		if runner.Undocumented1.MayReplyTo(prop) {
-			runner.logger.Info("Process", prop.FromAddress, nil, "invoke Undocumented1")
+			runner.logger.Info(prop.FromAddress, nil, "invoke Undocumented1")
 			if undocErr := runner.Undocumented1.SendMessage(result.CombinedOutput); undocErr == nil {
 				return false, nil
 			} else {
@@ -166,7 +166,7 @@ func (runner *CommandRunner) Process(clientIP string, mailContent []byte, replyA
 			}
 		}
 		if runner.Undocumented2.MayReplyTo(prop) {
-			runner.logger.Info("Process", prop.FromAddress, nil, "invoke Undocumented2")
+			runner.logger.Info(prop.FromAddress, nil, "invoke Undocumented2")
 			if undocErr := runner.Undocumented2.SendMessage(result.CombinedOutput); undocErr == nil {
 				return false, nil
 			} else {
@@ -174,7 +174,7 @@ func (runner *CommandRunner) Process(clientIP string, mailContent []byte, replyA
 			}
 		}
 		if runner.Undocumented3.MayReplyTo(prop) {
-			runner.logger.Info("Process", prop.FromAddress, nil, "invoke Undocumented3")
+			runner.logger.Info(prop.FromAddress, nil, "invoke Undocumented3")
 			if undocErr := runner.Undocumented3.SendMessage(prop, result.CombinedOutput); undocErr == nil {
 				return false, nil
 			} else {

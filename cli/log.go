@@ -53,11 +53,11 @@ This behaviour is enabled optionally by specifying the queue URL in environment 
 */
 func InstallOptionalLoggerSQSCallback(logger lalog.Logger, sqsURL string) {
 	if misc.EnableAWSIntegration && sqsURL != "" {
-		logger.Info("InstallOptionalLoggerSQSCallback", "", nil, "installing callback for sending logger warning messages to SQS")
+		logger.Info(nil, nil, "installing callback for sending logger warning messages to SQS")
 		loggerSQSClientInitOnce.Do(func() {
 			sqsClient, err := awsinteg.NewSQSClient()
 			if err != nil {
-				lalog.DefaultLogger.Warning("InstallLoggerSQSCallback", "", err, "failed to initialise SQS client")
+				lalog.DefaultLogger.Warning(nil, err, "failed to initialise SQS client")
 				return
 			}
 			// Give SQS a copy of each warning message

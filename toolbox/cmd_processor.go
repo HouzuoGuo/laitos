@@ -308,9 +308,9 @@ func (proc *CommandProcessor) Process(ctx context.Context, cmd Command, runResul
 		goto result
 	}
 	// Run the feature
-	proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientTag), nil, "running \"%s\" (post-process result? %v)", logCommandContent, runResultFilters)
+	proc.logger.Info(fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientTag), nil, "running \"%s\" (post-process result? %v)", logCommandContent, runResultFilters)
 	defer func() {
-		proc.logger.Info("Process", fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientTag), nil, "completed \"%s\" (ok? %v post-process reslt? %v)", logCommandContent, ret.Error == nil, runResultFilters)
+		proc.logger.Info(fmt.Sprintf("%s-%s", cmd.DaemonName, cmd.ClientTag), nil, "completed \"%s\" (ok? %v post-process reslt? %v)", logCommandContent, ret.Error == nil, runResultFilters)
 	}()
 	ret = matchedFeature.Execute(ctx, cmd)
 result:

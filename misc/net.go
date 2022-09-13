@@ -30,7 +30,7 @@ func ProbePort(maxDuration time.Duration, host string, port int) bool {
 		time.Sleep(maxDuration / time.Duration(maxRounds))
 	}
 fail:
-	lalog.DefaultLogger.Warning("ProbePort", "", nil, "%s:%d did not respond within %s. Stack: %s", host, port, maxDuration, debug.Stack())
+	lalog.DefaultLogger.Warning("", nil, "%s:%d did not respond within %s. Stack: %s", host, port, maxDuration, debug.Stack())
 	return false
 }
 
@@ -61,7 +61,7 @@ func PipeConn(logger lalog.Logger, autoClose bool, ioTimeout time.Duration, bufL
 	buf := make([]byte, bufLen)
 	for {
 		if EmergencyLockDown {
-			logger.Warning("PipeConn", "", ErrEmergencyLockDown, "")
+			logger.Warning("", ErrEmergencyLockDown, "")
 			logger.MaybeMinorError(src.Close())
 			logger.MaybeMinorError(dest.Close())
 			return nil

@@ -107,7 +107,7 @@ func (notify *NotifyViaEmail) Transform(result *Result) error {
 		go func() {
 			subject := inet.OutgoingMailSubjectKeyword + "-notify-" + result.Command.Content
 			if err := notify.MailClient.Send(subject, result.CombinedOutput, notify.Recipients...); err != nil {
-				notify.logger.Warning("Transform", "", err, "failed to send notification for command \"%s\"", result.Command.Content)
+				notify.logger.Warning("", err, "failed to send notification for command \"%s\"", result.Command.Content)
 			}
 		}()
 	}

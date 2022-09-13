@@ -43,6 +43,6 @@ func (und *Undocumented3) SendMessage(prop inet.BasicMail, message string) error
 	if len(message) > 134 {
 		message = message[:134]
 	}
-	und.Logger.Info("Undocumented3.SendMessage", prop.FromAddress, nil, "will send reply to: %s", prop.ReplyAddress)
+	und.Logger.Info(prop.FromAddress, nil, "will send reply to: %s", prop.ReplyAddress)
 	return und.MailClient.Send(time.Now().String(), message, prop.ReplyAddress)
 }

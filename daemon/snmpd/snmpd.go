@@ -82,12 +82,12 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, clientIP string, clie
 	// Parse the input packet
 	packet := snmp.Packet{}
 	if err := packet.ReadFrom(reader); err != nil {
-		logger.Info("HandleUDPClient", clientIP, nil, "failed to parse request packet - %v", err)
+		logger.Info(clientIP, nil, "failed to parse request packet - %v", err)
 		return
 	}
 	// Validate community name i.e. password
 	if subtle.ConstantTimeCompare([]byte(packet.CommunityName), []byte(daemon.CommunityName)) != 1 {
-		logger.Info("HandleUDPClient", clientIP, nil, "incorrect community name")
+		logger.Info(clientIP, nil, "incorrect community name")
 		return
 	}
 	// Process the request
@@ -99,7 +99,7 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, clientIP string, clie
 		nextOID, endOfMibView := snmp.GetNextNode(baseOID)
 		nextNodeFun, exists := snmp.GetNode(nextOID)
 		if !exists {
-			logger.Warning("HandleUDPClient", clientIP, nil, "failed to retrieve OID %v, this is a programming error.", nextOID)
+			logger.Warning(clientIP, nil, "failed to retrieve OID %v, this is a programming error.", nextOID)
 			return
 		}
 		nodeValue := nextNodeFun()
@@ -110,9 +110,9 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, clientIP string, clie
 			EndOfMIBView:   endOfMibView,
 		}
 		if strBytes, isByteArray := nodeValue.([]byte); isByteArray {
-			logger.Info("HandleUDPClient", clientIP, nil, "GetNext OID %v = (%v) %s", baseOID, nextOID, strBytes)
+			logger.Info(clientIP, nil, "GetNext OID %v = (%v) %s", baseOID, nextOID, strBytes)
 		} else {
-			logger.Info("HandleUDPClient", clientIP, nil, "GetNext OID %v = (%v) %v", baseOID, nextOID, nodeValue)
+			logger.Info(clientIP, nil, "GetNext OID %v = (%v) %v", baseOID, nextOID, nodeValue)
 		}
 	case snmp.PDUGetRequest:
 		requestedOID := packet.Structure.(snmp.GetRequest).RequestedOID
@@ -126,9 +126,9 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, clientIP string, clie
 				EndOfMIBView:   false,
 			}
 			if strBytes, isByteArray := nodeValue.([]byte); isByteArray {
-				logger.Info("HandleUDPClient", clientIP, nil, "Get OID %v = %s", requestedOID, strBytes)
+				logger.Info(clientIP, nil, "Get OID %v = %s", requestedOID, strBytes)
 			} else {
-				logger.Info("HandleUDPClient", clientIP, nil, "Get OID %v = %v", requestedOID, nodeValue)
+				logger.Info(clientIP, nil, "Get OID %v = %v", requestedOID, nodeValue)
 			}
 		} else {
 			packet.Structure = snmp.GetResponse{
@@ -137,24 +137,24 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, clientIP string, clie
 				NoSuchInstance: true,
 				EndOfMIBView:   false,
 			}
-			logger.Info("HandleUDPClient", clientIP, nil, "Get OID %v = NoSuchInstance", requestedOID)
+			logger.Info(clientIP, nil, "Get OID %v = NoSuchInstance", requestedOID)
 		}
 	default:
-		logger.Info("HandleUDPClient", clientIP, nil, "unknown PDU %d", packet.PDU)
+		logger.Info(clientIP, nil, "unknown PDU %d", packet.PDU)
 		return
 	}
 	packet.PDU = snmp.PDUGetResponse
 	resp, err = packet.Encode()
 	if err != nil {
-		logger.Warning("HandleUDPClient", clientIP, err, "failed to encode response")
+		logger.Warning(clientIP, err, "failed to encode response")
 		return
 	}
 	if err := srv.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)); err != nil {
-		logger.Warning("HandleUDPClient", clientIP, err, "failed to answer to client")
+		logger.Warning(clientIP, err, "failed to answer to client")
 		return
 	}
 	if _, err = srv.WriteTo(resp, client); err != nil {
-		logger.Warning("HandleUDPClient", clientIP, err, "failed to answer to client")
+		logger.Warning(clientIP, err, "failed to answer to client")
 		return
 	}
 }

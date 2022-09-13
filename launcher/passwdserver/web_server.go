@@ -79,7 +79,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 	summary := platform.GetProgramStatusSummary(false)
 	switch r.Method {
 	case http.MethodPost:
-		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "an unlock attempt has been made")
+		ws.logger.Info(r.RemoteAddr, nil, "an unlock attempt has been made")
 		var err error
 		// Try decrypting program configuration JSON file using the input password
 		key := strings.TrimSpace(r.FormValue(autounlock.PasswordInputName))
@@ -100,7 +100,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		misc.ProgramDataDecryptionPasswordInput <- strings.TrimSpace(r.FormValue("password"))
 		return
 	default:
-		ws.logger.Info("pageHandler", r.RemoteAddr, nil, "just visiting")
+		ws.logger.Info(r.RemoteAddr, nil, "just visiting")
 		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, "")))
 		return
 	}
@@ -129,13 +129,13 @@ func (ws *WebServer) Start() error {
 		WriteTimeout: IOTimeout, IdleTimeout: IOTimeout,
 	}
 	ws.server = server
-	ws.logger.Info("Start", "", nil, "a web server has been started on port %d to collect config file decryption password at \"%s\"",
+	ws.logger.Info("", nil, "a web server has been started on port %d to collect config file decryption password at \"%s\"",
 		ws.Port, ws.URL)
 	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		ws.logger.Warning("Start", "", err, "failed to listen on TCP port")
+		ws.logger.Warning("", err, "failed to listen on TCP port")
 		return err
 	}
-	ws.logger.Info("Start", "", nil, "web server has stopped")
+	ws.logger.Info("", nil, "web server has stopped")
 	return nil
 }
 

@@ -46,7 +46,7 @@ func TestPipeTCPConnection(t *testing.T) {
 	data := bytes.Repeat([]byte{1}, 1024*1024)
 	go func() {
 		if length, err := writeTo.Write(data); length != len(data) || err != nil {
-			lalog.DefaultLogger.Panic("", "", err, "unexpected length (%d) or err", length)
+			lalog.DefaultLogger.Panic("", err, "unexpected length (%d) or err", length)
 		}
 	}()
 	recv, err := ioutil.ReadAll(readFrom)

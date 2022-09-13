@@ -29,8 +29,8 @@ func TestEnvControl_Execute(t *testing.T) {
 	}
 	// Test log retrieval
 	logger := lalog.Logger{}
-	logger.Info("envinfo printf test", "", nil, "")
-	logger.Warning("envinfo warningf test", "", nil, "")
+	logger.Info("envinfo printf test", nil, "")
+	logger.Warning("envinfo warningf test", nil, "")
 	if ret := info.Execute(context.Background(), Command{Content: "log"}); ret.Error != nil || !strings.Contains(ret.Output, "envinfo printf test") {
 		t.Fatal(ret)
 	}

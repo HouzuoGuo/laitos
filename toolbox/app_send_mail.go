@@ -106,7 +106,7 @@ Additional info: %s`,
 		body,
 		email.SOSPersonalInfo)
 
-	email.logger.Warning("SendSOS", subject, nil, "sending SOS email, body is: %s", body)
+	email.logger.Warning(subject, nil, "sending SOS email, body is: %s", body)
 
 	for _, recipient := range GetAllSAREmails() {
 		if recipient == "" {
@@ -119,7 +119,7 @@ Additional info: %s`,
 			} else {
 				err = email.sosTestCaseSendFun("SOS HELP "+subject, body, recipient)
 			}
-			email.logger.Warning("SendSOS", "", err, "attempted to deliver to %s", recipient)
+			email.logger.Warning("", err, "attempted to deliver to %s", recipient)
 		}(recipient)
 	}
 }

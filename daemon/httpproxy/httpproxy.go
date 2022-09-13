@@ -110,7 +110,7 @@ func (daemon *Daemon) Initialise() error {
 		}, metricsLabelNames)
 		for _, histogram := range []*prometheus.HistogramVec{handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram} {
 			if err := prometheus.Register(histogram); err != nil {
-				daemon.logger.Warning("Initialise", "", err, "failed to register prometheus metrics collectors")
+				daemon.logger.Warning("", err, "failed to register prometheus metrics collectors")
 			}
 		}
 	}
@@ -134,7 +134,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		// TODO: figure out how to handle an HTTP/2 proxy client and then reenable HTTP/2 support
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
-	daemon.logger.Info("StartAndBlock", "", nil, "starting now")
+	daemon.logger.Info("", nil, "starting now")
 	if err := daemon.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("httpproxy.StartAndBlock.: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
@@ -147,7 +147,7 @@ func (daemon *Daemon) Stop() {
 		stopCtx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancelFunc()
 		if err := daemon.httpServer.Shutdown(stopCtx); err != nil {
-			daemon.logger.Warning("Stop", daemon.Address, err, "failed to shutdown")
+			daemon.logger.Warning(daemon.Address, err, "failed to shutdown")
 		}
 	}
 }

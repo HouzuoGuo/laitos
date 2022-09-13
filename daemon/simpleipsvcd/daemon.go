@@ -89,7 +89,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	for _, port := range []int{daemon.ActiveUsersPort, daemon.DayTimePort, daemon.QOTDPort} {
 		// There is one TCP server and one UDP server per daemon
 		wg.Add(2)
-		daemon.logger.Info("StartAndBlock", "", nil, "going to listen on TCP and UDP port %d", port)
+		daemon.logger.Info("", nil, "going to listen on TCP and UDP port %d", port)
 		// Start TCP listener on the port
 		tcpServer := &common.TCPServer{
 			ListenAddr:  daemon.Address,
@@ -103,7 +103,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		go func(tcpServer *common.TCPServer) {
 			defer wg.Done()
 			if err := tcpServer.StartAndBlock(); err != nil {
-				daemon.logger.Warning("StartAndBlock", strconv.Itoa(tcpServer.ListenPort), err, "failed to start a TCP server")
+				daemon.logger.Warning(strconv.Itoa(tcpServer.ListenPort), err, "failed to start a TCP server")
 			}
 		}(tcpServer)
 
@@ -120,7 +120,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		go func(udpServer *common.UDPServer) {
 			defer wg.Done()
 			if err := udpServer.StartAndBlock(); err != nil {
-				daemon.logger.Warning("StartAndBlock", strconv.Itoa(udpServer.ListenPort), err, "failed to start a UDP server")
+				daemon.logger.Warning(strconv.Itoa(udpServer.ListenPort), err, "failed to start a UDP server")
 			}
 		}(udpServer)
 	}

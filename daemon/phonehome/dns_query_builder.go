@@ -43,7 +43,7 @@ func EncodeToDTMF(in string) string {
 		} else if dtmfSeq, exists := DTMFEncodeTable[c]; exists {
 			out.WriteString(dtmfSeq)
 		} else {
-			lalog.DefaultLogger.Info("EncodeToDTMF", "", nil, "do not know how to encode character '%c'", c)
+			lalog.DefaultLogger.Info("", nil, "do not know how to encode character '%c'", c)
 		}
 	}
 	return out.String()

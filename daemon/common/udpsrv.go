@@ -88,7 +88,7 @@ func (srv *UDPServer) StartAndBlock() error {
 		srv.mutex.Unlock()
 		return fmt.Errorf("UDPServer.StartAndBlock(%s): listener on port %d must not be started a second time", srv.AppName, srv.ListenPort)
 	}
-	srv.logger.Info("StartAndBlock", "", nil, "starting UDP listener")
+	srv.logger.Info(nil, nil, "starting UDP listener")
 	var err error
 	listenUDPAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(srv.ListenAddr, strconv.Itoa(srv.ListenPort)))
 	if err != nil {
@@ -104,7 +104,7 @@ func (srv *UDPServer) StartAndBlock() error {
 	packet := make([]byte, MaxUDPPacketSize)
 	for {
 		if misc.EmergencyLockDown {
-			srv.logger.Warning("StartAndBlock", srv.AppName, misc.ErrEmergencyLockDown, "")
+			srv.logger.Warning(srv.AppName, misc.ErrEmergencyLockDown, "")
 			return misc.ErrEmergencyLockDown
 		}
 		packetLen, clientAddr, err := udpServer.ReadFromUDP(packet)
@@ -145,10 +145,10 @@ func (srv *UDPServer) handleClient(udpServer *net.UDPConn, clientIP string, clie
 	defer func() {
 		srv.App.GetUDPStatsCollector().Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
-	srv.logger.Info("handleClient", clientIP, nil, "conversation started")
+	srv.logger.Info(clientIP, nil, "conversation started")
 	// Apply the default IO timeout to prevent a potentially malfunctioning connection handler from hanging
 	if err := udpServer.SetWriteDeadline(time.Now().Add(ServerDefaultIOTimeoutSec * time.Second)); err != nil {
-		srv.logger.Warning("handleClient", clientIP, err, "failed to set default write deadline, terminating the conversation.")
+		srv.logger.Warning(clientIP, err, "failed to set default write deadline, terminating the conversation.")
 		return
 	}
 	srv.App.HandleUDPClient(srv.logger, clientIP, clientAddr, packet, udpServer)
@@ -167,9 +167,9 @@ func (srv *UDPServer) Stop() {
 	defer srv.mutex.Unlock()
 	if srv.udpServer != nil {
 		if err := srv.udpServer.Close(); err != nil {
-			srv.logger.Warning("Stop", srv.AppName, err, "failed to stop UDP server listener")
+			srv.logger.Warning(srv.AppName, err, "failed to stop UDP server listener")
 		}
 		srv.udpServer = nil
 	}
-	srv.logger.Info("Stop", "", nil, "UDP server has shut down successfully")
+	srv.logger.Info(nil, nil, "UDP server has shut down successfully")
 }

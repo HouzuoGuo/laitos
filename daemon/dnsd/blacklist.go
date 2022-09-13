@@ -88,10 +88,10 @@ func DownloadAllBlacklists(maxEntries int, logger lalog.Logger) []string {
 			resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{TimeoutSec: BlackListDownloadTimeoutSec}, url)
 			if err == nil {
 				names := ExtractNamesFromHostsContent(string(resp.Body))
-				logger.Info("DownloadAllBlacklists", url, err, "downloaded %d names, please obey the license the list author uses to publish the data.", len(names))
+				logger.Info(url, err, "downloaded %d names, please obey the license the list author uses to publish the data.", len(names))
 				lists[i] = names
 			} else {
-				logger.Warning("DownloadAllBlacklists", url, err, "failed to download blacklist")
+				logger.Warning(url, err, "failed to download blacklist")
 				lists[i] = []string{}
 			}
 			defer wg.Done()
@@ -116,7 +116,7 @@ func DownloadAllBlacklists(maxEntries int, logger lalog.Logger) []string {
 	for str := range set {
 		ret = append(ret, str)
 	}
-	logger.Info("DownloadAllBlacklists", "", nil, "downloaded %d unique names in total", len(ret))
+	logger.Info("", nil, "downloaded %d unique names in total", len(ret))
 	return ret
 }
 

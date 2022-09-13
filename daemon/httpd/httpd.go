@@ -144,7 +144,7 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 		daemon.PerIPLimit = 12 // reasonable for couple of users that use advanced API endpoints in parallel
 	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
-		daemon.logger.Info("Initialise", "", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
+		daemon.logger.Info("", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = toolbox.GetEmptyCommandProcessor()
 	}
 	daemon.logger = lalog.Logger{
@@ -187,7 +187,7 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 		}, metricsLabelNames)
 		for _, histogram := range []*prometheus.HistogramVec{handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram} {
 			if err := prometheus.Register(histogram); err != nil {
-				daemon.logger.Warning("Initialise", "", err, "failed to register prometheus metrics collectors")
+				daemon.logger.Warning("", err, "failed to register prometheus metrics collectors")
 			}
 		}
 	}
@@ -220,13 +220,13 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 									middleware.RestrictMaxRequestSize(MaxRequestBodyBytes,
 										http.StripPrefix(urlLocation, http.FileServer(http.Dir(dirPath))).(http.HandlerFunc))))))))
 			daemon.mux.Handle(urlLocation, decoratedHandlerFunc)
-			daemon.logger.Info("Initialise", "", nil, "installed directory listing handler at location \"%s\"", urlLocation)
+			daemon.logger.Info("", nil, "installed directory listing handler at location \"%s\"", urlLocation)
 		}
 	}
 
 	// Install index page handlers.
 	if indexPageContent := strings.TrimSpace(os.Getenv(EnvironmentIndexPage)); indexPageContent != "" {
-		daemon.logger.Info("Initialise", "", nil, "serving index page from environment variable %s", EnvironmentIndexPage)
+		daemon.logger.Info("", nil, "serving index page from environment variable %s", EnvironmentIndexPage)
 		indexHandler := &handler.HandleHTMLDocument{HTMLContent: indexPageContent}
 		for _, path := range []string{"/", "/index.htm", "/index.html"} {
 			daemon.HandlerCollection[path] = indexHandler
@@ -260,7 +260,7 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 							middleware.WithAWSXray(
 								middleware.RateLimit(rl, innerMostHandler)))))))
 		daemon.mux.Handle(urlLocation, decoratedHandlerFunc)
-		daemon.logger.Info("Initialise", "", nil, "installed web service \"%s\" at location \"%s\"", handlerTypeName, urlLocation)
+		daemon.logger.Info("", nil, "installed web service \"%s\" at location \"%s\"", handlerTypeName, urlLocation)
 	}
 
 	// Initialise all rate limits
@@ -302,7 +302,7 @@ func (daemon *Daemon) StartAndBlockNoTLS(fallbackPort int) error {
 		ReadTimeout:  IOTimeoutSec * time.Second,
 		WriteTimeout: IOTimeoutSec * time.Second,
 	}
-	daemon.logger.Info("StartAndBlockNoTLS", "", nil, "going to listen for HTTP connections on port %d", daemon.PlainPort)
+	daemon.logger.Info("", nil, "going to listen for HTTP connections on port %d", daemon.PlainPort)
 	if err := daemon.serverNoTLS.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("httpd.StartAndBlockNoTLS: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
 	}
@@ -329,7 +329,7 @@ func (daemon *Daemon) StartAndBlockWithTLS() error {
 		WriteTimeout: IOTimeoutSec * time.Second,
 		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{tlsCert}},
 	}
-	daemon.logger.Info("StartAndBlockWithTLS", "", nil, "going to listen for HTTPS connections on port %d", daemon.Port)
+	daemon.logger.Info("", nil, "going to listen for HTTPS connections on port %d", daemon.Port)
 
 	if err := daemon.serverWithTLS.ListenAndServeTLS("", ""); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("httpd.StartAndBlockWithTLS: failed to listen on %s:%d - %v", daemon.Address, daemon.Port, err)
@@ -343,7 +343,7 @@ func (daemon *Daemon) StopNoTLS() {
 		constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 		defer cancel()
 		if err := server.Shutdown(constraints); err != nil {
-			daemon.logger.Warning("StopNoTLS", daemon.Address, err, "failed to shutdown")
+			daemon.logger.Warning(daemon.Address, err, "failed to shutdown")
 		}
 	}
 }
@@ -354,7 +354,7 @@ func (daemon *Daemon) StopTLS() {
 		constraints, cancel := context.WithTimeout(context.Background(), time.Duration(IOTimeoutSec+2)*time.Second)
 		defer cancel()
 		if err := server.Shutdown(constraints); err != nil {
-			daemon.logger.Warning("StopTLS", daemon.Address, err, "failed to shutdown")
+			daemon.logger.Warning(daemon.Address, err, "failed to shutdown")
 		}
 	}
 }

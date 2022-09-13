@@ -116,7 +116,7 @@ func (daemon *Daemon) getTwoFACode(server *MessageProcessorServer) string {
 	accessPassword := server.Passwords[rand.Intn(len(server.Passwords))]
 	_, cmdPassword1, _, err := toolbox.GetTwoFACodes(accessPassword)
 	if err != nil {
-		daemon.logger.Warning("getTwoFACode", "", err, "failed to generate the first 2FA")
+		daemon.logger.Warning("", err, "failed to generate the first 2FA")
 		return ""
 	}
 	// The second 2FA is calculated from the reversed command password
@@ -126,7 +126,7 @@ func (daemon *Daemon) getTwoFACode(server *MessageProcessorServer) string {
 	}
 	_, cmdPassword2, _, err := toolbox.GetTwoFACodes(string(reversedPass))
 	if err != nil {
-		daemon.logger.Warning("getTwoFACode", "", err, "failed to generate the second 2FA")
+		daemon.logger.Warning("", err, "failed to generate the second 2FA")
 		return ""
 	}
 	return cmdPassword1 + cmdPassword2
@@ -154,7 +154,7 @@ func (daemon *Daemon) getReportForServer(serverHostName string, shortenMyHostNam
 
 // StartAndBlock starts the periodic reports and blocks caller until the daemon is stopped.
 func (daemon *Daemon) StartAndBlock() error {
-	daemon.logger.Info("StartAndBlock", "", nil, "reporting to %d servers", len(daemon.MessageProcessorServers))
+	daemon.logger.Info("", nil, "reporting to %d servers", len(daemon.MessageProcessorServers))
 	periodicFunc := func(ctx context.Context, round, i int) error {
 		select {
 		case <-ctx.Done():
@@ -168,7 +168,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			reportCmd := daemon.getTwoFACode(srv) + toolbox.StoreAndForwardMessageProcessorTrigger + daemon.getReportForServer(srv.HostName, true)
 			queryResponse, err := net.LookupTXT(GetDNSQuery(reportCmd, srv.DNSDomainName))
 			if err != nil {
-				daemon.logger.Warning("StartAndBlock", srv.DNSDomainName, err, "failed to send DNS request")
+				daemon.logger.Warning(srv.DNSDomainName, err, "failed to send DNS request")
 				return nil
 			}
 			reportResponseJSON = []byte(strings.Join(queryResponse, ""))
@@ -185,7 +185,7 @@ func (daemon *Daemon) StartAndBlock() error {
 				UseNeutralDNSResolver: round%2 == 0,
 			}, srv.HTTPEndpointURL)
 			if err != nil {
-				daemon.logger.Warning("StartAndBlock", srv.HTTPEndpointURL, err, "failed to send HTTP request")
+				daemon.logger.Warning(srv.HTTPEndpointURL, err, "failed to send HTTP request")
 				return nil
 			}
 			reportResponseJSON = resp.Body
@@ -193,7 +193,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		// Deserialise the server JSON response and pass it to local message processor to process the command request
 		var reportResponse toolbox.SubjectReportResponse
 		if err := json.Unmarshal(reportResponseJSON, &reportResponse); err != nil {
-			daemon.logger.Info("StartAndBlock", srv.DNSDomainName+srv.HTTPEndpointURL, nil, "failed to deserialise JSON report response - %s", string(reportResponseJSON))
+			daemon.logger.Info(srv.DNSDomainName+srv.HTTPEndpointURL, nil, "failed to deserialise JSON report response - %s", string(reportResponseJSON))
 			return nil
 		}
 		daemon.LocalMessageProcessor.StoreReport(ctx, toolbox.SubjectReportRequest{

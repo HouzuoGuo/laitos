@@ -208,10 +208,10 @@ func LogRequestStats(logger lalog.Logger, next http.HandlerFunc) http.HandlerFun
 		}
 		kiloBytesPerSec := float64(totalWritten/1000) / (processingDuration.Seconds())
 		if timeToFirstByte == 0 {
-			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus (%.2f KB/s)",
+			logger.Info(GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus (%.2f KB/s)",
 				r.Method, r.URL.EscapedPath(), r.Proto, r.Host, r.Header.Get("User-Agent"), r.Header.Get("Referer"), responseRecorder.statusCode, totalWritten, processingDuration.Microseconds(), kiloBytesPerSec)
 		} else {
-			logger.Info("decoratedHandler", GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus (%.2f KB/s, time to 1st byte %dus)",
+			logger.Info(GetRealClientIP(r), nil, "request: %s \"%s\" %s, Host: %s, user-agent: %s, referer: %s, responded with code %d in %d bytes and %dus (%.2f KB/s, time to 1st byte %dus)",
 				r.Method, r.URL.EscapedPath(), r.Proto, r.Host, r.Header.Get("User-Agent"), r.Header.Get("Referer"), responseRecorder.statusCode, totalWritten, processingDuration.Microseconds(), kiloBytesPerSec, timeToFirstByte.Microseconds())
 		}
 	}
@@ -234,7 +234,7 @@ func RecordLatestRequests(logger lalog.Logger, next http.HandlerFunc) http.Handl
 			requestBody, err := ioutil.ReadAll(r.Body)
 			_ = r.Body.Close()
 			if err != nil {
-				logger.Warning("RecordLatestRequests", GetRealClientIP(r), err, "failed to read request body")
+				logger.Warning(GetRealClientIP(r), err, "failed to read request body")
 			}
 			// Present the copy of request body to DumpRequest.
 			r.Body = &bytesReaderCloser{Reader: bytes.NewReader(requestBody)}
@@ -242,7 +242,7 @@ func RecordLatestRequests(logger lalog.Logger, next http.HandlerFunc) http.Handl
 			if err == nil {
 				LatestRequests.Push(fmt.Sprintf("From: %s\n%s", GetRealClientIP(r), string(dump)))
 			} else {
-				logger.Warning("RecordLatestRequests", GetRealClientIP(r), err, "failed to dump request")
+				logger.Warning(GetRealClientIP(r), err, "failed to dump request")
 			}
 			// Present the copy of request body to the next middleware/handler.
 			r.Body = &bytesReaderCloser{Reader: bytes.NewReader(requestBody)}

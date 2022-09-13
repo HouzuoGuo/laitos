@@ -53,13 +53,13 @@ type ProxyConnection struct {
 // The function blocks until the underlying TC is closed.
 func (conn *ProxyConnection) Start() {
 	if conn.proxy.Debug {
-		conn.logger.Info("Start", "", nil, "starting now")
+		conn.logger.Info("", nil, "starting now")
 	}
 	conn.buf = tcpoverdns.NewSegmentBuffer(conn.logger, conn.tc.Debug, 0)
 	beginTimeNano := time.Now().UnixNano()
 	defer func() {
 		if conn.proxy.Debug {
-			conn.logger.Info("Start", "", nil, "closing and lingering")
+			conn.logger.Info("", nil, "closing and lingering")
 			conn.tc.DumpState()
 		}
 		_ = conn.Close()
@@ -75,7 +75,7 @@ func (conn *ProxyConnection) Start() {
 			delete(conn.proxy.connections, conn.tc.ID)
 			conn.proxy.mutex.Unlock()
 			if conn.proxy.Debug {
-				conn.logger.Info("Start", "", nil, "closed and removed from proxy")
+				conn.logger.Info("", nil, "closed and removed from proxy")
 			}
 		}()
 	}()
@@ -85,7 +85,7 @@ func (conn *ProxyConnection) Start() {
 	conn.tc.Start(conn.context)
 	conn.tc.WaitState(conn.context, tcpoverdns.StateEstablished)
 	if conn.proxy.Debug {
-		conn.logger.Info("ProxyConnection.Start", "", nil, "TC is established")
+		conn.logger.Info("", nil, "TC is established")
 	}
 	// Pipe data in both directions.
 	if conn.tcpConn != nil {
@@ -94,13 +94,13 @@ func (conn *ProxyConnection) Start() {
 		go func() {
 			if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, 1, conn.tc, conn.tcpConn); err != nil {
 				if conn.proxy.Debug {
-					conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TC to TCP connection")
+					conn.logger.Info("", err, "finished piping from TC to TCP connection")
 				}
 			}
 		}()
 		if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, 1, conn.tcpConn, conn.tc); err != nil {
 			if conn.proxy.Debug {
-				conn.logger.Info("ProxyConnection.Start", "", err, "finished piping from TCP connection to TC")
+				conn.logger.Info("", err, "finished piping from TCP connection to TC")
 			}
 		}
 	}
@@ -192,26 +192,26 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 	if !exists {
 		// Connect to the proxy destination.
 		var req ProxyRequest
-		proxy.logger.Info("Receive", in.ID, nil, "new connection request - seg: %+v, req: %+v", in, req)
+		proxy.logger.Info(in.ID, nil, "new connection request - seg: %+v, req: %+v", in, req)
 		if len(in.Data) < tcpoverdns.InitiatorConfigLen {
-			proxy.logger.Warning("Receive", in.ID, nil, "received a malformed segment possibly from a stale TC")
+			proxy.logger.Warning(in.ID, nil, "received a malformed segment possibly from a stale TC")
 			return tcpoverdns.Segment{}, false
 		}
 		if err := json.Unmarshal(in.Data[tcpoverdns.InitiatorConfigLen:], &req); err != nil {
-			proxy.logger.Warning("Receive", in.ID, err, "failed to deserialise proxy request")
+			proxy.logger.Warning(in.ID, err, "failed to deserialise proxy request")
 			return tcpoverdns.Segment{}, false
 		}
 		if proxy.DNSDaemon != nil && proxy.DNSDaemon.IsInBlacklist(req.Address) {
-			proxy.logger.Info("Receive", in.ID, nil, "refusing connection to blacklisted destination %q", req.Address)
+			proxy.logger.Info(in.ID, nil, "refusing connection to blacklisted destination %q", req.Address)
 			return tcpoverdns.Segment{ID: in.ID, Flags: tcpoverdns.FlagReset}, true
 		}
 		prev, curr, next, err := toolbox.GetTwoFACodes(proxy.RequestOTPSecret)
 		if err != nil {
-			proxy.logger.Info("Receive", in.ID, nil, "failed to calculate TOTP codes")
+			proxy.logger.Info(in.ID, nil, "failed to calculate TOTP codes")
 			return tcpoverdns.Segment{ID: in.ID, Flags: tcpoverdns.FlagReset}, true
 		}
 		if req.AccessTOTP != prev && req.AccessTOTP != curr && req.AccessTOTP != next {
-			proxy.logger.Warning("Receive", in.ID, nil, "the request failed OTP check")
+			proxy.logger.Warning(in.ID, nil, "the request failed OTP check")
 			return tcpoverdns.Segment{ID: in.ID, Flags: tcpoverdns.FlagReset}, true
 		}
 		// Construct the transmission control at proxy's side.
@@ -229,7 +229,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 		if err != nil {
 			// Immediately close the transmission control if the destination is
 			// unreachable.
-			proxy.logger.Warning("Receive", in.ID, err, "failed to connect to proxy destination %s %s", dialNet, dialDest)
+			proxy.logger.Warning(in.ID, err, "failed to connect to proxy destination %s %s", dialNet, dialDest)
 			// Proceed with handshake, but there will be no data coming through
 			// the transmission control and it will be closed shortly.
 		}
@@ -291,7 +291,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 	defer cancel()
 	begin := time.Now()
 	seg, hasSeg := conn.WaitSegment(waitCtx)
-	proxy.logger.Info("Receive", in.ID, nil, "waited %dms for the outbound segment: %+v", time.Since(begin).Milliseconds(), seg)
+	proxy.logger.Info(in.ID, nil, "waited %dms for the outbound segment: %+v", time.Since(begin).Milliseconds(), seg)
 	return seg, hasSeg
 }
 

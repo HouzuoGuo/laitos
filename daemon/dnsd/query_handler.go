@@ -25,31 +25,31 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	queryLen := make([]byte, 2)
 	_, err := conn.Read(queryLen)
 	if err != nil {
-		logger.Warning("HandleTCPConnection", ip, err, "failed to read query length from client")
+		logger.Warning(ip, err, "failed to read query length from client")
 		return
 	}
 	queryLenInteger := int(queryLen[0])*256 + int(queryLen[1])
 	// Read query packet
 	if queryLenInteger > MaxPacketSize || queryLenInteger < MinNameQuerySize {
-		logger.Info("HandleTCPConnection", ip, nil, "invalid query length (%d) from client", queryLenInteger)
+		logger.Info(ip, nil, "invalid query length (%d) from client", queryLenInteger)
 		return
 	}
 	queryBody := make([]byte, queryLenInteger)
 	_, err = conn.Read(queryBody)
 	if err != nil {
-		logger.Warning("HandleTCPConnection", ip, err, "failed to read query from client")
+		logger.Warning(ip, err, "failed to read query from client")
 		return
 	}
 	// Parse the first (and only) query question.
 	parser := new(dnsmessage.Parser)
 	header, err := parser.Start(queryBody)
 	if err != nil {
-		logger.Warning("HandleTCPConnection", ip, err, "failed to parse query header")
+		logger.Warning(ip, err, "failed to parse query header")
 		return
 	}
 	question, err := parser.Question()
 	if err != nil {
-		logger.Warning("HandleTCPConnection", ip, err, "failed to parse query question")
+		logger.Warning(ip, err, "failed to parse query question")
 		return
 	}
 	var respBody []byte
@@ -76,10 +76,10 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	misc.TweakTCPConnection(conn, ClientTimeoutSec*time.Second)
 	respLen := []byte{byte(len(respBody) / 256), byte(len(respBody) % 256)}
 	if _, err := conn.Write(respLen); err != nil {
-		logger.Warning("HandleTCPConnection", ip, err, "failed to answer length to the client")
+		logger.Warning(ip, err, "failed to answer length to the client")
 		return
 	} else if _, err := conn.Write(respBody); err != nil {
-		logger.Warning("HandleTCPConnection", ip, err, "failed to answer to the client")
+		logger.Warning(ip, err, "failed to answer to the client")
 		return
 	}
 }
@@ -92,19 +92,19 @@ func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
 func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
 	if len(packet) < MinNameQuerySize {
-		logger.Warning("HandleUDPClient", ip, nil, "packet length is too small")
+		logger.Warning(ip, nil, "packet length is too small")
 		return
 	}
 	// Parse the first (and only) query question.
 	parser := new(dnsmessage.Parser)
 	header, err := parser.Start(packet)
 	if err != nil {
-		logger.Warning("HandleUDPClient", ip, err, "failed to parse query header")
+		logger.Warning(ip, err, "failed to parse query header")
 		return
 	}
 	question, err := parser.Question()
 	if err != nil {
-		logger.Warning("HandleUDPClient", ip, err, "failed to parse query question")
+		logger.Warning(ip, err, "failed to parse query question")
 		return
 	}
 	var respBody []byte
@@ -130,7 +130,7 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 	// response writer do not share the same timeout
 	logger.MaybeMinorError(srv.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
 	if _, err := srv.WriteTo(respBody, client); err != nil {
-		logger.Warning("HandleUDPQuery", ip, err, "failed to answer to client")
+		logger.Warning(ip, err, "failed to answer to client")
 		return
 	}
 }
@@ -142,7 +142,7 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 	}
 	labels, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
-		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+		daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 		if queryLen == nil {
 			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 		}
@@ -150,7 +150,7 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 	}
 	if dtmfDecoded := DecodeDTMFCommandInput(labels); len(dtmfDecoded) > 1 {
 		cmdResult := daemon.latestCommands.Execute(context.Background(), daemon.Processor, clientIP, dtmfDecoded)
-		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "executed a toolbox command")
+		daemon.logger.Info(clientIP, nil, "executed a toolbox command")
 		// Try to fit the response into a single TXT entry.
 		// Keep in mind that by convention DNS uses 512 bytes as the overall
 		// message size limit - including both question and response.
@@ -158,10 +158,10 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 		var err error
 		respBody, err = BuildTextResponse(name, header, question, misc.SplitIntoSlice(cmdResult.CombinedOutput, 200, 200))
 		if err != nil {
-			daemon.logger.Warning("handleTCPTextQuery", clientIP, err, "failed to build response packet")
+			daemon.logger.Warning(clientIP, err, "failed to build response packet")
 		}
 	} else {
-		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
+		daemon.logger.Info(clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
 	}
 	return
 }
@@ -169,7 +169,7 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
-	daemon.logger.Info("handleTCPSOA", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
@@ -181,7 +181,7 @@ func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, hea
 	}
 	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s.", domainName), domainName)
 	if err != nil {
-		daemon.logger.Warning("handleTCPSOA", clientIP, err, "failed to build response packet")
+		daemon.logger.Warning(clientIP, err, "failed to build response packet")
 	}
 	return
 }
@@ -189,7 +189,7 @@ func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, hea
 func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
-	daemon.logger.Info("handleTCPNS", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
@@ -201,7 +201,7 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 	}
 	respBody, err := BuildNSResponse(header, question, domainName)
 	if err != nil {
-		daemon.logger.Warning("handleTCPNS", clientIP, err, "failed to build response packet")
+		daemon.logger.Warning(clientIP, err, "failed to build response packet")
 	}
 	return
 }
@@ -209,17 +209,17 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
-	daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
 		if daemon.TCPProxy == nil {
-			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "received a TCP-over-DNS segment but the server is not configured to handle it.")
+			daemon.logger.Info(clientIP, nil, "received a TCP-over-DNS segment but the server is not configured to handle it.")
 			return
 		}
 		seg := tcpoverdns.SegmentFromDNSName(numDomainLabels, name)
 		emptySegment := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
 		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
-			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "received a malformed TCP-over-DNS segment")
+			daemon.logger.Info(clientIP, nil, "received a malformed TCP-over-DNS segment")
 			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment.DNSName("r", domainName))
 			return respBody
 		}
@@ -232,7 +232,7 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 		}))
 		respBody, err := daemon.TCPOverDNSSegmentResponse(header, question, cname)
 		if err != nil {
-			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
+			daemon.logger.Info(clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
 			return nil
 		}
 		return respBody
@@ -246,7 +246,7 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 		var err error
 		respBody, err = BuildIPv4AddrResponse(header, question, daemon.myPublicIP)
 		if err != nil {
-			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, err, "failed to construct DNS query response")
+			daemon.logger.Info(clientIP, err, "failed to construct DNS query response")
 			return
 		}
 	} else {
@@ -255,15 +255,15 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 			daemon.processQueryTestCaseFunc(name)
 		}
 		if daemon.IsInBlacklist(name) {
-			daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle black-listed name query %q", name)
+			daemon.logger.Info(clientIP, nil, "handle black-listed name query %q", name)
 			respBody, err := BuildBlackHoleAddrResponse(header, question)
 			if err != nil {
-				daemon.logger.Warning("handleTCPNameOrOtherQuery", clientIP, err, "failed to build response packet")
+				daemon.logger.Warning(clientIP, err, "failed to build response packet")
 				return nil
 			}
 			return respBody
 		}
-		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle recursive non-name query")
+		daemon.logger.Info(clientIP, nil, "handle recursive non-name query")
 		if queryLen == nil {
 			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 		}
@@ -280,14 +280,14 @@ therefore this function must not log the input packet content in any way.
 func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBody []byte) (respBody []byte) {
 	respBody = make([]byte, 0)
 	if !daemon.isRecursiveQueryAllowed(clientIP) {
-		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, nil, "client IP is not allowed to query")
+		daemon.logger.Warning(clientIP, nil, "client IP is not allowed to query")
 		return
 	}
 	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
 	// Forward the query to a randomly chosen recursive resolver
 	myForwarder, err := net.DialTimeout("tcp", randForwarder, ForwarderTimeoutSec*time.Second)
 	if err != nil {
-		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to connect to forwarder")
+		daemon.logger.Warning(clientIP, err, "failed to connect to forwarder")
 		return
 	}
 	defer func() {
@@ -296,26 +296,26 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 	// Send original query to the resolver without modification
 	daemon.logger.MaybeMinorError(myForwarder.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
 	if _, err = myForwarder.Write(queryLen); err != nil {
-		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to write length to forwarder")
+		daemon.logger.Warning(clientIP, err, "failed to write length to forwarder")
 		return
 	} else if _, err = myForwarder.Write(queryBody); err != nil {
-		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to write query to forwarder")
+		daemon.logger.Warning(clientIP, err, "failed to write query to forwarder")
 		return
 	}
 	// Read resolver's response
 	respLen := make([]byte, 2)
 	if _, err = myForwarder.Read(respLen); err != nil {
-		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to read length from forwarder")
+		daemon.logger.Warning(clientIP, err, "failed to read length from forwarder")
 		return
 	}
 	respLenInt := int(respLen[0])*256 + int(respLen[1])
 	if respLenInt > MaxPacketSize || respLenInt < 1 {
-		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, nil, "bad response length from forwarder")
+		daemon.logger.Warning(clientIP, nil, "bad response length from forwarder")
 		return
 	}
 	respBody = make([]byte, respLenInt)
 	if _, err = myForwarder.Read(respBody); err != nil {
-		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to read response from forwarder")
+		daemon.logger.Warning(clientIP, err, "failed to read response from forwarder")
 		return
 	}
 	return
@@ -329,14 +329,14 @@ therefore this function must not log the input packet content in any way.
 func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte) (respBody []byte) {
 	respBody = make([]byte, 0)
 	if !daemon.isRecursiveQueryAllowed(clientIP) {
-		daemon.logger.Info("handleUDPRecursiveQuery", clientIP, nil, "client IP is not allowed to query")
+		daemon.logger.Info(clientIP, nil, "client IP is not allowed to query")
 		return
 	}
 	// Forward the query to a randomly chosen recursive resolver and return its response
 	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
 	forwarderConn, err := net.DialTimeout("udp", randForwarder, ForwarderTimeoutSec*time.Second)
 	if err != nil {
-		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to dial forwarder's address")
+		daemon.logger.Warning(clientIP, err, "failed to dial forwarder's address")
 		return
 	}
 	defer func() {
@@ -344,17 +344,17 @@ func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte)
 	}()
 	daemon.logger.MaybeMinorError(forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
 	if _, err := forwarderConn.Write(queryBody); err != nil {
-		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to write to forwarder")
+		daemon.logger.Warning(clientIP, err, "failed to write to forwarder")
 		return
 	}
 	respBody = make([]byte, MaxPacketSize)
 	respLenInt, err := forwarderConn.Read(respBody)
 	if err != nil {
-		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to read from forwarder")
+		daemon.logger.Warning(clientIP, err, "failed to read from forwarder")
 		return
 	}
 	if respLenInt < 3 {
-		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "forwarder response is abnormally small")
+		daemon.logger.Warning(clientIP, err, "forwarder response is abnormally small")
 		return
 	}
 	respBody = respBody[:respLenInt]

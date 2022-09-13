@@ -226,7 +226,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			go func(tcpDaemon *TCPDaemon) {
 				defer wg.Done()
 				if tcpErr := tcpDaemon.StartAndBlock(); tcpErr != nil {
-					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("TCP-%d", tcpDaemon.TCPPort), tcpErr, "failed to start TCP daemon")
+					daemon.logger.Warning(fmt.Sprintf("TCP-%d", tcpDaemon.TCPPort), tcpErr, "failed to start TCP daemon")
 				}
 			}(tcpDaemon)
 		}
@@ -249,7 +249,7 @@ func (daemon *Daemon) StartAndBlock() error {
 			go func(udpDaemon *UDPDaemon) {
 				defer wg.Done()
 				if udpErr := udpDaemon.StartAndBlock(); udpErr != nil {
-					daemon.logger.Warning("StartAndBlock", fmt.Sprintf("UDP-%d", udpDaemon.UDPPort), udpErr, "failed to start UDP daemon")
+					daemon.logger.Warning(fmt.Sprintf("UDP-%d", udpDaemon.UDPPort), udpErr, "failed to start UDP daemon")
 				}
 			}(udpDaemon)
 		}
