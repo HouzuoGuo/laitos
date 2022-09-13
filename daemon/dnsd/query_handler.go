@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"golang.org/x/net/dns/dnsmessage"
-
-	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // GetTCPStatsCollector returns stats collector for the TCP server of this daemon.
@@ -56,14 +55,14 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	var respBody []byte
 	if question.Type == dnsmessage.TypeTXT {
 		// The TXT query may be carrying an app command.
-		respBody = daemon.handleTCPTextQuery(ip, queryLen, queryBody, header, question)
+		respBody = daemon.handleTextQuery(ip, queryLen, queryBody, header, question)
 	} else if question.Type == dnsmessage.TypeNS {
-		respBody = daemon.handleTCPNS(ip, queryLen, queryBody, header, question)
+		respBody = daemon.handleNS(ip, queryLen, queryBody, header, question)
 	} else if question.Type == dnsmessage.TypeSOA {
-		respBody = daemon.handleTCPSOA(ip, queryLen, queryBody, header, question)
+		respBody = daemon.handleSOA(ip, queryLen, queryBody, header, question)
 	} else {
 		// Handle all other query types.
-		respBody = daemon.handleTCPNameOrOtherQuery(ip, queryLen, queryBody, header, question)
+		respBody = daemon.handleNameOrOtherQuery(ip, queryLen, queryBody, header, question)
 	}
 	// Return early (and close the client connection) in case there is no
 	// appropriate response.
@@ -85,7 +84,58 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	}
 }
 
-func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+// GetUDPStatsCollector returns stats collector for the UDP server of this daemon.
+func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
+	return misc.DNSDStatsUDP
+}
+
+// Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
+func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
+	if len(packet) < MinNameQuerySize {
+		logger.Warning("HandleUDPClient", ip, nil, "packet length is too small")
+		return
+	}
+	// Parse the first (and only) query question.
+	parser := new(dnsmessage.Parser)
+	header, err := parser.Start(packet)
+	if err != nil {
+		logger.Warning("HandleUDPClient", ip, err, "failed to parse query header")
+		return
+	}
+	question, err := parser.Question()
+	if err != nil {
+		logger.Warning("HandleUDPClient", ip, err, "failed to parse query question")
+		return
+	}
+	var respBody []byte
+	if question.Type == dnsmessage.TypeTXT {
+		// The TXT query may be carrying an app command.
+		respBody = daemon.handleTextQuery(ip, nil, packet, header, question)
+	} else if question.Type == dnsmessage.TypeNS {
+		respBody = daemon.handleNS(ip, nil, packet, header, question)
+	} else if question.Type == dnsmessage.TypeSOA {
+		respBody = daemon.handleSOA(ip, nil, packet, header, question)
+	} else {
+		// Handle all other query types.
+		respBody = daemon.handleNameOrOtherQuery(ip, nil, packet, header, question)
+	}
+	// Ignore the request if there is no appropriate response
+	if len(respBody) < 3 {
+		return
+	}
+	// Match the response transaction ID with the request.
+	respBody[0] = packet[0]
+	respBody[1] = packet[1]
+	// Set deadline for responding to my DNS client because the query reader and
+	// response writer do not share the same timeout
+	logger.MaybeMinorError(srv.SetWriteDeadline(time.Now().Add(ClientTimeoutSec * time.Second)))
+	if _, err := srv.WriteTo(respBody, client); err != nil {
+		logger.Warning("HandleUDPQuery", ip, err, "failed to answer to client")
+		return
+	}
+}
+
+func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
@@ -113,7 +163,7 @@ func (daemon *Daemon) handleTCPTextQuery(clientIP string, queryLen, queryBody []
 	return
 }
 
-func (daemon *Daemon) handleTCPSOA(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	daemon.logger.Info("handleTCPSOA", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
@@ -130,7 +180,7 @@ func (daemon *Daemon) handleTCPSOA(clientIP string, queryLen, queryBody []byte, 
 	return
 }
 
-func (daemon *Daemon) handleTCPNS(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	daemon.logger.Info("handleTCPNS", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
@@ -147,7 +197,7 @@ func (daemon *Daemon) handleTCPNS(clientIP string, queryLen, queryBody []byte, h
 	return
 }
 
-func (daemon *Daemon) handleTCPNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
@@ -256,5 +306,45 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 		daemon.logger.Warning("handleTCPRecursiveQuery", clientIP, err, "failed to read response from forwarder")
 		return
 	}
+	return
+}
+
+/*
+handleUDPRecursiveQuery forward the input query to a randomly chosen recursive resolver and retrieves the response.
+Be aware that toolbox command processor may invoke this function with an incorrect PIN entry similar to the real PIN,
+therefore this function must not log the input packet content in any way.
+*/
+func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte) (respBody []byte) {
+	respBody = make([]byte, 0)
+	if !daemon.isRecursiveQueryAllowed(clientIP) {
+		daemon.logger.Info("handleUDPRecursiveQuery", clientIP, nil, "client IP is not allowed to query")
+		return
+	}
+	// Forward the query to a randomly chosen recursive resolver and return its response
+	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
+	forwarderConn, err := net.DialTimeout("udp", randForwarder, ForwarderTimeoutSec*time.Second)
+	if err != nil {
+		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to dial forwarder's address")
+		return
+	}
+	defer func() {
+		daemon.logger.MaybeMinorError(forwarderConn.Close())
+	}()
+	daemon.logger.MaybeMinorError(forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
+	if _, err := forwarderConn.Write(queryBody); err != nil {
+		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to write to forwarder")
+		return
+	}
+	respBody = make([]byte, MaxPacketSize)
+	respLenInt, err := forwarderConn.Read(respBody)
+	if err != nil {
+		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "failed to read from forwarder")
+		return
+	}
+	if respLenInt < 3 {
+		daemon.logger.Warning("handleUDPRecursiveQuery", clientIP, err, "forwarder response is abnormally small")
+		return
+	}
+	respBody = respBody[:respLenInt]
 	return
 }

@@ -97,6 +97,9 @@ type Daemon struct {
 	// Forwarders are recursive DNS resolvers for all query types. All resolvers
 	// must support both TCP and UDP.
 	Forwarders []string `json:"Forwarders"`
+	// TCPOnlyForwarding tells the DNS daemon to translate incoming UDP queries
+	// into a UDP-over-TCP queries before sending them to the forwarder.
+	TCPOnlyForwarding bool
 	// Processor enables execution of toolbox commands via DNS TXT queries when
 	// the queries are directed at the server's own domain name(s).
 	Processor *toolbox.CommandProcessor `json:"-"`
