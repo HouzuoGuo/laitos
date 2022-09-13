@@ -143,6 +143,9 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 	labels, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
 		daemon.logger.Info("handleTCPTextQuery", clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+		if queryLen == nil {
+			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	if dtmfDecoded := DecodeDTMFCommandInput(labels); len(dtmfDecoded) > 1 {
@@ -171,6 +174,9 @@ func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, hea
 		daemon.processQueryTestCaseFunc(name)
 	}
 	if isRecursive {
+		if queryLen == nil {
+			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s.", domainName), domainName)
@@ -188,6 +194,9 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 		daemon.processQueryTestCaseFunc(name)
 	}
 	if isRecursive {
+		if queryLen == nil {
+			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	respBody, err := BuildNSResponse(header, question, domainName)
@@ -255,6 +264,9 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 			return respBody
 		}
 		daemon.logger.Info("handleTCPNameOrOtherQuery", clientIP, nil, "handle recursive non-name query")
+		if queryLen == nil {
+			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	return
