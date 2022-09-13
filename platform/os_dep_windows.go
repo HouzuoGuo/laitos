@@ -58,9 +58,9 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		_, _ = exec.Command(`C:\WINDOWS\System32\Wbem\WMIC.exe`, "process", "where", "ProcessID="+strconv.Itoa(proc.Process.Pid), "call", "SetPriority", "16384").CombinedOutput()
 		exitErr := proc.Wait()
 		if exitErr == nil {
-			logger.Info("InvokeProgram", program, nil, "process exited normally after %d seconds", time.Now().Unix()-unixSecAtStart)
+			logger.Info(program, nil, "process exited normally after %d seconds", time.Now().Unix()-unixSecAtStart)
 		} else {
-			logger.Info("InvokeProgram", program, nil, "process exited after %d seconds due to: %v", time.Now().Unix()-unixSecAtStart, exitErr)
+			logger.Info(program, nil, "process exited after %d seconds due to: %v", time.Now().Unix()-unixSecAtStart, exitErr)
 		}
 		processExitChan <- exitErr
 	}()
@@ -74,14 +74,14 @@ processMonitorLoop:
 			if timeoutSec >= 10*60 {
 				spentMinutes := (time.Now().Unix() - unixSecAtStart) / 60
 				timeoutRemainingMinutes := (timeoutSec - int(time.Now().Unix()-unixSecAtStart)) / 60
-				logger.Info("InvokeProgram", program, nil, "external process %d has been running for %d minutes and will time out in %d minutes",
+				logger.Info(program, nil, "external process %d has been running for %d minutes and will time out in %d minutes",
 					proc.Process.Pid, spentMinutes, timeoutRemainingMinutes)
 			}
 		case <-timeLimitExceeded:
 			// Forcibly kill the process upon exceeding time limit
-			logger.Warning("InvokeProgram", program, nil, "killing the program due to time limit (%d seconds)", timeoutSec)
+			logger.Warning(program, nil, "killing the program due to time limit (%d seconds)", timeoutSec)
 			if proc.Process != nil && !KillProcess(proc.Process) {
-				logger.Warning("InvokeProgram", program, nil, "failed to kill after time limit exceeded")
+				logger.Warning(program, nil, "failed to kill after time limit exceeded")
 			}
 			err = errors.New("time limit exceeded")
 			minuteTicker.Stop()
@@ -129,5 +129,5 @@ func KillProcess(proc *os.Process) (success bool) {
 
 // LockMemory locks program memory to prevent swapping, protecting sensitive user data.
 func LockMemory() {
-	logger.Warning("LockMemory", "", nil, "memory locking is not supported on Windows, your private information may leak onto disk.")
+	logger.Warning(nil, nil, "memory locking is not supported on Windows, your private information may leak onto disk.")
 }
