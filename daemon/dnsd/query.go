@@ -44,6 +44,13 @@ func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessag
 		Class: dnsmessage.ClassINET, TTL: CommonResponseTTL}, dnsmessage.TXTResource{TXT: txt}); err != nil {
 		return nil, err
 	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
+	}
 	return builder.Finish()
 }
 
@@ -96,6 +103,13 @@ func BuildBlackHoleAddrResponse(header dnsmessage.Header, question dnsmessage.Qu
 		}
 	default:
 		return nil, errors.New("question type must be an address type for building a black hole response")
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
 	}
 	return builder.Finish()
 }
@@ -195,6 +209,60 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 		Class: dnsmessage.ClassINET,
 		TTL:   CommonResponseTTL,
 	}, soa); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAdditionals(); err != nil {
+		return nil, err
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
+	}
+	return builder.Finish()
+}
+
+// BuildMXResponse returns an MX record pointing to the host name.
+func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, hostName string) ([]byte, error) {
+	if len(hostName) == 0 {
+		return nil, errors.New("mx host name must not be empty")
+	}
+	if hostName[len(hostName)-1] != '.' {
+		hostName += "."
+	}
+	// Retain the original transaction ID.
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = false
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	// Repeat the question back to the client, this is required by DNS protocol.
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	dnsName, err := dnsmessage.NewName(question.Name.String())
+	if err != nil {
+		return nil, err
+	}
+	mxHostName, err := dnsmessage.NewName(hostName)
+	if err != nil {
+		return nil, err
+	}
+	mx := dnsmessage.MXResource{Pref: 10, MX: mxHostName}
+	if err := builder.MXResource(dnsmessage.ResourceHeader{
+		Name:  dnsName,
+		Class: dnsmessage.ClassINET,
+		TTL:   CommonResponseTTL,
+	}, mx); err != nil {
 		return nil, err
 	}
 	if err := builder.StartAdditionals(); err != nil {

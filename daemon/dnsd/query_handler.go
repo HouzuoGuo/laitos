@@ -60,6 +60,8 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 		respBody = daemon.handleNS(ip, queryLen, queryBody, header, question)
 	} else if question.Type == dnsmessage.TypeSOA {
 		respBody = daemon.handleSOA(ip, queryLen, queryBody, header, question)
+	} else if question.Type == dnsmessage.TypeMX {
+		respBody = daemon.handleMX(ip, queryLen, queryBody, header, question)
 	} else {
 		// Handle all other query types.
 		respBody = daemon.handleNameOrOtherQuery(ip, queryLen, queryBody, header, question)
@@ -148,20 +150,31 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
-	if dtmfDecoded := DecodeDTMFCommandInput(labels); len(dtmfDecoded) > 1 {
-		cmdResult := daemon.latestCommands.Execute(context.Background(), daemon.Processor, clientIP, dtmfDecoded)
-		daemon.logger.Info(clientIP, nil, "executed a toolbox command")
-		// Try to fit the response into a single TXT entry.
-		// Keep in mind that by convention DNS uses 512 bytes as the overall
-		// message size limit - including both question and response.
-		// Leave some buffer room for the DNS headers.
-		var err error
-		respBody, err = BuildTextResponse(name, header, question, misc.SplitIntoSlice(cmdResult.CombinedOutput, 200, 200))
+	// The query is directed at the laitos DNS server itself.
+	var err error
+	if name[0] == ToolboxCommandPrefix {
+		// The query could be an app command.
+		if dtmfDecoded := DecodeDTMFCommandInput(labels); len(dtmfDecoded) > 3 {
+			cmdResult := daemon.latestCommands.Execute(context.Background(), daemon.Processor, clientIP, dtmfDecoded)
+			daemon.logger.Info(clientIP, nil, "executed a toolbox command")
+			// Try to fit the response into a single TXT entry.
+			// Keep in mind that by convention DNS uses 512 bytes as the overall
+			// message size limit - including both question and response.
+			// Leave some buffer room for the DNS headers.
+			respBody, err = BuildTextResponse(name, header, question, misc.SplitIntoSlice(cmdResult.CombinedOutput, 200, 200))
+			if err != nil {
+				daemon.logger.Warning(clientIP, err, "failed to build response packet")
+			}
+		} else {
+			daemon.logger.Info(clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
+		}
+	} else {
+		// Or just a regular dig.
+		daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+		respBody, err = BuildTextResponse(name, header, question, []string{fmt.Sprintf(`"v=spf1 mx a mx:%s ?all"`, domainName)})
 		if err != nil {
 			daemon.logger.Warning(clientIP, err, "failed to build response packet")
 		}
-	} else {
-		daemon.logger.Info(clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
 	}
 	return
 }
@@ -180,6 +193,26 @@ func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, hea
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s.", domainName), domainName)
+	if err != nil {
+		daemon.logger.Warning(clientIP, err, "failed to build response packet")
+	}
+	return
+}
+
+func (daemon *Daemon) handleMX(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+	name := question.Name.String()
+	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+	if daemon.processQueryTestCaseFunc != nil {
+		daemon.processQueryTestCaseFunc(name)
+	}
+	if isRecursive {
+		if queryLen == nil {
+			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+		}
+		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
+	}
+	respBody, err := BuildMXResponse(header, question, domainName+".")
 	if err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to build response packet")
 	}
