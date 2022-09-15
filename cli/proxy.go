@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
-	"github.com/HouzuoGuo/laitos/dnsclient"
+	"github.com/HouzuoGuo/laitos/daemon/dnsd/dnsclient"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
