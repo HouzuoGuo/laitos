@@ -62,44 +62,44 @@ type HTTPProxyServer struct {
 }
 
 // Initialise validates configuration parameters and initialises the internal state of the daemon.
-func (client *HTTPProxyServer) Initialise(ctx context.Context) error {
-	if client.Address == "" {
-		client.Address = "127.0.0.1"
+func (proxy *HTTPProxyServer) Initialise(ctx context.Context) error {
+	if proxy.Address == "" {
+		proxy.Address = "127.0.0.1"
 	}
-	if client.Port == 0 {
-		client.Port = 8080
+	if proxy.Port == 0 {
+		proxy.Port = 8080
 	}
-	if len(client.DNSHostName) < 3 {
-		return fmt.Errorf("dnsclient: DNSDomainName (%q) must be a valid host name", client.DNSHostName)
+	if len(proxy.DNSHostName) < 3 {
+		return fmt.Errorf("dnsclient: DNSDomainName (%q) must be a valid host name", proxy.DNSHostName)
 	}
-	if client.DNSHostName[0] == '.' {
-		client.DNSHostName = client.DNSHostName[1:]
+	if proxy.DNSHostName[0] == '.' {
+		proxy.DNSHostName = proxy.DNSHostName[1:]
 	}
-	client.logger = lalog.Logger{ComponentName: "dnsclient", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(client.Port)}}}
-	client.proxyHandlerWithMiddleware = middleware.LogRequestStats(client.logger, middleware.EmergencyLockdown(client.ProxyHandler))
-	client.context, client.cancelFun = context.WithCancel(ctx)
+	proxy.logger = lalog.Logger{ComponentName: "dnsclient", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(proxy.Port)}}}
+	proxy.proxyHandlerWithMiddleware = middleware.LogRequestStats(proxy.logger, middleware.EmergencyLockdown(proxy.ProxyHandler))
+	proxy.context, proxy.cancelFun = context.WithCancel(ctx)
 
-	client.httpTransport = &http.Transport{
+	proxy.httpTransport = &http.Transport{
 		Proxy:                 nil,
-		DialContext:           client.dialContext,
+		DialContext:           proxy.dialContext,
 		ForceAttemptHTTP2:     false,
 		MaxIdleConns:          100,
-		IdleConnTimeout:       client.Config.Timing.ReadTimeout,
-		TLSHandshakeTimeout:   client.Config.Timing.ReadTimeout,
-		ExpectContinueTimeout: client.Config.Timing.ReadTimeout,
+		IdleConnTimeout:       proxy.Config.Timing.ReadTimeout,
+		TLSHandshakeTimeout:   proxy.Config.Timing.ReadTimeout,
+		ExpectContinueTimeout: proxy.Config.Timing.ReadTimeout,
 	}
 
 	var err error
-	if client.DNSResolver == "" {
-		client.dnsConfig, err = dns.ClientConfigFromFile("/etc/resolv.conf")
+	if proxy.DNSResolver == "" {
+		proxy.dnsConfig, err = dns.ClientConfigFromFile("/etc/resolv.conf")
 		if err != nil {
 			return err
 		}
-		if len(client.dnsConfig.Servers) == 0 {
+		if len(proxy.dnsConfig.Servers) == 0 {
 			return fmt.Errorf("client.Initialise: resolv.conf appears to be malformed or empty, try specifying an explicit DNS resolver address instead.")
 		}
 	} else {
-		host, port, err := net.SplitHostPort(client.DNSResolver)
+		host, port, err := net.SplitHostPort(proxy.DNSResolver)
 		if err != nil {
 			return fmt.Errorf("client.Initialise: failed to parse ip:port from DNS resolver %q", err)
 		}
@@ -107,7 +107,7 @@ func (client *HTTPProxyServer) Initialise(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("client.Initialise: failed to parse ip:port from DNS resolver %q", err)
 		}
-		client.dnsConfig = &dns.ClientConfig{
+		proxy.dnsConfig = &dns.ClientConfig{
 			Servers: []string{host},
 			Port:    strconv.Itoa(portInt),
 		}
@@ -116,8 +116,8 @@ func (client *HTTPProxyServer) Initialise(ctx context.Context) error {
 }
 
 // dialContet returns a network connection tunnelled by the TCP-over-DNS proxy.
-func (client *HTTPProxyServer) dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	_, curr, _, err := toolbox.GetTwoFACodes(client.RequestOTPSecret)
+func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	_, curr, _, err := toolbox.GetTwoFACodes(proxy.RequestOTPSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -130,15 +130,15 @@ func (client *HTTPProxyServer) dialContext(ctx context.Context, network, addr st
 		return nil, err
 	}
 	tcID := uint16(rand.Int())
-	clientIn, inTransport := net.Pipe()
+	proxyServerIn, inTransport := net.Pipe()
 	// Construct a client-side transmission control.
-	client.logger.Info(fmt.Sprint(tcID), nil, "creating transmission control for %s", string(initiatorSegment))
+	proxy.logger.Info(fmt.Sprint(tcID), nil, "creating transmission control for %s", string(initiatorSegment))
 	tc := &tcpoverdns.TransmissionControl{
 		LogTag:               "ProxyClient",
 		ID:                   uint16(rand.Int()),
-		Debug:                client.Debug,
+		Debug:                proxy.Debug,
 		InitiatorSegmentData: initiatorSegment,
-		InitiatorConfig:      client.Config,
+		InitiatorConfig:      proxy.Config,
 		Initiator:            true,
 		InputTransport:       inTransport,
 		MaxLifetime:          dnsd.MaxProxyConnectionLifetime,
@@ -152,10 +152,10 @@ func (client *HTTPProxyServer) dialContext(ctx context.Context, network, addr st
 		// are kept in a backlog.
 		OutputTransport: ioutil.Discard,
 	}
-	client.Config.Config(tc)
+	proxy.Config.Config(tc)
 	conn := &ProxiedConnection{
-		client:  client,
-		in:      clientIn,
+		client:  proxy,
+		in:      proxyServerIn,
 		tc:      tc,
 		context: ctx,
 		logger: lalog.Logger{
@@ -172,12 +172,12 @@ func (client *HTTPProxyServer) dialContext(ctx context.Context, network, addr st
 
 // ProxyHandler is an HTTP handler function that uses TCP-over-DNS proxy to
 // transport requests and responses.
-func (client *HTTPProxyServer) ProxyHandler(w http.ResponseWriter, r *http.Request) {
+func (proxy *HTTPProxyServer) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	clientIP := middleware.GetRealClientIP(r)
 	switch r.Method {
 	case http.MethodConnect:
 		// Connect to the destination over TCP-over-DNS.
-		dstConn, err := client.dialContext(r.Context(), "tcp", r.Host)
+		dstConn, err := proxy.dialContext(r.Context(), "tcp", r.Host)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
@@ -188,22 +188,22 @@ func (client *HTTPProxyServer) ProxyHandler(w http.ResponseWriter, r *http.Reque
 		hijackedStream, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "", http.StatusInternalServerError)
-			client.logger.Warning(clientIP, nil, "connection stream cannot be tapped into")
+			proxy.logger.Warning(clientIP, nil, "connection stream cannot be tapped into")
 			return
 		}
 		reqConn, _, err := hijackedStream.Hijack()
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
-			client.logger.Warning(clientIP, err, "failed to tap into HTTP connection stream")
+			proxy.logger.Warning(clientIP, err, "failed to tap into HTTP connection stream")
 			return
 		}
 		// Keep the buffer to minimum to improve responsiveness.
 		// The buffer size has nothing to do with segment size.
-		go misc.PipeConn(client.logger, true, client.Config.Timing.ReadTimeout, 1, dstConn, reqConn)
-		misc.PipeConn(client.logger, true, client.Config.Timing.WriteTimeout, 1, reqConn, dstConn)
+		go misc.PipeConn(proxy.logger, true, proxy.Config.Timing.ReadTimeout, 1, dstConn, reqConn)
+		misc.PipeConn(proxy.logger, true, proxy.Config.Timing.WriteTimeout, 1, reqConn, dstConn)
 	default:
 		// Execute the request as-is without handling higher-level mechanisms such as cookies and redirects
-		resp, err := client.httpTransport.RoundTrip(r)
+		resp, err := proxy.httpTransport.RoundTrip(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
@@ -217,36 +217,36 @@ func (client *HTTPProxyServer) ProxyHandler(w http.ResponseWriter, r *http.Reque
 		// Copy status code and response body to the client
 		w.WriteHeader(resp.StatusCode)
 		if _, err := io.Copy(w, resp.Body); err != nil {
-			client.logger.Warning(clientIP, err, "failed to copy response body back to client")
+			proxy.logger.Warning(clientIP, err, "failed to copy response body back to client")
 		}
 	}
 }
 
 // StartAndBlock starts a web server to serve the HTTP(S) proxy endpoint.
 // The function will block caller until Stop is called.
-func (client *HTTPProxyServer) StartAndBlock() error {
-	client.httpServer = &http.Server{
-		Addr:         net.JoinHostPort(client.Address, strconv.Itoa(client.Port)),
-		Handler:      client.proxyHandlerWithMiddleware,
-		ReadTimeout:  client.Config.Timing.ReadTimeout,
-		WriteTimeout: client.Config.Timing.WriteTimeout,
+func (proxy *HTTPProxyServer) StartAndBlock() error {
+	proxy.httpServer = &http.Server{
+		Addr:         net.JoinHostPort(proxy.Address, strconv.Itoa(proxy.Port)),
+		Handler:      proxy.proxyHandlerWithMiddleware,
+		ReadTimeout:  proxy.Config.Timing.ReadTimeout,
+		WriteTimeout: proxy.Config.Timing.WriteTimeout,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
-	client.logger.Info("", nil, "starting now")
-	if err := client.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("httpproxy.StartAndBlock.: failed to listen on %s:%d - %v", client.Address, client.Port, err)
+	proxy.logger.Info("", nil, "starting now")
+	if err := proxy.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("httpproxy.StartAndBlock.: failed to listen on %s:%d - %v", proxy.Address, proxy.Port, err)
 	}
 	return nil
 }
 
-// Stop the client.
-func (client *HTTPProxyServer) Stop() {
-	client.cancelFun()
-	if client.httpServer != nil {
+// Stop the proxy server.
+func (proxy *HTTPProxyServer) Stop() {
+	proxy.cancelFun()
+	if proxy.httpServer != nil {
 		stopCtx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancelFunc()
-		if err := client.httpServer.Shutdown(stopCtx); err != nil {
-			client.logger.Warning(client.Address, err, "failed to shutdown")
+		if err := proxy.httpServer.Shutdown(stopCtx); err != nil {
+			proxy.logger.Warning(proxy.Address, err, "failed to shutdown")
 		}
 	}
 }
