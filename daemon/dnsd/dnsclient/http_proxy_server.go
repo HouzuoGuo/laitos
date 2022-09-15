@@ -70,12 +70,12 @@ func (proxy *HTTPProxyServer) Initialise(ctx context.Context) error {
 		proxy.Port = 8080
 	}
 	if len(proxy.DNSHostName) < 3 {
-		return fmt.Errorf("dnsclient: DNSDomainName (%q) must be a valid host name", proxy.DNSHostName)
+		return fmt.Errorf("DNSDomainName (%q) must be a valid host name", proxy.DNSHostName)
 	}
 	if proxy.DNSHostName[0] == '.' {
 		proxy.DNSHostName = proxy.DNSHostName[1:]
 	}
-	proxy.logger = lalog.Logger{ComponentName: "dnsclient", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(proxy.Port)}}}
+	proxy.logger = lalog.Logger{ComponentName: "HTTPProxyServer", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(proxy.Port)}}}
 	proxy.proxyHandlerWithMiddleware = middleware.LogRequestStats(proxy.logger, middleware.EmergencyLockdown(proxy.ProxyHandler))
 	proxy.context, proxy.cancelFun = context.WithCancel(ctx)
 
@@ -96,16 +96,16 @@ func (proxy *HTTPProxyServer) Initialise(ctx context.Context) error {
 			return err
 		}
 		if len(proxy.dnsConfig.Servers) == 0 {
-			return fmt.Errorf("client.Initialise: resolv.conf appears to be malformed or empty, try specifying an explicit DNS resolver address instead.")
+			return fmt.Errorf("resolv.conf appears to be malformed or empty, try specifying an explicit DNS resolver address instead.")
 		}
 	} else {
 		host, port, err := net.SplitHostPort(proxy.DNSResolver)
 		if err != nil {
-			return fmt.Errorf("client.Initialise: failed to parse ip:port from DNS resolver %q", err)
+			return fmt.Errorf("failed to parse ip:port from DNS resolver %q", err)
 		}
 		portInt, err := strconv.Atoi(port)
 		if err != nil {
-			return fmt.Errorf("client.Initialise: failed to parse ip:port from DNS resolver %q", err)
+			return fmt.Errorf("failed to parse ip:port from DNS resolver %q", err)
 		}
 		proxy.dnsConfig = &dns.ClientConfig{
 			Servers: []string{host},
@@ -134,8 +134,8 @@ func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr str
 	// Construct a client-side transmission control.
 	proxy.logger.Info(fmt.Sprint(tcID), nil, "creating transmission control for %s", string(initiatorSegment))
 	tc := &tcpoverdns.TransmissionControl{
-		LogTag:               "ProxyClient",
-		ID:                   uint16(rand.Int()),
+		LogTag:               "HTTPProxyServer",
+		ID:                   tcID,
 		Debug:                proxy.Debug,
 		InitiatorSegmentData: initiatorSegment,
 		InitiatorConfig:      proxy.Config,
@@ -154,12 +154,16 @@ func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr str
 	}
 	proxy.Config.Config(tc)
 	conn := &ProxiedConnection{
-		client:  proxy,
+		dnsHostName:    proxy.DNSHostName,
+		dnsConfig:      proxy.dnsConfig,
+		dropPercentage: proxy.dropPercentage,
+		debug:          proxy.Debug,
+
 		in:      proxyServerIn,
 		tc:      tc,
 		context: ctx,
 		logger: lalog.Logger{
-			ComponentName: "DNSClientProxyConn",
+			ComponentName: "HTTPProxyServerConn",
 			ComponentID: []lalog.LoggerIDField{
 				{Key: "TCID", Value: tc.ID},
 			},
