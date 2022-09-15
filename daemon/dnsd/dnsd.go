@@ -603,7 +603,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		}
 	}
 
-	// Resolve MX - go's resolver goes on and queries example.com.home, why?
+	// Resolve MX - TODO FIXME: fix the seemingly empty MX response.
 	/*
 		mx, err := resolver.LookupMX(context.Background(), domainName[1:])
 		if len(mx) != 1 {
@@ -620,7 +620,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	if len(txt) != 1 {
 		t.Fatalf("unexpected number of txt: %v", txt)
 	}
-	if txt[0] != fmt.Sprintf(`"v=spf1 mx a mx:%s ?all"`, domainName[1:]) {
+	if txt[0] != fmt.Sprintf(`v=spf1 mx a mx:%s ?all`, domainName[1:]) {
 		t.Fatalf("unexpected txt %q", txt[0])
 	}
 
@@ -714,7 +714,7 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = false
+	header.RecursionAvailable = header.RecursionDesired
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.

@@ -171,7 +171,7 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 	} else {
 		// Or just a regular dig.
 		daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
-		respBody, err = BuildTextResponse(name, header, question, []string{fmt.Sprintf(`"v=spf1 mx a mx:%s ?all"`, domainName)})
+		respBody, err = BuildTextResponse(name, header, question, []string{fmt.Sprintf(`v=spf1 mx a mx:%s ?all`, domainName)})
 		if err != nil {
 			daemon.logger.Warning(clientIP, err, "failed to build response packet")
 		}

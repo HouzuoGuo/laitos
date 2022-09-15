@@ -22,7 +22,7 @@ func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessag
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = false
+	header.RecursionAvailable = header.RecursionDesired
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -44,13 +44,6 @@ func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessag
 		Class: dnsmessage.ClassINET, TTL: CommonResponseTTL}, dnsmessage.TXTResource{TXT: txt}); err != nil {
 		return nil, err
 	}
-	var rh dnsmessage.ResourceHeader
-	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
-		return nil, err
-	}
-	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
-		return nil, err
-	}
 	return builder.Finish()
 }
 
@@ -61,7 +54,7 @@ func BuildBlackHoleAddrResponse(header dnsmessage.Header, question dnsmessage.Qu
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = false
+	header.RecursionAvailable = header.RecursionDesired
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -166,7 +159,7 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = false
+	header.RecursionAvailable = header.RecursionDesired
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -236,7 +229,7 @@ func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, hos
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = false
+	header.RecursionAvailable = header.RecursionDesired
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -268,13 +261,6 @@ func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, hos
 	if err := builder.StartAdditionals(); err != nil {
 		return nil, err
 	}
-	var rh dnsmessage.ResourceHeader
-	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
-		return nil, err
-	}
-	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
-		return nil, err
-	}
 	return builder.Finish()
 }
 
@@ -290,7 +276,7 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = false
+	header.RecursionAvailable = header.RecursionDesired
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -343,7 +329,7 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = false
+	header.RecursionAvailable = header.RecursionDesired
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	if err := builder.StartQuestions(); err != nil {
