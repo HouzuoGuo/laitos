@@ -15,7 +15,7 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegL
 		proxySegLen = dnsclient.OptimalSegLen(dnsHostName)
 		logger.Info("", nil, "using segment length %d", proxySegLen)
 	}
-	httpProxyServer := &dnsclient.Client{
+	httpProxyServer := &dnsclient.HTTPProxyServer{
 		Address: "127.0.0.1",
 		Port:    port,
 		Config: tcpoverdns.InitiatorConfig{

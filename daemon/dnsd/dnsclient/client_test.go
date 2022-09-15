@@ -41,7 +41,7 @@ func TestClient_HTTP(t *testing.T) {
 	}
 
 	// Start an HTTP proxy server - tcp-over-DNS proxy client.
-	httpProxyServer := &Client{
+	httpProxyServer := &HTTPProxyServer{
 		Address:          "127.0.0.1",
 		Port:             61122,
 		RequestOTPSecret: dnsProxyServer.TCPProxy.RequestOTPSecret,
