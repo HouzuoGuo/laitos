@@ -117,6 +117,8 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 		respBody = daemon.handleNS(ip, nil, packet, header, question)
 	} else if question.Type == dnsmessage.TypeSOA {
 		respBody = daemon.handleSOA(ip, nil, packet, header, question)
+	} else if question.Type == dnsmessage.TypeMX {
+		respBody = daemon.handleMX(ip, nil, packet, header, question)
 	} else {
 		// Handle all other query types.
 		respBody = daemon.handleNameOrOtherQuery(ip, nil, packet, header, question)

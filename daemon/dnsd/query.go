@@ -246,7 +246,9 @@ func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, hos
 	if err != nil {
 		return nil, err
 	}
-	mxHostName, err := dnsmessage.NewName(hostName)
+	// The DNS daemon will happily resolve all non-recursive address queries to
+	// its own public IP address.
+	mxHostName, err := dnsmessage.NewName("mx." + hostName)
 	if err != nil {
 		return nil, err
 	}
@@ -256,9 +258,6 @@ func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, hos
 		Class: dnsmessage.ClassINET,
 		TTL:   CommonResponseTTL,
 	}, mx); err != nil {
-		return nil, err
-	}
-	if err := builder.StartAdditionals(); err != nil {
 		return nil, err
 	}
 	return builder.Finish()
@@ -298,6 +297,8 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 		if err != nil {
 			return nil, err
 		}
+		// The DNS daemon will happily resolve all non-recursive address queries
+		// to its own public IP address.
 		ns := dnsmessage.NSResource{
 			// ns[1-4].laitos-example.net
 			NS: dnsNSName,
