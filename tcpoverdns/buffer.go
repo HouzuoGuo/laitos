@@ -1,10 +1,10 @@
 package tcpoverdns
 
 import (
+	"math/rand"
 	"sync"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 )
 
 // SegmentBuffer is keeps a small backlog of segments transported in a single
@@ -45,10 +45,8 @@ func (buf *SegmentBuffer) SetParameters(segLen int, debug bool) {
 func (buf *SegmentBuffer) Absorb(seg Segment) {
 	buf.mutex.Lock()
 	defer buf.mutex.Unlock()
-	if seg.Flags.Has(FlagKeepAlive) {
-		// Add random data to the keep-alive segment to prevent DNS caching.
-		seg.Data = misc.RandomBytes(4)
-	}
+	// Give all segments a bit of randomness to work around DNS caching.
+	seg.Reserved = uint16(rand.Int31())
 	var latest Segment
 	if len(buf.backlog) > 0 {
 		latest = buf.backlog[len(buf.backlog)-1]
@@ -82,9 +80,11 @@ func (buf *SegmentBuffer) Absorb(seg Segment) {
 				ID: seg.ID,
 				// Sequence number comes from the previous segment.
 				SeqNum: latest.SeqNum,
-				// Acknowledge number comes from the new segment.
-				AckNum: seg.AckNum,
-				Data:   append(latest.Data, seg.Data...),
+				// Acknowledge number and the reserved integer (random number)
+				// come from the new segment.
+				AckNum:   seg.AckNum,
+				Reserved: latest.Reserved,
+				Data:     append(latest.Data, seg.Data...),
 			}
 		} else {
 			if buf.debug {

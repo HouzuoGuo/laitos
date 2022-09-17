@@ -219,7 +219,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.blackList = make(map[string]struct{})
 
 	daemon.latestCommands = NewLatestCommands()
-	daemon.responseCache = NewResponseCache(2*time.Second, 200)
+	daemon.responseCache = NewResponseCache(5*time.Second, 200)
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
 	if daemon.TCPProxy != nil {
@@ -603,7 +603,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 		}
 	}
 
-	// Resolve MX - TODO FIXME: fix the seemingly empty MX response.
+	// Resolve MX.
 	mx, err := resolver.LookupMX(context.Background(), domainName[1:])
 	if len(mx) != 1 {
 		t.Fatalf("unexpected number of mx: %v", mx)

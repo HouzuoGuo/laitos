@@ -16,11 +16,12 @@ import (
 
 func TestSegment_Packet(t *testing.T) {
 	want := Segment{
-		ID:     12345,
-		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
-		SeqNum: 23456,
-		AckNum: 34567,
-		Data:   []byte{1, 2, 3, 4},
+		ID:       12345,
+		Flags:    FlagHandshakeAck & FlagHandshakeSyn,
+		SeqNum:   23456,
+		AckNum:   34567,
+		Reserved: 45678,
+		Data:     []byte{1, 2, 3, 4},
 	}
 
 	packet := want.Packet()
@@ -32,18 +33,17 @@ func TestSegment_Packet(t *testing.T) {
 	want.Flags = FlagHandshakeSyn
 	packet = want.Packet()
 	got = SegmentFromPacket(packet)
-	if !reflect.DeepEqual(got, Segment{Flags: FlagMalformed}) {
+	if !reflect.DeepEqual(got, Segment{Flags: FlagMalformed, Data: []byte("missing initiator config")}) {
 		t.Fatal("did not identify malformed segment without initiator config")
 	}
 }
 
 func TestSegmentFromMalformedPacket(t *testing.T) {
-	want := Segment{Flags: FlagMalformed}
 	segWithData := Segment{Data: []byte{1, 2}}
 	segWithMalformedLen := segWithData.Packet()
 	for _, seg := range [][]byte{nil, {1}, segWithMalformedLen[:SegmentHeaderLen+1]} {
-		if got := SegmentFromPacket(seg); !reflect.DeepEqual(got, want) {
-			t.Fatalf("got: %+#v, want: %+#v", got, want)
+		if got := SegmentFromPacket(seg); got.Flags != FlagMalformed {
+			t.Fatalf("%+v", got)
 		}
 	}
 }
@@ -62,11 +62,12 @@ func TestFlags(t *testing.T) {
 
 func TestSegment_Equals(t *testing.T) {
 	original := Segment{
-		ID:     12345,
-		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
-		SeqNum: 23456,
-		AckNum: 34567,
-		Data:   []byte{1, 2, 3, 4},
+		ID:       12345,
+		Flags:    FlagHandshakeAck & FlagHandshakeSyn,
+		SeqNum:   23456,
+		AckNum:   34567,
+		Reserved: 45678,
+		Data:     []byte{1, 2, 3, 4},
 	}
 	if !original.Equals(original) {
 		t.Errorf("should have been equal")
@@ -165,7 +166,7 @@ func TestCompression(t *testing.T) {
 		}
 	})
 
-	t.Run("flate", func(t *testing.T) {
+	t.Run("flate+base32", func(t *testing.T) {
 		for _, example := range input {
 			var b bytes.Buffer
 			w, err := flate.NewWriter(&b, flate.BestCompression)

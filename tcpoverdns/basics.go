@@ -76,7 +76,7 @@ func (flag Flag) String() string {
 
 const (
 	// SegmentHeaderLen is the total length of a segment header.
-	SegmentHeaderLen = 14
+	SegmentHeaderLen = 16
 )
 
 // Segment is a unit of data transported by TransmissionControl. A stream of
@@ -94,7 +94,10 @@ type Segment struct {
 	// number of the latest byte arrived, whereas in TCP it is the next sequence
 	// number expected from peer - oops!
 	AckNum uint32
-	Data   []byte
+	// Reserved is a two-byte integer. It is currently used to inject a small
+	// amount of randomness into the segment.
+	Reserved uint16
+	Data     []byte
 }
 
 func (seg *Segment) Equals(other Segment) bool {
@@ -107,12 +110,13 @@ func (seg *Segment) Equals(other Segment) bool {
 
 // Packet serialises the segment into bytes and returns them.
 func (seg *Segment) Packet() (ret []byte) {
-	ret = make([]byte, 2+2+4+4+2+len(seg.Data))
+	ret = make([]byte, 2+2+4+4+2+2+len(seg.Data))
 	binary.BigEndian.PutUint16(ret[0:2], seg.ID)
 	binary.BigEndian.PutUint16(ret[2:4], uint16(seg.Flags))
 	binary.BigEndian.PutUint32(ret[4:8], seg.SeqNum)
 	binary.BigEndian.PutUint32(ret[8:12], seg.AckNum)
-	binary.BigEndian.PutUint16(ret[12:14], uint16(len(seg.Data)))
+	binary.BigEndian.PutUint16(ret[12:14], seg.Reserved)
+	binary.BigEndian.PutUint16(ret[14:16], uint16(len(seg.Data)))
 	copy(ret[SegmentHeaderLen:], seg.Data)
 	return
 }
@@ -171,29 +175,31 @@ func (seg Segment) String() string {
 // segment.
 func SegmentFromPacket(packet []byte) Segment {
 	if len(packet) < SegmentHeaderLen {
-		return Segment{Flags: FlagMalformed}
+		return Segment{Flags: FlagMalformed, Data: []byte("packet is shorter than header len")}
 	}
 	id := binary.BigEndian.Uint16(packet[0:2])
 	flags := Flag(binary.BigEndian.Uint16(packet[2:4]))
 	seq := binary.BigEndian.Uint32(packet[4:8])
 	ack := binary.BigEndian.Uint32(packet[8:12])
-	length := binary.BigEndian.Uint16(packet[12:14])
+	reserved := binary.BigEndian.Uint16(packet[12:14])
+	length := binary.BigEndian.Uint16(packet[14:16])
 	if len(packet) < SegmentHeaderLen+int(length) {
-		return Segment{Flags: FlagMalformed}
+		return Segment{Flags: FlagMalformed, Data: []byte("data is shorter than advertised len")}
 	}
 	data := packet[SegmentHeaderLen : SegmentHeaderLen+length]
 	seg := Segment{
-		ID:     id,
-		Flags:  flags,
-		SeqNum: seq,
-		AckNum: ack,
-		Data:   data,
+		ID:       id,
+		Flags:    flags,
+		SeqNum:   seq,
+		AckNum:   ack,
+		Reserved: reserved,
+		Data:     data,
 	}
 
 	// The HandshakeSyn segment must have the initiator config.
 	if seg.Flags == FlagHandshakeSyn {
 		if len(seg.Data) < InitiatorConfigLen {
-			return Segment{Flags: FlagMalformed}
+			return Segment{Flags: FlagMalformed, Data: []byte("missing initiator config")}
 		}
 	}
 	return seg
@@ -203,7 +209,7 @@ func SegmentFromPacket(packet []byte) Segment {
 // of a query, or a CNAME from a response.
 func SegmentFromDNSName(numDomainNameLabels int, query string) Segment {
 	if len(query) < 3 {
-		return Segment{Flags: FlagMalformed}
+		return Segment{Flags: FlagMalformed, Data: []byte("query is too short")}
 	}
 	// Remove trailing full-stop.
 	if query[len(query)-1] == '.' {
@@ -212,14 +218,14 @@ func SegmentFromDNSName(numDomainNameLabels int, query string) Segment {
 	labels := strings.Split(query, ".")
 	// "prefix.data-data-data.mydomain.com"
 	if len(labels) < 1+1+numDomainNameLabels {
-		return Segment{Flags: FlagMalformed}
+		return Segment{Flags: FlagMalformed, Data: []byte("too few name labels")}
 	}
 	// Recover base32 encoded binary data by concatenating the labels.
 	// The first label is a prefix only and does not carry binary data.
 	labels = labels[1 : len(labels)-numDomainNameLabels]
 	compressed, err := ParseBase62(strings.Join(labels, ""))
 	if err != nil {
-		return Segment{Flags: FlagMalformed}
+		return Segment{Flags: FlagMalformed, Data: []byte("failed to parse base62 data")}
 	}
 	// Decompress the binary packet.
 	decompressed, err := DecompressBytes(compressed)
@@ -228,7 +234,7 @@ func SegmentFromDNSName(numDomainNameLabels int, query string) Segment {
 		withLeadingZero := append([]byte{0}, compressed...)
 		decompressed, err = DecompressBytes(withLeadingZero)
 		if err != nil {
-			return Segment{Flags: FlagMalformed}
+			return Segment{Flags: FlagMalformed, Data: []byte("failed to decompress data")}
 		}
 	}
 	return SegmentFromPacket(decompressed)
@@ -368,22 +374,6 @@ func DeserialiseInitiatorConfig(in []byte) *InitiatorConfig {
 	ret.Timing.KeepAliveInterval = time.Duration(binary.BigEndian.Uint32(in[24:28])) * time.Millisecond
 	return ret
 }
-
-func ReadSegment(ctx context.Context, in io.Reader) Segment {
-	segHeader := make([]byte, SegmentHeaderLen)
-	n, err := in.Read(segHeader)
-	if err != nil || n != SegmentHeaderLen {
-		return Segment{Flags: FlagMalformed}
-	}
-	segDataLen := int(binary.BigEndian.Uint16(segHeader[SegmentHeaderLen-2 : SegmentHeaderLen]))
-	segData := make([]byte, segDataLen)
-	n, err = in.Read(segData)
-	if err != nil || n != segDataLen {
-		return Segment{Flags: FlagMalformed}
-	}
-	return SegmentFromPacket(append(segHeader, segData...))
-}
-
 func ReadSegmentHeaderData(t testingstub.T, ctx context.Context, in io.Reader) Segment {
 	segHeader := make([]byte, SegmentHeaderLen)
 	n, err := in.Read(segHeader)

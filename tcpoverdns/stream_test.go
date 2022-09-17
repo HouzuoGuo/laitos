@@ -760,7 +760,9 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 	if tc.ongoingRetransmissions > 1 {
 		t.Fatalf("unexpected retransmission count: %v", tc.ongoingRetransmissions)
 	}
+	tc.mutex.Lock()
 	tc.ongoingRetransmissions = 0
+	tc.mutex.Unlock()
 	// Check for other IO errors.
 	CheckTCError(t, tc, 5, 0, 0, 0)
 }
