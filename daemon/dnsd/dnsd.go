@@ -14,7 +14,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/common"
 	"github.com/HouzuoGuo/laitos/platform"
-	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"golang.org/x/net/dns/dnsmessage"
@@ -708,7 +707,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 
 // TCPOverDNSSegmentResponse constructs a DNS query response packet that
 // encapsulates a TCP-over-DNS segment.
-func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Question, domainName string, segments []tcpoverdns.Segment) ([]byte, error) {
+func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Question, cname string) ([]byte, error) {
 	// Retain the original transaction ID.
 	header.Response = true
 	header.Truncated = false
@@ -730,32 +729,29 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 	if err != nil {
 		return nil, err
 	}
-	// Build a response: name: previous name, canonical name: this name.
-	prevName := dnsName
-	for _, seg := range segments {
-		thisName, err := dnsmessage.NewName(seg.DNSName(fmt.Sprintf("%c", ProxyPrefix), domainName))
-		if err != nil {
-			return nil, err
-		}
-		if err := builder.CNAMEResource(dnsmessage.ResourceHeader{
-			Name:  prevName,
-			Class: dnsmessage.ClassINET,
-			TTL:   CommonResponseTTL,
-		}, dnsmessage.CNAMEResource{
-			CNAME: thisName,
-		}); err != nil {
-			return nil, err
-		}
-		prevName = thisName
+	dnsCName, err := dnsmessage.NewName(cname)
+	if err != nil {
+		return nil, err
+	}
+	// The first answer RR is a CNAME ("r.data-data-data.example.com") that
+	// carries the segment data.
+	if err := builder.CNAMEResource(dnsmessage.ResourceHeader{
+		Name:  dnsName,
+		Class: dnsmessage.ClassINET,
+		TTL:   CommonResponseTTL,
+	}, dnsmessage.CNAMEResource{
+		CNAME: dnsCName,
+	}); err != nil {
+		return nil, err
 	}
 	if header.RecursionDesired {
-		// If the query asked for an address, then the last RR is a dummy
-		// address to the CNAME. There is no useful data in the address.
-		// This must show up in the response when the client demands recursion.
+		// If the query asked for an address, then the second RR is a dummy address
+		// to the CNAME.
+		// There is no useful data in the address.
 		switch question.Type {
 		case dnsmessage.TypeA:
 			err := builder.AResource(dnsmessage.ResourceHeader{
-				Name:  prevName,
+				Name:  dnsCName,
 				Class: dnsmessage.ClassINET,
 				TTL:   CommonResponseTTL,
 			}, dnsmessage.AResource{A: [4]byte{0, 0, 0, 0}})
@@ -764,7 +760,7 @@ func (daemon *Daemon) TCPOverDNSSegmentResponse(header dnsmessage.Header, questi
 			}
 		case dnsmessage.TypeAAAA:
 			err := builder.AAAAResource(dnsmessage.ResourceHeader{
-				Name:  prevName,
+				Name:  dnsCName,
 				Class: dnsmessage.ClassINET,
 				TTL:   CommonResponseTTL,
 			}, dnsmessage.AAAAResource{

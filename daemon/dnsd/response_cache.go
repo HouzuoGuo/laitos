@@ -3,13 +3,11 @@ package dnsd
 import (
 	"sync"
 	"time"
-
-	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
 // CacheEntry is a cached TCP-over-DNS query response.
 type CacheEntry struct {
-	segments  []tcpoverdns.Segment
+	content   []byte
 	createdAt time.Time
 }
 
@@ -50,14 +48,14 @@ func (cache *ResponseCache) cleanUp() {
 
 // Get returns the cached name response, or it invokes setFun and to return and
 // cache its response.
-func (cache *ResponseCache) GetOrSet(name string, setFun func() []tcpoverdns.Segment) []tcpoverdns.Segment {
+func (cache *ResponseCache) GetOrSet(name string, setFun func() []byte) []byte {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 	if entry, exists := cache.cache[name]; exists && time.Since(entry.createdAt) < cache.expiry {
-		return entry.segments
+		return entry.content
 	}
 	newEntry := CacheEntry{
-		segments:  setFun(),
+		content:   setFun(),
 		createdAt: time.Now(),
 	}
 	cache.cache[name] = newEntry
@@ -65,5 +63,5 @@ func (cache *ResponseCache) GetOrSet(name string, setFun func() []tcpoverdns.Seg
 	if cache.counter%cache.cleanUpEvery == 0 {
 		cache.cleanUp()
 	}
-	return newEntry.segments
+	return newEntry.content
 }

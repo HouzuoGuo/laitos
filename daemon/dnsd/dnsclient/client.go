@@ -62,9 +62,9 @@ func (conn *ProxiedConnection) Start() error {
 	return nil
 }
 
-func (conn *ProxiedConnection) lookupCNAME(queryName string) (ret []string, err error) {
+func (conn *ProxiedConnection) lookupCNAME(queryName string) (string, error) {
 	if len(queryName) < 3 {
-		return nil, errors.New("the input query name is too short")
+		return "", errors.New("the input query name is too short")
 	}
 	if queryName[len(queryName)-1] != '.' {
 		queryName += "."
@@ -76,21 +76,19 @@ func (conn *ProxiedConnection) lookupCNAME(queryName string) (ret []string, err 
 	query.SetEdns0(dnsd.EDNSBufferSize, false)
 	response, _, err := client.Exchange(query, fmt.Sprintf("%s:%s", conn.dnsConfig.Servers[0], conn.dnsConfig.Port))
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	for _, answer := range response.Answer {
-		if cname, ok := answer.(*dns.CNAME); ok {
-			if rand.Intn(100) < conn.dropPercentage {
-				conn.logger.Info(nil, nil, "dropped a cname for testing")
-				continue
-			}
-			ret = append(ret, cname.Target)
+	if len(response.Answer) == 0 {
+		return "", errors.New("the DNS query did not receive a response")
+	}
+	if cname, ok := response.Answer[0].(*dns.CNAME); ok {
+		if rand.Intn(100) < conn.dropPercentage {
+			return "", errors.New("dropped for testing")
 		}
+		return cname.Target, nil
+	} else {
+		return "", fmt.Errorf("the response answer %v is not a CNAME", response.Answer[0])
 	}
-	if len(ret) == 0 {
-		err = errors.New("the DNS response did not have CNAMEs")
-	}
-	return
 }
 
 func (conn *ProxiedConnection) transportLoop() {
@@ -113,7 +111,7 @@ func (conn *ProxiedConnection) transportLoop() {
 		}
 		var incomingSeg, outgoingSeg, nextInBacklog tcpoverdns.Segment
 		var exists bool
-		var cnames []string
+		var cname string
 		var err error
 		begin := time.Now()
 		// Pop a segment.
@@ -124,36 +122,34 @@ func (conn *ProxiedConnection) transportLoop() {
 		}
 		// Turn the segment into a DNS query and send the query out
 		// (data.data.data.example.com).
-		cnames, err = conn.lookupCNAME(outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.dnsHostName))
+		cname, err = conn.lookupCNAME(outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.dnsHostName))
 		conn.logger.Info(fmt.Sprint(conn.tc.ID), nil, "sent over DNS query in %dms: %+v", time.Since(begin).Milliseconds(), outgoingSeg)
 		if err != nil {
 			conn.logger.Warning(fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)
 			conn.tc.IncreaseTimingInterval()
 			goto busyWaitInterval
 		}
-		for _, cname := range cnames {
-			// Decode a segment from DNS query response and give it to the local
-			// TC.
-			incomingSeg = tcpoverdns.SegmentFromDNSName(countHostNameLabels, cname)
-			if conn.debug {
-				conn.logger.Info(fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
+		// Decode a segment from DNS query response and give it to the local
+		// TC.
+		incomingSeg = tcpoverdns.SegmentFromDNSName(countHostNameLabels, cname)
+		if conn.debug {
+			conn.logger.Info(fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", incomingSeg)
+		}
+		if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
+			if incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
+				// Increase the timing interval interval with each input
+				// segment that does not carry data.
+				conn.tc.IncreaseTimingInterval()
+			} else {
+				// Decrease the timing interval with each input segment that
+				// carries data. This helps to temporarily increase the
+				// throughput.
+				conn.tc.DecreaseTimingInterval()
 			}
-			if !incomingSeg.Flags.Has(tcpoverdns.FlagMalformed) {
-				if incomingSeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
-					// Increase the timing interval interval with each input
-					// segment that does not carry data.
-					conn.tc.IncreaseTimingInterval()
-				} else {
-					// Decrease the timing interval with each input segment that
-					// carries data. This helps to temporarily increase the
-					// throughput.
-					conn.tc.DecreaseTimingInterval()
-				}
-				if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
-					conn.logger.Warning(fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
-					conn.tc.IncreaseTimingInterval()
-					goto busyWaitInterval
-				}
+			if _, err := conn.in.Write(incomingSeg.Packet()); err != nil {
+				conn.logger.Warning(fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", incomingSeg)
+				conn.tc.IncreaseTimingInterval()
+				goto busyWaitInterval
 			}
 		}
 		// If the next output segment carries useful data or flags, then

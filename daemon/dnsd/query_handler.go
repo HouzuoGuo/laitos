@@ -255,27 +255,17 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 		emptySegment := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
 		if seg.Flags.Has(tcpoverdns.FlagMalformed) {
 			daemon.logger.Info(clientIP, nil, "received a malformed TCP-over-DNS segment")
-			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, domainName, []tcpoverdns.Segment{emptySegment})
+			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptySegment.DNSName("r", domainName))
 			return respBody
 		}
-		segments := daemon.responseCache.GetOrSet(name, func() (ret []tcpoverdns.Segment) {
-			// As of September 2022, the response may only carry a single CNAME
-			// RR . Public recursive resolvers seem to be sending in a request
-			// without RD, which means the response may not contain more than
-			// one RRs.
-			for i := 0; i < 1; i++ {
-				seg, exists := daemon.TCPProxy.Receive(seg)
-				if !exists {
-					break
-				}
-				ret = append(ret, seg)
+		cname := string(daemon.responseCache.GetOrSet(name, func() []byte {
+			respSegment, hasResp := daemon.TCPProxy.Receive(seg)
+			if !hasResp {
+				return []byte(emptySegment.DNSName("r", domainName))
 			}
-			if len(ret) == 0 {
-				ret = []tcpoverdns.Segment{emptySegment}
-			}
-			return
-		})
-		respBody, err := daemon.TCPOverDNSSegmentResponse(header, question, domainName, segments)
+			return []byte(respSegment.DNSName("r", domainName))
+		}))
+		respBody, err := daemon.TCPOverDNSSegmentResponse(header, question, cname)
 		if err != nil {
 			daemon.logger.Info(clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
 			return nil
