@@ -1,4 +1,4 @@
-package dnsclient
+package dnsd
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -121,7 +120,7 @@ func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr str
 	if err != nil {
 		return nil, err
 	}
-	initiatorSegment, err := json.Marshal(dnsd.ProxyRequest{
+	initiatorSegment, err := json.Marshal(ProxyRequest{
 		Network:    network,
 		Address:    addr,
 		AccessTOTP: curr,
@@ -141,7 +140,7 @@ func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr str
 		InitiatorConfig:      proxy.Config,
 		Initiator:            true,
 		InputTransport:       inTransport,
-		MaxLifetime:          dnsd.MaxProxyConnectionLifetime,
+		MaxLifetime:          MaxProxyConnectionLifetime,
 		// In practice there are occasionally bursts of tens of errors at a
 		// time before recovery.
 		MaxTransportErrors: 300,

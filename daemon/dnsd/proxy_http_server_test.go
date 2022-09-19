@@ -1,4 +1,4 @@
-package dnsclient
+package dnsd
 
 import (
 	"context"
@@ -10,21 +10,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
 func TestHTTPProxyServer(t *testing.T) {
 	// Start a DNS server with the TCP-over-DNS proxy built-in.
-	dnsProxyServer := &dnsd.Daemon{
+	dnsProxyServer := &Daemon{
 		Address:             "127.0.0.1",
 		AllowQueryFromCidrs: []string{"127.0.0.0/8"},
 		PerIPLimit:          999,
 		MyDomainNames:       []string{"example.test"},
 		UDPPort:             45278,
 		TCPPort:             32148,
-		TCPProxy: &dnsd.Proxy{
+		TCPProxy: &Proxy{
 			RequestOTPSecret: "testtest",
 		},
 	}

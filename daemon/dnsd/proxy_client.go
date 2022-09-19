@@ -1,4 +1,4 @@
-package dnsclient
+package dnsd
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/miekg/dns"
@@ -73,7 +72,7 @@ func (conn *ProxiedConnection) lookupCNAME(queryName string) (string, error) {
 	query := new(dns.Msg)
 	query.RecursionDesired = true
 	query.SetQuestion(queryName, dns.TypeA)
-	query.SetEdns0(dnsd.EDNSBufferSize, false)
+	query.SetEdns0(EDNSBufferSize, false)
 	response, _, err := client.Exchange(query, fmt.Sprintf("%s:%s", conn.dnsConfig.Servers[0], conn.dnsConfig.Port))
 	if err != nil {
 		return "", err
@@ -98,13 +97,13 @@ func (conn *ProxiedConnection) transportLoop() {
 		time.Sleep(5 * time.Second)
 		final, exists := conn.buf.Latest()
 		if exists && final.Flags != 0 {
-			if _, err := conn.lookupCNAME(final.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.dnsHostName)); err != nil {
+			if _, err := conn.lookupCNAME(final.DNSName(fmt.Sprintf("%c", ProxyPrefix), conn.dnsHostName)); err != nil {
 				conn.logger.Warning("", err, "failed to send the final segment")
 			}
 		}
 		conn.logger.Info("", nil, "DNS data transport finished, the final segment was: %v", final)
 	}()
-	countHostNameLabels := dnsd.CountNameLabels(conn.dnsHostName)
+	countHostNameLabels := CountNameLabels(conn.dnsHostName)
 	for {
 		if conn.tc.State() == tcpoverdns.StateClosed {
 			return
@@ -122,7 +121,7 @@ func (conn *ProxiedConnection) transportLoop() {
 		}
 		// Turn the segment into a DNS query and send the query out
 		// (data.data.data.example.com).
-		cname, err = conn.lookupCNAME(outgoingSeg.DNSName(fmt.Sprintf("%c", dnsd.ProxyPrefix), conn.dnsHostName))
+		cname, err = conn.lookupCNAME(outgoingSeg.DNSName(fmt.Sprintf("%c", ProxyPrefix), conn.dnsHostName))
 		conn.logger.Info(fmt.Sprint(conn.tc.ID), nil, "sent over DNS query in %dms: %+v", time.Since(begin).Milliseconds(), outgoingSeg)
 		if err != nil {
 			conn.logger.Warning(fmt.Sprint(conn.tc.ID), err, "failed to send output segment %v", outgoingSeg)

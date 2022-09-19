@@ -184,7 +184,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	for i, name := range daemon.MyDomainNames {
 		if len(name) < 3 {
-			return fmt.Errorf("DNSD.Initialise: MyDomainNames contains an invalid entry %q", name)
+			return fmt.Errorf("Initialise: MyDomainNames contains an invalid entry %q", name)
 		}
 		// Remove the full-stop suffix and give it a full-stop prefix.
 		if name[len(name)-1] == '.' {
@@ -209,7 +209,7 @@ func (daemon *Daemon) Initialise() error {
 	for _, cidr := range daemon.AllowQueryFromCidrs {
 		_, cidrNet, err := net.ParseCIDR(cidr)
 		if err != nil || cidr == "" {
-			return fmt.Errorf("DNSD.Initialise: failed to parse AllowQueryFromCidrs entry %q", cidr)
+			return fmt.Errorf("Initialise: failed to parse AllowQueryFromCidrs entry %q", cidr)
 		}
 		daemon.allowQueryFromCidrNets = append(daemon.allowQueryFromCidrNets, cidrNet)
 	}

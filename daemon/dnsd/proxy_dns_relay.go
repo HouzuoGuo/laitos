@@ -1,4 +1,4 @@
-package dnsclient
+package dnsd
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/HouzuoGuo/laitos/daemon/dnsd"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -87,7 +86,7 @@ func (relay *DNSRelay) establish(ctx context.Context) (*ProxiedConnection, error
 	if err != nil {
 		return nil, err
 	}
-	initiatorSegment, err := json.Marshal(dnsd.ProxyRequest{
+	initiatorSegment, err := json.Marshal(ProxyRequest{
 		Network:    "tcp",
 		Address:    relay.ForwardTo,
 		AccessTOTP: curr,
@@ -106,7 +105,7 @@ func (relay *DNSRelay) establish(ctx context.Context) (*ProxiedConnection, error
 		InitiatorConfig:      relay.Config,
 		Initiator:            true,
 		InputTransport:       inTransport,
-		MaxLifetime:          dnsd.MaxProxyConnectionLifetime,
+		MaxLifetime:          MaxProxyConnectionLifetime,
 		// In practice there are occasionally bursts of tens of errors at a
 		// time before recovery.
 		MaxTransportErrors: 300,

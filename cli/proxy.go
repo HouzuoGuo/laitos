@@ -5,17 +5,16 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/dnsd"
-	"github.com/HouzuoGuo/laitos/daemon/dnsd/dnsclient"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
 func HandleTCPOverDNSClient(logger lalog.Logger, debug bool, port int, proxySegLen int, resolver string, dnsHostName, otpSecret string) {
 	if proxySegLen == 0 {
-		proxySegLen = dnsclient.OptimalSegLen(dnsHostName)
+		proxySegLen = dnsd.OptimalSegLen(dnsHostName)
 		logger.Info("", nil, "using segment length %d", proxySegLen)
 	}
-	httpProxyServer := &dnsclient.HTTPProxyServer{
+	httpProxyServer := &dnsd.HTTPProxyServer{
 		Address: "127.0.0.1",
 		Port:    port,
 		Config: tcpoverdns.InitiatorConfig{

@@ -1,4 +1,4 @@
-package dnsclient
+package dnsd
 
 import (
 	"testing"
