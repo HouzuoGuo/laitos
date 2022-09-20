@@ -247,7 +247,7 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
-		if daemon.TCPProxy == nil {
+		if daemon.TCPProxy == nil || daemon.TCPProxy.RequestOTPSecret == "" {
 			daemon.logger.Info(clientIP, nil, "received a TCP-over-DNS segment but the server is not configured to handle it.")
 			return
 		}
@@ -318,28 +318,34 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 		daemon.logger.Warning(clientIP, nil, "client IP is not allowed to query")
 		return
 	}
-	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
-	// Forward the query to a randomly chosen recursive resolver
-	myForwarder, err := net.DialTimeout("tcp", randForwarder, ForwarderTimeoutSec*time.Second)
-	if err != nil {
-		daemon.logger.Warning(clientIP, err, "failed to connect to forwarder")
-		return
+	var forwarder net.Conn
+	var err error
+	if daemon.DNSRelay == nil {
+		randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
+		// Forward the query to a randomly chosen recursive resolver
+		forwarder, err = net.DialTimeout("tcp", randForwarder, ForwarderTimeoutSec*time.Second)
+		if err != nil {
+			daemon.logger.Warning(clientIP, err, "failed to connect to forwarder")
+			return
+		}
+		defer func() {
+			daemon.logger.MaybeMinorError(forwarder.Close())
+		}()
+	} else {
+		forwarder = daemon.DNSRelay.TransmissionControl()
 	}
-	defer func() {
-		daemon.logger.MaybeMinorError(myForwarder.Close())
-	}()
 	// Send original query to the resolver without modification
-	daemon.logger.MaybeMinorError(myForwarder.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
-	if _, err = myForwarder.Write(queryLen); err != nil {
+	daemon.logger.MaybeMinorError(forwarder.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
+	if _, err = forwarder.Write(queryLen); err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to write length to forwarder")
 		return
-	} else if _, err = myForwarder.Write(queryBody); err != nil {
+	} else if _, err = forwarder.Write(queryBody); err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to write query to forwarder")
 		return
 	}
 	// Read resolver's response
 	respLen := make([]byte, 2)
-	if _, err = myForwarder.Read(respLen); err != nil {
+	if _, err = forwarder.Read(respLen); err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to read length from forwarder")
 		return
 	}
@@ -349,7 +355,7 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 		return
 	}
 	respBody = make([]byte, respLenInt)
-	if _, err = myForwarder.Read(respBody); err != nil {
+	if _, err = forwarder.Read(respBody); err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to read response from forwarder")
 		return
 	}
@@ -367,31 +373,66 @@ func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte)
 		daemon.logger.Info(clientIP, nil, "client IP is not allowed to query")
 		return
 	}
-	// Forward the query to a randomly chosen recursive resolver and return its response
-	randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
-	forwarderConn, err := net.DialTimeout("udp", randForwarder, ForwarderTimeoutSec*time.Second)
+	if daemon.DNSRelay == nil {
+		// Forward the query to a randomly chosen recursive resolver and return its response
+		randForwarder := daemon.Forwarders[rand.Intn(len(daemon.Forwarders))]
+		forwarderConn, err := net.DialTimeout("udp", randForwarder, ForwarderTimeoutSec*time.Second)
+		if err != nil {
+			daemon.logger.Warning(clientIP, err, "failed to dial forwarder's address")
+			return
+		}
+		defer func() {
+			daemon.logger.MaybeMinorError(forwarderConn.Close())
+		}()
+		daemon.logger.MaybeMinorError(forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
+		if _, err := forwarderConn.Write(queryBody); err != nil {
+			daemon.logger.Warning(clientIP, err, "failed to write to forwarder")
+			return
+		}
+		respBody = make([]byte, MaxPacketSize)
+		respLenInt, err := forwarderConn.Read(respBody)
+		if err != nil {
+			daemon.logger.Warning(clientIP, err, "failed to read from forwarder")
+			return
+		}
+		if respLenInt < 3 {
+			daemon.logger.Warning(clientIP, err, "forwarder response is abnormally small")
+			return
+		}
+		respBody = respBody[:respLenInt]
+		return
+	}
+	// Forward using the TCP-over-DNS relay.
+	// Send the query length and query body.
+	queryLen := []byte{byte(len(queryBody) / 256), byte(len(queryBody) % 256)}
+	tc := daemon.DNSRelay.TransmissionControl()
+	if _, err := tc.Write(queryLen); err != nil {
+		daemon.logger.Warning(clientIP, err, "failed to write query length")
+		return
+	} else if _, err := tc.Write(respBody); err != nil {
+		daemon.logger.Warning(clientIP, err, "failed to write query body")
+		return
+	}
+	respLen := make([]byte, 2)
+	_, err := tc.Read(respLen)
 	if err != nil {
-		daemon.logger.Warning(clientIP, err, "failed to dial forwarder's address")
+		daemon.logger.Warning(clientIP, err, "failed to read query length from client")
+		tc.Close()
 		return
 	}
-	defer func() {
-		daemon.logger.MaybeMinorError(forwarderConn.Close())
-	}()
-	daemon.logger.MaybeMinorError(forwarderConn.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
-	if _, err := forwarderConn.Write(queryBody); err != nil {
-		daemon.logger.Warning(clientIP, err, "failed to write to forwarder")
+	// Read the response length and response body.
+	respLenInt := int(respLen[0])*256 + int(respLen[1])
+	if respLenInt > MaxPacketSize || respLenInt < MinNameQuerySize {
+		daemon.logger.Info(clientIP, nil, "invalid query length (%d) from relay", respLenInt)
+		tc.Close()
 		return
 	}
-	respBody = make([]byte, MaxPacketSize)
-	respLenInt, err := forwarderConn.Read(respBody)
+	respBody = make([]byte, respLenInt)
+	_, err = tc.Read(respBody)
 	if err != nil {
-		daemon.logger.Warning(clientIP, err, "failed to read from forwarder")
+		daemon.logger.Warning(clientIP, err, "failed to read query from client")
+		tc.Close()
 		return
 	}
-	if respLenInt < 3 {
-		daemon.logger.Warning(clientIP, err, "forwarder response is abnormally small")
-		return
-	}
-	respBody = respBody[:respLenInt]
 	return
 }

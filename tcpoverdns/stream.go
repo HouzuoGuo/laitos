@@ -152,13 +152,9 @@ type TransmissionControl struct {
 	mutex *sync.Mutex
 }
 
-// Start initialises the internal state of the transmission control.
-// Start may not be called after the transmission control is stopped.
-func (tc *TransmissionControl) Start(ctx context.Context) {
-	if tc.state == StateClosed {
-		panic("caller may not restart an already stopped transmission control")
-	}
-	// Give all parameters a default value.
+// setDefault gives undefined transmission control configuration parameters a
+// sane default value.
+func (tc *TransmissionControl) setDefault() {
 	if tc.MaxSegmentLenExclHeader == 0 {
 		tc.MaxSegmentLenExclHeader = 256
 	}
@@ -198,6 +194,15 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 		tc.InitialTiming.AckDelay = tc.InitialTiming.KeepAliveInterval / 3
 	}
 	tc.LiveTiming = tc.InitialTiming
+}
+
+// Start initialises the internal state of the transmission control.
+// Start may not be called after the transmission control is stopped.
+func (tc *TransmissionControl) Start(ctx context.Context) {
+	if tc.state == StateClosed {
+		panic("caller may not restart an already stopped transmission control")
+	}
+	tc.setDefault()
 
 	tc.context, tc.cancelFun = context.WithCancel(ctx)
 	tc.lastInputAck = time.Now()
@@ -624,6 +629,7 @@ func (tc *TransmissionControl) drainInputFromTransport() {
 						tc.mutex.Lock()
 						tc.state = StateSynReceived
 						conf.Config(tc)
+						tc.setDefault()
 						tc.mutex.Unlock()
 						if tc.PostConfigCallback != nil {
 							tc.PostConfigCallback()

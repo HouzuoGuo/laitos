@@ -3,12 +3,14 @@ package dnsd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
@@ -32,7 +34,7 @@ type DNSRelay struct {
 	DNSHostName string
 	dnsConfig   *dns.ClientConfig
 
-	// ForwardTo is the IP address of the public recursive DNS resolver.
+	// ForwardTo is the address (ip:port) of the public recursive DNS resolver.
 	ForwardTo string
 
 	mutex             *sync.Mutex
@@ -148,6 +150,20 @@ func (relay *DNSRelay) TransmissionControl() *tcpoverdns.TransmissionControl {
 // toward the DNS forwarder.
 func (relay *DNSRelay) StartAndBlock() error {
 	relay.logger.Info("", nil, "starting now")
+	go func() {
+		// Close and re-establish the TC every minute.
+		for {
+			timeout, cancel := context.WithTimeout(relay.context, 1*time.Minute)
+			select {
+			case <-timeout.Done():
+				relay.TransmissionControl().Close()
+			}
+			cancel()
+			if !errors.Is(timeout.Err(), context.DeadlineExceeded) {
+				return
+			}
+		}
+	}()
 	for {
 		var err error
 		relay.mutex.Lock()
@@ -161,7 +177,6 @@ func (relay *DNSRelay) StartAndBlock() error {
 		if !relay.proxiedConnection.tc.WaitState(relay.context, tcpoverdns.StateClosed) {
 			return nil
 		}
-		// FIXME TODO: periodically re-establish the TC.
 	}
 }
 

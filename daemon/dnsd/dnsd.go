@@ -97,9 +97,6 @@ type Daemon struct {
 	// Forwarders are recursive DNS resolvers for all query types. All resolvers
 	// must support both TCP and UDP.
 	Forwarders []string `json:"Forwarders"`
-	// TCPOnlyForwarding tells the DNS daemon to translate incoming UDP queries
-	// into a UDP-over-TCP queries before sending them to the forwarder.
-	TCPOnlyForwarding bool
 	// Processor enables execution of toolbox commands via DNS TXT queries when
 	// the queries are directed at the server's own domain name(s).
 	Processor *toolbox.CommandProcessor `json:"-"`
@@ -117,6 +114,8 @@ type Daemon struct {
 
 	// TCPProxy is a TCP-over-DNS proxy server.
 	TCPProxy *Proxy `json:"TCPProxy"`
+	// DNSRelay provides a transport for forwarded queries.
+	DNSRelay *DNSRelay `json:"-"`
 
 	// latestCommands caches the result of recently executed toolbox commands.
 	latestCommands *LatestCommands
@@ -222,7 +221,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.responseCache = NewResponseCache(5*time.Second, 200)
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
-	if daemon.TCPProxy != nil {
+	if daemon.TCPProxy != nil && daemon.TCPProxy.RequestOTPSecret != "" {
 		daemon.TCPProxy.DNSDaemon = daemon
 	}
 
@@ -380,12 +379,16 @@ func (daemon *Daemon) StartAndBlock() error {
 			return nil
 		},
 	}
-	if err := periodicBlacklistUpdate.Start(ctx); err != nil {
-		return err
+	if daemon.DNSRelay == nil {
+		// Update the blacklist periodically only when running a regular DNS
+		// server.
+		if err := periodicBlacklistUpdate.Start(ctx); err != nil {
+			return err
+		}
 	}
 
 	daemon.context, daemon.cancelFunc = context.WithCancel(context.Background())
-	if daemon.TCPProxy != nil {
+	if daemon.TCPProxy != nil && daemon.TCPProxy.RequestOTPSecret != "" {
 		daemon.TCPProxy.Start(daemon.context)
 	}
 
