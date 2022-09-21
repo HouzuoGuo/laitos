@@ -23,21 +23,22 @@ func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *
 	misc.TweakTCPConnection(conn, ClientTimeoutSec*time.Second)
 	// Read query length
 	queryLen := make([]byte, 2)
-	_, err := conn.Read(queryLen)
-	if err != nil {
-		logger.Warning(ip, err, "failed to read query length from client")
+	n, err := conn.Read(queryLen)
+	if err != nil || n != 2 {
+		logger.Info(ip, err, "failed to read query length from client, read %d bytes.", n)
 		return
 	}
 	queryLenInteger := int(queryLen[0])*256 + int(queryLen[1])
+
 	// Read query packet
 	if queryLenInteger > MaxPacketSize || queryLenInteger < MinNameQuerySize {
 		logger.Info(ip, nil, "invalid query length (%d) from client", queryLenInteger)
 		return
 	}
 	queryBody := make([]byte, queryLenInteger)
-	_, err = conn.Read(queryBody)
-	if err != nil {
-		logger.Warning(ip, err, "failed to read query from client")
+	n, err = conn.Read(queryBody)
+	if err != nil || n != queryLenInteger {
+		logger.Warning(ip, err, "failed to read query from client (read %d bytes)", n)
 		return
 	}
 	// Parse the first (and only) query question.
@@ -125,6 +126,7 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 	}
 	// Ignore the request if there is no appropriate response
 	if len(respBody) < 3 {
+		logger.Warning(ip, err, "the response seems unrealistically short")
 		return
 	}
 	// Match the response transaction ID with the request.
@@ -328,14 +330,27 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 			daemon.logger.Warning(clientIP, err, "failed to connect to forwarder")
 			return
 		}
-		defer func() {
-			daemon.logger.MaybeMinorError(forwarder.Close())
-		}()
 	} else {
-		forwarder = daemon.DNSRelay.TransmissionControl()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		tc := daemon.DNSRelay.TransmissionControl(ctx)
+		defer cancel()
+		if tc == nil {
+			daemon.logger.Warning(clientIP, err, "relay's transmission control failed to reach established state")
+			return nil
+		}
+		forwarder = tc
 	}
-	// Send original query to the resolver without modification
+	defer func() {
+		daemon.logger.MaybeMinorError(forwarder.Close())
+	}()
+	// Send original query to the resolver without modification.
 	daemon.logger.MaybeMinorError(forwarder.SetDeadline(time.Now().Add(ForwarderTimeoutSec * time.Second)))
+	if daemon.DNSRelay != nil {
+		daemon.DNSRelay.TransactionMutex.Lock()
+		defer func() {
+			daemon.DNSRelay.TransactionMutex.Unlock()
+		}()
+	}
 	if _, err = forwarder.Write(queryLen); err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to write length to forwarder")
 		return
@@ -343,7 +358,7 @@ func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBo
 		daemon.logger.Warning(clientIP, err, "failed to write query to forwarder")
 		return
 	}
-	// Read resolver's response
+	// Read resolver's response.
 	respLen := make([]byte, 2)
 	if _, err = forwarder.Read(respLen); err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to read length from forwarder")
@@ -404,33 +419,49 @@ func (daemon *Daemon) handleUDPRecursiveQuery(clientIP string, queryBody []byte)
 	}
 	// Forward using the TCP-over-DNS relay.
 	// Send the query length and query body.
+	if daemon.DNSRelay != nil {
+		daemon.DNSRelay.TransactionMutex.Lock()
+		defer func() {
+			daemon.DNSRelay.TransactionMutex.Unlock()
+		}()
+	}
 	queryLen := []byte{byte(len(queryBody) / 256), byte(len(queryBody) % 256)}
-	tc := daemon.DNSRelay.TransmissionControl()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tc := daemon.DNSRelay.TransmissionControl(ctx)
+	if tc == nil {
+		daemon.logger.Warning(clientIP, nil, "relay's transmission control failed to reach established state")
+		return nil
+	}
+	defer func() {
+		daemon.logger.MaybeMinorError(tc.Close())
+	}()
 	if _, err := tc.Write(queryLen); err != nil {
-		daemon.logger.Warning(clientIP, err, "failed to write query length")
+		daemon.logger.Warning(clientIP, err, "failed to write query length via DNS relay")
 		return
-	} else if _, err := tc.Write(respBody); err != nil {
-		daemon.logger.Warning(clientIP, err, "failed to write query body")
+	}
+	if _, err := tc.Write(queryBody); err != nil {
+		daemon.logger.Warning(clientIP, err, "failed to write query body via DNS relay")
 		return
 	}
 	respLen := make([]byte, 2)
 	_, err := tc.Read(respLen)
 	if err != nil {
-		daemon.logger.Warning(clientIP, err, "failed to read query length from client")
+		daemon.logger.Warning(clientIP, err, "failed to read response length via DNS relay")
 		tc.Close()
 		return
 	}
 	// Read the response length and response body.
 	respLenInt := int(respLen[0])*256 + int(respLen[1])
 	if respLenInt > MaxPacketSize || respLenInt < MinNameQuerySize {
-		daemon.logger.Info(clientIP, nil, "invalid query length (%d) from relay", respLenInt)
+		daemon.logger.Info(clientIP, nil, "received invalid response length (%d) via DNS relay", respLenInt)
 		tc.Close()
 		return
 	}
 	respBody = make([]byte, respLenInt)
 	_, err = tc.Read(respBody)
 	if err != nil {
-		daemon.logger.Warning(clientIP, err, "failed to read query from client")
+		daemon.logger.Warning(clientIP, err, "failed to read response via DNS relay")
 		tc.Close()
 		return
 	}

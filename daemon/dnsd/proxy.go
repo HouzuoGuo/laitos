@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"sync"
@@ -89,19 +90,15 @@ func (conn *ProxyConnection) Start() {
 	}
 	// Pipe data in both directions.
 	if conn.tcpConn != nil {
-		// Keep the buffer to minimum to improve responsiveness.
-		// The buffer size has nothing to do with segment size.
 		go func() {
-			if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, 1, conn.tc, conn.tcpConn); err != nil {
-				if conn.proxy.Debug {
-					conn.logger.Info("", err, "finished piping from TC to TCP connection")
-				}
+			_, err := io.Copy(conn.tcpConn, conn.tc)
+			if conn.proxy.Debug {
+				conn.logger.Info(nil, err, "finished piping from TC to TCP connection")
 			}
 		}()
-		if err := misc.PipeConn(conn.logger, false, conn.tc.MaxLifetime, 1, conn.tcpConn, conn.tc); err != nil {
-			if conn.proxy.Debug {
-				conn.logger.Info("", err, "finished piping from TCP connection to TC")
-			}
+		_, err := io.Copy(conn.tc, conn.tcpConn)
+		if conn.proxy.Debug {
+			conn.logger.Info(nil, err, "finished piping from TCP connection to TC")
 		}
 	}
 	// Wait for the transmission control to close.
@@ -245,15 +242,17 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			context:       proxy.context,
 			inputSegments: proxyIn,
 			logger: lalog.Logger{
-				ComponentName: "ProxyServer",
+				ComponentName: "ProxyConnection",
 				ComponentID: []lalog.LoggerIDField{
 					{Key: "TCID", Value: in.ID},
+					{Key: "Local", Value: tcpConn.LocalAddr().String()},
+					{Key: "Remote", Value: tcpConn.RemoteAddr().String()},
 				},
 			},
 		}
 		tc := &tcpoverdns.TransmissionControl{
 			Debug:  proxy.Debug,
-			LogTag: "ProxyServer",
+			LogTag: fmt.Sprintf("ProxyConn(%s->%s)", tcpConn.LocalAddr(), tcpConn.RemoteAddr()),
 			ID:     in.ID,
 			// This transmission control is a responder during the handshake.
 			Initiator:      false,

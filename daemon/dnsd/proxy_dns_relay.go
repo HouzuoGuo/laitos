@@ -3,7 +3,6 @@ package dnsd
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -36,6 +35,9 @@ type DNSRelay struct {
 
 	// ForwardTo is the address (ip:port) of the public recursive DNS resolver.
 	ForwardTo string
+	// TransactionMutex is for relay's client to obtain to ensure proper
+	// serialisation of DNS request-response transactions.
+	TransactionMutex *sync.Mutex
 
 	mutex             *sync.Mutex
 	proxiedConnection *ProxiedConnection
@@ -48,6 +50,7 @@ type DNSRelay struct {
 // state of the relay.
 func (relay *DNSRelay) Initialise(ctx context.Context) error {
 	relay.mutex = new(sync.Mutex)
+	relay.TransactionMutex = new(sync.Mutex)
 	if len(relay.DNSHostName) < 3 {
 		return fmt.Errorf("DNSDomainName (%q) must be a valid host name", relay.DNSHostName)
 	}
@@ -120,6 +123,7 @@ func (relay *DNSRelay) establish(ctx context.Context) (*ProxiedConnection, error
 	}
 	relay.Config.Config(tc)
 	conn := &ProxiedConnection{
+		debug:       relay.Debug,
 		dnsHostName: relay.DNSHostName,
 		dnsConfig:   relay.dnsConfig,
 		in:          proxyServerIn,
@@ -135,46 +139,47 @@ func (relay *DNSRelay) establish(ctx context.Context) (*ProxiedConnection, error
 	return conn, conn.Start()
 }
 
-// TransmissionControl returns the transmission control (net.Conn) of the DNS
-// relay.
-func (relay *DNSRelay) TransmissionControl() *tcpoverdns.TransmissionControl {
-	relay.mutex.Lock()
-	defer relay.mutex.Unlock()
-	if relay.proxiedConnection == nil {
-		return nil
+// TransmissionControl waits for the proxied connection's transmission control
+// to reach the establish state and then returns it.
+func (relay *DNSRelay) TransmissionControl(ctx context.Context) *tcpoverdns.TransmissionControl {
+	for {
+		relay.mutex.Lock()
+		if conn := relay.proxiedConnection; conn != nil {
+			if tc := conn.tc; tc.State() == tcpoverdns.StateEstablished {
+				relay.mutex.Unlock()
+				return tc
+			}
+		}
+		relay.mutex.Unlock()
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(tcpoverdns.BusyWaitInterval):
+			continue
+		}
 	}
-	return relay.proxiedConnection.tc
 }
 
 // StartAndBlock starts the internal transmission control to act as a relay
 // toward the DNS forwarder.
 func (relay *DNSRelay) StartAndBlock() error {
 	relay.logger.Info("", nil, "starting now")
-	go func() {
-		// Close and re-establish the TC every minute.
-		for {
-			timeout, cancel := context.WithTimeout(relay.context, 1*time.Minute)
-			select {
-			case <-timeout.Done():
-				relay.TransmissionControl().Close()
-			}
-			cancel()
-			if !errors.Is(timeout.Err(), context.DeadlineExceeded) {
-				return
-			}
-		}
-	}()
 	for {
+		var proxyConn *ProxiedConnection
 		var err error
 		relay.mutex.Lock()
-		relay.proxiedConnection, err = relay.establish(relay.context)
+		proxyConn, err = relay.establish(relay.context)
+		relay.proxiedConnection = proxyConn
 		relay.mutex.Unlock()
 		if err != nil {
+			relay.Stop()
 			return err
 		}
 		// When the transmission control closes, re-establish the transmission
 		// control.
-		if !relay.proxiedConnection.tc.WaitState(relay.context, tcpoverdns.StateClosed) {
+		// The TCP query handler of DNS daemon always closes the connection
+		// after every request.
+		if !proxyConn.tc.WaitState(relay.context, tcpoverdns.StateClosed) {
 			return nil
 		}
 	}

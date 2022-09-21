@@ -90,12 +90,10 @@ func TestSegment_Equals(t *testing.T) {
 }
 
 func TestBase62(t *testing.T) {
-	randBuf := make([]byte, 2000)
-	if _, err := rand.Read(randBuf); err != nil {
-		t.Fatal(err)
-	}
-	encoded := ToBase62(randBuf)
-	got, err := ParseBase62(encoded)
+	randBuf := []byte{0, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5}
+	encoded := ToBase62Mod(randBuf)
+	t.Log("encoded", encoded)
+	got, err := ParseBase62Mod(encoded)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +187,7 @@ func TestCompression(t *testing.T) {
 			}
 			w.Write(example.content)
 			w.Close()
-			encodedLen := len(ToBase62(b.Bytes()))
+			encodedLen := len(ToBase62Mod(b.Bytes()))
 			fmt.Printf("flate - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
 		}
 	})

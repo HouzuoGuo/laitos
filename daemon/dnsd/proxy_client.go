@@ -49,7 +49,7 @@ type ProxiedConnection struct {
 // established state, or an error.
 func (conn *ProxiedConnection) Start() error {
 	conn.logger.Info("", nil, "start transporting data over DNS")
-	conn.buf = tcpoverdns.NewSegmentBuffer(conn.logger, conn.tc.Debug, conn.tc.MaxSegmentLenExclHeader)
+	conn.buf = tcpoverdns.NewSegmentBuffer(conn.logger, conn.debug, conn.tc.MaxSegmentLenExclHeader)
 	// Absorb outgoing segments into the outgoing backlog.
 	conn.tc.OutputSegmentCallback = conn.buf.Absorb
 	conn.tc.Start(conn.context)

@@ -5,6 +5,7 @@ import (
 	"compress/flate"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -137,7 +138,7 @@ func (seg *Segment) DNSName(prefix, domainName string) string {
 	packet := seg.Packet()
 	compressed := CompressBytes(packet)
 	// Encode using base32.
-	encoded := ToBase62(compressed)
+	encoded := ToBase62Mod(compressed)
 	// Split into labels.
 	// 63 is the maximum label length decided by the DNS protocol.
 	// But many recursive resolvers don't like long labels, so be conservative.
@@ -157,7 +158,7 @@ func (seg *Segment) DNSNameQuery(prefix, domainName string) string {
 	packet := seg.Packet()
 	compressed := CompressBytes(packet)
 	// Encode using base32.
-	encoded := ToBase62(compressed)
+	encoded := ToBase62Mod(compressed)
 	// Split into labels.
 	// 63 is the maximum label length decided by the DNS protocol.
 	// But many recursive resolvers don't like long labels, so be conservative.
@@ -223,19 +224,14 @@ func SegmentFromDNSName(numDomainNameLabels int, query string) Segment {
 	// Recover base32 encoded binary data by concatenating the labels.
 	// The first label is a prefix only and does not carry binary data.
 	labels = labels[1 : len(labels)-numDomainNameLabels]
-	compressed, err := ParseBase62(strings.Join(labels, ""))
+	compressed, err := ParseBase62Mod(strings.Join(labels, ""))
 	if err != nil {
 		return Segment{Flags: FlagMalformed, Data: []byte("failed to parse base62 data")}
 	}
 	// Decompress the binary packet.
 	decompressed, err := DecompressBytes(compressed)
 	if err != nil {
-		// Add a possibly missing leading 0 to work around ToBase62's bug.
-		withLeadingZero := append([]byte{0}, compressed...)
-		decompressed, err = DecompressBytes(withLeadingZero)
-		if err != nil {
-			return Segment{Flags: FlagMalformed, Data: []byte("failed to decompress data")}
-		}
+		return Segment{Flags: FlagMalformed, Data: []byte("failed to decompress data")}
 	}
 	return SegmentFromPacket(decompressed)
 }
@@ -393,22 +389,28 @@ func ReadSegmentHeaderData(t testingstub.T, ctx context.Context, in io.Reader) S
 	return SegmentFromPacket(append(segHeader, segData...))
 }
 
-// ToBase62 encodes the input in a Base62-encoded string.
-// BUG: the encoded content may be missing a leading 0.
-func ToBase62(content []byte) string {
+// ToBase62Mod encodes [1, input...] in a Base62-encoded string.
+func ToBase62Mod(content []byte) string {
+	withPrefix := make([]byte, len(content)+1)
+	withPrefix[0] = 1
+	copy(withPrefix[1:], content)
 	var i big.Int
-	i.SetBytes(content[:])
+	i.SetBytes(withPrefix)
 	return i.Text(62)
 }
 
-// ParseBase62 recovers the original content from a Base62-encoded string.
-func ParseBase62(s string) ([]byte, error) {
+// ParseBase62Mod recovers the original content from a Base62Mod-encoded string.
+func ParseBase62Mod(s string) ([]byte, error) {
 	var i big.Int
 	_, ok := i.SetString(s, 62)
 	if !ok {
 		return nil, fmt.Errorf("failed to parse base62 encoded string: %q", s)
 	}
-	return i.Bytes(), nil
+	recovered := i.Bytes()
+	if len(recovered) == 0 {
+		return nil, errors.New("the input is missing the Base62Mod prefix byte")
+	}
+	return recovered[1:], nil
 }
 
 func CheckTC(t testingstub.T, tc *TransmissionControl, timeoutSec int, wantState State, wantInputSeq, wantInputAck, wantOutputSeq int, wantInputBuf, wantOutputBuf []byte) {

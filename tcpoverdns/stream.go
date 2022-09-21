@@ -511,9 +511,6 @@ func (tc *TransmissionControl) writeSegments(ackInputSeq, seqNum uint32, buf []b
 }
 
 func (tc *TransmissionControl) Read(buf []byte) (int, error) {
-	if tc.State() == StateClosed {
-		return 0, io.EOF
-	}
 	start := time.Now()
 	var readLen int
 	for {

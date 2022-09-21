@@ -83,7 +83,10 @@ func TestEmtpyDNSD(t *testing.T) {
 }
 
 func TestDaemon_Initialise(t *testing.T) {
-	daemon := &Daemon{AllowQueryFromCidrs: []string{"192.0.0.0/8", ""}, MyDomainNames: []string{"example.com"}}
+	daemon := &Daemon{
+		AllowQueryFromCidrs: []string{"192.0.0.0/8", ""},
+		MyDomainNames:       []string{"example.com"},
+	}
 	// Initialise with bad CIDR.
 	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "failed to parse") {
 		t.Fatal(err)
@@ -114,7 +117,7 @@ func TestDaemon_Initialise(t *testing.T) {
 	daemon = &Daemon{
 		AllowQueryFromCidrs: []string{"192.0.0.0/8"},
 		MyDomainNames:       []string{"example.com"},
-		TCPProxy:            &Proxy{},
+		TCPProxy:            &Proxy{RequestOTPSecret: "test"},
 		Processor:           toolbox.GetTestCommandProcessor(),
 	}
 	if err := daemon.Initialise(); err != nil ||

@@ -134,7 +134,7 @@ func (srv *TCPServer) handleConnection(clientIP string, client *net.TCPConn) {
 		srv.logger.MaybeMinorError(client.Close())
 		srv.App.GetTCPStatsCollector().Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
-	srv.logger.Info(clientIP, nil, "connection is accepted")
+	srv.logger.Info(clientIP, nil, "accepted a connection from %s to %s", client.RemoteAddr(), client.LocalAddr())
 	// Turn on keep-alive for OS to detect and remove dead clients
 	if err := client.SetKeepAlive(true); err != nil {
 		srv.logger.Warning(clientIP, err, "failed to turn on keep alive")

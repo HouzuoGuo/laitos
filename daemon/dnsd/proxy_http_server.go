@@ -16,7 +16,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/daemon/httpd/middleware"
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/miekg/dns"
@@ -200,10 +199,10 @@ func (proxy *HTTPProxyServer) ProxyHandler(w http.ResponseWriter, r *http.Reques
 			proxy.logger.Warning(clientIP, err, "failed to tap into HTTP connection stream")
 			return
 		}
-		// Keep the buffer to minimum to improve responsiveness.
-		// The buffer size has nothing to do with segment size.
-		go misc.PipeConn(proxy.logger, true, proxy.Config.Timing.ReadTimeout, 1, dstConn, reqConn)
-		misc.PipeConn(proxy.logger, true, proxy.Config.Timing.WriteTimeout, 1, reqConn, dstConn)
+		go func() {
+			_, _ = io.Copy(reqConn, dstConn)
+		}()
+		_, _ = io.Copy(dstConn, reqConn)
 	default:
 		// Execute the request as-is without handling higher-level mechanisms such as cookies and redirects
 		resp, err := proxy.httpTransport.RoundTrip(r)

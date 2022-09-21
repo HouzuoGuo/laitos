@@ -359,6 +359,7 @@ Start DNS daemon on configured TCP and UDP ports. Block caller until both listen
 If either TCP or UDP port fails to listen, all listeners are closed and an error is returned.
 */
 func (daemon *Daemon) StartAndBlock() error {
+	daemon.context, daemon.cancelFunc = context.WithCancel(context.Background())
 	// Update ad-block black list in background
 	ctx, cancelBlacklistUpdate := context.WithCancel(context.Background())
 	defer cancelBlacklistUpdate()
@@ -385,9 +386,17 @@ func (daemon *Daemon) StartAndBlock() error {
 		if err := periodicBlacklistUpdate.Start(ctx); err != nil {
 			return err
 		}
+	} else {
+		if err := daemon.DNSRelay.Initialise(daemon.context); err != nil {
+			return err
+		}
+		go func() {
+			if err := daemon.DNSRelay.StartAndBlock(); err != nil {
+				daemon.logger.Warning(nil, err, "the DNS relay has stopped, will now stop the DNS server as well.")
+				daemon.Stop()
+			}
+		}()
 	}
-
-	daemon.context, daemon.cancelFunc = context.WithCancel(context.Background())
 	if daemon.TCPProxy != nil && daemon.TCPProxy.RequestOTPSecret != "" {
 		daemon.TCPProxy.Start(daemon.context)
 	}
