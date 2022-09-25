@@ -125,7 +125,7 @@ func TestHTTPProxyServer(t *testing.T) {
 	})
 
 	t.Run("https proxy with heavy client losses", func(t *testing.T) {
-		httpProxyServer.dropPercentage = 10
+		httpProxyServer.dropPercentage = 5
 		proxyURL, err := url.Parse(fmt.Sprintf("http://%s:%d", httpProxyServer.Address, httpProxyServer.Port))
 		if err != nil {
 			t.Fatal(err)

@@ -41,6 +41,7 @@ func TestDNSRelay(t *testing.T) {
 	relay := &DNSRelay{
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
+			Debug:                   true,
 			MaxSegmentLenExclHeader: OptimalSegLen(proxyServer.MyDomainNames[0]),
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               MaxProxyConnectionLifetime,
@@ -52,7 +53,6 @@ func TestDNSRelay(t *testing.T) {
 				KeepAliveInterval: 500 * time.Millisecond,
 				AckDelay:          100 * time.Millisecond,
 			},
-			Debug: true,
 		},
 		Debug:            true,
 		RequestOTPSecret: proxyServer.TCPProxy.RequestOTPSecret,
