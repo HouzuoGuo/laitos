@@ -48,7 +48,7 @@ func TestGetProcTaskIDs(t *testing.T) {
 }
 
 func TestGetTaskStatus_WaitChannel(t *testing.T) {
-	if platform.HostIsWindows() {
+	if platform.HostIsWindows() || platform.HostIsWSL() {
 		t.Skip("this test will not run on windows")
 		return
 	}
@@ -73,7 +73,7 @@ func TestGetTaskStatus_WaitChannel(t *testing.T) {
 }
 
 func TestGetTaskStatus_SchedulerStats(t *testing.T) {
-	if platform.HostIsWindows() {
+	if platform.HostIsWindows() || platform.HostIsWSL() {
 		t.Skip("this test will not run on windows")
 		return
 	}
@@ -96,7 +96,7 @@ func TestGetTaskStatus_SchedulerStats(t *testing.T) {
 }
 
 func TestGetProcAndTaskStatus(t *testing.T) {
-	if platform.HostIsWindows() {
+	if platform.HostIsWindows() || platform.HostIsWSL() {
 		t.Skip("this test will not run on windows")
 		return
 	}
