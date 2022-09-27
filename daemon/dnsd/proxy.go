@@ -230,10 +230,13 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			// Proceed with handshake, but there will be no data coming through
 			// the transmission control and it will be closed shortly.
 		}
+		var localAddr, remoteAddr string
 		var tcpConn *net.TCPConn
 		if netConn != nil {
 			tcpConn = netConn.(*net.TCPConn)
 			misc.TweakTCPConnection(tcpConn, 30*time.Minute)
+			localAddr = tcpConn.LocalAddr().String()
+			remoteAddr = tcpConn.RemoteAddr().String()
 		}
 		// Track the new proxy connection.
 		conn = &ProxyConnection{
@@ -245,14 +248,14 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 				ComponentName: "ProxyConnection",
 				ComponentID: []lalog.LoggerIDField{
 					{Key: "TCID", Value: in.ID},
-					{Key: "Local", Value: tcpConn.LocalAddr().String()},
-					{Key: "Remote", Value: tcpConn.RemoteAddr().String()},
+					{Key: "Local", Value: localAddr},
+					{Key: "Remote", Value: remoteAddr},
 				},
 			},
 		}
 		tc := &tcpoverdns.TransmissionControl{
 			Debug:  proxy.Debug,
-			LogTag: fmt.Sprintf("ProxyConn(%s->%s)", tcpConn.LocalAddr(), tcpConn.RemoteAddr()),
+			LogTag: fmt.Sprintf("ProxyConn(%s->%s)", localAddr, remoteAddr),
 			ID:     in.ID,
 			// This transmission control is a responder during the handshake.
 			Initiator:      false,
