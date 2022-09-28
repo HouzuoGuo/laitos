@@ -135,8 +135,9 @@ func TestSockd(sockd *Daemon, t testingstub.T) {
 			t.Fatal(err)
 		} else if n, err := conn.Write(bytes.Repeat([]byte{0}, 1000)); err != nil && n != 10 {
 			t.Fatal(err, n)
-		} else if resp, err := ioutil.ReadAll(conn); err != nil || len(resp) < 10 {
-			// Server should have closed the connection after having sent the random data
+		} else if resp, _ := ioutil.ReadAll(conn); len(resp) < 10 {
+			// The returned error can be nil (EOF) or non-nil (connection
+			// reset). Forget about it.
 			t.Fatal(err, resp)
 		}
 	}
