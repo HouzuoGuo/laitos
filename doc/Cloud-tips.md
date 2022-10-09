@@ -215,8 +215,8 @@ by Azure can run laitos.
 
 ## Deploy on Google App Engine
 
-Clone the laitos repository. In the clone directory, and create a sub-directory
-`gcp_appengine_data`. Place the following files into the sub-directory:
+Clone the laitos repository. Create a sub-directory named `gcp_appengine_data`
+in the clone. Place the following files into the sub-directory:
 
 - `daemonName` - A plain-text file of comma-separated daemon names to be started
   on App Engine. The content is analogous to CLI parameter `-daemons`.
@@ -224,13 +224,21 @@ Clone the laitos repository. In the clone directory, and create a sub-directory
   for example: `env_variables:\n LAITOS_INDEX_PAGE: "{...}"`
 - `config.json` - A JSON file for the laitos program configuration.
   * Alternatively, write the program configuration JSON into the environment
-    variable `LAITOS_CONFIG`.
-- Other program data files such as HTML assets.
+    variable `LAITOS_CONFIG` in `appeng-environment.yaml`.
+- Other program data files, such as HTML pages, CSS files, and images for the
+  home page.
 
-Then navigate to the cloned directory (`laitos.git`) and run `gcloud app depoy`.
+Return to the repository and edit `app.yaml` as needed - the default scaling
+settings limit the number of serving instances to one to stay within the free
+tier.
 
-You can find an example in: https://github.com/HouzuoGuo/laitos/tree/master/gcp_appengine_data.example
+When ready, run`gcloud app deploy` to deploy the App Engine app.
 
+### Example GCP data files
+
+There are several example files in https://github.com/HouzuoGuo/laitos/tree/master/gcp_appengine_data.example
+
+Be aware that the example config file is named `config.json.example` whereas the
 Note that, the example config file is named `config.json.example` whereas the
 actual config file must be named `config.json`.
 
@@ -240,7 +248,6 @@ laitos runs on nearly all flavours of Linux and Windows hosts, as long as your
 cloud provider supports Linux compute instance, you can be almost certain that
 it will run laitos smoothly.
 
-Beyond AWS, Azure, GCP, and Oracle Cloud, laitos has also been successfully
-deployed on generic KVM-based virtual machines, OpenStack VM instances, Linode
-instances, as well as VMs from several budget hosting services advertised on
-[lowendbox.com](https://lowendbox.com/).
+laitos has been successfully deployed on all major public cloud vendors (AWS,
+Azure, Alibaba Cloud, Google Cloud, and Oracle Cloud), as well as generic XEN
+and KVM virtual machines, OpenStack instances, Kubernetes, and more.

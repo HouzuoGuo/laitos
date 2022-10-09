@@ -10,6 +10,8 @@ __Table of Contents__
 Daemon Components
 
 *   [DNS server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server)
+    - [DNS server (invoke app commands)](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(invoke-app-commands))
+    - [DNS server (TCP over DNS)](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(TCP-over-DNS))
 *   [Mail server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-mail-server)
 *   [Web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server)
 *   [Web proxy server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-proxy)

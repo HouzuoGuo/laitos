@@ -24,8 +24,18 @@ for a terminal-UI of some of the apps.
     </tr>
     <tr>
         <td>DNS server</td>
-        <td>DNS server offers a safer and cleaner web experience by blocking advertising and malware domains.</td>
+        <td>DNS server offers a safer and cleaner web experience by blocking advertising and malicious domains.</td>
         <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>DNS server (invoke app commands)</td>
+        <td>Included in the DNS server - execute app commands via exchanging TXT records.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(invoke-app-commands)" target="_blank">Link</a></td>
+    </tr>
+    <tr>
+        <td>DNS server (TCP-over-DNS)</td>
+        <td>Included in the DNS server - tunneling TCP traffic over DNS queries.</td>
+        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(TCP-over-DNS)" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Mail server</td>
