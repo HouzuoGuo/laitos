@@ -27,10 +27,7 @@ experience at home, and enable a couple of web utilities:
 
     {
       "DNSDaemon": {
-        "AllowQueryIPPrefixes": [
-          "192.",
-          "10."
-        ]
+        "AllowQueryFromCidrs": ["35.196.0.0/16", "37.228.0.0/16"]
       },
       "HTTPDaemon": {},
       "HTTPHandlers": {
