@@ -201,8 +201,12 @@ func (proxy *HTTPProxyServer) ProxyHandler(w http.ResponseWriter, r *http.Reques
 		}
 		go func() {
 			_, _ = io.Copy(reqConn, dstConn)
+			_ = reqConn.Close()
+			_ = dstConn.Close()
 		}()
 		_, _ = io.Copy(dstConn, reqConn)
+		_ = reqConn.Close()
+		_ = dstConn.Close()
 	default:
 		// Execute the request as-is without handling higher-level mechanisms such as cookies and redirects
 		resp, err := proxy.httpTransport.RoundTrip(r)
