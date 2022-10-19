@@ -520,10 +520,10 @@ func (tc *TransmissionControl) Read(buf []byte) (int, error) {
 		// Remove drained portion from the internal buffer.
 		tc.inputBuf = tc.inputBuf[readLen:]
 		tc.mutex.Unlock()
-		if tc.State() == StateClosed {
-			return readLen, io.EOF
-		} else if readLen > 0 {
+		if readLen > 0 {
 			return readLen, nil
+		} else if tc.State() == StateClosed {
+			return readLen, io.EOF
 		} else if time.Since(start) < tc.LiveTiming.ReadTimeout {
 			// Wait for more input data to arrive and then retry.
 			<-time.After(BusyWaitInterval)
