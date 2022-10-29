@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"golang.org/x/net/dns/dnsmessage"
 )
@@ -392,4 +393,90 @@ func CountNameLabels(in string) int {
 		return 0
 	}
 	return strings.Count(in, ".") + 1
+}
+
+// BuildTCPOverDNSSegmentResponse constructs a DNS query response packet that
+// encapsulates a TCP-over-DNS segment.
+func BuildTCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessage.Question, domainName string, seg tcpoverdns.Segment) ([]byte, error) {
+	// Retain the original transaction ID.
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = header.RecursionDesired
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	// Repeat the question back to the client, this is required by DNS protocol.
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	questionName, err := dnsmessage.NewName(question.Name.String())
+	if err != nil {
+		return nil, err
+	}
+	switch question.Type {
+	case dnsmessage.TypeA:
+		respSegCname, err := dnsmessage.NewName(seg.DNSName("r", domainName))
+		if err != nil {
+			return nil, err
+		}
+		// The first answer RR is a CNAME ("r.data-data-data.example.com") that
+		// carries the segment data.
+		if err := builder.CNAMEResource(dnsmessage.ResourceHeader{
+			Name:  questionName,
+			Class: dnsmessage.ClassINET,
+			TTL:   CommonResponseTTL,
+		}, dnsmessage.CNAMEResource{
+			CNAME: respSegCname,
+		}); err != nil {
+			return nil, err
+		}
+		if header.RecursionDesired {
+			// If the query asked for an address, then the second RR is a dummy address
+			// to the CNAME.
+			// There is no useful data in the address.
+			switch question.Type {
+			case dnsmessage.TypeA:
+				err := builder.AResource(dnsmessage.ResourceHeader{
+					Name:  respSegCname,
+					Class: dnsmessage.ClassINET,
+					TTL:   CommonResponseTTL,
+				}, dnsmessage.AResource{A: [4]byte{0, 0, 0, 0}})
+				if err != nil {
+					return nil, err
+				}
+			case dnsmessage.TypeAAAA:
+				err := builder.AAAAResource(dnsmessage.ResourceHeader{
+					Name:  respSegCname,
+					Class: dnsmessage.ClassINET,
+					TTL:   CommonResponseTTL,
+				}, dnsmessage.AAAAResource{
+					AAAA: [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+				})
+				if err != nil {
+					return nil, err
+				}
+			}
+
+		}
+	// case dnsmessage.TypeCNAME:
+	default:
+		return nil, fmt.Errorf("BuildTCPOverDNSSegmentResponse: unsupported question type %v", question.Type)
+	}
+	if err := builder.StartAdditionals(); err != nil {
+		return nil, err
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
+	}
+	return builder.Finish()
 }

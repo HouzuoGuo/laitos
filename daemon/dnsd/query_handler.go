@@ -257,7 +257,7 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 		emptyResposneSeg := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
 		if requestSeg.Flags.Has(tcpoverdns.FlagMalformed) {
 			daemon.logger.Info(clientIP, nil, "received a malformed TCP-over-DNS segment")
-			respBody, _ = daemon.TCPOverDNSSegmentResponse(header, question, emptyResposneSeg.DNSName("r", domainName))
+			respBody, _ = BuildTCPOverDNSSegmentResponse(header, question, domainName, emptyResposneSeg)
 			return respBody
 		}
 		cachedResponseSeg := daemon.responseCache.GetOrSet(name, func() tcpoverdns.Segment {
@@ -267,7 +267,7 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 			}
 			return respSegment
 		})
-		respBody, err := daemon.TCPOverDNSSegmentResponse(header, question, cachedResponseSeg.DNSName("r", domainName))
+		respBody, err := BuildTCPOverDNSSegmentResponse(header, question, domainName, cachedResponseSeg)
 		if err != nil {
 			daemon.logger.Info(clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
 			return nil

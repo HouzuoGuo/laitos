@@ -122,6 +122,13 @@ func (seg *Segment) Packet() (ret []byte) {
 	return
 }
 
+// CompressAndEncode compresses and encodes the segment into a string.
+func (seg *Segment) CompressAndEncode() string {
+	packet := seg.Packet()
+	compressed := CompressBytes(packet)
+	return ToBase62Mod(compressed)
+}
+
 // DNSName converts the binary representation of this segment into a DNS name -
 // "prefix.seg.seg.seg...domainName". The return string does not have a suffix
 // period.
@@ -134,11 +141,7 @@ func (seg *Segment) DNSName(prefix, domainName string) string {
 	if domainName[len(domainName)-1] != '.' {
 		domainName += "."
 	}
-	// Compress the binary representation of the segment.
-	packet := seg.Packet()
-	compressed := CompressBytes(packet)
-	// Encode using base32.
-	encoded := ToBase62Mod(compressed)
+	encoded := seg.CompressAndEncode()
 	// Split into labels.
 	// 63 is the maximum label length decided by the DNS protocol.
 	// But many recursive resolvers don't like long labels, so be conservative.
