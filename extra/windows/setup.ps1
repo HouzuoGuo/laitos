@@ -2,18 +2,6 @@
 
 $ErrorActionPreference = 'Stop'
 
-# Download and extract supplements (Firefox, SlimerJS) for laitos
-$dataDrive = Read-Host -Prompt 'Under which drive will laitos supplements be installed? E.g. C:\'
-$supplementsURL = 'https://github.com/HouzuoGuo/laitos-windows-supplements/archive/master.zip'
-$supplementsSaveTo = $dataDrive + 'laitos-windows-supplements.zip'
-$supplementsDest = $dataDrive + 'laitos-windows-supplements'
-[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12;
-(New-Object Net.WebClient).DownloadFile($supplementsURL, $supplementsSaveTo)
-$extractedSupplements = (New-Object -Com shell.application).namespace($supplementsSaveTo).Items()
-(New-Object -Com shell.application).namespace($dataDrive).CopyHere($extractedSupplements, 16)
-Remove-Item -ErrorAction Ignore -Recurse "$supplementsDest"
-Rename-Item "${dataDrive}laitos-windows-supplements-master" $supplementsDest
-
 # Run laitos automatically as system boots up via task scheduler
 $laitosCmd = Read-Host -Prompt 'What is the absolute path to laitos.exe? E.g. %USERPROFILE%\laitos.exe'
 $laitosArg = Read-Host -Prompt 'What parameters to use for launching laitos automatically? E.g. -disableconflicts -awsinteg -prominteg -gomaxprocs 2 -config config.json -daemons autounlock,dnsd,httpd,httpproxy,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram'
