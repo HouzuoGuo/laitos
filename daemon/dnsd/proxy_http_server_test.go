@@ -97,8 +97,8 @@ func TestHTTPProxyServer_CNAME(t *testing.T) {
 		AllowQueryFromCidrs: []string{"127.0.0.0/8"},
 		PerIPLimit:          999,
 		MyDomainNames:       []string{"example.test"},
-		UDPPort:             45278,
-		TCPPort:             32148,
+		UDPPort:             61844,
+		TCPPort:             12880,
 		TCPProxy: &Proxy{
 			RequestOTPSecret: "testtest",
 		},
@@ -118,7 +118,7 @@ func TestHTTPProxyServer_CNAME(t *testing.T) {
 	// Start an HTTP proxy server - tcp-over-DNS proxy client.
 	httpProxyServer := &HTTPProxyServer{
 		Address:          "127.0.0.1",
-		Port:             61122,
+		Port:             41611,
 		RequestOTPSecret: dnsProxyServer.TCPProxy.RequestOTPSecret,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
