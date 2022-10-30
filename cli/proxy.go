@@ -10,10 +10,16 @@ import (
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
-func HandleTCPOverDNSClient(logger lalog.Logger, debug, relayDNS bool, port int, proxySegLen int, resolver string, dnsHostName, otpSecret string) {
+func HandleTCPOverDNSClient(logger lalog.Logger, debug, relayDNS bool, port int, proxySegLen int, resolver string, dnsHostName, otpSecret string, enableTXT bool) {
 	if proxySegLen == 0 {
 		proxySegLen = dnsd.OptimalSegLen(dnsHostName)
 		logger.Info("", nil, "using segment length %d", proxySegLen)
+	}
+
+	remoteSegmentLenMultiplier := 1
+	if enableTXT {
+		// This seems to work for most recursive resolvers.
+		remoteSegmentLenMultiplier = 4
 	}
 
 	// Start localhost DNS relay if desired.
@@ -64,8 +70,10 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug, relayDNS bool, port int,
 
 	// Start localhost HTTP proxy server.
 	httpProxyServer := &dnsd.HTTPProxyServer{
-		Address: "127.0.0.12",
-		Port:    port,
+		Address:                    "127.0.0.12",
+		Port:                       port,
+		RemoteSegmentLenMultiplier: remoteSegmentLenMultiplier,
+		EnableTXTRequests:          enableTXT,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
 			Debug:                   debug,

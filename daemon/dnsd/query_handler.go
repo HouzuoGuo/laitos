@@ -2,6 +2,7 @@ package dnsd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -141,6 +142,34 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 	}
 }
 
+func (daemon *Daemon) handleTCPOverDNSQuery(header dnsmessage.Header, question dnsmessage.Question, clientIP string) ([]byte, error) {
+	name := question.Name.String()
+	_, domainName, numDomainLabels, _ := daemon.queryLabels(name)
+	if daemon.TCPProxy == nil || daemon.TCPProxy.RequestOTPSecret == "" {
+		daemon.logger.Info(clientIP, nil, "received a TCP-over-DNS segment but the server is not configured to handle it.")
+		return nil, errors.New("missing tcp-over-dns server config")
+	}
+	requestSeg := tcpoverdns.SegmentFromDNSName(numDomainLabels, name)
+	emptyResposneSeg := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
+	if requestSeg.Flags.Has(tcpoverdns.FlagMalformed) {
+		daemon.logger.Info(clientIP, nil, "received a malformed TCP-over-DNS segment")
+		return BuildTCPOverDNSSegmentResponse(header, question, domainName, emptyResposneSeg)
+	}
+	cachedResponseSeg := daemon.responseCache.GetOrSet(name, func() tcpoverdns.Segment {
+		respSegment, hasResp := daemon.TCPProxy.Receive(requestSeg)
+		if !hasResp {
+			return emptyResposneSeg
+		}
+		return respSegment
+	})
+	respBody, err := BuildTCPOverDNSSegmentResponse(header, question, domainName, cachedResponseSeg)
+	if err != nil {
+		daemon.logger.Info(clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
+		return nil, err
+	}
+	return respBody, nil
+}
+
 func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	if daemon.processQueryTestCaseFunc != nil {
@@ -172,6 +201,8 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 		} else {
 			daemon.logger.Info(clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
 		}
+	} else if name[0] == ProxyPrefix {
+		respBody, _ = daemon.handleTCPOverDNSQuery(header, question, clientIP)
 	} else {
 		// Or just a regular dig.
 		daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
@@ -249,29 +280,7 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
-		if daemon.TCPProxy == nil || daemon.TCPProxy.RequestOTPSecret == "" {
-			daemon.logger.Info(clientIP, nil, "received a TCP-over-DNS segment but the server is not configured to handle it.")
-			return
-		}
-		requestSeg := tcpoverdns.SegmentFromDNSName(numDomainLabels, name)
-		emptyResposneSeg := tcpoverdns.Segment{Flags: tcpoverdns.FlagKeepAlive}
-		if requestSeg.Flags.Has(tcpoverdns.FlagMalformed) {
-			daemon.logger.Info(clientIP, nil, "received a malformed TCP-over-DNS segment")
-			respBody, _ = BuildTCPOverDNSSegmentResponse(header, question, domainName, emptyResposneSeg)
-			return respBody
-		}
-		cachedResponseSeg := daemon.responseCache.GetOrSet(name, func() tcpoverdns.Segment {
-			respSegment, hasResp := daemon.TCPProxy.Receive(requestSeg)
-			if !hasResp {
-				return emptyResposneSeg
-			}
-			return respSegment
-		})
-		respBody, err := BuildTCPOverDNSSegmentResponse(header, question, domainName, cachedResponseSeg)
-		if err != nil {
-			daemon.logger.Info(clientIP, err, "failed to construct DNS query response for TCP-over-DNS segment")
-			return nil
-		}
+		respBody, _ = daemon.handleTCPOverDNSQuery(header, question, clientIP)
 		return respBody
 	} else if !isRecursive {
 		// Non-recursive, other name queries. There must be a response.

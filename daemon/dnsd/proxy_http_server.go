@@ -31,9 +31,18 @@ type HTTPProxyServer struct {
 	Port int `json:"Port"`
 	// Config contains the parameters for the initiator of the proxy
 	// connections to configure the remote transmission control.
-	Config tcpoverdns.InitiatorConfig
+	Config       tcpoverdns.InitiatorConfig
+	remoteConfig tcpoverdns.InitiatorConfig
 	// Debug enables verbose logging for IO activities.
 	Debug bool
+	// EnableTXTRequests forces the DNS client to transport TCP-over-DNS
+	// segments in TXT queries instead of the usual CNAME queries.
+	EnableTXTRequests bool
+	// RemoteSegmentLenMultiplier is a multiplier for the segment length used by
+	// the remote TCP-over-DNS transmission control.
+	// This is useful for when the segments are transported over a carrier with
+	// asymmetrical capacity, e.g. DNS TXT records.
+	RemoteSegmentLenMultiplier int
 	// RequestOTPSecret is a TOTP secret for authorising outgoing connection
 	// requests.
 	RequestOTPSecret string `json:"RequestOTPSecret"`
@@ -87,6 +96,11 @@ func (proxy *HTTPProxyServer) Initialise(ctx context.Context) error {
 		ExpectContinueTimeout: proxy.Config.Timing.ReadTimeout,
 	}
 
+	proxy.remoteConfig = proxy.Config
+	if proxy.RemoteSegmentLenMultiplier > 1 {
+		proxy.remoteConfig.MaxSegmentLenExclHeader *= proxy.RemoteSegmentLenMultiplier
+	}
+
 	var err error
 	if proxy.DNSResolver == "" {
 		proxy.dnsConfig, err = dns.ClientConfigFromFile("/etc/resolv.conf")
@@ -130,16 +144,17 @@ func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr str
 	tcID := uint16(rand.Int())
 	proxyServerIn, inTransport := net.Pipe()
 	// Construct a client-side transmission control.
-	proxy.logger.Info(fmt.Sprint(tcID), nil, "creating transmission control for %s", string(initiatorSegment))
+	proxy.logger.Info(fmt.Sprint(tcID), nil, "creating transmission control for %s using remote config: %+v", string(initiatorSegment), proxy.remoteConfig)
 	tc := &tcpoverdns.TransmissionControl{
 		LogTag:               "HTTPProxyServer",
 		ID:                   tcID,
 		Debug:                proxy.Debug,
 		InitiatorSegmentData: initiatorSegment,
-		InitiatorConfig:      proxy.Config,
-		Initiator:            true,
-		InputTransport:       inTransport,
-		MaxLifetime:          MaxProxyConnectionLifetime,
+		// The config for remote may differ by having a longer segment length.
+		InitiatorConfig: proxy.remoteConfig,
+		Initiator:       true,
+		InputTransport:  inTransport,
+		MaxLifetime:     MaxProxyConnectionLifetime,
 		// In practice there are occasionally bursts of tens of errors at a
 		// time before recovery.
 		MaxTransportErrors: 300,
@@ -152,14 +167,14 @@ func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr str
 	}
 	proxy.Config.Config(tc)
 	conn := &ProxiedConnection{
-		dnsHostName:    proxy.DNSHostName,
-		dnsConfig:      proxy.dnsConfig,
-		dropPercentage: proxy.dropPercentage,
-		debug:          proxy.Debug,
-
-		in:      proxyServerIn,
-		tc:      tc,
-		context: ctx,
+		dnsHostName:       proxy.DNSHostName,
+		dnsConfig:         proxy.dnsConfig,
+		dropPercentage:    proxy.dropPercentage,
+		debug:             proxy.Debug,
+		enableTXTRequests: proxy.EnableTXTRequests,
+		in:                proxyServerIn,
+		tc:                tc,
+		context:           ctx,
 		logger: lalog.Logger{
 			ComponentName: "HTTPProxyServerConn",
 			ComponentID: []lalog.LoggerIDField{

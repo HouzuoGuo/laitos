@@ -149,24 +149,12 @@ func (seg *Segment) DNSName(prefix, domainName string) string {
 	return fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)
 }
 
-// DNSQuestion converts the binary representation of this segment into a DNS
-// name query - "prefix.seg.seg.seg...domainName".
-// The function does not check whether the segment is sufficiently small for
-// the DNS protocol.
-func (seg *Segment) DNSNameQuery(prefix, domainName string) string {
-	if prefix == "" || domainName == "" {
-		return ""
-	}
-	// Compress the binary representation of the segment.
-	packet := seg.Packet()
-	compressed := CompressBytes(packet)
-	// Encode using base32.
-	encoded := ToBase62Mod(compressed)
-	// Split into labels.
-	// 63 is the maximum label length decided by the DNS protocol.
-	// But many recursive resolvers don't like long labels, so be conservative.
-	labels := misc.SplitIntoSlice(encoded, 60, MaxSegmentDataLen)
-	return fmt.Sprintf(`%s.%s.%s`, prefix, strings.Join(labels, "."), domainName)
+// DNSText converts the binary representation of this segment into DNS text
+// entries.
+// The function does not restrict the maximum size of the text entries.
+func (seg *Segment) DNSText() []string {
+	encoded := seg.CompressAndEncode()
+	return misc.SplitIntoSlice(encoded, 253, MaxSegmentDataLen)
 }
 
 // Stringer returns a human-readable representation of the segment for debug
@@ -207,6 +195,24 @@ func SegmentFromPacket(packet []byte) Segment {
 		}
 	}
 	return seg
+}
+
+// SegmentFromDNSName decodes a segment from a DNS name, for example, the name
+// of a query, or a CNAME from a response.
+func SegmentFromDNSText(entries []string) Segment {
+	if len(entries) == 0 {
+		return Segment{Flags: FlagMalformed, Data: []byte("no text entries")}
+	}
+	compressed, err := ParseBase62Mod(strings.Join(entries, ""))
+	if err != nil {
+		return Segment{Flags: FlagMalformed, Data: []byte("failed to parse base62 data")}
+	}
+	// Decompress the binary packet.
+	decompressed, err := DecompressBytes(compressed)
+	if err != nil {
+		return Segment{Flags: FlagMalformed, Data: []byte("failed to decompress data")}
+	}
+	return SegmentFromPacket(decompressed)
 }
 
 // SegmentFromDNSName decodes a segment from a DNS name, for example, the name

@@ -271,9 +271,27 @@ func TestSegment_DNSNameQuery(t *testing.T) {
 		AckNum: 34567,
 		Data:   randData,
 	}
-	query := want.DNSNameQuery("prefix-label", "example.com")
-	fmt.Println(query)
+	query := want.DNSName("prefix-label", "example.com")
 	got := SegmentFromDNSName(2, query)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("recovered: %+#v original: %+#v", got, want)
+	}
+}
+
+func TestSegment_DNSText(t *testing.T) {
+	randData := make([]byte, 100)
+	if _, err := rand.Read(randData); err != nil {
+		t.Fatal(err)
+	}
+	want := Segment{
+		ID:     12345,
+		Flags:  FlagHandshakeAck & FlagHandshakeSyn,
+		SeqNum: 23456,
+		AckNum: 34567,
+		Data:   randData,
+	}
+	converted := want.DNSText()
+	got := SegmentFromDNSText(converted)
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("recovered: %+#v original: %+#v", got, want)
 	}

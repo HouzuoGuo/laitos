@@ -420,6 +420,8 @@ func BuildTCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessag
 		return nil, err
 	}
 	switch question.Type {
+	case dnsmessage.TypeCNAME:
+		fallthrough
 	case dnsmessage.TypeA:
 		respSegCname, err := dnsmessage.NewName(seg.DNSName("r", domainName))
 		if err != nil {
@@ -431,9 +433,7 @@ func BuildTCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessag
 			Name:  questionName,
 			Class: dnsmessage.ClassINET,
 			TTL:   CommonResponseTTL,
-		}, dnsmessage.CNAMEResource{
-			CNAME: respSegCname,
-		}); err != nil {
+		}, dnsmessage.CNAMEResource{CNAME: respSegCname}); err != nil {
 			return nil, err
 		}
 		if header.RecursionDesired {
@@ -462,9 +462,15 @@ func BuildTCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessag
 					return nil, err
 				}
 			}
-
 		}
-	// case dnsmessage.TypeCNAME:
+	case dnsmessage.TypeTXT:
+		if err := builder.TXTResource(dnsmessage.ResourceHeader{
+			Name:  questionName,
+			Class: dnsmessage.ClassINET,
+			TTL:   CommonResponseTTL,
+		}, dnsmessage.TXTResource{TXT: seg.DNSText()}); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("BuildTCPOverDNSSegmentResponse: unsupported question type %v", question.Type)
 	}

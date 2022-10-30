@@ -98,7 +98,7 @@ func main() {
 	var proxyPort, proxySegLen int
 	var proxyResolver string
 	var proxyDNSName, proxyOTPSecret string
-	var proxyDebug, proxyRelayDNS bool
+	var proxyDebug, proxyRelayDNS, proxyEnableTXT bool
 	flag.IntVar(&proxyPort, "proxyport", 8080, "(TCP-over-DNS) port to start local HTTP proxy on")
 	flag.BoolVar(&proxyDebug, "proxydebug", false, "(TCP-over-DNS) turn on debug logs")
 	flag.BoolVar(&proxyRelayDNS, "proxyrelaydns", false, "(TCP-over-DNS) start a recursive resolver on 127.0.0.12:53 to relay queries to laitos DNS server")
@@ -106,6 +106,7 @@ func main() {
 	flag.IntVar(&proxySegLen, "proxyseglen", 0, "(TCP-over-DNS) max segment length (must be less than 200)")
 	flag.StringVar(&proxyDNSName, "proxydnsname", "", "(TCP-over-DNS) host name of the laitos DNS server")
 	flag.StringVar(&proxyOTPSecret, "proxyotpsecret", "", "(TCP-over-DNS) proxy OTP secret for authorising connection requests")
+	flag.BoolVar(&proxyEnableTXT, "proxyenabletxt", false, "(TCP-over-DNS) send TXT instead of CNAME queries for higher bandwidth")
 
 	flag.Parse()
 
@@ -130,7 +131,7 @@ func main() {
 	// Non-daemon utility routines - TCP-over-DNS client.
 	// ========================================================================
 	if proxyDNSName != "" {
-		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyRelayDNS, proxyPort, proxySegLen, proxyResolver, proxyDNSName, proxyOTPSecret)
+		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyRelayDNS, proxyPort, proxySegLen, proxyResolver, proxyDNSName, proxyOTPSecret, proxyEnableTXT)
 		return
 	}
 
