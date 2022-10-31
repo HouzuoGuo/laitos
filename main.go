@@ -95,18 +95,17 @@ func main() {
 	flag.StringVar(&dataUtil, "datautil", "", "(Optional) program data encryption utility: encrypt|decrypt")
 	flag.StringVar(&dataUtilFile, "datautilfile", "", "(Optional) program data encryption utility: encrypt/decrypt file location")
 	// TCP-over-DNS proxy client flags.
-	var proxyPort, proxySegLen int
-	var proxyResolver string
-	var proxyDNSName, proxyOTPSecret string
-	var proxyDebug, proxyRelayDNS, proxyEnableTXT bool
-	flag.IntVar(&proxyPort, "proxyport", 8080, "(TCP-over-DNS) port to start local HTTP proxy on")
-	flag.BoolVar(&proxyDebug, "proxydebug", false, "(TCP-over-DNS) turn on debug logs")
-	flag.BoolVar(&proxyRelayDNS, "proxyrelaydns", false, "(TCP-over-DNS) start a recursive resolver on 127.0.0.12:53 to relay queries to laitos DNS server")
-	flag.StringVar(&proxyResolver, "proxyresolver", "", `(TCP-over-DNS) recursive resolver address - "ip:port"`)
-	flag.IntVar(&proxySegLen, "proxyseglen", 0, "(TCP-over-DNS) max segment length (must be less than 200)")
-	flag.StringVar(&proxyDNSName, "proxydnsname", "", "(TCP-over-DNS) host name of the laitos DNS server")
-	flag.StringVar(&proxyOTPSecret, "proxyotpsecret", "", "(TCP-over-DNS) proxy OTP secret for authorising connection requests")
-	flag.BoolVar(&proxyEnableTXT, "proxyenabletxt", false, "(TCP-over-DNS) send TXT instead of CNAME queries for higher bandwidth")
+
+	var proxyOpts cli.ProxyCLIOptions
+	flag.IntVar(&proxyOpts.Port, "proxyport", 8080, "(TCP-over-DNS optional) override the port of the local HTTP(S) proxy server on 127.0.0.12")
+	flag.BoolVar(&proxyOpts.Debug, "proxydebug", false, "(TCP-over-DNS optional) turn on debug logs")
+	flag.BoolVar(&proxyOpts.EnableDNSRelay, "proxyenablednsrelay", false, "(TCP-over-DNS optional) start a recursive resolver on 127.0.0.12:53 to relay queries to laitos DNS server")
+	flag.StringVar(&proxyOpts.RecursiveResolverAddress, "proxyresolver", "", `(TCP-over-DNS optional) local/public recursive DNS resolver address ("ip:port") or empty for auto detection`)
+	flag.IntVar(&proxyOpts.MaxSegmentLength, "proxyseglen", 0, "(TCP-over-DNS optional) override max segment length")
+	flag.StringVar(&proxyOpts.LaitosDNSName, "proxydnsname", "", "(TCP-over-DNS mandatory) the DNS name of laitos DNS server")
+	flag.StringVar(&proxyOpts.AccessOTPSecret, "proxyotpsecret", "", "(TCP-over-DNS mandatory) authorise connection requests using this OTP secret")
+	flag.BoolVar(&proxyOpts.EnableTXT, "proxyenabletxt", false, "(TCP-over-DNS optional) send TXT queries instead of CNAME queries for higher bandwidth")
+	flag.IntVar(&proxyOpts.ResponderSegmentLenMultiplier, "proxyresponderseglenmultiplier", 0, "(TCP-over-DNS optional) multiply responder's max segment length by this factor - try 2-5 for TXT carrier")
 
 	flag.Parse()
 
@@ -130,8 +129,8 @@ func main() {
 	// ========================================================================
 	// Non-daemon utility routines - TCP-over-DNS client.
 	// ========================================================================
-	if proxyDNSName != "" {
-		cli.HandleTCPOverDNSClient(logger, proxyDebug, proxyRelayDNS, proxyPort, proxySegLen, proxyResolver, proxyDNSName, proxyOTPSecret, proxyEnableTXT)
+	if proxyOpts.LaitosDNSName != "" {
+		cli.HandleTCPOverDNSClient(logger, proxyOpts)
 		return
 	}
 

@@ -38,13 +38,12 @@ type HTTPProxyServer struct {
 	// EnableTXTRequests forces the DNS client to transport TCP-over-DNS
 	// segments in TXT queries instead of the usual CNAME queries.
 	EnableTXTRequests bool
-	// RemoteSegmentLenMultiplier is a multiplier for the segment length used by
-	// the remote TCP-over-DNS transmission control.
-	// This is useful for when the segments are transported over a carrier with
-	// asymmetrical capacity, e.g. DNS TXT records.
+	// RemoteSegmentLenMultiplier is a multiplier used for configuring the
+	// responder (remote) transmission control's segment length. This should be
+	// 1 for CNAME carrier and between 2-5 for TXT carrier.
 	RemoteSegmentLenMultiplier int
-	// RequestOTPSecret is a TOTP secret for authorising outgoing connection
-	// requests.
+	// RequestOTPSecret is the proxy OTP secret for laitos DNS server to
+	// authorise this client's connection requests.
 	RequestOTPSecret string `json:"RequestOTPSecret"`
 
 	// httpTransport is the HTTP round tripper used by the proxy handler for
@@ -52,7 +51,8 @@ type HTTPProxyServer struct {
 	// HTTPS (HTTP CONNECT) requests.
 	httpTransport *http.Transport
 
-	// DNSResolver is the address (ip:port) of the public recursive DNS resolver.
+	// DNSResolver is the address of a local or public recursive resolver
+	// (ip:port).
 	DNSResolver string
 	// DNSHostName is the host name of the TCP-over-DNS proxy server.
 	DNSHostName string

@@ -10,26 +10,62 @@ import (
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
-func HandleTCPOverDNSClient(logger lalog.Logger, debug, relayDNS bool, port int, proxySegLen int, resolver string, dnsHostName, otpSecret string, enableTXT bool) {
-	if proxySegLen == 0 {
-		proxySegLen = dnsd.OptimalSegLen(dnsHostName)
-		logger.Info("", nil, "using segment length %d", proxySegLen)
-	}
+// ProxyCLIOptions encapsulates CLI options for the TCP-over-DNS proxy client.
+type ProxyCLIOptions struct {
+	// Port number of the local HTTP(s) proxy server.
+	Port int
+	// Debug turns on debug output for both the initiator (local) and responder
+	// (remote) transmission control.
+	Debug bool
+	// EnableDNSRelay starts a recursive resolver on 127.0.0.12:53 to relay
+	// DNS queries to laitos DNS server over TCP-over-DNS.
+	EnableDNSRelay bool
+	// RecursiveResolverAddress is the address of a local or public recursive
+	// resolver (ip:port).
+	RecursiveResolverAddress string
+	// SegmentLenth is the maximum segment length of the initiator's
+	// transmission controls.
+	MaxSegmentLength int
+	// LaitosDNSName is the laitos DNS server's DNS name.
+	LaitosDNSName string
+	// AccessOTPSecret is the proxy OTP secret for laitos DNS server to
+	// authorise this client's connection requests.
+	AccessOTPSecret string
+	// EnableTXT enables using DNS TXT records in place of CNAME records to
+	// carry transmission control segments. TXT records have significantly more
+	// capacity and bandwidth.
+	EnableTXT bool
+	// RemoteSegmentLengthMultiplier is a multiplier used for configuring the
+	// responder (remote) transmission control's segment length. This should be
+	// 1 for CNAME carrier and between 2-5 for TXT carrier.
+	// When the max segment length is auto-calculated, using a multiplier of 4
+	// is quite reliable, 5 should also work most of the time, and 6 almost
+	// definitely does not work.
+	ResponderSegmentLenMultiplier int
+}
 
-	remoteSegmentLenMultiplier := 1
-	if enableTXT {
-		// This seems to work for most recursive resolvers.
-		remoteSegmentLenMultiplier = 4
+func HandleTCPOverDNSClient(logger lalog.Logger, proxyOpts ProxyCLIOptions) {
+	// Initialise the options with default values.
+	if proxyOpts.MaxSegmentLength == 0 {
+		proxyOpts.MaxSegmentLength = dnsd.OptimalSegLen(proxyOpts.LaitosDNSName)
 	}
+	if proxyOpts.ResponderSegmentLenMultiplier < 1 {
+		if proxyOpts.EnableTXT {
+			proxyOpts.ResponderSegmentLenMultiplier = 4
+		} else {
+			proxyOpts.ResponderSegmentLenMultiplier = 1
+		}
+	}
+	logger.Info("", nil, "using segment length %d and responder length multiplier %d", proxyOpts.MaxSegmentLength, proxyOpts.ResponderSegmentLenMultiplier)
 
 	// Start localhost DNS relay if desired.
-	if relayDNS {
+	if proxyOpts.EnableDNSRelay {
 		go func() {
 			relay := &dnsd.DNSRelay{
 				Config: tcpoverdns.InitiatorConfig{
 					SetConfig:               true,
-					Debug:                   debug,
-					MaxSegmentLenExclHeader: proxySegLen,
+					Debug:                   proxyOpts.Debug,
+					MaxSegmentLenExclHeader: proxyOpts.MaxSegmentLength,
 					Timing: tcpoverdns.TimingConfig{
 						ReadTimeout:               dnsd.MaxProxyConnectionLifetime,
 						WriteTimeout:              dnsd.MaxProxyConnectionLifetime,
@@ -41,13 +77,13 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug, relayDNS bool, port int,
 						AckDelay:          100 * time.Millisecond,
 					},
 				},
-				Debug:            true,
-				DNSResolver:      resolver,
-				DNSHostName:      dnsHostName,
-				RequestOTPSecret: otpSecret,
+				Debug:            proxyOpts.Debug,
+				DNSResolver:      proxyOpts.RecursiveResolverAddress,
+				DNSHostName:      proxyOpts.LaitosDNSName,
+				RequestOTPSecret: proxyOpts.AccessOTPSecret,
 				// The port of laitos recursive DNS resolver is hard coded to 53
 				// for now.
-				ForwardTo: fmt.Sprintf("%s:%d", dnsHostName, 53),
+				ForwardTo: fmt.Sprintf("%s:%d", proxyOpts.LaitosDNSName, 53),
 			}
 			relayDaemon := &dnsd.Daemon{
 				Address:             "127.0.0.12",
@@ -71,13 +107,13 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug, relayDNS bool, port int,
 	// Start localhost HTTP proxy server.
 	httpProxyServer := &dnsd.HTTPProxyServer{
 		Address:                    "127.0.0.12",
-		Port:                       port,
-		RemoteSegmentLenMultiplier: remoteSegmentLenMultiplier,
-		EnableTXTRequests:          enableTXT,
+		Port:                       proxyOpts.Port,
+		RemoteSegmentLenMultiplier: proxyOpts.ResponderSegmentLenMultiplier,
+		EnableTXTRequests:          proxyOpts.EnableTXT,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
-			Debug:                   debug,
-			MaxSegmentLenExclHeader: proxySegLen,
+			Debug:                   proxyOpts.Debug,
+			MaxSegmentLenExclHeader: proxyOpts.MaxSegmentLength,
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               dnsd.MaxProxyConnectionLifetime,
 				WriteTimeout:              dnsd.MaxProxyConnectionLifetime,
@@ -87,12 +123,12 @@ func HandleTCPOverDNSClient(logger lalog.Logger, debug, relayDNS bool, port int,
 				AckDelay:                  500 * time.Millisecond,
 			},
 		},
-		Debug:            debug,
-		DNSResolver:      resolver,
-		DNSHostName:      dnsHostName,
-		RequestOTPSecret: otpSecret,
+		Debug:            proxyOpts.Debug,
+		DNSResolver:      proxyOpts.RecursiveResolverAddress,
+		DNSHostName:      proxyOpts.LaitosDNSName,
+		RequestOTPSecret: proxyOpts.AccessOTPSecret,
 	}
-	logger.Info(nil, nil, "starting an HTTP (TLS capable) proxy server on %s:%d to relay traffic via TCP-over-DNS to %s", httpProxyServer.Address, port, httpProxyServer.DNSHostName)
+	logger.Info(nil, nil, "starting an HTTP (TLS capable) proxy server on %s:%d to relay traffic via TCP-over-DNS to %s", httpProxyServer.Address, httpProxyServer.Port, httpProxyServer.DNSHostName)
 	if err := httpProxyServer.Initialise(context.Background()); err != nil {
 		logger.Panic("", err, "failed to initialise the client http proxy")
 		return

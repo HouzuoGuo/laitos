@@ -189,7 +189,7 @@ func TestHTTPProxyServer_TXT(t *testing.T) {
 		Address:                    "127.0.0.1",
 		Port:                       61122,
 		RequestOTPSecret:           dnsProxyServer.TCPProxy.RequestOTPSecret,
-		RemoteSegmentLenMultiplier: 4,
+		RemoteSegmentLenMultiplier: 5,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
 			Debug:                   true,
