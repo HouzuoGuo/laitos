@@ -160,7 +160,7 @@ func (seg *Segment) DNSText() []string {
 // Stringer returns a human-readable representation of the segment for debug
 // logging.
 func (seg Segment) String() string {
-	return fmt.Sprintf("[ID=%d Seq=%d Ack=%d Flags=%v Data=%s]", seg.ID, seg.SeqNum, seg.AckNum, seg.Flags, lalog.ByteArrayLogString(seg.Data))
+	return fmt.Sprintf("[ID=%d Seq=%d Ack=%d Flags=%v LenData=%d Data=%s]", seg.ID, seg.SeqNum, seg.AckNum, seg.Flags, len(seg.Data), lalog.ByteArrayLogString(seg.Data))
 }
 
 // SegmentFromPacket decodes a segment from a byte array and returns the decoded

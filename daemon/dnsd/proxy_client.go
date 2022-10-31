@@ -13,17 +13,25 @@ import (
 	"github.com/miekg/dns"
 )
 
-// OptimalSegLen returns the optimal segment length appropriate for the DNS host
-// name.
-func OptimalSegLen(dnsHostName string) int {
+// MaxUpstreamSegmentLength returns the maximum segment length appropriate for
+// the upstream traffic direction for the DNS host name.
+func MaxUpstreamSegmentLength(dnsHostName string) int {
 	// The maximum DNS host name is 253 characters.
-	// At present the encoding efficiency is ~60% at the worst case scenario.
-	approxLen := float64(250-len(dnsHostName)) * 0.60
+	// At present the encoding efficiency is ~68% according to TestCompression.
+	// Though for some reason the actual efficiency seems lower.
+	approxLen := float64(253-2-4-len(dnsHostName)) * 0.62
 	ret := int(approxLen)
 	if ret < 0 {
 		return 0
 	}
 	return ret
+}
+
+// MaxDownstreamSegmentLengthTXT returns the maximum segment length appropriate
+// for the downstream traffic direction for the DNS host name.
+func MaxDownstreamSegmentLengthTXT(dnsHostName string) int {
+	// Determined by trial and error.
+	return 830 - MaxUpstreamSegmentLength(dnsHostName)
 }
 
 // ProxiedConnection handles an individual proxy connection to transport

@@ -105,7 +105,7 @@ func main() {
 	flag.StringVar(&proxyOpts.LaitosDNSName, "proxydnsname", "", "(TCP-over-DNS mandatory) the DNS name of laitos DNS server")
 	flag.StringVar(&proxyOpts.AccessOTPSecret, "proxyotpsecret", "", "(TCP-over-DNS mandatory) authorise connection requests using this OTP secret")
 	flag.BoolVar(&proxyOpts.EnableTXT, "proxyenabletxt", false, "(TCP-over-DNS optional) send TXT queries instead of CNAME queries for higher bandwidth")
-	flag.IntVar(&proxyOpts.ResponderSegmentLenMultiplier, "proxyresponderseglenmultiplier", 0, "(TCP-over-DNS optional) multiply responder's max segment length by this factor - try 2-5 for TXT carrier")
+	flag.IntVar(&proxyOpts.DownstreamSegmentLength, "proxydownstreamseglen", 0, "(TCP-over-DNS optional) responder (downstream) maximum segment length")
 
 	flag.Parse()
 

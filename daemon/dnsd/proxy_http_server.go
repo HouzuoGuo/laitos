@@ -31,17 +31,18 @@ type HTTPProxyServer struct {
 	Port int `json:"Port"`
 	// Config contains the parameters for the initiator of the proxy
 	// connections to configure the remote transmission control.
-	Config       tcpoverdns.InitiatorConfig
-	remoteConfig tcpoverdns.InitiatorConfig
+	Config          tcpoverdns.InitiatorConfig
+	responderConfig tcpoverdns.InitiatorConfig
 	// Debug enables verbose logging for IO activities.
 	Debug bool
 	// EnableTXTRequests forces the DNS client to transport TCP-over-DNS
 	// segments in TXT queries instead of the usual CNAME queries.
 	EnableTXTRequests bool
-	// RemoteSegmentLenMultiplier is a multiplier used for configuring the
-	// responder (remote) transmission control's segment length. This should be
-	// 1 for CNAME carrier and between 2-5 for TXT carrier.
-	RemoteSegmentLenMultiplier int
+	// DownstreamSegmentLength is used for configuring the responder (remote)
+	// transmission control's segment length. This enables better utilisation
+	// of available bandwidth when the upstream and downstream have asymmetric
+	// capacity.
+	DownstreamSegmentLength int
 	// RequestOTPSecret is the proxy OTP secret for laitos DNS server to
 	// authorise this client's connection requests.
 	RequestOTPSecret string `json:"RequestOTPSecret"`
@@ -96,9 +97,9 @@ func (proxy *HTTPProxyServer) Initialise(ctx context.Context) error {
 		ExpectContinueTimeout: proxy.Config.Timing.ReadTimeout,
 	}
 
-	proxy.remoteConfig = proxy.Config
-	if proxy.RemoteSegmentLenMultiplier > 1 {
-		proxy.remoteConfig.MaxSegmentLenExclHeader *= proxy.RemoteSegmentLenMultiplier
+	proxy.responderConfig = proxy.Config
+	if proxy.DownstreamSegmentLength > 0 {
+		proxy.responderConfig.MaxSegmentLenExclHeader = proxy.DownstreamSegmentLength
 	}
 
 	var err error
@@ -144,14 +145,14 @@ func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr str
 	tcID := uint16(rand.Int())
 	proxyServerIn, inTransport := net.Pipe()
 	// Construct a client-side transmission control.
-	proxy.logger.Info(fmt.Sprint(tcID), nil, "creating transmission control for %s using remote config: %+v", string(initiatorSegment), proxy.remoteConfig)
+	proxy.logger.Info(fmt.Sprint(tcID), nil, "creating transmission control for %s using remote config: %+v", string(initiatorSegment), proxy.responderConfig)
 	tc := &tcpoverdns.TransmissionControl{
 		LogTag:               "HTTPProxyServer",
 		ID:                   tcID,
 		Debug:                proxy.Debug,
 		InitiatorSegmentData: initiatorSegment,
 		// The config for remote may differ by having a longer segment length.
-		InitiatorConfig: proxy.remoteConfig,
+		InitiatorConfig: proxy.responderConfig,
 		Initiator:       true,
 		InputTransport:  inTransport,
 		MaxLifetime:     MaxProxyConnectionLifetime,

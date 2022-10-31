@@ -104,7 +104,7 @@ func TestBase62(t *testing.T) {
 
 func TestCompression(t *testing.T) {
 	base32EncodingNoPadding := base32.StdEncoding.WithPadding(base32.NoPadding)
-	randBuf := make([]byte, 234)
+	randBuf := make([]byte, 1024)
 	if _, err := rand.Read(randBuf); err != nil {
 		t.Fatal(err)
 	}
@@ -125,8 +125,16 @@ func TestCompression(t *testing.T) {
 			content: []byte(`<!doctype html><html itemscope="" itemtype="http://schema.org/SearchResultsPage" lang="en-IE"><head><meta charset="UTF-8"><meta content="dark" name="color-scheme"><meta content="origin" name="referrer"><meta content="/images/branding/`),
 		},
 		{
-			name:    "random",
-			content: randBuf,
+			name:    "random (128 bytes)",
+			content: randBuf[:128],
+		},
+		{
+			name:    "random (192 bytes)",
+			content: randBuf[:192],
+		},
+		{
+			name:    "random (1024 bytes)",
+			content: randBuf[:1024],
 		},
 	}
 
@@ -149,7 +157,7 @@ func TestCompression(t *testing.T) {
 			w.Write(example.content)
 			w.Close()
 			encodedLen := len(base32EncodingNoPadding.EncodeToString(b.Bytes()))
-			fmt.Printf("zlib - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
+			fmt.Printf("zlib - %v, compressed: %d, encoded: %d, efficiency: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(len(example.content))/float64(encodedLen))
 		}
 	})
 
@@ -160,7 +168,7 @@ func TestCompression(t *testing.T) {
 			w.Write(example.content)
 			w.Close()
 			encodedLen := len(base32EncodingNoPadding.EncodeToString(b.Bytes()))
-			fmt.Printf("lzm - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
+			fmt.Printf("lzm - %v, compressed: %d, encoded: %d, efficiency: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(len(example.content))/float64(encodedLen))
 		}
 	})
 
@@ -174,7 +182,7 @@ func TestCompression(t *testing.T) {
 			w.Write(example.content)
 			w.Close()
 			encodedLen := len(base32EncodingNoPadding.EncodeToString(b.Bytes()))
-			fmt.Printf("flate - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
+			fmt.Printf("flate - %v, compressed: %d, encoded: %d, efficiency: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(len(example.content))/float64(encodedLen))
 		}
 	})
 
@@ -188,7 +196,7 @@ func TestCompression(t *testing.T) {
 			w.Write(example.content)
 			w.Close()
 			encodedLen := len(ToBase62Mod(b.Bytes()))
-			fmt.Printf("flate - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
+			fmt.Printf("flate - %v, compressed: %d, encoded: %d, efficiency: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(len(example.content))/float64(encodedLen))
 		}
 	})
 
@@ -202,7 +210,7 @@ func TestCompression(t *testing.T) {
 			w.Write(example.content)
 			w.Close()
 			encodedLen := len(base32EncodingNoPadding.EncodeToString(b.Bytes()))
-			fmt.Printf("gzip - %v, compressed: %d, encoded: %d, ratio: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(encodedLen)/float64(len(example.content)))
+			fmt.Printf("gzip - %v, compressed: %d, encoded: %d, efficiency: %.3f\n", example.name, len(b.Bytes()), encodedLen, float64(len(example.content))/float64(encodedLen))
 		}
 	})
 }

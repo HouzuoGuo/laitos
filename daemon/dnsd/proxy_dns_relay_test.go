@@ -42,7 +42,7 @@ func TestDNSRelay(t *testing.T) {
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
 			Debug:                   true,
-			MaxSegmentLenExclHeader: OptimalSegLen(proxyServer.MyDomainNames[0]),
+			MaxSegmentLenExclHeader: MaxUpstreamSegmentLength(proxyServer.MyDomainNames[0]),
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               MaxProxyConnectionLifetime,
 				WriteTimeout:              MaxProxyConnectionLifetime,

@@ -35,28 +35,29 @@ type ProxyCLIOptions struct {
 	// carry transmission control segments. TXT records have significantly more
 	// capacity and bandwidth.
 	EnableTXT bool
-	// RemoteSegmentLengthMultiplier is a multiplier used for configuring the
-	// responder (remote) transmission control's segment length. This should be
-	// 1 for CNAME carrier and between 2-5 for TXT carrier.
-	// When the max segment length is auto-calculated, using a multiplier of 4
-	// is quite reliable, 5 should also work most of the time, and 6 almost
-	// definitely does not work.
-	ResponderSegmentLenMultiplier int
+	// DownstreamSegmentLength is used for configuring the responder (remote)
+	// transmission control's segment length. This enables better utilisation
+	// of available bandwidth when the upstream and downstream have asymmetric
+	// capacity.
+	// If CNAME is used as carrier then the upstream and downstream segment
+	// length must be identical. If TXT is used as carrier then the downstream
+	// length can be up to ~5 times the upstream length.
+	DownstreamSegmentLength int
 }
 
 func HandleTCPOverDNSClient(logger lalog.Logger, proxyOpts ProxyCLIOptions) {
 	// Initialise the options with default values.
 	if proxyOpts.MaxSegmentLength == 0 {
-		proxyOpts.MaxSegmentLength = dnsd.OptimalSegLen(proxyOpts.LaitosDNSName)
+		proxyOpts.MaxSegmentLength = dnsd.MaxUpstreamSegmentLength(proxyOpts.LaitosDNSName)
 	}
-	if proxyOpts.ResponderSegmentLenMultiplier < 1 {
+	if proxyOpts.DownstreamSegmentLength < 1 {
 		if proxyOpts.EnableTXT {
-			proxyOpts.ResponderSegmentLenMultiplier = 4
+			proxyOpts.DownstreamSegmentLength = dnsd.MaxDownstreamSegmentLengthTXT(proxyOpts.LaitosDNSName)
 		} else {
-			proxyOpts.ResponderSegmentLenMultiplier = 1
+			proxyOpts.DownstreamSegmentLength = 1 * proxyOpts.MaxSegmentLength
 		}
 	}
-	logger.Info("", nil, "using segment length %d and responder length multiplier %d", proxyOpts.MaxSegmentLength, proxyOpts.ResponderSegmentLenMultiplier)
+	logger.Info("", nil, "upstream max segment length: %d, downstream max segment length: %d", proxyOpts.MaxSegmentLength, proxyOpts.DownstreamSegmentLength)
 
 	// Start localhost DNS relay if desired.
 	if proxyOpts.EnableDNSRelay {
@@ -106,10 +107,10 @@ func HandleTCPOverDNSClient(logger lalog.Logger, proxyOpts ProxyCLIOptions) {
 
 	// Start localhost HTTP proxy server.
 	httpProxyServer := &dnsd.HTTPProxyServer{
-		Address:                    "127.0.0.12",
-		Port:                       proxyOpts.Port,
-		RemoteSegmentLenMultiplier: proxyOpts.ResponderSegmentLenMultiplier,
-		EnableTXTRequests:          proxyOpts.EnableTXT,
+		Address:                 "127.0.0.12",
+		Port:                    proxyOpts.Port,
+		EnableTXTRequests:       proxyOpts.EnableTXT,
+		DownstreamSegmentLength: proxyOpts.DownstreamSegmentLength,
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
 			Debug:                   proxyOpts.Debug,

@@ -123,7 +123,7 @@ func TestHTTPProxyServer_CNAME(t *testing.T) {
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
 			Debug:                   true,
-			MaxSegmentLenExclHeader: OptimalSegLen(dnsProxyServer.MyDomainNames[0]),
+			MaxSegmentLenExclHeader: MaxUpstreamSegmentLength(dnsProxyServer.MyDomainNames[0]),
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               120 * time.Second,
 				WriteTimeout:              120 * time.Second,
@@ -186,14 +186,14 @@ func TestHTTPProxyServer_TXT(t *testing.T) {
 
 	// Start an HTTP proxy server - tcp-over-DNS proxy client.
 	httpProxyServer := &HTTPProxyServer{
-		Address:                    "127.0.0.1",
-		Port:                       61122,
-		RequestOTPSecret:           dnsProxyServer.TCPProxy.RequestOTPSecret,
-		RemoteSegmentLenMultiplier: 5,
+		Address:                 "127.0.0.1",
+		Port:                    61122,
+		RequestOTPSecret:        dnsProxyServer.TCPProxy.RequestOTPSecret,
+		DownstreamSegmentLength: MaxDownstreamSegmentLengthTXT(dnsProxyServer.MyDomainNames[0]),
 		Config: tcpoverdns.InitiatorConfig{
 			SetConfig:               true,
 			Debug:                   true,
-			MaxSegmentLenExclHeader: OptimalSegLen(dnsProxyServer.MyDomainNames[0]),
+			MaxSegmentLenExclHeader: MaxUpstreamSegmentLength(dnsProxyServer.MyDomainNames[0]),
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               120 * time.Second,
 				WriteTimeout:              120 * time.Second,
