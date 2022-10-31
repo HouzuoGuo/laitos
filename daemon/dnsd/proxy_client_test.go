@@ -6,7 +6,7 @@ import (
 
 func TestMaxUpstreamSegmentLength(t *testing.T) {
 	got := MaxUpstreamSegmentLength("example.com")
-	want := 146
+	want := 143
 	if got != want {
 		t.Fatalf("got: %v, want: %v", got, want)
 	}
@@ -14,7 +14,7 @@ func TestMaxUpstreamSegmentLength(t *testing.T) {
 
 func TestMaxDownstreamSegmentLengthTXT(t *testing.T) {
 	got := MaxDownstreamSegmentLengthTXT("example.com")
-	want := 684
+	want := 677
 	if got != want {
 		t.Fatalf("got: %v, want: %v", got, want)
 	}

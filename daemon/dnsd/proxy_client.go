@@ -19,7 +19,7 @@ func MaxUpstreamSegmentLength(dnsHostName string) int {
 	// The maximum DNS host name is 253 characters.
 	// At present the encoding efficiency is ~68% according to TestCompression.
 	// Though for some reason the actual efficiency seems lower.
-	approxLen := float64(253-2-4-len(dnsHostName)) * 0.62
+	approxLen := float64(253-2-4-len(dnsHostName)) * 0.61
 	ret := int(approxLen)
 	if ret < 0 {
 		return 0
@@ -31,7 +31,7 @@ func MaxUpstreamSegmentLength(dnsHostName string) int {
 // for the downstream traffic direction for the DNS host name.
 func MaxDownstreamSegmentLengthTXT(dnsHostName string) int {
 	// Determined by trial and error.
-	return 830 - MaxUpstreamSegmentLength(dnsHostName)
+	return 820 - MaxUpstreamSegmentLength(dnsHostName)
 }
 
 // ProxiedConnection handles an individual proxy connection to transport
