@@ -48,9 +48,9 @@ func TestDNSRelay(t *testing.T) {
 				WriteTimeout:              MaxProxyConnectionLifetime,
 				RetransmissionInterval:    5 * time.Second,
 				SlidingWindowWaitDuration: 3000 * time.Millisecond,
-				// Unlike the HTTP proxy, the timing of DNS relay needs to be a
-				// bit tighter to be sufficiently responsive.
-				KeepAliveInterval: 500 * time.Millisecond,
+				// Unlike the HTTP proxy, the timing of DNS relay needs
+				// to be a bit tighter to be sufficiently responsive.
+				KeepAliveInterval: 1000 * time.Millisecond,
 				AckDelay:          100 * time.Millisecond,
 			},
 		},

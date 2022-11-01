@@ -72,8 +72,8 @@ func HandleTCPOverDNSClient(logger lalog.Logger, proxyOpts ProxyCLIOptions) {
 						WriteTimeout:              dnsd.MaxProxyConnectionLifetime,
 						RetransmissionInterval:    5 * time.Second,
 						SlidingWindowWaitDuration: 3000 * time.Millisecond,
-						// Unlike the HTTP proxy, the timing of DNS relay needs to be a
-						// bit tighter to be sufficiently responsive.
+						// Unlike the HTTP proxy, the timing of DNS relay needs
+						// to be a bit tighter to be sufficiently responsive.
 						KeepAliveInterval: 1000 * time.Millisecond,
 						AckDelay:          100 * time.Millisecond,
 					},
@@ -118,7 +118,7 @@ func HandleTCPOverDNSClient(logger lalog.Logger, proxyOpts ProxyCLIOptions) {
 			Timing: tcpoverdns.TimingConfig{
 				ReadTimeout:               dnsd.MaxProxyConnectionLifetime,
 				WriteTimeout:              dnsd.MaxProxyConnectionLifetime,
-				RetransmissionInterval:    5 * time.Second,
+				RetransmissionInterval:    7 * time.Second,
 				SlidingWindowWaitDuration: 3000 * time.Millisecond,
 				KeepAliveInterval:         1500 * time.Millisecond,
 				AckDelay:                  500 * time.Millisecond,
