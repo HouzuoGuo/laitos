@@ -177,22 +177,14 @@ func (conn *ProxiedConnection) transportLoop() {
 				goto busyWaitInterval
 			}
 		}
-		// If the next output segment carries useful data or flags, then
-		// send it out without delay.
+		// If data was transported in either direction, then do not wait for
+		// the keep-alive interval to speed up the transmission.
 		nextInBacklog, exists = conn.buf.First()
-		if exists && len(nextInBacklog.Data) > 0 || nextInBacklog.Flags != 0 {
+		if exists && len(nextInBacklog.Data) > 0 || !nextInBacklog.Flags.Has(tcpoverdns.FlagKeepAlive) {
 			continue
 		}
-		// If the input segment carried useful data, then shorten the
-		// waiting interval. Transmission control should be sending out an
-		// acknowledgement fairly soon.
 		if len(replySeg.Data) > 0 && !replySeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
-			select {
-			case <-time.After(time.Duration(conn.tc.LiveTimingInterval().AckDelay * 8 / 7)):
-				continue
-			case <-conn.context.Done():
-				return
-			}
+			continue
 		}
 		// Wait slightly longer than the keep-alive interval.
 		select {

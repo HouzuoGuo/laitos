@@ -1088,26 +1088,44 @@ func TestRuntimeIntervalConfig(t *testing.T) {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
 	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
+		t.Fatalf("unexpected keepalive: %v", tc.LiveTiming.KeepAliveInterval)
 	}
 
+	tc.DecreaseTimingInterval()
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/2 {
+		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
+	}
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/2 {
+		t.Fatalf("unexpected keepalive: %v", tc.LiveTiming.KeepAliveInterval)
+	}
+	if tc.LiveTiming.SlidingWindowWaitDuration != tc.InitialTiming.SlidingWindowWaitDuration/2 {
+		t.Fatalf("unexpected sliding window: %v", tc.LiveTiming.SlidingWindowWaitDuration)
+	}
 	for i := 0; i < 20; i++ {
 		tc.DecreaseTimingInterval()
 	}
-	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/32 {
+	// It won't decrease any further.
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/256 {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
-	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/32 {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/256 {
+		t.Fatalf("unexpected keepalive: %v", tc.LiveTiming.KeepAliveInterval)
 	}
-	// It won't decrease any further
-	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/32 {
+	if tc.LiveTiming.SlidingWindowWaitDuration != tc.InitialTiming.SlidingWindowWaitDuration/256 {
+		t.Fatalf("unexpected sliding window: %v", tc.LiveTiming.SlidingWindowWaitDuration)
+	}
+	// Increase by one notch.
+	tc.IncreaseTimingInterval()
+	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay/128 {
 		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
 	}
-	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/32 {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.KeepAliveInterval)
+	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval/128 {
+		t.Fatalf("unexpected keepalive: %v", tc.LiveTiming.KeepAliveInterval)
 	}
-
+	if tc.LiveTiming.SlidingWindowWaitDuration != tc.InitialTiming.SlidingWindowWaitDuration/128 {
+		t.Fatalf("unexpected sliding window: %v", tc.LiveTiming.SlidingWindowWaitDuration)
+	}
+	// It won't exceed the initial timing.
 	for i := 0; i < 20; i++ {
 		tc.IncreaseTimingInterval()
 	}
@@ -1117,12 +1135,7 @@ func TestRuntimeIntervalConfig(t *testing.T) {
 	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval {
 		t.Fatalf("unexpected keep-alive delay, got  %v, want %v", tc.LiveTiming.AckDelay, tc.InitialTiming.AckDelay)
 	}
-	// It won't increase any further.
-	tc.IncreaseTimingInterval()
-	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay {
-		t.Fatalf("unexpected ack delay: %v", tc.LiveTiming.AckDelay)
-	}
-	if tc.LiveTiming.KeepAliveInterval != tc.InitialTiming.KeepAliveInterval {
-		t.Fatalf("unexpected keep-alive delay, got  %v, want %v", tc.LiveTiming.AckDelay, tc.InitialTiming.AckDelay)
+	if tc.LiveTiming.SlidingWindowWaitDuration != tc.InitialTiming.SlidingWindowWaitDuration {
+		t.Fatalf("unexpected sliding window: %v", tc.LiveTiming.SlidingWindowWaitDuration)
 	}
 }

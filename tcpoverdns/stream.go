@@ -16,7 +16,7 @@ import (
 const (
 	// BusyWaitInterval specifies a short duration in between consecutive
 	// busy-wait operations.
-	BusyWaitInterval = 10 * time.Millisecond
+	BusyWaitInterval = 5 * time.Millisecond
 	// SegmentDataTimeout specifies the timeout between the arrival of a segment
 	// header and the segment data.
 	SegmentDataTimeout = 10 * time.Second
@@ -864,7 +864,7 @@ func (tc *TransmissionControl) SetWriteDeadline(t time.Time) error { return nil 
 func (tc *TransmissionControl) DecreaseTimingInterval() {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
-	if tc.LiveTiming.KeepAliveInterval < 100*time.Millisecond {
+	if tc.LiveTiming.KeepAliveInterval < 4*BusyWaitInterval {
 		return
 	}
 	tc.LiveTiming.HalfInterval()
