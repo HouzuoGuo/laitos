@@ -160,22 +160,25 @@ func (conn *ProxiedConnection) transportLoop() {
 		if conn.debug {
 			conn.logger.Info(fmt.Sprint(conn.tc.ID), nil, "DNS query response segment: %v", replySeg)
 		}
-		if !replySeg.Flags.Has(tcpoverdns.FlagMalformed) {
-			if replySeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
-				// Increase the timing interval interval with each input
-				// segment that does not carry data.
-				conn.tc.IncreaseTimingInterval()
-			} else {
+		if replySeg.Flags.Has(tcpoverdns.FlagMalformed) {
+			// Slow down a notch in the presence of transmission error.
+			conn.tc.IncreaseTimingInterval()
+			goto busyWaitInterval
+		} else if replySeg.Flags.Has(tcpoverdns.FlagKeepAlive) {
+			// Slow down a notch in in the absence of data transmission.
+			conn.tc.IncreaseTimingInterval()
+		} else {
+			if replySeg.SeqNum >= conn.tc.InputSeq() && len(replySeg.Data) > 0 {
 				// Decrease the timing interval with each input segment that
 				// carries data. This helps to temporarily increase the
 				// throughput.
 				conn.tc.DecreaseTimingInterval()
 			}
-			if _, err := conn.in.Write(replySeg.Packet()); err != nil {
-				conn.logger.Warning(fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", replySeg)
-				conn.tc.IncreaseTimingInterval()
-				goto busyWaitInterval
-			}
+		}
+		if _, err := conn.in.Write(replySeg.Packet()); err != nil {
+			conn.logger.Warning(fmt.Sprint(conn.tc.ID), err, "failed to receive input segment %v", replySeg)
+			conn.tc.IncreaseTimingInterval()
+			goto busyWaitInterval
 		}
 		// If data was transported in either direction, then do not wait for
 		// the keep-alive interval to speed up the transmission.

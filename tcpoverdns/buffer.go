@@ -65,6 +65,12 @@ func (buf *SegmentBuffer) Absorb(seg Segment) {
 			buf.logger.Info(nil, nil, "(backlog len %d) substituting the older ack/keepalive segment with: %+v", len(buf.backlog), buf.backlog[len(buf.backlog)-1])
 		}
 		buf.backlog[len(buf.backlog)-1] = seg
+		// Update the ack number of all segments in the backlog.
+		newAckNum := seg.AckNum
+		for i, seg := range buf.backlog {
+			seg.AckNum = newAckNum
+			buf.backlog[i] = seg
+		}
 	} else if latest.Equals(seg) {
 		// De-duplicate adjacent identical segments.
 		if buf.debug {
@@ -91,6 +97,12 @@ func (buf *SegmentBuffer) Absorb(seg Segment) {
 				buf.logger.Info(nil, nil, "(backlog len %d) queued segment for outbound over DNS: %v", len(buf.backlog), seg)
 			}
 			buf.backlog = append(buf.backlog, seg)
+		}
+		// Update the ack number of all segments in the backlog.
+		newAckNum := seg.AckNum
+		for i, seg := range buf.backlog {
+			seg.AckNum = newAckNum
+			buf.backlog[i] = seg
 		}
 	}
 }

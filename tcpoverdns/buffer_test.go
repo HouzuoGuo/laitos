@@ -44,7 +44,7 @@ func TestSegmentBuffer(t *testing.T) {
 	// Both segments have the same seq number, so they won't be merged.
 	buf.Absorb(Segment{AckNum: 24, Data: []byte{1}})
 	popped, exists := buf.Pop()
-	if len(buf.backlog) != 1 || !exists || !popped.Equals(Segment{AckNum: 12, Data: []byte{0}}) {
+	if len(buf.backlog) != 1 || !exists || !popped.Equals(Segment{AckNum: 24, Data: []byte{0}}) {
 		t.Fatalf("%+v, %+v, %+v", popped, exists, buf.backlog)
 	}
 	popped, exists = buf.Pop()
