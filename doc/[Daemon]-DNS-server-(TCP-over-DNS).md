@@ -5,9 +5,13 @@ the [DNS server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-serve
 is also capable of tunneling TCP connections (TCP-over-DNS) and tunneling DNS
 queries (DNS-over-TCP-over-DNS).
 
-This enables a mode of low-bandwidth (~1KB/s) Internet browsing experience in a
-restricted network where normal TCP/IP communication is unavailable - which is
-rather common with in-flight WiFi and hotspots with captive portals.
+On the client side, laitos starts a web proxy (and optionally an additional DNS
+proxy) server on the localhost. The proxy server tunnels each connection using
+either CNAME queries (~2KB/s in throughput) or TXT queries (~10KB/s) as data
+carrier.
+
+Despite the limited throughput, the tunnels are sufficient for general web
+browsing after tweaking browser settings - see Usage for tips.
 
 ## Demo
 
@@ -17,9 +21,9 @@ running in the terminal then nagivates to wikipedia home page.
 
 ```text
 Web browser --> localhost HTTP(S) proxy --> TCP-over-DNS transport |
- (links2)           (laitos CLI)                (laitos CLI)       |
+ (e.g. links2)       (laitos CLI)               (laitos CLI)       |
                                                                    v
-                                                              DNS queries
+                                                        DNS queries (CNAME or TXT)
                                                                    |
                                                                    |
                                                                    v
@@ -125,15 +129,17 @@ by specifying it in the laitos command line:
 
 ## Usage
 
-The laitos executable has both the server (`dnsd`) and the client built-in.
+The laitos executable has both the DNS server (`dnsd`) and the web proxy client
+built-in.
 
 ### Browse the web via a localhost HTTP(S) proxy
 
-The localhost (default address `127.0.0.12:8080`) proxy is compatible with all
-web browsers. It proxies HTTP and HTTPS request via TCP-over-DNS toward your
-laitos DNS server.
+The web proxy started on localhost (default address `127.0.0.12:8080`) is
+compatible with all web browsers. The web proxy establishes TCP-over-DNS tunnels
+toward your laitos DNS server using either CNAME queries or TXT queries as data
+carrier, and proxies both HTTP and HTTPS requests through the tunnels.
 
-Start the proxy by launching the laitos executable with these CLI flags:
+Start the web proxy by launching the laitos executable with these CLI flags:
 
 <table>
 <tr>
@@ -168,13 +174,25 @@ Start the proxy by launching the laitos executable with these CLI flags:
     <td>-proxyresolver</td>
     <td>"ip:port" string</td>
     <td>The recursive resolver address.</td>
-    <td>Name servers from /etc/resolv.conf</td>
+    <td>The first name server from /etc/resolv.conf</td>
 </tr>
 <tr>
     <td>-proxyseglen</td>
     <td>integer</td>
-    <td>The maximum segment length.</td>
+    <td>The maximum upstream (client to laitos DNS server) segment length.</td>
     <td>Automatic</td>
+</tr>
+<tr>
+    <td>-proxydownstreamseglen</td>
+    <td>integer</td>
+    <td>The maximum downstream (laitos DNS server to client) segment length.</td>
+    <td>Automatic</td>
+</tr>
+<tr>
+    <td>-proxyenabletxt</td>
+    <td>boolean</td>
+    <td>Use TXT queries as data carrier for higher throughput.</td>
+    <td>False (use CNAME queries as carrier)</td>
 </tr>
 </table>
 
@@ -185,12 +203,20 @@ Example:
 Configure your web browser to use the address `127.0.0.12:8080` (the port number
 comes from `-proxyport`) for both the HTTP and HTTPS proxy.
 
-Each proxy connection has a sustained throughput of ~1.2KB/second under normal
-conditions, therefore using a terminal-based web browser (such as `links2`) is
-strongly recommended.
+When using CNAME queries as carrier (default), each proxy connection has a
+sustained throughput of ~2KB/s. Using TXT queries as carrier (`-proxyenabletxt`)
+will improve the throughput to ~10KB/s.
 
-On the other hand, desktop browsers often download large javascript and image
-files unsuitable for the limited throughput.
+Though the throughput is limited, it is in fact sufficient for general web
+browsing:
+
+- Consider using terminal-based web browsers such as `links2`, `lynx`, or `w3m`.
+  They always work well under limited bandwidth, though they are incapable of
+  handling javascript.
+  * You cannot login to Gmail or Outlook email using those browsers.
+- When using a regular web browser such as Chrome and Firefox, configure the
+  settings to disable downloading of images to conserve bandwidth.
+  * You can login to Gmail and Outlook in this configuration.
 
 ### Start a companion localhost DNS proxy resolver
 
@@ -224,7 +250,7 @@ service and captive portal service providers.
 If laitos CLI complains that outgoing DNS requests fail, then there is a small
 likelihood that the automatically calculated segment length (printed at startup)
 is too large. Try shrinking the maximum segment length using the `-proxyseglen`
-CLI parameter.
+and `-proxydownstreamseglen` CLI parameters.
 
 ## Acknowledgements
 
