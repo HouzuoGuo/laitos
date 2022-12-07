@@ -232,7 +232,7 @@ var sampleConfigJSON = `
       "htop"
     ],
     "IntervalSec": 86400,
-    "PreScriptUnix": "touch /tmp/laitos-maintenance-pre-script-test",
+    "ScriptForUnix": "touch /tmp/laitos-maintenance-pre-script-test",
     "Recipients": [
       "howard@localhost"
     ],
