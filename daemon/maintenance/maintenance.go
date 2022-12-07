@@ -451,7 +451,10 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	} else if !strings.Contains(string(content), "Shell.SelfTest") { // broken shell configuration
 		t.Fatal(string(content))
 	}
-	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{InterpreterPath: "/bin/bash"}
+	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{
+		Unrestricted:    true,
+		InterpreterPath: "/bin/bash",
+	}
 	// Expect checks to begin within a second
 	if err := check.Initialise(); err != nil {
 		t.Fatal(err)
