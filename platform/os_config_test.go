@@ -147,7 +147,7 @@ func TestGetSysSummary(t *testing.T) {
 
 func TestGetRedactedEnviron(t *testing.T) {
 	for _, keyToRedact := range []string{"AWS_SESSION_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", misc.EnvironmentDecryptionPassword} {
-		os.Setenv(keyToRedact, "TestGetRedactedEnviron")
+		os.Setenv(keyToRedact+"test_suffix", "TestGetRedactedEnviron")
 	}
 	envKeyValue := make(map[string]string)
 	for _, keyValue := range GetRedactedEnviron() {
@@ -156,7 +156,7 @@ func TestGetRedactedEnviron(t *testing.T) {
 		fmt.Println(keyValue)
 	}
 	for _, keyToRedact := range []string{"AWS_SESSION_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", misc.EnvironmentDecryptionPassword} {
-		if val := envKeyValue[keyToRedact]; val != "REDACTED" {
+		if val := envKeyValue[keyToRedact+"test_suffix"]; val != "REDACTED" {
 			t.Fatalf("did not redact %s=%s", keyToRedact, val)
 		}
 	}
