@@ -12,7 +12,7 @@ import (
 
 func TestCommandProcessor_NonWindows(t *testing.T) {
 	// Prepare feature set - the shell execution feature should be available even without configuration
-	features := &FeatureSet{}
+	features := &FeatureSet{Shell: Shell{Unrestricted: true}}
 	if err := features.Initialise(); err != nil {
 		t.Fatal(features)
 	}

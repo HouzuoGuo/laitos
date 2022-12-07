@@ -22,6 +22,11 @@ import (
 
 var sampleConfigJSON = `
 {
+  "Features": {
+    "Shell": {
+      "Unrestricted": true
+    }
+  },
   "AutoUnlock": {
     "IntervalSec": 30,
     "URLAndPassword": {
@@ -242,33 +247,33 @@ var sampleConfigJSON = `
     "Address": "0.0.0.0",
     "Port": 18378
   },
-	"PhoneHomeDaemon": {
-		"MessageProcessorServers": [
-			{
-				"HTTPEndpointURL": "dummy",
-				"Passwords": ["dummy"]
-			}
-		],
-		"ReportIntervalSec": 1
-	},
+  "PhoneHomeDaemon": {
+    "MessageProcessorServers": [
+      {
+        "HTTPEndpointURL": "dummy",
+        "Passwords": ["dummy"]
+      }
+    ],
+    "ReportIntervalSec": 1
+  },
   "PhoneHomeFilters": {
-		"LintText": {
-			"CompressToSingleLine": false,
-			"MaxLength": 1000,
-			"TrimSpaces": true
-		},
-		"NotifyViaEmail": {
-			"Recipients": [
-				"howard@localhost"
-			]
-		},
-		"PINAndShortcuts": {
-			"Passwords": ["verysecret"],
-			"Shortcuts": {
-				"plainsocketshortcut": ".secho plainsockethortcut"
-			}
-		}
-	},
+    "LintText": {
+      "CompressToSingleLine": false,
+      "MaxLength": 1000,
+      "TrimSpaces": true
+    },
+    "NotifyViaEmail": {
+      "Recipients": [
+        "howard@localhost"
+      ]
+    },
+    "PINAndShortcuts": {
+      "Passwords": ["verysecret"],
+      "Shortcuts": {
+        "plainsocketshortcut": ".secho plainsockethortcut"
+      }
+    }
+  },
   "PlainSocketDaemon": {
     "Address": "127.0.0.1",
     "PerIPLimit": 5,

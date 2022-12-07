@@ -345,7 +345,7 @@ func GetTestCommandProcessor() *CommandProcessor {
 		Prepare feature set - certain simple features such as shell commands and environment control will be available
 		right away without configuration.
 	*/
-	features := &FeatureSet{}
+	features := &FeatureSet{Shell: Shell{Unrestricted: true}}
 	if err := features.Initialise(); err != nil {
 		panic(err)
 	}

@@ -15,7 +15,7 @@ func TestShell_WindowsExecute(t *testing.T) {
 	if !platform.HostIsWindows() {
 		t.Skip("this test is only applicable on Windows")
 	}
-	sh := Shell{}
+	sh := Shell{Unrestricted: true}
 	if !sh.IsConfigured() {
 		t.Fatal("should be configured")
 	}
@@ -54,11 +54,29 @@ func TestShell_WindowsExecute(t *testing.T) {
 	}
 }
 
+func TestShell_RestrictedShell(t *testing.T) {
+	sh := Shell{}
+	if err := sh.Initialise(); err != nil {
+		t.Fatal(err)
+	}
+	if err := sh.SelfTest(); err != nil {
+		t.Fatal(err)
+	}
+	ret := sh.Execute(context.Background(), Command{TimeoutSec: 1, Content: "shutdown"})
+	if ret.Error != ErrRestrictedShell || ret.Output != "" {
+		t.Fatalf("%+v", ret)
+	}
+	ret = sh.Execute(context.Background(), Command{TimeoutSec: 1, Content: "date"})
+	if ret.Error != nil || len(ret.Output) < 10 {
+		t.Fatalf("%+v", ret)
+	}
+}
+
 func TestShell_NonWindowsExecute(t *testing.T) {
 	if platform.HostIsWindows() {
 		t.Skip("this test is skipped on Windows")
 	}
-	sh := Shell{}
+	sh := Shell{Unrestricted: true}
 	if !sh.IsConfigured() {
 		t.Fatal("should be configured")
 	}
