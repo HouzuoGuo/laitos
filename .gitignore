@@ -9,8 +9,11 @@
 .idea
 .vscode
 2fa
+2fa.o
+2fa.out
 contact
 debug
+function.zip
 gcp_appengine_data/
 init_feature_test.go
 init_mail_test.go
@@ -24,4 +27,13 @@ laitos.darwin
 laitos.exe
 nohup.out
 pass
+pass.o
+pass.out
+password.o
+password.out
+pwsafe.o
+pwsafe.out
+pwsafe.txt
 tags
+twofa.o
+twofa.out
