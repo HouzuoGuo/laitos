@@ -57,7 +57,8 @@ var (
 		// www.kempt.net/spam-policy.html "Kempt.net employs several methods to detect incoming spam and block the sending site"
 		"dnsbl.kempt.net",
 		// zapbl.net "ZapBL is a DNS-based realtime blacklist"
-		"dnsbl.zapbl.net",
+		// Caution: 2023-02 the quality of the list is questionable as it frequently blocks localhost addresses.
+		//"dnsbl.zapbl.net",
 	}
 )
 
