@@ -54,3 +54,20 @@ func TestReadWriteAndWriteRand(t *testing.T) {
 		}
 	}
 }
+
+func TestRandomText(t *testing.T) {
+	txt := RandomText(3)
+	if len(txt) != 3 {
+		t.Fatalf("unexpected length: %q", txt)
+	}
+	txt = RandomText(100)
+	if len(txt) != 100 {
+		t.Fatalf("unexpected length: %q", txt)
+	}
+	for _, r := range txt {
+		if !(r >= 65 && r <= 90 || r >= 97 && r <= 122) {
+			t.Fatalf("unexpected character: %q", txt)
+		}
+	}
+	fmt.Println(txt)
+}

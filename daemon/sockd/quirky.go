@@ -49,13 +49,9 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 // WriteRandomToTCP writes a random amount of data (up to couple of KB) to the connection.
 func WriteRandomToTCP(conn net.Conn) (totalBytes int) {
 	for i := 0; i < RandNum(1, 2, 3); i++ {
-		randBuf := make([]byte, RandNum(210, 340, 550))
-		if _, err := rand.Read(randBuf); err != nil {
-			break
-		}
 		time.Sleep(time.Duration(RandNum(890, 1440, 2330)) * time.Millisecond)
 		lalog.DefaultLogger.MaybeMinorError(conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(5, 6, 7)) * time.Second)))
-		if n, err := conn.Write(randBuf); err != nil {
+		if n, err := conn.Write([]byte(RandomText(RandNum(210, 340, 550)))); err != nil {
 			lalog.DefaultLogger.MaybeMinorError(err)
 			break
 		} else {
@@ -69,14 +65,10 @@ func WriteRandomToTCP(conn net.Conn) (totalBytes int) {
 }
 
 func WriteRandomToUDP(srv *net.UDPConn, client *net.UDPAddr) (totalBytes int) {
-	randBuf := make([]byte, RandNum(4, 5, 60))
-	_, err := rand.Read(randBuf)
-	if err != nil {
-		return
-	}
 	time.Sleep(time.Duration(RandNum(780, 900, 1200)) * time.Millisecond)
 	lalog.DefaultLogger.MaybeMinorError(srv.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(1, 2, 3)) * time.Second)))
-	if totalBytes, err = srv.WriteToUDP(randBuf, client); err != nil {
+	var err error
+	if totalBytes, err = srv.WriteToUDP([]byte(RandomText(RandNum(4, 5, 60))), client); err != nil {
 		lalog.DefaultLogger.MaybeMinorError(err)
 		return
 	}
@@ -148,4 +140,25 @@ dataTransfer:
 		lalog.DefaultLogger.Info(conn.RemoteAddr().String(), err, "wrote %d bytes in %d portions after %d attempts", totalWritten, maxPortions, attempts+1)
 	}
 	return
+}
+
+// RandomText returns a string consisting of letters only.
+func RandomText(length int) string {
+	var ret []rune
+	for i := 0; i < length/5+1; i++ {
+		var r rune
+		if n := rand.Intn(26 * 2); n < 26 {
+			r = rune('A' + n)
+		} else {
+			r = rune('a' + n - 26)
+		}
+		// "~50%"
+		ret = append(ret, r, r, r, r, r)
+	}
+	rand.Shuffle(len(ret), func(i, j int) {
+		tmp := ret[i]
+		ret[i] = ret[j]
+		ret[j] = tmp
+	})
+	return string(ret[:length])
 }
