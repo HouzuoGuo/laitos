@@ -1,6 +1,7 @@
 package sockd
 
 import (
+	"bytes"
 	"math/rand"
 	"net"
 	"strings"
@@ -51,7 +52,7 @@ func WriteRandomToTCP(conn net.Conn) (totalBytes int) {
 	for i := 0; i < RandNum(1, 2, 3); i++ {
 		time.Sleep(time.Duration(RandNum(890, 1440, 2330)) * time.Millisecond)
 		lalog.DefaultLogger.MaybeMinorError(conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(5, 6, 7)) * time.Second)))
-		if n, err := conn.Write([]byte(RandomText(RandNum(210, 340, 550)))); err != nil {
+		if n, err := conn.Write([]byte(RandomText(RandNum(290, 310, 370)))); err != nil {
 			lalog.DefaultLogger.MaybeMinorError(err)
 			break
 		} else {
@@ -142,23 +143,35 @@ dataTransfer:
 	return
 }
 
-// RandomText returns a string consisting of letters only.
+var quirkyWords = []string{
+	"Accept", "Agent", "Content", "Control", "Cookie", "DOCTYPE", "DYNAMIC", "Date",
+	"Directly", "Encoding", "Expires", "Found", "GET", "HEAD", "HTTP", "HttpOnly",
+	"Last", "Length", "Location", "Lookup", "Mark", "Moved", "POST", "PUT", "Path",
+	"Permanently", "Powered", "Report", "Return", "Status", "Strict", "Timing", "Trying",
+	"Type", "UUID", "alive", "body", "bundle", "charset", "chunked", "desc", "endpoints",
+	"fraction", "front", "group", "head", "html", "intact", "keep", "left", "multiuse",
+	"must", "port", "public", "report", "revalidate", "store", "success", "supporting",
+	"text", "title", "xhtml", "HTTP/1.1"}
+
+var quirkyChars = []rune{'O', 'W', 'g', 'k', 'm', 'n', 's', 'u', 'v', 'y', 'z', 'o', 'w'}
+
+// RandomText returns a string consisting of letters and spaces only.
 func RandomText(length int) string {
-	var ret []rune
-	for i := 0; i < length/5+1; i++ {
-		var r rune
-		if n := rand.Intn(26 * 2); n < 26 {
-			r = rune('A' + n)
-		} else {
-			r = rune('a' + n - 26)
+	var chars bytes.Buffer
+	for chars.Len() < length {
+		roundLen := 37 + rand.Intn(41)
+		var round bytes.Buffer
+		for round.Len() < roundLen {
+			if rand.Intn(19) <= 1 {
+				round.WriteString(quirkyWords[rand.Intn(len(quirkyWords))])
+			} else {
+				for i := 0; i < roundLen; i++ {
+					round.WriteRune(quirkyChars[rand.Intn(len(quirkyChars))])
+				}
+			}
 		}
-		// "~50%"
-		ret = append(ret, r, r, r, r, r)
+		chars.Write(round.Bytes()[:roundLen])
+		chars.WriteRune(' ')
 	}
-	rand.Shuffle(len(ret), func(i, j int) {
-		tmp := ret[i]
-		ret[i] = ret[j]
-		ret[j] = tmp
-	})
-	return string(ret[:length])
+	return chars.String()[:length]
 }

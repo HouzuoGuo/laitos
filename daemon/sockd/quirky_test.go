@@ -3,6 +3,7 @@ package sockd
 import (
 	"bytes"
 	"fmt"
+	"math/bits"
 	"net"
 	"testing"
 )
@@ -60,14 +61,30 @@ func TestRandomText(t *testing.T) {
 	if len(txt) != 3 {
 		t.Fatalf("unexpected length: %q", txt)
 	}
-	txt = RandomText(100)
-	if len(txt) != 100 {
+	txt = RandomText(500)
+	if len(txt) != 500 {
 		t.Fatalf("unexpected length: %q", txt)
 	}
+	for i := 0; i < 500; i++ {
+		for _, length := range []int{128, 128 * 4, 128 * 16, 128 * 128} {
+			txt := RandomText(length)
+			if len(txt) != length {
+				t.Fatalf("unexpected length: %q", txt)
+			}
+			var popCount int
+			for _, c := range txt {
+				popCount += bits.OnesCount(uint(c))
+			}
+			popRate := float32(popCount) / float32(len(txt)*8)
+			if popRate < 0.6 {
+				t.Fatalf("unexpected pop rate: %v - %q", popRate, txt)
+			}
+			t.Log("pop rate for length", length, "is", popRate)
+		}
+	}
 	for _, r := range txt {
-		if !(r >= 65 && r <= 90 || r >= 97 && r <= 122) {
+		if !(r >= 65 && r <= 90 || r >= 97 && r <= 122 || r == ' ' || r == '.' || r == '/') {
 			t.Fatalf("unexpected character: %q", txt)
 		}
 	}
-	fmt.Println(txt)
 }
