@@ -157,21 +157,25 @@ var quirkyChars = []rune{'O', 'W', 'g', 'k', 'm', 'n', 's', 'u', 'v', 'y', 'z', 
 
 // RandomText returns a string consisting of letters and spaces only.
 func RandomText(length int) string {
-	var chars bytes.Buffer
-	for chars.Len() < length {
-		roundLen := 37 + rand.Intn(41)
-		var round bytes.Buffer
-		for round.Len() < roundLen {
-			if rand.Intn(19) <= 1 {
-				round.WriteString(quirkyWords[rand.Intn(len(quirkyWords))])
-			} else {
-				for i := 0; i < roundLen; i++ {
-					round.WriteRune(quirkyChars[rand.Intn(len(quirkyChars))])
-				}
+	var pieces []string
+	var gotLen int
+	var wasWord bool
+	for gotLen < length {
+		if rand.Intn(11) <= 1 && !wasWord {
+			word := quirkyWords[rand.Intn(len(quirkyWords))]
+			pieces = append(pieces, word)
+			gotLen += len(word)
+			wasWord = true
+		} else {
+			var round bytes.Buffer
+			roundLen := 23 + rand.Intn(29)
+			for i := 0; i < roundLen; i++ {
+				round.WriteRune(quirkyChars[rand.Intn(len(quirkyChars))])
 			}
+			pieces = append(pieces, round.String())
+			gotLen += roundLen
+			wasWord = false
 		}
-		chars.Write(round.Bytes()[:roundLen])
-		chars.WriteRune(' ')
 	}
-	return chars.String()[:length]
+	return strings.Join(pieces, " ")[:length]
 }

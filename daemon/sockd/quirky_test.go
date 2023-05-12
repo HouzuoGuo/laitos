@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/bits"
+	"math/rand"
 	"net"
 	"testing"
 )
@@ -61,30 +62,27 @@ func TestRandomText(t *testing.T) {
 	if len(txt) != 3 {
 		t.Fatalf("unexpected length: %q", txt)
 	}
-	txt = RandomText(500)
-	if len(txt) != 500 {
-		t.Fatalf("unexpected length: %q", txt)
-	}
-	for i := 0; i < 500; i++ {
-		for _, length := range []int{128, 128 * 4, 128 * 16, 128 * 128} {
-			txt := RandomText(length)
-			if len(txt) != length {
-				t.Fatalf("unexpected length: %q", txt)
-			}
-			var popCount int
-			for _, c := range txt {
-				popCount += bits.OnesCount(uint(c))
-			}
-			popRate := float32(popCount) / float32(len(txt)*8)
-			if popRate < 0.6 {
-				t.Fatalf("unexpected pop rate: %v - %q", popRate, txt)
-			}
-			t.Log("pop rate for length", length, "is", popRate)
+	for i := 0; i < 5000; i++ {
+		length := RandNum(290, 310, 370)
+		txt := RandomText(length)
+		if len(txt) != length {
+			t.Fatalf("unexpected length: %q", txt)
 		}
-	}
-	for _, r := range txt {
-		if !(r >= 65 && r <= 90 || r >= 97 && r <= 122 || r == ' ' || r == '.' || r == '/') {
-			t.Fatalf("unexpected character: %q", txt)
+		for _, r := range txt {
+			if !(r >= 65 && r <= 90 || r >= 97 && r <= 122 || r == ' ' || r == '.' || r == '/' || r == '1') {
+				t.Fatalf("unexpected character: %q", r)
+			}
+		}
+		var popCount int
+		for _, c := range txt {
+			popCount += bits.OnesCount(uint(c))
+		}
+		popRate := float32(popCount) / float32(len(txt)*8)
+		if popRate < 0.6 {
+			t.Fatalf("unexpected pop rate: %v - %q", popRate, txt)
+		}
+		if rand.Intn(1000) < 3 {
+			t.Logf("pop rate for length %d is %v, full string: %q", length, popRate, txt)
 		}
 	}
 }
