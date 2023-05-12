@@ -2,6 +2,7 @@ package sockd
 
 import (
 	"bytes"
+	"math/bits"
 	"math/rand"
 	"net"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/testingstub"
 )
 
 /*
@@ -17,31 +19,28 @@ The function returns after the first connection is closed or other IO error occu
 the function closes the second connection and optionally writes a random amount of data into the supposedly
 already terminated first connection.
 */
-func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
+func PipeTCPConnection(src, dest net.Conn, doWriteRand bool) {
 	defer func() {
-		_ = toConn.Close()
+		lalog.DefaultLogger.MaybeMinorError(dest.Close())
 	}()
-	// Read and write a small TCP segment at a time to avoid IP fragmentation
 	buf := make([]byte, RandNum(1024, 128, 256))
 	for {
 		if misc.EmergencyLockDown {
-			lalog.DefaultLogger.Warning("sockd", misc.ErrEmergencyLockDown, "")
-			return
-		} else if err := fromConn.SetReadDeadline(time.Now().Add(IOTimeout)); err != nil {
+			lalog.DefaultLogger.Warning("", misc.ErrEmergencyLockDown, "")
+			lalog.DefaultLogger.MaybeMinorError(src.Close())
+			lalog.DefaultLogger.MaybeMinorError(dest.Close())
 			return
 		}
-		length, err := ReadWithRetry(fromConn, buf)
-		if length > 0 {
-			if err := toConn.SetWriteDeadline(time.Now().Add(IOTimeout)); err != nil {
-				return
-			} else if _, err := WriteWithRetry(toConn, buf[:length]); err != nil {
-				return
-			}
-		}
+		lalog.DefaultLogger.MaybeMinorError(src.SetReadDeadline(time.Now().Add(IOTimeout)))
+		n, err := ReadWithRetry(src, buf)
 		if err != nil {
 			if doWriteRand {
-				WriteRandomToTCP(fromConn)
+				WriteRandomToTCP(src)
 			}
+			return
+		}
+		lalog.DefaultLogger.MaybeMinorError(dest.SetWriteDeadline(time.Now().Add(IOTimeout)))
+		if _, err := WriteWithRetry(dest, buf[:n]); err != nil {
 			return
 		}
 	}
@@ -50,8 +49,8 @@ func PipeTCPConnection(fromConn, toConn net.Conn, doWriteRand bool) {
 // WriteRandomToTCP writes a random amount of data (up to couple of KB) to the connection.
 func WriteRandomToTCP(conn net.Conn) (totalBytes int) {
 	for i := 0; i < RandNum(1, 2, 3); i++ {
-		time.Sleep(time.Duration(RandNum(890, 1440, 2330)) * time.Millisecond)
-		lalog.DefaultLogger.MaybeMinorError(conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(5, 6, 7)) * time.Second)))
+		time.Sleep(time.Duration(RandNum(170, 190, 230)) * time.Millisecond)
+		lalog.DefaultLogger.MaybeMinorError(conn.SetWriteDeadline(time.Now().Add(time.Duration(RandNum(4, 5, 6)) * time.Second)))
 		if n, err := conn.Write([]byte(RandomText(RandNum(290, 310, 370)))); err != nil {
 			lalog.DefaultLogger.MaybeMinorError(err)
 			break
@@ -94,8 +93,6 @@ func ReadWithRetry(conn net.Conn, buf []byte) (n int, err error) {
 				break
 			}
 		}
-		// Sleep couple of seconds in between attempts
-		time.Sleep(time.Duration((attempts+1)*500) * time.Millisecond)
 	}
 	if rand.Intn(500) < 1 {
 		lalog.DefaultLogger.Info(conn.RemoteAddr().String(), err, "read %d bytes after %d attempts", n, attempts+1)
@@ -131,11 +128,7 @@ dataTransfer:
 					break dataTransfer
 				}
 			}
-			// Sleep couple of seconds in between attempts
-			time.Sleep(time.Duration((attempts+1)*500) * time.Millisecond)
 		}
-		// Sleep couple of milliseconds in between each portion
-		time.Sleep(time.Duration(RandNum(1, 0, maxPortions)) * time.Millisecond)
 	}
 	if rand.Intn(500) < 1 {
 		lalog.DefaultLogger.Info(conn.RemoteAddr().String(), err, "wrote %d bytes in %d portions after %d attempts", totalWritten, maxPortions, attempts+1)
@@ -178,4 +171,21 @@ func RandomText(length int) string {
 		}
 	}
 	return strings.Join(pieces, " ")[:length]
+}
+
+func validateRandomQuality(t testingstub.T, txt string) (popRate float32) {
+	for _, r := range txt {
+		if !(r >= 65 && r <= 90 || r >= 97 && r <= 122 || r == ' ' || r == '.' || r == '/' || r == '1') {
+			t.Fatalf("unexpected character: %q", r)
+		}
+	}
+	var popCount int
+	for _, c := range txt {
+		popCount += bits.OnesCount(uint(c))
+	}
+	popRate = float32(popCount) / float32(len(txt)*8)
+	if popRate < 0.6 {
+		t.Fatalf("unexpected pop rate: %v - %q", popRate, txt)
+	}
+	return popRate
 }

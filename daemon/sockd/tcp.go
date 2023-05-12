@@ -27,6 +27,7 @@ type TCPDaemon struct {
 
 	derivedPassword []byte
 	tcpServer       *common.TCPServer
+	firstPerIP      *misc.RateLimit
 }
 
 func (daemon *TCPDaemon) Initialise() error {
@@ -39,6 +40,12 @@ func (daemon *TCPDaemon) Initialise() error {
 	}
 	daemon.tcpServer.Initialise()
 	daemon.derivedPassword = GetDerivedKey(daemon.Password)
+	daemon.firstPerIP = &misc.RateLimit{
+		UnitSecs: 10 * 60,
+		MaxCount: 1,
+		Logger:   *lalog.DefaultLogger,
+	}
+	daemon.firstPerIP.Initialise()
 	return nil
 }
 
@@ -69,6 +76,11 @@ func (daemon *TCPDaemon) HandleTCPConnection(logger lalog.Logger, ip string, cli
 	}
 	if daemon.DNSDaemon.IsInBlacklist(destNameOrIP) {
 		logger.Info(ip, nil, "will not serve blacklisted destination %s", destNameOrIP)
+		return
+	}
+	if daemon.firstPerIP.Add(ip, false) {
+		logger.Info(ip, nil, "writing random for the first connection from IP %s", ip)
+		WriteRandomToTCP(client)
 		return
 	}
 	proxyDestConn, err := net.Dial("tcp", net.JoinHostPort(destNameOrIP, strconv.Itoa(destPort)))
