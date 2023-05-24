@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	TwitterGetFeeds  = "g"
-	TwitterPostTweet = "p"
+	TwitterGetFeeds       = "g"
+	TwitterPostTweet      = "p"
+	TwitterMaxResponseLen = 256 * 1024
 )
 
 var (
@@ -25,11 +26,17 @@ var (
 
 // Use Twitter API to interact with user's time-line.
 type Twitter struct {
-	AccessToken       string `json:"AccessToken"`       // Twitter API access token ("Your Access Token - Access Token")
-	AccessTokenSecret string `json:"AccessTokenSecret"` // Twitter API access token secret ("Your Access Token - Access Token Secret")
-	ConsumerKey       string `json:"ConsumerKey"`       // Twitter API consumer key ("Application Settings - Consumer Key (API Key)")
-	ConsumerSecret    string `json:"ConsumerSecret"`    // Twitter API consumer secret ("Application Settings - Consumer Secret (API Secret)")
-	reqSigner         *inet.OAuthSigner
+	// AccessToken is my own twitter user's access token.
+	AccessToken string `json:"AccessToken"`
+	// AccessToken is my own twitter user's access token secret.
+	AccessTokenSecret string `json:"AccessTokenSecret"`
+	// ConsumerKey is the the twitter app's consumer API key.
+	ConsumerKey string `json:"ConsumerKey"`
+	// ConsumerKey is the the twitter app's consumer API secret.
+	ConsumerSecret string `json:"ConsumerSecret"`
+	// MyUserName is my own twitter user name for retrieving my home timeline.
+	MyUserName string `json:"MyUserName"`
+	reqSigner  *inet.OAuthSigner
 }
 
 var TestTwitter = Twitter{} // API credentials are set by init_feature_test.go
@@ -43,18 +50,10 @@ func (twi *Twitter) SelfTest() error {
 	if !twi.IsConfigured() {
 		return ErrIncompleteConfig
 	}
-	// Make an inexpensive API call to test API credentials
-	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{
-		TimeoutSec: SelfTestTimeoutSec,
-		RequestFunc: func(req *http.Request) error {
-			return twi.reqSigner.SetAuthorizationHeader(req)
-		},
-	}, "https://api.twitter.com/1.1/statuses/user_timeline.json?count=1")
+	// User ID look-up is an inexpensive API call, sufficient for validating the API credentials.
+	_, err := twi.myUserID(context.Background())
 	if err != nil {
 		return fmt.Errorf("Twitter.SelfTest: API IO error - %v", err)
-	}
-	if err = resp.Non2xxToError(); err != nil {
-		return fmt.Errorf("Twitter.SelfTest: API response error - %v", err)
 	}
 	return nil
 }
@@ -90,6 +89,29 @@ func (twi *Twitter) Execute(ctx context.Context, cmd Command) (ret *Result) {
 	return
 }
 
+func (twi *Twitter) myUserID(ctx context.Context) (string, error) {
+	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
+		MaxBytes: TwitterMaxResponseLen,
+		RequestFunc: func(req *http.Request) error {
+			return twi.reqSigner.SetAuthorizationHeader(req)
+		},
+	}, "https://api.twitter.com/2/users/by/username/%s", twi.MyUserName)
+	if err != nil {
+		return "", err
+	} else if err := resp.Non2xxToError(); err != nil {
+		return "", err
+	}
+	var respObj struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(resp.GetBodyUpTo(1024*128), &respObj); err != nil {
+		return "", err
+	}
+	return respObj.Data.ID, nil
+}
+
 // Retrieve tweets from timeline.
 func (twi *Twitter) GetFeeds(ctx context.Context, cmd Command) *Result {
 	// Find two numeric parameters among the content
@@ -110,28 +132,33 @@ func (twi *Twitter) GetFeeds(ctx context.Context, cmd Command) *Result {
 	if count == 0 && skip == 0 {
 		count = 10
 	} else {
-		// Twitter API will not retrieve more than 200 tweets, so limit the parameters accordingly.
-		if skip > 199 {
-			skip = 199
+		// The API will not retrieve more than 100 tweets at a time.
+		if skip > 99 {
+			skip = 99
 		}
 		if skip < 0 {
 			skip = 0
 		}
 		count += skip
-		if count > 200 {
-			count = 200
+		if count > 100 {
+			count = 100
 		}
 		if count < 1 {
 			count = 1
 		}
 	}
+	userID, err := twi.myUserID(ctx)
+	if err != nil {
+		return &Result{Error: err}
+	}
 	// Execute the API request
 	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
 		TimeoutSec: cmd.TimeoutSec,
+		MaxBytes:   TwitterMaxResponseLen,
 		RequestFunc: func(req *http.Request) error {
 			return twi.reqSigner.SetAuthorizationHeader(req)
 		},
-	}, "https://api.twitter.com/1.1/statuses/home_timeline.json?count=%s", count)
+	}, "https://api.twitter.com/2/users/%s/timelines/reverse_chronological?max_results=%s&user.fields=name&expansions=author_id", userID, strconv.Itoa(count))
 	// Return error or extract tweets
 	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return errResult
@@ -141,7 +168,7 @@ func (twi *Twitter) GetFeeds(ctx context.Context, cmd Command) *Result {
 		// Return one tweet per line
 		var outBuf bytes.Buffer
 		for _, tweet := range tweets {
-			outBuf.WriteString(fmt.Sprintf("%s %s\n", strings.TrimSpace(tweet.User.Name), strings.TrimSpace(tweet.Text)))
+			outBuf.WriteString(fmt.Sprintf("%s %s\n", strings.TrimSpace(tweet.UserName), strings.TrimSpace(tweet.Text)))
 		}
 		return &Result{Error: nil, Output: outBuf.String()}
 	}
@@ -153,14 +180,20 @@ func (twi *Twitter) Tweet(ctx context.Context, cmd Command) *Result {
 	if tweet == "" {
 		return &Result{Error: ErrBadTwitterParam}
 	}
-
+	reqBody, err := json.Marshal(map[string]string{"text": tweet})
+	if err != nil {
+		return &Result{Error: err}
+	}
 	resp, err := inet.DoHTTP(ctx, inet.HTTPRequest{
-		TimeoutSec: cmd.TimeoutSec,
-		Method:     http.MethodPost,
+		TimeoutSec:  cmd.TimeoutSec,
+		Method:      http.MethodPost,
+		MaxBytes:    TwitterMaxResponseLen,
+		Body:        bytes.NewReader(reqBody),
+		ContentType: "application/json",
 		RequestFunc: func(req *http.Request) error {
 			return twi.reqSigner.SetAuthorizationHeader(req)
 		},
-	}, "https://api.twitter.com/1.1/statuses/update.json?status=%s", tweet)
+	}, "https://api.twitter.com/2/tweets")
 	// Return error or extract tweets
 	if errResult := HTTPErrorToResult(resp, err); errResult != nil {
 		return errResult
@@ -170,23 +203,44 @@ func (twi *Twitter) Tweet(ctx context.Context, cmd Command) *Result {
 }
 
 type Tweet struct {
-	Text string `json:"text"`
-	User struct {
-		Name string `json:"name"`
-	} `json:"user"`
+	Text     string
+	UserName string
 }
 
 func (twi *Twitter) ExtractTweets(jsonBody []byte, skip, count int) (tweets []Tweet, err error) {
-	if err = json.Unmarshal(jsonBody, &tweets); err != nil {
+	var apiResp struct {
+		Data []struct {
+			Text     string `json:"text"`
+			AuthorID string `json:"author_id"`
+		} `json:"data"`
+		Includes struct {
+			Users []struct {
+				ID       string `json:"id"`
+				UserName string `json:"username"`
+			} `json:"users"`
+		} `json:"includes"`
+	}
+	if err = json.Unmarshal(jsonBody, &apiResp); err != nil {
 		return
+	}
+	// Construct the author ID to user name mapping.
+	authorIDUserName := make(map[string]string)
+	for _, user := range apiResp.Includes.Users {
+		authorIDUserName[user.ID] = user.UserName
+	}
+	// Turn response data entries into tweets.
+	for _, entry := range apiResp.Data {
+		tweets = append(tweets, Tweet{
+			Text:     entry.Text,
+			UserName: authorIDUserName[entry.AuthorID],
+		})
 	}
 	// Skipping all tweets?
 	if skip >= len(tweets) {
 		tweets = []Tweet{}
 		return
 	}
-	finalTweet := count
-	// Retrieving more tweets than there are in response?
+	finalTweet := skip + count
 	if finalTweet > len(tweets) {
 		finalTweet = len(tweets)
 	}
