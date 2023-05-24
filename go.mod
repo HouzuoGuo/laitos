@@ -4,7 +4,7 @@ module github.com/HouzuoGuo/laitos
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.44.262
+	github.com/aws/aws-sdk-go v1.44.269
 	github.com/aws/aws-xray-sdk-go v1.8.1
 	github.com/miekg/dns v1.1.54
 	github.com/prometheus/client_golang v1.15.1
@@ -25,8 +25,8 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
-	github.com/prometheus/common v0.43.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/common v0.44.0 // indirect
+	github.com/prometheus/procfs v0.10.0 // indirect
 	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.47.0 // indirect
