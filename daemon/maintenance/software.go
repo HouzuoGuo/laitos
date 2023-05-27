@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -56,8 +57,8 @@ environment variables and command arguments used to invoke them.
 func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManagerEnv, pkgInstallArgs, sysUpgradeArgs []string) {
 	if platform.HostIsWindows() {
 		// Chocolatey is the only package manager supported on Windows
-		pkgManagerPath = `C:\ProgramData\chocolatey\bin\choco.exe`
-		pkgManagerName = "choco"
+		pkgManagerPath = path.Join(os.Getenv("USERPROFILE"), `AppData\Local\Microsoft\WindowsApps\winget.exe`)
+		pkgManagerName = "winget"
 	} else {
 		for _, binPrefix := range []string{"/sbin", "/bin", "/usr/sbin", "/usr/bin", "/usr/sbin/local", "/usr/bin/local"} {
 			/*
@@ -77,14 +78,10 @@ func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManage
 		}
 	}
 	switch pkgManagerName {
-	case "choco":
-		// choco is simple and easy
-		pkgInstallArgs = []string{"install", "-y"}
-		sysUpgradeArgs = []string{"upgrade", "-y", "all"}
 	case "dnf":
+		// dnf and yum are simple and easy
 		fallthrough
 	case "yum":
-		// dnf and yum are simple and easy
 		pkgInstallArgs = []string{"-y", "--skip-broken", "install"}
 		sysUpgradeArgs = []string{"-y", "--skip-broken", "update"}
 	case "apt":
@@ -94,6 +91,11 @@ func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManage
 		pkgManagerEnv = []string{"DEBIAN_FRONTEND=noninteractive"}
 		pkgInstallArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-overwrite", "install"}
 		sysUpgradeArgs = []string{"-q", "-y", "-f", "-m", "-o", "Dpkg::Options::=--force-confold", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-overwrite", "--with-new-pkgs", "upgrade"}
+	case "winget":
+		// winget is too young to be convenient.
+		// The fuzzy package name match is too eager to pick up odd apps from the store, hence restrict the source to winget for the time being.
+		pkgInstallArgs = []string{"install", "--source", "winget", "--scope", "machine", "--silent", "--accept-package-agreements", "--disable-interactivity", "--accept-source-agreements"}
+		sysUpgradeArgs = []string{"upgrade", "--all", "--silent", "--accept-source-agreements", "--include-unknown", "--disable-interactivity"}
 	case "zypper":
 		// zypper cannot English and consistency
 		pkgInstallArgs = []string{"--non-interactive", "install", "--recommends", "--auto-agree-with-licenses", "--replacefiles", "--force-resolution"}
@@ -119,8 +121,8 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		if err != nil {
 			daemon.logPrintStageStep(out, "failed to install windows features: %v - %s", err, shellOut)
 		}
-		daemon.logPrintStageStep(out, "install/upgrade chocolatey")
-		shellOut, err = platform.InvokeShell(3600, platform.PowerShellInterpreterPath, `Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))`)
+		daemon.logPrintStageStep(out, "install/upgrade winget")
+		shellOut, err = platform.InvokeShell(3600, platform.PowerShellInterpreterPath, `Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe`)
 		if err != nil {
 			daemon.logPrintStageStep(out, "failed to install/upgrade chocolatey: %v - %s", err, shellOut)
 		}
