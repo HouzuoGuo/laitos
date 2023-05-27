@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -57,7 +56,7 @@ environment variables and command arguments used to invoke them.
 func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManagerEnv, pkgInstallArgs, sysUpgradeArgs []string) {
 	if platform.HostIsWindows() {
 		// Chocolatey is the only package manager supported on Windows
-		pkgManagerPath = path.Join(os.Getenv("USERPROFILE"), `AppData\Local\Microsoft\WindowsApps\winget.exe`)
+		pkgManagerPath = filepath.Join(os.Getenv("USERPROFILE"), `AppData\Local\Microsoft\WindowsApps\winget.exe`)
 		pkgManagerName = "winget"
 	} else {
 		for _, binPrefix := range []string{"/sbin", "/bin", "/usr/sbin", "/usr/bin", "/usr/sbin/local", "/usr/bin/local"} {
