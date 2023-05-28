@@ -56,7 +56,7 @@ environment variables and command arguments used to invoke them.
 func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManagerEnv, pkgInstallArgs, sysUpgradeArgs []string) {
 	if platform.HostIsWindows() {
 		// Chocolatey is the only package manager supported on Windows
-		pkgManagerPath = filepath.Join(os.Getenv("USERPROFILE"), `AppData\Local\Microsoft\WindowsApps\winget.exe`)
+		pkgManagerPath = filepath.Join(os.Getenv("LOCALAPPDATA"), `Microsoft\WindowsApps\winget.exe`)
 		pkgManagerName = "winget"
 	} else {
 		for _, binPrefix := range []string{"/sbin", "/bin", "/usr/sbin", "/usr/bin", "/usr/sbin/local", "/usr/bin/local"} {
@@ -123,7 +123,7 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 		daemon.logPrintStageStep(out, "install/upgrade winget")
 		shellOut, err = platform.InvokeShell(3600, platform.PowerShellInterpreterPath, `Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe`)
 		if err != nil {
-			daemon.logPrintStageStep(out, "failed to install/upgrade chocolatey: %v - %s", err, shellOut)
+			daemon.logPrintStageStep(out, "failed to install/upgrade winget: %v - %s", err, shellOut)
 		}
 	} else {
 		daemon.prepareDockerRepositoryForAWSLinux(out)

@@ -4,15 +4,14 @@
 package platform
 
 import (
-	"errors"
-	"io/ioutil"
 	"os"
-	"os/exec"
 	"syscall"
 	"time"
-
-	"github.com/HouzuoGuo/laitos/lalog"
 )
+
+// extProcAttr asks the new process to be placed in a group so that its child processes are also killed after timing out.
+// There is no equivalent on Windows.
+var extProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 // GetRootDiskUsageKB returns used and total space of the file system mounted on /. Returns 0 if they cannot be determined.
 func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int64) {
@@ -24,88 +23,6 @@ func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int64) {
 	totalKB = int64(fs.Blocks) * int64(fs.Bsize) / 1024
 	freeKB = int64(fs.Bfree) * int64(fs.Bsize) / 1024
 	usedKB = totalKB - freeKB
-	return
-}
-
-/*
-InvokeProgram launches an external program with time constraints. The external program inherits laitos' environment
-mixed with additional input environment variables. The additional variables take precedence over inherited ones.
-Returns stdout+stderr output combined, and error if there is any. The maximum amount of output returned is capped to
-MaxExternalProgramOutputBytes.
-*/
-func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (out string, err error) {
-	if timeoutSec < 1 {
-		return "", errors.New("invalid time limit")
-	}
-	// Make an environment variable array of common PATH, inherited values, and newly specified values.
-	defaultOSEnv := os.Environ()
-	combinedEnv := make([]string, 0, 1+len(defaultOSEnv))
-	// Inherit environment variables from program environment
-	combinedEnv = append(combinedEnv, defaultOSEnv...)
-	/*
-		Put common PATH values into the mix. Since go 1.9, when environment variables contain duplicated keys, only
-		the last value of duplicated key is effective. This behaviour enables caller to override PATH if deemed
-		necessary.
-	*/
-	combinedEnv = append(combinedEnv, "PATH="+CommonPATH)
-	if envVars != nil {
-		combinedEnv = append(combinedEnv, envVars...)
-	}
-	// Collect stdout and stderr all together in a single buffer
-	outBuf := lalog.NewByteLogWriter(ioutil.Discard, MaxExternalProgramOutputBytes)
-	proc := exec.Command(program, args...)
-	proc.Env = combinedEnv
-	proc.Stdout = outBuf
-	proc.Stderr = outBuf
-	// Use process group so that child processes are also killed upon time out, Windows does not require this.
-	proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	// Start external process
-	unixSecAtStart := time.Now().Unix()
-	timeLimitExceeded := time.After(time.Duration(timeoutSec) * time.Second)
-	if err = proc.Start(); err != nil {
-		return
-	}
-	// Wait for the process to finish
-	processExitChan := make(chan error, 1)
-	go func() {
-		exitErr := proc.Wait()
-		if exitErr == nil {
-			logger.Info(program, nil, "process exited normally after %d seconds", time.Now().Unix()-unixSecAtStart)
-		} else {
-			logger.Info(program, nil, "process exited after %d seconds due to: %v", time.Now().Unix()-unixSecAtStart, exitErr)
-		}
-		processExitChan <- exitErr
-	}()
-	minuteTicker := time.NewTicker(1 * time.Minute)
-processMonitorLoop:
-	for {
-		// Monitor long-duration process, time-out condition, and regular process exit.
-		select {
-		case <-minuteTicker.C:
-			// If the the process may 10 minutes or longer to run, then start logging how much time the process has left every minute.
-			if timeoutSec >= 10*60 {
-				spentMinutes := (time.Now().Unix() - unixSecAtStart) / 60
-				timeoutRemainingMinutes := (timeoutSec - int(time.Now().Unix()-unixSecAtStart)) / 60
-				logger.Info(program, nil, "external process %d has been running for %d minutes and will time out in %d minutes",
-					proc.Process.Pid, spentMinutes, timeoutRemainingMinutes)
-			}
-		case <-timeLimitExceeded:
-			// Forcibly kill the process upon exceeding time limit
-			logger.Warning(program, nil, "killing the program due to time limit (%d seconds)", timeoutSec)
-			if proc.Process != nil && !KillProcess(proc.Process) {
-				logger.Warning(program, nil, "failed to kill after time limit exceeded")
-			}
-			err = errors.New("time limit exceeded")
-			minuteTicker.Stop()
-			break processMonitorLoop
-		case exitErr := <-processExitChan:
-			// Normal or abnormal exit that is not a time out
-			err = exitErr
-			minuteTicker.Stop()
-			break processMonitorLoop
-		}
-	}
-	out = string(outBuf.Retrieve(false))
 	return
 }
 
