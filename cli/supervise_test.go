@@ -66,3 +66,7 @@ func TestAutoRestartDuringLockDown(t *testing.T) {
 	}()
 	<-done
 }
+
+func TestHandleDaemonSignals(t *testing.T) {
+	HandleDaemonSignals()
+}

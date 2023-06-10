@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	runtimePprof "runtime/pprof"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -173,4 +174,10 @@ func GetConfig(logger lalog.Logger, pwdServer bool, pwdServerPort int, pwdServer
 		logger.Info(nil, nil, "reading %d bytes of JSON configuration from environment variable LAITOS_CONFIG", len(configBytes))
 	}
 	return configBytes
+}
+
+// HandleDaemonSignals ignores signals irrelevant to daemon operation.
+func HandleDaemonSignals() {
+	signal.Ignore(syscall.SIGPIPE)
+	signal.Ignore(syscall.SIGHUP)
 }

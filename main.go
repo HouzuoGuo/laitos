@@ -184,6 +184,7 @@ func main() {
 	// always protected by the supervisor by default. There is no good reason
 	// for a user to turn it off manually.
 	// ========================================================================
+	cli.HandleDaemonSignals()
 	if isSupervisor {
 		supervisor := &launcher.Supervisor{
 			CLIFlags:               os.Args[1:],
@@ -197,8 +198,6 @@ func main() {
 	// The code after this point are supervised by the launcher supervisor,
 	// which will automatically recover from crashes and shed components/options
 	// as needed.
-
-	// Prepare to start the daemons.
 	if gomaxprocs > 0 {
 		oldGomaxprocs := runtime.GOMAXPROCS(gomaxprocs)
 		logger.Warning(nil, nil, "GOMAXPROCS has been changed from %d to %d", oldGomaxprocs, gomaxprocs)
