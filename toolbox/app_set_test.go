@@ -94,15 +94,6 @@ func TestFeatureSet_InitSelfTestErr(t *testing.T) {
 		AccountSID:  "very bad",
 		AuthToken:   "very bad",
 	}
-	apps.Twitter = Twitter{
-		AccessToken:       "very bad",
-		AccessTokenSecret: "bad ",
-		ConsumerKey:       "bad",
-		ConsumerSecret:    "bad",
-		reqSigner: &inet.OAuthSigner{
-			AccessToken: "bad",
-		},
-	}
 	apps.TwoFACodeGenerator.SecretFile.FilePath = "does not exist"
 	apps.WolframAlpha.AppID = "very bad"
 
@@ -128,7 +119,6 @@ func TestFeatureSet_InitSelfTestErr(t *testing.T) {
 		"SendMail",
 		"Shell",
 		"Twilio",
-		"Twitter",
 		"WolframAlpha",
 	})
 	if findAllSelfTestErrs != nil {

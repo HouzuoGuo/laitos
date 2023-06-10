@@ -28,7 +28,6 @@ type FeatureSet struct {
 	Shell                  Shell                  `json:"Shell"`
 	TextSearch             TextSearch             `json:"TextSearch"`
 	Twilio                 Twilio                 `json:"Twilio"`
-	Twitter                Twitter                `json:"Twitter"`
 	TwoFACodeGenerator     TwoFACodeGenerator     `json:"TwoFACodeGenerator"`
 	WolframAlpha           WolframAlpha           `json:"WolframAlpha"`
 
@@ -54,7 +53,6 @@ func (fs *FeatureSet) Initialise() error {
 		fs.Shell.Trigger():                  &fs.Shell,                  // s
 		fs.TextSearch.Trigger():             &fs.TextSearch,             // g
 		fs.Twilio.Trigger():                 &fs.Twilio,                 // p
-		fs.Twitter.Trigger():                &fs.Twitter,                // t
 		fs.TwoFACodeGenerator.Trigger():     &fs.TwoFACodeGenerator,     // 2
 		fs.WolframAlpha.Trigger():           &fs.WolframAlpha,           // w
 	}
@@ -129,7 +127,6 @@ func (fs *FeatureSet) DeserialiseFromJSON(configJSON json.RawMessage) error {
 		"SendMail":           &fs.SendMail,
 		"Shell":              &fs.Shell,
 		"Twilio":             &fs.Twilio,
-		"Twitter":            &fs.Twitter,
 		"TwoFACodeGenerator": &fs.TwoFACodeGenerator,
 		"WolframAlpha":       &fs.WolframAlpha,
 	}

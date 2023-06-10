@@ -56,12 +56,6 @@
       "AuthToken": "dummy token",
       "PhoneNumber": "+000000000000"
     },
-    "Twitter": {
-      "AccessToken": "dummy token",
-      "AccessTokenSecret": "dummy secret",
-      "ConsumerKey": "dummy key",
-      "ConsumerSecret": "dummy secret"
-    },
     "WolframAlpha": {
       "AppID": "dummy id"
     }

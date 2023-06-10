@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,11 +16,15 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 )
 
-const RSSDownloadTimeoutSec = 10 // RSSDownloadTimeoutSec is the IO timeout used for testing RSS sources.
+const (
+	RSSDownloadTimeoutSec = 10 // RSSDownloadTimeoutSec is the IO timeout used for testing RSS sources.
+)
+
+var RegexTwoNumbers = regexp.MustCompile(`(\d+)[^\d]+(\d+)`)
 
 var (
 	// ErrBadRSSParam is the error response for incorrectly entering numeric parameters for retrieving RSS feeds.
-	ErrBadRSSParam = errors.New("example: .s skip# count#")
+	ErrBadRSSParam = errors.New("example: .r skip# count#")
 
 	// DefaultRSSSources is a list of RSS of news headlines published by major news agencies around the world.
 	DefaultRSSSources = []string{
