@@ -4,13 +4,13 @@ module github.com/HouzuoGuo/laitos
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.44.285
+	github.com/aws/aws-sdk-go v1.44.288
 	github.com/aws/aws-xray-sdk-go v1.8.1
 	github.com/miekg/dns v1.1.55
 	github.com/prometheus/client_golang v1.16.0
 	golang.org/x/crypto v0.10.0
 	golang.org/x/net v0.11.0
-	google.golang.org/grpc v1.56.0
+	google.golang.org/grpc v1.56.1
 	google.golang.org/protobuf v1.30.0
 )
 
