@@ -2,9 +2,10 @@ package toolbox
 
 import (
 	"errors"
-	"github.com/HouzuoGuo/laitos/inet"
 	"os"
 	"testing"
+
+	"github.com/HouzuoGuo/laitos/inet"
 )
 
 func TestCommand_Trim(t *testing.T) {
@@ -24,7 +25,7 @@ func TestCommand_Trim(t *testing.T) {
 }
 
 func TestCommand_FindAndRemovePrefix(t *testing.T) {
-	original := "abc\n\t   def   \n\t"
+	original := "abc\n\t   def GHI jkl   \n\t"
 	cmd := Command{Content: original}
 	if cmd.FindAndRemovePrefix("not a prefix") {
 		t.Fatal("should not remove")
@@ -32,10 +33,10 @@ func TestCommand_FindAndRemovePrefix(t *testing.T) {
 	if cmd.Content != original {
 		t.Fatal(cmd.Content)
 	}
-	if !cmd.FindAndRemovePrefix("abc") {
+	if !cmd.FindAndRemovePrefix("AbC") {
 		t.Fatal("did not remove")
 	}
-	if cmd.Content != "def" {
+	if cmd.Content != "def GHI jkl" {
 		t.Fatal(cmd.Content)
 	}
 }

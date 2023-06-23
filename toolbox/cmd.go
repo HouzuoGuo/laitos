@@ -44,9 +44,9 @@ func (cmd *Command) Trim() *Result {
 // Remove a prefix string from command content and then trim white spaces. Return true only if the prefix was found and removed.
 func (cmd *Command) FindAndRemovePrefix(prefix string) (hasPrefix bool) {
 	trimmedOriginal := strings.TrimSpace(cmd.Content)
-	hasPrefix = strings.HasPrefix(trimmedOriginal, prefix)
+	hasPrefix = strings.HasPrefix(strings.ToLower(trimmedOriginal), strings.ToLower(prefix))
 	if hasPrefix {
-		cmd.Content = strings.TrimSpace(strings.TrimPrefix(trimmedOriginal, prefix))
+		cmd.Content = strings.TrimSpace(trimmedOriginal[len(prefix):])
 	}
 	return
 }

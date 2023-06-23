@@ -111,7 +111,7 @@ func (req *SubjectReportRequest) SerialiseCompact() string {
 	}
 	return fmt.Sprintf("%s%c%s%c%s%c%s%c%s%c%s%c%s%c%d%c%d",
 		// Ordered from most important to least important
-		req.SubjectHostName,
+		strings.ToLower(req.SubjectHostName),
 		SubjectReportSerialisedFieldSeparator,
 		req.CommandRequest.Command,
 		SubjectReportSerialisedFieldSeparator,
@@ -120,11 +120,11 @@ func (req *SubjectReportRequest) SerialiseCompact() string {
 		strings.ReplaceAll(req.CommandResponse.Result, "\n", fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator)),
 		SubjectReportSerialisedFieldSeparator,
 
-		req.SubjectPlatform,
+		strings.ToLower(req.SubjectPlatform),
 		SubjectReportSerialisedFieldSeparator,
 		strings.ReplaceAll(serialisedComment, "\n", fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator)),
 		SubjectReportSerialisedFieldSeparator,
-		req.SubjectIP,
+		strings.ToLower(req.SubjectIP),
 		SubjectReportSerialisedFieldSeparator,
 
 		req.CommandResponse.ReceivedAt.Unix(),
@@ -144,7 +144,7 @@ the function will try to decode as much information as possible while returning 
 func (req *SubjectReportRequest) DeserialiseFromCompact(in string) error {
 	attributes := strings.Split(in, fmt.Sprintf("%c", SubjectReportSerialisedFieldSeparator))
 	if len(attributes) > 0 {
-		req.SubjectHostName = attributes[0]
+		req.SubjectHostName = strings.ToLower(attributes[0])
 	}
 	if len(attributes) > 1 {
 		req.CommandRequest.Command = attributes[1]
@@ -156,14 +156,14 @@ func (req *SubjectReportRequest) DeserialiseFromCompact(in string) error {
 		req.CommandResponse.Result = strings.ReplaceAll(attributes[3], fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator), "\n")
 	}
 	if len(attributes) > 4 {
-		req.SubjectPlatform = attributes[4]
+		req.SubjectPlatform = strings.ToLower(attributes[4])
 	}
 	if len(attributes) > 5 {
 		commentAttribute := strings.ReplaceAll(attributes[5], fmt.Sprintf("%c", SubjectReportSerialisedLineSeparator), "\n")
 		req.SubjectComment = commentAttribute
 		if len(commentAttribute) > MaxSubjectCommentStringLen {
 			// Truncate the oversize comment, do not attempt to decode it into a JSON object.
-			req.SubjectComment = commentAttribute[:MaxSubjectCommentStringLen]
+			req.SubjectComment = strings.ToLower(commentAttribute[:MaxSubjectCommentStringLen])
 		} else {
 			// Allow up to 4KB of free form text to be decoded into a JSON object
 			var commentJSON map[string]interface{}
@@ -173,7 +173,7 @@ func (req *SubjectReportRequest) DeserialiseFromCompact(in string) error {
 		}
 	}
 	if len(attributes) > 6 {
-		req.SubjectIP = attributes[6]
+		req.SubjectIP = strings.ToLower(attributes[6])
 	}
 	if len(attributes) > 7 {
 		unixTimeSec, _ := strconv.Atoi(attributes[7])
