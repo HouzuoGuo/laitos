@@ -103,7 +103,7 @@ func (notify *NotifyViaEmail) IsConfigured() bool {
 }
 
 func (notify *NotifyViaEmail) Transform(result *Result) error {
-	if notify.IsConfigured() && result.Error != ErrPINAndShortcutNotFound {
+	if notify.IsConfigured() && result.Error != ErrPINAndShortcutNotFound && result.Error != ErrTOTPAlreadyUsed {
 		go func() {
 			subject := inet.OutgoingMailSubjectKeyword + "-notify-" + result.Command.Content
 			if err := notify.MailClient.Send(subject, result.CombinedOutput, notify.Recipients...); err != nil {
