@@ -112,6 +112,7 @@ func main() {
 	// Enable common diagnosis and security features.
 	logger.Info(nil, nil, "program is starting, here is a summary of the runtime environment:\n%s", platform.GetProgramStatusSummary(false))
 	platform.LockMemory()
+	cli.ClearDedupBuffersInBackground()
 	cli.ReseedPseudoRandAndInBackground(logger)
 	cli.StartProfilingServer(logger, pprofHTTPPort)
 	if debug {

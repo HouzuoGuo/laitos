@@ -28,24 +28,36 @@ const (
 type LogWarningCallbackFunc func(componentName, componentID, funcName string, actorName interface{}, err error, msg string)
 
 var (
-	// LatestWarnings are a small number of the most recent log messages (warnings and info messages ) kept in memory for retrieval and inspection.
+	// LatestWarnings are a small number of the most recent log messages
+	// (warnings and info messages) kept in memory for retrieval and inspection.
 	LatestLogs = datastruct.NewRingBuffer(NumLatestLogEntries)
 
 	// LatestWarnings are a small number of the most recent warning log messages kept in memory for retrieval and inspection.
 	LatestWarnings = datastruct.NewRingBuffer(NumLatestLogEntries)
 
-	// LatestWarningActors are a small number of actors that have recently generated warning messages.
-	// The LRU buffer helps to gain a more comprehensive picture of the actors that have resulted in warning log messages by
-	// working as a conditional filter, so that only the first instance of warning from an actor (identified by component name + function name +
-	// actor name) will be added to the in-memory warning log buffer. The subsequent warning messages of that actor will be excluded from the
-	// warning buffer. The actor will get another chance to show up in the warning buffer when it eventually becomes stale and is subsequently
-	// evicted by this LRU buffer.
-	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(NumLatestLogEntries / 4)
+	// LatestWarningActors a small number of log entry actors that have
+	// generated the latest log messages. The buffer provides a daemon-agnostic
+	// mechanism that de-duplicates repeated log messages, to avoid flooding
+	// stderr too hard, and makes the latest log entries retrieved on-demand
+	// much easier to read.
+	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(NumLatestLogEntries)
+
+	// LatestLogMessageContent are small number of recent log messages.
+	// The buffer provides a daemon-agnostic mechanism that de-duplicates
+	// repeated log messages, to avoid flooding stderr too hard, and makes the
+	// latest log entries retrieved on-demand much easier to read.
+	LatestLogMessageContent = datastruct.NewLeastRecentlyUsedBuffer(NumLatestLogEntries)
 
 	// LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
 	// The function must avoid generating a warning log message of itself, to avoid an infinite recursion.
 	GlobalLogWarningCallback LogWarningCallbackFunc = nil
 )
+
+// Clear the global LRU buffers used for de-duplicating log messages.
+func ClearDedupBuffers() {
+	LatestWarningActors.Clear()
+	LatestLogMessageContent.Clear()
+}
 
 /*
 LoggerIDField is a field of Logger's ComponentID, all fields that make up a ComponentID offer log entry a clue as to
@@ -124,45 +136,49 @@ func callerName(skip int) string {
 	return filepath.Base(file) + ":" + funName
 }
 
-// Print a log message and keep the message in warnings buffer.
-func (logger *Logger) Warning(actorName interface{}, err error, template string, values ...interface{}) {
-	functionName := callerName(2)
-	msg := logger.Format(functionName, actorName, err, template, values...)
-	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
-	log.Print(msg)
-	// All warning messages to to the latest logs buffer
-	LatestLogs.Push(msgWithTime)
+func (logger *Logger) warning(funcName string, actorName interface{}, err error, template string, values ...interface{}) {
 	// As determined by the LRU buffer, only the first instance of warning from this actor (identified by component name + function name +
 	// actor name) will be added to the in-memory warning log buffer, this helps to gain a more comprehensive picture of actors behind latest
 	// warning messages by suppressing the most noisy actors.
-	if alreadyPresent, _ := LatestWarningActors.Add(functionName + fmt.Sprint(actorName)); !alreadyPresent {
-		LatestWarnings.Push(msgWithTime)
-		if GlobalLogWarningCallback != nil {
-			go GlobalLogWarningCallback(logger.ComponentName, logger.getComponentIDs(), functionName, actorName, err, fmt.Sprintf(template, values...))
-		}
+	if alreadyPresent, _ := LatestWarningActors.Add(funcName + fmt.Sprint(actorName)); alreadyPresent {
+		return
 	}
+	msg := logger.Format(funcName, actorName, err, template, values...)
+	log.Print(msg)
+
+	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
+	LatestLogs.Push(msgWithTime)
+	LatestWarnings.Push(msgWithTime)
+
+	if GlobalLogWarningCallback != nil {
+		go GlobalLogWarningCallback(logger.ComponentName, logger.getComponentIDs(), funcName, actorName, err, fmt.Sprintf(template, values...))
+	}
+}
+
+// Print a log message and keep the message in warnings buffer.
+func (logger *Logger) Warning(actorName interface{}, err error, template string, values ...interface{}) {
+	funcName := callerName(2)
+	logger.warning(funcName, actorName, err, template, values...)
+}
+
+func (logger *Logger) info(funcName string, actorName interface{}, err error, template string, values ...interface{}) {
+	if err != nil {
+		// If the log message comes with an error, treat it as a warning.
+		logger.warning(funcName, actorName, err, template, values...)
+	}
+	msg := logger.Format(funcName, actorName, err, template, values...)
+	if alreadyPresent, _ := LatestLogMessageContent.Add(msg); alreadyPresent {
+		return
+	}
+	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
+	log.Print(msg)
+	LatestLogs.Push(msgWithTime)
 }
 
 // Print a log message and keep the message in latest log buffer. If there is an error, also keep the message in warnings buffer.
 func (logger *Logger) Info(actorName interface{}, err error, template string, values ...interface{}) {
-	functionName := callerName(2)
-	msg := logger.Format(functionName, actorName, err, template, values...)
-	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
-	LatestLogs.Push(msgWithTime)
-	log.Print(msg)
-	// If the log message comes with an error, treat it as a warning.
-	if err != nil {
-		// As determined by the LRU buffer, only the first instance of warning from this actor (identified by component name + function name +
-		// actor name) will be added to the in-memory warning log buffer, this helps to gain a more comprehensive picture of actors behind latest
-		// warning messages by suppressing the most noisy actors.
-		if alreadyPresent, _ := LatestWarningActors.Add(functionName + fmt.Sprint(actorName)); !alreadyPresent {
-			LatestWarnings.Push(msgWithTime)
-			if GlobalLogWarningCallback != nil {
-				go GlobalLogWarningCallback(logger.ComponentName, logger.getComponentIDs(), functionName, actorName, err, fmt.Sprintf(template, values...))
-			}
-		}
-		return
-	}
+	funcName := callerName(2)
+	logger.info(funcName, actorName, err, template, values...)
 }
 
 func (logger *Logger) Abort(actorName interface{}, err error, template string, values ...interface{}) {

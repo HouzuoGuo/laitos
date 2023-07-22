@@ -23,7 +23,7 @@ func NewLeastRecentlyUsedBuffer(maxCapacity int) *LeastRecentlyUsedBuffer {
 	return &LeastRecentlyUsedBuffer{
 		maxCapacity:  maxCapacity,
 		usageCounter: 0,
-		lastUsed:     make(map[string]uint64),
+		lastUsed:     make(map[string]uint64, maxCapacity),
 		mutex:        new(sync.RWMutex),
 	}
 }
@@ -79,6 +79,13 @@ func (lru *LeastRecentlyUsedBuffer) Len() int {
 	lru.mutex.RLock()
 	defer lru.mutex.RUnlock()
 	return len(lru.lastUsed)
+}
+
+// Clear the buffer.
+func (lru *LeastRecentlyUsedBuffer) Clear() {
+	lru.mutex.Lock()
+	defer lru.mutex.Unlock()
+	lru.lastUsed = make(map[string]uint64, lru.maxCapacity)
 }
 
 func (lru *LeastRecentlyUsedBuffer) String() string {

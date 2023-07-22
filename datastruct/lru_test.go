@@ -70,6 +70,11 @@ func TestLeastRecentlyUsedBuffer(t *testing.T) {
 			t.Fatal("element went missing", addAndEvict.add)
 		}
 	}
+
+	lru.Clear()
+	if lru.Len() != 0 {
+		t.Fatal("did not clear: ", lru.Len())
+	}
 }
 
 func TestLeastRecentlyUsedBuffer_Remove(t *testing.T) {

@@ -181,3 +181,17 @@ func HandleDaemonSignals() {
 	signal.Ignore(syscall.SIGPIPE)
 	signal.Ignore(syscall.SIGHUP)
 }
+
+// ClearDedupBuffersInBackground periodically clears the global LRU buffers used
+// for de-duplicating log messages.
+func ClearDedupBuffersInBackground() {
+	tickerChan := time.Tick(5 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-tickerChan:
+				lalog.ClearDedupBuffers()
+			}
+		}
+	}()
+}

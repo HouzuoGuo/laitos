@@ -106,7 +106,7 @@ func TestLogger_Warningf(t *testing.T) {
 	logger := Logger{}
 	// The first warning originated from Adam went into in-memory warning buffer
 	logger.Warning("adam", nil, "")
-	// The second warning also originated from Adam, therefore it still gets printed though it is excluded from the buffer.
+	// The second warning is de-duplicated.
 	logger.Warning("adam", nil, "")
 
 	var countLog, countWarn int
@@ -122,7 +122,7 @@ func TestLogger_Warningf(t *testing.T) {
 		}
 		return true
 	})
-	if countLog != 2 || countWarn != 1 {
+	if countLog != 1 || countWarn != 1 {
 		t.Fatal(countLog, countWarn)
 	}
 
@@ -144,7 +144,8 @@ func TestLogger_Warningf(t *testing.T) {
 		}
 		return true
 	})
-	if countLog != 4 || countWarn != 2 {
+	// "adam" and "eve" are recorded in the all-message and warning buffers.
+	if countLog != 2 || countWarn != 2 {
 		t.Fatal(countLog, countWarn)
 	}
 }
