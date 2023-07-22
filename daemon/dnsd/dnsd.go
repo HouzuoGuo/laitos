@@ -161,7 +161,7 @@ func (daemon *Daemon) Initialise() error {
 			daemon.PerIPLimit = 50
 		} else {
 			// TCP-over-DNS sends a LOT of queries.
-			daemon.PerIPLimit = 150
+			daemon.PerIPLimit = 300
 		}
 	}
 	if daemon.Forwarders == nil || len(daemon.Forwarders) == 0 {

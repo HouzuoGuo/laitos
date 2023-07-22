@@ -121,7 +121,7 @@ func TestDaemon_Initialise(t *testing.T) {
 		Processor:           toolbox.GetTestCommandProcessor(),
 	}
 	if err := daemon.Initialise(); err != nil ||
-		daemon.PerIPLimit != 150 || daemon.TCPProxy.DNSDaemon != daemon ||
+		daemon.PerIPLimit != 300 || daemon.TCPProxy.DNSDaemon != daemon ||
 		daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
 		t.Fatalf("err: %+v, daemon: %+v", err, daemon)
 	}
