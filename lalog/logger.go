@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -40,17 +41,21 @@ var (
 	// mechanism that de-duplicates repeated log messages, to avoid flooding
 	// stderr too hard, and makes the latest log entries retrieved on-demand
 	// much easier to read.
-	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(NumLatestLogEntries)
+	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(8 * 1024 * 1024 / MaxLogMessageLen)
 
 	// LatestLogMessageContent are small number of recent log messages.
 	// The buffer provides a daemon-agnostic mechanism that de-duplicates
 	// repeated log messages, to avoid flooding stderr too hard, and makes the
 	// latest log entries retrieved on-demand much easier to read.
-	LatestLogMessageContent = datastruct.NewLeastRecentlyUsedBuffer(NumLatestLogEntries)
+	LatestLogMessageContent = datastruct.NewLeastRecentlyUsedBuffer(8 * 1024 * 1024 / MaxLogMessageLen)
 
 	// LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
 	// The function must avoid generating a warning log message of itself, to avoid an infinite recursion.
 	GlobalLogWarningCallback LogWarningCallbackFunc = nil
+
+	// NumDropped is the number of de-duplicated log messages that are not
+	// printed to stderr.
+	NumDropped = new(atomic.Int64)
 )
 
 // Clear the global LRU buffers used for de-duplicating log messages.
@@ -141,6 +146,7 @@ func (logger *Logger) warning(funcName string, actorName interface{}, err error,
 	// actor name) will be added to the in-memory warning log buffer, this helps to gain a more comprehensive picture of actors behind latest
 	// warning messages by suppressing the most noisy actors.
 	if alreadyPresent, _ := LatestWarningActors.Add(funcName + fmt.Sprint(actorName)); alreadyPresent {
+		NumDropped.Add(1)
 		return
 	}
 	msg := logger.Format(funcName, actorName, err, template, values...)
@@ -168,6 +174,7 @@ func (logger *Logger) info(funcName string, actorName interface{}, err error, te
 	}
 	msg := logger.Format(funcName, actorName, err, template, values...)
 	if alreadyPresent, _ := LatestLogMessageContent.Add(msg); alreadyPresent {
+		NumDropped.Add(1)
 		return
 	}
 	msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg

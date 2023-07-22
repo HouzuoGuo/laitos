@@ -2,6 +2,8 @@ package misc
 
 import (
 	"fmt"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 var (
@@ -44,6 +46,7 @@ SNMP server:              %s
 Sock server TCP|UDP:      %s | %s
 Telegram commands:        %s
 Mail to deliver:          %d KiloBytes
+Dropped log messages:     %d
 `,
 		AutoUnlockStats.Format(factor, numDecimals),
 		CommandStats.Format(factor, numDecimals),
@@ -57,5 +60,7 @@ Mail to deliver:          %d KiloBytes
 		SNMPStats.Format(factor, numDecimals),
 		SOCKDStatsTCP.Format(factor, numDecimals), SOCKDStatsUDP.Format(factor, numDecimals),
 		TelegramBotStats.Format(factor, numDecimals),
-		OutstandingMailBytes/1024)
+		OutstandingMailBytes/1024,
+		lalog.NumDropped.Load(),
+	)
 }
