@@ -5,7 +5,6 @@ import (
 	"context"
 	cryptoRand "crypto/rand"
 	"encoding/binary"
-	"log"
 	pseudoRand "math/rand"
 	"os"
 	"os/signal"
@@ -181,24 +180,4 @@ func GetConfig(logger lalog.Logger, pwdServer bool, pwdServerPort int, pwdServer
 func HandleDaemonSignals() {
 	signal.Ignore(syscall.SIGPIPE)
 	signal.Ignore(syscall.SIGHUP)
-}
-
-// ClearDedupBuffersInBackground periodically clears the global LRU buffers used
-// for de-duplicating log messages.
-func ClearDedupBuffersInBackground() {
-	tickerChan := time.Tick(5 * time.Second)
-	go func() {
-		for {
-			numDropped := lalog.NumDropped.Load()
-			select {
-			case <-tickerChan:
-				newDropped := lalog.NumDropped.Load()
-				if diff := newDropped - numDropped; diff > 0 {
-					log.Printf("dropped %d log messages", diff)
-					numDropped = newDropped
-				}
-				lalog.ClearDedupBuffers()
-			}
-		}
-	}()
 }

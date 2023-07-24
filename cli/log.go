@@ -95,3 +95,20 @@ func InitialiseAWS() {
 		}()
 	}
 }
+
+// ClearDedupBuffersInBackground periodically clears the global LRU buffers used
+// for de-duplicating log messages.
+func ClearDedupBuffersInBackground() {
+	go func() {
+		tickerChan := time.Tick(5 * time.Second)
+		for {
+			numDropped := lalog.NumDropped.Load()
+			<-tickerChan
+			newDropped := lalog.NumDropped.Load()
+			if diff := newDropped - numDropped; diff > 0 {
+				lalog.DefaultLogger.Warning(nil, nil, "dropped %d log messages", diff)
+			}
+			lalog.ClearDedupBuffers()
+		}
+	}()
+}
