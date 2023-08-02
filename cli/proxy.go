@@ -92,6 +92,8 @@ func HandleTCPOverDNSClient(logger lalog.Logger, proxyOpts ProxyCLIOptions) {
 				UDPPort:             53,
 				TCPPort:             53,
 				DNSRelay:            relay,
+				PerIPLimit:          2000,
+				PerIPQueryLimit:     2000,
 			}
 			logger.Info(nil, nil, "starting a recursive DNS resolver on %s to relay traffic via TCP-over-DNS to %s", relayDaemon.Address, relay.DNSHostName)
 			if err := relayDaemon.Initialise(); err != nil {

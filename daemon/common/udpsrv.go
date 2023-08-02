@@ -145,7 +145,7 @@ func (srv *UDPServer) handleClient(udpServer *net.UDPConn, clientIP string, clie
 	defer func() {
 		srv.App.GetUDPStatsCollector().Trigger(float64(time.Now().UnixNano() - beginTimeNano))
 	}()
-	srv.logger.Info(clientIP, nil, "conversation started")
+	srv.logger.Info(clientIP, nil, "received a packet")
 	// Apply the default IO timeout to prevent a potentially malfunctioning connection handler from hanging
 	if err := udpServer.SetWriteDeadline(time.Now().Add(ServerDefaultIOTimeoutSec * time.Second)); err != nil {
 		srv.logger.Warning(clientIP, err, "failed to set default write deadline, terminating the conversation.")

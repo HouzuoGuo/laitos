@@ -126,8 +126,7 @@ func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *ne
 		respBody = daemon.handleNameOrOtherQuery(ip, nil, packet, header, question)
 	}
 	// Ignore the request if there is no appropriate response
-	if len(respBody) < 3 {
-		logger.Warning(ip, err, "the response seems unrealistically short")
+	if len(respBody) < MinNameQuerySize {
 		return
 	}
 	// Match the response transaction ID with the request.
@@ -177,6 +176,9 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 	}
 	labels, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	if isRecursive {
+		if !daemon.queryRateLimit.Add(clientIP, true) {
+			return
+		}
 		daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 		if queryLen == nil {
 			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
@@ -186,6 +188,9 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 	// The query is directed at the laitos DNS server itself.
 	var err error
 	if name[0] == ToolboxCommandPrefix {
+		if !daemon.queryRateLimit.Add(clientIP, true) {
+			return
+		}
 		// The query could be an app command.
 		if dtmfDecoded := DecodeDTMFCommandInput(labels); len(dtmfDecoded) > 3 {
 			cmdResult := daemon.latestCommands.Execute(context.Background(), daemon.Processor, clientIP, dtmfDecoded)
@@ -202,9 +207,13 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 			daemon.logger.Info(clientIP, nil, "the query has toolbox command prefix but it is exceedingly short")
 		}
 	} else if name[0] == ProxyPrefix {
+		// PerIPLimit rather than PerIPQueryLimit applies.
 		respBody, _ = daemon.handleTCPOverDNSQuery(header, question, clientIP)
 	} else {
 		// Or just a regular dig.
+		if !daemon.queryRateLimit.Add(clientIP, true) {
+			return
+		}
 		daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 		respBody, err = BuildTextResponse(name, header, question, []string{fmt.Sprintf(`v=spf1 mx a mx:%s ?all`, domainName)})
 		if err != nil {
@@ -215,6 +224,9 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 }
 
 func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+	if !daemon.queryRateLimit.Add(clientIP, true) {
+		return
+	}
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
@@ -235,6 +247,9 @@ func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, hea
 }
 
 func (daemon *Daemon) handleMX(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+	if !daemon.queryRateLimit.Add(clientIP, true) {
+		return
+	}
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
@@ -255,6 +270,9 @@ func (daemon *Daemon) handleMX(clientIP string, queryLen, queryBody []byte, head
 }
 
 func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+	if !daemon.queryRateLimit.Add(clientIP, true) {
+		return
+	}
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
@@ -280,6 +298,7 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.
+		// PerIPLimit rather than PerIPQueryLimit applies.
 		respBody, _ = daemon.handleTCPOverDNSQuery(header, question, clientIP)
 		return respBody
 	} else if !isRecursive {
@@ -289,6 +308,9 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 		// a couple of the leading labels, before resolving the actual name
 		// demanded by DNS clients. Without a valid response the recursive
 		// resolver will consider the DNS authoritative server unresponsive.
+		if !daemon.queryRateLimit.Add(clientIP, true) {
+			return
+		}
 		var err error
 		respBody, err = BuildIPv4AddrResponse(header, question, daemon.myPublicIP)
 		if err != nil {
@@ -297,6 +319,9 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 		}
 	} else {
 		// Recursive queries.
+		if !daemon.queryRateLimit.Add(clientIP, true) {
+			return
+		}
 		if daemon.processQueryTestCaseFunc != nil {
 			daemon.processQueryTestCaseFunc(name)
 		}
@@ -326,7 +351,7 @@ therefore this function must not log the input packet content in any way.
 func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBody []byte) (respBody []byte) {
 	respBody = make([]byte, 0)
 	if !daemon.isRecursiveQueryAllowed(clientIP) {
-		daemon.logger.Warning(clientIP, nil, "client IP is not allowed to query")
+		daemon.logger.Info(clientIP, nil, "client IP is not allowed to query")
 		return
 	}
 	var forwarder net.Conn

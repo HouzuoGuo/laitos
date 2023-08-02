@@ -110,7 +110,7 @@ func TestDaemon_Initialise(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Test default settings
-	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 50 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
+	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 50 || daemon.PerIPQueryLimit != 50 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
 		t.Fatalf("%+v", daemon)
 	}
 	// Initialise with TCP-over-DNS proxy.

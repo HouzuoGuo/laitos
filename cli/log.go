@@ -100,7 +100,7 @@ func InitialiseAWS() {
 // for de-duplicating log messages.
 func ClearDedupBuffersInBackground() {
 	go func() {
-		tickerChan := time.Tick(5 * time.Second)
+		tickerChan := time.Tick(2 * time.Second)
 		for {
 			numDropped := lalog.NumDropped.Load()
 			<-tickerChan

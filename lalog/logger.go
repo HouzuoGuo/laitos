@@ -41,13 +41,13 @@ var (
 	// mechanism that de-duplicates repeated log messages, to avoid flooding
 	// stderr too hard, and makes the latest log entries retrieved on-demand
 	// much easier to read.
-	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(8 * 1024 * 1024 / MaxLogMessageLen)
+	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(2 * 1024 * 1024 / MaxLogMessageLen)
 
 	// LatestLogMessageContent are small number of recent log messages.
 	// The buffer provides a daemon-agnostic mechanism that de-duplicates
 	// repeated log messages, to avoid flooding stderr too hard, and makes the
 	// latest log entries retrieved on-demand much easier to read.
-	LatestLogMessageContent = datastruct.NewLeastRecentlyUsedBuffer(8 * 1024 * 1024 / MaxLogMessageLen)
+	LatestLogMessageContent = datastruct.NewLeastRecentlyUsedBuffer(2 * 1024 * 1024 / MaxLogMessageLen)
 
 	// LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
 	// The function must avoid generating a warning log message of itself, to avoid an infinite recursion.

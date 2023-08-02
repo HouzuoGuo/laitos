@@ -92,7 +92,11 @@ type Daemon struct {
 	// Queries that are directed at DNS server's own domain names
 	// (MyDomainNames) are not restricted by this list.
 	AllowQueryFromCidrs []string `json:"AllowQueryFromCidrs"`
-	PerIPLimit          int      `json:"PerIPLimit"` // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
+	// PerIPLimit is the approximate number of UDP packets and TCP connections accepted from each client IP per second.
+	// The limit needs to be sufficiently high for TCP-over-DNS queries.
+	PerIPLimit int `json:"PerIPLimit"`
+	// PerIPQueryLimit is the approximate number of DNS queries (excluding TCP-over-DNS) processed from each client IP per second.
+	PerIPQueryLimit int `json:"PerIPQueryLimit"`
 	// Forwarders are recursive DNS resolvers for all query types. All resolvers
 	// must support both TCP and UDP.
 	Forwarders []string `json:"Forwarders"`
@@ -108,8 +112,9 @@ type Daemon struct {
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
 
-	tcpServer *common.TCPServer
-	udpServer *common.UDPServer
+	tcpServer      *common.TCPServer
+	udpServer      *common.UDPServer
+	queryRateLimit *misc.RateLimit
 
 	// TCPProxy is a TCP-over-DNS proxy server.
 	TCPProxy *Proxy `json:"TCPProxy"`
@@ -163,6 +168,10 @@ func (daemon *Daemon) Initialise() error {
 			// TCP-over-DNS sends a LOT of queries.
 			daemon.PerIPLimit = 300
 		}
+	}
+	if daemon.PerIPQueryLimit < 1 {
+		// This should be good enough for a small network of 5 users.
+		daemon.PerIPQueryLimit = 50
 	}
 	if daemon.Forwarders == nil || len(daemon.Forwarders) == 0 {
 		daemon.Forwarders = make([]string, len(DefaultForwarders))
@@ -220,6 +229,8 @@ func (daemon *Daemon) Initialise() error {
 	daemon.responseCache = NewResponseCache(5*time.Second, 200)
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
+	daemon.queryRateLimit = &misc.RateLimit{Logger: daemon.logger, UnitSecs: 1, MaxCount: daemon.PerIPQueryLimit}
+	daemon.queryRateLimit.Initialise()
 	if daemon.TCPProxy != nil && daemon.TCPProxy.RequestOTPSecret != "" {
 		daemon.TCPProxy.DNSDaemon = daemon
 	}
