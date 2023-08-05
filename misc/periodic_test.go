@@ -3,6 +3,7 @@ package misc
 import (
 	"context"
 	"io"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -87,6 +88,7 @@ func TestPeriodic_RegularOrder(t *testing.T) {
 }
 
 func TestPeriodic_RandomOrder(t *testing.T) {
+	rand.Seed(0)
 	funcDone := make(chan struct{}, 1)
 	gotInts := make([]int, 0)
 	gotRoundNums := make([]int, 0)
@@ -111,7 +113,7 @@ func TestPeriodic_RandomOrder(t *testing.T) {
 		t.Fatalf("unexpected error return: %+v", err)
 	}
 	// This is the expected result for the default PRNG seed.
-	if !reflect.DeepEqual(gotRoundNums, []int{0, 0, 0, 1, 1}) || !reflect.DeepEqual(gotInts, []int{0, 2, 1, 0, 2}) {
+	if !reflect.DeepEqual(gotRoundNums, []int{0, 0, 0, 1, 1}) || !reflect.DeepEqual(gotInts, []int{1, 0, 2, 1, 0}) {
 		t.Fatalf("Incorrect parameters received: %+v, %+v", gotRoundNums, gotInts)
 	}
 }
