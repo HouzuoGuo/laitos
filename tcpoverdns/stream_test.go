@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -213,7 +212,7 @@ func TestTransmissionControl_OutboundSegments_Callback(t *testing.T) {
 		state:                   StateEstablished,
 		MaxSegmentLenExclHeader: 10,
 		InputTransport:          inTransport,
-		OutputTransport:         ioutil.Discard,
+		OutputTransport:         io.Discard,
 		OutputSegmentCallback: func(seg Segment) {
 			callBackSegments <- seg
 		},
@@ -436,7 +435,7 @@ func TestTransmissionControl_OutboundSegments_SaturateSlidingWindowWithoutAck(t 
 		Debug:                   true,
 		MaxSegmentLenExclHeader: 5,
 		InputTransport:          inTransport,
-		OutputTransport:         ioutil.Discard,
+		OutputTransport:         io.Discard,
 		// Leave sliding window sufficient small for this test.
 		MaxSlidingWindow: 5,
 		InitialTiming: TimingConfig{

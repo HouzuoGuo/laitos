@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -86,7 +86,7 @@ func InitialiseAWS() {
 		// Integrate the decorated handler with AWS x-ray. The crucial x-ray daemon program seems to be only capable of running on AWS compute resources.
 		_ = os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
 		_ = xray.Configure(xray.Config{ContextMissingStrategy: ctxmissing.NewDefaultIgnoreErrorStrategy()})
-		xray.SetLogger(xraylog.NewDefaultLogger(ioutil.Discard, xraylog.LogLevelWarn))
+		xray.SetLogger(xraylog.NewDefaultLogger(io.Discard, xraylog.LogLevelWarn))
 		go func() {
 			// These functions of aws lib take their sweet time, don't let them block main's progress. It's OK to miss a couple of traces.
 			beanstalk.Init()

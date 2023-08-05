@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -27,7 +27,7 @@ func TestRequestInspector(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	handler.Handle(w, req)
-	body, _ := ioutil.ReadAll(w.Result().Body)
+	body, _ := io.ReadAll(w.Result().Body)
 	bodyStr := string(body)
 	t.Log(bodyStr)
 

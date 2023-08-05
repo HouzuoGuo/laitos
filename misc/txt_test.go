@@ -2,7 +2,6 @@ package misc
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -10,7 +9,7 @@ import (
 )
 
 func TestEditKeyValue(t *testing.T) {
-	tmp, err := ioutil.TempFile("", "laitos-TestEditKeyValue")
+	tmp, err := os.CreateTemp("", "laitos-TestEditKeyValue")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +29,7 @@ func TestEditKeyValue(t *testing.T) {
   TestKey = TestValue
 DNSStubListener=udp`
 
-	if err := ioutil.WriteFile(tmp.Name(), []byte(sampleContent), 0600); err != nil {
+	if err := os.WriteFile(tmp.Name(), []byte(sampleContent), 0600); err != nil {
 		t.Fatal(err)
 	}
 	// Set DNSStubListener=no and verify
@@ -50,7 +49,7 @@ DNSStubListener=udp`
 #Cache=yes
   TestKey = TestValue
 DNSStubListener=no`
-	if content, err := ioutil.ReadFile(tmp.Name()); err != nil || string(content) != matchContent {
+	if content, err := os.ReadFile(tmp.Name()); err != nil || string(content) != matchContent {
 		t.Fatal(err, string(content), "\n", content, "\n", []byte(matchContent))
 	}
 	// Set TestKey = NewValue and verify
@@ -70,7 +69,7 @@ DNSStubListener=no`
 #Cache=yes
 TestKey=NewValue
 DNSStubListener=no`
-	if content, err := ioutil.ReadFile(tmp.Name()); err != nil || string(content) != matchContent {
+	if content, err := os.ReadFile(tmp.Name()); err != nil || string(content) != matchContent {
 		t.Fatal(err, string(content))
 	}
 	// Set NewKey=NewValue and verify
@@ -91,7 +90,7 @@ DNSStubListener=no`
 TestKey=NewValue
 DNSStubListener=no
 NewKey=NewValue`
-	if content, err := ioutil.ReadFile(tmp.Name()); err != nil || string(content) != matchContent {
+	if content, err := os.ReadFile(tmp.Name()); err != nil || string(content) != matchContent {
 		t.Fatal(err, string(content))
 	}
 }
@@ -130,13 +129,13 @@ func TestReadAllUpTo(t *testing.T) {
 }
 
 func TestEncryptDecrypt(t *testing.T) {
-	tmp, err := ioutil.TempFile("", "laitos-TestEncryptDecrypt")
+	tmp, err := os.CreateTemp("", "laitos-TestEncryptDecrypt")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(tmp.Name())
 	sampleContent := `01234567890abcdefghijklmnopqrstuvwxyz`
-	if err := ioutil.WriteFile(tmp.Name(), []byte(sampleContent), 0600); err != nil {
+	if err := os.WriteFile(tmp.Name(), []byte(sampleContent), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -155,7 +154,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	if content, encrypted, err := IsEncrypted(tmp.Name()); err != nil || !encrypted || len(content) < len(sampleContent) {
 		t.Fatal(err, encrypted)
 	}
-	if encryptedContent, err := ioutil.ReadFile(tmp.Name()); err != nil || strings.Contains(string(encryptedContent), "123") {
+	if encryptedContent, err := os.ReadFile(tmp.Name()); err != nil || strings.Contains(string(encryptedContent), "123") {
 		t.Fatal(err, string(encryptedContent))
 	}
 

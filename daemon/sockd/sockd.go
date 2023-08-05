@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"strconv"
@@ -135,7 +134,7 @@ func TestSockd(sockd *Daemon, t testingstub.T) {
 			t.Fatal(err)
 		} else if n, err := conn.Write(bytes.Repeat([]byte{0}, 1000)); err != nil && n != 10 {
 			t.Fatal(err, n)
-		} else if resp, _ := ioutil.ReadAll(conn); len(resp) < 10 {
+		} else if resp, _ := io.ReadAll(conn); len(resp) < 10 {
 			// The returned error can be nil (EOF) or non-nil (connection
 			// reset). Forget about it.
 			t.Fatal(err, resp)

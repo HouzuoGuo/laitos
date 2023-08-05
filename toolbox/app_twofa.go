@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"regexp"
@@ -175,7 +174,7 @@ func GetTestTwoFACodeGenerator() TwoFACodeGenerator {
 		0x8f, 0x09, 0x0d, 0xd8, 0x88, 0x04, 0x4e, 0x96, 0x76, 0x3b, 0x7f, 0x6c, 0x95, 0x8f, 0xd8, 0x22,
 	}
 	filePath := "/tmp/laitos-test2facodegenerator"
-	err := ioutil.WriteFile(filePath, sample, 0644)
+	err := os.WriteFile(filePath, sample, 0644)
 	if err != nil {
 		panic(err)
 	}

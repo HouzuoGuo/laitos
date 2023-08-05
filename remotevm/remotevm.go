@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image/jpeg"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/textproto"
@@ -61,7 +60,7 @@ func (vm *VM) Initialise() error {
 		}},
 	}
 	// Keep the latest 1KB of emulator output for on-demand diagnosis. ISO download progress and QMP command execution result are also kept here.
-	vm.emulatorDebugOutput = lalog.NewByteLogWriter(ioutil.Discard, 1024)
+	vm.emulatorDebugOutput = lalog.NewByteLogWriter(io.Discard, 1024)
 	vm.emulatorMutex = new(sync.Mutex)
 	vm.qmpMutex = new(sync.Mutex)
 	return nil
@@ -229,7 +228,7 @@ The function also updates the screen total resolution tracked internally for cal
 */
 func (vm *VM) TakeScreenshot(outputFileName string) error {
 	// Create a temporary file to store the screenshot output
-	tmpFile, err := ioutil.TempFile("", "laitos-vm-take-screenshot*.ppm")
+	tmpFile, err := os.CreateTemp("", "laitos-vm-take-screenshot*.ppm")
 	if err != nil {
 		return err
 	}

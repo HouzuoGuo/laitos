@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"reflect"
 	"strings"
@@ -262,7 +261,7 @@ func CompressBytes(original []byte) (compressed []byte) {
 // function.
 func DecompressBytes(compressed []byte) (original []byte, err error) {
 	r := flate.NewReader(bytes.NewReader(compressed))
-	original, err = ioutil.ReadAll(r)
+	original, err = io.ReadAll(r)
 	return
 }
 

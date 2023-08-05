@@ -2,7 +2,6 @@ package toolbox
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -21,7 +20,7 @@ func TestTextSearch(t *testing.T) {
 		t.Fatal("did not error")
 	}
 	// Prepare a good file
-	tmpTxt, err := ioutil.TempFile("", "laitos-test-text-search")
+	tmpTxt, err := os.CreateTemp("", "laitos-test-text-search")
 	if err != nil {
 		t.Fatal(err)
 	}

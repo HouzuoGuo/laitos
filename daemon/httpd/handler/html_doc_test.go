@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,7 +27,7 @@ func TestHandleHTMLDocument_Empty(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	handler.Handle(w, req)
-	body, err := ioutil.ReadAll(w.Result().Body)
+	body, err := io.ReadAll(w.Result().Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestHandleHTMLDocument_HTMLContent(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	handler.Handle(w, req)
-	body, err := ioutil.ReadAll(w.Result().Body)
+	body, err := io.ReadAll(w.Result().Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestHandleHTMLDocument_HTMLFile(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	handler.Handle(w, req)
-	body, err := ioutil.ReadAll(w.Result().Body)
+	body, err := io.ReadAll(w.Result().Body)
 	if err != nil {
 		t.Fatal(err)
 	}

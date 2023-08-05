@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -164,7 +163,7 @@ func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr str
 		MaxRetransmissions: 300,
 		// The output transport is not used. Instead, the output segments
 		// are kept in a backlog.
-		OutputTransport: ioutil.Discard,
+		OutputTransport: io.Discard,
 	}
 	proxy.Config.Config(tc)
 	conn := &ProxiedConnection{

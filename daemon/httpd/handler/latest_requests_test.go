@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,7 +25,7 @@ func TestHandleLatestRequestsInspector(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	handler.Handle(w, req)
-	body, _ := ioutil.ReadAll(w.Result().Body)
+	body, _ := io.ReadAll(w.Result().Body)
 	bodyStr := string(body)
 	if bodyStr != "Start memorising latest requests." {
 		t.Fatal(bodyStr)
@@ -37,7 +37,7 @@ func TestHandleLatestRequestsInspector(t *testing.T) {
 	}
 	w = httptest.NewRecorder()
 	handler.Handle(w, req)
-	body, _ = ioutil.ReadAll(w.Result().Body)
+	body, _ = io.ReadAll(w.Result().Body)
 	bodyStr = string(body)
 	if bodyStr != "Stop memorising latest requests." {
 		t.Fatal(bodyStr)
@@ -52,7 +52,7 @@ func TestHandleLatestRequestsInspector(t *testing.T) {
 	}
 	w = httptest.NewRecorder()
 	handler.Handle(w, req)
-	body, _ = ioutil.ReadAll(w.Result().Body)
+	body, _ = io.ReadAll(w.Result().Body)
 	bodyStr = string(body)
 	if bodyStr != "<pre>req1</pre><hr>\n<pre>req2</pre><hr>\n<pre>req3</pre><hr>\n" {
 		t.Fatal(bodyStr)

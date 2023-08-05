@@ -2,7 +2,7 @@ package procexp
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -77,7 +77,7 @@ func GetTaskStatus(pid, taskID int) (status TaskStatus) {
 	}
 	taskDir := fmt.Sprintf("/proc/%s/task/%d/", pidStr, taskID)
 	status.KernelStack = make([]string, 0)
-	stack, _ := ioutil.ReadFile(path.Join(taskDir, "stack"))
+	stack, _ := os.ReadFile(path.Join(taskDir, "stack"))
 	// On each line of the stack trace there is a function name
 	// A line looks like: [<0>] poll_schedule_timeout.constprop.0+0x46/0x70
 	for _, line := range strings.Split(string(stack), "\n") {
@@ -86,11 +86,11 @@ func GetTaskStatus(pid, taskID int) (status TaskStatus) {
 		}
 	}
 	// Wait channel usually is the name of the function at the very top of the stack
-	waitChannelName, _ := ioutil.ReadFile(path.Join(taskDir, "wchan"))
+	waitChannelName, _ := os.ReadFile(path.Join(taskDir, "wchan"))
 	status.WaitChannelName = string(waitChannelName)
 
-	schedContent, _ := ioutil.ReadFile(path.Join(taskDir, "sched"))
-	schedstatContent, _ := ioutil.ReadFile(path.Join(taskDir, "schedstat"))
+	schedContent, _ := os.ReadFile(path.Join(taskDir, "sched"))
+	schedstatContent, _ := os.ReadFile(path.Join(taskDir, "schedstat"))
 	status.SchedulerStats = getSchedStats(string(schedstatContent), string(schedContent))
 	return
 }
@@ -102,11 +102,11 @@ func GetProcAndTaskStatus(pid int) (ret ProcessAndTasks, err error) {
 	if pid > 0 {
 		pidStr = strconv.Itoa(pid)
 	}
-	statusContent, err := ioutil.ReadFile(path.Join("/proc", pidStr, "status"))
+	statusContent, err := os.ReadFile(path.Join("/proc", pidStr, "status"))
 	if err != nil {
 		return
 	}
-	statContent, err := ioutil.ReadFile(path.Join("/proc", pidStr, "stat"))
+	statContent, err := os.ReadFile(path.Join("/proc", pidStr, "stat"))
 	if err != nil {
 		return
 	}

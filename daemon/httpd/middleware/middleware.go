@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"strings"
@@ -231,7 +230,7 @@ func RecordLatestRequests(logger *lalog.Logger, next http.HandlerFunc) http.Hand
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil && EnableLatestRequestsRecording {
 			// Read the entire request into memory.
-			requestBody, err := ioutil.ReadAll(r.Body)
+			requestBody, err := io.ReadAll(r.Body)
 			_ = r.Body.Close()
 			if err != nil {
 				logger.Warning(GetRealClientIP(r), err, "failed to read request body")

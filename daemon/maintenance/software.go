@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -33,7 +32,7 @@ func (daemon *Daemon) prepareDockerRepositoryForAWSLinux(out *bytes.Buffer) {
 		return
 	}
 	daemon.logPrintStageStep(out, "prepare docker repository for AWS Linux system")
-	content, err := ioutil.ReadFile("/etc/os-release")
+	content, err := os.ReadFile("/etc/os-release")
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to read os-release, skip rest of the stage.")
 		return

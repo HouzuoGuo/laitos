@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -86,7 +85,7 @@ func GAEDaemonList(logger *lalog.Logger) string {
 			}
 		}
 		// Read the value of CLI parameter "-daemons" from a text file
-		daemonListContent, err := ioutil.ReadFile("daemonList")
+		daemonListContent, err := os.ReadFile("daemonList")
 		if err != nil {
 			logger.Abort("", err, "failed to read daemonList")
 			return ""

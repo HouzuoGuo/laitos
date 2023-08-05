@@ -2,7 +2,6 @@ package toolbox
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -119,7 +118,7 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 
 	t.Run("timing out a command", func(t *testing.T) {
 		// The command should time out before deleting this temp file.
-		tmpFile, err := ioutil.TempFile("", "")
+		tmpFile, err := os.CreateTemp("", "")
 		if err != nil {
 			t.Fatal(err)
 		}

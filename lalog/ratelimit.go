@@ -36,7 +36,6 @@ func NewRateLimit(unitSecs int64, maxCount int, logger *Logger) (limit *RateLimi
 	}
 	if limit.UnitSecs < 1 || limit.MaxCount < 1 {
 		panic("rate limit UnitSecs and MaxCount must be greater than 0")
-		return
 	}
 	// Turn per-second limit into greater limit over multiple seconds to reduce log spamming
 	if limit.UnitSecs == 1 {

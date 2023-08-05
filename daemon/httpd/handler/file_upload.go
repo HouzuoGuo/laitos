@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -74,17 +73,20 @@ func (upload *HandleFileUpload) render(w http.ResponseWriter, r *http.Request, m
 func (upload *HandleFileUpload) periodicallyDeleteExpiredFiles() {
 	for {
 		time.Sleep(FileUploadCleanUpIntervalSec * time.Second)
-		files, err := ioutil.ReadDir(fileUploadStorage)
+		files, err := os.ReadDir(fileUploadStorage)
 		if err != nil {
 			upload.logger.Warning("", err, "failed to read file upload directory")
 			continue
 		}
 		var anyFileExpired bool
 		for _, fileEntry := range files {
-			// fileInfo, err := fileEntry.Info()
-			if fileEntry.ModTime().Before(time.Now().Add(-(FileUploadExpireInSec * time.Second))) {
+			fileInfo, err := fileEntry.Info()
+			if err != nil {
+				continue
+			}
+			if fileInfo.ModTime().Before(time.Now().Add(-(FileUploadExpireInSec * time.Second))) {
 				anyFileExpired = true
-				upload.logger.Info("", os.Remove(fileEntry.Name()), "delete expired file")
+				upload.logger.Info("", os.Remove(fileInfo.Name()), "delete expired file")
 			}
 		}
 		if !anyFileExpired {

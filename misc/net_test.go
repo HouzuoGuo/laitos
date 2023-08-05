@@ -2,7 +2,7 @@ package misc
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net"
 	"testing"
 	"time"
@@ -49,7 +49,7 @@ func TestPipeTCPConnection(t *testing.T) {
 			lalog.DefaultLogger.Panic("", err, "unexpected length (%d) or err", length)
 		}
 	}()
-	recv, err := ioutil.ReadAll(readFrom)
+	recv, err := io.ReadAll(readFrom)
 	if err != nil {
 		t.Fatal(err)
 	}

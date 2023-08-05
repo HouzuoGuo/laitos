@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -54,7 +54,7 @@ func TestHandlePrometheus_HandleWithPromIntegEnabled(t *testing.T) {
 	if w.Result().StatusCode != http.StatusOK {
 		t.Fatalf("%+v", w.Result())
 	}
-	body, _ := ioutil.ReadAll(w.Result().Body)
+	body, _ := io.ReadAll(w.Result().Body)
 	if !strings.Contains(string(body), "go_memstats_heap_objects") {
 		t.Fatalf("missing metrics readings from response body: %s", string(body))
 	}

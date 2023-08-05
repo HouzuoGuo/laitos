@@ -3,7 +3,7 @@ package platform
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -60,7 +60,7 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	unixSecAtStart := time.Now().Unix()
 	timeLimitExceeded := time.After(time.Duration(timeoutSec) * time.Second)
 	processExitChan := make(chan error, 1)
-	outBuf := lalog.NewByteLogWriter(ioutil.Discard, MaxExternalProgramOutputBytes)
+	outBuf := lalog.NewByteLogWriter(io.Discard, MaxExternalProgramOutputBytes)
 	absPath, err := filepath.Abs(program)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine abs path of the program %q: %w", program, err)

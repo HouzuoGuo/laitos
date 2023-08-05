@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -132,7 +131,7 @@ func FindNumInRegexGroup(numRegex *regexp.Regexp, input string, groupNum int) in
 
 // Return RSS memory usage of this process. Return 0 if the memory usage cannot be determined.
 func GetProgramMemoryUsageKB() int64 {
-	statusContent, err := ioutil.ReadFile("/proc/self/status")
+	statusContent, err := os.ReadFile("/proc/self/status")
 	if err != nil {
 		return 0
 	}
@@ -141,7 +140,7 @@ func GetProgramMemoryUsageKB() int64 {
 
 // Return operating system memory usage. Return 0 if the memory usage cannot be determined.
 func GetSystemMemoryUsageKB() (usedKB, totalKB int64) {
-	infoContent, err := ioutil.ReadFile("/proc/meminfo")
+	infoContent, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return 0, 0
 	}
@@ -157,7 +156,7 @@ func GetSystemMemoryUsageKB() (usedKB, totalKB int64) {
 
 // Return system load information and number of processes from /proc/loadavg. Return empty string if IO error occurs.
 func GetSystemLoad() string {
-	content, err := ioutil.ReadFile("/proc/loadavg")
+	content, err := os.ReadFile("/proc/loadavg")
 	if err != nil {
 		return ""
 	}
@@ -166,7 +165,7 @@ func GetSystemLoad() string {
 
 // Get system uptime in seconds. Return 0 if it cannot be determined.
 func GetSystemUptimeSec() int64 {
-	content, err := ioutil.ReadFile("/proc/uptime")
+	content, err := os.ReadFile("/proc/uptime")
 	if err != nil {
 		return 0
 	}
@@ -265,7 +264,7 @@ func GetDefaultShellInterpreter() string {
 
 // GetSysctlStr returns string value of a sysctl parameter corresponding to the input key.
 func GetSysctlStr(key string) (string, error) {
-	content, err := ioutil.ReadFile(filepath.Join("/proc/sys/", strings.Replace(key, ".", "/", -1)))
+	content, err := os.ReadFile(filepath.Join("/proc/sys/", strings.Replace(key, ".", "/", -1)))
 	return strings.TrimSpace(string(content)), err
 }
 
@@ -284,7 +283,7 @@ func SetSysctl(key, value string) (old string, err error) {
 	if old, err = GetSysctlStr(key); err != nil {
 		return
 	}
-	err = ioutil.WriteFile(filePath, []byte(strings.TrimSpace(value)), 0644)
+	err = os.WriteFile(filePath, []byte(strings.TrimSpace(value)), 0644)
 	return
 }
 
@@ -363,7 +362,7 @@ func GetLocalUserNames() (ret map[string]bool) {
 			ret[name] = true
 		}
 	} else {
-		passwd, err := ioutil.ReadFile("/etc/passwd")
+		passwd, err := os.ReadFile("/etc/passwd")
 		if err != nil {
 			return
 		}
@@ -486,7 +485,7 @@ func DisableInterferingResolved() (out string) {
 		return "will not change name resolution settings as systemd-resolved is not active"
 	}
 	// Read the configuration file, it may have already been overwritten by systemd-resolved.
-	originalContent, err := ioutil.ReadFile("/etc/resolv.conf")
+	originalContent, err := os.ReadFile("/etc/resolv.conf")
 	var hasUplinkNameServer bool
 	if err == nil {
 		for _, line := range strings.Split(string(originalContent), "\n") {
@@ -523,7 +522,7 @@ nameserver 208.67.222.222
 nameserver 1.1.1.2
 `
 	}
-	if err := ioutil.WriteFile("/etc/resolv.conf", []byte(newContent), 0644); err == nil {
+	if err := os.WriteFile("/etc/resolv.conf", []byte(newContent), 0644); err == nil {
 		out += "resolv.conf has been reset\n"
 	} else {
 		out += fmt.Sprintf("failed to overwrite resolv.conf - %v\n", err)
@@ -599,7 +598,7 @@ func GetProgramStatusSummary(withPublicIP bool) ProgramStatusSummary {
 	// Program environment and runtime info
 	exeAbsPath, _ := os.Executable()
 	workingDir, _ := os.Getwd()
-	dirEntries, _ := ioutil.ReadDir(workingDir)
+	dirEntries, _ := os.ReadDir(workingDir)
 	dirEntryNames := make([]string, 0)
 	for i, entry := range dirEntries {
 		if i > 100 {

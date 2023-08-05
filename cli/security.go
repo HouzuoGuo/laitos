@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
-	"io/ioutil"
 	pseudoRand "math/rand"
 	"os"
 	"runtime"
@@ -46,7 +45,7 @@ func DecryptFile(filePath string) {
 		lalog.DefaultLogger.Abort("main", err, "failed to decrypt file")
 		return
 	}
-	if err := ioutil.WriteFile(filePath, content, 0600); err != nil {
+	if err := os.WriteFile(filePath, content, 0600); err != nil {
 		lalog.DefaultLogger.Abort("main", err, "failed to decrypt file")
 		return
 	}

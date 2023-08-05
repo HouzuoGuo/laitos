@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -132,7 +131,7 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 	daemon.logPrintStageStep(out, "system file checker result is: %v", err)
 	daemon.logPrintStage(out, "installing windows updates")
 	// Have to borrow script host's capability to search and installwindows updates
-	script, err := ioutil.TempFile("", "laitos-windows-update-script*.vbs")
+	script, err := os.CreateTemp("", "laitos-windows-update-script*.vbs")
 	if err != nil {
 		daemon.logPrintStageStep(out, "failed to create update script: %v", err)
 		return
@@ -144,7 +143,7 @@ func (daemon *Daemon) MaintainWindowsIntegrity(out *bytes.Buffer) {
 		daemon.logPrintStageStep(out, "failed to create update script: %v", err)
 		return
 	}
-	err = ioutil.WriteFile(script.Name(), []byte(`
+	err = os.WriteFile(script.Name(), []byte(`
 Set updateSession = CreateObject("Microsoft.Update.Session")
 updateSession.ClientApplicationID = "laitos"
 Set searchResult = updateSession.CreateUpdateSearcher().Search("IsInstalled=0 and Type='Software' and IsHidden=0")
@@ -311,7 +310,7 @@ func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
 		allHomeDirAbs[myUser.HomeDir] = struct{}{}
 	}
 	for _, homeDirParent := range []string{"/home", "/Users"} {
-		subDirs, err := ioutil.ReadDir(homeDirParent)
+		subDirs, err := os.ReadDir(homeDirParent)
 		if err != nil {
 			continue
 		}
@@ -356,7 +355,7 @@ func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
 		if stat, err := os.Stat(sshDirAbs); err == nil && stat.IsDir() {
 			path700[sshDirAbs] = struct{}{}
 			// Chmod 600 ~/.ssh/*
-			if sshContent, err := ioutil.ReadDir(sshDirAbs); err == nil {
+			if sshContent, err := os.ReadDir(sshDirAbs); err == nil {
 				for _, entry := range sshContent {
 					path600[filepath.Join(sshDirAbs, entry.Name())] = struct{}{}
 				}

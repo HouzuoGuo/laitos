@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net"
 	"strconv"
@@ -119,7 +119,7 @@ func (relay *DNSRelay) establish(ctx context.Context) (*ProxiedConnection, error
 		MaxRetransmissions: 300,
 		// The output transport is not used. Instead, the output segments
 		// are kept in a backlog.
-		OutputTransport: ioutil.Discard,
+		OutputTransport: io.Discard,
 	}
 	relay.Config.Config(tc)
 	conn := &ProxiedConnection{
