@@ -200,7 +200,7 @@ func (daemon *Daemon) HandleTCPConnection(logger *lalog.Logger, ip string, clien
 	var fromAddr, mailBody string
 	toAddrs := make([]string, 0, 4)
 
-	smtpConn := smtp.NewConnection(client, daemon.smtpConfig, nil)
+	smtpConn := smtp.NewConnection(client, daemon.smtpConfig, daemon.logger)
 	for {
 		if misc.EmergencyLockDown {
 			daemon.logger.Warning("", misc.ErrEmergencyLockDown, "")

@@ -384,8 +384,8 @@ func (conn *Connection) CarryOn() Command {
 	return latestCmd
 }
 
-func NewConnection(conn net.Conn, cfg Config, log io.Writer) *Connection {
-	c := &Connection{stage: StageGreeting, Config: cfg, TLSHelp: "not used"}
+func NewConnection(conn net.Conn, cfg Config, logger *lalog.Logger) *Connection {
+	c := &Connection{stage: StageGreeting, Config: cfg, TLSHelp: "not used", logger: logger}
 	c.setupReaders(conn)
 	if c.Config.MaxConsecutiveUnrecognisedCommands < 1 || c.Config.MaxMessageLength < 1 || c.Config.IOTimeout < 1 {
 		panic("missing configuration of protocol limits")
