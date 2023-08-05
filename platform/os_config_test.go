@@ -83,7 +83,7 @@ func TestGetSysctl(t *testing.T) {
 }
 
 func TestCopyNonEssentialUtilities(t *testing.T) {
-	CopyNonEssentialUtilities(lalog.Logger{})
+	CopyNonEssentialUtilities(&lalog.Logger{})
 	if HostIsWindows() {
 		// Just make sure it does not panic
 		return

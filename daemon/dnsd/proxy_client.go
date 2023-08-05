@@ -48,7 +48,7 @@ type ProxiedConnection struct {
 	tc      *tcpoverdns.TransmissionControl
 	buf     *tcpoverdns.SegmentBuffer
 	context context.Context
-	logger  lalog.Logger
+	logger  *lalog.Logger
 }
 
 // Start configures and then starts the transmission control on local side, and

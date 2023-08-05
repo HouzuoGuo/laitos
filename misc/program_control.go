@@ -49,7 +49,7 @@ var (
 	ProgramDataDecryptionPasswordInput = make(chan string, 10)
 
 	// logger is used by some of the miscellaneous actions affecting laitos process globally.
-	logger = lalog.Logger{ComponentName: "misc", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
+	logger = &lalog.Logger{ComponentName: "misc", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 )
 
 /*

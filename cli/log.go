@@ -51,7 +51,7 @@ InstallOptionalLoggerSQSCallback installs a global callback function for all lai
 log entry to AWS SQS.
 This behaviour is enabled optionally by specifying the queue URL in environment variable LAITOS_SEND_WARNING_LOG_TO_SQS_URL.
 */
-func InstallOptionalLoggerSQSCallback(logger lalog.Logger, sqsURL string) {
+func InstallOptionalLoggerSQSCallback(logger *lalog.Logger, sqsURL string) {
 	if misc.EnableAWSIntegration && sqsURL != "" {
 		logger.Info(nil, nil, "installing callback for sending logger warning messages to SQS")
 		loggerSQSClientInitOnce.Do(func() {
@@ -105,10 +105,10 @@ func ClearDedupBuffersInBackground() {
 			numDropped := lalog.NumDropped.Load()
 			<-tickerChan
 			newDropped := lalog.NumDropped.Load()
+			lalog.ClearDedupBuffers()
 			if diff := newDropped - numDropped; diff > 0 {
 				lalog.DefaultLogger.Warning(nil, nil, "dropped %d log messages", diff)
 			}
-			lalog.ClearDedupBuffers()
 		}
 	}()
 }

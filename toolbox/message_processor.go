@@ -108,7 +108,7 @@ type MessageProcessor struct {
 	totalReports int
 	// mutex prevents concurrent modifications made to internal structures.
 	mutex  *sync.Mutex
-	logger lalog.Logger
+	logger *lalog.Logger
 }
 
 // SetOutgoingCommand stores an app command that the message processor carries in a reply to a subject report.
@@ -453,7 +453,7 @@ func (proc *MessageProcessor) Initialise() error {
 			return fmt.Errorf("MessageProcessor.Initialise: %+v", errs)
 		}
 	}
-	proc.logger = lalog.Logger{
+	proc.logger = &lalog.Logger{
 		ComponentName: "MessageProcessor",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Owner", Value: proc.OwnerName}},
 	}

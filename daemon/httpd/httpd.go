@@ -100,7 +100,7 @@ type Daemon struct {
 	mux           *http.ServeMux
 	serverWithTLS *http.Server // serverWithTLS is an instance of HTTP server that will be started with TLS listener.
 	serverNoTLS   *http.Server // serverWithTLS is an instance of HTTP server that will be started with an ordinary listener.
-	logger        lalog.Logger
+	logger        *lalog.Logger
 }
 
 // Return path to Handler among special handlers that matches the specified type. Primarily used by test case code.
@@ -143,13 +143,13 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 12 // reasonable for couple of users that use advanced API endpoints in parallel
 	}
+	daemon.logger = &lalog.Logger{
+		ComponentName: "httpd",
+		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: daemon.Port}},
+	}
 	if daemon.Processor == nil || daemon.Processor.IsEmpty() {
 		daemon.logger.Info("", nil, "daemon will not be able to execute toolbox commands due to lack of command processor filter configuration")
 		daemon.Processor = toolbox.GetEmptyCommandProcessor()
-	}
-	daemon.logger = lalog.Logger{
-		ComponentName: "httpd",
-		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: daemon.Port}},
 	}
 	daemon.Processor.SetLogger(daemon.logger)
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {

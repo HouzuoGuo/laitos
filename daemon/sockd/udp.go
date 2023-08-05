@@ -23,7 +23,7 @@ type UDPDaemon struct {
 
 	DNSDaemon *dnsd.Daemon
 
-	logger          lalog.Logger
+	logger          *lalog.Logger
 	udpBacklog      *UDPBacklog
 	derivedPassword []byte
 	udpServer       *common.UDPServer
@@ -39,7 +39,7 @@ func (daemon *UDPDaemon) Initialise() error {
 	}
 	daemon.udpServer.Initialise()
 	daemon.derivedPassword = GetDerivedKey(daemon.Password)
-	daemon.logger = lalog.Logger{
+	daemon.logger = &lalog.Logger{
 		ComponentName: "sockd",
 		ComponentID:   []lalog.LoggerIDField{{Key: "UDP", Value: strconv.Itoa(daemon.UDPPort)}},
 	}
@@ -51,7 +51,7 @@ func (daemon *UDPDaemon) GetUDPStatsCollector() *misc.Stats {
 	return misc.SOCKDStatsUDP
 }
 
-func (daemon *UDPDaemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
+func (daemon *UDPDaemon) HandleUDPClient(logger *lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
 	decryptedLen, err := DecryptUDPPacket(len(packet), packet, daemon.derivedPassword)
 	if err != nil {
 		logger.Info(ip, nil, "failed to decrypt packet - %v", err)

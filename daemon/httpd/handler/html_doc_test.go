@@ -15,7 +15,7 @@ import (
 func TestHandleHTMLDocument_Empty(t *testing.T) {
 	handler := &HandleHTMLDocument{}
 	// Serving an empty HTML page.
-	if err := handler.Initialise(lalog.Logger{}, nil, ""); err != nil {
+	if err := handler.Initialise(&lalog.Logger{}, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := handler.SelfTest(); err != nil {
@@ -38,7 +38,7 @@ func TestHandleHTMLDocument_Empty(t *testing.T) {
 
 func TestHandleHTMLDocument_HTMLContent(t *testing.T) {
 	handler := &HandleHTMLDocument{HTMLContent: "test-anchor #LAITOS_3339TIME beginaddr#LAITOS_CLIENTADDRendaddr"}
-	if err := handler.Initialise(lalog.Logger{}, nil, ""); err != nil {
+	if err := handler.Initialise(&lalog.Logger{}, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := handler.SelfTest(); err != nil {
@@ -72,7 +72,7 @@ func TestHandleHTMLDocument_HTMLFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := &HandleHTMLDocument{HTMLFilePath: file.Name()}
-	if err := handler.Initialise(lalog.Logger{}, nil, ""); err != nil {
+	if err := handler.Initialise(&lalog.Logger{}, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := handler.SelfTest(); err != nil {

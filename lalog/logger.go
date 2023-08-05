@@ -16,11 +16,6 @@ import (
 )
 
 const (
-	/*
-		NumLatestLogEntries is the number of latest log entries to memorise. They are presented in information HTTP
-		endpoint as well as system maintenance report for a glance.
-	*/
-	NumLatestLogEntries = 128
 	// MaxLogMessageLen is the maximum length memorised for each of the latest log entries.
 	MaxLogMessageLen = 2048
 	truncatedLabel   = "...(truncated)..."
@@ -31,23 +26,23 @@ type LogWarningCallbackFunc func(componentName, componentID, funcName string, ac
 var (
 	// LatestWarnings are a small number of the most recent log messages
 	// (warnings and info messages) kept in memory for retrieval and inspection.
-	LatestLogs = datastruct.NewRingBuffer(NumLatestLogEntries)
+	LatestLogs = datastruct.NewRingBuffer(1 * 1048576 / MaxLogMessageLen)
 
 	// LatestWarnings are a small number of the most recent warning log messages kept in memory for retrieval and inspection.
-	LatestWarnings = datastruct.NewRingBuffer(NumLatestLogEntries)
+	LatestWarnings = datastruct.NewRingBuffer(1 * 1048576 / MaxLogMessageLen)
 
 	// LatestWarningActors a small number of log entry actors that have
 	// generated the latest log messages. The buffer provides a daemon-agnostic
 	// mechanism that de-duplicates repeated log messages, to avoid flooding
 	// stderr too hard, and makes the latest log entries retrieved on-demand
 	// much easier to read.
-	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(2 * 1024 * 1024 / MaxLogMessageLen)
+	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(1 * 1048576 / MaxLogMessageLen)
 
 	// LatestLogMessageContent are small number of recent log messages.
 	// The buffer provides a daemon-agnostic mechanism that de-duplicates
 	// repeated log messages, to avoid flooding stderr too hard, and makes the
 	// latest log entries retrieved on-demand much easier to read.
-	LatestLogMessageContent = datastruct.NewLeastRecentlyUsedBuffer(2 * 1024 * 1024 / MaxLogMessageLen)
+	LatestLogMessageContent = datastruct.NewLeastRecentlyUsedBuffer(1 * 1048576 / MaxLogMessageLen)
 
 	// LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
 	// The function must avoid generating a warning log message of itself, to avoid an infinite recursion.

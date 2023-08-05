@@ -20,7 +20,7 @@ import (
 type Benchmark struct {
 	Config      *Config      // Config is an initialised configuration structure that provides for all daemons involved in benchmark.
 	DaemonNames []string     // DaemonNames is a list of daemons that have already started and waiting to run benchmark.
-	Logger      lalog.Logger // Logger is specified by caller if the caller wishes.
+	Logger      *lalog.Logger // Logger is specified by caller if the caller wishes.
 	HTTPPort    int          // HTTPPort is to be served by net/http/pprof on an HTTP server running on localhost.
 	Stop        bool         // Stop, if true, will soon terminate ongoing benchmark. It may be reset to false in preparation for a new benchmark run.
 }
@@ -74,7 +74,7 @@ ReportRatePerSecond runs the input function (which most likely runs indefinitely
 trigger function (fed to the input function) every second. The function blocks caller as long as input function
 continues to run.
 */
-func (bench *Benchmark) reportRatePerSecond(loop func(func()), name string, logger lalog.Logger) {
+func (bench *Benchmark) reportRatePerSecond(loop func(func()), name string, logger *lalog.Logger) {
 	unitTimeSec := 1
 	ticker := time.NewTicker(time.Duration(unitTimeSec) * time.Second)
 

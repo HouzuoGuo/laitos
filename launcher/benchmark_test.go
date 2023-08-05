@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/daemon/httpd"
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/platform"
 )
 
@@ -82,6 +83,7 @@ func TestBenchmark(t *testing.T) {
 		Config:      &config,
 		DaemonNames: []string{DNSDName, InsecureHTTPDName, PlainSocketName, SimpleIPSvcName, SMTPDName, SNMPDName, SOCKDName},
 		HTTPPort:    53829,
+		Logger:      lalog.DefaultLogger,
 	}
 	// Conduct benchmark for 10 seconds
 	bench.RunBenchmarkAndProfiler()

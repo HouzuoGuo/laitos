@@ -57,7 +57,7 @@ type WebServer struct {
 	handlerMutex    *sync.Mutex  // handlerMutex prevents concurrent unlocking attempts from being made at once.
 	alreadyUnlocked bool         // alreadyUnlocked is set to true after a successful unlocking attempt has been made
 
-	logger lalog.Logger
+	logger *lalog.Logger
 }
 
 /*
@@ -108,7 +108,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 
 // Start runs the web server and blocks until the server shuts down from a successful unlocking attempt.
 func (ws *WebServer) Start() error {
-	ws.logger = lalog.Logger{
+	ws.logger = &lalog.Logger{
 		ComponentName: "passwdserver",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: ws.Port}},
 	}

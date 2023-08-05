@@ -41,7 +41,7 @@ type DNSRelay struct {
 
 	mutex             *sync.Mutex
 	proxiedConnection *ProxiedConnection
-	logger            lalog.Logger
+	logger            *lalog.Logger
 	context           context.Context
 	cancelFun         func()
 }
@@ -57,7 +57,7 @@ func (relay *DNSRelay) Initialise(ctx context.Context) error {
 	if relay.DNSHostName[0] == '.' {
 		relay.DNSHostName = relay.DNSHostName[1:]
 	}
-	relay.logger = lalog.Logger{ComponentName: "DNSRelay", ComponentID: []lalog.LoggerIDField{{Key: "ForwardTo", Value: relay.ForwardTo}}}
+	relay.logger = &lalog.Logger{ComponentName: "DNSRelay", ComponentID: []lalog.LoggerIDField{{Key: "ForwardTo", Value: relay.ForwardTo}}}
 	relay.context, relay.cancelFun = context.WithCancel(ctx)
 
 	var err error
@@ -129,7 +129,7 @@ func (relay *DNSRelay) establish(ctx context.Context) (*ProxiedConnection, error
 		in:          proxyServerIn,
 		tc:          tc,
 		context:     ctx,
-		logger: lalog.Logger{
+		logger: &lalog.Logger{
 			ComponentName: "DNSClientProxyConn",
 			ComponentID: []lalog.LoggerIDField{
 				{Key: "TCID", Value: tc.ID},

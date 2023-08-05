@@ -63,7 +63,7 @@ type HTTPProxyServer struct {
 	// error). This is for internal testing only.
 	dropPercentage             int
 	proxyHandlerWithMiddleware http.HandlerFunc
-	logger                     lalog.Logger
+	logger                     *lalog.Logger
 	httpServer                 *http.Server
 	context                    context.Context
 	cancelFun                  func()
@@ -83,7 +83,7 @@ func (proxy *HTTPProxyServer) Initialise(ctx context.Context) error {
 	if proxy.DNSHostName[0] == '.' {
 		proxy.DNSHostName = proxy.DNSHostName[1:]
 	}
-	proxy.logger = lalog.Logger{ComponentName: "HTTPProxyServer", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(proxy.Port)}}}
+	proxy.logger = &lalog.Logger{ComponentName: "HTTPProxyServer", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(proxy.Port)}}}
 	proxy.proxyHandlerWithMiddleware = middleware.LogRequestStats(proxy.logger, middleware.EmergencyLockdown(proxy.ProxyHandler))
 	proxy.context, proxy.cancelFun = context.WithCancel(ctx)
 
@@ -176,7 +176,7 @@ func (proxy *HTTPProxyServer) dialContext(ctx context.Context, network, addr str
 		in:                proxyServerIn,
 		tc:                tc,
 		context:           ctx,
-		logger: lalog.Logger{
+		logger: &lalog.Logger{
 			ComponentName: "HTTPProxyServerConn",
 			ComponentID: []lalog.LoggerIDField{
 				{Key: "TCID", Value: tc.ID},

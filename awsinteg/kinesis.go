@@ -14,7 +14,7 @@ import (
 )
 
 func NewKinesisHoseClient() (*KinesisHoseClient, error) {
-	logger := lalog.Logger{ComponentName: "kinesis"}
+	logger := &lalog.Logger{ComponentName: "kinesis"}
 	regionName := inet.GetAWSRegion()
 	if regionName == "" {
 		return nil, fmt.Errorf("NewKinesisHoseClient: unable to determine AWS region, is it set in environment variable AWS_REGION?")
@@ -34,7 +34,7 @@ func NewKinesisHoseClient() (*KinesisHoseClient, error) {
 }
 
 type KinesisHoseClient struct {
-	logger     lalog.Logger
+	logger     *lalog.Logger
 	apiSession *session.Session
 	client     *firehose.Firehose
 }

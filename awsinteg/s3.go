@@ -16,7 +16,7 @@ import (
 )
 
 func NewS3Client() (*S3Client, error) {
-	logger := lalog.Logger{ComponentName: "s3"}
+	logger := &lalog.Logger{ComponentName: "s3"}
 	regionName := inet.GetAWSRegion()
 	if regionName == "" {
 		return nil, fmt.Errorf("NewS3Client: unable to determine AWS region, is it set in environment variable AWS_REGION?")
@@ -36,7 +36,7 @@ func NewS3Client() (*S3Client, error) {
 }
 
 type S3Client struct {
-	logger     lalog.Logger
+	logger     *lalog.Logger
 	apiSession *session.Session
 	uploader   *s3manager.Uploader
 }

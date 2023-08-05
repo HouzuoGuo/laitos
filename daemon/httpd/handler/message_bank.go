@@ -49,10 +49,10 @@ const HandleMessageBankPage = `<html>
 type HandleMessageBank struct {
 	cmdProc                    *toolbox.CommandProcessor
 	stripURLPrefixFromResponse string
-	logger                     lalog.Logger
+	logger                     *lalog.Logger
 }
 
-func (bank *HandleMessageBank) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+func (bank *HandleMessageBank) Initialise(logger *lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	bank.cmdProc = cmdProc
 	bank.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	bank.logger = logger

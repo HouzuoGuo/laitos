@@ -173,7 +173,7 @@ type Config struct {
 	// AWSIntegration are settings for integrating with various AWS services, such as S3 and SQS.
 	AWSIntegration AWSIntegration `json:"AWSIntegration"`
 
-	logger                lalog.Logger // logger handles log output from configuration serialisation and initialisation routines.
+	logger                *lalog.Logger // logger handles log output from configuration serialisation and initialisation routines.
 	maintenanceInit       *sync.Once
 	dnsDaemonInit         *sync.Once
 	snmpDaemonInit        *sync.Once
@@ -330,7 +330,7 @@ DeserialiseFromJSON deserialised configuration of all daemons and toolbox featur
 itself for daemon operations.
 */
 func (config *Config) DeserialiseFromJSON(in []byte) error {
-	config.logger = lalog.Logger{ComponentName: "config"}
+	config.logger = &lalog.Logger{ComponentName: "config"}
 	if err := json.Unmarshal(in, config); err != nil {
 		return err
 	}

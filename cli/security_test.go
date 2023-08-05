@@ -19,6 +19,9 @@ func TestGetUnlockingPassword(t *testing.T) {
 		Port:             8972,
 		PasswordRegister: netboundfileenc.NewPasswordRegister(10, 10, lalog.DefaultLogger),
 	}
+	if err := daemon.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	go func() {
 		if err := daemon.StartAndBlock(); err != nil {
 			t.Error(err)
@@ -28,12 +31,12 @@ func TestGetUnlockingPassword(t *testing.T) {
 	if !misc.ProbePort(30*time.Second, daemon.Address, daemon.Port) {
 		t.Fatal("daemon did not start on time")
 	}
-	password := GetUnlockingPassword(context.Background(), false, *lalog.DefaultLogger, "test-challenge-str", net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)))
+	password := GetUnlockingPassword(context.Background(), false, lalog.DefaultLogger, "test-challenge-str", net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)))
 	if password != "" {
 		t.Fatal("should not have got a password at this point")
 	}
 	daemon.PasswordRegister.FulfilIntent("test-challenge-str", "good-password")
-	password = GetUnlockingPassword(context.Background(), false, *lalog.DefaultLogger, "test-challenge-str", net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)))
+	password = GetUnlockingPassword(context.Background(), false, lalog.DefaultLogger, "test-challenge-str", net.JoinHostPort("127.0.0.1", strconv.Itoa(daemon.Port)))
 	if password != "good-password" {
 		t.Fatalf("did not get the password: %s", password)
 	}

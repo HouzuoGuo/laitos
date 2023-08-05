@@ -145,7 +145,7 @@ type Daemon struct {
 
 	context                context.Context
 	cancelFunc             func()
-	logger                 lalog.Logger
+	logger                 *lalog.Logger
 	allowQueryFromCidrNets []*net.IPNet
 }
 
@@ -177,7 +177,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.Forwarders = make([]string, len(DefaultForwarders))
 		copy(daemon.Forwarders, DefaultForwarders)
 	}
-	daemon.logger = lalog.Logger{
+	daemon.logger = &lalog.Logger{
 		ComponentName: "dnsd",
 		ComponentID:   []lalog.LoggerIDField{{Key: "TCP", Value: daemon.TCPPort}, {Key: "UDP", Value: daemon.UDPPort}},
 	}

@@ -43,7 +43,7 @@ func (daemon *TCPDaemon) Initialise() error {
 	daemon.firstPerIP = &misc.RateLimit{
 		UnitSecs: 10 * 60,
 		MaxCount: 1,
-		Logger:   *lalog.DefaultLogger,
+		Logger:   lalog.DefaultLogger,
 	}
 	daemon.firstPerIP.Initialise()
 	return nil
@@ -53,7 +53,7 @@ func (daemon *TCPDaemon) GetTCPStatsCollector() *misc.Stats {
 	return misc.SOCKDStatsTCP
 }
 
-func (daemon *TCPDaemon) HandleTCPConnection(logger lalog.Logger, ip string, client *net.TCPConn) {
+func (daemon *TCPDaemon) HandleTCPConnection(logger *lalog.Logger, ip string, client *net.TCPConn) {
 	logger.MaybeMinorError(client.SetReadDeadline(time.Now().Add(IOTimeout)))
 	encryptedClientConn := &EncryptedTCPConn{Conn: client, DerivedPassword: daemon.derivedPassword}
 	proxyDestAddr, err := ReadProxyDestAddr(encryptedClientConn, make([]byte, LenProxyConnectRequest))

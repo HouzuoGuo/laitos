@@ -53,12 +53,12 @@ var fileUploadCleanUpStartOnce = new(sync.Once)
 
 // HandleFileUploadPage let visitors upload temporary files for retrieval within 24 hours
 type HandleFileUpload struct {
-	logger                     lalog.Logger
+	logger                     *lalog.Logger
 	stripURLPrefixFromResponse string
 }
 
 // Initialise prepares handler logger.
-func (upload *HandleFileUpload) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+func (upload *HandleFileUpload) Initialise(logger *lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	upload.logger = logger
 	upload.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil

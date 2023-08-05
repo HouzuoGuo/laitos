@@ -5,29 +5,31 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 func TestRateLimit(t *testing.T) {
 	// Log spam reduction
-	limit := RateLimit{UnitSecs: 1, MaxCount: 23}
+	limit := &RateLimit{UnitSecs: 1, MaxCount: 23, Logger: lalog.DefaultLogger}
 	limit.Initialise()
 	if limit.UnitSecs != 1 || limit.MaxCount != 23 {
 		t.Fatalf("%+v", limit)
 	}
 
-	limit = RateLimit{UnitSecs: 1, MaxCount: 22}
+	limit = &RateLimit{UnitSecs: 1, MaxCount: 22, Logger: lalog.DefaultLogger}
 	limit.Initialise()
 	if limit.UnitSecs != 11 || limit.MaxCount != 22*11 {
 		t.Fatalf("%+v", limit)
 	}
 
-	limit = RateLimit{UnitSecs: 1, MaxCount: 21}
+	limit = &RateLimit{UnitSecs: 1, MaxCount: 21, Logger: lalog.DefaultLogger}
 	limit.Initialise()
 	if limit.UnitSecs != 7 || limit.MaxCount != 21*7 {
 		t.Fatalf("%+v", limit)
 	}
 
-	limit = RateLimit{UnitSecs: 3, MaxCount: 4}
+	limit = &RateLimit{UnitSecs: 3, MaxCount: 4, Logger: lalog.DefaultLogger}
 	limit.Initialise()
 	// Three actors should get two chances each
 	success := [3]int{}
@@ -57,7 +59,7 @@ func TestRateLimit2(t *testing.T) {
 	success := [3]int{}
 	successMutex := new(sync.Mutex)
 	// Test rate limit over the period of 15 seconds
-	limit := RateLimit{UnitSecs: 3, MaxCount: 4}
+	limit := &RateLimit{UnitSecs: 3, MaxCount: 4, Logger: lalog.DefaultLogger}
 	limit.Initialise()
 	for i := 0; i < 3; i++ {
 		successMutex.Lock()

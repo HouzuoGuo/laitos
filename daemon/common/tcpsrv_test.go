@@ -21,7 +21,7 @@ func (app *TCPTestApp) GetTCPStatsCollector() *misc.Stats {
 	return app.stats
 }
 
-func (app *TCPTestApp) HandleTCPConnection(logger lalog.Logger, clientIP string, conn *net.TCPConn) {
+func (app *TCPTestApp) HandleTCPConnection(logger *lalog.Logger, clientIP string, conn *net.TCPConn) {
 	if clientIP == "" {
 		panic("client IP must not be empty")
 	}

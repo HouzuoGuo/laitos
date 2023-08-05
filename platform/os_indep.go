@@ -23,7 +23,7 @@ const (
 
 var (
 	// logger is used by some of the OS platform specific actions that affect laitos process globally.
-	logger = lalog.Logger{ComponentName: "platform", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
+	logger = &lalog.Logger{ComponentName: "platform", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 )
 
 /*

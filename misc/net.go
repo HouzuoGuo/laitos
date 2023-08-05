@@ -51,7 +51,7 @@ func TweakTCPConnection(conn *net.TCPConn, firstTransferTimeout time.Duration) {
 // PipeConn continuously reads data from the source net connection in blocks of
 // no more than the specified buffer length, and writes them to the destination
 // connection.
-func PipeConn(logger lalog.Logger, autoClose bool, ioTimeout time.Duration, bufLen int, src, dest net.Conn) error {
+func PipeConn(logger *lalog.Logger, autoClose bool, ioTimeout time.Duration, bufLen int, src, dest net.Conn) error {
 	if autoClose {
 		defer func() {
 			logger.MaybeMinorError(src.Close())

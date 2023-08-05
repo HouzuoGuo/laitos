@@ -45,7 +45,7 @@ type ProxyCLIOptions struct {
 	DownstreamSegmentLength int
 }
 
-func HandleTCPOverDNSClient(logger lalog.Logger, proxyOpts ProxyCLIOptions) {
+func HandleTCPOverDNSClient(logger *lalog.Logger, proxyOpts ProxyCLIOptions) {
 	// Initialise the options with default values.
 	if proxyOpts.MaxSegmentLength == 0 {
 		proxyOpts.MaxSegmentLength = dnsd.MaxUpstreamSegmentLength(proxyOpts.LaitosDNSName)

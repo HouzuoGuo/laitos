@@ -13,13 +13,13 @@ import (
 type SegmentBuffer struct {
 	mutex     *sync.Mutex
 	backlog   []Segment
-	logger    lalog.Logger
+	logger    *lalog.Logger
 	debug     bool
 	maxSegLen int
 }
 
 // NewSegmentBuffer returns a newly initialised segment buffer.
-func NewSegmentBuffer(logger lalog.Logger, debug bool, maxSegLen int) *SegmentBuffer {
+func NewSegmentBuffer(logger *lalog.Logger, debug bool, maxSegLen int) *SegmentBuffer {
 	return &SegmentBuffer{
 		mutex:     new(sync.Mutex),
 		backlog:   make([]Segment, 0, 128),

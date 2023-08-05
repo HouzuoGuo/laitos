@@ -14,7 +14,7 @@ import (
 type Undocumented3 struct {
 	MailAddrSuffix string          `json:"MailAddrSuffix"`
 	MailClient     inet.MailClient `json:"-"`
-	Logger         lalog.Logger    `json:"-"`
+	Logger         *lalog.Logger    `json:"-"`
 }
 
 var TestUndocumented3 = Undocumented3{}  // Details are set by init_mail_test.go

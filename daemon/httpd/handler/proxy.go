@@ -139,13 +139,13 @@ type HandleWebProxy struct {
 	OwnEndpoint string `json:"-"`
 
 	stripURLPrefixFromResponse string
-	logger                     lalog.Logger
+	logger                     *lalog.Logger
 }
 
 var ProxyRemoveRequestHeaders = []string{"Host", "Content-Length", "Accept-Encoding", "Content-Security-Policy", "Set-Cookie"}
 var ProxyRemoveResponseHeaders = []string{"Host", "Content-Length", "Transfer-Encoding", "Content-Security-Policy", "Set-Cookie"}
 
-func (xy *HandleWebProxy) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+func (xy *HandleWebProxy) Initialise(logger *lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	xy.logger = logger
 	if xy.OwnEndpoint == "" {
 		return errors.New("HandleWebProxy.Initialise: MyEndpoint must not be empty")

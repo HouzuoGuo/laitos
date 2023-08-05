@@ -77,7 +77,7 @@ func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
 }
 
 // HandleUDPClient converses
-func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, clientIP string, client *net.UDPAddr, reqPacket []byte, srv *net.UDPConn) {
+func (daemon *Daemon) HandleUDPClient(logger *lalog.Logger, clientIP string, client *net.UDPAddr, reqPacket []byte, srv *net.UDPConn) {
 	reader := bufio.NewReader(bytes.NewReader(reqPacket))
 	// Parse the input packet
 	packet := snmp.Packet{}

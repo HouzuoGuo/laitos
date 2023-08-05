@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -31,6 +32,7 @@ func TestCommandProcessor_NonWindows(t *testing.T) {
 		Features:       features,
 		CommandFilters: commandBridges,
 		ResultFilters:  resultBridges,
+		logger:         lalog.DefaultLogger,
 	}
 
 	// Try mismatching PIN so that command bridge return early

@@ -14,7 +14,7 @@ import (
 )
 
 func NewSQSClient() (*SQSClient, error) {
-	logger := lalog.Logger{ComponentName: "sqs"}
+	logger := &lalog.Logger{ComponentName: "sqs"}
 	regionName := inet.GetAWSRegion()
 	if regionName == "" {
 		return nil, fmt.Errorf("NewSQSClient: unable to determine AWS region, is it set in environment variable AWS_REGION?")
@@ -34,7 +34,7 @@ func NewSQSClient() (*SQSClient, error) {
 }
 
 type SQSClient struct {
-	logger     lalog.Logger
+	logger     *lalog.Logger
 	apiSession *session.Session
 	client     *sqs.SQS
 }

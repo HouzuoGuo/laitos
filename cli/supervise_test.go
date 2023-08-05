@@ -24,7 +24,7 @@ func TestAutoRestart(t *testing.T) {
 	}
 	done := make(chan struct{})
 	go func() {
-		AutoRestart(lalog.Logger{}, "sample", sampleFun)
+		AutoRestart(&lalog.Logger{}, "sample", sampleFun)
 		done <- struct{}{}
 	}()
 	start := time.Now()
@@ -61,7 +61,7 @@ func TestAutoRestartDuringLockDown(t *testing.T) {
 		misc.EmergencyLockDown = false
 	}()
 	go func() {
-		AutoRestart(lalog.Logger{}, "sample", sampleFun)
+		AutoRestart(&lalog.Logger{}, "sample", sampleFun)
 		done <- struct{}{}
 	}()
 	<-done

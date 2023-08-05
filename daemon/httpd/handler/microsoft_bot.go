@@ -54,11 +54,11 @@ type HandleMicrosoftBot struct {
 	latestJWT             MicrosoftBotJwt // latestJWT is the last retrieved JWT
 	conversationRateLimit *misc.RateLimit // conversationRateLimit prevents excessively chatty conversations from taking place
 
-	logger  lalog.Logger
+	logger  *lalog.Logger
 	cmdProc *toolbox.CommandProcessor
 }
 
-func (hand *HandleMicrosoftBot) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
+func (hand *HandleMicrosoftBot) Initialise(logger *lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	hand.latestJwtMutex = new(sync.Mutex)

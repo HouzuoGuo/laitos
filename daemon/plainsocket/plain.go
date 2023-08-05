@@ -72,7 +72,7 @@ func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
 }
 
 // HandleConnection converses with a TCP client.
-func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *net.TCPConn) {
+func (daemon *Daemon) HandleTCPConnection(logger *lalog.Logger, ip string, conn *net.TCPConn) {
 	daemon.Processor.SetLogger(logger)
 	// Allow up to 1MB of commands to be received per connection
 	reader := textproto.NewReader(bufio.NewReader(io.LimitReader(conn, 1*1048576)))
@@ -124,7 +124,7 @@ func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
 }
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
-func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
+func (daemon *Daemon) HandleUDPClient(logger *lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
 	daemon.Processor.SetLogger(logger)
 	reader := textproto.NewReader(bufio.NewReader(bytes.NewReader(packet)))
 	for {

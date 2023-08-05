@@ -46,7 +46,7 @@ type Daemon struct {
 	smtpConfig    smtp.Config
 	tlsCert       tls.Certificate
 	tcpServer     *common.TCPServer
-	logger        lalog.Logger
+	logger        *lalog.Logger
 
 	// processMailTestCaseFunc works along side normal delivery routine, it offers mail message to test case for inspection.
 	processMailTestCaseFunc func(string, string)
@@ -63,7 +63,7 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 4 // reasonable for receiving emails and running toolbox feature commands
 	}
-	daemon.logger = lalog.Logger{
+	daemon.logger = &lalog.Logger{
 		ComponentName: "smtpd",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: daemon.Port}},
 	}
@@ -190,7 +190,7 @@ func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
 }
 
 // HandleTCPConnection converses with the SMTP client. The client connection is closed by server upon returning from the implementation.
-func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, client *net.TCPConn) {
+func (daemon *Daemon) HandleTCPConnection(logger *lalog.Logger, ip string, client *net.TCPConn) {
 	var numCommands int
 	// The status string is only used for logging
 	var completionStatus string

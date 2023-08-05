@@ -40,7 +40,7 @@ type TransmissionControl struct {
 	// Debug enables verbose logging for IO activities.
 	Debug bool
 	// Logger is used to log IO activities when verbose logging is enabled.
-	Logger lalog.Logger
+	Logger *lalog.Logger
 	// LogTag is a string that shows up in all log entries.
 	LogTag string
 
@@ -210,7 +210,7 @@ func (tc *TransmissionControl) Start(ctx context.Context) {
 	tc.lastAckOnlySeg = time.Now()
 	tc.startTime = time.Now()
 	tc.mutex = new(sync.Mutex)
-	tc.Logger = lalog.Logger{
+	tc.Logger = &lalog.Logger{
 		ComponentName: "TC",
 		ComponentID: []lalog.LoggerIDField{
 			{Key: "ID", Value: tc.ID},

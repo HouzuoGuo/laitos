@@ -16,10 +16,10 @@ HandleProcessExplorer is an HTTP handler that responds with process IDs that are
 parameter, the handler inspects the process for its current status and activities for the response.
 */
 type HandleProcessExplorer struct {
-	logger lalog.Logger
+	logger *lalog.Logger
 }
 
-func (explorer *HandleProcessExplorer) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, _ string) error {
+func (explorer *HandleProcessExplorer) Initialise(logger *lalog.Logger, _ *toolbox.CommandProcessor, _ string) error {
 	explorer.logger = logger
 	return nil
 }

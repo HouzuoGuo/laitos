@@ -20,7 +20,7 @@ type HandleReportsRetrieval struct {
 	cmdProc *toolbox.CommandProcessor
 }
 
-func (hand *HandleReportsRetrieval) Initialise(_ lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
+func (hand *HandleReportsRetrieval) Initialise(_ *lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
 	if cmdProc == nil {
 		return errors.New("HandleReportsRetrieval.Initialise: command processor must not be nil")
 	}
@@ -102,7 +102,7 @@ type HandleAppCommand struct {
 	cmdProc *toolbox.CommandProcessor
 }
 
-func (hand *HandleAppCommand) Initialise(_ lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
+func (hand *HandleAppCommand) Initialise(_ *lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
 	if cmdProc == nil {
 		return errors.New("HandleAppCommand.Initialise: command processor must not be nil")
 	}

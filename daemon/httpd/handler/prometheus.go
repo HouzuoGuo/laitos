@@ -18,7 +18,7 @@ type HandlePrometheus struct {
 // Initialise initialises the prometheus HTTP handler only if prometheus integration has been enabled globally.
 // Initialising the handler while prometheus integration is not enabled will not result in an error, and the handler
 // will simply respond with HTTP status Service Unavailable to the clients.
-func (prom *HandlePrometheus) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+func (prom *HandlePrometheus) Initialise(logger *lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	if misc.EnablePrometheusIntegration {
 		prom.metricHandler = promhttp.InstrumentMetricHandler(
 			prometheus.DefaultRegisterer, promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{}),

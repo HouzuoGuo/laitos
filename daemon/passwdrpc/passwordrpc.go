@@ -42,7 +42,7 @@ type Daemon struct {
 	PasswordRegister *netboundfileenc.PasswordRegister `json:"-"`
 
 	rpcServer *grpc.Server
-	logger    lalog.Logger
+	logger    *lalog.Logger
 }
 
 // Initialise validates configuration parameters and initialises the internal states of the daemon.
@@ -53,7 +53,7 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.Port == 0 {
 		daemon.Port = DefaultPort
 	}
-	daemon.logger = lalog.Logger{ComponentName: "passwdrpc", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(daemon.Port)}}}
+	daemon.logger = &lalog.Logger{ComponentName: "passwdrpc", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(daemon.Port)}}}
 	return nil
 }
 

@@ -22,7 +22,7 @@ type UDPApp interface {
 	// GetUDPStatsCollector returns the stats collector that counts and times UDP conversations.
 	GetUDPStatsCollector() *misc.Stats
 	// HandleUDPClient converses with a UDP client based on a received packet.
-	HandleUDPClient(lalog.Logger, string, *net.UDPAddr, []byte, *net.UDPConn)
+	HandleUDPClient(*lalog.Logger, string, *net.UDPAddr, []byte, *net.UDPConn)
 }
 
 // UDPServer implements common routines for a UDP server that interacts with unlimited number of clients while applying a rate limit.
@@ -43,7 +43,7 @@ type UDPServer struct {
 	LimitPerSec int
 
 	mutex     *sync.Mutex
-	logger    lalog.Logger
+	logger    *lalog.Logger
 	rateLimit *misc.RateLimit
 	udpServer *net.UDPConn
 }
@@ -64,7 +64,7 @@ func NewUDPServer(listenAddr string, listenPort int, appName string, app UDPApp,
 // Initialise initialises the internal structures of UDP server, preparing it for processing clients.
 func (srv *UDPServer) Initialise() {
 	srv.mutex = new(sync.Mutex)
-	srv.logger = lalog.Logger{
+	srv.logger = &lalog.Logger{
 		ComponentName: srv.AppName,
 		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: srv.ListenAddr}, {Key: "UDPPort", Value: srv.ListenPort}},
 	}

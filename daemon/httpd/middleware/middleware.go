@@ -181,7 +181,7 @@ func RestrictMaxRequestSize(maxRequestBodyBytes int, next http.HandlerFunc) http
 
 // LogRequestStats decorates the HTTP handler function by logging several the request parameters - enough to identify the handler and request origin,
 // as well as execution stats such as time-to-first-byte.
-func LogRequestStats(logger lalog.Logger, next http.HandlerFunc) http.HandlerFunc {
+func LogRequestStats(logger *lalog.Logger, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		beginTime := time.Now()
 		responseRecorder := &HTTPResponseRecorder{
@@ -227,7 +227,7 @@ func (buf bytesReaderCloser) Close() error {
 }
 
 // RecordLatestRequests records the request body for on-demand inspection.
-func RecordLatestRequests(logger lalog.Logger, next http.HandlerFunc) http.HandlerFunc {
+func RecordLatestRequests(logger *lalog.Logger, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil && EnableLatestRequestsRecording {
 			// Read the entire request into memory.

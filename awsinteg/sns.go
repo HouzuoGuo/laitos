@@ -14,7 +14,7 @@ import (
 )
 
 func NewSNSClient() (*SNSClient, error) {
-	logger := lalog.Logger{ComponentName: "sns"}
+	logger := &lalog.Logger{ComponentName: "sns"}
 	regionName := inet.GetAWSRegion()
 	if regionName == "" {
 		return nil, fmt.Errorf("NewSNSClient: unable to determine AWS region, is it set in environment variable AWS_REGION?")
@@ -34,7 +34,7 @@ func NewSNSClient() (*SNSClient, error) {
 }
 
 type SNSClient struct {
-	logger     lalog.Logger
+	logger     *lalog.Logger
 	apiSession *session.Session
 	client     *sns.SNS
 }

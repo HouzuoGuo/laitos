@@ -36,7 +36,7 @@ type HandleHTMLDocument struct {
 	contentString string // contentString is the HTML document file's content in string
 }
 
-func (doc *HandleHTMLDocument) Initialise(lalog.Logger, *toolbox.CommandProcessor, string) error {
+func (doc *HandleHTMLDocument) Initialise(*lalog.Logger, *toolbox.CommandProcessor, string) error {
 	var err error
 	doc.contentString = doc.HTMLContent
 	if doc.HTMLFilePath != "" {

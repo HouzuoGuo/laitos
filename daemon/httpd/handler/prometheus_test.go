@@ -14,7 +14,7 @@ import (
 func TestHandlePrometheus_SelfTest(t *testing.T) {
 	misc.EnablePrometheusIntegration = true
 	handler := &HandlePrometheus{}
-	if err := handler.Initialise(lalog.Logger{}, nil, ""); err != nil {
+	if err := handler.Initialise(&lalog.Logger{}, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := handler.SelfTest(); err != nil {
@@ -25,7 +25,7 @@ func TestHandlePrometheus_SelfTest(t *testing.T) {
 func TestHandlePrometheus_HandleWithPromIntegDisabled(t *testing.T) {
 	misc.EnablePrometheusIntegration = false
 	handler := &HandlePrometheus{}
-	if err := handler.Initialise(lalog.Logger{}, nil, ""); err != nil {
+	if err := handler.Initialise(&lalog.Logger{}, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	req, err := http.NewRequest(http.MethodGet, "", nil)
@@ -42,7 +42,7 @@ func TestHandlePrometheus_HandleWithPromIntegDisabled(t *testing.T) {
 func TestHandlePrometheus_HandleWithPromIntegEnabled(t *testing.T) {
 	misc.EnablePrometheusIntegration = true
 	handler := &HandlePrometheus{}
-	if err := handler.Initialise(lalog.Logger{}, nil, ""); err != nil {
+	if err := handler.Initialise(&lalog.Logger{}, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	req, err := http.NewRequest(http.MethodGet, "", nil)

@@ -93,11 +93,11 @@ type HandleVirtualMachine struct {
 	ScreenshotHandlerInstance  *HandleVirtualMachineScreenshot `json:"-"`
 	VM                         *remotevm.VM                    `json:"-"`
 	stripURLPrefixFromResponse string
-	logger                     lalog.Logger
+	logger                     *lalog.Logger
 }
 
 // Initialise internal state of the HTTP handler.
-func (handler *HandleVirtualMachine) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+func (handler *HandleVirtualMachine) Initialise(logger *lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	handler.logger = logger
 	// Calculate the number of CPUs and amount of memory to be granted to virtual machine
 	// Give the virtual machine half of the system CPUs
@@ -271,7 +271,7 @@ type HandleVirtualMachineScreenshot struct {
 }
 
 // Initialise is not applicable to this HTTP handler, as its internal
-func (_ *HandleVirtualMachineScreenshot) Initialise(lalog.Logger, *toolbox.CommandProcessor, string) error {
+func (_ *HandleVirtualMachineScreenshot) Initialise(*lalog.Logger, *toolbox.CommandProcessor, string) error {
 	// Initialised by HandleVirtualMachine.Initialise
 	return nil
 }

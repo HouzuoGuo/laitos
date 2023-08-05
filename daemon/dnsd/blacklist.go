@@ -77,7 +77,7 @@ var Whitelist = []string{
 DownloadAllBlacklists attempts to download all hosts files and return combined list of domain names to block.
 The special cases of white listed names are removed from return value.
 */
-func DownloadAllBlacklists(maxEntries int, logger lalog.Logger) []string {
+func DownloadAllBlacklists(maxEntries int, logger *lalog.Logger) []string {
 	wg := new(sync.WaitGroup)
 	wg.Add(len(HostsFileURLs))
 

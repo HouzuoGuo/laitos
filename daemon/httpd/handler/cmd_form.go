@@ -34,7 +34,7 @@ type HandleCommandForm struct {
 	stripURLPrefixFromResponse string
 }
 
-func (form *HandleCommandForm) Initialise(_ lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+func (form *HandleCommandForm) Initialise(_ *lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	if cmdProc == nil {
 		return errors.New("HandleCommandForm.Initialise: command processor must not be nil")
 	}

@@ -20,7 +20,7 @@ func (app *UDPTestApp) GetUDPStatsCollector() *misc.Stats {
 	return app.stats
 }
 
-func (app *UDPTestApp) HandleUDPClient(logger lalog.Logger, clientIP string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
+func (app *UDPTestApp) HandleUDPClient(logger *lalog.Logger, clientIP string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
 	if clientIP == "" {
 		panic("client IP must not be empty")
 	}

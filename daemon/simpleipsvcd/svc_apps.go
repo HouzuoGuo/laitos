@@ -20,7 +20,7 @@ func (svc *TCPService) GetTCPStatsCollector() *misc.Stats {
 }
 
 // HandleTCPConnection
-func (svc *TCPService) HandleTCPConnection(logger lalog.Logger, _ string, client *net.TCPConn) {
+func (svc *TCPService) HandleTCPConnection(logger *lalog.Logger, _ string, client *net.TCPConn) {
 	logger.MaybeMinorError(client.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)))
 	_, err := client.Write([]byte(svc.ResponseFun() + "\r\n"))
 	logger.MaybeMinorError(err)
@@ -38,7 +38,7 @@ func (svc *UDPService) GetUDPStatsCollector() *misc.Stats {
 }
 
 // HandleTCPConnection
-func (svc *UDPService) HandleUDPClient(logger lalog.Logger, _ string, client *net.UDPAddr, _ []byte, srv *net.UDPConn) {
+func (svc *UDPService) HandleUDPClient(logger *lalog.Logger, _ string, client *net.UDPAddr, _ []byte, srv *net.UDPConn) {
 	logger.MaybeMinorError(srv.SetWriteDeadline(time.Now().Add(IOTimeoutSec * time.Second)))
 	_, err := srv.WriteToUDP([]byte(svc.ResponseFun()+"\r\n"), client)
 	logger.MaybeMinorError(err)

@@ -84,7 +84,7 @@ func NewPasswordRegister(maxIntents, maxCallsPerSec int, logger *lalog.Logger) *
 		rateLimit: &misc.RateLimit{
 			UnitSecs: 1,
 			MaxCount: maxCallsPerSec,
-			Logger:   *logger,
+			Logger:   logger,
 		},
 		mutex:  new(sync.RWMutex),
 		logger: logger,

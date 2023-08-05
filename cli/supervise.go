@@ -25,7 +25,7 @@ between each restart.
 If the input function crashes in a panic, there won't be an auto-restart.
 The function returns to the caller only after the input function returns nil.
 */
-func AutoRestart(logger lalog.Logger, logActorName string, fun func() error) {
+func AutoRestart(logger *lalog.Logger, logActorName string, fun func() error) {
 	delaySec := 0
 	for {
 		if misc.EmergencyLockDown {
@@ -66,7 +66,7 @@ func DumpGoroutinesOnInterrupt() {
 // This function helps securing several laitos program components that depend on
 // the default PRNG, therefore, it should be invoked at or near the start of the
 // main function.
-func ReseedPseudoRandAndInBackground(logger lalog.Logger) {
+func ReseedPseudoRandAndInBackground(logger *lalog.Logger) {
 	// Avoid using misc.Periodic, for it uses the PRNG internally.
 	reseedFun := func() {
 		seedBytes := make([]byte, 8)
@@ -97,7 +97,7 @@ func ReseedPseudoRandAndInBackground(logger lalog.Logger) {
 // If the text file is encrypted, the function will retrieve its encryption
 // password from STDIN, password unlocking server, or a web server for password
 // input, and then return the text file decrypted.
-func GetConfig(logger lalog.Logger, pwdServer bool, pwdServerPort int, pwdServerURL string, passwordUnlockServers string) []byte {
+func GetConfig(logger *lalog.Logger, pwdServer bool, pwdServerPort int, pwdServerURL string, passwordUnlockServers string) []byte {
 	configBytes := []byte(strings.TrimSpace(os.Getenv("LAITOS_CONFIG")))
 	if len(configBytes) == 0 {
 		// Proceed to read the config file

@@ -38,7 +38,14 @@ proxies them to laitos web server, and sends the responses back to lambda.
 It behaves similar to one of the laitos daemon programs, and uses a similar convention in its interface.
 */
 type Handler struct {
-	logger lalog.Logger
+	logger *lalog.Logger
+}
+
+func (hand *Handler) Initialise() {
+	hand.logger = &lalog.Logger{
+		ComponentName: "lambda",
+		ComponentID:   nil,
+	}
 }
 
 /*
@@ -46,10 +53,6 @@ StartAndBlock continuously handles lambda invocations, each of which represents 
 gateway intended for the laitos web server. The function blocks caller indefinitely.
 */
 func (hand *Handler) StartAndBlock() {
-	hand.logger = lalog.Logger{
-		ComponentName: "lambda",
-		ComponentID:   nil,
-	}
 	lambdaAPIHostNamePort := os.Getenv("AWS_LAMBDA_RUNTIME_API")
 	lambdaTaskRoot := os.Getenv("LAMBDA_TASK_ROOT")
 	lambdaHandlerName := os.Getenv("_HANDLER")

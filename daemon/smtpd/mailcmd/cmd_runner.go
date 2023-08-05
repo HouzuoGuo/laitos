@@ -34,7 +34,7 @@ type CommandRunner struct {
 	Undocumented3   Undocumented3             `json:"Undocumented3"` // Intentionally undocumented he he he he
 	Processor       *toolbox.CommandProcessor `json:"-"`             // Feature configuration
 	ReplyMailClient inet.MailClient           `json:"-"`             // To deliver Email replies
-	logger          lalog.Logger
+	logger          *lalog.Logger
 
 	// processTestCaseFunc works along side of command processing routine, it offers execution result to test case for inspection.
 	processTestCaseFunc func(*toolbox.Result)
@@ -45,7 +45,7 @@ func (runner *CommandRunner) Initialise() error {
 	if runner.Processor == nil || runner.Processor.IsEmpty() {
 		return fmt.Errorf("mailcmd.Initialise: command processor and its filters must be configured")
 	}
-	runner.logger = lalog.Logger{
+	runner.logger = &lalog.Logger{
 		ComponentName: "mailcmd",
 		ComponentID:   []lalog.LoggerIDField{{Key: "From", Value: runner.ReplyMailClient.MailFrom}},
 	}

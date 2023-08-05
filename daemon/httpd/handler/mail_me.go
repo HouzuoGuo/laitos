@@ -46,10 +46,10 @@ type HandleMailMe struct {
 	MailClient inet.MailClient `json:"-"`
 
 	stripURLPrefixFromResponse string
-	logger                     lalog.Logger
+	logger                     *lalog.Logger
 }
 
-func (mm *HandleMailMe) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+func (mm *HandleMailMe) Initialise(logger *lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	mm.logger = logger
 	if mm.Recipients == nil || len(mm.Recipients) == 0 || !mm.MailClient.IsConfigured() {
 		return errors.New("HandleMailMe.Initialise: recipient list is empty or mailer is not configured")

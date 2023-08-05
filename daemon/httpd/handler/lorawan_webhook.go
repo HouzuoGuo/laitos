@@ -121,10 +121,10 @@ type MessageReception struct {
 // downlink message.
 type HandleLoraWANWebhook struct {
 	cmdProc *toolbox.CommandProcessor
-	logger  lalog.Logger
+	logger  *lalog.Logger
 }
 
-func (hand *HandleLoraWANWebhook) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
+func (hand *HandleLoraWANWebhook) Initialise(logger *lalog.Logger, cmdProc *toolbox.CommandProcessor, _ string) error {
 	if cmdProc == nil {
 		return errors.New("HandleLoraWANWebhook.Initialise: command processor must not be nil")
 	}

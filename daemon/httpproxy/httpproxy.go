@@ -55,7 +55,7 @@ type Daemon struct {
 	allowFromIPNets []*net.IPNet
 	proxyHandler    http.HandlerFunc
 	rateLimit       *misc.RateLimit
-	logger          lalog.Logger
+	logger          *lalog.Logger
 	httpServer      *http.Server
 }
 
@@ -73,7 +73,7 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.CommandProcessor == nil {
 		daemon.CommandProcessor = toolbox.GetEmptyCommandProcessor()
 	}
-	daemon.logger = lalog.Logger{ComponentName: "httpproxy", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(daemon.Port)}}}
+	daemon.logger = &lalog.Logger{ComponentName: "httpproxy", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(daemon.Port)}}}
 	daemon.rateLimit = &misc.RateLimit{
 		UnitSecs: 1,
 		MaxCount: daemon.PerIPLimit,

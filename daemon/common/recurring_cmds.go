@@ -39,7 +39,7 @@ type RecurringCommands struct {
 	transientCommands []string
 	results           *datastruct.RingBuffer // results are the most recent command results and test messages to retrieve.
 	mutex             *sync.RWMutex          // mutex prevents concurrent access to internal structures.
-	logger            lalog.Logger
+	logger            *lalog.Logger
 	cancelFunc        func()
 }
 
@@ -57,7 +57,7 @@ func (cmds *RecurringCommands) Initialise() error {
 	cmds.results = datastruct.NewRingBuffer(int64(cmds.MaxResults))
 	cmds.transientCommands = make([]string, 0, 10)
 	cmds.mutex = new(sync.RWMutex)
-	cmds.logger = lalog.Logger{
+	cmds.logger = &lalog.Logger{
 		ComponentName: "RecurringCommands",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Intv", Value: cmds.IntervalSec}},
 	}

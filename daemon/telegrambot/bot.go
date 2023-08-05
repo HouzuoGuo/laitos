@@ -80,14 +80,14 @@ type Daemon struct {
 	messageOffset int64           // Process chat messages arrived after this point
 	userRateLimit *misc.RateLimit // Prevent user from flooding bot with new messages
 	cancelFunc    context.CancelFunc
-	logger        lalog.Logger
+	logger        *lalog.Logger
 }
 
 func (bot *Daemon) Initialise() error {
 	if bot.PerUserLimit < 1 {
 		bot.PerUserLimit = 2 // reasonable for personal use
 	}
-	bot.logger = lalog.Logger{ComponentName: "telegrambot", ComponentID: []lalog.LoggerIDField{{Key: "PerUserLimit", Value: bot.PerUserLimit}}}
+	bot.logger = &lalog.Logger{ComponentName: "telegrambot", ComponentID: []lalog.LoggerIDField{{Key: "PerUserLimit", Value: bot.PerUserLimit}}}
 	if bot.Processor == nil || bot.Processor.IsEmpty() {
 		return fmt.Errorf("telegrambot.Initialise: command processor and its filters must be configured")
 	}

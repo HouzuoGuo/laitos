@@ -135,12 +135,12 @@ type Supervisor struct {
 	// mainStderr keeps last several KB of program stderr content for failure notification and forward everything to stderr.
 	mainStderr *lalog.ByteLogWriter
 
-	logger lalog.Logger
+	logger *lalog.Logger
 }
 
 // initialise prepares internal states. This function is called at beginning of Start function.
 func (sup *Supervisor) initialise() {
-	sup.logger = lalog.Logger{
+	sup.logger = &lalog.Logger{
 		ComponentName: "supervisor",
 		ComponentID:   []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}, {Key: "Daemons", Value: sup.DaemonNames}},
 	}

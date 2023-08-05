@@ -48,12 +48,12 @@ type VM struct {
 
 	emulatorMutex *sync.Mutex
 	qmpMutex      *sync.Mutex
-	logger        lalog.Logger
+	logger        *lalog.Logger
 }
 
 // Initialise internal variables.
 func (vm *VM) Initialise() error {
-	vm.logger = lalog.Logger{
+	vm.logger = &lalog.Logger{
 		ComponentName: "vm",
 		ComponentID: []lalog.LoggerIDField{{
 			Key:   "Spec",

@@ -177,7 +177,7 @@ type Daemon struct {
 	tcpDaemons []*TCPDaemon
 	udpDaemons []*UDPDaemon
 
-	logger lalog.Logger
+	logger *lalog.Logger
 }
 
 func (daemon *Daemon) Initialise() error {
@@ -187,7 +187,7 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.PerIPLimit < 1 {
 		daemon.PerIPLimit = 96
 	}
-	daemon.logger = lalog.Logger{
+	daemon.logger = &lalog.Logger{
 		ComponentName: "sockd",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: daemon.Address}},
 	}

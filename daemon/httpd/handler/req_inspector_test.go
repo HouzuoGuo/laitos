@@ -12,7 +12,7 @@ import (
 
 func TestRequestInspector(t *testing.T) {
 	handler := &HandleRequestInspector{}
-	if err := handler.Initialise(lalog.Logger{}, nil, ""); err != nil {
+	if err := handler.Initialise(&lalog.Logger{}, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := handler.SelfTest(); err != nil {

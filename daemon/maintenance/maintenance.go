@@ -106,7 +106,7 @@ type Daemon struct {
 	processExplorerMetrics *ProcessExplorerMetrics
 
 	cancelFunc context.CancelFunc
-	logger     lalog.Logger
+	logger     *lalog.Logger
 }
 
 // runPortsCheck knocks on TCP ports that are to be checked in parallel, it returns an error if any of the ports fails to connect.
@@ -266,7 +266,7 @@ func (daemon *Daemon) Initialise() error {
 	} else if daemon.IntervalSec < MinimumIntervalSec {
 		return fmt.Errorf("maintenance.Initialise: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
-	daemon.logger = lalog.Logger{ComponentName: "maintenance", ComponentID: []lalog.LoggerIDField{{Key: "Intv", Value: daemon.IntervalSec}}}
+	daemon.logger = &lalog.Logger{ComponentName: "maintenance", ComponentID: []lalog.LoggerIDField{{Key: "Intv", Value: daemon.IntervalSec}}}
 	if daemon.RegisterPrometheusMetrics && misc.EnablePrometheusIntegration {
 		daemon.processExplorerMetrics = NewProcessExplorerMetrics()
 		if err := daemon.processExplorerMetrics.RegisterGlobally(); err != nil {

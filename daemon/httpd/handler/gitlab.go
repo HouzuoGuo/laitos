@@ -49,10 +49,10 @@ type HandleGitlabBrowser struct {
 	MailClient   inet.MailClient   `json:"-"`            // MTA that delivers file download notification email
 
 	stripURLPrefixFromResponse string
-	logger                     lalog.Logger
+	logger                     *lalog.Logger
 }
 
-func (lab *HandleGitlabBrowser) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+func (lab *HandleGitlabBrowser) Initialise(logger *lalog.Logger, _ *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	lab.logger = logger
 	lab.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil

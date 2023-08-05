@@ -28,7 +28,7 @@ type TCPApp interface {
 	// GetTCPStatsCollector returns the stats collector that counts and times client connections for the TCP application.
 	GetTCPStatsCollector() *misc.Stats
 	// HandleTCPConnection converses with the TCP client. The client connection is closed by server upon returning from the implementation.
-	HandleTCPConnection(lalog.Logger, string, *net.TCPConn)
+	HandleTCPConnection(*lalog.Logger, string, *net.TCPConn)
 }
 
 // TCPServer implements common routines for a TCP server that interacts with unlimited number of clients while applying a rate limit.
@@ -49,7 +49,7 @@ type TCPServer struct {
 	LimitPerSec int
 
 	mutex     *sync.Mutex
-	logger    lalog.Logger
+	logger    *lalog.Logger
 	rateLimit *misc.RateLimit
 	listener  net.Listener
 }
@@ -70,7 +70,7 @@ func NewTCPServer(listenAddr string, listenPort int, appName string, app TCPApp,
 // Initialise initialises the internal structures of the TCP server, preparing it for accepting clients.
 func (srv *TCPServer) Initialise() {
 	srv.mutex = new(sync.Mutex)
-	srv.logger = lalog.Logger{
+	srv.logger = &lalog.Logger{
 		ComponentName: srv.AppName,
 		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: srv.ListenAddr}, {Key: "TCPPort", Value: srv.ListenPort}},
 	}

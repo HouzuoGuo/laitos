@@ -41,7 +41,7 @@ var (
 	// pprofHTTPPort is the localhost port to listen on for serving pprof profiling data over HTTP.
 	// The port number must differ from those used with regular HTTP and HTTPS servers.
 	pprofHTTPPort int
-	logger        = lalog.Logger{ComponentName: "main", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
+	logger        = &lalog.Logger{ComponentName: "main", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 )
 
 /*
@@ -151,6 +151,7 @@ func main() {
 		_ = os.Setenv(httpd.EnvironmentPortNumber, strconv.Itoa(lambda.UpstreamWebServerPort))
 		// Unfortunately without encrypting program config file it is impossible to set LAITOS_HTTP_URL_ROUTE_PREFIX
 		handler := &lambda.Handler{}
+		handler.Initialise()
 		go handler.StartAndBlock()
 		// Proceed to launch the daemons, including the HTTP web server that lambda handler forwards incoming request to.
 	}

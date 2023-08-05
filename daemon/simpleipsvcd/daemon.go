@@ -37,7 +37,7 @@ type Daemon struct {
 	ActiveUserNames string `json:"ActiveUserNames"` // ActiveUserNames are CRLF-separated list of user names to appear in the response of "sysstat" network service.
 	QOTD            string `json:"QOTD"`            // QOTD is the message to appear in the response of "QOTD" network service.
 
-	logger lalog.Logger
+	logger *lalog.Logger
 
 	// tcpServers, udpServers, and serverResponseFun contain server instances and their corresponding response content function.
 	tcpServers        map[int]*common.TCPServer
@@ -66,7 +66,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.ActiveUserNames = strings.TrimSpace(daemon.ActiveUserNames)
 	daemon.QOTD = strings.TrimSpace(daemon.QOTD)
 
-	daemon.logger = lalog.Logger{
+	daemon.logger = &lalog.Logger{
 		ComponentName: "simpleipsvcd",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: daemon.Address}},
 	}

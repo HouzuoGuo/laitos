@@ -15,7 +15,7 @@ type HandleRequestInspector struct {
 }
 
 // Initialise the handler instance. This function always returns nil.
-func (_ *HandleRequestInspector) Initialise(_ lalog.Logger, _ *toolbox.CommandProcessor, _ string) error {
+func (_ *HandleRequestInspector) Initialise(_ *lalog.Logger, _ *toolbox.CommandProcessor, _ string) error {
 	return nil
 }
 

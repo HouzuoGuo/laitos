@@ -27,7 +27,7 @@ const (
 CopyNonEssentialUtilitiesInBackground immediately copies utility programs that are not essential but helpful to certain
 toolbox features and daemons, and then continues in background at regular interval (1 hour).
 */
-func CopyNonEssentialUtilitiesInBackground(logger lalog.Logger) {
+func CopyNonEssentialUtilitiesInBackground(logger *lalog.Logger) {
 	periodicCopy := &misc.Periodic{
 		LogActorName: "copy-non-essential-utils",
 		Interval:     1 * time.Hour,
@@ -44,7 +44,7 @@ func CopyNonEssentialUtilitiesInBackground(logger lalog.Logger) {
 }
 
 // DisableConflicts prevents system daemons from conflicting with laitos, this is usually done by disabling them.
-func DisableConflicts(logger lalog.Logger) {
+func DisableConflicts(logger *lalog.Logger) {
 	if !platform.HostIsWindows() && os.Getuid() != 0 {
 		// Sorry, I do not know how to detect administrator privilege on Windows.
 		logger.Abort("", nil, "you must run laitos as root user if you wish to automatically disable system conflicts")
@@ -70,7 +70,7 @@ func DisableConflicts(logger lalog.Logger) {
 // the new comma-separated daemon list from the daemonList file.
 // If laitos is not running on App Engine then the function does nothing and
 // returns an empty string.
-func GAEDaemonList(logger lalog.Logger) string {
+func GAEDaemonList(logger *lalog.Logger) string {
 	if os.Getenv("GAE_ENV") == "standard" {
 		misc.EnablePrometheusIntegration = true
 		// Change working directory to the data directory (if not done yet).
@@ -99,7 +99,7 @@ func GAEDaemonList(logger lalog.Logger) string {
 }
 
 // StartProfilingServer starts an HTTP server on localhost to serve program profiling data
-func StartProfilingServer(logger lalog.Logger, pprofHTTPPort int) {
+func StartProfilingServer(logger *lalog.Logger, pprofHTTPPort int) {
 	if pprofHTTPPort > 0 {
 		go func() {
 			// Expose the entire selection of profiling profiles identical to the ones installed by pprof standard library package

@@ -82,6 +82,9 @@ func TestSendMail_SendSOS(t *testing.T) {
 			return nil
 		},
 	}
+	if err := sendMail.Initialise(); err != nil {
+		t.Fatal(err)
+	}
 
 	result := sendMail.Execute(context.Background(), Command{TimeoutSec: 10, Content: `sos@sos "laitos software test email title" laitos software test email body`})
 	if result.Error != nil || result.Output != "Sending SOS" || result.ErrText() != "" {

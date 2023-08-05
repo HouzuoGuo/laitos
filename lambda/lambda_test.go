@@ -37,6 +37,7 @@ func TestLambdaHandler(t *testing.T) {
 
 	// Invoke lambda handler to reach the local web server
 	hand := Handler{}
+	hand.Initialise()
 	invocationInput := InvocationInput{
 		StageVariables: map[string]string{
 			"Test-Stage-Variable":      "val1",

@@ -61,7 +61,7 @@ type Daemon struct {
 	Processor *toolbox.CommandProcessor `json:"-"`
 
 	cancelFunc context.CancelFunc
-	logger     lalog.Logger
+	logger     *lalog.Logger
 }
 
 // Initialise validates the daemon configuration and initalises internal states.
@@ -107,7 +107,7 @@ func (daemon *Daemon) Initialise() error {
 			srv.HostName = u.Hostname()
 		}
 	}
-	daemon.logger = lalog.Logger{ComponentName: "phonehome"}
+	daemon.logger = &lalog.Logger{ComponentName: "phonehome"}
 	return nil
 }
 

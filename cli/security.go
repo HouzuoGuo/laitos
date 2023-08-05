@@ -89,7 +89,7 @@ func EncryptFile(filePath string) {
 // the unlock password immediately.
 // If a password is available and hence obtained, the function will return the password string.
 // If no password is available or an IO error occurs, the function will return an empty string.
-func GetUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger, challengeStr, serverAddr string) string {
+func GetUnlockingPassword(ctx context.Context, useTLS bool, logger *lalog.Logger, challengeStr, serverAddr string) string {
 	hostName, _ := os.Hostname()
 	dialTimeoutCtx, dialTimeoutCancel := context.WithTimeout(ctx, PasswdRPCTimeout)
 	defer dialTimeoutCancel()
@@ -144,7 +144,7 @@ func GetUnlockingPassword(ctx context.Context, useTLS bool, logger lalog.Logger,
 // and config files, and retries until this password is available and subsequently obtained.
 // The function blocks caller until a password has been obtained or the input context is cancelled.
 // The default source of PRNG must be seeded prior to calling this function.
-func GetUnlockingPasswordWithRetry(ctx context.Context, useTLS bool, logger lalog.Logger, serverAddrs ...string) string {
+func GetUnlockingPasswordWithRetry(ctx context.Context, useTLS bool, logger *lalog.Logger, serverAddrs ...string) string {
 	challengeStr := netboundfileenc.GetRandomChallenge()
 	logger.Info("", nil, "trying to obtain config file decryption password from %d servers via gRPC, using magic challenge \"%s\"", len(serverAddrs), challengeStr)
 	for {
@@ -166,7 +166,7 @@ func GetUnlockingPasswordWithRetry(ctx context.Context, useTLS bool, logger lalo
 }
 
 // HandleSecurityDataUtil the main routine of data file maintenance utilities.
-func HandleSecurityDataUtil(dataUtil, dataUtilFile string, logger lalog.Logger) {
+func HandleSecurityDataUtil(dataUtil, dataUtilFile string, logger *lalog.Logger) {
 	if dataUtilFile == "" {
 		logger.Abort("", nil, "please provide data utility target file in parameter \"-datautilfile\"")
 		return

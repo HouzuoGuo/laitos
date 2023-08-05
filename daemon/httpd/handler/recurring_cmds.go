@@ -40,11 +40,11 @@ commands and pushing text message directly into result.
 */
 type HandleRecurringCommands struct {
 	RecurringCommands          map[string]*common.RecurringCommands `json:"RecurringCommands"` // are mappings between arbitrary ID string and associated command timer.
-	logger                     lalog.Logger
+	logger                     *lalog.Logger
 	stripURLPrefixFromResponse string
 }
 
-func (notif *HandleRecurringCommands) Initialise(logger lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
+func (notif *HandleRecurringCommands) Initialise(logger *lalog.Logger, cmdProc *toolbox.CommandProcessor, stripURLPrefixFromResponse string) error {
 	notif.logger = logger
 	if notif.RecurringCommands == nil || len(notif.RecurringCommands) == 0 {
 		return fmt.Errorf("HandleRecurringCommands: there must be at least one recurring command channel in configuration")

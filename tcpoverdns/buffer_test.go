@@ -7,7 +7,7 @@ import (
 )
 
 func TestSegmentBuffer(t *testing.T) {
-	buf := NewSegmentBuffer(*lalog.DefaultLogger, true, 10)
+	buf := NewSegmentBuffer(lalog.DefaultLogger, true, 10)
 	buf.Absorb(Segment{Flags: FlagKeepAlive})
 	// The keep-alive segment should come with random data.
 	if len(buf.backlog) != 1 {
@@ -58,7 +58,7 @@ func TestSegmentBuffer(t *testing.T) {
 }
 
 func TestSegmentBuffer_MergeSeg(t *testing.T) {
-	buf := NewSegmentBuffer(*lalog.DefaultLogger, true, 10)
+	buf := NewSegmentBuffer(lalog.DefaultLogger, true, 10)
 	// These two segments will merge into a single segment.
 	buf.Absorb(Segment{SeqNum: 0, AckNum: 1, Data: []byte{0, 1, 2}})
 	buf.Absorb(Segment{SeqNum: 3, AckNum: 2, Data: []byte{3, 4, 5}})

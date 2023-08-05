@@ -40,8 +40,8 @@ func TestPipeTCPConnection(t *testing.T) {
 	defer drainTo.Close()
 	defer readFrom.Close()
 
-	go PipeConn(*lalog.DefaultLogger, true, 1*time.Second, 1280, drainFrom, drainTo)
-	go PipeConn(*lalog.DefaultLogger, true, 1*time.Second, 1280, drainTo, drainFrom)
+	go PipeConn(lalog.DefaultLogger, true, 1*time.Second, 1280, drainFrom, drainTo)
+	go PipeConn(lalog.DefaultLogger, true, 1*time.Second, 1280, drainTo, drainFrom)
 
 	data := bytes.Repeat([]byte{1}, 1024*1024)
 	go func() {

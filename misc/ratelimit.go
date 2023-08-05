@@ -15,7 +15,7 @@ Remember to call Initialise() before use!
 type RateLimit struct {
 	UnitSecs int64
 	MaxCount int
-	Logger   lalog.Logger
+	Logger   *lalog.Logger
 
 	lastTimestamp int64
 	counter       map[string]int

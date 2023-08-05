@@ -182,15 +182,15 @@ directory is already among environment PATH.
 This function may take couple of seconds to complete. Be aware that certain Linux distributions (e.g. that used by AWS ElasticBeanstalk)
 aggresively clears /tmp at regular interval, caller should consider invoking this function at a slow and regular interval.
 */
-func CopyNonEssentialUtilities(progress lalog.Logger) {
+func CopyNonEssentialUtilities(logger *lalog.Logger) {
 	if HostIsWindows() {
-		progress.Info("", nil, "will not do anything on Windows")
+		logger.Info("", nil, "will not do anything on Windows")
 		return
 	}
-	progress.Info("", nil, "going to reset program environment PATH and copy non-essential utility programs to "+UtilityDir)
+	logger.Info("", nil, "going to reset program environment PATH and copy non-essential utility programs to "+UtilityDir)
 	_ = os.Setenv("PATH", CommonPATH)
 	if err := os.MkdirAll(UtilityDir, 0755); err != nil {
-		progress.Warning("", err, "failed to create directory %s", UtilityDir)
+		logger.Warning("", err, "failed to create directory %s", UtilityDir)
 		return
 	}
 	srcDestName := []string{
@@ -237,7 +237,7 @@ func CopyNonEssentialUtilities(progress lalog.Logger) {
 				continue
 			}
 			if _, err = io.Copy(to, from); err == nil {
-				progress.Info(destName, err, "successfully copied from %s to %s", srcPath, destPath)
+				logger.Info(destName, err, "successfully copied from %s to %s", srcPath, destPath)
 			}
 		}
 	}

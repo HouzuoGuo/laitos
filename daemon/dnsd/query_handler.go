@@ -20,7 +20,7 @@ func (daemon *Daemon) GetTCPStatsCollector() *misc.Stats {
 }
 
 // HandleTCPConnection reads a DNS query from a TCP client and responds to it with the DNS query result.
-func (daemon *Daemon) HandleTCPConnection(logger lalog.Logger, ip string, conn *net.TCPConn) {
+func (daemon *Daemon) HandleTCPConnection(logger *lalog.Logger, ip string, conn *net.TCPConn) {
 	misc.TweakTCPConnection(conn, ClientTimeoutSec*time.Second)
 	// Read query length
 	queryLen := make([]byte, 2)
@@ -94,7 +94,7 @@ func (daemon *Daemon) GetUDPStatsCollector() *misc.Stats {
 }
 
 // Read a feature command from each input line, then invoke the requested feature and write the execution result back to client.
-func (daemon *Daemon) HandleUDPClient(logger lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
+func (daemon *Daemon) HandleUDPClient(logger *lalog.Logger, ip string, client *net.UDPAddr, packet []byte, srv *net.UDPConn) {
 	if len(packet) < MinNameQuerySize {
 		logger.Warning(ip, nil, "packet length is too small")
 		return

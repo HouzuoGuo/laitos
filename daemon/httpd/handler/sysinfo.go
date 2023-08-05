@@ -15,10 +15,10 @@ import (
 type HandleSystemInfo struct {
 	FeaturesToCheck    *toolbox.FeatureSet    `json:"-"` // Health check subject - features and their API keys
 	CheckMailCmdRunner *mailcmd.CommandRunner `json:"-"` // Health check subject - mail processor and its mailer
-	logger             lalog.Logger
+	logger             *lalog.Logger
 }
 
-func (info *HandleSystemInfo) Initialise(logger lalog.Logger, _ *toolbox.CommandProcessor, _ string) error {
+func (info *HandleSystemInfo) Initialise(logger *lalog.Logger, _ *toolbox.CommandProcessor, _ string) error {
 	info.logger = logger
 	return nil
 }

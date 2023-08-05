@@ -75,7 +75,7 @@ type CommandProcessor struct {
 	// initOnce helps to initialise the command processor in preparation for processing command for the first time.
 	initOnce sync.Once
 
-	logger lalog.Logger
+	logger *lalog.Logger
 }
 
 // initialiseOnce prepares the command processor for processing command for the first time.
@@ -94,11 +94,14 @@ func (proc *CommandProcessor) initialiseOnce() {
 			}
 			proc.rateLimit.Initialise()
 		}
+		if proc.logger == nil {
+			proc.logger = lalog.DefaultLogger
+		}
 	})
 }
 
 // SetLogger uses the input logger to prepare the command processor and its filters.
-func (proc *CommandProcessor) SetLogger(logger lalog.Logger) {
+func (proc *CommandProcessor) SetLogger(logger *lalog.Logger) {
 	// The command processor itself as well as the filters are going to share the same logger
 	proc.logger = logger
 	for _, b := range proc.ResultFilters {
@@ -364,6 +367,7 @@ func GetTestCommandProcessor() *CommandProcessor {
 		Features:       features,
 		CommandFilters: commandBridges,
 		ResultFilters:  resultBridges,
+		logger:         lalog.DefaultLogger,
 	}
 }
 
@@ -385,6 +389,7 @@ func GetEmptyCommandProcessor() *CommandProcessor {
 		ResultFilters: []ResultFilter{
 			&LintText{MaxLength: 35},
 		},
+		logger: lalog.DefaultLogger,
 	}
 }
 

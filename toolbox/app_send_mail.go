@@ -30,7 +30,7 @@ type SendMail struct {
 	MailClient      inet.MailClient `json:"MailClient"`      // MailClient offers mail transport configuration for this toolbox feature.
 	SOSPersonalInfo string          `json:"SOSPersonalInfo"` // SOSPersonalInfo is a free-style human-readable text to be sent along with rest of SOS email body.
 
-	logger             lalog.Logger
+	logger             *lalog.Logger
 	sosTestCaseSendFun func(string, string, ...string) error // sosTestCaseSendFun is a substitue of email sending routine for SOS, to be used by test case.
 }
 
@@ -51,7 +51,7 @@ func (email *SendMail) SelfTest() error {
 }
 
 func (email *SendMail) Initialise() error {
-	email.logger = lalog.Logger{ComponentName: "sendmail", ComponentID: []lalog.LoggerIDField{{Key: "From", Value: email.MailClient.MailFrom}}}
+	email.logger = &lalog.Logger{ComponentName: "sendmail", ComponentID: []lalog.LoggerIDField{{Key: "From", Value: email.MailClient.MailFrom}}}
 	return nil
 }
 

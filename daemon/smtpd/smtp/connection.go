@@ -117,7 +117,7 @@ type Connection struct {
 	expectNextStage commandStage
 	// answered is set to true after the server has successfully replied to the latest command.
 	answered bool
-	logger   lalog.Logger
+	logger   *lalog.Logger
 }
 
 /*

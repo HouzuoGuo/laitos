@@ -15,7 +15,7 @@ type HandleLatestRequestsInspector struct {
 }
 
 // Initialise the handler instance. This function always returns nil.
-func (_ *HandleLatestRequestsInspector) Initialise(_ lalog.Logger, _ *toolbox.CommandProcessor, _ string) error {
+func (_ *HandleLatestRequestsInspector) Initialise(_ *lalog.Logger, _ *toolbox.CommandProcessor, _ string) error {
 	return nil
 }
 

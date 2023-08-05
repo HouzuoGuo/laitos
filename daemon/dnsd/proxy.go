@@ -46,7 +46,7 @@ type ProxyConnection struct {
 	tc            *tcpoverdns.TransmissionControl
 	buf           *tcpoverdns.SegmentBuffer
 	inputSegments net.Conn
-	logger        lalog.Logger
+	logger        *lalog.Logger
 }
 
 // Start piping data back and forth between proxy TCP connection and
@@ -157,7 +157,7 @@ type Proxy struct {
 	DialTimeout time.Duration `json:"-"`
 
 	// logger is used to log IO activities when verbose logging is enabled.
-	logger lalog.Logger `json:"-"`
+	logger *lalog.Logger `json:"-"`
 
 	connections map[uint16]*ProxyConnection
 	context     context.Context
@@ -176,7 +176,7 @@ func (proxy *Proxy) Start(ctx context.Context) {
 	proxy.connections = make(map[uint16]*ProxyConnection)
 	proxy.context, proxy.cancelFun = context.WithCancel(ctx)
 	proxy.mutex = new(sync.Mutex)
-	proxy.logger = lalog.Logger{ComponentName: "TCProxy"}
+	proxy.logger = &lalog.Logger{ComponentName: "TCProxy"}
 }
 
 // Receive processes an incoming segment and relay the segment to an existing
@@ -244,7 +244,7 @@ func (proxy *Proxy) Receive(in tcpoverdns.Segment) (tcpoverdns.Segment, bool) {
 			tcpConn:       tcpConn,
 			context:       proxy.context,
 			inputSegments: proxyIn,
-			logger: lalog.Logger{
+			logger: &lalog.Logger{
 				ComponentName: "ProxyConnection",
 				ComponentID: []lalog.LoggerIDField{
 					{Key: "TCID", Value: in.ID},
