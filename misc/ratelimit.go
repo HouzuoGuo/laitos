@@ -23,14 +23,21 @@ type RateLimit struct {
 	counterMutex  *sync.Mutex
 }
 
-// Initialise rate limiter internal states.
-func (limit *RateLimit) Initialise() {
-	limit.lastTimestamp = 0
-	limit.counter = make(map[string]int)
-	limit.logged = make(map[string]struct{})
-	limit.counterMutex = new(sync.Mutex)
+// NewRateLimit constructs a new rate limiter.
+func NewRateLimit(unitSecs int64, maxCount int, logger *lalog.Logger) (limit *RateLimit) {
+	limit = &RateLimit{
+		UnitSecs:     unitSecs,
+		MaxCount:     maxCount,
+		Logger:       logger,
+		counter:      make(map[string]int),
+		logged:       make(map[string]struct{}),
+		counterMutex: new(sync.Mutex),
+	}
+	if limit.Logger == nil {
+		limit.Logger = lalog.DefaultLogger
+	}
 	if limit.UnitSecs < 1 || limit.MaxCount < 1 {
-		limit.Logger.Panic("RateLimit", nil, "UnitSecs and MaxCount must be greater than 0")
+		logger.Panic("RateLimit", nil, "UnitSecs and MaxCount must be greater than 0")
 		return
 	}
 	// Turn per-second limit into greater limit over multiple seconds to reduce log spamming
@@ -43,6 +50,7 @@ func (limit *RateLimit) Initialise() {
 			}
 		}
 	}
+	return
 }
 
 /*

@@ -74,12 +74,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.CommandProcessor = toolbox.GetEmptyCommandProcessor()
 	}
 	daemon.logger = &lalog.Logger{ComponentName: "httpproxy", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(daemon.Port)}}}
-	daemon.rateLimit = &misc.RateLimit{
-		UnitSecs: 1,
-		MaxCount: daemon.PerIPLimit,
-		Logger:   daemon.logger,
-	}
-	daemon.rateLimit.Initialise()
+	daemon.rateLimit = misc.NewRateLimit(1, daemon.PerIPLimit, daemon.logger)
 	// Parse allowed CIDRs into IP nets
 	daemon.allowFromIPNets = make([]*net.IPNet, 0)
 	for _, cidrStr := range daemon.AllowFromCidrs {

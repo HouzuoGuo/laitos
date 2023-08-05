@@ -139,9 +139,6 @@ func TestHTTPD_StartAndBlock(t *testing.T) {
 	if err := daemon.Initialise("", ""); err != nil {
 		t.Fatal(err)
 	}
-	for route := range daemon.AllRateLimits {
-		fmt.Println("HTTP server has a route", route)
-	}
 	// Start server and run tests
 	serverStopped := make(chan struct{}, 1)
 	go func() {

@@ -74,8 +74,7 @@ func (srv *TCPServer) Initialise() {
 		ComponentName: srv.AppName,
 		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: srv.ListenAddr}, {Key: "TCPPort", Value: srv.ListenPort}},
 	}
-	srv.rateLimit = &misc.RateLimit{Logger: srv.logger, UnitSecs: 1, MaxCount: srv.LimitPerSec}
-	srv.rateLimit.Initialise()
+	srv.rateLimit = misc.NewRateLimit(1, srv.LimitPerSec, srv.logger)
 }
 
 /*

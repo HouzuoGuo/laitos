@@ -51,12 +51,7 @@ func (hand *HandleTwilioSMSHook) Initialise(logger *lalog.Logger, cmdProc *toolb
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	// Allow maximum of 1 SMS to be received every 5 seconds, per phone number.
-	hand.senderRateLimit = &misc.RateLimit{
-		UnitSecs: TwilioPhoneNumberRateLimitIntervalSec,
-		MaxCount: 1,
-		Logger:   logger,
-	}
-	hand.senderRateLimit.Initialise()
+	hand.senderRateLimit = misc.NewRateLimit(TwilioPhoneNumberRateLimitIntervalSec, 1, logger)
 	return nil
 }
 
@@ -121,12 +116,7 @@ func (hand *HandleTwilioCallHook) Initialise(logger *lalog.Logger, cmdProc *tool
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	// Allows maximum of 1 call to be received every 5 seconds
-	hand.senderRateLimit = &misc.RateLimit{
-		UnitSecs: TwilioPhoneNumberRateLimitIntervalSec,
-		MaxCount: 1,
-		Logger:   logger,
-	}
-	hand.senderRateLimit.Initialise()
+	hand.senderRateLimit = misc.NewRateLimit(TwilioPhoneNumberRateLimitIntervalSec, 1, logger)
 	hand.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
@@ -176,12 +166,7 @@ func (hand *HandleTwilioCallCallback) Initialise(logger *lalog.Logger, cmdProc *
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	// Allows maximum of 1 DTMF command to be received every 5 seconds
-	hand.senderRateLimit = &misc.RateLimit{
-		UnitSecs: TwilioPhoneNumberRateLimitIntervalSec,
-		MaxCount: 1,
-		Logger:   logger,
-	}
-	hand.senderRateLimit.Initialise()
+	hand.senderRateLimit = misc.NewRateLimit(TwilioPhoneNumberRateLimitIntervalSec, 1, logger)
 	hand.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }

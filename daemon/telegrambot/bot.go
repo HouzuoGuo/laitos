@@ -98,13 +98,7 @@ func (bot *Daemon) Initialise() error {
 	if bot.AuthorizationToken == "" {
 		return errors.New("telegrambot.Initialise: AuthorizationToken must not be empty")
 	}
-	// Configure rate limit
-	bot.userRateLimit = &misc.RateLimit{
-		UnitSecs: PollIntervalSecMax,
-		MaxCount: bot.PerUserLimit,
-		Logger:   bot.logger,
-	}
-	bot.userRateLimit.Initialise()
+	bot.userRateLimit = misc.NewRateLimit(PollIntervalSecMax, bot.PerUserLimit, bot.logger)
 	return nil
 }
 

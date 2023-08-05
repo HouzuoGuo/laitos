@@ -87,12 +87,7 @@ func (proc *CommandProcessor) initialiseOnce() {
 		}
 		// Initialise command rate limit
 		if proc.rateLimit == nil {
-			proc.rateLimit = &misc.RateLimit{
-				UnitSecs: 1,
-				MaxCount: proc.MaxCmdPerSec,
-				Logger:   proc.logger,
-			}
-			proc.rateLimit.Initialise()
+			proc.rateLimit = misc.NewRateLimit(1, proc.MaxCmdPerSec, proc.logger)
 		}
 		if proc.logger == nil {
 			proc.logger = lalog.DefaultLogger

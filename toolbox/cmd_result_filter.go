@@ -16,7 +16,7 @@ var RegexConsecutiveSpaces = regexp.MustCompile(`[ \a\f\t\v]+`)
 // ResultFilter applies transformations to command execution result, the result is modified in-place.
 type ResultFilter interface {
 	Transform(*Result) error // Operate on the command result. Return an error if no further transformation shall be done.
-	SetLogger(*lalog.Logger)  // Assign a logger to use
+	SetLogger(*lalog.Logger) // Assign a logger to use
 }
 
 /*

@@ -73,8 +73,7 @@ func (srv *UDPServer) Initialise() {
 		MaxCount: srv.LimitPerSec,
 		Logger:   srv.logger,
 	}
-	srv.rateLimit = &misc.RateLimit{Logger: srv.logger, UnitSecs: 1, MaxCount: srv.LimitPerSec}
-	srv.rateLimit.Initialise()
+	srv.rateLimit = misc.NewRateLimit(1, srv.LimitPerSec, srv.logger)
 }
 
 /*

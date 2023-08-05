@@ -18,11 +18,11 @@ import (
 )
 
 type Benchmark struct {
-	Config      *Config      // Config is an initialised configuration structure that provides for all daemons involved in benchmark.
-	DaemonNames []string     // DaemonNames is a list of daemons that have already started and waiting to run benchmark.
+	Config      *Config       // Config is an initialised configuration structure that provides for all daemons involved in benchmark.
+	DaemonNames []string      // DaemonNames is a list of daemons that have already started and waiting to run benchmark.
 	Logger      *lalog.Logger // Logger is specified by caller if the caller wishes.
-	HTTPPort    int          // HTTPPort is to be served by net/http/pprof on an HTTP server running on localhost.
-	Stop        bool         // Stop, if true, will soon terminate ongoing benchmark. It may be reset to false in preparation for a new benchmark run.
+	HTTPPort    int           // HTTPPort is to be served by net/http/pprof on an HTTP server running on localhost.
+	Stop        bool          // Stop, if true, will soon terminate ongoing benchmark. It may be reset to false in preparation for a new benchmark run.
 }
 
 /*
@@ -157,7 +157,7 @@ func (bench *Benchmark) BenchmarkDNSDaemon() {
 // BenchmarkHTTPDaemonn continuously sends HTTP requests in a sequential manner.
 func (bench *Benchmark) BenchmarkHTTPDaemon() {
 	allRoutes := make([]string, 0, 32)
-	for installedRoute := range bench.Config.GetHTTPD().AllRateLimits {
+	for installedRoute := range bench.Config.GetHTTPD().ResourcePaths {
 		allRoutes = append(allRoutes, installedRoute)
 	}
 	if len(allRoutes) == 0 {
@@ -184,7 +184,7 @@ func (bench *Benchmark) BenchmarkHTTPDaemon() {
 // BenchmarkHTTPDaemonn continuously sends HTTPS requests in a sequential manner.
 func (bench *Benchmark) BenchmarkHTTPSDaemon() {
 	allRoutes := make([]string, 0, 32)
-	for installedRoute := range bench.Config.GetHTTPD().AllRateLimits {
+	for installedRoute := range bench.Config.GetHTTPD().ResourcePaths {
 		allRoutes = append(allRoutes, installedRoute)
 	}
 	if len(allRoutes) == 0 {

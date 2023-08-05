@@ -229,8 +229,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.responseCache = NewResponseCache(5*time.Second, 200)
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
-	daemon.queryRateLimit = &misc.RateLimit{Logger: daemon.logger, UnitSecs: 1, MaxCount: daemon.PerIPQueryLimit}
-	daemon.queryRateLimit.Initialise()
+	daemon.queryRateLimit = misc.NewRateLimit(1, daemon.PerIPQueryLimit, daemon.logger)
 	if daemon.TCPProxy != nil && daemon.TCPProxy.RequestOTPSecret != "" {
 		daemon.TCPProxy.DNSDaemon = daemon
 	}

@@ -93,9 +93,10 @@ type Daemon struct {
 	PerIPLimit       int               `json:"PerIPLimit"`       // PerIPLimit is approximately how many concurrent users are expected to be using the server from same IP address
 	ServeDirectories map[string]string `json:"ServeDirectories"` // Serve directories (value) on prefix paths (key)
 
-	HandlerCollection HandlerCollection          `json:"-"` // Specialised handlers that implement handler.HandlerFactory interface
-	Processor         *toolbox.CommandProcessor  `json:"-"` // Feature command processor
-	AllRateLimits     map[string]*misc.RateLimit `json:"-"` // Aggregate all routes and their rate limit counters
+	HandlerCollection HandlerCollection         `json:"-"` // Specialised handlers that implement handler.HandlerFactory interface
+	Processor         *toolbox.CommandProcessor `json:"-"` // Feature command processor
+	// ResourcePaths is the whole collection of URLs handled by the server.
+	ResourcePaths map[string]struct{} `json:"-"`
 
 	mux           *http.ServeMux
 	serverWithTLS *http.Server // serverWithTLS is an instance of HTTP server that will be started with TLS listener.
@@ -164,7 +165,7 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 	if daemon.HandlerCollection == nil {
 		daemon.HandlerCollection = HandlerCollection{}
 	}
-	daemon.AllRateLimits = map[string]*misc.RateLimit{}
+	daemon.ResourcePaths = make(map[string]struct{})
 
 	// Prometheus histograms that use a label to tell the HTTP handler associated with the histogram metrics
 	var handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram *prometheus.HistogramVec
@@ -205,12 +206,8 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 				urlLocation += "/"
 			}
 			urlLocation = stripURLPrefixFromRequest + urlLocation
-			rl := &misc.RateLimit{
-				UnitSecs: RateLimitIntervalSec,
-				MaxCount: DirectoryHandlerRateLimitFactor * daemon.PerIPLimit,
-				Logger:   daemon.logger,
-			}
-			daemon.AllRateLimits[urlLocation] = rl
+			rl := misc.NewRateLimit(RateLimitIntervalSec, DirectoryHandlerRateLimitFactor*daemon.PerIPLimit, daemon.logger)
+			daemon.ResourcePaths[urlLocation] = struct{}{}
 			decoratedHandlerFunc := middleware.LogRequestStats(daemon.logger,
 				middleware.RecordInternalStats(misc.HTTPDStats,
 					middleware.EmergencyLockdown(
@@ -238,13 +235,9 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 		if err := hand.Initialise(daemon.logger, daemon.Processor, stripURLPrefixFromResponse); err != nil {
 			return err
 		}
-		rl := &misc.RateLimit{
-			UnitSecs: RateLimitIntervalSec,
-			MaxCount: hand.GetRateLimitFactor() * daemon.PerIPLimit,
-			Logger:   daemon.logger,
-		}
+		rl := misc.NewRateLimit(RateLimitIntervalSec, hand.GetRateLimitFactor()*daemon.PerIPLimit, daemon.logger)
 		urlLocation = stripURLPrefixFromRequest + urlLocation
-		daemon.AllRateLimits[urlLocation] = rl
+		daemon.ResourcePaths[urlLocation] = struct{}{}
 		// With the exception of file upload handler, all handlers will be subject to a limited request size.
 		_, unrestrictedRequestSize := hand.(*handler.HandleFileUpload)
 		handlerTypeName := reflect.TypeOf(hand).String()
@@ -261,11 +254,6 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 								middleware.RateLimit(rl, innerMostHandler)))))))
 		daemon.mux.Handle(urlLocation, decoratedHandlerFunc)
 		daemon.logger.Info("", nil, "installed web service \"%s\" at location \"%s\"", handlerTypeName, urlLocation)
-	}
-
-	// Initialise all rate limits
-	for _, limit := range daemon.AllRateLimits {
-		limit.Initialise()
 	}
 	return nil
 }

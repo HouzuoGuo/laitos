@@ -81,15 +81,10 @@ func NewPasswordRegister(maxIntents, maxCallsPerSec int, logger *lalog.Logger) *
 		IntentsChallenge:      datastruct.NewLeastRecentlyUsedBuffer(maxIntents),
 		IntentIdentifications: make(map[string]*UnlockAttemptRPCClientInfo),
 		FulfilledIntents:      make(map[string]string),
-		rateLimit: &misc.RateLimit{
-			UnitSecs: 1,
-			MaxCount: maxCallsPerSec,
-			Logger:   logger,
-		},
-		mutex:  new(sync.RWMutex),
-		logger: logger,
+		rateLimit:             misc.NewRateLimit(1, maxCallsPerSec, logger),
+		mutex:                 new(sync.RWMutex),
+		logger:                logger,
 	}
-	reg.rateLimit.Initialise()
 	return reg
 }
 

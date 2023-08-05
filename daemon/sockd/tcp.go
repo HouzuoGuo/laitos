@@ -40,12 +40,7 @@ func (daemon *TCPDaemon) Initialise() error {
 	}
 	daemon.tcpServer.Initialise()
 	daemon.derivedPassword = GetDerivedKey(daemon.Password)
-	daemon.firstPerIP = &misc.RateLimit{
-		UnitSecs: 10 * 60,
-		MaxCount: 1,
-		Logger:   lalog.DefaultLogger,
-	}
-	daemon.firstPerIP.Initialise()
+	daemon.firstPerIP = misc.NewRateLimit(10*60, 1, lalog.DefaultLogger)
 	return nil
 }
 

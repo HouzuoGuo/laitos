@@ -63,12 +63,7 @@ func (hand *HandleMicrosoftBot) Initialise(logger *lalog.Logger, cmdProc *toolbo
 	hand.cmdProc = cmdProc
 	hand.latestJwtMutex = new(sync.Mutex)
 	// Allow maximum of 1 message to be received every 5 seconds, per conversation ID.
-	hand.conversationRateLimit = &misc.RateLimit{
-		UnitSecs: MicrosoftBotUserRateLimitIntervalSec,
-		MaxCount: 1,
-		Logger:   logger,
-	}
-	hand.conversationRateLimit.Initialise()
+	hand.conversationRateLimit = misc.NewRateLimit(MicrosoftBotUserRateLimitIntervalSec, 1, logger)
 	return nil
 }
 
