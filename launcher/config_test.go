@@ -394,6 +394,9 @@ func TestConfig(t *testing.T) {
 
 	maintenance.TestMaintenance(config.GetMaintenance(), t)
 
+	if err := config.GetMailCommandRunner().Initialise(); err != nil {
+		t.Fatal(err)
+	}
 	mailcmd.TestCommandRunner(config.GetMailCommandRunner(), t)
 
 	smtpd.TestSMTPD(config.GetMailDaemon(), t)
