@@ -71,7 +71,7 @@ type CommandProcessor struct {
 		from large range of source IP addresses in an attempt to bypass daemon's own per-IP rate limit mechanism.
 	*/
 	MaxCmdPerSec int
-	rateLimit    *misc.RateLimit
+	rateLimit    *lalog.RateLimit
 	// initOnce helps to initialise the command processor in preparation for processing command for the first time.
 	initOnce sync.Once
 
@@ -87,7 +87,7 @@ func (proc *CommandProcessor) initialiseOnce() {
 		}
 		// Initialise command rate limit
 		if proc.rateLimit == nil {
-			proc.rateLimit = misc.NewRateLimit(1, proc.MaxCmdPerSec, proc.logger)
+			proc.rateLimit = lalog.NewRateLimit(1, proc.MaxCmdPerSec, proc.logger)
 		}
 		if proc.logger == nil {
 			proc.logger = lalog.DefaultLogger

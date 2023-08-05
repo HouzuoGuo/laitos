@@ -54,7 +54,7 @@ type Daemon struct {
 
 	allowFromIPNets []*net.IPNet
 	proxyHandler    http.HandlerFunc
-	rateLimit       *misc.RateLimit
+	rateLimit       *lalog.RateLimit
 	logger          *lalog.Logger
 	httpServer      *http.Server
 }
@@ -74,7 +74,7 @@ func (daemon *Daemon) Initialise() error {
 		daemon.CommandProcessor = toolbox.GetEmptyCommandProcessor()
 	}
 	daemon.logger = &lalog.Logger{ComponentName: "httpproxy", ComponentID: []lalog.LoggerIDField{{Key: "Port", Value: strconv.Itoa(daemon.Port)}}}
-	daemon.rateLimit = misc.NewRateLimit(1, daemon.PerIPLimit, daemon.logger)
+	daemon.rateLimit = lalog.NewRateLimit(1, daemon.PerIPLimit, daemon.logger)
 	// Parse allowed CIDRs into IP nets
 	daemon.allowFromIPNets = make([]*net.IPNet, 0)
 	for _, cidrStr := range daemon.AllowFromCidrs {

@@ -114,7 +114,7 @@ type Daemon struct {
 
 	tcpServer      *common.TCPServer
 	udpServer      *common.UDPServer
-	queryRateLimit *misc.RateLimit
+	queryRateLimit *lalog.RateLimit
 
 	// TCPProxy is a TCP-over-DNS proxy server.
 	TCPProxy *Proxy `json:"TCPProxy"`
@@ -229,7 +229,7 @@ func (daemon *Daemon) Initialise() error {
 	daemon.responseCache = NewResponseCache(5*time.Second, 200)
 	daemon.tcpServer = common.NewTCPServer(daemon.Address, daemon.TCPPort, "dnsd", daemon, daemon.PerIPLimit)
 	daemon.udpServer = common.NewUDPServer(daemon.Address, daemon.UDPPort, "dnsd", daemon, daemon.PerIPLimit)
-	daemon.queryRateLimit = misc.NewRateLimit(1, daemon.PerIPQueryLimit, daemon.logger)
+	daemon.queryRateLimit = lalog.NewRateLimit(1, daemon.PerIPQueryLimit, daemon.logger)
 	if daemon.TCPProxy != nil && daemon.TCPProxy.RequestOTPSecret != "" {
 		daemon.TCPProxy.DNSDaemon = daemon
 	}

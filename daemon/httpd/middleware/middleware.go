@@ -95,7 +95,7 @@ func WithAWSXray(next http.HandlerFunc) http.HandlerFunc {
 
 // RateLimit decorates the HTTP handler function by applying a rate limit to the client, identified by its IP.
 // If the client has made too many requests, it will respond to the client with HTTP status too-many-requests, without invoking the next handler function.
-func RateLimit(rateLimit *misc.RateLimit, next http.HandlerFunc) http.HandlerFunc {
+func RateLimit(rateLimit *lalog.RateLimit, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		remoteIP := GetRealClientIP(r)
 		if !rateLimit.Add(remoteIP, true) {

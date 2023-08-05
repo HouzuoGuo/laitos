@@ -206,7 +206,7 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 				urlLocation += "/"
 			}
 			urlLocation = stripURLPrefixFromRequest + urlLocation
-			rl := misc.NewRateLimit(RateLimitIntervalSec, DirectoryHandlerRateLimitFactor*daemon.PerIPLimit, daemon.logger)
+			rl := lalog.NewRateLimit(RateLimitIntervalSec, DirectoryHandlerRateLimitFactor*daemon.PerIPLimit, daemon.logger)
 			daemon.ResourcePaths[urlLocation] = struct{}{}
 			decoratedHandlerFunc := middleware.LogRequestStats(daemon.logger,
 				middleware.RecordInternalStats(misc.HTTPDStats,
@@ -235,7 +235,7 @@ func (daemon *Daemon) Initialise(stripURLPrefixFromRequest string, stripURLPrefi
 		if err := hand.Initialise(daemon.logger, daemon.Processor, stripURLPrefixFromResponse); err != nil {
 			return err
 		}
-		rl := misc.NewRateLimit(RateLimitIntervalSec, hand.GetRateLimitFactor()*daemon.PerIPLimit, daemon.logger)
+		rl := lalog.NewRateLimit(RateLimitIntervalSec, hand.GetRateLimitFactor()*daemon.PerIPLimit, daemon.logger)
 		urlLocation = stripURLPrefixFromRequest + urlLocation
 		daemon.ResourcePaths[urlLocation] = struct{}{}
 		// With the exception of file upload handler, all handlers will be subject to a limited request size.

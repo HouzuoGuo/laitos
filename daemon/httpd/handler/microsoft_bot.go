@@ -50,9 +50,9 @@ type HandleMicrosoftBot struct {
 	ClientAppID     string `json:"ClientAppID"`     // ClientAppID is the bot's "app ID".
 	ClientAppSecret string `json:"ClientAppSecret"` // ClientAppSecret is the bot's application "password".
 
-	latestJwtMutex        *sync.Mutex     // latestJwtMutex protects latestJWT from concurrent access.
-	latestJWT             MicrosoftBotJwt // latestJWT is the last retrieved JWT
-	conversationRateLimit *misc.RateLimit // conversationRateLimit prevents excessively chatty conversations from taking place
+	latestJwtMutex        *sync.Mutex      // latestJwtMutex protects latestJWT from concurrent access.
+	latestJWT             MicrosoftBotJwt  // latestJWT is the last retrieved JWT
+	conversationRateLimit *lalog.RateLimit // conversationRateLimit prevents excessively chatty conversations from taking place
 
 	logger  *lalog.Logger
 	cmdProc *toolbox.CommandProcessor
@@ -63,7 +63,7 @@ func (hand *HandleMicrosoftBot) Initialise(logger *lalog.Logger, cmdProc *toolbo
 	hand.cmdProc = cmdProc
 	hand.latestJwtMutex = new(sync.Mutex)
 	// Allow maximum of 1 message to be received every 5 seconds, per conversation ID.
-	hand.conversationRateLimit = misc.NewRateLimit(MicrosoftBotUserRateLimitIntervalSec, 1, logger)
+	hand.conversationRateLimit = lalog.NewRateLimit(MicrosoftBotUserRateLimitIntervalSec, 1, logger)
 	return nil
 }
 

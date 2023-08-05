@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -16,6 +17,9 @@ import (
 )
 
 const (
+	// MaxLogMessagePerSec is the maximum number of messages each logger will be able to print out.
+	// Any additional log messages will be dropped.
+	MaxLogMessagePerSec = 200
 	// MaxLogMessageLen is the maximum length memorised for each of the latest log entries.
 	MaxLogMessageLen = 2048
 	truncatedLabel   = "...(truncated)..."
@@ -31,17 +35,14 @@ var (
 	// LatestWarnings are a small number of the most recent warning log messages kept in memory for retrieval and inspection.
 	LatestWarnings = datastruct.NewRingBuffer(1 * 1048576 / MaxLogMessageLen)
 
-	// LatestWarningActors a small number of log entry actors that have
-	// generated the latest log messages. The buffer provides a daemon-agnostic
-	// mechanism that de-duplicates repeated log messages, to avoid flooding
-	// stderr too hard, and makes the latest log entries retrieved on-demand
-	// much easier to read.
+	// LatestWarningActors is a small number of identifiers (actors) from recent
+	// warning messages, they are used to de-duplicate these messages at regular
+	// intervals to reduce spamming.
 	LatestWarningActors = datastruct.NewLeastRecentlyUsedBuffer(1 * 1048576 / MaxLogMessageLen)
 
-	// LatestLogMessageContent are small number of recent log messages.
-	// The buffer provides a daemon-agnostic mechanism that de-duplicates
-	// repeated log messages, to avoid flooding stderr too hard, and makes the
-	// latest log entries retrieved on-demand much easier to read.
+	// LatestWarningActors is a small number of message contents from recent log
+	// messages of all types , they are used to de-duplicate these messages at
+	// regular intervals to reduce spamming.
 	LatestLogMessageContent = datastruct.NewLeastRecentlyUsedBuffer(1 * 1048576 / MaxLogMessageLen)
 
 	// LogWarningCallback is invoked in a separate goroutine after any logger has processed a warning message.
@@ -72,6 +73,17 @@ type LoggerIDField struct {
 type Logger struct {
 	ComponentName string          // ComponentName is similar to a class name, or a category name.
 	ComponentID   []LoggerIDField // ComponentID comprises key-value pairs that give log entry a clue as to its origin.
+
+	// initOnce is used to synchronise the initialisation of the logger upon first use.
+	initOnce sync.Once
+	// rateLimit throttles the logger to avoid inadvertently spamming stderr.
+	rateLimit *RateLimit
+}
+
+func (logger *Logger) initialiseOnce() {
+	logger.initOnce.Do(func() {
+		logger.rateLimit = NewRateLimit(1, MaxLogMessagePerSec, logger)
+	})
 }
 
 // getComponentIDs returns a string consisting of the logger's component ID fields. If there are none, it returns an empty string.
@@ -137,10 +149,8 @@ func callerName(skip int) string {
 }
 
 func (logger *Logger) warning(funcName string, actorName interface{}, err error, template string, values ...interface{}) {
-	// As determined by the LRU buffer, only the first instance of warning from this actor (identified by component name + function name +
-	// actor name) will be added to the in-memory warning log buffer, this helps to gain a more comprehensive picture of actors behind latest
-	// warning messages by suppressing the most noisy actors.
-	if alreadyPresent, _ := LatestWarningActors.Add(funcName + fmt.Sprint(actorName)); alreadyPresent {
+	// De-duplicate recent warnings from the same actor, and honour the logger instance's rate limit.
+	if alreadyPresent, _ := LatestWarningActors.Add(funcName + fmt.Sprint(actorName)); alreadyPresent || !logger.rateLimit.Add("", false) {
 		NumDropped.Add(1)
 		return
 	}
@@ -158,6 +168,7 @@ func (logger *Logger) warning(funcName string, actorName interface{}, err error,
 
 // Print a log message and keep the message in warnings buffer.
 func (logger *Logger) Warning(actorName interface{}, err error, template string, values ...interface{}) {
+	logger.initialiseOnce()
 	funcName := callerName(2)
 	logger.warning(funcName, actorName, err, template, values...)
 }
@@ -166,9 +177,11 @@ func (logger *Logger) info(funcName string, actorName interface{}, err error, te
 	if err != nil {
 		// If the log message comes with an error, treat it as a warning.
 		logger.warning(funcName, actorName, err, template, values...)
+		return
 	}
 	msg := logger.Format(funcName, actorName, err, template, values...)
-	if alreadyPresent, _ := LatestLogMessageContent.Add(msg); alreadyPresent {
+	// De-duplicate recent log messages, and honour the logger instance's rate limit.
+	if alreadyPresent, _ := LatestLogMessageContent.Add(msg); alreadyPresent || !logger.rateLimit.Add("", false) {
 		NumDropped.Add(1)
 		return
 	}
@@ -179,16 +192,19 @@ func (logger *Logger) info(funcName string, actorName interface{}, err error, te
 
 // Print a log message and keep the message in latest log buffer. If there is an error, also keep the message in warnings buffer.
 func (logger *Logger) Info(actorName interface{}, err error, template string, values ...interface{}) {
+	logger.initialiseOnce()
 	funcName := callerName(2)
 	logger.info(funcName, actorName, err, template, values...)
 }
 
 func (logger *Logger) Abort(actorName interface{}, err error, template string, values ...interface{}) {
+	logger.initialiseOnce()
 	functionName := callerName(2)
 	log.Fatal(logger.Format(functionName, actorName, err, template, values...))
 }
 
 func (logger *Logger) Panic(actorName interface{}, err error, template string, values ...interface{}) {
+	logger.initialiseOnce()
 	functionName := callerName(2)
 	log.Panic(logger.Format(functionName, actorName, err, template, values...))
 }
@@ -197,11 +213,10 @@ func (logger *Logger) Panic(actorName interface{}, err error, template string, v
 // As a special case, if the error indicates the closure of a network connection, or includes the keyword "broken",
 // then no log message will be written.
 func (logger *Logger) MaybeMinorError(err error) {
+	logger.initialiseOnce()
+	funcName := callerName(2)
 	if err != nil && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "broken") {
-		msg := logger.Format(callerName(1), "", err, "minor error")
-		msgWithTime := time.Now().Format("2006-01-02 15:04:05 ") + msg
-		LatestLogs.Push(msgWithTime)
-		log.Print(msg)
+		logger.info(funcName, "", err, "minor error")
 	}
 }
 

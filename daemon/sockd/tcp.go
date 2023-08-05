@@ -27,7 +27,7 @@ type TCPDaemon struct {
 
 	derivedPassword []byte
 	tcpServer       *common.TCPServer
-	firstPerIP      *misc.RateLimit
+	firstPerIP      *lalog.RateLimit
 }
 
 func (daemon *TCPDaemon) Initialise() error {
@@ -40,7 +40,7 @@ func (daemon *TCPDaemon) Initialise() error {
 	}
 	daemon.tcpServer.Initialise()
 	daemon.derivedPassword = GetDerivedKey(daemon.Password)
-	daemon.firstPerIP = misc.NewRateLimit(10*60, 1, lalog.DefaultLogger)
+	daemon.firstPerIP = lalog.NewRateLimit(10*60, 1, lalog.DefaultLogger)
 	return nil
 }
 

@@ -44,7 +44,7 @@ type UDPServer struct {
 
 	mutex     *sync.Mutex
 	logger    *lalog.Logger
-	rateLimit *misc.RateLimit
+	rateLimit *lalog.RateLimit
 	udpServer *net.UDPConn
 }
 
@@ -68,12 +68,12 @@ func (srv *UDPServer) Initialise() {
 		ComponentName: srv.AppName,
 		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: srv.ListenAddr}, {Key: "UDPPort", Value: srv.ListenPort}},
 	}
-	srv.rateLimit = &misc.RateLimit{
+	srv.rateLimit = &lalog.RateLimit{
 		UnitSecs: 1,
 		MaxCount: srv.LimitPerSec,
 		Logger:   srv.logger,
 	}
-	srv.rateLimit = misc.NewRateLimit(1, srv.LimitPerSec, srv.logger)
+	srv.rateLimit = lalog.NewRateLimit(1, srv.LimitPerSec, srv.logger)
 }
 
 /*

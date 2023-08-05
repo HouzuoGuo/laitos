@@ -1,10 +1,8 @@
-package misc
+package lalog
 
 import (
 	"sync"
 	"time"
-
-	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 /*
@@ -15,7 +13,7 @@ Remember to call Initialise() before use!
 type RateLimit struct {
 	UnitSecs int64
 	MaxCount int
-	Logger   *lalog.Logger
+	Logger   *Logger
 
 	lastTimestamp int64
 	counter       map[string]int
@@ -24,7 +22,7 @@ type RateLimit struct {
 }
 
 // NewRateLimit constructs a new rate limiter.
-func NewRateLimit(unitSecs int64, maxCount int, logger *lalog.Logger) (limit *RateLimit) {
+func NewRateLimit(unitSecs int64, maxCount int, logger *Logger) (limit *RateLimit) {
 	limit = &RateLimit{
 		UnitSecs:     unitSecs,
 		MaxCount:     maxCount,
@@ -34,10 +32,10 @@ func NewRateLimit(unitSecs int64, maxCount int, logger *lalog.Logger) (limit *Ra
 		counterMutex: new(sync.Mutex),
 	}
 	if limit.Logger == nil {
-		limit.Logger = lalog.DefaultLogger
+		limit.Logger = DefaultLogger
 	}
 	if limit.UnitSecs < 1 || limit.MaxCount < 1 {
-		logger.Panic("RateLimit", nil, "UnitSecs and MaxCount must be greater than 0")
+		panic("rate limit UnitSecs and MaxCount must be greater than 0")
 		return
 	}
 	// Turn per-second limit into greater limit over multiple seconds to reduce log spamming

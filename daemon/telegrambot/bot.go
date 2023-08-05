@@ -77,8 +77,8 @@ type Daemon struct {
 	PerUserLimit       int                       `json:"PerUserLimit"`       // PerUserLimit determines how many messages may be processed per chat at regular interval
 	Processor          *toolbox.CommandProcessor `json:"-"`                  // Feature command processor
 
-	messageOffset int64           // Process chat messages arrived after this point
-	userRateLimit *misc.RateLimit // Prevent user from flooding bot with new messages
+	messageOffset int64            // Process chat messages arrived after this point
+	userRateLimit *lalog.RateLimit // Prevent user from flooding bot with new messages
 	cancelFunc    context.CancelFunc
 	logger        *lalog.Logger
 }
@@ -98,7 +98,7 @@ func (bot *Daemon) Initialise() error {
 	if bot.AuthorizationToken == "" {
 		return errors.New("telegrambot.Initialise: AuthorizationToken must not be empty")
 	}
-	bot.userRateLimit = misc.NewRateLimit(PollIntervalSecMax, bot.PerUserLimit, bot.logger)
+	bot.userRateLimit = lalog.NewRateLimit(PollIntervalSecMax, bot.PerUserLimit, bot.logger)
 	return nil
 }
 

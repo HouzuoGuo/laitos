@@ -12,7 +12,6 @@ import (
 
 	"github.com/HouzuoGuo/laitos/datastruct"
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/netboundfileenc/unlocksvc"
 	"google.golang.org/grpc/peer"
 )
@@ -70,7 +69,7 @@ type PasswordRegister struct {
 	// FulfilledIntents is a mapping between client's random string challenge and the corresponding unlocking password in plain text.
 	FulfilledIntents map[string]string
 
-	rateLimit *misc.RateLimit
+	rateLimit *lalog.RateLimit
 	mutex     *sync.RWMutex
 	logger    *lalog.Logger
 }
@@ -81,7 +80,7 @@ func NewPasswordRegister(maxIntents, maxCallsPerSec int, logger *lalog.Logger) *
 		IntentsChallenge:      datastruct.NewLeastRecentlyUsedBuffer(maxIntents),
 		IntentIdentifications: make(map[string]*UnlockAttemptRPCClientInfo),
 		FulfilledIntents:      make(map[string]string),
-		rateLimit:             misc.NewRateLimit(1, maxCallsPerSec, logger),
+		rateLimit:             lalog.NewRateLimit(1, maxCallsPerSec, logger),
 		mutex:                 new(sync.RWMutex),
 		logger:                logger,
 	}

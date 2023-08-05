@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/HouzuoGuo/laitos/lalog"
-	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
 
@@ -41,7 +40,7 @@ const (
 
 // Handle Twilio phone number's SMS hook.
 type HandleTwilioSMSHook struct {
-	senderRateLimit *misc.RateLimit // senderRateLimit prevents excessive SMS replies from being replied to spam numbers
+	senderRateLimit *lalog.RateLimit // senderRateLimit prevents excessive SMS replies from being replied to spam numbers
 
 	logger  *lalog.Logger
 	cmdProc *toolbox.CommandProcessor
@@ -51,7 +50,7 @@ func (hand *HandleTwilioSMSHook) Initialise(logger *lalog.Logger, cmdProc *toolb
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	// Allow maximum of 1 SMS to be received every 5 seconds, per phone number.
-	hand.senderRateLimit = misc.NewRateLimit(TwilioPhoneNumberRateLimitIntervalSec, 1, logger)
+	hand.senderRateLimit = lalog.NewRateLimit(TwilioPhoneNumberRateLimitIntervalSec, 1, logger)
 	return nil
 }
 
@@ -103,7 +102,7 @@ type HandleTwilioCallHook struct {
 	CallGreeting     string `json:"CallGreeting"` // a message to speak upon picking up a call
 	CallbackEndpoint string `json:"-"`            // URL (e.g. /handle_my_call) to command handler endpoint (TwilioCallCallback)
 
-	senderRateLimit            *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
+	senderRateLimit            *lalog.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
 	logger                     *lalog.Logger
 	stripURLPrefixFromResponse string
 	cmdProc                    *toolbox.CommandProcessor
@@ -116,7 +115,7 @@ func (hand *HandleTwilioCallHook) Initialise(logger *lalog.Logger, cmdProc *tool
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	// Allows maximum of 1 call to be received every 5 seconds
-	hand.senderRateLimit = misc.NewRateLimit(TwilioPhoneNumberRateLimitIntervalSec, 1, logger)
+	hand.senderRateLimit = lalog.NewRateLimit(TwilioPhoneNumberRateLimitIntervalSec, 1, logger)
 	hand.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }
@@ -153,7 +152,7 @@ func (_ *HandleTwilioCallHook) SelfTest() error {
 type HandleTwilioCallCallback struct {
 	MyEndpoint string `json:"-"` // URL endpoint to the callback itself, including prefix /.
 
-	senderRateLimit            *misc.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
+	senderRateLimit            *lalog.RateLimit // senderRateLimit prevents excessive calls from being made by spam numbers
 	logger                     *lalog.Logger
 	stripURLPrefixFromResponse string
 	cmdProc                    *toolbox.CommandProcessor
@@ -166,7 +165,7 @@ func (hand *HandleTwilioCallCallback) Initialise(logger *lalog.Logger, cmdProc *
 	hand.logger = logger
 	hand.cmdProc = cmdProc
 	// Allows maximum of 1 DTMF command to be received every 5 seconds
-	hand.senderRateLimit = misc.NewRateLimit(TwilioPhoneNumberRateLimitIntervalSec, 1, logger)
+	hand.senderRateLimit = lalog.NewRateLimit(TwilioPhoneNumberRateLimitIntervalSec, 1, logger)
 	hand.stripURLPrefixFromResponse = stripURLPrefixFromResponse
 	return nil
 }

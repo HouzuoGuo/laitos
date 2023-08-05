@@ -50,7 +50,7 @@ type TCPServer struct {
 
 	mutex     *sync.Mutex
 	logger    *lalog.Logger
-	rateLimit *misc.RateLimit
+	rateLimit *lalog.RateLimit
 	listener  net.Listener
 }
 
@@ -74,7 +74,7 @@ func (srv *TCPServer) Initialise() {
 		ComponentName: srv.AppName,
 		ComponentID:   []lalog.LoggerIDField{{Key: "Addr", Value: srv.ListenAddr}, {Key: "TCPPort", Value: srv.ListenPort}},
 	}
-	srv.rateLimit = misc.NewRateLimit(1, srv.LimitPerSec, srv.logger)
+	srv.rateLimit = lalog.NewRateLimit(1, srv.LimitPerSec, srv.logger)
 }
 
 /*
