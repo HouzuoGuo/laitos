@@ -17,9 +17,6 @@ import (
 )
 
 const (
-	// MaxLogMessagePerSec is the maximum number of messages each logger will be able to print out.
-	// Any additional log messages will be dropped.
-	MaxLogMessagePerSec = 200
 	// MaxLogMessageLen is the maximum length memorised for each of the latest log entries.
 	MaxLogMessageLen = 2048
 	truncatedLabel   = "...(truncated)..."
@@ -28,6 +25,10 @@ const (
 type LogWarningCallbackFunc func(componentName, componentID, funcName string, actorName interface{}, err error, msg string)
 
 var (
+	// MaxLogMessagePerSec is the maximum number of messages each logger will be able to print out.
+	// Any additional log messages will be dropped.
+	MaxLogMessagePerSec = runtime.NumCPU() * 300
+
 	// LatestWarnings are a small number of the most recent log messages
 	// (warnings and info messages) kept in memory for retrieval and inspection.
 	LatestLogs = datastruct.NewRingBuffer(1 * 1048576 / MaxLogMessageLen)
