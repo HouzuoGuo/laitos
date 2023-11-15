@@ -285,7 +285,7 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
-	respBody, err := BuildNSResponse(header, question, domainName)
+	respBody, err := BuildNSResponse(header, question, domainName, daemon.myPublicIP)
 	if err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to build response packet")
 	}

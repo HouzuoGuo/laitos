@@ -153,7 +153,7 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = header.RecursionDesired
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -223,7 +223,7 @@ func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, hos
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = header.RecursionDesired
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -258,7 +258,7 @@ func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, hos
 }
 
 // BuildNSResponse returns an NS record response.
-func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, domainName string) ([]byte, error) {
+func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, domainName string, ownIP net.IP) ([]byte, error) {
 	if domainName == "" {
 		return nil, errors.New("domainName must not be empty")
 	}
@@ -269,7 +269,7 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = header.RecursionDesired
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
@@ -308,6 +308,21 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	if err := builder.StartAdditionals(); err != nil {
 		return nil, err
 	}
+	// Add glue records for the ns[1-4].laitos-example.net.
+	for i := 1; i <= 4; i++ {
+		dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s", i, domainName))
+		if err != nil {
+			return nil, err
+		}
+		v4Addr := ownIP.To4()
+		if err := builder.AResource(dnsmessage.ResourceHeader{
+			Name:  dnsNSName,
+			Class: dnsmessage.ClassINET,
+			TTL:   CommonResponseTTL,
+		}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}}); err != nil {
+			return nil, err
+		}
+	}
 	var rh dnsmessage.ResourceHeader
 	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
 		return nil, err
@@ -324,7 +339,7 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = header.RecursionDesired
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	if err := builder.StartQuestions(); err != nil {
@@ -402,7 +417,7 @@ func BuildTCPOverDNSSegmentResponse(header dnsmessage.Header, question dnsmessag
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
-	header.RecursionAvailable = header.RecursionDesired
+	header.RecursionAvailable = false
 	builder := dnsmessage.NewBuilder(nil, header)
 	builder.EnableCompression()
 	// Repeat the question back to the client, this is required by DNS protocol.
