@@ -309,18 +309,20 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 		return nil, err
 	}
 	// Add glue records for the ns[1-4].laitos-example.net.
-	for i := 1; i <= 4; i++ {
-		dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s", i, domainName))
-		if err != nil {
-			return nil, err
-		}
-		v4Addr := ownIP.To4()
-		if err := builder.AResource(dnsmessage.ResourceHeader{
-			Name:  dnsNSName,
-			Class: dnsmessage.ClassINET,
-			TTL:   CommonResponseTTL,
-		}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}}); err != nil {
-			return nil, err
+	v4Addr := ownIP.To4()
+	if len(v4Addr) == 4 {
+		for i := 1; i <= 4; i++ {
+			dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s", i, domainName))
+			if err != nil {
+				return nil, err
+			}
+			if err := builder.AResource(dnsmessage.ResourceHeader{
+				Name:  dnsNSName,
+				Class: dnsmessage.ClassINET,
+				TTL:   CommonResponseTTL,
+			}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}}); err != nil {
+				return nil, err
+			}
 		}
 	}
 	var rh dnsmessage.ResourceHeader
