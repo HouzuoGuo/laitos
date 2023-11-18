@@ -53,6 +53,9 @@ such as a load balancer or LAN proxy, the return value will be the client IP add
 "X-Real-Ip" (preferred) or "X-Forwarded-For".
 */
 func GetRealClientIP(r *http.Request) string {
+	if cfClientIP := r.Header.Get("Cf-Connecting-Ip"); cfClientIP != "" {
+		return strings.TrimSpace(cfClientIP)
+	}
 	if colon := strings.LastIndexByte(r.RemoteAddr, ':'); colon > 1 {
 		ip := r.RemoteAddr[:strings.LastIndexByte(r.RemoteAddr, ':')]
 		if strings.HasPrefix(ip, "127.") {
@@ -66,7 +69,7 @@ func GetRealClientIP(r *http.Request) string {
 				}
 			}
 		}
-		return ip
+		return strings.TrimSpace(ip)
 	}
 	return ""
 }
