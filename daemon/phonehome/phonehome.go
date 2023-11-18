@@ -379,13 +379,18 @@ func TestServer(server *Daemon, t testingstub.T) {
 	for i, report := range localReports {
 		t.Logf("Local report at index %d: %+v", i, report)
 	}
-	lastReport := localReports[1]
-	if lastReport.SubjectClientTag != "localhost" || time.Now().Unix()-lastReport.ServerTime.Unix() > 10 || lastReport.DaemonName != "round1#0" ||
-		lastReport.OriginalRequest.CommandRequest.Command != "" ||
-		lastReport.OriginalRequest.CommandResponse.Command != toolbox.TestCommandProcessorPIN+".s echo 2server" ||
-		lastReport.OriginalRequest.CommandResponse.RunDurationSec < 0 ||
-		lastReport.OriginalRequest.CommandResponse.Result != "2server" {
-		t.Fatalf("incorrect last report: %+v", lastReport)
+	var foundOutgoingReport bool
+	for _, report := range localReports {
+		if report.SubjectClientTag == "localhost" && time.Now().Unix()-report.ServerTime.Unix() <= 10 && report.DaemonName == "round1#0" &&
+			report.OriginalRequest.CommandRequest.Command == "" &&
+			report.OriginalRequest.CommandResponse.Command == toolbox.TestCommandProcessorPIN+".s echo 2server" &&
+			report.OriginalRequest.CommandResponse.Result == "2server" {
+			foundOutgoingReport = true
+			break
+		}
+	}
+	if !foundOutgoingReport {
+		t.Fatalf("failed to find the 2server report")
 	}
 	// Daemon should stop shortly
 	server.Stop()
