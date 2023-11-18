@@ -149,6 +149,7 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	if rName[len(rName)-1] != '.' {
 		rName += "."
 	}
+	rName = strings.Replace(rName, `@`, `.`, -1)
 	// Retain the original transaction ID.
 	header.Response = true
 	header.Truncated = false
@@ -179,13 +180,13 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 		MBox:   dnsRName,
 		Serial: 1,
 		// "Number of seconds after which secondary name servers should query the master for the SOA record, to detect zone changes." (wikipedia)
-		Refresh: 3600,
+		Refresh: 14400,
 		// "Number of seconds after which secondary name servers should retry to request the serial number from the master if the master does not respond. It must be less than Refresh." (wikipedia)
-		Retry: 300,
+		Retry: 3600,
 		// "Number of seconds after which secondary name servers should stop answering request for this zone if the master does not respond. This value must be bigger than the sum of Refresh and Retry." (wikipedia)
-		Expire: 259200,
+		Expire: 604800,
 		// "Used in calculating the time to live for purposes of negative caching." (wikipedia)
-		MinTTL: CommonResponseTTL,
+		MinTTL: 300,
 	}
 	dnsName, err := dnsmessage.NewName(question.Name.String())
 	if err != nil {
@@ -286,7 +287,7 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	if err != nil {
 		return nil, err
 	}
-	for i := 1; i <= 4; i++ {
+	for i := 1; i <= 2; i++ {
 		dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s", i, domainName))
 		if err != nil {
 			return nil, err
@@ -308,10 +309,10 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	if err := builder.StartAdditionals(); err != nil {
 		return nil, err
 	}
-	// Add glue records for the ns[1-4].laitos-example.net.
+	// Add glue records for the ns[1-2].laitos-example.net.
 	v4Addr := ownIP.To4()
 	if len(v4Addr) == 4 {
-		for i := 1; i <= 4; i++ {
+		for i := 1; i <= 2; i++ {
 			dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s", i, domainName))
 			if err != nil {
 				return nil, err

@@ -33,7 +33,7 @@ const (
 	BlackListDownloadTimeoutSec = 30        // BlackListDownloadTimeoutSec is the timeout to use when downloading blacklist hosts files.
 	BlacklistMaxEntries         = 100000    // BlackListMaxEntries is the maximum number of entries to be accepted into black list after retireving them from public sources.
 	// CommonResponseTTL is the TTL of outgoing authoritative response records.
-	CommonResponseTTL = 30
+	CommonResponseTTL = 60
 	/*
 		ToolboxCommandPrefix is a short string that indicates a TXT query is most likely toolbox command. Keep it short,
 		as DNS query input has to be pretty short.
@@ -599,10 +599,10 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	// Keep in mind that the daemon initialises itself by placing a full-stop
 	// in front of the domain name.
 	ns, err := resolver.LookupNS(context.Background(), domainName[1:])
-	if len(ns) != 4 {
+	if len(ns) != 2 {
 		t.Fatalf("unexpected number of ns: %v", ns)
 	}
-	for i := 1; i < 4; i++ {
+	for i := 1; i < 2; i++ {
 		got := ns[i-1].Host
 		want := fmt.Sprintf("ns%d%s.", i, domainName)
 		if got != want {
@@ -611,7 +611,7 @@ func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.
 	}
 
 	// Resolve address of NS.
-	for i := 1; i < 4; i++ {
+	for i := 1; i < 2; i++ {
 		ip, err := resolver.LookupIP(context.Background(), "ip", fmt.Sprintf("ns%d%s", i, domainName))
 		if err != nil {
 			t.Fatalf("failed to resolve ns: %v", err)

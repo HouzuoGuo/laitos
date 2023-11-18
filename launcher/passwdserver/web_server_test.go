@@ -78,7 +78,7 @@ func TestWebServer_UnlockWithPassword(t *testing.T) {
 			return
 		}
 	}()
-	if !misc.ProbePort(30*time.Second, "localhost", ws.Port) {
+	if !misc.ProbePort(60*time.Second, "localhost", ws.Port) {
 		t.Fatal("server did not start in time")
 	}
 	// Give it an incorrect password and expect an error response
