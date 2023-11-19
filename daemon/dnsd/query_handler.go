@@ -239,7 +239,7 @@ func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, hea
 		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
-	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s.", domainName), domainName)
+	respBody, err := BuildSOAResponse(header, question, fmt.Sprintf("ns1.%s.", domainName), "webmaster@"+domainName)
 	if err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to build response packet")
 	}
