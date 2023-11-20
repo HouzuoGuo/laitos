@@ -508,17 +508,18 @@ func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, do
 	}
 	isRecursive = true
 	// Remove all configured domain suffixes from the queried name.
+	nameOnly := name
 	for _, suffix := range daemon.MyDomainNames {
-		if strings.HasSuffix(name, suffix) {
+		if strings.HasSuffix(strings.ToLower(name), suffix) {
 			// The suffix has a trailing full-stop.
 			isRecursive = false
-			name = strings.TrimSuffix(name, suffix)
-			domainName = suffix[1:]
+			nameOnly = name[:len(name)-len(suffix)]
+			domainName = name[len(nameOnly)+1:]
 			numDomainLabels = CountNameLabels(domainName)
 			break
 		}
 	}
-	labelsWithoutDomain = strings.Split(name, ".")[1:]
+	labelsWithoutDomain = strings.Split(nameOnly, ".")[1:]
 	return
 }
 

@@ -219,16 +219,23 @@ func TestDaemon_queryLabels(t *testing.T) {
 			wantIsRecursive:     false,
 		},
 		{
-			name:                "haha.b.a.com",
+			name:                "A.cOm",
+			wantLabels:          []string{},
+			wantDomainName:      "A.cOm",
+			wantNumDomainLabels: 2,
+			wantIsRecursive:     false,
+		},
+		{
+			name:                "haha.B.a.CoM",
 			wantLabels:          []string{"haha"},
-			wantDomainName:      "b.a.com",
+			wantDomainName:      "B.a.CoM",
 			wantNumDomainLabels: 3,
 			wantIsRecursive:     false,
 		},
 		{
-			name:                "hehe.haha.b.a.com",
-			wantLabels:          []string{"hehe", "haha"},
-			wantDomainName:      "b.a.com",
+			name:                "hehE.hahA.b.a.coM",
+			wantLabels:          []string{"hehE", "hahA"},
+			wantDomainName:      "b.a.coM",
 			wantNumDomainLabels: 3,
 			wantIsRecursive:     false,
 		},
@@ -240,33 +247,35 @@ func TestDaemon_queryLabels(t *testing.T) {
 			wantIsRecursive:     false,
 		},
 		{
-			name:                "haha.example.com",
-			wantLabels:          []string{"haha", "example", "com"},
+			name:                "Haha.eXample.coM",
+			wantLabels:          []string{"Haha", "eXample", "coM"},
 			wantDomainName:      "",
 			wantNumDomainLabels: 0,
 			wantIsRecursive:     true,
 		},
 		{
-			name:                "c.d.b.net.",
-			wantLabels:          []string{"c", "d"},
-			wantDomainName:      "b.net",
+			name:                "c.D.b.Net.",
+			wantLabels:          []string{"c", "D"},
+			wantDomainName:      "b.Net",
 			wantNumDomainLabels: 2,
 			wantIsRecursive:     false,
 		},
 	}
 	for _, test := range tests {
-		gotLabels, gotDomainName, gotNumDomainLabels, gotRecursive := daemon.queryLabels(test.name)
-		if !reflect.DeepEqual(gotLabels, test.wantLabels) {
-			t.Errorf("name: %q, got labels: %+#v, want: %+#v", test.name, gotLabels, test.wantLabels)
-		}
-		if gotDomainName != test.wantDomainName {
-			t.Errorf("name: %q, got number of domain labels: %v, want: %v", test.name, gotNumDomainLabels, test.wantNumDomainLabels)
-		}
-		if gotNumDomainLabels != test.wantNumDomainLabels {
-			t.Errorf("name: %q, got number of domain labels: %v, want: %v", test.name, gotNumDomainLabels, test.wantNumDomainLabels)
-		}
-		if gotRecursive != test.wantIsRecursive {
-			t.Errorf("name: %q, got recursive: %v, want: %v", test.name, gotRecursive, test.wantIsRecursive)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			gotLabels, gotDomainName, gotNumDomainLabels, gotRecursive := daemon.queryLabels(test.name)
+			if !reflect.DeepEqual(gotLabels, test.wantLabels) {
+				t.Errorf("name: %q, got labels: %+#v, want: %+#v", test.name, gotLabels, test.wantLabels)
+			}
+			if gotDomainName != test.wantDomainName {
+				t.Errorf("name: %q, got domain name %v, want: %v", test.name, gotDomainName, test.wantDomainName)
+			}
+			if gotNumDomainLabels != test.wantNumDomainLabels {
+				t.Errorf("name: %q, got number of domain labels: %v, want: %v", test.name, gotNumDomainLabels, test.wantNumDomainLabels)
+			}
+			if gotRecursive != test.wantIsRecursive {
+				t.Errorf("name: %q, got recursive: %v, want: %v", test.name, gotRecursive, test.wantIsRecursive)
+			}
+		})
 	}
 }
