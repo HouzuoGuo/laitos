@@ -35,7 +35,7 @@ func TestTCPServer(t *testing.T) {
 		ListenAddr:  "127.0.0.1",
 		ListenPort:  62172,
 		AppName:     "TestTCPServer",
-		App:         &TCPTestApp{stats: misc.NewStats()},
+		App:         &TCPTestApp{stats: misc.NewStats(misc.DefaultStatsDisplayFormat)},
 		LimitPerSec: 5,
 	}
 	srv.Initialise()

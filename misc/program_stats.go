@@ -7,32 +7,52 @@ import (
 )
 
 var (
-	AutoUnlockStats     = NewStats()
-	CommandStats        = NewStats()
-	DNSDStatsTCP        = NewStats()
-	DNSDStatsUDP        = NewStats()
-	HTTPDStats          = NewStats()
-	HTTPProxyStats      = NewStats()
-	TCPOverDNSStats     = NewStats()
-	PlainSocketStatsTCP = NewStats()
-	PlainSocketStatsUDP = NewStats()
-	SerialDevicesStats  = NewStats()
-	SimpleIPStatsTCP    = NewStats()
-	SimpleIPStatsUDP    = NewStats()
-	SMTPDStats          = NewStats()
-	SNMPStats           = NewStats()
-	SOCKDStatsTCP       = NewStats()
-	SOCKDStatsUDP       = NewStats()
-	TelegramBotStats    = NewStats()
+	daemonStatsDisplayFormat = StatsDisplayFormat{DivisionFactor: 1000000000, NumDecimals: 2}
+
+	AutoUnlockStats     = NewStats(daemonStatsDisplayFormat)
+	CommandStats        = NewStats(daemonStatsDisplayFormat)
+	DNSDStatsTCP        = NewStats(daemonStatsDisplayFormat)
+	DNSDStatsUDP        = NewStats(daemonStatsDisplayFormat)
+	HTTPDStats          = NewStats(daemonStatsDisplayFormat)
+	HTTPProxyStats      = NewStats(daemonStatsDisplayFormat)
+	TCPOverDNSStats     = NewStats(daemonStatsDisplayFormat)
+	PlainSocketStatsTCP = NewStats(daemonStatsDisplayFormat)
+	PlainSocketStatsUDP = NewStats(daemonStatsDisplayFormat)
+	SerialDevicesStats  = NewStats(daemonStatsDisplayFormat)
+	SimpleIPStatsTCP    = NewStats(daemonStatsDisplayFormat)
+	SimpleIPStatsUDP    = NewStats(daemonStatsDisplayFormat)
+	SMTPDStats          = NewStats(daemonStatsDisplayFormat)
+	SNMPStats           = NewStats(daemonStatsDisplayFormat)
+	SOCKDStatsTCP       = NewStats(daemonStatsDisplayFormat)
+	SOCKDStatsUDP       = NewStats(daemonStatsDisplayFormat)
+	TelegramBotStats    = NewStats(daemonStatsDisplayFormat)
 
 	// OutstandingMailBytes is the total size of all outstanding mails waiting to be delivered.
 	OutstandingMailBytes int64
 )
 
+// ProgramStats has the comprehensive collection of program-wide stats counters in a human-readable format.
+type ProgramStats struct {
+	AutoUnlock         StatsDisplayValue
+	DNSOverTCP         StatsDisplayValue
+	DNSOverUDP         StatsDisplayValue
+	HTTP               StatsDisplayValue
+	HTTPProxy          StatsDisplayValue
+	TCPOverDNS         StatsDisplayValue
+	PlainSocketTCP     StatsDisplayValue
+	PlainSocketUDP     StatsDisplayValue
+	SimpleIPServiceTCP StatsDisplayValue
+	SimpleIPServiceUDP StatsDisplayValue
+	SMTP               StatsDisplayValue
+	SockdTCP           StatsDisplayValue
+	SockdUDP           StatsDisplayValue
+	TelegramBot        StatsDisplayValue
+
+	OutgoingMailBytes int64
+}
+
 // GetLatestStats returns statistic information from all front-end daemons in a piece of multi-line, formatted text.
 func GetLatestStats() string {
-	numDecimals := 2
-	factor := 1000000000.0
 	return fmt.Sprintf(`Auto-unlock events        %s
 Commands processed        %s
 DNS server TCP|UDP        %s | %s
@@ -48,19 +68,40 @@ Telegram commands:        %s
 Mail to deliver:          %d KiloBytes
 Dropped log messages:     %d
 `,
-		AutoUnlockStats.Format(factor, numDecimals),
-		CommandStats.Format(factor, numDecimals),
-		DNSDStatsTCP.Format(factor, numDecimals), DNSDStatsUDP.Format(factor, numDecimals),
-		TCPOverDNSStats.Format(factor, numDecimals),
-		HTTPDStats.Format(factor, numDecimals),
-		PlainSocketStatsTCP.Format(factor, numDecimals), PlainSocketStatsUDP.Format(factor, numDecimals),
-		SerialDevicesStats.Format(factor, numDecimals),
-		SimpleIPStatsTCP.Format(factor, numDecimals), SimpleIPStatsUDP.Format(factor, numDecimals),
-		SMTPDStats.Format(factor, numDecimals),
-		SNMPStats.Format(factor, numDecimals),
-		SOCKDStatsTCP.Format(factor, numDecimals), SOCKDStatsUDP.Format(factor, numDecimals),
-		TelegramBotStats.Format(factor, numDecimals),
+		AutoUnlockStats.Format(),
+		CommandStats.Format(),
+		DNSDStatsTCP.Format(), DNSDStatsUDP.Format(),
+		TCPOverDNSStats.Format(),
+		HTTPDStats.Format(),
+		PlainSocketStatsTCP.Format(), PlainSocketStatsUDP.Format(),
+		SerialDevicesStats.Format(),
+		SimpleIPStatsTCP.Format(), SimpleIPStatsUDP.Format(),
+		SMTPDStats.Format(),
+		SNMPStats.Format(),
+		SOCKDStatsTCP.Format(), SOCKDStatsUDP.Format(),
+		TelegramBotStats.Format(),
 		OutstandingMailBytes/1024,
 		lalog.NumDropped.Load(),
 	)
+}
+
+// GetProgramStats returns the latest program-wide stats counters in a human-readable format.
+func GetLatestDisplayValues() ProgramStats {
+	return ProgramStats{
+		AutoUnlock:         AutoUnlockStats.DisplayValue(),
+		DNSOverTCP:         DNSDStatsTCP.DisplayValue(),
+		DNSOverUDP:         DNSDStatsUDP.DisplayValue(),
+		HTTP:               HTTPDStats.DisplayValue(),
+		HTTPProxy:          HTTPProxyStats.DisplayValue(),
+		TCPOverDNS:         TCPOverDNSStats.DisplayValue(),
+		PlainSocketTCP:     PlainSocketStatsTCP.DisplayValue(),
+		PlainSocketUDP:     PlainSocketStatsUDP.DisplayValue(),
+		SimpleIPServiceTCP: SimpleIPStatsTCP.DisplayValue(),
+		SimpleIPServiceUDP: SimpleIPStatsUDP.DisplayValue(),
+		SMTP:               SMTPDStats.DisplayValue(),
+		SockdTCP:           SOCKDStatsTCP.DisplayValue(),
+		SockdUDP:           SOCKDStatsUDP.DisplayValue(),
+		TelegramBot:        TelegramBotStats.DisplayValue(),
+		OutgoingMailBytes:  OutstandingMailBytes,
+	}
 }

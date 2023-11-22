@@ -37,7 +37,7 @@ func TestUDPServer(t *testing.T) {
 		ListenAddr:  "127.0.0.1",
 		ListenPort:  12382,
 		AppName:     "TestUDPServer",
-		App:         &UDPTestApp{stats: misc.NewStats()},
+		App:         &UDPTestApp{stats: misc.NewStats(misc.DefaultStatsDisplayFormat)},
 		LimitPerSec: 5,
 	}
 	srv.Initialise()

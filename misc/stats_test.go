@@ -1,11 +1,15 @@
 package misc
 
 import (
+	"reflect"
 	"testing"
 )
 
 func TestStats(t *testing.T) {
-	s := NewStats()
+	s := NewStats(StatsDisplayFormat{
+		DivisionFactor: 10,
+		NumDecimals:    2,
+	})
 	if s.lowest != 0 || s.highest != 0 || s.average != 0 || s.total != 0 || s.count != 0 {
 		t.Fatalf("%+v", s)
 	}
@@ -32,11 +36,26 @@ func TestStats(t *testing.T) {
 	if s.lowest != 1 || s.highest != 6 || s.average != 3 || s.total != 12 || s.count != 4 {
 		t.Fatalf("%+v", s)
 	}
-	// Format test
-	if str := s.Format(10, 2); str != "0.10/0.30/0.60,1.20(4)" {
-		t.Fatalf(str)
-	}
 	if s.Count() != 4 {
 		t.Fatal(s.Count())
 	}
+	t.Run("format to text", func(t *testing.T) {
+		if str := s.Format(); str != "0.10/0.30/0.60,1.20(4)" {
+			t.Fatalf(str)
+		}
+	})
+	t.Run("convert to display values", func(t *testing.T) {
+		want := StatsDisplayValue{
+			Lowest:  0.1,
+			Average: 0.3,
+			Highest: 0.3,
+			Total:   1.2,
+			Count:   4,
+			Summary: "0.10/0.30/0.60,1.20(4)",
+		}
+		got := s.DisplayValue()
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("got: %+v, want: %+v", got, want)
+		}
+	})
 }

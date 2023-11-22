@@ -2,7 +2,9 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/HouzuoGuo/laitos/daemon/smtpd/mailcmd"
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -10,6 +12,11 @@ import (
 	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
+
+type systemInfo struct {
+	Status platform.ProgramStatusSummary `json:"Status"`
+	Stats  misc.ProgramStats             `json:"Stats"`
+}
 
 // HandleSystemInfo inspects system and application environment and returns them in text report.
 type HandleSystemInfo struct {
@@ -23,7 +30,7 @@ func (info *HandleSystemInfo) Initialise(logger *lalog.Logger, _ *toolbox.Comman
 	return nil
 }
 
-func (info *HandleSystemInfo) Handle(w http.ResponseWriter, r *http.Request) {
+func (info *HandleSystemInfo) handlePlainText(w http.ResponseWriter, r *http.Request) {
 	// The routine is quite similar to maintenance daemon
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	NoCache(w)
@@ -42,6 +49,25 @@ func (info *HandleSystemInfo) Handle(w http.ResponseWriter, r *http.Request) {
 	result.WriteString("\nStack traces:\n")
 	result.WriteString(toolbox.GetGoroutineStacktraces())
 	_, _ = w.Write(result.Bytes())
+}
+
+func (info *HandleSystemInfo) handleJson(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	NoCache(w)
+	encoder := json.NewEncoder(w)
+	_ = encoder.Encode(systemInfo{
+		Status: platform.GetProgramStatusSummary(true),
+		Stats:  misc.GetLatestDisplayValues(),
+	})
+}
+
+func (info *HandleSystemInfo) Handle(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Accept")
+	if strings.Contains(contentType, "application/json") {
+		info.handleJson(w, r)
+	} else {
+		info.handlePlainText(w, r)
+	}
 }
 
 func (_ *HandleSystemInfo) GetRateLimitFactor() int {
