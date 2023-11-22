@@ -1,8 +1,8 @@
 {
-  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -gomaxprocs 16 -config sample-config.json.txt -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram",
+  "Comment": "This sample config file enables nearly all toolbox features and daemons of laitos. It is provided for testing use. To launch the program: sudo ./laitos -config sample-config.json.txt -daemons dnsd,httpd,insecurehttpd,maintenance,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram",
   "DNSDaemon": {
     "AllowQueryFromCidrs": [
-      "192."
+      "127.0.0.0/8"
     ]
   },
   "DNSFilters": {
@@ -97,23 +97,6 @@
     }
   },
   "HTTPHandlers": {
-    "BrowserPhantomJSEndpoint": "/browserp",
-    "BrowserPhantomJSEndpointConfig": {
-      "Browsers": {
-        "BasePortNumber": 14120,
-        "MaxInstances": 5,
-        "MaxLifetimeSec": 1800,
-        "PhantomJSExecPath": "./extra/linux/phantomjs-2.1.1-x86_64"
-      }
-    },
-    "BrowserSlimerJSEndpoint": "/browsers",
-    "BrowserSlimerJSEndpointConfig": {
-      "Browsers": {
-        "BasePortNumber": 48887,
-        "MaxInstances": 5,
-        "MaxLifetimeSec": 1800
-      }
-    },
     "CommandFormEndpoint": "/cmd",
     "FileUploadEndpoint": "/upload",
     "GitlabBrowserEndpoint": "/gitlab",
