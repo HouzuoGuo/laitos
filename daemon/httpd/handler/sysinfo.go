@@ -31,9 +31,9 @@ func (info *HandleSystemInfo) Initialise(logger *lalog.Logger, _ *toolbox.Comman
 }
 
 func (info *HandleSystemInfo) handlePlainText(w http.ResponseWriter, r *http.Request) {
-	// The routine is quite similar to maintenance daemon
-	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	NoCache(w)
+	AllowAllOrigins(w)
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	var result bytes.Buffer
 	// Latest runtime info
 	summary := platform.GetProgramStatusSummary(true)
@@ -52,8 +52,9 @@ func (info *HandleSystemInfo) handlePlainText(w http.ResponseWriter, r *http.Req
 }
 
 func (info *HandleSystemInfo) handleJson(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	NoCache(w)
+	AllowAllOrigins(w)
+	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	_ = encoder.Encode(systemInfo{
 		Status: platform.GetProgramStatusSummary(true),

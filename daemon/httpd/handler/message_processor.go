@@ -33,6 +33,7 @@ func (hand *HandleReportsRetrieval) Initialise(_ *lalog.Logger, cmdProc *toolbox
 
 func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
+	AllowAllOrigins(w)
 
 	host := r.FormValue("host")
 	outgoingAppCmd := r.FormValue("cmd")
@@ -114,8 +115,9 @@ func (hand *HandleAppCommand) Initialise(_ *lalog.Logger, cmdProc *toolbox.Comma
 }
 
 func (hand *HandleAppCommand) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	NoCache(w)
+	AllowAllOrigins(w)
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	cmd := r.FormValue("cmd")
 	if cmd == "" {
 		// Ignore request that does not carry an app command

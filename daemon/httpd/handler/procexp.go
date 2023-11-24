@@ -34,6 +34,7 @@ func (explorer *HandleProcessExplorer) SelfTest() error {
 
 func (explorer *HandleProcessExplorer) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
+	AllowAllOrigins(w)
 	pidStr := r.FormValue("pid")
 	respEncoder := json.NewEncoder(w)
 	respEncoder.SetIndent("", "  ")

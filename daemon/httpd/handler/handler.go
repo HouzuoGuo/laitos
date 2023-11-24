@@ -38,3 +38,8 @@ func XMLEscape(in string) string {
 func NoCache(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 }
+
+// AllowAllOrigins sets CORS response headers to allow all origins.
+func AllowAllOrigins(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+}

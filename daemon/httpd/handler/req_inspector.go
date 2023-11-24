@@ -32,6 +32,7 @@ func (_ *HandleRequestInspector) SelfTest() error {
 // Handle shows various parameters about the request (e.g. headers, body, etc) in a plain text response.
 func (_ *HandleRequestInspector) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
+	AllowAllOrigins(w)
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	dump, err := httputil.DumpRequest(r, true)
 	if err != nil {
