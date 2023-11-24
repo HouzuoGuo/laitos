@@ -1,0 +1,22 @@
+<h1>Set up laitos control panel</h1>
+
+<form [formGroup]="configForm" (ngSubmit)="submit()">
+    <p>
+        <mat-form-field>
+            <mat-label>HTTP(S) server address</mat-label>
+            <input matInput placeholder="" formControlName="serverAddr" required />
+            <mat-hint>e.g. http://laitos.example.com</mat-hint>
+        </mat-form-field>
+    </p>
+    <p>
+        <mat-form-field>
+            <mat-label>Endpoint name of the information API</mat-label>
+            <input matInput placeholder="" formControlName="infoEndpoint" required />
+            <mat-hint>e.g. /laitos-info-handler</mat-hint>
+        </mat-form-field>
+    <p>
+    <p>
+        <button mat-raised-button type="submit" color="primary" [disabled]="!configForm.valid">Validate &amp;
+            Apply</button>
+    </p>
+</form>

@@ -1,14 +1,21 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { ConfigService } from './config.service';
 
 @Component({
   selector: 'app-root',
-  standalone: true,
-  imports: [CommonModule, RouterOutlet],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  styleUrl: './app.component.css',
 })
-export class AppComponent {
-  title = 'controlpanel';
+export class AppComponent implements OnInit {
+  constructor(
+    readonly configService: ConfigService,
+    readonly router: Router,
+  ) {}
+
+  ngOnInit() {
+    if (!this.configService.read().isPresent()) {
+      this.router.navigate(['/setup']);
+    }
+  }
 }
