@@ -1,0 +1,10 @@
+.overview-card {
+  margin: 1em;
+  width: 30em;
+}
+
+.card-collection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
