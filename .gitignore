@@ -1,6 +1,9 @@
 *.conf
 *.crt
 *.json
+!angular*.json
+!package*.json
+!tsconfig*.json
 *.key
 *.swp
 *.zip
