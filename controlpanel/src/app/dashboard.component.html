@@ -1,12 +1,12 @@
 <h1>Dashboard</h1>
 
 <div class="card-collection">
-    <mat-card class="overview-card">
+    <mat-card class="overview-card" *ngFor="let item of systemInfo | keyvalue">
         <mat-card-header>
-            <mat-card-title>System Resources</mat-card-title>
+            <mat-card-title>{{ item.key }}</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-            <div *ngIf="systemInfo | async as info; else loading">
+            <div *ngIf="item.value | async as info; else loading">
                 <div *ngIf="info.Status as status">
                     <p>Memory used: {{ status.SysUsedMemMB }} MB / {{ status.SysTotalMemMB }} MB</p>
                     <mat-progress-bar

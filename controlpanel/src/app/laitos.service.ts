@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ConfigService } from './config.service';
+import { ConfigService, Server } from './config.service';
 
 export interface ProgramStatusSummary {
   PublicIP?: string;
@@ -66,10 +66,10 @@ export interface SystemInfo {
 
 @Injectable({ providedIn: 'root' })
 export class LaitosClientService {
-  constructor(readonly httpClient: HttpClient, readonly configService: ConfigService) {
+  constructor(readonly httpClient: HttpClient) {
   }
 
-  getSystemInfo(): Observable<SystemInfo> {
-    return this.httpClient.get<SystemInfo>(this.configService.read().getInfoAddr(), { headers: { 'Accept': 'application/json' } });
+  getSystemInfo(server: Server): Observable<SystemInfo> {
+    return this.httpClient.get<SystemInfo>(server.getInfoAddr(), { headers: { 'Accept': 'application/json' } });
   }
 }

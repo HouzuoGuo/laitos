@@ -1,3 +1,20 @@
 mat-form-field {
   min-width: 350px;
 }
+
+.server-collection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.server-config {
+  margin: 1em;
+  width: 30em;
+}
+
+.button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+}
