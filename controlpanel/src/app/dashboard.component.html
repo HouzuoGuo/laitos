@@ -6,20 +6,67 @@
             <mat-card-title>{{ item.key }}</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-            <div *ngIf="item.value | async as info; else loading">
-                <div *ngIf="info.Status as status">
-                    <p>Memory used: {{ status.SysUsedMemMB }} MB / {{ status.SysTotalMemMB }} MB</p>
+            <mat-tab-group *ngIf="item.value | async as sys; else loading">
+                <mat-tab *ngIf="sys.Status as status" label="Overview">
+                    <p>Memory usage: {{ status.SysUsedMemMB }} MB / {{ status.SysTotalMemMB }} MB</p>
                     <mat-progress-bar
-                        value="{{(status.SysUsedMemMB ?? 0) / (status.SysTotalMemMB ?? 1) * 100 }}"></mat-progress-bar>
-                    <p>Root disk used: {{ status.DiskUsedMB }} MB / {{ status.DiskCapMB }} MB</p>
+                        value="{{ (status.SysUsedMemMB ?? 0) / (status.SysTotalMemMB ?? 1) * 100 }}"></mat-progress-bar>
+                    <p>Root disk usage: {{ status.DiskUsedMB }} MB / {{ status.DiskCapMB }} MB</p>
                     <mat-progress-bar
-                        value="{{(status.DiskUsedMB ?? 0) / (status.DiskCapMB ?? 1) * 100 }}"></mat-progress-bar>
-                </div>
-            </div>
+                        value="{{ (status.DiskUsedMB ?? 0) / (status.DiskCapMB ?? 1) * 100 }}"></mat-progress-bar>
+                </mat-tab>
+                <mat-tab label="Process Info">
+                    <table mat-table [dataSource]="infoTableDataSource(sys)">
+                        <ng-container matColumnDef="key">
+                            <td mat-cell *matCellDef="let elem">{{ elem.key }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="value">
+                            <td mat-cell *matCellDef="let elem">{{ elem.value }}</td>
+                        </ng-container>
+                        <tr mat-row *matRowDef="let row; columns: infoTableColumns;"></tr>
+                    </table>
+                    <mat-divider></mat-divider>
+                    <mat-accordion>
+                        <mat-expansion-panel *ngIf="sys?.Status?.WorkingDirContent as dirContent">
+                            <mat-expansion-panel-header>
+                                <mat-panel-title>Directory content</mat-panel-title>
+                                <mat-panel-description *ngIf="dirContent && dirContent.length > 0">
+                                    {{ dirContent[0] }} ...
+                                </mat-panel-description>
+                            </mat-expansion-panel-header>
+                            <ul>
+                                <li *ngFor="let entry of dirContent">{{ entry }}</li>
+                            </ul>
+                        </mat-expansion-panel>
+                        <mat-expansion-panel *ngIf="sys?.Status?.CLIFlags as flags">
+                            <mat-expansion-panel-header>
+                                <mat-panel-title>Argv flags</mat-panel-title>
+                                <mat-panel-description *ngIf="flags && flags.length > 0">
+                                    {{ flags[0] }} ...
+                                </mat-panel-description>
+                            </mat-expansion-panel-header>
+                            <ul>
+                                <li *ngFor="let entry of flags">{{ entry }}</li>
+                            </ul>
+                        </mat-expansion-panel>
+                        <mat-expansion-panel *ngIf="sys?.Status?.EnvironmentVars as vars">
+                            <mat-expansion-panel-header>
+                                <mat-panel-title>Environment</mat-panel-title>
+                                <mat-panel-description *ngIf="vars && vars.length > 0">
+                                    {{ vars[0] }} ...
+                                </mat-panel-description>
+                            </mat-expansion-panel-header>
+                            <ul>
+                                <li *ngFor="let entry of vars">{{ entry }}</li>
+                            </ul>
+                        </mat-expansion-panel>
+                    </mat-accordion>
+                </mat-tab>
+            </mat-tab-group>
             <ng-template #loading>
                 <mat-spinner></mat-spinner>
             </ng-template>
         </mat-card-content>
     </mat-card>
 </div>
-<button mat-raised-button color="primary" (click)="navSettings()">Settings</button>
+<button mat-raised-button color="primary" (click)="navSetup()">Setup</button>

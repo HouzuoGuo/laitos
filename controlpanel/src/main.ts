@@ -3,12 +3,16 @@ import { NgModule } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTableModule } from '@angular/material/table';
+import { MatTabsModule } from '@angular/material/tabs';
 import { BrowserModule } from '@angular/platform-browser';
 import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
 import { BrowserAnimationsModule, provideAnimations } from '@angular/platform-browser/animations';
@@ -36,9 +40,13 @@ const appRoutes: Routes = [
     MatCardModule,
     MatFormFieldModule,
     MatProgressBarModule,
+    MatDividerModule,
     MatIconModule,
+    MatTabsModule,
     MatInputModule,
+    MatExpansionModule,
     MatSlideToggleModule,
+    MatTableModule,
     ReactiveFormsModule,
     RouterModule,
   ],
