@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ConfigService, Server } from './config.service';
+import { Server } from './config.service';
 
 export interface ProgramStatusSummary {
   PublicIP?: string;
@@ -39,6 +39,10 @@ export interface StatsDisplayValue {
   Total?: number;
   Count?: number;
   Summary?: string;
+}
+
+export interface DaemonStatsDisplay extends StatsDisplayValue {
+  Name?: string;
 }
 
 export interface ProgramStats {

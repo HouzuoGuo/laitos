@@ -1,7 +1,15 @@
 <h1>Dashboard</h1>
 
+<span>Daemon stats display: </span>
+<mat-chip-listbox [multiple]="'true'">
+    <mat-chip-option (selectionChange)="daemonStatsColumnChanged('lowest', $event)">Fastest ms</mat-chip-option>
+    <mat-chip-option (selectionChange)="daemonStatsColumnChanged('average', $event)">Average ms</mat-chip-option>
+    <mat-chip-option (selectionChange)="daemonStatsColumnChanged('highest', $event)">Slowest ms</mat-chip-option>
+    <mat-chip-option (selectionChange)="daemonStatsColumnChanged('total', $event)">Total sec</mat-chip-option>
+</mat-chip-listbox>
+
 <div class="card-collection">
-    <mat-card class="overview-card" *ngFor="let item of systemInfo | keyvalue">
+    <mat-card *ngFor="let item of systemInfo | keyvalue" class="overview-card">
         <mat-card-header>
             <mat-card-title>{{ item.key }}</mat-card-title>
         </mat-card-header>
@@ -14,52 +22,49 @@
                     <p>Root disk usage: {{ status.DiskUsedMB }} MB / {{ status.DiskCapMB }} MB</p>
                     <mat-progress-bar
                         value="{{ (status.DiskUsedMB ?? 0) / (status.DiskCapMB ?? 1) * 100 }}"></mat-progress-bar>
+                    <table matSort *ngIf="statsTableDataSource(sys) as stats" class="daemon-stats-table"
+                        (matSortChange)="statsTableSortChanged($event)">
+                        <tr>
+                            <th *ngFor="let col of daemonStatsTableColumns" [mat-sort-header]="col">
+                                {{COLUMN_CAPTION.get(col) }}
+                            </th>
+                        </tr>
+                        <tr *ngFor="let daemon of stats">
+                            <td>{{ daemon.Name }}</td>
+                            <td>{{ daemon.Count }}</td>
+                            <td *ngIf="daemonStatsTableColumns.includes('lowest')">
+                                {{ daemon.Lowest ?? 0 * 1000 | number: '1.0-4' }}
+                            </td>
+                            <td *ngIf="daemonStatsTableColumns.includes('average')">
+                                {{ daemon.Average ?? 0 * 1000 | number: '1.0-4' }}
+                            </td>
+                            <td *ngIf="daemonStatsTableColumns.includes('highest')">
+                                {{ daemon.Highest ?? 0 * 1000 | number: '1.0-4'}}
+                            </td>
+                            <td *ngIf="daemonStatsTableColumns.includes('total')">
+                                {{ daemon.Total ?? 0 | number: '1.0-1'}}
+                            </td>
+                        </tr>
+                    </table>
                 </mat-tab>
                 <mat-tab label="Process Info">
-                    <table mat-table [dataSource]="infoTableDataSource(sys)">
+                    <table mat-table [dataSource]="procInfoTableDataSource(sys)">
                         <ng-container matColumnDef="key">
                             <td mat-cell *matCellDef="let elem">{{ elem.key }}</td>
                         </ng-container>
                         <ng-container matColumnDef="value">
                             <td mat-cell *matCellDef="let elem">{{ elem.value }}</td>
                         </ng-container>
-                        <tr mat-row *matRowDef="let row; columns: infoTableColumns;"></tr>
+                        <tr mat-row *matRowDef="let row; columns: procInfoTableColumns;"></tr>
                     </table>
                     <mat-divider></mat-divider>
                     <mat-accordion>
-                        <mat-expansion-panel *ngIf="sys?.Status?.WorkingDirContent as dirContent">
-                            <mat-expansion-panel-header>
-                                <mat-panel-title>Directory content</mat-panel-title>
-                                <mat-panel-description *ngIf="dirContent && dirContent.length > 0">
-                                    {{ dirContent[0] }} ...
-                                </mat-panel-description>
-                            </mat-expansion-panel-header>
-                            <ul>
-                                <li *ngFor="let entry of dirContent">{{ entry }}</li>
-                            </ul>
-                        </mat-expansion-panel>
-                        <mat-expansion-panel *ngIf="sys?.Status?.CLIFlags as flags">
-                            <mat-expansion-panel-header>
-                                <mat-panel-title>Argv flags</mat-panel-title>
-                                <mat-panel-description *ngIf="flags && flags.length > 0">
-                                    {{ flags[0] }} ...
-                                </mat-panel-description>
-                            </mat-expansion-panel-header>
-                            <ul>
-                                <li *ngFor="let entry of flags">{{ entry }}</li>
-                            </ul>
-                        </mat-expansion-panel>
-                        <mat-expansion-panel *ngIf="sys?.Status?.EnvironmentVars as vars">
-                            <mat-expansion-panel-header>
-                                <mat-panel-title>Environment</mat-panel-title>
-                                <mat-panel-description *ngIf="vars && vars.length > 0">
-                                    {{ vars[0] }} ...
-                                </mat-panel-description>
-                            </mat-expansion-panel-header>
-                            <ul>
-                                <li *ngFor="let entry of vars">{{ entry }}</li>
-                            </ul>
-                        </mat-expansion-panel>
+                        <procinfo [title]="'Directory content'" [entries]="sys?.Status?.WorkingDirContent"
+                            [sorted]="true"></procinfo>
+                        <procinfo [title]="'Argv flags'" [entries]="sys?.Status?.CLIFlags" [sorted]="false">
+                        </procinfo>
+                        <procinfo [title]="'Environment'" [entries]="sys?.Status?.EnvironmentVars" [sorted]="true">
+                        </procinfo>
                     </mat-accordion>
                 </mat-tab>
             </mat-tab-group>

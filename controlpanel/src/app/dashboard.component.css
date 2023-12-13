@@ -1,6 +1,6 @@
 .overview-card {
   margin: 1em;
-  width: 32em;
+  width: 35em;
 }
 
 .card-collection {
@@ -9,7 +9,6 @@
   align-items: flex-start;
 }
 
-li,
 td {
   overflow-wrap: break-word;
   word-break: break-all;

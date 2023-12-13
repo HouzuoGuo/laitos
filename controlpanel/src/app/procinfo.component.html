@@ -1,0 +1,9 @@
+<mat-expansion-panel *ngIf="entries">
+    <mat-expansion-panel-header>
+        <mat-panel-title>{{ title }}</mat-panel-title>
+        <mat-panel-description>{{ displayDescription() }}</mat-panel-description>
+    </mat-expansion-panel-header>
+    <ul>
+        <li *ngFor="let entry of displayEntries()">{{ entry }}</li>
+    </ul>
+</mat-expansion-panel>
