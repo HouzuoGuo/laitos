@@ -25,7 +25,7 @@ computer boots up. Create a service file `/etc/systemd/system/laitos.service` an
     [Unit]
     Description=laitos - personal Internet infrastructure
     After=network.target
-    
+
     [Service]
     ExecStart=/root/laitos/laitos -disableconflicts -gomaxprocs 8 -config config.json -daemons autounlock,dnsd,httpd,httpproxy,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram
     User=root
@@ -34,7 +34,7 @@ computer boots up. Create a service file `/etc/systemd/system/laitos.service` an
     PrivateTmp=true
     RestartSec=3600
     Restart=always
-    
+
     [Install]
     WantedBy=multi-user.target
 
@@ -98,7 +98,7 @@ Finally, create an AWS API Gateway (serverless web middleware) to expose laitos 
 3. Create an API resource "/", matching any method, in Integration Request choose "Lambda function" and enable
    "Use Lambda proxy integration", select your laitos lambda function. Leave other request and response options at default.
 4. Create an API resource "/{proxy+}", matching any method, configure Integration Request in the same way.
-5. Navigate to API Settings, find "Binary Media Types" and enter "*/*" without quotes as the binary media type.
+5. Navigate to API Settings, find "Binary Media Types" and enter `*/*` as the binary media type.
 6. Deploy the API to a Stage.
 7. Navigate to stage's URL in web browser, it should greet with your laitos web server home page.
 
@@ -109,6 +109,7 @@ API gateway and Lambda log streams, they may give a clue.
 
 AWS offers a Platform-as-a-Service product "ElasticBeanstalk" that automatically manages EC2 instances for you.
 Here are some tips for using laitos on ElasticBeanstalk:
+
 - For a personal web server, it is sufficient to use "Single Instance" as environment type. Load balancer incurs
   additional cost and it is often not necessary for a personal web server.
 - ElasticBeanstalk always expects their application to serve a web server on port 5000, otherwise it will consider
@@ -151,6 +152,7 @@ Here are some tips for using laitos on ElasticBeanstalk:
 ## Integrate with AWS Kinesis Firehose, S3, SQS, and SNS
 
 Beyond using AWS as the computing foundation for running laitos server, it may also integrate with the following AWS products:
+
 - When a program component emits a warning log message, send the message to SQS (simple queue service).
 - Upon receiving a [phone home telemetry](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-phone-home-telemetry-handler) report,
   send the report to Kinesis Firehose.
@@ -167,9 +169,9 @@ to tweak the laitos configuration, program environment and launch command in the
   laitos program assumes that the SQS queue, Kinesis Firehose stream, SNS topic, and S3 bucket are located in the same region.
 - Add CLI parameter `-awsinteg` to the command line. The parameter acts as a master switch to turn on/off all AWS integration features.
 - Supply AWS access key in one of the several ways:
-  * Via Lambda execution role, ECS task role, or EC2 instance role (also called "instance profile").
-  * Via environment variables `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and the optional `AWS_SESSION_TOKEN`.
-  * Via environment variable `AWS_PROFILE` and the credentials file from user's home directory.
+  - Via Lambda execution role, ECS task role, or EC2 instance role (also called "instance profile").
+  - Via environment variables `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and the optional `AWS_SESSION_TOKEN`.
+  - Via environment variable `AWS_PROFILE` and the credentials file from user's home directory.
 - Tweak the laitos program configuration file to mention the ID or names of the invovled AWS resources.
 
 For example, if the command line for launching laitos was:
@@ -223,7 +225,7 @@ in the clone. Place the following files into the sub-directory:
 - `appeng-environment.yaml` - A YAML file of program environment variables,
   for example: `env_variables:\n LAITOS_INDEX_PAGE: "{...}"`
 - `config.json` - A JSON file for the laitos program configuration.
-  * Alternatively, write the program configuration JSON into the environment
+  - Alternatively, write the program configuration JSON into the environment
     variable `LAITOS_CONFIG` in `appeng-environment.yaml`.
 - Other program data files, such as HTML pages, CSS files, and images for the
   home page.
@@ -232,7 +234,7 @@ Return to the repository and edit `app.yaml` as needed - the default scaling
 settings limit the number of serving instances to one to stay within the free
 tier.
 
-When ready, run`gcloud app deploy` to deploy the App Engine app.
+When ready, run `gcloud app deploy` to deploy the App Engine app.
 
 ### Example GCP data files
 
@@ -251,3 +253,14 @@ it will run laitos smoothly.
 laitos has been successfully deployed on all major public cloud vendors (AWS,
 Azure, Alibaba Cloud, Google Cloud, and Oracle Cloud), as well as generic XEN
 and KVM virtual machines, OpenStack instances, Kubernetes, and more.
+
+## High request per second and logging
+
+All logging sources (such as server daemons) log the details of every incoming
+request. However, when process a large quantity of requests, the affected
+logging sources will automatically discard some messages to reduce output to a
+hard-coded threshold.
+
+The mechanism is especially useful when running laitos in a container, as most
+container daemons (e.g. k8s) buffer container output on disk, which may not be
+able to keep up with the logging throughput.

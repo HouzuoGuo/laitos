@@ -7,7 +7,7 @@ System maintenance tasks comprise:
 
 (For laitos program itself)
 
-- Validate configuration (such as API credentials for Twitter) used by apps and HTTP handlers.
+- Built-in self-test: validate app, daemon, and HTTP handler configuration (e.g. API keys).
 - Collect latest daemon stats summary and collect latest log entries.
 - Install common system administration and maintenance software using system package manager.
 
@@ -36,7 +36,7 @@ laitos works with the following system package managers for installing and updat
 - `apt-get` (Debian, Ubuntu, etc).
 - `yum` and `dnf` (Amazon Linux, CentOS, RedHat, Fedora, etc)
 - `zypper` (openSUSE, SLES, SLED, etc)
-- `chocolatey` (Windows server & desktop)
+- `winget.exe` (Windows server & desktop)
 
 ## Configuration
 
@@ -162,6 +162,7 @@ laitos works with the following system package managers for installing and updat
 2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).
 
 Here is an example configuration that keeps system up-to-date, while also checking whether mail(25), DNS(53), and HTTP(80, 443) daemons are online:
+
 <pre>
 {
     ...
@@ -203,7 +204,7 @@ report can be found at:
   (`/tmp/laitos-latest-maintenance-report.txt` for Linux and
   `%USERPROFILE%/AppData/Local/Temp/laitos-latest-maintenance-report.txt` for
   Windows).
-  * Old report files are always overwritten.
+  - Old report files are always overwritten.
 - An Email addressed to the recipients defined in configuration (if present).
 - An plain text file object stored in S3 bucket defined in the configuration (if
   present).
@@ -218,9 +219,9 @@ General:
 - The maintenance routine always uses the system package manager to keep all
   installed software up-to-date, and in addition, it always installs the
   following software that altogether use about 300MB of disk space:
-    * QEMU and KVM virtualisation software.
-    * Clock synchronisation tools.
-    * Other system administration and diagnosis tools.
+  - QEMU and KVM virtualisation software.
+  - Clock synchronisation tools.
+  - Other system administration and diagnosis tools.
 
 About configuration options:
 
@@ -232,5 +233,5 @@ About configuration options:
 - On Linux, use `SetTimeZone` to set system global time zone (via changing `/etc/localtime` link). List of all available names can
   be found under directory `/usr/share/zoneinfo`.
 - On Linux, use `BlockPortsExcept` to block unnecessary incoming TCP/UDP network traffic. Localhost and ICMP are not restricted.
-  * Remember to specify port 22 (SSH) in the exception list if you are administrating Linux server remotely.
-  * Use `ThrottleIncomingPackets` to restrict maximum number of incoming TCP connections and UDP packets per remote IP.
+  - Remember to specify port 22 (SSH) in the exception list if you are administrating Linux server remotely.
+  - Use `ThrottleIncomingPackets` to restrict maximum number of incoming TCP connections and UDP packets per remote IP.

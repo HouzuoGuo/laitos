@@ -3,26 +3,25 @@
 The mail server forwards incoming mails as-is to your personal mail address(es). The server does not by itself store
 any mail. For communication secrecy, the server supports StartTLS operation and identifies itself with a TLS certificate.
 
-To reduce spam, the sender IPs are passed through these widely-used DNS-based blocklists:
+To reduce spam, the mail server filters sending IPs through these popular
+pre-defined DNS-based blocklists:
 
 - "b.barracudacentral.org",
-- "bl.mailspike.net",
 - "cbl.abuseat.org",
 - "dnsbl-1.uceprotect.net",
 - "dnsbl-2.uceprotect.net",
 - "dnsbl-3.uceprotect.net",
-- "dnsbl.kempt.net",
-- "dnsbl.sorbs.net",
-- "dnsbl.zapbl.net",
-- "ix.dnsbl.manitu.net",
-- "noptr.spamrats.com",
-- "psbl.surriel.com",
-- "spam.dnsbl.anonmails.de",
 - "spam.dnsbl.sorbs.net",
-- "spam.spamrats.com",
+- "ix.dnsbl.manitu.net",
 - "truncate.gbudb.net",
 - "zen.spamhaus.org",
+- "noptr.spamrats.com",
+- "spam.spamrats.com",
+- "spam.dnsbl.anonmails.de",
+- "psbl.surriel.com",
 - "z.mailspike.net",
+- "bl.mailspike.net",
+- "dnsbl.kempt.net",
 
 Blocked mails will show up in program log instead of being forwarded to your personal mail address(es).
 

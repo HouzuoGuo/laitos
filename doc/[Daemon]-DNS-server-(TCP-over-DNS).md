@@ -190,7 +190,7 @@ Start the web proxy by launching the laitos executable with these CLI flags:
 </tr>
 <tr>
     <td>-proxyenabletxt</td>
-    <td>boolean</td>
+    <td>true/false</td>
     <td>Use TXT queries as data carrier for higher throughput.</td>
     <td>False (use CNAME queries as carrier)</td>
 </tr>

@@ -11,12 +11,12 @@ whenever and wherever! laitos inter-operates with
 [satellite terminals](https://github.com/HouzuoGuo/laitos/wiki/Tips-for-using-apps-over-satellite),
 to give you access to Internet features such as:
 
--   Browse news, weather, and Twitter.
--   Keep in touch via Email, telephone call, and SMS.
--   Remotely control computers in your laitos fleet.
--   ... more apps to explore!
+- Browse news and check out the weather.
+- Keep in touch via Email, telephone call, and SMS.
+- Remotely control computers in your laitos fleet.
+- ... more apps to explore!
 
-And when the going gets though, laitos tunnels [TCP traffic over DNS](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(TCP-over-DNS))
+And when the going gets though, laitos tunnels [TCP traffic over DNS](<https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(TCP-over-DNS)>)
 for you to get around local network restrictions.
 
 Check out the [comprehensive component list](https://github.com/HouzuoGuo/laitos/wiki/Component-list)
@@ -24,13 +24,13 @@ to explore all of the features!
 
 ## Highlights
 
--   **Efficient** - it runs on an economy server with as little as 128MB system
-    memory.
--   **Portable** - it runs on X86, ARM, and all flavours of Linux and Windows.
--   **Independent** - built-in self-healing and automatic maintenance for
-    unmatched reliability.
--   **Hyped by Buzzwords** - certified to run in
-    container/Kubernetes/PaaS/IaaS/FaaS/\*aaS.
+- **Efficient** - it runs on an economy server with as little as 128MB system
+  memory.
+- **Portable** - it runs on X86, ARM, and all flavours of Linux and Windows.
+- **Independent** - built-in self-healing and automatic maintenance for
+  unmatched reliability.
+- **Hyped by Buzzwords** - certified to run in
+  container/Kubernetes/PaaS/IaaS/FaaS/\*aaS.
 
 ## Get Started
 
@@ -56,7 +56,7 @@ This is not an officially supported Google product.
 Copyright (C) 2016-February 2021 Houzuo (Howard) Guo <guohouzuo@gmail.com>. All
 rights reserved.
 
-Copyright (C) 2021, 2022, 2023 Google Inc. and contributors. All rights reserved.
+Copyright (C) 2021, 2022, 2023, 2024 Google Inc. and contributors. All rights reserved.
 
 This program is free software subject to the terms of Mozilla Public License, v.
 2.0. You may find the license text in

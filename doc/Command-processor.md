@@ -1,7 +1,9 @@
 # Command processor
 
 ## Introduction
+
 The following daemon components are capable of executing app commands:
+
 - [DNS server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server)
 - [Mail server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-mail-server)
 - [Telnet server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-telnet-server)
@@ -14,6 +16,7 @@ The following daemon components are capable of executing app commands:
 - Web service [The Things Network LORA tracker integration](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-the-things-network-LORA-tracker-integration)
 
 During app command invocation, the following actions take place:
+
 1. The user enters a command, for example, by using the "invoke app command" web service form, or by sending an app command
    in an Email addressed to laitos mail server. (e.g. `mypass .e info`)
 2. laitos validates the password from the input command to match configuration from `PINAndShortcuts`, or if the input is a
@@ -28,10 +31,12 @@ During app command invocation, the following actions take place:
 8. In background, laitos sends notification Emails with the app command and text response to a list of optional recipients.
 
 ## Configuration
+
 Construct the following objects under JSON key (e.g. `HTTPFilters`, `MailFilters`) named by individual daemon - you may
 find them in daemon's usage manual.
 
 Mandatory `PINAndShortcuts` - define access password and shortcut command entries:
+
 <table>
 <tr>
     <th>Property</th>
@@ -56,6 +61,7 @@ Mandatory `PINAndShortcuts` - define access password and shortcut command entrie
 </table>
 
 Optional `TranslateSequences` - translate sequence of command characters to a different sequence:
+
 <table>
 <tr>
     <th>Property</th>
@@ -70,6 +76,7 @@ Optional `TranslateSequences` - translate sequence of command characters to a di
 </table>
 
 Mandatory `LintText` - compact and clean up command output text:
+
 <table>
 <tr>
     <th>Property</th>
@@ -116,6 +123,7 @@ Mandatory `LintText` - compact and clean up command output text:
 </table>
 
 Optional `NotifyViaEmail` - send notification Email for the command input and result:
+
 <table>
 <tr>
     <th>Property</th>
@@ -135,9 +143,8 @@ to construct configuration for sending Email responses.
 In order to protect encryption secret, the notification Email will hide the input command for laitos 2FA code generator app and
 AES-encrypted text search app, though the result (2FA codes and encrypted text search result) will still appear in the Email mesage.
 
-
-
 ## Configuration example
+
 Here is an example configuration for [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server),
 used by both [app command invocation form](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-invoke-app-command)
 and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook):
@@ -177,6 +184,7 @@ and [Twilio telephone/SMS hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-
 </pre>
 
 In the example:
+
 - For SMS, `LintText` compacts result and limits length to 160 characters.
 - `PINAndShortcuts` defines two passwords, both of which will authorise app commands to execute; it also defines three shortcuts - each
   translates into a command without having to enter the password.
@@ -184,11 +192,13 @@ In the example:
   via combo `#/` instead.
 
 ## Usage
+
 App command looks like:
 
     Password .app_identifier parameter1 parameter2 parameter3 ...
 
 Where:
+
 - `Password` is one of the passwords from the `Passwords` array of valid password strings.
 - `.app_identifier` is a short text string that identifies the app to invoke. Pay attention to the mandatory leading `.` dot.
 - Parameters are passed as-is to the specified app as its input.
@@ -206,10 +216,10 @@ Here are the comprehensive list of `.app_identifier` identifiers:
 - `.p` - [Call friends and send texts](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-make-calls-and-send-SMS)
 - `.r` - [RSS reader](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-RSS-reader)
 - `.s` - [Run system commands](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-run-system-commands)
-- `.t` - [Read and post tweets](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-Twitter)
 - `.w` - [WolframAlpha](https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-WolframAlpha)
 
 ### Use one-time-password in place of password
+
 If you become concerned of eavesdroppers that might maliciously intercept the password, consider using one-time-password in place of
 password in an app command input, this technique can be used with any of the passwords defined in `PINAndShortcuts` follow these steps:
 
@@ -226,13 +236,16 @@ recover your password from the OTPs.
 
 Enforced by laitos server, a combination of two OTPs may only be used with one app command until the OTPs expire, for example, if that
 OTP 1 is `123123` and OTP 2 is `789789`:
+
 - User may repeatedly execute app command `123123789789 .s echo hello` arbitrary number of times via any daemon.
 - User may not execute command `123123789789 .s echo hello` and then `123123789789 .s echo hi`, the first command will succeed but laitos
   will refuse to execute the second "echo hi" command by saying "the TOTP has already been used with a different command".
 
 ### Override output length and timeout restriction
+
 By default, daemons that are capable of receiving app commands, executing them, and respond with execution result will impose several
 restrictions on:
+
 - Maximum length of the app command input.
 - Maximum length of the app command execution result (output).
 - Maximum duration (in seconds) that the app command execution may take.
@@ -247,6 +260,7 @@ An app command that uses `.plt` string looks like:
     PasswordPIN .plt SKIP MaxLength TimeoutSeconds .app_identifier parameter1 parameter 2 parameter 3 ...
 
 Where:
+
 - `PasswordPIN` is the password PIN to authorise app command execution.
 - `SKIP` is the number of characters to discard from beginning of the result output.
 - `MaxLength` is the maximum number of characters to collect from command response. It overrides `MaxLength` of `LintText`, or the default
@@ -278,7 +292,9 @@ And we will get the desirable result:
     10 me@example.com Test subject 10
 
 ## Tips
+
 Regarding password:
+
 - It must be at least 7 characters long. Use a strong password that is hard to guess.
 - Feel free to use numbers, upper and lower case letters, but please refrain from using other special characters or space characters in the password.
 - All daemons capable of invoking app commands offer rate limit mechanism to reduce impact of brute-force password guessing. Pay special
@@ -290,6 +306,7 @@ Regarding password:
   or [program health report](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-program-health-report).
 
 Regarding app command invocation via SMS/telephone:
+
 - Telephone and mobile networks are prone to eavesdroppers, use them only as the last resort.
 - The [Twilio SMS/telephone hook](https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-Twilio-telephone-SMS-hook)
   is run by the web server daemon and shares command processor configuration from JSON configuration object `HTTPFilters`.

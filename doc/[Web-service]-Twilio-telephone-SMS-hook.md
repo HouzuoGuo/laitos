@@ -1,11 +1,11 @@
 ## Introduction
-Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the web service is triggered
-by incoming calls and SMS from Twilio platform, and let caller/sender invoke app commands.
 
-Which means - your personal Emails, twitter, and many other Internet features become accessible over telephone, SMS text, and
-even satellite terminals!
+Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the web service serves provide an app command interface as a web hook for the Twilio platform to handle incoming texts and phone calls.
+
+You may then browse the news, read emails, check out the weather - and do much more via telephone, SMS, and even satellite terminals!
 
 ## Preparation
+
 1. Sign up for an account at [twilio.com](https://www.twilio.com) - an API platform that connects computer programs with
    public switched telephone and mobile network. Sign up is free.
 2. Visit Twilio developer's console, then [purchase a phone number](https://www.twilio.com/console/phone-numbers/search).
@@ -16,17 +16,20 @@ If you have or plan to configure the app that makes [outgoing calls and SMS](htt
 feel free to use identical Twilio account and phone number configuration in this web service.
 
 ## Configuration
+
 Follow [command processor](https://github.com/HouzuoGuo/laitos/wiki/Command-processor) to construct configuration for
 JSON key `HTTPFilters`. Make sure to limit `MaxLength` of `LintText` to a reasonable number below 1000, otherwise an
 unexpectedly large command response may incur high fees.
 
 Then, in order to enable telephone call hook, construct the following properties under JSON key `HTTPHandlers`:
+
 1. A string property called `TwilioCallEndpoint`, value being the URL location that will serve the form. Keep the
    location a secret to yourself and make it difficult to guess.
 2. An object called `TwilioCallEndpointConfig` with only a string property `CallGreeting`, value being a greeting
    message spoken to telephone caller.
 
 Here is an example:
+
 <pre>
 {
     ...
@@ -75,31 +78,34 @@ Here is an example:
 </pre>
 
 ## Run
+
 The service is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
 
 ## Usage
-1. Visit [phone numbers management](https://www.twilio.com/console/phone-numbers/incoming) and click on the freshly
-   purchased number to enter its configuration page.
-2. To let laitos handle telephone calls: enter the following configuration under "Voice & Fax" section:
 
-       Accept incoming: Voice Calls
-       Configure with:  Webhooks, or TwiML Bins or Functions
-       A call comes in: Webhook, HTTP POST, and enter laitos server address `TwilioCallEndpoint`
+1.  Visit [phone numbers management](https://www.twilio.com/console/phone-numbers/incoming) and click on the freshly
+    purchased number to enter its configuration page.
+2.  To let laitos handle telephone calls: enter the following configuration under "Voice & Fax" section:
 
-   For an example, the laitos server address may be `https://my-laitos-server.com/very-secret-twilio-call-service`
+        Accept incoming: Voice Calls
+        Configure with:  Webhooks, or TwiML Bins or Functions
+        A call comes in: Webhook, HTTP POST, and enter laitos server address `TwilioCallEndpoint`
 
-3. To let laitos handle SMS messages: enter the following configuration under "Messaging" section:
+    For an example, the laitos server address may be `https://my-laitos-server.com/very-secret-twilio-call-service`
 
-       Configure With:     Webhooks, or TwiML Bins or Functions
-       A message comes in: Webhook, HTTP POST, and enter laitos server address `TwilioSMSEndpoint`
+3.  To let laitos handle SMS messages: enter the following configuration under "Messaging" section:
 
-   For an example, the laitos server address may be `https://my-laitos-server.com/very-secret-twilio-sms-service`
+        Configure With:     Webhooks, or TwiML Bins or Functions
+        A message comes in: Webhook, HTTP POST, and enter laitos server address `TwilioSMSEndpoint`
+
+    For an example, the laitos server address may be `https://my-laitos-server.com/very-secret-twilio-sms-service`
 
 Then, in an SMS, enter password and app command and send the text to your Twilio phone number. Wait several
 seconds and the command result will arrive in an SMS reply.
 
 In order to enter app command via telephone call, use the number pad to dial password and app command, completed with a
 pound '#' sign, then wait for command execution and then a spoken response. The number pad input works in this way:
+
 - The number pad is able to enter nearly all Latin letters, common symbols, and numbers.
 - A character is entered via either a single digit or a sequence of digits.
 - Asterisk toggles between upper case and lower case letters. By default letters are in lower case.
@@ -109,6 +115,7 @@ pound '#' sign, then wait for command execution and then a spoken response. The 
 - Symbols and numbers always require explicit termination of their sequence by a digit 0.
 
 Here are the digit sequences for entering letters, symbols, and numbers:
+
 <pre>
 111 - !  112 - @  113 - #  114 - $  115 - %  116 - ^  117 - &  118 - *  119 - (  121 - backtick
 122 - ~  123 - )  124 - -  125 - _  126 - =  127 - +  128 - [  129 - {  131 - ]  132 - }
@@ -128,6 +135,7 @@ input. This technique is very useful for copying sophisticated command output su
 commands.
 
 ## Tips
+
 Telephone and mobile networks are prone to eavesdropping attacks that can reveal your password and app command responses
 to potential attackers. Consider using [one-time password in place of password](https://github.com/HouzuoGuo/laitos/wiki/Command-processor#use-one-time-password-in-place-of-password).
 
@@ -135,6 +143,7 @@ The web service does not respond if an SMS sender fails to use the correct passw
 inspection on Twilio console.
 
 Regarding laitos configuration:
+
 - Make the URL difficult to guess for both call and SMS endpoints, this helps to prevent misuse of the service.
 - Under `HTTPFilters`, double check that `MaxLength` of `LintText` is set to a reasonable number below 1000, otherwise
   if laitos sends an exceedingly large SMS response, Twilio will break apart the response into multiple SMS segments,
@@ -144,6 +153,7 @@ Regarding laitos configuration:
   messages to once every 10 seconds per each sender.
 
 Regarding Twilio configuration:
+
 - Usage of HTTPS is mandatory in web hook, your laitos web server must be serving HTTPS traffic using a valid TLS
   certificate chain.
 - If you run identical laitos configuration on more than one servers for fail-over, then you may enter the secondary

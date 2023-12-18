@@ -1,22 +1,14 @@
 ## Introduction
 
-The DNS server daemon is a recursive DNS resolver, it blocks most advertising
-and malicious domains to provide your home network a safer and cleaner web
-experience.
+The DNS server daemon simultaneously serves as:
 
-The domain blacklists are automatically updated from these sources:
-
-- [malwaredomainlist.com](http://www.malwaredomainlist.com)
-- [someonewhocares.org](http://someonewhocares.org/hosts/hosts)
-- [mvps.org](http://winhelp2002.mvps.org)
-- [yoyo.org](http://pgl.yoyo.org)
-- [oisd.nl light hosts list](https://oisd.nl/)
-- [The Block List Project (ransomware/scam/tracking)](https://github.com/blocklistproject/Lists)
-
-At the same time, the DNS server daemon is also capable of:
-
-- Invoking app commands via exchanging TXT records - [DNS server (invoke app commands)](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(invoke-app-commands)).
-- Tunneling TCP traffic over DNS queries - [DNS server (TCP over DNS)](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(TCP-over-DNS)).
+- An authoritative DNS server for configured domain names (`MyDomainNames`),
+  responding to SOA, NS, MX, and address queries. MX and address responses point
+  to the server's own public IP.
+- A stub resolver that blocks advertising and malicious domains for home
+  networks (`AllowQueryFromCidrs`).
+- Handle TXT queries as the [carrier of app command invocation](<https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(invoke-app-commands)>).
+- Handle query types for [TCP-over-DNS traffic tunnel](<https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(TCP-over-DNS)>).
 
 ## Configuration
 
@@ -37,7 +29,7 @@ JSON config file:
         An array of client network address blocks in CIDR notation. The laitos
         DNS server will only process recursive queries from these CIDR blocks.
         <br/>
-        Your ISP may assign a random public IP IP from a larger block to your
+        Your ISP may assign a random public IP from a larger block to your
         home network. Find out your public IP from Google (<a href="https://www.google.com/search?q=what+is+my+ip">What is my IP</a>).
         Be generous/flexible with the block size - /16 is a good starting point.
         <br/>
@@ -51,7 +43,10 @@ JSON config file:
     <td>array of strings</td>
     <td>
         The laitos DNS server's own domain names.
-        This is used by <a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(invoke-app-commands)">DNS server (invoke app commands)</a>
+        <br />
+        The DNS server gives authoritative responses to SOA, NS, MX, A queries of these domain names.
+        <br />
+        This is also used by <a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(invoke-app-commands)">DNS server (invoke app commands)</a>
         and <a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(TCP-over-DNS)">DNS server (TCP over DNS)</a>
         to determine whether to handle a query on its own or send it to a
         forwarder.
@@ -109,7 +104,7 @@ JSON config file:
         Each client is identified by its IP address.
         <br/>
     </td>
-    <td>50 - good for 3 personal devices</td>
+    <td>50 - good for 3 personal devices, or 300 with TCP-over-DNS enabled.</td>
 </tr>
 </table>
 
@@ -146,12 +141,12 @@ Run the DNS daemon by specifying it in the laitos command line:
 Assuming that daemon listens on port 53, try out these tests from your home
 network:
 
-1. Observe successful "Name-Address" answers from the following system commands:
+1.  Observe successful "Name-Address" answers from the following system commands:
 
         nslookup microsoft.com <LAITOS SERVER IP>
         nslookup -vc microsoft.com <LAITOS SERVER IP>
 
-2. Observe a black-hole answer `0.0.0.0` from the following system command:
+2.  Observe a black-hole answer `0.0.0.0` from the following system command:
 
         nslookup analytics.google.com <LAITOS SERVER IP>
         nslookup -vc analytics.google.com <LAITOS SERVER IP>
@@ -178,7 +173,6 @@ server address to the public address of laitos DNS server.
 Check out these tutorials:
 
 - Windows/Mac tutorial by [Google](https://developers.google.com/speed/public-dns/docs/using#change_your_dns_servers_settings)
-  * Alternative Windows tutorial by [windowscentral.com](https://www.windowscentral.com/how-change-your-pcs-dns-settings-windows-10)
+  - Alternative Windows tutorial by [windowscentral.com](https://www.windowscentral.com/how-change-your-pcs-dns-settings-windows-10)
 - Android tutorial by [OpenDNS](https://support.opendns.com/hc/en-us/articles/228009007-Android-Configuration-instructions-for-OpenDNS)
 - iOS/iPadOS tutorial by [appleinsider.com](https://appleinsider.com/articles/18/04/22/how-to-change-the-dns-server-used-by-your-iphone-and-ipad)
-

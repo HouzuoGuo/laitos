@@ -5,29 +5,47 @@ commands. This works on all OS platforms supported by laitos.
 
 # Configuration
 
-This app is always available for use and does not require configuration.
+This app is always enabled for use in the default configuration, which restricts
+command execution to these programs without additional parameters:
 
-However, if you wish to override the automatic detection of system shell
-interpreter, then navigate to JSON object `Features` and construct a JSON object
-called `Shell` with the following properties:
+- arch arp blkid cal date df dmesg dnsdomainname false free
+- groups hostid hostname id ifconfig ipconfig iostat ipcs
+- kbd_mode ls lsof lspci lsusb mpstat netstat nproc
+- ps pstree pwd route stty tty uname uptime whoami
+
+To customise configuration, under JSON object `Features`, construct a JSON
+object called `Shell` that has the following mandatory properties:
+
 <table>
 <tr>
     <th>Property</th>
     <th>Type</th>
     <th>Meaning</th>
+    <th>Default value</th>
 </tr>
 <tr>
     <td>InterpreterPath</td>
     <td>string</td>
     <td>
-        Absolute path to shell interpreter program, such as /bin/bash
-        <br/>
-        If left empty, laitos will automatically discover a shell interpreter.
+        Absolute path to the system shell interpreter, such as /bin/bash.
+    </td>
+    <td>
+        Automatically detected, e.g. bash, powershell.
+    </td>
+</tr>
+<tr>
+    <td>Unrestricted</td>
+    <td>true/false</td>
+    <td>
+        When true, allow executing arbitrary commands incl. CLI parameters.
+    <td>
+        False - only allow executing predefined &amp; hard-coded commands.
     </td>
 </tr>
 </table>
 
 Here is an example:
+
 <pre>
 {
     ...
@@ -36,7 +54,8 @@ Here is an example:
         ...
 
         "Shell": {
-            "InterpreterPath": "/bin/bash"
+            "InterpreterPath": "/bin/bash",
+            "Unrestricted": true
         },
         ...
     },
@@ -45,12 +64,11 @@ Here is an example:
 }
 </pre>
 
-
 # Usage
 
 Use any capable laitos daemon to invoke the app:
 
-    .s <shell command to run>
+    .s shell-command
 
 The shell command may use shell interpreter's capabilities to their full extend.
 For example, the following command will find system users whose name contains
@@ -65,7 +83,8 @@ For example, the following command will find system users whose name contains
   laitos recognises `bash`, `dash`, `zsh`, `ksh`, `ash`, `tcsh`, `csh`, `sh`.
 - On Windows, laitos uses PowerShell by default, unless an alternative shell
   interpreter is specified in configuration.
-- When shell commands are run, the environment variable `PATH` is hard coded to
+- On Linux, the `PATH` is hard-coded to
   `/tmp/laitos-util:/bin:/sbin:/usr/bin:/usr/sbin:/usr/libexec:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin`
-- `/tmp/laitos-util` is automatically maintained by laitos internally to store
-  non-essential executables such as a copy of busybox and a copy of toybox.
+  when executing shell commands.
+- laitos automatically copies some non-essential executables such as busybox and
+  toybox into `/tmp/laitos-util`.

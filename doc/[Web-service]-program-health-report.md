@@ -1,28 +1,31 @@
 ## Introduction
-Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server), the text report is generated
-on-demand to show:
+
+Hosted by laitos [web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server),
+the comprehensive report shows:
+
 - System status:
-  * Clock time, uptime.
-  * Load and memory usage.
+  - Clock time, uptime.
+  - System load, disk, and memory usage.
 - Program status:
-  * Public IP address, uptime.
-  * Daemon usage statistics.
+  - Public IP address, uptime.
+  - Program environment, working directory.
+  - Daemon requests statistics.
 - Latest log entries and stack traces.
 
 ## Configuration
+
 Under JSON key `HTTPHandlers`, write a string property called `InformationEndpoint`, value being the URL location that
 will serve the report. Keep the location a secret to yourself and make it difficult to guess.
 
 Here is an example setup:
+
 <pre>
 {
     ...
 
     "HTTPHandlers": {
         ...
-
         "InformationEndpoint": "/very-secret-program-health-report",
-
         ...
     },
 
@@ -31,19 +34,18 @@ Here is an example setup:
 </pre>
 
 ## Run
+
 The report is hosted by web server, therefore remember to [run web server](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server#run).
 
 ## Usage
-In a web browser, navigate to `InformationEndpoint` of laitos web server, and inspect the produced health report.
+
+In a web browser, navigate to `InformationEndpoint` of laitos web server, and inspect the program health report in plain text.
+
+Using a programmable HTTP client (e.g. curl), use the `Accept: application/json` to retrieve JSON-formatted response.
 
 ## Tips
-- Make the endpoint difficult to guess, this helps to prevent misuse of the service.
 
-- About the latest log entries presented for inspection:
-  * laitos keeps the most recent log entries and warning log entries in memory, totalling several hundreds entries. They
-    are available for inspection on-demand. The host operating system or hosting platform may have held more log entries
-    available for your inspection.
-  * The warning log entries keep track of the most recent (about three dozens) repeating offenders and will not present
-    their repeated offences for inspection. For example, when laitos server refuses 30 DNS clients from querying the server
-    yet they keep on going, their IPs will only show up once in the recent warnings, until the server refuses another 30,
-    different DNS clients from querying the server.
+- Make the endpoint difficult to guess, this helps to prevent misuse of the service.
+- laitos only keeps a small number of recent log entries in memory for inspection.
+  Seek host OS's help to view more historical log entries.
+- Some log messages are automatically discarded due to throttling, see also [High request per second and logging](https://github.com/HouzuoGuo/laitos/wiki/Cloud-tips#high-request-per-second-and-logging)

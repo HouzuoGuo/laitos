@@ -3,8 +3,8 @@
 The laitos program offers a large selection of components for you to explore! A
 program component belongs to one of the three categories:
 
-- Apps - reading news and Emails, make a Tweet, ask about weather, etc.
-  * Some apps do not require manual configuration and they are pre-enabled.
+- Apps - reading news and Emails, check out the weather, etc.
+  - Some apps do not require manual configuration and are always enabled.
 - Daemons - web/mail/DNS servers, chat bots, etc. Many daemons are capable of
   accepting app command input and allow command execution protected by a
   password.
@@ -184,11 +184,6 @@ reachable via both HTTP and HTTPS - if the web server has a TLS certificate.
         <th>Name</th>
         <th>Description</th>
         <th>Configuration and Usage</th>
-    </tr>
-    <tr>
-        <td>Use Twitter</td>
-        <td>Read and post tweets.</td>
-        <td><a href="https://github.com/HouzuoGuo/laitos/wiki/%5BApp%5D-Twitter" target="_blank">Link</a></td>
     </tr>
     <tr>
         <td>Ask WolframAlpha</td>
