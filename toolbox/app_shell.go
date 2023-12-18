@@ -16,13 +16,13 @@ var SafeShellCommands = map[string]bool{
 	// These one-word commands must be neither expensive nor modify anything
 	// on the host system.
 	"arch": true, "arp": true, "blkid": true, "cal": true, "date": true,
-	"dmesg": true, "dnsdomainname": true, "false": true, "free": true,
-	"groups": true, "hostid": true, "hostname": true, "id": true,
-	"ifconfig": true, "ipconfig": true, "iostat": true, "ipcs": true, "kbd_mode": true,
-	"ls": true, "lsof": true, "lspci": true, "lsusb": true, "mpstat": true,
-	"netstat": true, "nproc": true, "ps": true, "pstree": true, "pwd": true,
-	"route": true, "stty": true, "tty": true, "uname": true, "uptime": true,
-	"whoami": true,
+	"df": true, "dmesg": true, "dnsdomainname": true, "false": true,
+	"free": true, "groups": true, "hostid": true, "hostname": true,
+	"id": true, "ifconfig": true, "ipconfig": true, "iostat": true,
+	"ipcs": true, "kbd_mode": true, "ls": true, "lsof": true, "lspci": true,
+	"lsusb": true, "mpstat": true, "netstat": true, "nproc": true, "ps": true,
+	"pstree": true, "pwd": true, "route": true, "stty": true, "tty": true,
+	"uname": true, "uptime": true, "whoami": true,
 }
 
 // Shell is a toolbox command that executes a shell statement.
