@@ -4,7 +4,7 @@ module github.com/HouzuoGuo/laitos
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.49.1
+	github.com/aws/aws-sdk-go v1.49.4
 	github.com/aws/aws-xray-sdk-go v1.8.3
 	github.com/miekg/dns v1.1.57
 	github.com/prometheus/client_golang v1.17.0
