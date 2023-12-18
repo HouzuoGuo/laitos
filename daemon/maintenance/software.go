@@ -54,7 +54,6 @@ environment variables and command arguments used to invoke them.
 */
 func getSystemPackageManager() (pkgManagerPath, pkgManagerName string, pkgManagerEnv, pkgInstallArgs, sysUpgradeArgs []string) {
 	if platform.HostIsWindows() {
-		// Chocolatey is the only package manager supported on Windows
 		pkgManagerPath = filepath.Join(os.Getenv("LOCALAPPDATA"), `Microsoft\WindowsApps\winget.exe`)
 		pkgManagerName = "winget"
 	} else {
