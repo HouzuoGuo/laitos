@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-xray-sdk-go v1.8.3
 	github.com/miekg/dns v1.1.57
 	github.com/prometheus/client_golang v1.17.0
-	golang.org/x/crypto v0.16.0
+	golang.org/x/crypto v0.17.0
 	golang.org/x/net v0.19.0
 	google.golang.org/grpc v1.60.0
 	google.golang.org/protobuf v1.31.0
