@@ -9,7 +9,7 @@
 // [DNS](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server#invoke-app-commands-via-dns-queries),
 // to give you access to Internet features such as:
 //
-// -   Browse news, weather, and Twitter.
+// -   Read news and check out the weather.
 // -   Keep in touch via Email, telephone call, and SMS.
 // -   Remotely control computers in your laitos fleet.
 // -   ... more apps to explore!
