@@ -143,7 +143,7 @@ func (daemon *Daemon) HandleUDPClient(logger *lalog.Logger, ip string, client *n
 
 func (daemon *Daemon) handleTCPOverDNSQuery(header dnsmessage.Header, question dnsmessage.Question, clientIP string) ([]byte, error) {
 	name := question.Name.String()
-	_, domainName, numDomainLabels, _ := daemon.queryLabels(name)
+	_, domainName, numDomainLabels, _, _ := daemon.queryLabels(name)
 	if daemon.TCPProxy == nil || daemon.TCPProxy.RequestOTPSecret == "" {
 		daemon.logger.Info(clientIP, nil, "received a TCP-over-DNS segment but the server is not configured to handle it.")
 		return nil, errors.New("missing tcp-over-dns server config")
@@ -174,7 +174,7 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	labels, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	labels, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
 	if isRecursive {
 		if !daemon.queryRateLimit.Add(clientIP, true) {
 			return
@@ -228,7 +228,7 @@ func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, hea
 		return
 	}
 	name := question.Name.String()
-	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	_, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
@@ -251,7 +251,7 @@ func (daemon *Daemon) handleMX(clientIP string, queryLen, queryBody []byte, head
 		return
 	}
 	name := question.Name.String()
-	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	_, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
@@ -274,7 +274,7 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 		return
 	}
 	name := question.Name.String()
-	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	_, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
@@ -294,7 +294,7 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 
 func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	_, domainName, numDomainLabels, isRecursive := daemon.queryLabels(name)
+	_, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
 		// Non-recursive, send TCP-over-DNS fragment to the proxy.

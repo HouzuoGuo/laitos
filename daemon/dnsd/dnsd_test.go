@@ -109,6 +109,23 @@ func TestDaemon_Initialise(t *testing.T) {
 	if err := daemon.Initialise(); err != nil {
 		t.Fatal(err)
 	}
+	// Initialise custom records with validation errors.
+	daemon.CustomRecords = map[string]*CustomRecord{
+		"mistake": {A: V4AddressRecord{AddressRecord: AddressRecord{Addresses: []string{"not-ipv4-addr"}}}},
+	}
+	if err := daemon.Initialise(); err == nil || !strings.Contains(err.Error(), "failed to parse IP address") {
+		t.Fatal(err)
+	}
+	// Fix custom records.
+	daemon.CustomRecords = map[string]*CustomRecord{
+		"ok.example.com": {
+			A: V4AddressRecord{
+				AddressRecord: AddressRecord{
+					Addresses: []string{"127.0.0.1"},
+				},
+			},
+		},
+	}
 	// Test default settings
 	if daemon.TCPPort != 53 || daemon.UDPPort != 53 || daemon.PerIPLimit != 50 || daemon.PerIPQueryLimit != 50 || daemon.Address != "0.0.0.0" || !reflect.DeepEqual(daemon.Forwarders, DefaultForwarders) {
 		t.Fatalf("%+v", daemon)
@@ -263,7 +280,7 @@ func TestDaemon_queryLabels(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotLabels, gotDomainName, gotNumDomainLabels, gotRecursive := daemon.queryLabels(test.name)
+			gotLabels, gotDomainName, gotNumDomainLabels, gotRecursive, _ := daemon.queryLabels(test.name)
 			if !reflect.DeepEqual(gotLabels, test.wantLabels) {
 				t.Errorf("name: %q, got labels: %+#v, want: %+#v", test.name, gotLabels, test.wantLabels)
 			}

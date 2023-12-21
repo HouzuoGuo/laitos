@@ -103,11 +103,19 @@ type Daemon struct {
 	// Processor enables execution of toolbox commands via DNS TXT queries when
 	// the queries are directed at the server's own domain name(s).
 	Processor *toolbox.CommandProcessor `json:"-"`
-	// MyDomainNames is the list of domain names that belong to the DNS server
-	// itself. The list is used to determine whether an incoming query shall be
-	// handled as recursive queries to forwarders, or handled internally as
-	// as toolbox commands and TCP-over-DNS packet segments.
+	// MyDomainNames lists the domain names belonging to laitos server itself.
+	// When laitos DNS server is used as these domains' name servers, the DNS
+	// server will automaitcally respond authoritatively to SOA, NS, MX, and A
+	// requests for the domains.
+	// This is especially important to support TCP-over-DNS usage and DNS app
+	// command runner requests.
+	// CustomRecords take precedence over these automatically constructed
+	// responses. For all other domain names, the DNS server works as a stub
+	// forward-only resolver.
 	MyDomainNames []string `json:"MyDomainNames"`
+	// CustomRecords are the user-defined DNS records for which the DNS server
+	// will respond authoritatively.
+	CustomRecords map[string]*CustomRecord `json:"CustomRecords"`
 
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
@@ -207,6 +215,15 @@ func (daemon *Daemon) Initialise() error {
 	sort.Slice(daemon.MyDomainNames, func(i, j int) bool {
 		return len(daemon.MyDomainNames[i]) > len(daemon.MyDomainNames[j])
 	})
+	for dnsName, records := range daemon.CustomRecords {
+		if lintDNSName(dnsName) == "" {
+			return fmt.Errorf("Initialise: CustomRecords must not use an empty DNS name")
+		}
+		records.Name = dnsName
+		if err := records.Lint(); err != nil {
+			return fmt.Errorf("Initialise: custom record error - %w", err)
+		}
+	}
 
 	if errs := daemon.Processor.IsSaneForInternet(); len(errs) > 0 {
 		return fmt.Errorf("dnsd.Initialise: %+v", errs)
@@ -490,11 +507,13 @@ func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
 	return false
 }
 
-// queryLabels returns the labels of a query, with the domain name removed if
-// the query was directed at this DNS server itself.
-func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, domainName string, numDomainLabels int, isRecursive bool) {
+// queryLabels helps caller process an input DNS name by dissecting it into
+// labels and the domain name as it originally appeared (case sensitive), and
+// determine whether a custom record match exists, or whether the query should
+// be forwarded to a recursive resolver.
+func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, domainName string, numDomainLabels int, isRecursive bool, customRecord *CustomRecord) {
 	if len(name) < 3 {
-		return []string{}, "", 0, false
+		return []string{}, "", 0, false, nil
 	}
 	// Remove the suffix full-stop to aid in matching daemon's own domain names
 	// (e.g. ".example.com").
@@ -506,11 +525,12 @@ func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, do
 	if name[0] != '.' {
 		name = "." + name
 	}
+	lowerName := strings.ToLower(name)
 	isRecursive = true
 	// Remove all configured domain suffixes from the queried name.
 	nameOnly := name
 	for _, suffix := range daemon.MyDomainNames {
-		if strings.HasSuffix(strings.ToLower(name), suffix) {
+		if strings.HasSuffix(lowerName, suffix) {
 			// The suffix has a trailing full-stop.
 			isRecursive = false
 			nameOnly = name[:len(name)-len(suffix)]
@@ -518,6 +538,11 @@ func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, do
 			numDomainLabels = CountNameLabels(domainName)
 			break
 		}
+	}
+	// Match against a custom defined record.
+	if record, exists := daemon.CustomRecords[lowerName]; exists && record != nil {
+		isRecursive = false
+		customRecord = record
 	}
 	labelsWithoutDomain = strings.Split(nameOnly, ".")[1:]
 	return
