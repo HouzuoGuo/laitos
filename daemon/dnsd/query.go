@@ -212,13 +212,10 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	return builder.Finish()
 }
 
-// BuildMXResponse returns an MX record pointing to the host name.
-func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, hostName string) ([]byte, error) {
-	if len(hostName) == 0 {
-		return nil, errors.New("mx host name must not be empty")
-	}
-	if hostName[len(hostName)-1] != '.' {
-		hostName += "."
+// BuildMXResponse constructs an MX query response.
+func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, records []MXRecord) ([]byte, error) {
+	if len(records) == 0 {
+		return nil, errors.New("mx record(s) must be present")
 	}
 	// Retain the original transaction ID.
 	header.Response = true
@@ -241,25 +238,24 @@ func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, hos
 	if err != nil {
 		return nil, err
 	}
-	// The DNS daemon will happily resolve all non-recursive address queries to
-	// its own public IP address.
-	mxHostName, err := dnsmessage.NewName("mx." + hostName)
-	if err != nil {
-		return nil, err
-	}
-	mx := dnsmessage.MXResource{Pref: 10, MX: mxHostName}
-	if err := builder.MXResource(dnsmessage.ResourceHeader{
-		Name:  dnsName,
-		Class: dnsmessage.ClassINET,
-		TTL:   CommonResponseTTL,
-	}, mx); err != nil {
-		return nil, err
+	for _, rec := range records {
+		mxName, err := dnsmessage.NewName(rec.Name)
+		if err != nil {
+			return nil, err
+		}
+		if err := builder.MXResource(dnsmessage.ResourceHeader{
+			Name:  dnsName,
+			Class: dnsmessage.ClassINET,
+			TTL:   CommonResponseTTL,
+		}, dnsmessage.MXResource{Pref: 10, MX: mxName}); err != nil {
+			return nil, err
+		}
 	}
 	return builder.Finish()
 }
 
 // BuildNSResponse returns an NS record response.
-func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, domainName string, ownIP net.IP) ([]byte, error) {
+func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, domainName string, record NSRecord, glueIP net.IP) ([]byte, error) {
 	if domainName == "" {
 		return nil, errors.New("domainName must not be empty")
 	}
@@ -287,15 +283,13 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 	if err != nil {
 		return nil, err
 	}
-	for i := 1; i <= 2; i++ {
-		dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s", i, domainName))
+	// Add name servers.
+	for _, nsName := range record.Names {
+		dnsNSName, err := dnsmessage.NewName(nsName)
 		if err != nil {
 			return nil, err
 		}
-		// The DNS daemon will happily resolve all non-recursive address queries
-		// to its own public IP address.
 		ns := dnsmessage.NSResource{
-			// ns[1-4].laitos-example.net
 			NS: dnsNSName,
 		}
 		if err := builder.NSResource(dnsmessage.ResourceHeader{
@@ -306,23 +300,26 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 			return nil, err
 		}
 	}
-	if err := builder.StartAdditionals(); err != nil {
-		return nil, err
-	}
-	// Add glue records for the ns[1-2].laitos-example.net.
-	v4Addr := ownIP.To4()
-	if len(v4Addr) == 4 {
-		for i := 1; i <= 2; i++ {
-			dnsNSName, err := dnsmessage.NewName(fmt.Sprintf("ns%d.%s", i, domainName))
-			if err != nil {
-				return nil, err
-			}
-			if err := builder.AResource(dnsmessage.ResourceHeader{
-				Name:  dnsNSName,
-				Class: dnsmessage.ClassINET,
-				TTL:   CommonResponseTTL,
-			}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}}); err != nil {
-				return nil, err
+	// Optional add glue address records into the response.
+	// This assumes all NS share the same IPv4 address.
+	if !glueIP.Equal(net.IPv4zero) {
+		if err := builder.StartAdditionals(); err != nil {
+			return nil, err
+		}
+		v4Addr := glueIP.To4()
+		if len(v4Addr) == 4 {
+			for _, nsName := range record.Names {
+				dnsNSName, err := dnsmessage.NewName(nsName)
+				if err != nil {
+					return nil, err
+				}
+				if err := builder.AResource(dnsmessage.ResourceHeader{
+					Name:  dnsNSName,
+					Class: dnsmessage.ClassINET,
+					TTL:   CommonResponseTTL,
+				}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}}); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -338,7 +335,7 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 
 // BuildIPv4AddrResponse constructs an IPv4 address record response. The record
 // TTL is hard coded to 60 seconds.
-func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Question, ipAddr net.IP) ([]byte, error) {
+func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Question, record V4AddressRecord) ([]byte, error) {
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true
@@ -358,8 +355,7 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 	if err != nil {
 		return nil, err
 	}
-	switch question.Type {
-	case dnsmessage.TypeA:
+	for _, ipAddr := range record.ipAddresses {
 		v4Addr := ipAddr.To4()
 		if v4Addr != nil {
 			err := builder.AResource(dnsmessage.ResourceHeader{
@@ -371,7 +367,43 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 				return nil, err
 			}
 		}
-	case dnsmessage.TypeAAAA:
+	}
+	if err := builder.StartAdditionals(); err != nil {
+		return nil, err
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
+	}
+	return builder.Finish()
+}
+
+// BuildIPv6AddrResponse constructs an IPv6 address record response. The record
+// TTL is hard coded to 60 seconds.
+func BuildIPv6AddrResponse(header dnsmessage.Header, question dnsmessage.Question, record V6AddressRecord) ([]byte, error) {
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = false
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	dnsName, err := dnsmessage.NewName(question.Name.String())
+	if err != nil {
+		return nil, err
+	}
+	for _, ipAddr := range record.ipAddresses {
 		if ipAddr.To4() == nil {
 			// To16 always returns a non-nil slice for an IPv4 address.
 			v6Addr := ipAddr.To16()

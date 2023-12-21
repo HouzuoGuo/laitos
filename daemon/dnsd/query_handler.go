@@ -251,7 +251,7 @@ func (daemon *Daemon) handleMX(clientIP string, queryLen, queryBody []byte, head
 		return
 	}
 	name := question.Name.String()
-	_, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
+	_, domainName, numDomainLabels, isRecursive, customRec := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
@@ -262,7 +262,20 @@ func (daemon *Daemon) handleMX(clientIP string, queryLen, queryBody []byte, head
 		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
-	respBody, err := BuildMXResponse(header, question, domainName+".")
+	var err error
+	if customRec == nil {
+		// The DNS daemon will happily resolve all non-recursive address queries to
+		// its own public IP address.
+		mx := []MXRecord{
+			{
+				Priority: 10,
+				Name:     lintDNSName(fmt.Sprintf("mx.%s.", domainName)),
+			},
+		}
+		respBody, err = BuildMXResponse(header, question, mx)
+	} else {
+		respBody, err = BuildMXResponse(header, question, customRec.MX)
+	}
 	if err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to build response packet")
 	}
@@ -274,7 +287,7 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 		return
 	}
 	name := question.Name.String()
-	_, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
+	_, domainName, numDomainLabels, isRecursive, customRec := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
@@ -285,7 +298,21 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
-	respBody, err := BuildNSResponse(header, question, domainName, daemon.myPublicIP)
+	var err error
+	if customRec == nil {
+		respBody, err = BuildNSResponse(header, question, domainName, customRec.NS, net.IPv4zero)
+	} else {
+		// The DNS daemon will happily resolve all non-recursive address queries
+		// to its own public IP address.
+		ns := NSRecord{
+			Names: []string{
+				fmt.Sprintf("ns1.%s.", domainName),
+				fmt.Sprintf("ns2.%s.", domainName),
+				fmt.Sprintf("ns3.%s.", domainName),
+			},
+		}
+		respBody, err = BuildNSResponse(header, question, domainName, ns, daemon.myPublicIP)
+	}
 	if err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to build response packet")
 	}
@@ -294,31 +321,11 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 
 func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
-	_, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
+	_, domainName, numDomainLabels, isRecursive, customRec := daemon.queryLabels(name)
 	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
-	if !isRecursive && len(name) > 0 && name[0] == ProxyPrefix {
-		// Non-recursive, send TCP-over-DNS fragment to the proxy.
-		// PerIPLimit rather than PerIPQueryLimit applies.
-		respBody, _ = daemon.handleTCPOverDNSQuery(header, question, clientIP)
-		return respBody
-	} else if !isRecursive {
-		// Non-recursive, other name queries. There must be a response.
-		// Recursive resolvers have a habit of resolving a shorter version (e.g.
-		// b.example.com) of the desired name (a.b.example.com), often missing
-		// a couple of the leading labels, before resolving the actual name
-		// demanded by DNS clients. Without a valid response the recursive
-		// resolver will consider the DNS authoritative server unresponsive.
-		if !daemon.queryRateLimit.Add(clientIP, true) {
-			return
-		}
-		var err error
-		respBody, err = BuildIPv4AddrResponse(header, question, daemon.myPublicIP)
-		if err != nil {
-			daemon.logger.Info(clientIP, err, "failed to construct DNS query response")
-			return
-		}
-	} else {
-		// Recursive queries.
+	var err error
+	if isRecursive {
+		// Act as a stub resolver and forward the request.
 		if !daemon.queryRateLimit.Add(clientIP, true) {
 			return
 		}
@@ -339,6 +346,45 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 		}
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
+	}
+	if len(name) > 0 && name[0] == ProxyPrefix {
+		// Handle TCP-over-DNS query.
+		// Caller's PerIPLimit check applies, the PerIPQueryLimit does not apply.
+		respBody, _ = daemon.handleTCPOverDNSQuery(header, question, clientIP)
+		return respBody
+	} else if customRec != nil {
+		if !daemon.queryRateLimit.Add(clientIP, true) {
+			return
+		}
+		if question.Type == dnsmessage.TypeA {
+			respBody, err = BuildIPv4AddrResponse(header, question, customRec.A)
+		} else {
+			respBody, err = BuildIPv6AddrResponse(header, question, customRec.AAAA)
+		}
+		if err != nil {
+			daemon.logger.Info(clientIP, err, "failed to construct DNS query response")
+			return
+		}
+	} else {
+		// Answer to all other name queries with server's own IP.
+		// First and foremost this helps responding to ns#.* and mx.*
+		// for the server's own domain names. In addition, recursive resolvers
+		// have an unusual habit of resolving a shorter version
+		// (e.g. b.example.com) of the desired name (a.b.example.com),
+		// often missing a couple of the leading labels, before resolving the
+		// actual name demanded by DNS clients. Without a valid response the
+		// recursive resolver will consider the DNS authoritative server
+		// unresponsive.
+		if !daemon.queryRateLimit.Add(clientIP, true) {
+			return
+		}
+		respBody, err = BuildIPv4AddrResponse(header, question, V4AddressRecord{
+			AddressRecord: AddressRecord{ipAddresses: []net.IP{daemon.myPublicIP}},
+		})
+		if err != nil {
+			daemon.logger.Info(clientIP, err, "failed to construct DNS query response")
+			return
+		}
 	}
 	return
 }
