@@ -1,0 +1,2 @@
+env_variables:
+  LAITOS_DECRYPTION_PASSWORD: "password"
