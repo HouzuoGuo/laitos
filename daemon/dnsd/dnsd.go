@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -202,6 +200,7 @@ func (daemon *Daemon) Initialise() error {
 			return fmt.Errorf("Initialise: MyDomainNames contains an invalid entry %q", name)
 		}
 		// Remove the full-stop suffix and give it a full-stop prefix.
+		// This satisfies the expectation of Daemon.queryLabels.
 		if name[len(name)-1] == '.' {
 			name = name[:len(name)-1]
 		}
@@ -219,7 +218,6 @@ func (daemon *Daemon) Initialise() error {
 		if lintDNSName(dnsName) == "" {
 			return fmt.Errorf("Initialise: CustomRecords must not use an empty DNS name")
 		}
-		records.Name = dnsName
 		if err := records.Lint(); err != nil {
 			return fmt.Errorf("Initialise: custom record error - %w", err)
 		}
@@ -511,40 +509,42 @@ func (daemon *Daemon) IsInBlacklist(nameOrIP string) bool {
 // labels and the domain name as it originally appeared (case sensitive), and
 // determine whether a custom record match exists, or whether the query should
 // be forwarded to a recursive resolver.
-func (daemon *Daemon) queryLabels(name string) (labelsWithoutDomain []string, domainName string, numDomainLabels int, isRecursive bool, customRecord *CustomRecord) {
-	if len(name) < 3 {
+// All labels and names among the return values preserve the case sensitivity
+// consistent with the query name.
+func (daemon *Daemon) queryLabels(queryName string) (labelsExclDomain []string, queryDomainName string, numDomainLabels int, isRecursive bool, customRecord *CustomRecord) {
+	if len(queryName) < 3 {
 		return []string{}, "", 0, false, nil
 	}
 	// Remove the suffix full-stop to aid in matching daemon's own domain names
 	// (e.g. ".example.com").
-	if name[len(name)-1] == '.' {
-		name = name[:len(name)-1]
+	if queryName[len(queryName)-1] == '.' {
+		queryName = queryName[:len(queryName)-1]
 	}
 	// Add a prefix full-stop to aid in matching daemon's own domain names (e.g.
 	// ".example.com").
-	if name[0] != '.' {
-		name = "." + name
+	if queryName[0] != '.' {
+		queryName = "." + queryName
 	}
-	lowerName := strings.ToLower(name)
+	lowerNameFullStop := strings.ToLower(queryName)
 	isRecursive = true
 	// Remove all configured domain suffixes from the queried name.
-	nameOnly := name
+	nameExclDomain := queryName
 	for _, suffix := range daemon.MyDomainNames {
-		if strings.HasSuffix(lowerName, suffix) {
+		if strings.HasSuffix(lowerNameFullStop, suffix) {
 			// The suffix has a trailing full-stop.
 			isRecursive = false
-			nameOnly = name[:len(name)-len(suffix)]
-			domainName = name[len(nameOnly)+1:]
-			numDomainLabels = CountNameLabels(domainName)
+			nameExclDomain = queryName[:len(queryName)-len(suffix)]
+			queryDomainName = queryName[len(nameExclDomain)+1:]
+			numDomainLabels = CountNameLabels(queryDomainName)
 			break
 		}
 	}
 	// Match against a custom defined record.
-	if record, exists := daemon.CustomRecords[lowerName]; exists && record != nil {
+	if record, exists := daemon.CustomRecords[lowerNameFullStop[1:]]; exists && record != nil {
 		isRecursive = false
 		customRecord = record
 	}
-	labelsWithoutDomain = strings.Split(nameOnly, ".")[1:]
+	labelsExclDomain = strings.Split(nameExclDomain, ".")[1:]
 	return
 }
 
@@ -591,7 +591,7 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 			return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dnsd.TCPPort))
 		},
 	}
-	testResolveNameAndBlackList(t, dnsd, tcpResolver)
+	testQuery(t, dnsd, tcpResolver)
 	udpResolver := &net.Resolver{
 		PreferGo:     true,
 		StrictErrors: true,
@@ -599,155 +599,11 @@ func TestServer(dnsd *Daemon, t testingstub.T) {
 			return net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", dnsd.UDPPort))
 		},
 	}
-	testResolveNameAndBlackList(t, dnsd, udpResolver)
+	testQuery(t, dnsd, udpResolver)
 
 	dnsd.Stop()
 	<-serverStopped
 	// Repeatedly stopping the daemon should have no negative consequence
 	dnsd.Stop()
 	dnsd.Stop()
-}
-
-/*
-testResolveNameAndBlackList is a common test case that tests name resolution of popular domain names as well as black
-list domain names.
-*/
-func testResolveNameAndBlackList(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
-	// Track and verify the last resolved name
-	var lastResolvedName string
-	daemon.processQueryTestCaseFunc = func(queryInput string) {
-		lastResolvedName = queryInput
-	}
-
-	// Go's name resolution library unfortunately doesn't work for SOA.
-	domainName := daemon.MyDomainNames[0]
-	// Resolve NS records.
-	// Keep in mind that the daemon initialises itself by placing a full-stop
-	// in front of the domain name.
-	ns, err := resolver.LookupNS(context.Background(), domainName[1:])
-	if len(ns) != 2 {
-		t.Fatalf("unexpected number of ns: %v", ns)
-	}
-	for i := 1; i < 2; i++ {
-		got := ns[i-1].Host
-		want := fmt.Sprintf("ns%d%s.", i, domainName)
-		if got != want {
-			t.Fatalf("got ns %q, want %q", got, want)
-		}
-	}
-
-	// Resolve address of NS.
-	for i := 1; i < 2; i++ {
-		ip, err := resolver.LookupIP(context.Background(), "ip", fmt.Sprintf("ns%d%s", i, domainName))
-		if err != nil {
-			t.Fatalf("failed to resolve ns: %v", err)
-		}
-		if len(ip) != 1 {
-			t.Fatalf("did not resolve ns%d", i)
-		}
-		if !ip[0].Equal(daemon.myPublicIP) {
-			t.Fatalf("got %v, want %v", ip[0], daemon.myPublicIP)
-		}
-	}
-
-	// Resolve MX.
-	mx, err := resolver.LookupMX(context.Background(), domainName[1:])
-	if len(mx) != 1 {
-		t.Fatalf("unexpected number of mx: %v", mx)
-	}
-	wantMX := &net.MX{Host: "mx." + domainName[1:] + ".", Pref: 10}
-	if !reflect.DeepEqual(mx[0], wantMX) {
-		t.Fatalf("got mx %+v, want mx %+v", mx[0], wantMX)
-	}
-
-	// Resolve SPF (TXT).
-	txt, err := resolver.LookupTXT(context.Background(), domainName[1:])
-	if len(txt) != 1 {
-		t.Fatalf("unexpected number of txt: %v", txt)
-	}
-	if txt[0] != fmt.Sprintf(`v=spf1 mx a mx:%s ?all`, domainName[1:]) {
-		t.Fatalf("unexpected txt %q", txt[0])
-	}
-
-	// Resolve A and TXT records from popular domains
-	for _, domain := range []string{"biNg.cOM.", "wikipedIA.oRg."} {
-		lastResolvedName = ""
-		if result, err := resolver.LookupTXT(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
-			t.Fatal("failed to resolve domain name TXT record", domain, err, result)
-		}
-		if lastResolvedName != domain {
-			t.Fatal("attempted to resolve", domain, "but daemon saw:", lastResolvedName)
-		}
-		lastResolvedName = ""
-		if result, err := resolver.LookupHost(context.Background(), domain); err != nil || len(result) == 0 || len(result[0]) == 0 {
-			t.Fatal("failed to resolve domain name A record", domain, err, result)
-		}
-		if lastResolvedName != domain {
-			t.Fatal("attempted to resolve", domain, "but daemon saw:", lastResolvedName)
-		}
-	}
-
-	// Blacklist github and see if query gets a black hole response
-	oldBlacklist := daemon.blackList
-	defer func() {
-		daemon.blackList = oldBlacklist
-	}()
-	daemon.blackList["github.com"] = struct{}{}
-	daemon.blackList["google.com"] = struct{}{}
-	if result, err := resolver.LookupIP(context.Background(), "ip4", "some.GiThUb.CoM"); err != nil || len(result) != 1 || result[0].String() != "0.0.0.0" {
-		t.Fatal("failed to get a black-listed response", err, result)
-	}
-	if lastResolvedName != "some.GiThUb.CoM." {
-		t.Fatal("daemon did not process the query name:", lastResolvedName)
-	}
-	if result, err := resolver.LookupIP(context.Background(), "ip6", "buzz.gooGLE.cOm"); err != nil || len(result) != 1 || result[0].String() != "::1" {
-		t.Fatal("failed to get a black-listed response", err, result)
-	}
-	if lastResolvedName != "buzz.gooGLE.cOm." {
-		t.Fatal("daemon did not process the query name:", lastResolvedName)
-	}
-
-	// Make a TXT query that carries toolbox command prefix but is in fact not
-	if result, err := resolver.LookupTXT(context.Background(), "_.apple.com"); err != nil || len(result) == 0 || len(result[0]) == 0 {
-		// _.apple.com.            3599    IN      TXT     "v=spf1 redirect=_spf.apple.com"
-		t.Fatal(result, err)
-	}
-	if lastResolvedName != "_.apple.com." {
-		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
-	}
-
-	// Make a TXT query that carries toolbox command prefix and an invalid PIN
-	appCmdQueryWithBadPassword := "_badpass142s0date.example.com"
-	if result, err := resolver.LookupTXT(context.Background(), appCmdQueryWithBadPassword); err != nil || len(result) != 1 || result[0] != toolbox.ErrPINAndShortcutNotFound.Error() {
-		t.Fatal(result, err)
-	}
-	if !strings.HasPrefix(lastResolvedName, appCmdQueryWithBadPassword) {
-		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
-	}
-
-	// Prefix _ indicates it is a toolbox command, DTMF sequence 142 becomes a full-stop, 0 becomes a space.
-	appCmdQueryWithGoodPassword := "_verysecret142s0date.example.com"
-	thisYear := strconv.Itoa(time.Now().Year())
-	// Make a TXT query that carries toolbox command prefix and a valid command
-	result, err := resolver.LookupTXT(context.Background(), appCmdQueryWithGoodPassword)
-	if err != nil || len(result) == 0 || !strings.Contains(result[0], thisYear) {
-		t.Fatal(result, err)
-	}
-	if !strings.HasPrefix(lastResolvedName, appCmdQueryWithGoodPassword) {
-		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
-	}
-	// Rapidly making the same request before TTL period elapses should be met the same command response
-	for i := 0; i < 3; i++ {
-		if repeatResult, err := resolver.LookupTXT(context.Background(), appCmdQueryWithGoodPassword); err != nil || !reflect.DeepEqual(repeatResult, result) {
-			t.Fatal(repeatResult, result, err)
-		}
-	}
-	// Wait for TTL to expire and repeat the same request, it should receive a new response.
-	time.Sleep((CommonResponseTTL + 1) * time.Second)
-	if repeatResult, err := resolver.LookupTXT(context.Background(), appCmdQueryWithGoodPassword); err != nil || reflect.DeepEqual(repeatResult, result) || !strings.Contains(result[0], thisYear) {
-		t.Fatal(repeatResult, result, err)
-	}
-	if !strings.HasPrefix(lastResolvedName, appCmdQueryWithGoodPassword) {
-		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
-	}
 }

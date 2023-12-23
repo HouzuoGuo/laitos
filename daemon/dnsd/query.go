@@ -40,10 +40,12 @@ func BuildTextResponse(name string, header dnsmessage.Header, question dnsmessag
 	if err != nil {
 		return nil, err
 	}
-	if err := builder.TXTResource(dnsmessage.ResourceHeader{
-		Name:  dnsName,
-		Class: dnsmessage.ClassINET, TTL: CommonResponseTTL}, dnsmessage.TXTResource{TXT: txt}); err != nil {
-		return nil, err
+	for _, entry := range txt {
+		if err := builder.TXTResource(dnsmessage.ResourceHeader{
+			Name:  dnsName,
+			Class: dnsmessage.ClassINET, TTL: CommonResponseTTL}, dnsmessage.TXTResource{TXT: []string{entry}}); err != nil {
+			return nil, err
+		}
 	}
 	return builder.Finish()
 }
@@ -213,7 +215,7 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 }
 
 // BuildMXResponse constructs an MX query response.
-func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, records []MXRecord) ([]byte, error) {
+func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, records []*net.MX) ([]byte, error) {
 	if len(records) == 0 {
 		return nil, errors.New("mx record(s) must be present")
 	}
@@ -239,7 +241,7 @@ func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, rec
 		return nil, err
 	}
 	for _, rec := range records {
-		mxName, err := dnsmessage.NewName(rec.Name)
+		mxName, err := dnsmessage.NewName(rec.Host)
 		if err != nil {
 			return nil, err
 		}
@@ -247,7 +249,7 @@ func BuildMXResponse(header dnsmessage.Header, question dnsmessage.Question, rec
 			Name:  dnsName,
 			Class: dnsmessage.ClassINET,
 			TTL:   CommonResponseTTL,
-		}, dnsmessage.MXResource{Pref: 10, MX: mxName}); err != nil {
+		}, dnsmessage.MXResource{Pref: rec.Pref, MX: mxName}); err != nil {
 			return nil, err
 		}
 	}
@@ -355,17 +357,31 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 	if err != nil {
 		return nil, err
 	}
-	for _, ipAddr := range record.ipAddresses {
-		v4Addr := ipAddr.To4()
-		if v4Addr != nil {
-			err := builder.AResource(dnsmessage.ResourceHeader{
-				Name:  dnsName,
-				Class: dnsmessage.ClassINET,
-				TTL:   CommonResponseTTL,
-			}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}})
-			if err != nil {
-				return nil, err
+	if record.CanonicalName == "" {
+		for _, ipAddr := range record.ipAddresses {
+			v4Addr := ipAddr.To4()
+			if v4Addr != nil {
+				err := builder.AResource(dnsmessage.ResourceHeader{
+					Name:  dnsName,
+					Class: dnsmessage.ClassINET,
+					TTL:   CommonResponseTTL,
+				}, dnsmessage.AResource{A: [4]byte{v4Addr[0], v4Addr[1], v4Addr[2], v4Addr[3]}})
+				if err != nil {
+					return nil, err
+				}
 			}
+		}
+	} else {
+		cname, err := dnsmessage.NewName(record.CanonicalName)
+		if err != nil {
+			return nil, err
+		}
+		if builder.CNAMEResource(dnsmessage.ResourceHeader{
+			Name:  dnsName,
+			Class: dnsmessage.ClassINET,
+			TTL:   CommonResponseTTL,
+		}, dnsmessage.CNAMEResource{CNAME: cname}) != nil {
+			return nil, err
 		}
 	}
 	if err := builder.StartAdditionals(); err != nil {
@@ -403,22 +419,36 @@ func BuildIPv6AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 	if err != nil {
 		return nil, err
 	}
-	for _, ipAddr := range record.ipAddresses {
-		if ipAddr.To4() == nil {
-			// To16 always returns a non-nil slice for an IPv4 address.
-			v6Addr := ipAddr.To16()
-			var aaaa [16]byte
-			copy(aaaa[:], v6Addr)
-			err := builder.AAAAResource(dnsmessage.ResourceHeader{
-				Name:  dnsName,
-				Class: dnsmessage.ClassINET,
-				TTL:   CommonResponseTTL,
-			}, dnsmessage.AAAAResource{
-				AAAA: aaaa,
-			})
-			if err != nil {
-				return nil, err
+	if record.CanonicalName == "" {
+		for _, ipAddr := range record.ipAddresses {
+			if ipAddr.To4() == nil {
+				// To16 always returns a non-nil slice for an IPv4 address.
+				v6Addr := ipAddr.To16()
+				var aaaa [16]byte
+				copy(aaaa[:], v6Addr)
+				err := builder.AAAAResource(dnsmessage.ResourceHeader{
+					Name:  dnsName,
+					Class: dnsmessage.ClassINET,
+					TTL:   CommonResponseTTL,
+				}, dnsmessage.AAAAResource{
+					AAAA: aaaa,
+				})
+				if err != nil {
+					return nil, err
+				}
 			}
+		}
+	} else {
+		cname, err := dnsmessage.NewName(record.CanonicalName)
+		if err != nil {
+			return nil, err
+		}
+		if builder.CNAMEResource(dnsmessage.ResourceHeader{
+			Name:  dnsName,
+			Class: dnsmessage.ClassINET,
+			TTL:   CommonResponseTTL,
+		}, dnsmessage.CNAMEResource{CNAME: cname}) != nil {
+			return nil, err
 		}
 	}
 	if err := builder.StartAdditionals(); err != nil {

@@ -38,7 +38,37 @@ var sampleConfigJSON = `
     "AllowQueryFromCidrs": [
       "192.0.0.0/8"
     ],
-    "MyDomainNames": ["example.com"],
+    "MyDomainNames": ["example.com", "example.net"],
+    "CustomRecords": {
+      "example.net": {
+        "TXT": {
+          "Entries": [
+            "v=spf1 mx a mx:hz.gl mx:howard.gg mx:houzuo.net ?all",
+            "apple-domain-verification=Abcdefg1234567"
+          ]
+        },
+        "MX": [
+          {"Pref": 10, "Host": "mx1.example.net"},
+          {"Pref": 20, "Host": "mx2.example.net"}
+        ]
+      },
+      "ns-other.example.net": {
+        "NS": {
+          "Names": ["ns.other.example.com"]
+        },
+        "A": {
+          "CanonicalName": "example.com"
+        }
+      },
+      "example.com": {
+        "A": {
+          "Addresses": ["5.0.0.1", "5.0.0.2"]
+        },
+        "AAAA": {
+          "Addresses": ["::5", "::6"]
+        }
+      }
+    },
     "PerIPLimit": 40,
     "TCPPort": 45115,
     "UDPPort": 23518

@@ -1,7 +1,6 @@
 package dnsd
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -21,20 +20,19 @@ func lintDNSName(in string) string {
 
 // CustomRecord defines various types of resource records for a complete DNS name (e.g. www.me.example.com).
 type CustomRecord struct {
-	Name string          `json:"Name"`
 	A    V4AddressRecord `json:"A"`
 	AAAA V6AddressRecord `json:"AAAA"`
 	TXT  TextRecord      `json:"TXT"`
-	MX   []MXRecord      `json:"MX"`
+	MX   []*net.MX       `json:"MX"`
 	NS   NSRecord        `json:"NS"`
+}
+
+func (dname *CustomRecord) MXExists() bool {
+	return len(dname.MX) > 0
 }
 
 // Lint checks all records for errors, and modifies them in-place to conform to protocol requirements.
 func (dname *CustomRecord) Lint() error {
-	dname.Name = lintDNSName(dname.Name)
-	if dname.Name == "" {
-		return errors.New("the custom DNS record must have a name")
-	}
 	if err := dname.A.Lint(); err != nil {
 		return err
 	}
@@ -44,10 +42,11 @@ func (dname *CustomRecord) Lint() error {
 	if err := dname.TXT.Lint(); err != nil {
 		return err
 	}
-	for _, rec := range dname.MX {
-		if err := rec.Lint(); err != nil {
-			return err
+	for i, rec := range dname.MX {
+		if rec == nil || strings.TrimSpace(rec.Host) == "" {
+			return fmt.Errorf("MX record at index %v must have a host name", i)
 		}
+		rec.Host = lintDNSName(rec.Host)
 	}
 	if err := dname.NS.Lint(); err != nil {
 		return err
@@ -62,11 +61,15 @@ type AddressRecord struct {
 	ipAddresses   []net.IP
 }
 
+func (rec *AddressRecord) Exists() bool {
+	return len(rec.Addresses) > 0 || rec.CanonicalName != ""
+}
+
 // Lint checks the record for errors, and modifies it in-place to conform to protocol requirements.
 func (rec *AddressRecord) Lint(ipNetwork string) error {
 	rec.CanonicalName = lintDNSName(rec.CanonicalName)
-	if len(rec.Addresses) == 0 && rec.CanonicalName == "" || len(rec.Addresses) > 0 && rec.CanonicalName != "" {
-		return fmt.Errorf("the record must have either addresses (%v) or rec canonical name (%q) but not both", rec.Addresses, rec.CanonicalName)
+	if len(rec.Addresses) > 0 && rec.CanonicalName != "" {
+		return fmt.Errorf("the record must have either addresses (%v) or canonical name (%q) but not both", rec.Addresses, rec.CanonicalName)
 	}
 	rec.ipAddresses = nil
 	for _, addr := range rec.Addresses {
@@ -104,32 +107,25 @@ type TextRecord struct {
 	Entries []string `json:"Entries"`
 }
 
+func (rec *TextRecord) Exists() bool {
+	return len(rec.Entries) > 0
+}
+
 // Lint checks the record for errors, and modifies it in-place to conform to protocol requirements.
 func (txt *TextRecord) Lint() error {
 	for i, entry := range txt.Entries {
 		entry = strings.TrimSpace(entry)
-		// Remove both leading and trailing double quotes, which is a common user mistake.
-		if len(entry) > 1 && strings.HasPrefix(entry, `"`) && strings.HasSuffix(entry, `"`) {
-			entry = entry[1 : len(entry)-1]
-		}
-		txt.Entries[i] = entry
 		if len(entry) == 0 {
 			return fmt.Errorf("text record entry at index %d must have content", i)
+		} else if len(entry) > 253 {
+			return fmt.Errorf("text record %q must be shorter than 254 characters", entry)
 		}
-	}
-	return nil
-}
-
-type MXRecord struct {
-	Priority int    `json:"Priority"`
-	Name     string `json:"Name"`
-}
-
-// Lint checks the record for errors, and modifies it in-place to conform to protocol requirements.
-func (mx MXRecord) Lint() error {
-	mx.Name = lintDNSName(mx.Name)
-	if mx.Name == "" {
-		return fmt.Errorf("MX record must have a DNS name")
+		// Use quotes around text entries with spaces in the mix.
+		// This helps DNS correctly identify TXT resource record boundary.
+		if len(entry) > 1 && strings.Contains(entry, " ") && !strings.HasPrefix(entry, `"`) {
+			entry = fmt.Sprintf("\"%s\"", entry)
+		}
+		txt.Entries[i] = entry
 	}
 	return nil
 }
@@ -148,4 +144,8 @@ func (ns NSRecord) Lint() error {
 		}
 	}
 	return nil
+}
+
+func (rec *NSRecord) Exists() bool {
+	return len(rec.Names) > 0
 }

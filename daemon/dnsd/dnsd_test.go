@@ -150,7 +150,43 @@ func TestDNSD(t *testing.T) {
 		UDPPort:       62151,
 		TCPPort:       18519,
 		PerIPLimit:    100, // must be sufficient for test case
-		MyDomainNames: []string{"example.com"},
+		MyDomainNames: []string{"example.com", "example.net"},
+		CustomRecords: map[string]*CustomRecord{
+			"example.net": {
+				TXT: TextRecord{
+					Entries: []string{
+						`v=spf1 mx a mx:hz.gl mx:howard.gg mx:houzuo.net ?all`,
+						`apple-domain-verification=Abcdefg1234567`,
+					},
+				},
+				MX: []*net.MX{
+					{Pref: 10, Host: "mx1.example.net"},
+					{Pref: 20, Host: "mx2.example.net"},
+				},
+			},
+			"ns-other.example.net": {
+				NS: NSRecord{
+					Names: []string{"ns.other.example.com"},
+				},
+				A: V4AddressRecord{
+					AddressRecord: AddressRecord{
+						CanonicalName: "example.com",
+					},
+				},
+			},
+			"example.com": {
+				A: V4AddressRecord{
+					AddressRecord: AddressRecord{
+						Addresses: []string{"5.0.0.1", "5.0.0.2"},
+					},
+				},
+				AAAA: V6AddressRecord{
+					AddressRecord: AddressRecord{
+						Addresses: []string{"::5", "::6"},
+					},
+				},
+			},
+		},
 	}
 	daemon.Processor = toolbox.GetTestCommandProcessor()
 	if err := daemon.Initialise(); err != nil {

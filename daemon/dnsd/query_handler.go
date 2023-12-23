@@ -174,12 +174,14 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
-	labels, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
+	labels, domainName, numDomainLabels, isRecursive, customRec := daemon.queryLabels(name)
 	if isRecursive {
 		if !daemon.queryRateLimit.Add(clientIP, true) {
 			return
 		}
-		daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+		daemon.logger.Info(clientIP, nil,
+			"query: %s %q rd? %v, resp recursive? %v, custom rec? %v, my domain %q, #labels %d",
+			question.Type, name, header.RecursionDesired, isRecursive, customRec != nil, domainName, numDomainLabels)
 		if queryLen == nil {
 			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
 		}
@@ -214,13 +216,28 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 		if !daemon.queryRateLimit.Add(clientIP, true) {
 			return
 		}
-		daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
-		respBody, err = BuildTextResponse(name, header, question, []string{fmt.Sprintf(`v=spf1 mx a mx:%s ?all`, domainName)})
+		daemon.logger.Info(clientIP, nil,
+			"query: %s %q rd? %v, resp recursive? %v, custom rec? %v, my domain %q, #labels %d",
+			question.Type, name, header.RecursionDesired, isRecursive, customRec != nil, domainName, numDomainLabels)
+		if customRec == nil || !customRec.TXT.Exists() {
+			// Construct an authoritative SPF response.
+			respBody, err = BuildTextResponse(name, header, question, []string{fmt.Sprintf(`v=spf1 mx a %s?all`, daemon.spfMXList())})
+		} else {
+			respBody, err = BuildTextResponse(name, header, question, customRec.TXT.Entries)
+		}
 		if err != nil {
 			daemon.logger.Warning(clientIP, err, "failed to build response packet")
 		}
 	}
 	return
+}
+
+func (daemon *Daemon) spfMXList() string {
+	ret := ""
+	for _, domain := range daemon.MyDomainNames {
+		ret += fmt.Sprintf("mx:%s ", domain[1:])
+	}
+	return ret
 }
 
 func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
@@ -229,7 +246,9 @@ func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, hea
 	}
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive, _ := daemon.queryLabels(name)
-	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+	daemon.logger.Info(clientIP, nil,
+		"query: %s %q rd? %v, resp recursive? %v, my domain %q, #labels %d",
+		question.Type, name, header.RecursionDesired, isRecursive, domainName, numDomainLabels)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
@@ -252,7 +271,9 @@ func (daemon *Daemon) handleMX(clientIP string, queryLen, queryBody []byte, head
 	}
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive, customRec := daemon.queryLabels(name)
-	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+	daemon.logger.Info(clientIP, nil,
+		"query: %s %q rd? %v, resp recursive? %v, custom rec? %v, my domain %q, #labels %d",
+		question.Type, name, header.RecursionDesired, isRecursive, customRec != nil, domainName, numDomainLabels)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
@@ -263,14 +284,11 @@ func (daemon *Daemon) handleMX(clientIP string, queryLen, queryBody []byte, head
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	var err error
-	if customRec == nil {
+	if customRec == nil || !customRec.MXExists() {
 		// The DNS daemon will happily resolve all non-recursive address queries to
 		// its own public IP address.
-		mx := []MXRecord{
-			{
-				Priority: 10,
-				Name:     lintDNSName(fmt.Sprintf("mx.%s.", domainName)),
-			},
+		mx := []*net.MX{
+			{Pref: 10, Host: lintDNSName(fmt.Sprintf("mx.%s.", domainName))},
 		}
 		respBody, err = BuildMXResponse(header, question, mx)
 	} else {
@@ -288,7 +306,9 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 	}
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive, customRec := daemon.queryLabels(name)
-	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+	daemon.logger.Info(clientIP, nil,
+		"query: %s %q rd? %v, resp recursive? %v, custom rec? %v, my domain %q, #labels %d",
+		question.Type, name, header.RecursionDesired, isRecursive, customRec != nil, domainName, numDomainLabels)
 	if daemon.processQueryTestCaseFunc != nil {
 		daemon.processQueryTestCaseFunc(name)
 	}
@@ -299,9 +319,7 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
 	}
 	var err error
-	if customRec == nil {
-		respBody, err = BuildNSResponse(header, question, domainName, customRec.NS, net.IPv4zero)
-	} else {
+	if customRec == nil || !customRec.NS.Exists() {
 		// The DNS daemon will happily resolve all non-recursive address queries
 		// to its own public IP address.
 		ns := NSRecord{
@@ -312,6 +330,8 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 			},
 		}
 		respBody, err = BuildNSResponse(header, question, domainName, ns, daemon.myPublicIP)
+	} else {
+		respBody, err = BuildNSResponse(header, question, domainName, customRec.NS, net.IPv4zero)
 	}
 	if err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to build response packet")
@@ -322,7 +342,9 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
 	name := question.Name.String()
 	_, domainName, numDomainLabels, isRecursive, customRec := daemon.queryLabels(name)
-	daemon.logger.Info(clientIP, nil, "handling type: %q, name: %q, domain name: %q, number of domain labels: %v, is recursive: %v, recursion desired: %v", question.Type, name, domainName, numDomainLabels, isRecursive, header.RecursionDesired)
+	daemon.logger.Info(clientIP, nil,
+		"query: %s %q rd? %v, resp recursive? %v, custom rec? %v, my domain %q, #labels %d",
+		question.Type, name, header.RecursionDesired, isRecursive, customRec != nil, domainName, numDomainLabels)
 	var err error
 	if isRecursive {
 		// Act as a stub resolver and forward the request.
@@ -352,7 +374,7 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 		// Caller's PerIPLimit check applies, the PerIPQueryLimit does not apply.
 		respBody, _ = daemon.handleTCPOverDNSQuery(header, question, clientIP)
 		return respBody
-	} else if customRec != nil {
+	} else if customRec != nil && (customRec.A.Exists() || customRec.AAAA.Exists()) {
 		if !daemon.queryRateLimit.Add(clientIP, true) {
 			return
 		}
@@ -397,7 +419,7 @@ therefore this function must not log the input packet content in any way.
 func (daemon *Daemon) handleTCPRecursiveQuery(clientIP string, queryLen, queryBody []byte) (respBody []byte) {
 	respBody = make([]byte, 0)
 	if !daemon.isRecursiveQueryAllowed(clientIP) {
-		daemon.logger.Info(clientIP, nil, "client IP is not allowed to query")
+		daemon.logger.Info(clientIP, nil, "client IP is denied making recursive query")
 		return
 	}
 	var forwarder net.Conn
