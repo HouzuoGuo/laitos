@@ -117,13 +117,8 @@ func (txt *TextRecord) Lint() error {
 		entry = strings.TrimSpace(entry)
 		if len(entry) == 0 {
 			return fmt.Errorf("text record entry at index %d must have content", i)
-		} else if len(entry) > 253 {
-			return fmt.Errorf("text record %q must be shorter than 254 characters", entry)
-		}
-		// Use quotes around text entries with spaces in the mix.
-		// This helps DNS correctly identify TXT resource record boundary.
-		if len(entry) > 1 && strings.Contains(entry, " ") && !strings.HasPrefix(entry, `"`) {
-			entry = fmt.Sprintf("\"%s\"", entry)
+		} else if len(entry) > 254 {
+			return fmt.Errorf("text record %q must be shorter than 255 characters", entry)
 		}
 		txt.Entries[i] = entry
 	}

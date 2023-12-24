@@ -196,7 +196,7 @@ func testCommandRunner(t testingstub.T, daemon *Daemon, resolver *net.Resolver) 
 // testCustomRecordResolution validates query results of custom DNS names.
 func testCustomRecordResolution(t testingstub.T, daemon *Daemon, resolver *net.Resolver) {
 	netTXT, err := resolver.LookupTXT(context.Background(), "example.net")
-	if err != nil || !reflect.DeepEqual(netTXT, []string{`"v=spf1 mx a mx:hz.gl mx:howard.gg mx:houzuo.net ?all"`, "apple-domain-verification=Abcdefg1234567"}) {
+	if err != nil || !reflect.DeepEqual(netTXT, []string{`v=spf1 mx a mx:hz.gl mx:howard.gg mx:houzuo.net ?all`, "apple-domain-verification=Abcdefg1234567"}) {
 		t.Fatalf("failed to resolve txt: %v, %d, %v", err, len(netTXT), netTXT)
 	}
 
