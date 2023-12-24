@@ -325,13 +325,6 @@ func BuildNSResponse(header dnsmessage.Header, question dnsmessage.Question, dom
 			}
 		}
 	}
-	var rh dnsmessage.ResourceHeader
-	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
-		return nil, err
-	}
-	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
-		return nil, err
-	}
 	return builder.Finish()
 }
 
