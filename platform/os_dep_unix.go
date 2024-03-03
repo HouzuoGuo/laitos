@@ -77,3 +77,8 @@ func LockMemory() {
 		logger.Warning("", nil, "program is not running as root (UID 0) hence memory cannot be locked, your private information may leak onto disk.")
 	}
 }
+
+// Sync makes the sync syscall.
+func Sync() {
+	syscall.Sync()
+}

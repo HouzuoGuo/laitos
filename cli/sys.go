@@ -117,3 +117,18 @@ func StartProfilingServer(logger *lalog.Logger, pprofHTTPPort int) {
 		}()
 	}
 }
+
+func SyncInBackground(logger *lalog.Logger) {
+	periodicCopy := &misc.Periodic{
+		LogActorName: "sync",
+		Interval:     5 * time.Second,
+		MaxInt:       1,
+		Func: func(_ context.Context, _, _ int) error {
+			platform.Sync()
+			return nil
+		},
+	}
+	if err := periodicCopy.Start(context.Background()); err != nil {
+		panic(err)
+	}
+}

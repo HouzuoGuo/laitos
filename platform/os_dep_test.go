@@ -73,6 +73,11 @@ func TestInvokeProgram(t *testing.T) {
 }
 
 func TestLockMemory(t *testing.T) {
-	// just make sure it does not panic
+	// Just make sure it won't panic.
 	LockMemory()
+}
+
+func TestSync(t *testing.T) {
+	// Just make sure it won't panic.
+	Sync()
 }

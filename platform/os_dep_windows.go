@@ -49,3 +49,7 @@ func KillProcess(proc *os.Process) (success bool) {
 func LockMemory() {
 	logger.Warning(nil, nil, "memory locking is not supported on Windows, your private information may leak onto disk.")
 }
+
+// Sync does nothing. See also the variant for unix-like OS.
+func Sync() {
+}
