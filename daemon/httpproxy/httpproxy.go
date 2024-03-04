@@ -87,7 +87,7 @@ func (daemon *Daemon) Initialise() error {
 	// Collect proxy request and response stats in prometheus histograms
 	var handlerDurationHistogram, responseTimeToFirstByteHistogram, responseSizeHistogram *prometheus.HistogramVec
 	if misc.EnablePrometheusIntegration {
-		metricsLabelNames := []string{middleware.PrometheusHandlerTypeLabel, middleware.PrometheusHandlerLocationLabel, middleware.PrometheusHandlerHostLabel}
+		metricsLabelNames := []string{middleware.PrometheusHandlerTypeLabel, middleware.PrometheusHandlerLocationLabel}
 		handlerDurationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Name:    "laitos_httpproxy_handler_duration_seconds",
 			Help:    "The run-duration of HTTP proxy responses in seconds",

@@ -22,8 +22,6 @@ const (
 	PrometheusHandlerTypeLabel = "handler_type"
 	// PrometheusHandlerLocationLabel is the name of data label given to prometheus observers, the label data shall be the URL location at which HTTP handler is installed.
 	PrometheusHandlerLocationLabel = "url_location"
-	// PrometheusHandlerHostLabel is the name of data label given to prometheus observers, the label data shall be the intended host (example.com:443) requested by the client.
-	PrometheusHandlerHostLabel = "host"
 	// MaxLatestRequests is the maximum number of latest HTTP requests to be
 	// kept in-memory for on-demand inspection.
 	MaxLatestRequests = 200
@@ -154,7 +152,6 @@ func RecordPrometheusStats(
 		promLabels := prometheus.Labels{
 			PrometheusHandlerTypeLabel:     handlerTypeLabel,
 			PrometheusHandlerLocationLabel: handlerLocationLabel,
-			PrometheusHandlerHostLabel:     r.Host,
 		}
 		durationObs := durationHistogram.With(promLabels)
 		durationObs.Observe(time.Since(beginTime).Seconds())
