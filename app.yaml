@@ -1,4 +1,4 @@
-runtime: go120
+runtime: go122
 includes:
   - gcp_appengine_data/appeng-environment.yaml
 instance_class: f1
