@@ -26,25 +26,19 @@ var (
 	logger = &lalog.Logger{ComponentName: "platform", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 )
 
-/*
-InvokeShell launches an external shell process with time constraints to run a piece of shell code. The code is fed into
-shell command parameter "-c", which happens to be universally accepted by Unix shells and Windows Powershell.
-Returns shell stdout+stderr output combined and error if there is any. The maximum acount of output is capped to
-MaxExternalProgramOutputBytes.
-*/
+// InvokeShell starts the shell interpreter and passes the script content to "-c" flag.
+// Nearly all shell interpreters across Linux and Windows accept the "-c" convention.
+// Return stdout+stderr combined, the maximum size is capped to MaxExternalProgramOutputBytes.
 func InvokeShell(timeoutSec int, interpreter string, content string) (out string, err error) {
 	return InvokeProgram(nil, timeoutSec, interpreter, "-c", content)
 }
 
-/*
-InvokeProgram launches an external program with time constraints. The external program inherits laitos' environment
-mixed with additional input environment variables. The additional variables take precedence over inherited ones.
-Returns stdout+stderr output combined, and error if there is any. The maximum amount of output returned is capped to
-MaxExternalProgramOutputBytes.
-*/
-func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (string, error) {
+// StartProgram starts an external executable with optional added environment variables,
+// and kills it before reacing the maximum execution timeout to prevent a runaway.
+// The stdout and stderr are redirected to the specified writers.
+func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.Writer, program string, args ...string) error {
 	if timeoutSec < 1 {
-		return "", errors.New("invalid time limit")
+		return errors.New("invalid time limit")
 	}
 	// The external process uses my environment variables mixed with hard-coded PATH and custom environment.
 	// For duplicated keys, the last value of the key becomes effective.
@@ -60,10 +54,9 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 	unixSecAtStart := time.Now().Unix()
 	timeLimitExceeded := time.After(time.Duration(timeoutSec) * time.Second)
 	processExitChan := make(chan error, 1)
-	outBuf := lalog.NewByteLogWriter(io.Discard, MaxExternalProgramOutputBytes)
 	absPath, err := filepath.Abs(program)
 	if err != nil {
-		return "", fmt.Errorf("failed to determine abs path of the program %q: %w", program, err)
+		return fmt.Errorf("failed to determine abs path of the program %q: %w", program, err)
 	}
 	var process *os.Process
 	if localAppData := os.Getenv("LOCALAPPDATA"); len(localAppData) > 0 && strings.Contains(program, localAppData) {
@@ -73,7 +66,7 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		args = append([]string{absPath}, args...)
 		process, err = os.StartProcess(program, args, &os.ProcAttr{Env: envVars, Files: []*os.File{nil, nil, nil}})
 		if err != nil {
-			return "", fmt.Errorf("failed to execute program %q: %v", program, err)
+			return fmt.Errorf("failed to execute program %q: %v", program, err)
 		}
 		go func() {
 			status, exitErr := process.Wait()
@@ -84,12 +77,12 @@ func InvokeProgram(envVars []string, timeoutSec int, program string, args ...str
 		// Collect stdout and stderr all together in a single buffer
 		proc := exec.Command(program, args...)
 		proc.Env = combinedEnv
-		proc.Stdout = outBuf
-		proc.Stderr = outBuf
+		proc.Stdout = stdout
+		proc.Stderr = stderr
 		proc.SysProcAttr = extProcAttr
 		// Start external process
 		if err = proc.Start(); err != nil {
-			return "", fmt.Errorf("failed to execute program %q: %v", program, err)
+			return fmt.Errorf("failed to execute program %q: %v", program, err)
 		}
 		process = proc.Process
 		go func() {
@@ -134,5 +127,14 @@ processMonitorLoop:
 			break processMonitorLoop
 		}
 	}
+	return err
+}
+
+// InvokeProgram starts an external executable with optional added environment variables,
+// and kills it before reacing the maximum execution timeout to prevent a runaway.
+// It returns stdout+stderr combined, the maximum size is capped to MaxExternalProgramOutputBytes.
+func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (string, error) {
+	outBuf := lalog.NewByteLogWriter(io.Discard, MaxExternalProgramOutputBytes)
+	err := StartProgram(envVars, timeoutSec, outBuf, outBuf, program, args...)
 	return string(outBuf.Retrieve(false)), err
 }
