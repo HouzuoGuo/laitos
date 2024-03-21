@@ -12,6 +12,7 @@ ByteLogWriter forwards verbatim bytes to destination writer, and keeps designate
 internal buffers for later retrieval. It implements io.Writer interface.
 */
 type ByteLogWriter struct {
+	io.WriteCloser
 	MaxBytes    int        // MaxBytes is the number of latest data bytes to keep.
 	destination io.Writer  // destination is the writer to forward verbatim output to.
 	mutex       sync.Mutex // mutex prevents simultaneous Write operations from taking place.
@@ -129,4 +130,24 @@ func (writer *ByteLogWriter) Write(p []byte) (n int, err error) {
 	writer.absorb(p)
 	writer.mutex.Unlock()
 	return
+}
+
+// Close does nothing and always returns nil.
+func (writer *ByteLogWriter) Close() error {
+	return nil
+}
+
+// DiscardCloser implements io.WriteCloser.
+var DiscardCloser = discardCloser{}
+
+type discardCloser struct {
+	io.WriteCloser
+}
+
+func (discardCloser) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+func (discardCloser) Close() error {
+	return nil
 }
