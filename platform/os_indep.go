@@ -26,6 +26,11 @@ var (
 	logger = &lalog.Logger{ComponentName: "platform", ComponentID: []lalog.LoggerIDField{{Key: "PID", Value: os.Getpid()}}}
 )
 
+type (
+	// ExternalProcessStarter is the function signature for starting an external program.
+	ExternalProcessStarter func([]string, int, io.Writer, io.Writer, chan<- struct{}, <-chan struct{}, string, ...string) error
+)
+
 // InvokeShell starts the shell interpreter and passes the script content to "-c" flag.
 // Nearly all shell interpreters across Linux and Windows accept the "-c" convention.
 // Return stdout+stderr combined, the maximum size is capped to MaxExternalProgramOutputBytes.
@@ -36,7 +41,7 @@ func InvokeShell(timeoutSec int, interpreter string, content string) (out string
 // StartProgram starts an external executable with optional added environment variables,
 // and kills it before reacing the maximum execution timeout to prevent a runaway.
 // The stdout and stderr are redirected to the specified writers.
-func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.Writer, program string, args ...string) error {
+func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.Writer, ready chan<- struct{}, terminate <-chan struct{}, program string, args ...string) error {
 	if timeoutSec < 1 {
 		return errors.New("invalid time limit")
 	}
@@ -51,6 +56,7 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.Writer, pr
 	}
 	// Supervise the process execution, put a time box around it.
 	minuteTicker := time.NewTicker(1 * time.Minute)
+	defer minuteTicker.Stop()
 	unixSecAtStart := time.Now().Unix()
 	timeLimitExceeded := time.After(time.Duration(timeoutSec) * time.Second)
 	processExitChan := make(chan error, 1)
@@ -85,6 +91,7 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.Writer, pr
 			return fmt.Errorf("failed to execute program %q: %v", program, err)
 		}
 		process = proc.Process
+		close(ready)
 		go func() {
 			exitErr := proc.Wait()
 			if exitErr == nil {
@@ -95,7 +102,6 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.Writer, pr
 			processExitChan <- exitErr
 		}()
 	}
-processMonitorLoop:
 	for {
 		// Monitor long-duration process, time-out condition, and regular process exit.
 		select {
@@ -117,17 +123,19 @@ processMonitorLoop:
 					logger.Warning(program, nil, "failed to kill PID %d after time limit exceeded", process.Pid)
 				}
 			}
-			err = errors.New("time limit exceeded")
-			minuteTicker.Stop()
-			break processMonitorLoop
+			return errors.New("time limit exceeded")
+		case <-terminate:
+			if process != nil {
+				logger.Info(program, nil, "killing process %d by request", process.Pid)
+				if !KillProcess(process) {
+					logger.Warning(program, nil, "failed to kill PID %d", process.Pid)
+				}
+			}
+			return nil
 		case exitErr := <-processExitChan:
-			// Normal or abnormal exit that is not a time out
-			err = exitErr
-			minuteTicker.Stop()
-			break processMonitorLoop
+			return exitErr
 		}
 	}
-	return err
 }
 
 // InvokeProgram starts an external executable with optional added environment variables,
@@ -135,6 +143,6 @@ processMonitorLoop:
 // It returns stdout+stderr combined, the maximum size is capped to MaxExternalProgramOutputBytes.
 func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (string, error) {
 	outBuf := lalog.NewByteLogWriter(io.Discard, MaxExternalProgramOutputBytes)
-	err := StartProgram(envVars, timeoutSec, outBuf, outBuf, program, args...)
+	err := StartProgram(envVars, timeoutSec, outBuf, outBuf, make(chan<- struct{}), make(<-chan struct{}), program, args...)
 	return string(outBuf.Retrieve(false)), err
 }

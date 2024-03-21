@@ -1,8 +1,11 @@
 package platform
 
 import (
+	"io"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestInvokeShell(t *testing.T) {
@@ -15,6 +18,96 @@ func TestInvokeShell(t *testing.T) {
 		out, err := InvokeShell(1, "/bin/sh", "echo $PATH")
 		if err != nil || out != CommonPATH+"\n" {
 			t.Fatal(err, out)
+		}
+	}
+}
+
+func TestInvokeProgram(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		out, err := InvokeProgram([]string{"A=laitos123"}, 3, "hostname")
+		if err != nil || len(out) < 1 {
+			t.Fatal(err, out)
+		}
+
+		begin := time.Now()
+		_, err = InvokeProgram(nil, 1, "cmd.exe", "/c", "waitfor dummydummy /t 60")
+		if err == nil {
+			t.Fatal("did not timeout")
+		}
+		duration := time.Since(begin)
+		if duration > 3*time.Second {
+			t.Fatal("did not kill before timeout")
+		}
+
+		// Verify cap on program output size
+		out, err = InvokeProgram(nil, 3600, "cmd.exe", "/c", `type c:\windows\system32\ntoskrnl.exe`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(out) != MaxExternalProgramOutputBytes {
+			t.Fatal(len(out))
+		}
+	} else {
+		out, err := InvokeProgram([]string{"A=laitos123"}, 3600, "printenv", "A")
+		if err != nil || out != "laitos123\n" {
+			t.Fatal(err, out)
+		}
+
+		begin := time.Now()
+		_, err = InvokeProgram(nil, 1, "sleep", "5")
+		if err == nil {
+			t.Fatal("did not timeout")
+		}
+		duration := time.Since(begin)
+		if duration > 3*time.Second {
+			t.Fatal("did not kill before timeout")
+		}
+
+		// Verify cap on program output size
+		out, err = InvokeProgram(nil, 1, "yes", "0123456789")
+		if err == nil {
+			t.Fatal("did not timeout")
+		}
+		if len(out) != MaxExternalProgramOutputBytes || !strings.Contains(out, "0123456789") {
+			t.Fatal(len(out), !strings.Contains(out, "0123456789"))
+		}
+	}
+}
+
+func TestStartProgramTermination(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		begin := time.Now()
+		termChan := make(chan struct{})
+		readyChan := make(chan struct{})
+		errChan := make(chan error)
+		go func() {
+			errChan <- StartProgram(nil, 100, io.Discard, io.Discard, readyChan, termChan, "cmd.exe", "/c", "waitfor dummydummy /t 60")
+		}()
+		<-readyChan
+		close(termChan)
+		duration := time.Since(begin)
+		if duration > 1*time.Second {
+			t.Fatal("failed to terminate external program in time")
+		}
+		if err := <-errChan; err != nil {
+			t.Fatalf("unexpected process error: %v", err)
+		}
+	} else {
+		begin := time.Now()
+		termChan := make(chan struct{})
+		readyChan := make(chan struct{})
+		errChan := make(chan error)
+		go func() {
+			errChan <- StartProgram(nil, 100, io.Discard, io.Discard, readyChan, termChan, "sleep", "10")
+		}()
+		<-readyChan
+		close(termChan)
+		duration := time.Since(begin)
+		if duration > 1*time.Second {
+			t.Fatal("failed to terminate external program in time")
+		}
+		if err := <-errChan; err != nil {
+			t.Fatalf("unexpected process error: %v", err)
 		}
 	}
 }
