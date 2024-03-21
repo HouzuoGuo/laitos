@@ -28,7 +28,7 @@ var (
 
 type (
 	// ExternalProcessStarter is the function signature for starting an external program.
-	ExternalProcessStarter func([]string, int, io.Writer, io.Writer, chan<- struct{}, <-chan struct{}, string, ...string) error
+	ExternalProcessStarter func([]string, int, io.WriteCloser, io.WriteCloser, chan<- struct{}, <-chan struct{}, string, ...string) error
 )
 
 // InvokeShell starts the shell interpreter and passes the script content to "-c" flag.
@@ -41,10 +41,12 @@ func InvokeShell(timeoutSec int, interpreter string, content string) (out string
 // StartProgram starts an external executable with optional added environment variables,
 // and kills it before reacing the maximum execution timeout to prevent a runaway.
 // The stdout and stderr are redirected to the specified writers.
-func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.Writer, ready chan<- struct{}, terminate <-chan struct{}, program string, args ...string) error {
+func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteCloser, ready chan<- struct{}, terminate <-chan struct{}, program string, args ...string) error {
 	if timeoutSec < 1 {
 		return errors.New("invalid time limit")
 	}
+	defer stdout.Close()
+	defer stderr.Close()
 	// The external process uses my environment variables mixed with hard-coded PATH and custom environment.
 	// For duplicated keys, the last value of the key becomes effective.
 	defaultOSEnv := os.Environ()

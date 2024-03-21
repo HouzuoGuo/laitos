@@ -1,11 +1,12 @@
 package platform
 
 import (
-	"io"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HouzuoGuo/laitos/lalog"
 )
 
 func TestInvokeShell(t *testing.T) {
@@ -81,7 +82,7 @@ func TestStartProgramTermination(t *testing.T) {
 		readyChan := make(chan struct{})
 		errChan := make(chan error)
 		go func() {
-			errChan <- StartProgram(nil, 100, io.Discard, io.Discard, readyChan, termChan, "cmd.exe", "/c", "waitfor dummydummy /t 60")
+			errChan <- StartProgram(nil, 100, lalog.DiscardCloser, lalog.DiscardCloser, readyChan, termChan, "cmd.exe", "/c", "waitfor dummydummy /t 60")
 		}()
 		<-readyChan
 		close(termChan)
@@ -98,7 +99,7 @@ func TestStartProgramTermination(t *testing.T) {
 		readyChan := make(chan struct{})
 		errChan := make(chan error)
 		go func() {
-			errChan <- StartProgram(nil, 100, io.Discard, io.Discard, readyChan, termChan, "sleep", "10")
+			errChan <- StartProgram(nil, 100, lalog.DiscardCloser, lalog.DiscardCloser, readyChan, termChan, "sleep", "10")
 		}()
 		<-readyChan
 		close(termChan)
