@@ -268,7 +268,7 @@ func TestProxy_HTTPSClient(t *testing.T) {
 	}
 	t.Logf("http response: %s", string(resp))
 	respStr := strings.ToLower(string(resp))
-	if !strings.Contains(respStr, `content-type`) || !strings.Contains(respStr, `</html>`) {
+	if !strings.Contains(respStr, `cache-control`) || !strings.Contains(respStr, `cf-ray`) {
 		t.Fatalf("missing content")
 	}
 	// There is no meaningful way of checking the sequence numbers because there
