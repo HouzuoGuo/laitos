@@ -79,36 +79,36 @@ func TestStartProgramTermination(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		begin := time.Now()
 		termChan := make(chan struct{})
-		readyChan := make(chan struct{})
+		startChan := make(chan error)
 		errChan := make(chan error)
 		go func() {
-			errChan <- StartProgram(nil, 100, lalog.DiscardCloser, lalog.DiscardCloser, readyChan, termChan, "cmd.exe", "/c", "waitfor dummydummy /t 60")
+			errChan <- StartProgram(nil, 100, lalog.DiscardCloser, lalog.DiscardCloser, startChan, termChan, "sleep", "10")
 		}()
-		<-readyChan
+		<-startChan
 		close(termChan)
 		duration := time.Since(begin)
 		if duration > 1*time.Second {
 			t.Fatal("failed to terminate external program in time")
 		}
-		if err := <-errChan; err != nil {
-			t.Fatalf("unexpected process error: %v", err)
+		if err := <-errChan; err == nil {
+			t.Fatal("did not terminate with an abnormal exit code")
 		}
 	} else {
 		begin := time.Now()
 		termChan := make(chan struct{})
-		readyChan := make(chan struct{})
+		startChan := make(chan error)
 		errChan := make(chan error)
 		go func() {
-			errChan <- StartProgram(nil, 100, lalog.DiscardCloser, lalog.DiscardCloser, readyChan, termChan, "sleep", "10")
+			errChan <- StartProgram(nil, 100, lalog.DiscardCloser, lalog.DiscardCloser, startChan, termChan, "sleep", "10")
 		}()
-		<-readyChan
+		<-startChan
 		close(termChan)
 		duration := time.Since(begin)
 		if duration > 1*time.Second {
 			t.Fatal("failed to terminate external program in time")
 		}
-		if err := <-errChan; err != nil {
-			t.Fatalf("unexpected process error: %v", err)
+		if err := <-errChan; err == nil {
+			t.Fatal("did not terminate with an abnormal exit code")
 		}
 	}
 }

@@ -28,7 +28,7 @@ var (
 
 type (
 	// ExternalProcessStarter is the function signature for starting an external program.
-	ExternalProcessStarter func([]string, int, io.WriteCloser, io.WriteCloser, chan<- struct{}, <-chan struct{}, string, ...string) error
+	ExternalProcessStarter func([]string, int, io.WriteCloser, io.WriteCloser, chan<- error, <-chan struct{}, string, ...string) error
 )
 
 // InvokeShell starts the shell interpreter and passes the script content to "-c" flag.
@@ -38,15 +38,16 @@ func InvokeShell(timeoutSec int, interpreter string, content string) (out string
 	return InvokeProgram(nil, timeoutSec, interpreter, "-c", content)
 }
 
-// StartProgram starts an external executable with optional added environment variables,
-// and kills it before reacing the maximum execution timeout to prevent a runaway.
-// The stdout and stderr are redirected to the specified writers.
-func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteCloser, ready chan<- struct{}, terminate <-chan struct{}, program string, args ...string) error {
+// StartProgram starts an external process, with optionally added environment variables and timeout monitor.
+// The function waits for the process to terminate, and then returns the error at termination (e.g. abnormal exit codde) if any.
+func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteCloser, start chan<- error, terminate <-chan struct{}, program string, args ...string) error {
 	if timeoutSec < 1 {
 		return errors.New("invalid time limit")
 	}
-	defer stdout.Close()
-	defer stderr.Close()
+	defer func() {
+		_ = stdout.Close()
+		_ = stderr.Close()
+	}()
 	// The external process uses my environment variables mixed with hard-coded PATH and custom environment.
 	// For duplicated keys, the last value of the key becomes effective.
 	defaultOSEnv := os.Environ()
@@ -68,7 +69,7 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteClose
 	}
 	var process *os.Process
 	if localAppData := os.Getenv("LOCALAPPDATA"); len(localAppData) > 0 && strings.Contains(program, localAppData) {
-		// Workaround os.Exec's incompatibility with Windows.
+		// The Windows execution path. os.Exec is incompatible with Windows.
 		logger.Info(program, nil, "using os.StartProcess workaround to execute the program and will be unable to read program output")
 		// StartProcess does not automatically prepend args with the executable path.
 		args = append([]string{absPath}, args...)
@@ -82,18 +83,19 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteClose
 			processExitChan <- exitErr
 		}()
 	} else {
-		// Collect stdout and stderr all together in a single buffer
+		// The Unix/Linux execution path.
 		proc := exec.Command(program, args...)
 		proc.Env = combinedEnv
 		proc.Stdout = stdout
 		proc.Stderr = stderr
 		proc.SysProcAttr = extProcAttr
-		// Start external process
-		if err = proc.Start(); err != nil {
+		startErr := proc.Start()
+		if startErr != nil {
+			start <- startErr
 			return fmt.Errorf("failed to execute program %q: %v", program, err)
 		}
+		close(start)
 		process = proc.Process
-		close(ready)
 		go func() {
 			exitErr := proc.Wait()
 			if exitErr == nil {
@@ -125,7 +127,6 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteClose
 					logger.Warning(program, nil, "failed to kill PID %d after time limit exceeded", process.Pid)
 				}
 			}
-			return errors.New("time limit exceeded")
 		case <-terminate:
 			if process != nil {
 				logger.Info(program, nil, "killing process %d by request", process.Pid)
@@ -133,7 +134,6 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteClose
 					logger.Warning(program, nil, "failed to kill PID %d", process.Pid)
 				}
 			}
-			return nil
 		case exitErr := <-processExitChan:
 			return exitErr
 		}
@@ -145,6 +145,6 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteClose
 // It returns stdout+stderr combined, the maximum size is capped to MaxExternalProgramOutputBytes.
 func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (string, error) {
 	outBuf := lalog.NewByteLogWriter(io.Discard, MaxExternalProgramOutputBytes)
-	err := StartProgram(envVars, timeoutSec, outBuf, outBuf, make(chan<- struct{}), make(<-chan struct{}), program, args...)
+	err := StartProgram(envVars, timeoutSec, outBuf, outBuf, make(chan<- error), make(<-chan struct{}), program, args...)
 	return string(outBuf.Retrieve(false)), err
 }
