@@ -28,6 +28,7 @@ import (
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -401,9 +402,8 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 		ContentType: fileUploadRequestWriter.FormDataContentType(),
 		Body:        fileUploadRequestBody,
 	}, addr+"/upload")
-	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatal(err, resp, string(resp.Body))
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	// File upload - download
 	var downloadFileName string
 	for _, line := range strings.Split(string(resp.Body), "\n") {

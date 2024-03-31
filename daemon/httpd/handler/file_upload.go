@@ -125,12 +125,12 @@ func (upload *HandleFileUpload) Handle(w http.ResponseWriter, r *http.Request) {
 		// Generate a temporary file that preserves extension name of the original
 		tmpFileName := hex.EncodeToString(randName) + filepath.Ext(fileHeader.Filename)
 		if err := os.MkdirAll(fileUploadStorage, 0700); err != nil {
-			http.Error(w, `failed to store file`, http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("failed to store file: %v", err), http.StatusInternalServerError)
 			return
 		}
 		tmpFile, err := os.OpenFile(filepath.Join(fileUploadStorage, tmpFileName), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 		if err != nil {
-			http.Error(w, `failed to store file`, http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("failed to store file: %v", err), http.StatusInternalServerError)
 			return
 		}
 		defer tmpFile.Close()

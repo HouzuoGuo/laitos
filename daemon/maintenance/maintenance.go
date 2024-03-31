@@ -91,12 +91,12 @@ type Daemon struct {
 		IntervalSec determines the rate of execution of maintenance routine. This is not a sleep duration. The constant
 		rate of execution is maintained by taking away routine's elapsed time from actual interval between runs.
 	*/
-	IntervalSec         int                     `json:"IntervalSec"`
-	MailClient          inet.MailClient         `json:"MailClient"` // Send notification mails via this mailer
-	Recipients          []string                `json:"Recipients"` // Address of recipients of notification mails
-	FeaturesToTest      *toolbox.FeatureSet     `json:"-"`          // FeaturesToTest are toolbox features to be tested during health check.
-	MailCmdRunnerToTest *mailcmd.CommandRunner  `json:"-"`          // MailCmdRunnerToTest is mail command runner to be tested during health check.
-	HTTPHandlersToCheck httpd.HandlerCollection `json:"-"`          // HTTPHandlersToCheck are the URL handlers of an HTTP daemon to be tested during health check.
+	IntervalSec               int                     `json:"IntervalSec"`
+	MailClient                inet.MailClient         `json:"MailClient"` // Send notification mails via this mailer
+	Recipients                []string                `json:"Recipients"` // Address of recipients of notification mails
+	ToolboxSelfTest           *toolbox.FeatureSet     `json:"-"`          // FeaturesToTest are toolbox features to be tested during health check.
+	MailCommandRunnerSelfTest *mailcmd.CommandRunner  `json:"-"`          // MailCmdRunnerToTest is mail command runner to be tested during health check.
+	HttpHandlersSelfTest      httpd.HandlerCollection `json:"-"`          // HTTPHandlersToCheck are the URL handlers of an HTTP daemon to be tested during health check.
 
 	// UploadReportToS3Bucket is the name of S3 bucket into which the maintenance daemon shall upload its summary reports.
 	UploadReportToS3Bucket string `json:"UploadReportToS3Bucket"`
@@ -161,22 +161,22 @@ func (daemon *Daemon) Execute(ctx context.Context) (string, bool) {
 	}()
 	go func() {
 		// Toolbox feature self test - the routine itself also uses concurrency internally
-		if daemon.FeaturesToTest != nil {
-			featureErr = daemon.FeaturesToTest.SelfTest()
+		if daemon.ToolboxSelfTest != nil {
+			featureErr = daemon.ToolboxSelfTest.SelfTest()
 		}
 		waitAllChecks.Done()
 	}()
 	go func() {
 		// Mail command runner test - the routine itself also uses concurrency internally
-		if daemon.MailCmdRunnerToTest != nil && daemon.MailCmdRunnerToTest.ReplyMailClient.IsConfigured() {
-			mailCmdRunnerErr = daemon.MailCmdRunnerToTest.SelfTest()
+		if daemon.MailCommandRunnerSelfTest != nil && daemon.MailCommandRunnerSelfTest.ReplyMailClient.IsConfigured() {
+			mailCmdRunnerErr = daemon.MailCommandRunnerSelfTest.SelfTest()
 		}
 		waitAllChecks.Done()
 	}()
 	go func() {
 		// HTTP special handler test - the routine itself also uses concurrency internally
-		if daemon.HTTPHandlersToCheck != nil {
-			httpHandlersErr = daemon.HTTPHandlersToCheck.SelfTest()
+		if daemon.HttpHandlersSelfTest != nil {
+			httpHandlersErr = daemon.HttpHandlersSelfTest.SelfTest()
 		}
 		waitAllChecks.Done()
 	}()
@@ -440,7 +440,7 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 		t.Fatal("did not run pre script")
 	}
 	// Break a feature
-	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{}
+	check.ToolboxSelfTest.LookupByTrigger[".s"] = &toolbox.Shell{}
 	if result, ok := check.Execute(context.Background()); ok || !strings.Contains(result, "Shell.SelfTest") { // broken shell configuration
 		t.Fatal(result)
 	}
@@ -450,7 +450,7 @@ func TestMaintenance(check *Daemon, t testingstub.T) {
 	} else if !strings.Contains(string(content), "Shell.SelfTest") { // broken shell configuration
 		t.Fatal(string(content))
 	}
-	check.FeaturesToTest.LookupByTrigger[".s"] = &toolbox.Shell{
+	check.ToolboxSelfTest.LookupByTrigger[".s"] = &toolbox.Shell{
 		Unrestricted:    true,
 		InterpreterPath: "/bin/bash",
 	}

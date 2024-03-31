@@ -389,10 +389,10 @@ func (config *Config) GetSimpleIPSvcD() *simpleipsvcd.Daemon {
 // GetMaintenance constructs a system maintenance / health check daemon from configuration and return.
 func (config *Config) GetMaintenance() *maintenance.Daemon {
 	config.maintenanceInit.Do(func() {
-		config.Maintenance.FeaturesToTest = config.Features
+		config.Maintenance.ToolboxSelfTest = config.Features
 		config.Maintenance.MailClient = config.MailClient
-		config.Maintenance.MailCmdRunnerToTest = config.GetMailCommandRunner()
-		config.Maintenance.HTTPHandlersToCheck = config.GetHTTPD().HandlerCollection
+		config.Maintenance.MailCommandRunnerSelfTest = config.GetMailCommandRunner()
+		config.Maintenance.HttpHandlersSelfTest = config.GetHTTPD().HandlerCollection
 		if err := config.Maintenance.Initialise(); err != nil {
 			config.logger.Abort("", err, "the daemon failed to initialise")
 			return
