@@ -62,7 +62,7 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteClose
 	defer minuteTicker.Stop()
 	unixSecAtStart := time.Now().Unix()
 	timeLimitExceeded := time.After(time.Duration(timeoutSec) * time.Second)
-	processExitChan := make(chan error, 1)
+	processExitChan := make(chan error)
 	absPath, err := filepath.Abs(program)
 	if err != nil {
 		return fmt.Errorf("failed to determine abs path of the program %q: %w", program, err)
@@ -145,6 +145,6 @@ func StartProgram(envVars []string, timeoutSec int, stdout, stderr io.WriteClose
 // It returns stdout+stderr combined, the maximum size is capped to MaxExternalProgramOutputBytes.
 func InvokeProgram(envVars []string, timeoutSec int, program string, args ...string) (string, error) {
 	outBuf := lalog.NewByteLogWriter(io.Discard, MaxExternalProgramOutputBytes)
-	err := StartProgram(envVars, timeoutSec, outBuf, outBuf, make(chan<- error), make(<-chan struct{}), program, args...)
+	err := StartProgram(envVars, timeoutSec, outBuf, outBuf, make(chan<- error, 1), make(<-chan struct{}), program, args...)
 	return string(outBuf.Retrieve(false)), err
 }

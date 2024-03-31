@@ -125,9 +125,9 @@ func TestShell_NonWindowsExecute(t *testing.T) {
 		defer os.Remove(tmpFile.Name())
 		start := time.Now()
 		ret := sh.Execute(context.Background(), Command{TimeoutSec: 2, Content: `echo -n abc; sleep 5; rm ` + tmpFile.Name()})
-		if !strings.Contains(ret.Error.Error(), "time limit") ||
+		if !strings.Contains(ret.Error.Error(), "terminated") ||
 			ret.Output != "abc" ||
-			!strings.Contains(ret.ResetCombinedText(), "time limit") || !strings.Contains(ret.ResetCombinedText(), CombinedTextSeparator+"abc") {
+			!strings.Contains(ret.ResetCombinedText(), "terminated") || !strings.Contains(ret.ResetCombinedText(), CombinedTextSeparator+"abc") {
 			t.Fatalf("%v\n%s\n%s\n%s", ret.Error, ret.ErrText(), ret.Output, ret.ResetCombinedText())
 		}
 		if elapsed := time.Since(start); elapsed > 4*time.Second {
