@@ -34,9 +34,6 @@ const (
 	MinimumIntervalSec = 24 * 3600
 	// InitialDelaySec is the number of seconds to wait for the first maintenance run.
 	InitialDelaySec = 180
-	// PrometheusProcessMetricsInterval is the interval at which the latest process performance measurements are
-	// collected and then given to prometheus metrics.
-	PrometheusProcessMetricsInterval = 10 * time.Second
 )
 
 // ReportFilePath is the absolute file path to the text report from latest maintenance run.
@@ -312,7 +309,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		daemon.logger.Info("", nil, "will regularly take program performance measurements and give them to prometheus metrics.")
 		periodicProcMetrics := &misc.Periodic{
 			LogActorName: "refresh-process-explorer-metrics",
-			Interval:     PrometheusProcessMetricsInterval,
+			Interval:     PrometheusMetricsRefreshInterval,
 			MaxInt:       1,
 			Func: func(context.Context, int, int) error {
 				if daemon.processExplorerMetrics != nil {
