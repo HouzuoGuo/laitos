@@ -117,7 +117,7 @@ func (metrics *ProcessExplorerMetrics) RegisterGlobally() error {
 		}
 		if available {
 			probeErr := metrics.procMon.InstallProbe(probe)
-			metrics.logger.Info(nil, probeErr, "attempted to install probe %v", tracepoints)
+			metrics.logger.Info(nil, probeErr, "attempted to probe %v", tracepoints)
 			if probeErr == nil {
 				metrics.installedProbes[probe] = struct{}{}
 			}

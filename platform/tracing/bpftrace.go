@@ -23,6 +23,7 @@ var (
 	// BpftraceCode maps all supported probe types to templated bpftrace code.
 	BpftraceCode = map[Probe]func(int, int) string{
 		// Interval probe cannot use a variable in its definition, hence it has to use a string format directive.
+		// The code snippets have been last verified with bpftrace v0.20.1.
 		ProbeSyscallRead: func(pid, intervalSec int) string {
 			return fmt.Sprintf(`
 tracepoint:syscalls:sys_enter_read /pid == %d/ {
@@ -71,10 +72,12 @@ tracepoint:block:block_io_start /pid == %d/ {
     @blkdev_sector_count[args->dev] += args->nr_sector;
     @blkdev_req[args->sector] = nsecs;
 }
+
 tracepoint:block:block_io_done /@blkdev_req[args->sector] != 0/ {
     @blkdev_dur[args->dev] += nsecs - @blkdev_req[args->sector];
     delete(@blkdev_req[args->sector]);
 }
+
 interval:s:%d {
     print(@blkdev_dur); print(@blkdev_sector_count);
     clear(@blkdev_dur); clear(@blkdev_sector_count);

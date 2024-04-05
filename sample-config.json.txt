@@ -132,6 +132,7 @@
       "ClientAppID": "dummy id 3",
       "ClientAppSecret": "dummy id 3"
     },
+    "PrometheusMetricsEndpoint": "/metrics",
     "RecurringCommandsEndpoint": "/recurring_commands",
     "RecurringCommandsEndpointConfig": {
       "RecurringCommands": {
@@ -198,7 +199,8 @@
   "Maintenance": {
     "Recipients": [
       "root@localhost"
-    ]
+    ],
+    "RegisterPrometheusMetrics": true
   },
   "PlainSocketDaemon": {
     "TCPPort": 23,
