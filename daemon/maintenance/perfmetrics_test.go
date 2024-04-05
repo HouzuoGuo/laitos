@@ -3,6 +3,7 @@ package maintenance
 import (
 	"testing"
 
+	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 )
 
@@ -16,7 +17,7 @@ func TestProcessExplorerMetrics(t *testing.T) {
 
 	for _, enabled := range promInteg {
 		misc.EnablePrometheusIntegration = enabled.enabled
-		metrics := NewProcessExplorerMetrics()
+		metrics := NewProcessExplorerMetrics(lalog.DefaultLogger, 1)
 		if err := metrics.RegisterGlobally(); err != nil {
 			t.Fatal(err)
 		}

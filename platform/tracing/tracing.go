@@ -23,14 +23,18 @@ const (
 	ProbeBlockIO
 )
 
-// ListProbes returns the list of probes supported by bpftrace.
-func ListProbes() []string {
+// ListTracePoints returns the list of probes supported by bpftrace.
+func ListTracePoints() map[string]bool {
+	ret := make(map[string]bool)
 	out, err := platform.InvokeProgram(nil, 10, "bpftrace", "-l")
 	if err != nil {
 		lalog.DefaultLogger.Warning(nil, err, "failed to execute bpftrace")
 		return nil
 	}
-	return strings.Split(out, "\n")
+	for _, probe := range strings.Split(out, "\n") {
+		ret[probe] = true
+	}
+	return ret
 }
 
 type ProcProbe struct {

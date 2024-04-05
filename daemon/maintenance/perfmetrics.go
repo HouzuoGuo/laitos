@@ -3,7 +3,6 @@ package maintenance
 import (
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
@@ -17,9 +16,6 @@ const (
 	// PrometheusProcessIDLabel is the name of data label given to process explorer metrics registered with prometheus.
 	// The label data shall be the PID of this program.
 	PrometheusProcessIDLabel = "pid"
-	// PrometheusMetricsRefreshInterval is the interval at which process runtime
-	// and activity metrics shall be refreshed by calling Refresh().
-	PrometheusMetricsRefreshInterval = 10 * time.Second
 )
 
 // ProcessExplorerMetrics are the collection of program performance metrics registered with prometheus
@@ -34,20 +30,23 @@ type ProcessExplorerMetrics struct {
 	numInvoluntarySwitches       *prometheus.GaugeVec
 
 	// The activity statistics are collected with help from bpftrace.
-	tcpSource              *prometheus.GaugeVec
-	tcpDestination         *prometheus.GaugeVec
-	fileDescriptorsRead    *prometheus.GaugeVec
-	fileBytesRead          *prometheus.GaugeVec
-	fileDescriptorsWritten *prometheus.GaugeVec
-	fileBytesWritten       *prometheus.GaugeVec
-	blockIOSectors         *prometheus.GaugeVec
-	blockIOMillis          *prometheus.GaugeVec
+	tcpConnectionCount *prometheus.GaugeVec
+	tcpTrafficBytes    *prometheus.GaugeVec
+	fdReadCount        *prometheus.GaugeVec
+	fdReadBytes        *prometheus.GaugeVec
+	fdWrittenCount     *prometheus.GaugeVec
+	fdWrittenBytes     *prometheus.GaugeVec
+	blockIOSectors     *prometheus.GaugeVec
+	blockIOMillis      *prometheus.GaugeVec
 
-	procMon *tracing.ActivityMonitor
+	logger            *lalog.Logger
+	scrapeIntervalSec int
+	procMon           *tracing.ActivityMonitor
+	installedProbes   map[tracing.Probe]struct{}
 }
 
 // NewProcessExplorerMetrics creates a new ProcessExplorerMetrics with all of its metrics collectors initialised.
-func NewProcessExplorerMetrics() *ProcessExplorerMetrics {
+func NewProcessExplorerMetrics(logger *lalog.Logger, scrapeIntervalSec int) *ProcessExplorerMetrics {
 	if !misc.EnablePrometheusIntegration {
 		return &ProcessExplorerMetrics{}
 	}
@@ -65,16 +64,19 @@ func NewProcessExplorerMetrics() *ProcessExplorerMetrics {
 		numVoluntarySwitches:         prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_proc_num_voluntary_switches"}, metricsLabelNames),
 		numInvoluntarySwitches:       prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_proc_num_involuntary_switches"}, metricsLabelNames),
 
-		tcpSource:              prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_num_tcp_sources"}, metricsLabelNames),
-		tcpDestination:         prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_num_tcp_destinations"}, metricsLabelNames),
-		fileDescriptorsRead:    prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_num_fd_read"}, metricsLabelNames),
-		fileBytesRead:          prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_file_bytes_read"}, metricsLabelNames),
-		fileDescriptorsWritten: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_num_fd_written"}, metricsLabelNames),
-		fileBytesWritten:       prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_file_bytes_written"}, metricsLabelNames),
-		blockIOSectors:         prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_block_io_sectors"}, metricsLabelNames),
-		blockIOMillis:          prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_block_io_millis"}, metricsLabelNames),
+		tcpConnectionCount: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_tcp_connection_count"}, metricsLabelNames),
+		tcpTrafficBytes:    prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_tcp_traffic_bytes"}, metricsLabelNames),
+		fdReadCount:        prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_fd_read_count"}, metricsLabelNames),
+		fdReadBytes:        prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_fd_read_bytes"}, metricsLabelNames),
+		fdWrittenCount:     prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_fd_written_count"}, metricsLabelNames),
+		fdWrittenBytes:     prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_fd_written_bytes"}, metricsLabelNames),
+		blockIOSectors:     prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_block_io_sectors"}, metricsLabelNames),
+		blockIOMillis:      prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_block_io_millis"}, metricsLabelNames),
 
-		procMon: tracing.NewActivityMonitor(lalog.DefaultLogger, selfProcessID, int(PrometheusMetricsRefreshInterval/time.Second), platform.StartProgram),
+		logger:            logger,
+		scrapeIntervalSec: scrapeIntervalSec,
+		procMon:           tracing.NewActivityMonitor(lalog.DefaultLogger, selfProcessID, scrapeIntervalSec, platform.StartProgram),
+		installedProbes:   make(map[tracing.Probe]struct{}),
 	}
 }
 
@@ -91,12 +93,12 @@ func (metrics *ProcessExplorerMetrics) RegisterGlobally() error {
 		metrics.numInvoluntarySwitches,
 		metrics.numVoluntarySwitches,
 
-		metrics.tcpSource,
-		metrics.tcpDestination,
-		metrics.fileDescriptorsRead,
-		metrics.fileBytesRead,
-		metrics.fileDescriptorsWritten,
-		metrics.fileBytesWritten,
+		metrics.tcpConnectionCount,
+		metrics.tcpTrafficBytes,
+		metrics.fdReadCount,
+		metrics.fdReadBytes,
+		metrics.fdWrittenCount,
+		metrics.fdWrittenBytes,
 		metrics.blockIOSectors,
 		metrics.blockIOMillis,
 	} {
@@ -104,8 +106,32 @@ func (metrics *ProcessExplorerMetrics) RegisterGlobally() error {
 			return err
 		}
 	}
-	// TODO: start process activity probes.
+	availableTracePoints := tracing.ListTracePoints()
+	for probe, tracepoints := range tracing.ProbeNames {
+		available := true
+		for _, point := range tracepoints {
+			if !availableTracePoints[point] {
+				available = false
+				break
+			}
+		}
+		if available {
+			probeErr := metrics.procMon.InstallProbe(probe)
+			metrics.logger.Info(nil, probeErr, "attempted to install probe %v", tracepoints)
+			if probeErr == nil {
+				metrics.installedProbes[probe] = struct{}{}
+			}
+		}
+	}
 	return nil
+}
+
+func sumValues[K comparable, V int | float64](in map[K]V) V {
+	var sum V
+	for _, val := range in {
+		sum += val
+	}
+	return sum
 }
 
 // Refresh reads the latest program performance measurements and gives them to prometheus metrics.
@@ -124,6 +150,31 @@ func (metrics *ProcessExplorerMetrics) Refresh() error {
 	metrics.numWaitSec.With(labels).Set(proc.SchedulerStatsSum.NumWaitSec)
 	metrics.numVoluntarySwitches.With(labels).Set(float64(proc.SchedulerStatsSum.NumVoluntarySwitches))
 	metrics.numInvoluntarySwitches.With(labels).Set(float64(proc.SchedulerStatsSum.NumInvoluntarySwitches))
-	// TODO: set process activity gauge values.
+	// Read process activity monitor sample data over the scrape interval.
+	// The activity monitor clears the sample data at the same interval.
+	for installedProbe := range metrics.installedProbes {
+		probe := metrics.procMon.RunningProbes[installedProbe]
+		if probe == nil {
+			continue
+		}
+		switch installedProbe {
+		case tracing.ProbeSyscallRead:
+			metrics.fdReadCount.With(labels).Set(float64(len(probe.Sample.FDBytesRead)))
+			metrics.fdReadBytes.With(labels).Set(float64(sumValues(probe.Sample.FDBytesRead)))
+		case tracing.ProbeSyscallWrite:
+			metrics.fdWrittenCount.With(labels).Set(float64(len(probe.Sample.FDBytesWritten)))
+			metrics.fdWrittenBytes.With(labels).Set(float64(sumValues(probe.Sample.FDBytesWritten)))
+		case tracing.ProbeTcpProbe:
+			metrics.tcpConnectionCount.With(labels).Set(float64(len(probe.Sample.TcpTrafficSources)))
+			var sum int
+			for _, entry := range probe.Sample.TcpTrafficSources {
+				sum += entry.ByteCounter
+			}
+			metrics.tcpTrafficBytes.With(labels).Set(float64(sum))
+		case tracing.ProbeBlockIO:
+			metrics.blockIOSectors.With(labels).Set(float64(sumValues(probe.Sample.BlockDeviceIOSectors)))
+			metrics.blockIOMillis.With(labels).Set(float64(sumValues(probe.Sample.BlockDeviceIONanos) / 1000000))
+		}
+	}
 	return nil
 }

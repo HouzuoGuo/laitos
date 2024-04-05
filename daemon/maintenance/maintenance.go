@@ -83,6 +83,8 @@ type Daemon struct {
 	SetTimeZone string `json:"SetTimeZone"`
 	// RegisterPrometheusMetrics determines whether the maintenance daemon will provide program performance metrics to prometheus at regular interval.
 	RegisterPrometheusMetrics bool `json:"RegisterPrometheusMetrics"`
+	// PrometheusScrapIntervalSec is the scrape interval from prometheus. The interval helps determine the sampling period of certain gauges.
+	PrometheusScrapeIntervalSec int `json:"PrometheusScrapeIntervalSec"`
 
 	/*
 		IntervalSec determines the rate of execution of maintenance routine. This is not a sleep duration. The constant
@@ -262,9 +264,12 @@ func (daemon *Daemon) Initialise() error {
 	} else if daemon.IntervalSec < MinimumIntervalSec {
 		return fmt.Errorf("maintenance.Initialise: IntervalSec must be at or above %d", MinimumIntervalSec)
 	}
+	if daemon.PrometheusScrapeIntervalSec < 1 {
+		daemon.PrometheusScrapeIntervalSec = 60
+	}
 	daemon.logger = &lalog.Logger{ComponentName: "maintenance", ComponentID: []lalog.LoggerIDField{{Key: "Intv", Value: daemon.IntervalSec}}}
 	if daemon.RegisterPrometheusMetrics && misc.EnablePrometheusIntegration {
-		daemon.processExplorerMetrics = NewProcessExplorerMetrics()
+		daemon.processExplorerMetrics = NewProcessExplorerMetrics(lalog.DefaultLogger, daemon.PrometheusScrapeIntervalSec)
 		if err := daemon.processExplorerMetrics.RegisterGlobally(); err != nil {
 			daemon.logger.Warning("prometheus", err, "failed to register metrics with prometheus")
 		}
@@ -309,7 +314,7 @@ func (daemon *Daemon) StartAndBlock() error {
 		daemon.logger.Info("", nil, "will regularly take program performance measurements and give them to prometheus metrics.")
 		periodicProcMetrics := &misc.Periodic{
 			LogActorName: "refresh-process-explorer-metrics",
-			Interval:     PrometheusMetricsRefreshInterval,
+			Interval:     time.Duration(daemon.PrometheusScrapeIntervalSec) * time.Second,
 			MaxInt:       1,
 			Func: func(context.Context, int, int) error {
 				if daemon.processExplorerMetrics != nil {

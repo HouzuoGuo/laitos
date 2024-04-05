@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMaintenance_Execute(t *testing.T) {
@@ -25,9 +26,9 @@ func TestMaintenance_Execute(t *testing.T) {
 	}
 
 	// Test default settings
-	if err := maint.Initialise(); err != nil || maint.IntervalSec != MinimumIntervalSec {
-		t.Fatal(err)
-	}
+	require.NoError(t, maint.Initialise())
+	require.Equal(t, MinimumIntervalSec, maint.IntervalSec)
+	require.Equal(t, 60, maint.PrometheusScrapeIntervalSec)
 	// Test invalid settings
 	maint.IntervalSec = 1
 	if err := maint.Initialise(); !strings.Contains(err.Error(), "IntervalSec") {
