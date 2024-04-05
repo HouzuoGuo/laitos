@@ -36,7 +36,7 @@ const (
 	   "supervisord" that resets PATH variable to deliberately exclude sbin directories, therefore, it is often useful to use
 	   this hard coded PATH value to launch programs.
 	*/
-	CommonPATH = UtilityDir + ":/bin:/sbin:/usr/bin:/usr/sbin:/usr/libexec:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/sbin"
+	CommonPATH = UtilityDir + ":/opt/bin:/opt/sbin:/usr/local/bin:/usr/local/sbin:/usr/libexec:/usr/bin:/usr/sbin:/bin:/sbin"
 
 	// CommonOSCmdTimeoutSec is the number of seconds to tolerate for running a wide range of system management utilities.
 	CommonOSCmdTimeoutSec = 30
