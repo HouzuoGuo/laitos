@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:latest
 
 # See https://hub.docker.com/repository/docker/hzgl/laitos for ready made images uploaded by the author of laitos program.
 WORKDIR /
