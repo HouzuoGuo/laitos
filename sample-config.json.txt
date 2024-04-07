@@ -200,6 +200,7 @@
     "Recipients": [
       "root@localhost"
     ],
+    "PrometheusScrapeIntervalSec": 60,
     "RegisterPrometheusMetrics": true
   },
   "PlainSocketDaemon": {

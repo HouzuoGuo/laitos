@@ -39,7 +39,7 @@ const (
 	CommonPATH = UtilityDir + ":/opt/bin:/opt/sbin:/usr/local/bin:/usr/local/sbin:/usr/libexec:/usr/bin:/usr/sbin:/bin:/sbin"
 
 	// CommonOSCmdTimeoutSec is the number of seconds to tolerate for running a wide range of system management utilities.
-	CommonOSCmdTimeoutSec = 30
+	CommonOSCmdTimeoutSec = 120
 )
 
 var (

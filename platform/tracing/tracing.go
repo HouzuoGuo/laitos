@@ -23,18 +23,24 @@ const (
 	ProbeBlockIO
 )
 
+var (
+	availableTracePoints     = make(map[string]bool)
+	availableTracePointsOnce = new(sync.Once)
+)
+
 // ListTracePoints returns the list of probes supported by bpftrace.
 func ListTracePoints() map[string]bool {
-	ret := make(map[string]bool)
-	out, err := platform.InvokeProgram(nil, 10, "bpftrace", "-l")
-	if err != nil {
-		lalog.DefaultLogger.Warning(nil, err, "failed to execute bpftrace")
-		return nil
-	}
-	for _, probe := range strings.Split(out, "\n") {
-		ret[probe] = true
-	}
-	return ret
+	availableTracePointsOnce.Do(func() {
+		out, err := platform.InvokeProgram(nil, platform.CommonOSCmdTimeoutSec, "bpftrace", "-l")
+		if err != nil {
+			lalog.DefaultLogger.Warning(nil, err, "failed to execute bpftrace")
+			return
+		}
+		for _, probe := range strings.Split(out, "\n") {
+			availableTracePoints[probe] = true
+		}
+	})
+	return availableTracePoints
 }
 
 type ProcProbe struct {
@@ -45,6 +51,7 @@ type ProcProbe struct {
 	// Sample is the latest sample data deserialised from bpftrace output.
 	Sample BpfSample
 
+	pid          int
 	latestSample time.Time
 	mutex        *sync.Mutex
 	logger       *lalog.Logger
@@ -53,11 +60,12 @@ type ProcProbe struct {
 }
 
 // NewProcProbe returns a newly initialised process probe. Caller needs to call Start to start gathering data.
-func NewProcProbe(logger *lalog.Logger, procStarter platform.ExternalProcessStarter, scriptCode string, samplingIntervalSec int) (ret *ProcProbe) {
+func NewProcProbe(logger *lalog.Logger, pid int, procStarter platform.ExternalProcessStarter, scriptCode string, samplingIntervalSec int) (ret *ProcProbe) {
 	ret = &ProcProbe{
 		ScriptCode:          scriptCode,
 		SamplingIntervalSec: samplingIntervalSec,
 		logger:              logger,
+		pid:                 pid,
 		procStarter:         procStarter,
 		mutex:               new(sync.Mutex),
 		stopChan:            make(chan struct{}),
@@ -120,7 +128,7 @@ func (probe *ProcProbe) followStderr(in io.Reader) {
 		if err != nil {
 			return
 		}
-		probe.logger.Info("", nil, "bpftrace stderr: %q", line)
+		probe.logger.Info(probe.pid, nil, "bpftrace stderr: %q", line)
 	}
 }
 
@@ -152,7 +160,7 @@ func (probe *ProcProbe) Start() error {
 	startChan := make(chan error)
 	go func() {
 		err := probe.procStarter(nil, 1<<30, outWriter, errWriter, startChan, probe.stopChan, "bpftrace", "-f", "json", "-e", probe.ScriptCode)
-		probe.logger.Warning("ProcProbe", err, "bpftrace has exited")
+		probe.logger.Warning(probe.pid, err, "bpftrace has exited")
 	}()
 	err := <-startChan
 	if err != nil {
@@ -205,7 +213,7 @@ func (mon *ActivityMonitor) InstallProbe(probe Probe) error {
 	if _, exists := mon.RunningProbes[probe]; exists {
 		return nil
 	}
-	p := NewProcProbe(mon.logger, mon.procStarter, BpftraceCode[probe](mon.PID, mon.SamplingIntervalSec), mon.SamplingIntervalSec)
+	p := NewProcProbe(mon.logger, mon.PID, mon.procStarter, BpftraceCode[probe](mon.PID, mon.SamplingIntervalSec), mon.SamplingIntervalSec)
 	mon.RunningProbes[probe] = p
 	return p.Start()
 }

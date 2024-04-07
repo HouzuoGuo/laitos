@@ -40,14 +40,14 @@ func TestActivityMonitor(t *testing.T) {
 
 func TestProcProbe(t *testing.T) {
 	fake := FakeExternalProcessStarter{}
-	probe := NewProcProbe(lalog.DefaultLogger, fake.StartProgram, "test code", 10)
+	probe := NewProcProbe(lalog.DefaultLogger, 0, fake.StartProgram, "test code", 10)
 	require.NoError(t, probe.Start())
 	probe.Stop()
 	require.Equal(t, [][]string{{"bpftrace", "-f", "json", "-e", "test code"}}, fake.argv)
 }
 
 func TestProbeSampleDeserialisation(t *testing.T) {
-	probe := NewProcProbe(lalog.DefaultLogger, nil, "not required", 10)
+	probe := NewProcProbe(lalog.DefaultLogger, 0, nil, "not required", 10)
 	in := bytes.NewReader([]byte(`
 {"type": "map", "data": {"@tcp_src": {"[10,0,0,11,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,127,0,0,1,0,0,0,0],11": 12, "[2,0,-89,74,127,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],42826": 79}}}
 {"type": "map", "data": {"@tcp_dest": {"[10,0,-89,66,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,127,0,0,1,0,0,0,0],42818": 123, "[2,0,0,11,127,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],11": 146}}}
