@@ -107,7 +107,9 @@ type ProcessExplorerMetrics struct {
 	numInvoluntarySwitches       *prometheus.GaugeVec
 
 	activityMonitorMetrics *ActivityMonitorMetrics
+	collectProcessActivity bool
 	selfActivityMetrics    *ActivityMonitorCollector
+	collectSystemActivity  bool
 	osActivityMetrics      *ActivityMonitorCollector
 
 	logger     *lalog.Logger
@@ -115,7 +117,7 @@ type ProcessExplorerMetrics struct {
 }
 
 // NewProcessExplorerMetrics creates a new ProcessExplorerMetrics with all of its metrics collectors initialised.
-func NewProcessExplorerMetrics(logger *lalog.Logger, scrapeIntervalSec int) *ProcessExplorerMetrics {
+func NewProcessExplorerMetrics(logger *lalog.Logger, scrapeIntervalSec int, collectProcessActivity, collectSystemActivity bool) *ProcessExplorerMetrics {
 	if !misc.EnablePrometheusIntegration {
 		return &ProcessExplorerMetrics{}
 	}
@@ -146,6 +148,7 @@ func NewProcessExplorerMetrics(logger *lalog.Logger, scrapeIntervalSec int) *Pro
 		numInvoluntarySwitches:       prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "laitos_proc_num_involuntary_switches"}, labels),
 
 		activityMonitorMetrics: activityMetrics,
+		collectProcessActivity: collectProcessActivity,
 		selfActivityMetrics: &ActivityMonitorCollector{
 			pid:     procID,
 			monitor: tracing.NewActivityMonitor(logger, procID, scrapeIntervalSec, platform.StartProgram),
@@ -154,6 +157,7 @@ func NewProcessExplorerMetrics(logger *lalog.Logger, scrapeIntervalSec int) *Pro
 			metrics: activityMetrics,
 			logger:  logger,
 		},
+		collectSystemActivity: collectSystemActivity,
 		osActivityMetrics: &ActivityMonitorCollector{
 			pid:     procID,
 			monitor: tracing.NewActivityMonitor(logger, 0, scrapeIntervalSec, platform.StartProgram),
@@ -194,8 +198,12 @@ func (metrics *ProcessExplorerMetrics) RegisterGlobally() error {
 			return err
 		}
 	}
-	metrics.selfActivityMetrics.Start()
-	metrics.osActivityMetrics.Start()
+	if metrics.collectProcessActivity {
+		metrics.selfActivityMetrics.Start()
+	}
+	if metrics.collectSystemActivity {
+		metrics.osActivityMetrics.Start()
+	}
 	return nil
 }
 

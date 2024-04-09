@@ -81,8 +81,13 @@ type Daemon struct {
 	SwapFileSizeMB int `json:"SwapFileSizeMB"`
 	// SetTimeZone changes system time zone to the specified value (such as "UTC" or "Europe/Dublin").
 	SetTimeZone string `json:"SetTimeZone"`
-	// RegisterPrometheusMetrics determines whether the maintenance daemon will provide program performance metrics to prometheus at regular interval.
+	// RegisterPrometheusMetrics records process statistics (e.g. CPU time & context switches) in promehteus metrics.
 	RegisterPrometheusMetrics bool `json:"RegisterPrometheusMetrics"`
+	// RegsiterProcessActivityMetrics records process file and network activities powered by eBPF in prometheus metrics.
+	RegsiterProcessActivityMetrics bool `json:"RegsiterProcessActivityMetrics"`
+	// RegsiterProcessActivityMetrics records system file and network activities powered by eBPF in prometheus metrics.
+	// This is expensive and requires an additional 500MB of memory.
+	RegisterSystemActivityMetrics bool `json:"RegsiterSystemActivityMetrics"`
 	// PrometheusScrapIntervalSec is the scrape interval from prometheus. The interval helps determine the sampling period of certain gauges.
 	PrometheusScrapeIntervalSec int `json:"PrometheusScrapeIntervalSec"`
 
@@ -269,7 +274,7 @@ func (daemon *Daemon) Initialise() error {
 	}
 	daemon.logger = &lalog.Logger{ComponentName: "maintenance", ComponentID: []lalog.LoggerIDField{{Key: "Intv", Value: daemon.IntervalSec}}}
 	if daemon.RegisterPrometheusMetrics && misc.EnablePrometheusIntegration {
-		daemon.processExplorerMetrics = NewProcessExplorerMetrics(lalog.DefaultLogger, daemon.PrometheusScrapeIntervalSec)
+		daemon.processExplorerMetrics = NewProcessExplorerMetrics(lalog.DefaultLogger, daemon.PrometheusScrapeIntervalSec, daemon.RegsiterProcessActivityMetrics, daemon.RegisterSystemActivityMetrics)
 		if err := daemon.processExplorerMetrics.RegisterGlobally(); err != nil {
 			daemon.logger.Warning("prometheus", err, "failed to register metrics with prometheus")
 		}

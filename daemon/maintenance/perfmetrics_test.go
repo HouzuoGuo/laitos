@@ -17,7 +17,7 @@ func TestProcessExplorerMetrics(t *testing.T) {
 
 	for _, enabled := range promInteg {
 		misc.EnablePrometheusIntegration = enabled.enabled
-		metrics := NewProcessExplorerMetrics(lalog.DefaultLogger, 1)
+		metrics := NewProcessExplorerMetrics(lalog.DefaultLogger, 1, true, true)
 		if err := metrics.RegisterGlobally(); err != nil {
 			t.Fatal(err)
 		}
