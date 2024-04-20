@@ -351,7 +351,7 @@ func BuildIPv4AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 		return nil, err
 	}
 	if record.CanonicalName == "" {
-		for _, ipAddr := range record.ipAddresses {
+		for _, ipAddr := range record.Shuffled() {
 			v4Addr := ipAddr.To4()
 			if v4Addr != nil {
 				err := builder.AResource(dnsmessage.ResourceHeader{
@@ -413,7 +413,7 @@ func BuildIPv6AddrResponse(header dnsmessage.Header, question dnsmessage.Questio
 		return nil, err
 	}
 	if record.CanonicalName == "" {
-		for _, ipAddr := range record.ipAddresses {
+		for _, ipAddr := range record.Shuffled() {
 			if ipAddr.To4() == nil {
 				// To16 always returns a non-nil slice for an IPv4 address.
 				v6Addr := ipAddr.To16()

@@ -12,6 +12,7 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/stretchr/testify/require"
 )
 
 // testQuery validates DNS query responses using go's built in resolver client.
@@ -224,12 +225,10 @@ func testCustomRecordResolution(t testingstub.T, daemon *Daemon, resolver *net.R
 	// otherCNAME, err := resolver.LookupCNAME(context.Background(), "ns-other.example.net")
 
 	comV4Addr, err := resolver.LookupIP(context.Background(), "ip4", "example.com")
-	if err != nil || len(comV4Addr) != 2 || !comV4Addr[0].Equal(net.IPv4(5, 0, 0, 1)) || !comV4Addr[1].Equal(net.IPv4(5, 0, 0, 2)) {
-		t.Fatalf("wrong v4 addr: %v, %v", err, comV4Addr)
-	}
+	require.NoError(t, err)
+	require.ElementsMatch(t, []net.IP{net.IP{5, 0, 0, 1}, net.IP{5, 0, 0, 2}}, comV4Addr)
 
 	comV6Addr, err := resolver.LookupIP(context.Background(), "ip6", "example.com")
-	if err != nil || len(comV6Addr) != 2 || !comV6Addr[0].Equal(net.ParseIP("::5")) || !comV6Addr[1].Equal(net.ParseIP("::6")) {
-		t.Fatalf("wrong v6 addr: %v, %v", err, comV4Addr)
-	}
+	require.NoError(t, err)
+	require.ElementsMatch(t, []net.IP{net.ParseIP("1::5"), net.ParseIP("1::6")}, comV6Addr)
 }

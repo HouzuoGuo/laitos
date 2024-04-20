@@ -182,7 +182,7 @@ func TestDNSD(t *testing.T) {
 				},
 				AAAA: V6AddressRecord{
 					AddressRecord: AddressRecord{
-						Addresses: []string{"::5", "::6"},
+						Addresses: []string{"1::5", "1::6"},
 					},
 				},
 			},

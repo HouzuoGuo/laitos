@@ -2,7 +2,9 @@ package dnsd
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
+	"slices"
 	"strings"
 )
 
@@ -80,6 +82,17 @@ func (rec *AddressRecord) Lint(ipNetwork string) error {
 		rec.ipAddresses = append(rec.ipAddresses, ipAddr.IP)
 	}
 	return nil
+}
+
+// Shuffled returns a copy of the IP addresses shuffled in random order.
+func (rec *AddressRecord) Shuffled() []net.IP {
+	addrs := slices.Clone(rec.ipAddresses)
+	rand.Shuffle(len(addrs), func(i, j int) {
+		tmp := addrs[i]
+		addrs[i] = addrs[j]
+		addrs[j] = tmp
+	})
+	return addrs
 }
 
 // V4AddressRecord is an IPv4 or CNAME address record.
