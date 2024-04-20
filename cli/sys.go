@@ -46,7 +46,7 @@ func CopyNonEssentialUtilitiesInBackground(logger *lalog.Logger) {
 func DisableConflicts(logger *lalog.Logger) {
 	if !platform.HostIsWindows() && os.Getuid() != 0 {
 		// Sorry, I do not know how to detect administrator privilege on Windows.
-		logger.Abort("", nil, "you must run laitos as root user if you wish to automatically disable system conflicts")
+		logger.Warning(nil, nil, "you may want to run laitos as root to successfully disable the conflicting daemons on the system")
 	}
 	// All of these names are Linux services
 	// Do not stop nginx for Linux, because Amazon ElasticBeanstalk uses it to receive and proxy web traffic.
