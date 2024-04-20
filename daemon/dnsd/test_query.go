@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/testingstub"
 	"github.com/HouzuoGuo/laitos/toolbox"
 )
@@ -33,8 +34,8 @@ func testAutomaticAuthoritativeResponses(t testingstub.T, daemon *Daemon, resolv
 		if err != nil || len(ip) != 1 {
 			t.Fatalf("failed to resolve %q: %v, %v", name, err, ip)
 		}
-		if !ip[0].Equal(daemon.myPublicIP) {
-			t.Fatalf("got %v, want %v", ip[0], daemon.myPublicIP)
+		if !ip[0].Equal(inet.GetPublicIP()) {
+			t.Fatalf("got %v, want %v", ip[0], inet.GetPublicIP())
 		}
 	}
 
@@ -60,8 +61,8 @@ func testAutomaticAuthoritativeResponses(t testingstub.T, daemon *Daemon, resolv
 		if len(ip) != 1 {
 			t.Fatalf("did not resolve ns%d", i)
 		}
-		if !ip[0].Equal(daemon.myPublicIP) {
-			t.Fatalf("got %v, want %v", ip[0], daemon.myPublicIP)
+		if !ip[0].Equal(inet.GetPublicIP()) {
+			t.Fatalf("got %v, want %v", ip[0], inet.GetPublicIP())
 		}
 	}
 

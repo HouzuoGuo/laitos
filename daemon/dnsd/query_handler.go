@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
@@ -329,7 +330,7 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 				fmt.Sprintf("ns3.%s.", domainName),
 			},
 		}
-		respBody, err = BuildNSResponse(header, question, domainName, ns, daemon.myPublicIP)
+		respBody, err = BuildNSResponse(header, question, domainName, ns, inet.GetPublicIP())
 	} else {
 		respBody, err = BuildNSResponse(header, question, domainName, customRec.NS, net.IPv4zero)
 	}
@@ -401,7 +402,7 @@ func (daemon *Daemon) handleNameOrOtherQuery(clientIP string, queryLen, queryBod
 			return
 		}
 		respBody, err = BuildIPv4AddrResponse(header, question, V4AddressRecord{
-			AddressRecord: AddressRecord{ipAddresses: []net.IP{daemon.myPublicIP}},
+			AddressRecord: AddressRecord{ipAddresses: []net.IP{inet.GetPublicIP()}},
 		})
 		if err != nil {
 			daemon.logger.Info(clientIP, err, "failed to construct DNS query response")

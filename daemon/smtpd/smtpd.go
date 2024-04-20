@@ -101,11 +101,10 @@ func (daemon *Daemon) Initialise() error {
 	}
 
 	// Do not allow forward to this daemon itself
-	myPublicIP := inet.GetPublicIP()
 	if (strings.HasPrefix(daemon.ForwardMailClient.MTAHost, "127.") ||
 		daemon.ForwardMailClient.MTAHost == "::1" ||
 		daemon.ForwardMailClient.MTAHost == "0.0.0.0" ||
-		daemon.ForwardMailClient.MTAHost == myPublicIP.String()) &&
+		daemon.ForwardMailClient.MTAHost == inet.GetPublicIP().String()) &&
 		daemon.ForwardMailClient.MTAPort == daemon.Port {
 		return fmt.Errorf("smtpd.Initialise: forward MTA must not be myself or localhost on port %d", daemon.Port)
 	}
@@ -137,7 +136,7 @@ func (daemon *Daemon) Initialise() error {
 		// Do not allow mail processor to reply to this daemon itself
 		if (strings.HasPrefix(daemon.CommandRunner.ReplyMailClient.MTAHost, "127.") ||
 			daemon.CommandRunner.ReplyMailClient.MTAHost == "::1" ||
-			daemon.CommandRunner.ReplyMailClient.MTAHost == myPublicIP.String()) &&
+			daemon.CommandRunner.ReplyMailClient.MTAHost == inet.GetPublicIP().String()) &&
 			daemon.CommandRunner.ReplyMailClient.MTAPort == daemon.Port {
 			return errors.New("smtpd.Initialise: mail command runner's reply MTA must not be myself")
 		}

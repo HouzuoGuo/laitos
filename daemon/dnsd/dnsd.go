@@ -144,10 +144,7 @@ type Daemon struct {
 	blackList      map[string]struct{}
 	blackListMutex *sync.RWMutex
 
-	// myPublicIP is the latest public IP address of the laitos server.
-	myPublicIP           net.IP
-	allowQueryMutex      *sync.Mutex
-	allowQueryLastUpdate int64
+	allowQueryMutex *sync.Mutex
 
 	context                context.Context
 	cancelFunc             func()
@@ -236,7 +233,6 @@ func (daemon *Daemon) Initialise() error {
 		daemon.allowQueryFromCidrNets = append(daemon.allowQueryFromCidrNets, cidrNet)
 	}
 
-	daemon.allowQueryMutex = new(sync.Mutex)
 	daemon.blackListMutex = new(sync.RWMutex)
 	daemon.blackList = make(map[string]struct{})
 
@@ -248,31 +244,7 @@ func (daemon *Daemon) Initialise() error {
 	if daemon.TCPProxy != nil && daemon.TCPProxy.RequestOTPSecret != "" {
 		daemon.TCPProxy.DNSDaemon = daemon
 	}
-
-	// Always allow server itself to query the DNS servers via its public IP
-	daemon.allowMyPublicIP()
 	return nil
-}
-
-// allowMyPublicIP refreshes the public IP address of the DNS server, so that Internet clients that use laitos server as VPN server may use it for DNS as well.
-func (daemon *Daemon) allowMyPublicIP() {
-	if daemon.allowQueryLastUpdate+PublicIPRefreshIntervalSec >= time.Now().Unix() {
-		return
-	}
-	daemon.allowQueryMutex.Lock()
-	defer daemon.allowQueryMutex.Unlock()
-	defer func() {
-		// This routine runs periodically no matter it succeeded or failed in retrieving latest public IP
-		daemon.allowQueryLastUpdate = time.Now().Unix()
-	}()
-	latestIP := inet.GetPublicIP()
-	if latestIP.String() == "0.0.0.0" {
-		// Not a fatal error if IP cannot be determined
-		daemon.logger.Warning("", nil, "unable to determine public IP address, the computer will not be able to send query to itself.")
-		return
-	}
-	daemon.myPublicIP = latestIP
-	daemon.logger.Info("", nil, "the computer may send DNS queries to its public IP address %s", daemon.myPublicIP)
 }
 
 // isRecursiveQueryAllowed checks whether the input client IP is allowed to make
@@ -281,12 +253,10 @@ func (daemon *Daemon) isRecursiveQueryAllowed(clientIP string) bool {
 	if clientIP == "" || len(clientIP) > 64 {
 		return false
 	}
-	// Fast track - always allow localhost to query.
-	if strings.HasPrefix(clientIP, "127.") || clientIP == "::1" || clientIP == daemon.myPublicIP.String() {
+	// Fast track - always allow this host to query itself.
+	if strings.HasPrefix(clientIP, "127.") || clientIP == "::1" || clientIP == inet.GetPublicIP().String() {
 		return true
 	}
-	// Update my public IP at regular interval.
-	daemon.allowMyPublicIP()
 	// Another fast track - monitored subjects phoning home are allowed.
 	// By convention, the subject reports arriving via IP network will have
 	// their client IP address recorded in the report tag attribute.
@@ -295,8 +265,6 @@ func (daemon *Daemon) isRecursiveQueryAllowed(clientIP string) bool {
 	}
 	// Allow clients from whitelisted CIDR blocks to query.
 	parsedClientIP := net.ParseIP(clientIP)
-	daemon.allowQueryMutex.Lock()
-	defer daemon.allowQueryMutex.Unlock()
 	for _, cidrNet := range daemon.allowQueryFromCidrNets {
 		if cidrNet.Contains(parsedClientIP) {
 			return true
