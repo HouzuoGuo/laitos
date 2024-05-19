@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/HouzuoGuo/laitos/lalog"
+	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,6 +25,9 @@ func (fake *FakeExternalProcessStarter) StartProgram(env []string, timeout int, 
 }
 
 func TestActivityMonitor(t *testing.T) {
+	if platform.HostIsCircleCI() {
+		t.Skip("this test is incompatible with circleci")
+	}
 	fake := FakeExternalProcessStarter{}
 	mon := NewActivityMonitor(lalog.DefaultLogger, 123, 456, fake.StartProgram)
 	require.NoError(t, mon.InstallProbe(ProbeTcpProbe))
