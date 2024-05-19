@@ -5,14 +5,14 @@ go 1.22
 toolchain go1.22.0
 
 require (
-	github.com/aws/aws-sdk-go v1.52.5
+	github.com/aws/aws-sdk-go v1.53.5
 	github.com/aws/aws-xray-sdk-go v1.8.4
 	github.com/miekg/dns v1.1.59
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.23.0
 	golang.org/x/net v0.25.0
-	google.golang.org/grpc v1.63.2
+	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1
 )
 
@@ -29,14 +29,14 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.53.0 // indirect
-	github.com/prometheus/procfs v0.14.0 // indirect
+	github.com/prometheus/procfs v0.15.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.52.0 // indirect
+	github.com/valyala/fasthttp v1.53.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/tools v0.21.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240506185236-b8a5c65736ae // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240515191416-fc5f0ca64291 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
