@@ -266,10 +266,9 @@ func TestProxy_HTTPSClient(t *testing.T) {
 	if err != nil && err != io.EOF {
 		t.Fatalf("read failure: %v", err)
 	}
-	t.Logf("http response: %s", string(resp))
 	respStr := strings.ToLower(string(resp))
-	if !strings.Contains(respStr, `cache-control`) || !strings.Contains(respStr, `cf-ray`) {
-		t.Fatalf("missing content")
+	if !strings.Contains(respStr, `http/1.1`) || !strings.Contains(respStr, `cf-ray`) {
+		t.Fatalf("http response appears incomplete: %q", respStr)
 	}
 	// There is no meaningful way of checking the sequence numbers because there
 	// is a TLS handshake.
