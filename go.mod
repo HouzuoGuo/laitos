@@ -7,8 +7,8 @@ toolchain go1.22.0
 require (
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/aws/aws-xray-sdk-go v1.8.4
-	github.com/miekg/dns v1.1.61
-	github.com/prometheus/client_golang v1.19.1
+	github.com/miekg/dns v1.1.62
+	github.com/prometheus/client_golang v1.20.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.26.0
 	golang.org/x/net v0.28.0
@@ -38,6 +38,6 @@ require (
 	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240808171019-573a1156607a // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240812133136-8ffd90a71988 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
