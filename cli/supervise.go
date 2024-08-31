@@ -3,9 +3,6 @@ package cli
 import (
 	"bufio"
 	"context"
-	cryptoRand "crypto/rand"
-	"encoding/binary"
-	pseudoRand "math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -56,38 +53,6 @@ func DumpGoroutinesOnInterrupt() {
 	go func() {
 		for range c {
 			_ = runtimePprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
-		}
-	}()
-}
-
-// ReseedPseudoRandAndInBackground seeds the default PRNG using a
-// cryptographically-secure RNG, and then spawns a background goroutine to
-// continuously reseeds the default PRNG at regular interval.
-// This function helps securing several laitos program components that depend on
-// the default PRNG, therefore, it should be invoked at or near the start of the
-// main function.
-func ReseedPseudoRandAndInBackground(logger *lalog.Logger) {
-	// Avoid using misc.Periodic, for it uses the PRNG internally.
-	reseedFun := func() {
-		seedBytes := make([]byte, 8)
-		_, err := cryptoRand.Read(seedBytes)
-		if err != nil {
-			logger.Abort("", err, "failed to read from random generator")
-		}
-		seed, _ := binary.Varint(seedBytes)
-		if seed <= 0 {
-			// If the random entropy fails to decode into an integer, seed PRNG with the system time.
-			pseudoRand.Seed(time.Now().UnixNano())
-		} else {
-			pseudoRand.Seed(seed)
-		}
-	}
-	reseedFun()
-	go func() {
-		for {
-			time.Sleep(5 * time.Minute)
-			reseedFun()
-			logger.Info("", nil, "successfully re-seeded PRNG")
 		}
 	}()
 }
