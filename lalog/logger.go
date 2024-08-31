@@ -18,7 +18,7 @@ import (
 
 const (
 	// MaxLogMessageLen is the maximum length memorised for each of the latest log entries.
-	MaxLogMessageLen = 2048
+	MaxLogMessageLen = 4096
 	truncatedLabel   = "...(truncated)..."
 )
 
