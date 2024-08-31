@@ -96,8 +96,8 @@ func (reg *PasswordRegister) PostUnlockIntent(ctx context.Context, req *unlocksv
 	reg.mutex.Lock()
 	defer reg.mutex.Unlock()
 	// Perform sanity check on the request properties
-	if hostNameLen := len(req.Identification.HostName); hostNameLen < 3 || hostNameLen > 254 {
-		return nil, fmt.Errorf("identification host name must be more than 2 characters and less than 255 characters in length (actual: %d characters)", hostNameLen)
+	if hostNameLen := len(req.Identification.HostName); hostNameLen < 1 || hostNameLen > 254 {
+		return nil, fmt.Errorf("identification host name must be provided and shorter than 255 characters (received: %d characters)", hostNameLen)
 	} else if randChallengeLen := len(req.Identification.RandomChallenge); randChallengeLen < 3 || randChallengeLen > MaxRandomChallengeLen {
 		return nil, fmt.Errorf("identification random challenge must be more than 2 characters and less than %d characters in length (actual: %d characters)", MaxRandomChallengeLen, randChallengeLen)
 	}

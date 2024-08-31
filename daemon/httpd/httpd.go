@@ -747,7 +747,9 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 
 	// Directory handle
 	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<!doctype html>
+<meta name="viewport" content="width=device-width">
+<pre>
 <a href="a.html">a.html</a>
 </pre>
 ` {
@@ -758,7 +760,9 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/dir")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<!doctype html>
+<meta name="viewport" content="width=device-width">
+<pre>
 <a href="a.html">a.html</a>
 </pre>
 ` {
@@ -794,7 +798,9 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
 	// Visit page again after rate limit resets
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
+	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<!doctype html>
+<meta name="viewport" content="width=device-width">
+<pre>
 <a href="a.html">a.html</a>
 </pre>
 ` {
