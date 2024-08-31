@@ -90,6 +90,8 @@ type Daemon struct {
 	RegisterSystemActivityMetrics bool `json:"RegsiterSystemActivityMetrics"`
 	// PrometheusScrapIntervalSec is the scrape interval from prometheus. The interval helps determine the sampling period of certain gauges.
 	PrometheusScrapeIntervalSec int `json:"PrometheusScrapeIntervalSec"`
+	// ShrinkSystemdJournalSizeMB is the threshold under which systemd journal will be shrunk. Older journal will be deleted.
+	ShrinkSystemdJournalSizeMB int `json:"ShrinkSystemdJournalSizeMB"`
 
 	/*
 		IntervalSec determines the rate of execution of maintenance routine. This is not a sleep duration. The constant

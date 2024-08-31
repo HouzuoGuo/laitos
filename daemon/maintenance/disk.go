@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,9 +46,9 @@ func (daemon *Daemon) CleanUpFiles(out *bytes.Buffer) {
 		// awaiting user input - /autoclean seems to be an exception.
 		result, err := platform.InvokeProgram(nil, 1800, `C:\Windows\system32\cleanmgr.exe`, "/AUTOCLEAN")
 		daemon.logPrintStageStep(out, "windows automated disk clean up (/autoclean): %v - %s", err, strings.TrimSpace(result))
-	} else {
-		result, err := platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 180, "journalctl", "--vacuum-size=2G")
-		daemon.logPrintStageStep(out, "shrink system journal to 2GB maximum: %v - %s", err, strings.TrimSpace(result))
+	} else if daemon.ShrinkSystemdJournalSizeMB > 0 {
+		result, err := platform.InvokeProgram([]string{"PATH=" + platform.CommonPATH}, 180, "journalctl", fmt.Sprintf("--vacuum-size=%dM", daemon.ShrinkSystemdJournalSizeMB))
+		daemon.logPrintStageStep(out, "shrink systemd journal history to 1GB: %v - %s", err, strings.TrimSpace(result))
 	}
 }
 

@@ -11,18 +11,19 @@ import (
 func TestMaintenance_Execute(t *testing.T) {
 	features := toolbox.GetTestCommandProcessor().Features
 	maint := Daemon{
-		BlockSystemLoginExcept:    []string{"root", "howard"},
-		EnableStartServices:       []string{"does-not-exist"},
-		DisableStopServices:       []string{"does-not-exist"},
-		InstallPackages:           []string{"htop"},
-		SetTimeZone:               "UTC",
-		TuneLinux:                 true,
-		DoEnhanceFileSecurity:     true,
-		SwapFileSizeMB:            100,
-		ToolboxSelfTest:           features,
-		ScriptForUnix:             "touch /tmp/laitos-maintenance-pre-script-test",
-		MailCommandRunnerSelfTest: nil, // deliberately nil because it is not involved in this test
-		HttpHandlersSelfTest:      nil, // deliberately nil because it is not involved in this test
+		BlockSystemLoginExcept:     []string{"root", "howard"},
+		EnableStartServices:        []string{"does-not-exist"},
+		DisableStopServices:        []string{"does-not-exist"},
+		InstallPackages:            []string{"htop"},
+		SetTimeZone:                "UTC",
+		TuneLinux:                  true,
+		DoEnhanceFileSecurity:      true,
+		SwapFileSizeMB:             100,
+		ToolboxSelfTest:            features,
+		ScriptForUnix:              "touch /tmp/laitos-maintenance-pre-script-test",
+		ShrinkSystemdJournalSizeMB: 1000,
+		MailCommandRunnerSelfTest:  nil, // deliberately nil because it is not involved in this test
+		HttpHandlersSelfTest:       nil, // deliberately nil because it is not involved in this test
 	}
 
 	// Test default settings
