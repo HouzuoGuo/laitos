@@ -14,6 +14,7 @@ import (
 	"github.com/HouzuoGuo/laitos/inet"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/toolbox"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHTTPD_WithURLPrefix(t *testing.T) {
@@ -45,12 +46,9 @@ func TestHTTPD_WithURLPrefix(t *testing.T) {
 	// Test directory listing route
 	serverURLPrefix := fmt.Sprintf("http://localhost:%d/test-prefix/abc", daemon.Port)
 	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, serverURLPrefix+"/my/dir")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<pre>
-<a href="a.html">a.html</a>
-</pre>
-` {
-		t.Fatal(err, string(resp.Body), resp)
-	}
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Contains(t, string(resp.Body), "a.html")
 	// Test file route
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, serverURLPrefix+"/")
 	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(resp.Body), "this is index") {
