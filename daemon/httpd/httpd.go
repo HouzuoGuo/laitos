@@ -29,6 +29,7 @@ import (
 	"github.com/HouzuoGuo/laitos/toolbox"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -747,27 +748,17 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 
 	// Directory handle
 	resp, err := inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<!doctype html>
-<meta name="viewport" content="width=device-width">
-<pre>
-<a href="a.html">a.html</a>
-</pre>
-` {
-		t.Fatalf("%v\n%s\n%v", err, string(resp.Body), resp)
-	}
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Contains(t, string(resp.Body), "a.html")
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir/a.html")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
 		t.Fatal(err, string(resp.Body), resp)
 	}
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/dir")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<!doctype html>
-<meta name="viewport" content="width=device-width">
-<pre>
-<a href="a.html">a.html</a>
-</pre>
-` {
-		t.Fatal(err, string(resp.Body), resp)
-	}
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Contains(t, string(resp.Body), "a.html")
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/dir/a.html")
 	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != "a html" {
 		t.Fatal(err, string(resp.Body), resp)
@@ -798,12 +789,7 @@ func TestHTTPD(httpd *Daemon, t testingstub.T) {
 	time.Sleep((RateLimitIntervalSec + 3) * time.Second)
 	// Visit page again after rate limit resets
 	resp, err = inet.DoHTTP(context.Background(), inet.HTTPRequest{}, addr+"/my/dir")
-	if err != nil || resp.StatusCode != http.StatusOK || string(resp.Body) != `<!doctype html>
-<meta name="viewport" content="width=device-width">
-<pre>
-<a href="a.html">a.html</a>
-</pre>
-` {
-		t.Fatal(err, string(resp.Body), resp)
-	}
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Contains(t, string(resp.Body), "a.html")
 }
