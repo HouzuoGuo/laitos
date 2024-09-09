@@ -46,7 +46,7 @@ software, please file an [issue](https://github.com/HouzuoGuo/laitos/issues).
 
 I'd love to hear from your feedback, feel free to
 [Email me](mailto:guohouzuo@gmail.com), get in touch on
-[Twitter](https://twitter.com/hzguo), and visit my home page
+[X (Twitter)](https://x.com/hzguo), and visit my home page
 [hz.gl](https://hz.gl).
 
 This is not an officially supported Google product.

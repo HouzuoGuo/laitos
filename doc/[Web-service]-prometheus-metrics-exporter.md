@@ -7,18 +7,30 @@ information collected from the following sources in the prometheus-exporter form
 - All web proxy requests: time to first byte, connection duration, size of response.
 
 ## Configuration
-Under the JSON key `HTTPHandlers`, add a string property called `PrometheusMetricsEndpoint`, value being the URL location of the service.
 
-Keep the location a secret to yourself and make it difficult to guess. Here is an example:
+Under the JSON key `HTTPHandlers`, add a string property called `PrometheusMetricsEndpoint`, value being the URL location of the service.
+Keep the location a secret to yourself and make it difficult to guess.
+
+Check out the additional process and system activity metrics available from the  [system maintenance](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance) daemon,
+enable them as you wish.
+
+Here is an example:
 <pre>
 {
     ...
 
+    "Maintenance": {
+      ...
+      "PrometheusScrapeIntervalSec": 60,
+      "RegsiterSystemActivityMetrics": true,
+      "RegsiterProcessActivityMetrics": true,
+      "RegisterPrometheusMetrics": true,
+      ...
+    },
+
     "HTTPHandlers": {
         ...
-
         "PrometheusMetricsEndpoint": "/my-precious-metrics",
-
         ...
     },
 
@@ -36,13 +48,18 @@ The exporter is hosted by web server, therefore remember to [run web server](htt
 
 ## Usage
 
-There are three categories of performance metrics exported by this web service:
+The prometheus web handler serves all of these metrics:
+
 - [Web server (httpd and insecurehttpd)](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-server) statistics are always included, such as
   individual handler's processing duration, response size, time-to-first-byte, etc.
-- When you enable the [web proxy daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-proxy), the exporter will automatically include
+- If [web proxy daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-web-proxy) is enabled, the exporter will automatically include
   statistics such as data transfer per proxy destination, number of connections, connection duration, etc.
-- When you enable the [maintenance daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance), the exporter will automatically
-  include laitos program's process statistics such as CPU usage and scheduler performance. These stats rely on Linux (`procfs`).
+- If [maintenance daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance) `RegisterPrometheusMetrics` is enabled,
+  the exporter will automatically include laitos program's process statistics such as CPU usage and scheduler performance. This relies on Linux (`procfs`).
+- If [maintenance daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance) `RegsiterProcessActivityMetrics` is enabled,
+  the exporter will automatically include the file and network activities of the laitos process. This relies on `bpftrace` tool.
+- If [maintenance daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-system-maintenance) `RegsiterSystemActivityMetrics` is enabled,
+  the exporter will automatically include the system-wide file and network activities. This relies on `bpftrace` tool.
 
 Next, follow the installation instructions of [prometheus](https://prometheus.io/docs/prometheus/latest/installation/) to install and start the
 prometheus daemon. Feel free to run the daemon on a home desktop, a dedicated server, or on the same computer that runs laitos.
@@ -54,7 +71,7 @@ the web service's endpoint:
 ...
 scrape_configs:
     - job_name: 'laitos'
-      scrape_interval: 20s
+      scrape_interval: 60s # set to the same value as the system maintenance daemon's PrometheusScrapeIntervalSec
       scrape_timeout: 5s
       scheme: https # or https
       metrics_path: '/my-precious-metrics'

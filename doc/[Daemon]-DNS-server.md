@@ -5,6 +5,7 @@ The DNS server daemon simultaneously serves as:
 - An authoritative DNS server for configured domain names (`MyDomainNames`),
   responding to SOA, NS, MX, and address queries. MX and address responses point
   to the server's own public IP.
+- An authoritative DNS server for predefined custom records on any domain name.
 - A stub resolver that blocks advertising and malicious domains for home
   networks (`AllowQueryFromCidrs`).
 - Handle TXT queries as the [carrier of app command invocation](<https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(invoke-app-commands)>).
@@ -42,9 +43,9 @@ JSON config file:
     <td>MyDomainNames</td>
     <td>array of strings</td>
     <td>
-        The laitos DNS server's own domain names.
+        Define the DNS server's own domain names.
         <br />
-        The DNS server gives authoritative responses to SOA, NS, MX, A queries of these domain names.
+        The DNS server will automatically respond to SOA, NS, MX, and address queries for these domains with its own server IP.
         <br />
         This is also used by <a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(invoke-app-commands)">DNS server (invoke app commands)</a>
         and <a href="https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-DNS-server-(TCP-over-DNS)">DNS server (TCP over DNS)</a>
@@ -122,13 +123,106 @@ Here is a minimal JSON config file example:
 }
 </pre>
 
+### Define custom DNS records
+
+In addition to blocking ads, the DNS server also responds to predefined custom
+records, which is useful for hosting a personal website.
+
+The custom records may be defined on any domain name regardless of the `MyDomainNames` value.
+
+Under `DNSDaemon`, add a new JSON object `CustomRecords`. Populate the keys with
+record names (FQDN e.g. `myhost.example.com`), and define the records for each key:
+
+<table>
+<tr>
+    <th>Property</th>
+    <th>Type</th>
+    <th>Meaning</th>
+    <th>Default value</th>
+</tr>
+<tr>
+    <td>A</td>
+    <td>JSON object {"Addresses": ["1.1.1.1", "2.2.2.2", ...]} or {"CanonicalName": "foo.example.com"}</td>
+    <td>Respond to the query with the IPv4 addresses or the canonical name.</td>
+    <td>Empty</td>
+</tr>
+<tr>
+    <td>AAAA</td>
+    <td>JSON object {"Addresses": ["1.1.1.1", "2.2.2.2", ...]} or {"CanonicalName": "foo.example.com"}</td>
+    <td>Respond to the query with the IPv6 addresses or the canonical name.</td>
+    <td>Empty</td>
+</tr>
+<tr>
+    <td>TXT</td>
+    <td>JSON object {"Entries": ["text1", "text2", ...]}</td>
+    <td>
+        Respond to the query with the text entries.
+        Do not put extra double quotes in each text, the DNS server will add the
+        double quotes automatically when needed.
+    </td>
+    <td>Empty</td>
+</tr>
+<tr>
+    <td>MX</td>
+    <td>Array of objects [{"Host": "mx1.example.com", "Pref": 1}, {"Host": "mx2.example.com", "Pref": 2}, ...]</td>
+    <td> Respond to the query with the mail exchange records.</td>
+    <td>Empty</td>
+</tr>
+<tr>
+    <td>NS</td>
+    <td>JSON object {"Names": ["ns1.example.com", "ns2.example.com", ...]}</td>
+    <td> Respond to the query with the name server records.</td>
+    <td>Empty</td>
+</tr>
+</table>
+
+Here is a minimal example:
+
+<pre>
+{
+    ...
+
+    "DNSDaemon": {
+        "AllowQueryFromCidrs": ["35.196.0.0/16", "37.228.0.0/16"],
+        "CustomRecords": {
+            "altn.example.com": {
+                "A": {
+                    "Addresses": ["1.1.1.1", "2.2.2.2"]
+                },
+                "TXT": {
+                    "Entries": [
+                        "v=spf1 mx a mx:mx1.altn.example.com mx:mx2.altn.example.com ?all",
+                        "google-site-verification=xxxx_yyyy",
+                    ]
+                },
+                "MX":[
+                    {"Host":"mx1.altn.example.com", "Pref": 1},
+                    {"Host":"mx2.altn.example.com", "Pref": 2}
+                ],
+                "NS": {
+                    "Names": ["ns1.altn.example.com", "ns2.altn.example.com"]
+                }
+            },
+            "mx1.altn.example.com": {
+                "A": {"CanonicalName": "mx2.altn.example.com"}
+            },
+            "mx2.altn.example.com": {
+                "AAAA": ["2900:4b11:d822:4f33:6844:fe55:cb66:6777"]
+            }
+        }
+    },
+
+    ...
+}
+</pre>
+
 ### Configuration tips
 
 Instead of manually figure out your home public IP and placing it into `AllowQueryFromCidrs`,
 run [phone-home telemetry daemon](https://github.com/HouzuoGuo/laitos/wiki/%5BDaemon%5D-phone-home-telemetry)
 on a computer inside that network (e.g. on a laptop or desktop) and configure
 the daemon to send reports to this laitos server. All telemetry subjects
-are automatically allowed to use the DNS server without restrictions.
+are automatically allowed to query the DNS server.
 
 ## Run
 

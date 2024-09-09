@@ -23,6 +23,7 @@ System maintenance tasks comprise:
   journal.
 - Synchronise system clock.
 - On Windows, verify and maintain system files integrity with `DISM` and `SFC`.
+- Discard older systemd journal content to conserve disk space.
 - Set Linux system time zone (additional configuration required).
 
 (Miscellaneous)
@@ -158,7 +159,57 @@ laitos works with the following system package managers for installing and updat
     <td>(Not used)</td>
     <td>Universal</td>
 </tr>
+<tr>
+    <td>RegisterPrometheusMetrics</td>
+    <td>true/false</td>
+    <td>
+        Record the process statistics (e.g. CPU time & context switches) in promehteus metrics.
+        <br />
+        The metrics are served by <a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter">prometheus metrics exporter web handler</a>.
+    </td>
+    <td>(Not enabled)</td>
+    <td>Linux</td>
+</tr>
+<tr>
+    <td>RegsiterProcessActivityMetrics</td>
+    <td>true/false</td>
+    <td>
+        Record the laitos process file and network activities in prometheus metrics.
+        This requires "bpftrace" and requires an additional 100 MB of system memory.
+        <br />
+        The metrics are served by <a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter">prometheus metrics exporter web handler</a>.
+    </td>
+    <td>(Not enabled)</td>
+    <td>Linux</td>
+</tr>
+<tr>
+    <td>RegsiterSystemActivityMetrics</td>
+    <td>true/false</td>
+    <td>
+        Record the system-wide file and network activities in prometheus metrics.
+        This requires "bpftrace" and requires an additional 500 - 1000 MB of system memory.
+        <br />
+        The metrics are served by <a href="https://github.com/HouzuoGuo/laitos/wiki/%5BWeb-service%5D-prometheus-metrics-exporter">prometheus metrics exporter web handler</a>.
+    </td>
+    <td>(Not enabled)</td>
+    <td>Linux</td>
+</tr>
+<tr>
+    <td>PrometheusScrapeIntervalSec</td>
+    <td>integer</td>
+    <td>The scrape interval expected from prometheus, measured in seconds. This is used to determine the sampling period of certain gauges.</td>
+    <td>60 (seconds)</td>
+    <td>Universal</td>
+</tr>
+<tr>
+    <td>ShrinkSystemdJournalSizeMB</td>
+    <td>integer</td>
+    <td>Retain this much system journal (measured in MB) and discard the older content to conserve disk space.</td>
+    <td>(Not enabled)</td>
+    <td>Linux</td>
+</tr>
 </table>
+
 2. Follow [outgoing mail configuration](https://github.com/HouzuoGuo/laitos/wiki/Outgoing-mail-configuration).
 
 Here is an example configuration that keeps system up-to-date, while also checking whether mail(25), DNS(53), and HTTP(80, 443) daemons are online:
