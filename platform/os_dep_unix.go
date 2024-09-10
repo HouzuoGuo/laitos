@@ -28,7 +28,7 @@ func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int64) {
 
 // KillProcess kills the process and its child processes. The function gives the processes a second to clean up after themselves.
 func KillProcess(proc *os.Process) (success bool) {
-	if proc == nil {
+	if proc == nil || proc.Pid < 1 {
 		return true
 	}
 	// Send SIGTERM to the process group (if any) and the process itself

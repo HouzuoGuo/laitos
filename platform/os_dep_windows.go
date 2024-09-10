@@ -17,7 +17,7 @@ func GetRootDiskUsageKB() (usedKB, freeKB, totalKB int64) {
 
 // KillProcess kills the process and its child processes. The function gives the processes a second to clean up after themselves.
 func KillProcess(proc *os.Process) (success bool) {
-	if proc == nil {
+	if proc == nil || proc.Pid < 1 {
 		return true
 	}
 	// Usage of taskkill.exe is explained in: https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/taskkill
