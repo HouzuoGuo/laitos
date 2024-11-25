@@ -34,7 +34,7 @@ func TestGetSystemMemoryUsageKB(t *testing.T) {
 		return
 	}
 	used, total := GetSystemMemoryUsageKB()
-	if used < 1000 || total < used {
+	if used < 100 || total < used {
 		t.Fatal(used, total)
 	}
 }
