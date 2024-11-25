@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-xray-sdk-go v1.8.5
 	github.com/miekg/dns v1.1.62
 	github.com/prometheus/client_golang v1.20.5
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.29.0
 	golang.org/x/net v0.31.0
 	google.golang.org/grpc v1.68.0
