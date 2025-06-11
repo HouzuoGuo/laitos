@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"runtime"
 	"runtime/pprof"
-	"strconv"
 	"strings"
 
 	"github.com/HouzuoGuo/laitos/lalog"
@@ -122,7 +121,7 @@ func TuneLinux() string {
 		"kernel.yama.ptrace_scope":  "1",
 
 		// Optimise system stability in low memory situation
-		"vm.min_free_kbytes":   strconv.FormatInt(memSizeKB/32, 10), // reserve 1MB for every 32MB of system memory
+		"vm.min_free_kbytes":   "67584",
 		"vm.zone_reclaim_mode": "1",
 
 		/*
@@ -158,7 +157,7 @@ func TuneLinux() string {
 		"net.core.default_qdisc":          "fq_codel",
 		"net.core.netdev_max_backlog":     "16384",
 		"net.core.somaxconn":              "4096",
-		"net.ipv4.tcp_congestion_control": "bbr",
+		"net.ipv4.tcp_congestion_control": "cubic",
 		"net.ipv4.tcp_fastopen":           "3",
 		"net.ipv4.tcp_max_syn_backlog":    "2048",
 		"net.ipv4.tcp_max_tw_buckets":     "262144",

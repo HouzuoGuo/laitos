@@ -19,7 +19,7 @@ func (daemon *Daemon) MaintainsIptables(out *bytes.Buffer) {
 	}
 	daemon.logPrintStage(out, "maintain iptables")
 	if daemon.ThrottleIncomingPackets < 5 {
-		daemon.logPrintStageStep(out, "ThrottleIncomingPackets(%d) must be greater or equal to 5", daemon.ThrottleIncomingPackets)
+		daemon.logPrintStageStep(out, "skipped due to missing/misconfigured ThrottleIncomingPackets: %d", daemon.ThrottleIncomingPackets)
 		return
 	}
 	if daemon.ThrottleIncomingPackets > 255 {
