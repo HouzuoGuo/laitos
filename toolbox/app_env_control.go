@@ -103,7 +103,6 @@ func TuneLinux() string {
 	if runtime.GOOS != "linux" {
 		return "TuneLinux has nothing to do, system is not Linux."
 	}
-	_, memSizeKB := platform.GetSystemMemoryUsageKB()
 	// The following settings have little influence on system resources
 	assignment := map[string]string{
 		// Optimise system security
