@@ -140,6 +140,52 @@ func DecodeDTMFCommandInput(labels []string) (decodedCommand string) {
 	return
 }
 
+// BuildCnameResponse constructs a cname record response for type cname queries.
+// The response is not suitable used for A/AAAA queries.
+func BuildCnameResponse(header dnsmessage.Header, question dnsmessage.Question, canonicalName string) ([]byte, error) {
+	header.Response = true
+	header.Truncated = false
+	header.Authoritative = true
+	header.RecursionAvailable = false
+	builder := dnsmessage.NewBuilder(nil, header)
+	builder.EnableCompression()
+	if err := builder.StartQuestions(); err != nil {
+		return nil, err
+	}
+	if err := builder.Question(question); err != nil {
+		return nil, err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return nil, err
+	}
+	dnsName, err := dnsmessage.NewName(question.Name.String())
+	if err != nil {
+		return nil, err
+	}
+	cname, err := dnsmessage.NewName(canonicalName)
+	if err != nil {
+		return nil, err
+	}
+	if builder.CNAMEResource(dnsmessage.ResourceHeader{
+		Name:  dnsName,
+		Class: dnsmessage.ClassINET,
+		TTL:   CommonResponseTTL,
+	}, dnsmessage.CNAMEResource{CNAME: cname}) != nil {
+		return nil, err
+	}
+	if err := builder.StartAdditionals(); err != nil {
+		return nil, err
+	}
+	var rh dnsmessage.ResourceHeader
+	if err := rh.SetEDNS0(EDNSBufferSize, dnsmessage.RCodeSuccess, false); err != nil {
+		return nil, err
+	}
+	if err := builder.OPTResource(rh, dnsmessage.OPTResource{}); err != nil {
+		return nil, err
+	}
+	return builder.Finish()
+}
+
 // BuildSOAResponse returns an SOA record response.
 func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mName, rName string) ([]byte, error) {
 	if mName == "" || rName == "" {

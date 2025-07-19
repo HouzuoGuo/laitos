@@ -56,16 +56,19 @@ func (daemon *Daemon) HandleTCPConnection(logger *lalog.Logger, ip string, conn 
 		return
 	}
 	var respBody []byte
-	if question.Type == dnsmessage.TypeTXT {
+	switch question.Type {
+	case dnsmessage.TypeTXT:
 		// The TXT query may be carrying an app command.
 		respBody = daemon.handleTextQuery(ip, queryLen, queryBody, header, question)
-	} else if question.Type == dnsmessage.TypeNS {
+	case dnsmessage.TypeNS:
 		respBody = daemon.handleNS(ip, queryLen, queryBody, header, question)
-	} else if question.Type == dnsmessage.TypeSOA {
+	case dnsmessage.TypeSOA:
 		respBody = daemon.handleSOA(ip, queryLen, queryBody, header, question)
-	} else if question.Type == dnsmessage.TypeMX {
+	case dnsmessage.TypeCNAME:
+		respBody = daemon.handleCname(ip, queryLen, queryBody, header, question)
+	case dnsmessage.TypeMX:
 		respBody = daemon.handleMX(ip, queryLen, queryBody, header, question)
-	} else {
+	default:
 		// Handle all other query types.
 		respBody = daemon.handleNameOrOtherQuery(ip, queryLen, queryBody, header, question)
 	}
@@ -113,16 +116,19 @@ func (daemon *Daemon) HandleUDPClient(logger *lalog.Logger, ip string, client *n
 		return
 	}
 	var respBody []byte
-	if question.Type == dnsmessage.TypeTXT {
+	switch question.Type {
+	case dnsmessage.TypeTXT:
 		// The TXT query may be carrying an app command.
 		respBody = daemon.handleTextQuery(ip, nil, packet, header, question)
-	} else if question.Type == dnsmessage.TypeNS {
+	case dnsmessage.TypeNS:
 		respBody = daemon.handleNS(ip, nil, packet, header, question)
-	} else if question.Type == dnsmessage.TypeSOA {
+	case dnsmessage.TypeSOA:
 		respBody = daemon.handleSOA(ip, nil, packet, header, question)
-	} else if question.Type == dnsmessage.TypeMX {
+	case dnsmessage.TypeCNAME:
+		respBody = daemon.handleCname(ip, nil, packet, header, question)
+	case dnsmessage.TypeMX:
 		respBody = daemon.handleMX(ip, nil, packet, header, question)
-	} else {
+	default:
 		// Handle all other query types.
 		respBody = daemon.handleNameOrOtherQuery(ip, nil, packet, header, question)
 	}
@@ -333,6 +339,44 @@ func (daemon *Daemon) handleNS(clientIP string, queryLen, queryBody []byte, head
 		respBody, err = BuildNSResponse(header, question, domainName, ns, inet.GetPublicIP())
 	} else {
 		respBody, err = BuildNSResponse(header, question, domainName, customRec.NS, net.IPv4zero)
+	}
+	if err != nil {
+		daemon.logger.Warning(clientIP, err, "failed to build response packet")
+	}
+	return
+}
+
+func (daemon *Daemon) handleCname(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {
+	name := question.Name.String()
+	if daemon.processQueryTestCaseFunc != nil {
+		daemon.processQueryTestCaseFunc(name)
+	}
+	var err error
+	_, domainName, numDomainLabels, isRecursive, customRec := daemon.queryLabels(name)
+	if isRecursive {
+		if !daemon.queryRateLimit.Add(clientIP, true) {
+			return
+		}
+		daemon.logger.Info(clientIP, nil,
+			"query: %s %q rd? %v, resp recursive? %v, custom rec? %v, my domain %q, #labels %d",
+			question.Type, name, header.RecursionDesired, isRecursive, customRec != nil, domainName, numDomainLabels)
+		if queryLen == nil {
+			return daemon.handleUDPRecursiveQuery(clientIP, queryBody)
+		}
+		return daemon.handleTCPRecursiveQuery(clientIP, queryLen, queryBody)
+	} else {
+		if customRec == nil {
+			// The record does not have a CNAME.
+			respBody, err = BuildCnameResponse(header, question, "")
+		} else {
+			var cname string
+			if customRec.A.Exists() && customRec.A.AddressRecord.CanonicalName != "" {
+				cname = customRec.A.AddressRecord.CanonicalName
+			} else if customRec.AAAA.Exists() && customRec.AAAA.AddressRecord.CanonicalName != "" {
+				cname = customRec.AAAA.AddressRecord.CanonicalName
+			}
+			respBody, err = BuildCnameResponse(header, question, cname)
+		}
 	}
 	if err != nil {
 		daemon.logger.Warning(clientIP, err, "failed to build response packet")
