@@ -4,6 +4,7 @@
     "AllowQueryFromCidrs": [
       "127.0.0.0/8"
     ],
+    "MyDomainNames": ["examle.com", "example.ch"],
     "CustomRecords": {
       "altn.example.com": {
         "A": {

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 	"github.com/HouzuoGuo/laitos/toolbox"
@@ -223,10 +225,17 @@ func BuildSOAResponse(header dnsmessage.Header, question dnsmessage.Question, mN
 	if err != nil {
 		return nil, err
 	}
+
+	serialNum := time.Now().UTC().Format("20060102")
+	serialInt, err := strconv.Atoi(serialNum)
+	if err != nil {
+		return nil, err
+	}
+
 	soa := dnsmessage.SOAResource{
 		NS:     dnsMName,
 		MBox:   dnsRName,
-		Serial: 1,
+		Serial: uint32(serialInt),
 		// "Number of seconds after which secondary name servers should query the master for the SOA record, to detect zone changes." (wikipedia)
 		Refresh: 14400,
 		// "Number of seconds after which secondary name servers should retry to request the serial number from the master if the master does not respond. It must be less than Refresh." (wikipedia)
