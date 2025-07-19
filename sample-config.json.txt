@@ -3,7 +3,53 @@
   "DNSDaemon": {
     "AllowQueryFromCidrs": [
       "127.0.0.0/8"
-    ]
+    ],
+    "CustomRecords": {
+      "altn.example.com": {
+        "A": {
+          "Addresses": [
+            "1.1.1.1",
+            "2.2.2.2"
+          ]
+        },
+        "MX": [
+          {
+            "Host": "mx1.altn.example.com",
+            "Pref": 1
+          },
+          {
+            "Host": "mx2.altn.example.com",
+            "Pref": 2
+          }
+        ],
+        "NS": {
+          "Names": [
+            "ns1.altn.example.com",
+            "ns2.altn.example.com"
+          ]
+        },
+        "TXT": {
+          "Entries": [
+            "v=spf1 mx a mx:mx1.altn.example.com mx:mx2.altn.example.com ?all",
+            "google-site-verification=xxxx_yyyy"
+          ]
+        }
+      },
+      "mx1.altn.example.com": {
+        "A": {
+          "CanonicalName": "mx2.altn.example.com"
+        }
+      },
+      "mx2.altn.example.com": {
+        "AAAA": {
+          "Addresses": [
+            "2900:4b11:d822:4f33:6844:fe55:cb66:6777"
+          ]
+        }
+      }
+    },
+    "TCPPort": 5353,
+    "UDPPort": 5353
   },
   "DNSFilters": {
     "LintText": {
@@ -197,10 +243,10 @@
   },
   "MailProcessor": {},
   "Maintenance": {
+    "PrometheusScrapeIntervalSec": 60,
     "Recipients": [
       "root@localhost"
     ],
-    "PrometheusScrapeIntervalSec": 60,
     "RegisterPrometheusMetrics": true
   },
   "PlainSocketDaemon": {
