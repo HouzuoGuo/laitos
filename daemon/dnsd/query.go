@@ -144,7 +144,8 @@ func DecodeDTMFCommandInput(labels []string) (decodedCommand string) {
 
 // BuildCnameResponse constructs a cname record response for type cname queries.
 // The response is not suitable used for A/AAAA queries.
-func BuildCnameResponse(header dnsmessage.Header, question dnsmessage.Question, canonicalName string) ([]byte, error) {
+func BuildCnameResponse(header dnsmessage.Header, question dnsmessage.Question, canonicalName string, authenticData bool) ([]byte, error) {
+	header.AuthenticData = authenticData
 	header.Response = true
 	header.Truncated = false
 	header.Authoritative = true

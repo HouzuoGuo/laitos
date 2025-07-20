@@ -37,7 +37,8 @@
       },
       "mx1.altn.example.com": {
         "A": {
-          "CanonicalName": "mx2.altn.example.com"
+          "CanonicalName": "mx2.altn.example.com",
+          "ForceCnameAD": true
         }
       },
       "mx2.altn.example.com": {

@@ -58,6 +58,9 @@ func (dname *CustomRecord) Lint() error {
 
 // AddressRecord represents an version-agnostic DNS address record that has either IP addresses or CNAME.
 type AddressRecord struct {
+	// ForceCnameAD if true will forcibly set the "authentic data" flag in response to CNAME queries.
+	// For respondig to A and AAAA queries (even if the response is CNAME) the AD flag will always be false.
+	ForceCnameAD  bool     `json:"ForceCnameAD"`
 	Addresses     []string `json:"Addresses"`
 	CanonicalName string   `json:"CanonicalName"`
 	ipAddresses   []net.IP

@@ -367,15 +367,18 @@ func (daemon *Daemon) handleCname(clientIP string, queryLen, queryBody []byte, h
 	} else {
 		if customRec == nil {
 			// The record does not have a CNAME.
-			respBody, err = BuildCnameResponse(header, question, "")
+			respBody, err = BuildCnameResponse(header, question, "", false)
 		} else {
 			var cname string
+			var forceAD bool
 			if customRec.A.Exists() && customRec.A.AddressRecord.CanonicalName != "" {
 				cname = customRec.A.AddressRecord.CanonicalName
+				forceAD = customRec.A.ForceCnameAD
 			} else if customRec.AAAA.Exists() && customRec.AAAA.AddressRecord.CanonicalName != "" {
 				cname = customRec.AAAA.AddressRecord.CanonicalName
+				forceAD = customRec.AAAA.ForceCnameAD
 			}
-			respBody, err = BuildCnameResponse(header, question, cname)
+			respBody, err = BuildCnameResponse(header, question, cname, forceAD)
 		}
 	}
 	if err != nil {
