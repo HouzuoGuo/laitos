@@ -69,7 +69,7 @@ var (
 // then the suspect IP has been blacklisted by the look-up domain.
 func GetBlacklistLookupName(suspectIP, blLookupDomain string) (string, error) {
 	suspectIPv4 := net.ParseIP(suspectIP).To4()
-	if suspectIPv4 == nil || len(suspectIPv4) < 4 {
+	if len(suspectIPv4) < 4 {
 		return "", fmt.Errorf("GetBlacklistLookupName: suspect IP %s does not appear to be a valid IPv4 address", suspectIP)
 	}
 	return fmt.Sprintf("%d.%d.%d.%d.%s", suspectIPv4[3], suspectIPv4[2], suspectIPv4[1], suspectIPv4[0], blLookupDomain), nil

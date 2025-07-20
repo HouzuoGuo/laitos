@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	netSMTP "net/smtp"
 	"strconv"
@@ -19,6 +18,7 @@ import (
 	"github.com/HouzuoGuo/laitos/lalog"
 	"github.com/HouzuoGuo/laitos/misc"
 	"github.com/HouzuoGuo/laitos/testingstub"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -67,10 +67,10 @@ func (daemon *Daemon) Initialise() error {
 		ComponentName: "smtpd",
 		ComponentID:   []lalog.LoggerIDField{{Key: "Port", Value: daemon.Port}},
 	}
-	if daemon.ForwardTo == nil || len(daemon.ForwardTo) == 0 || !daemon.ForwardMailClient.IsConfigured() {
+	if len(daemon.ForwardTo) == 0 || !daemon.ForwardMailClient.IsConfigured() {
 		return errors.New("smtpd.Initialise: forward address and forward mail client must be configured")
 	}
-	if daemon.MyDomains == nil || len(daemon.MyDomains) == 0 {
+	if len(daemon.MyDomains) == 0 {
 		return errors.New("smtpd.Initialise: my domain names must be configured")
 	}
 	if daemon.TLSCertPath != "" || daemon.TLSKeyPath != "" {
@@ -155,23 +155,24 @@ func (daemon *Daemon) Initialise() error {
 
 // Unconditionally forward the mail to forward addresses, then process feature commands if they are found.
 func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
+	// Remember: the mail body was read through dotreader, all \r\n turn into \n!
 	bodyBytes := []byte(mailBody)
-	// Run feature command from mail body
+	// Run the toolbox feature command if it is present.
 	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
 		if err := daemon.CommandRunner.Process(clientIP, bodyBytes); err != nil {
 			daemon.logger.Info(fromAddr, nil, "failed to process toolbox command from mail body - %v", err)
 		}
 	}
-	// Determine whether the sender enforces DMARC policy
-	fromAddrWithoutDmarc := GetFromAddressWithDmarcWorkaround(fromAddr, rand.Intn(100000))
-	if fromAddrWithoutDmarc != fromAddr {
-		// Change the sender's domain to the non-existent domain without a DMARC policy
-		daemon.logger.Info(fromAddr, nil, "rewriting From address from %s to %s to evade DMARC validation", fromAddr, fromAddrWithoutDmarc)
-		fromAddr = fromAddrWithoutDmarc
-		// Change the sender's domain in "From:" header
-		bodyBytes = WithHeaderFromAddr(bodyBytes, fromAddrWithoutDmarc)
+	// This is not a toolbox feature command, forward it.
+	subject := GetHeader(bodyBytes, "Subject")
+	if strings.Contains(subject, inet.OutgoingMailSubjectKeyword) {
+		daemon.logger.Info(fromAddr, nil, "refusing to forward due to the appearence of laitos keyword: %s", mailBody)
+		return
 	}
-	// Forward the mail to all recipients
+	// Write down the original sender in the subject.
+	bodyBytes = SetHeader(bodyBytes, "Subject", fmt.Sprintf("%s-forward-for-%s-%s-%s", inet.OutgoingMailSubjectKeyword, clientIP, fromAddr, subject), false)
+	bodyBytes = SetHeader(bodyBytes, "From", daemon.ForwardMailClient.MailFrom, false)
+	// Forward the mail to all recipients. SendRaw uses dotwriter and expects \n (instead of \r\n) from its input.
 	if err := daemon.ForwardMailClient.SendRaw(daemon.ForwardMailClient.MailFrom, bodyBytes, daemon.ForwardTo...); err == nil {
 		daemon.logger.Info(fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
 	} else {
@@ -313,10 +314,9 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	}
 	// Due to unknown reason, netSMTP.SendMail always returns prematurely before it has completed the conversation with SMTP server.
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
-	if from, body := <-lastEmailFrom, <-lastEmailBody; from != "ClientFrom@localhost" || body != strings.Replace(testMessage, "\r\n", "\n", -1) {
-		// Keep in mind that server reads input mail message through the textproto.DotReader
-		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, testMessage, lastEmailBody)
-	}
+	from, body := <-lastEmailFrom, <-lastEmailBody
+	require.Equal(t, "ClientFrom@localhost", from)
+	require.Equal(t, "Content-type: text/plain; charset=utf-8\nFrom: howard@localhost\nTo: MsgTo@whatever\nSubject: laitos-forward-for-127.0.0.1-ClientFrom@localhost-text subject\n\ntest body\n", body)
 
 	// Send a mail with a From address of a DMARC-enforcing domain
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@microsoft.com\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
@@ -324,11 +324,9 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 		t.Fatal(err)
 	}
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
-	if from, body := <-lastEmailFrom, <-lastEmailBody; !strings.HasPrefix(from, "MsgFrom@microsoft-laitos-nodmarc-") || !strings.HasSuffix(from, ".com") ||
-		!strings.Contains(body, "From: "+from) || !strings.Contains(body, "Subject: text subject\n\ntest body") {
-		// Keep in mind that server reads input mail message through the textproto.DotReader
-		t.Fatalf("%+v\n'%+v'\n'%+v'\n", lastEmailFrom, testMessage, lastEmailBody)
-	}
+	from, body = <-lastEmailFrom, <-lastEmailBody
+	require.Equal(t, "MsgFrom@microsoft.com", from)
+	require.Equal(t, "Content-type: text/plain; charset=utf-8\nFrom: howard@localhost\nTo: MsgTo@whatever\nSubject: laitos-forward-for-127.0.0.1-MsgFrom@microsoft.com-text subject\n\ntest body\n", body)
 
 	// Send a mail that does not belong to this server's domain, which will be simply discarded.
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
@@ -348,10 +346,9 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 		t.Fatal(err)
 	}
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
-	if from, body := <-lastEmailFrom, <-lastEmailBody; from != "ClientFrom@localhost" || body != strings.Replace(testMessage, "\r\n", "\n", -1) {
-		// Keep in mind that server reads input mail message through the textproto.DotReader
-		t.Fatal(lastEmailFrom, lastEmailBody)
-	}
+	from, body = <-lastEmailFrom, <-lastEmailBody
+	require.Equal(t, "ClientFrom@localhost", from)
+	require.Equal(t, "From: howard@localhost\nTo: MsgTo@whatever\nSubject: laitos-forward-for-127.0.0.1-ClientFrom@localhost-command subject\n\n  \tverysecret.s echo hi\n", body)
 
 	smtpd.Stop()
 	<-serverStopped
