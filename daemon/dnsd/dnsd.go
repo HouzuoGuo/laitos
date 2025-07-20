@@ -115,6 +115,10 @@ type Daemon struct {
 	// will respond authoritatively.
 	CustomRecords map[string]*CustomRecord `json:"CustomRecords"`
 
+	// SafeBrowsing when true will download and update ad/malware blacklists in the background, the DNS daemon will resolve the names to 0.0.0.0.
+	// In addition, the HTTP proxy daemon and socks daemon will block connection attempts toward the IPs resolved from the blacklists.
+	SafeBrowsing bool `json:"SafeBrowsing"`
+
 	UDPPort int `json:"UDPPort"` // UDP port to listen on
 	TCPPort int `json:"TCPPort"` // TCP port to listen on
 
@@ -143,8 +147,6 @@ type Daemon struct {
 	// such as the HTTP proxy and sockd.
 	blackList      map[string]struct{}
 	blackListMutex *sync.RWMutex
-
-	allowQueryMutex *sync.Mutex
 
 	context                context.Context
 	cancelFunc             func()
@@ -176,7 +178,7 @@ func (daemon *Daemon) Initialise() error {
 		// This should be good enough for a small network of 5 users.
 		daemon.PerIPQueryLimit = 50
 	}
-	if daemon.Forwarders == nil || len(daemon.Forwarders) == 0 {
+	if len(daemon.Forwarders) == 0 {
 		daemon.Forwarders = make([]string, len(DefaultForwarders))
 		copy(daemon.Forwarders, DefaultForwarders)
 	}
@@ -360,15 +362,20 @@ func (daemon *Daemon) StartAndBlock() error {
 		Interval:     BlacklistUpdateIntervalSec * time.Second,
 		MaxInt:       1,
 		Func: func(ctx context.Context, round, _ int) error {
-			if round == 0 {
-				daemon.logger.Info("", nil, "will download blacklists in %d seconds", BlacklistInitialDelaySec)
-				select {
-				case <-time.After(BlacklistInitialDelaySec * time.Second):
-				case <-ctx.Done():
-					return ctx.Err()
+			if daemon.SafeBrowsing {
+				if round == 0 {
+					daemon.logger.Info("", nil, "will download blacklists in %d seconds", BlacklistInitialDelaySec)
+					select {
+					case <-time.After(BlacklistInitialDelaySec * time.Second):
+					case <-ctx.Done():
+						return ctx.Err()
+					}
 				}
+				daemon.UpdateBlackList(DownloadAllBlacklists(BlacklistMaxEntries, daemon.logger))
+
+			} else {
+				daemon.logger.Info("", nil, "safe browsing is not enabled, will not updated dns & ip blacklists.")
 			}
-			daemon.UpdateBlackList(DownloadAllBlacklists(BlacklistMaxEntries, daemon.logger))
 			return nil
 		},
 	}

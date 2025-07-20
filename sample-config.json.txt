@@ -4,7 +4,6 @@
     "AllowQueryFromCidrs": [
       "127.0.0.0/8"
     ],
-    "MyDomainNames": ["examle.com", "example.ch"],
     "CustomRecords": {
       "altn.example.com": {
         "A": {
@@ -49,6 +48,8 @@
         }
       }
     },
+    "MyDomainNames": ["examle.com", "example.ch"],
+    "SafeBrowsing": true,
     "TCPPort": 5353,
     "UDPPort": 5353
   },

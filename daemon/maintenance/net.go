@@ -10,7 +10,7 @@ import (
 
 // MaintainsIptables blocks ports that are not listed in allowed port and throttle incoming traffic.
 func (daemon *Daemon) MaintainsIptables(out *bytes.Buffer) {
-	if daemon.BlockPortsExcept == nil || len(daemon.BlockPortsExcept) == 0 {
+	if len(daemon.BlockPortsExcept) == 0 {
 		return
 	}
 	if platform.HostIsWindows() {

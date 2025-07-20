@@ -236,7 +236,7 @@ func (daemon *Daemon) Execute(ctx context.Context) (string, bool) {
 		daemon.logger.Warning("", nil, "completed with some errors")
 	}
 	// If there are no recipients, print the report to standard output.
-	if daemon.Recipients == nil || len(daemon.Recipients) == 0 {
+	if len(daemon.Recipients) == 0 {
 		daemon.logger.Info("", nil, "report will now be printed to standard output")
 		fmt.Println("Maintenance report:")
 		fmt.Println(result.String())

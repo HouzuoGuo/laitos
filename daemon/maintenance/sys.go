@@ -82,7 +82,7 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 
 // BlockUnusedLogin will block/disable system login from users not listed in the exception list.
 func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
-	if daemon.BlockSystemLoginExcept == nil || len(daemon.BlockSystemLoginExcept) == 0 {
+	if len(daemon.BlockSystemLoginExcept) == 0 {
 		return
 	}
 	daemon.logPrintStage(out, "block unused system login")
