@@ -124,6 +124,10 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 			daemon.logPrintStageStep(out, "failed to install/upgrade winget: %v - %s", err, shellOut)
 		}
 	} else {
+		if os.Getuid() != 0 {
+			daemon.logPrintStageStep(out, "skipped because laitos is not running as uid 0 root")
+			return
+		}
 		daemon.prepareDockerRepositoryForAWSLinux(out)
 	}
 

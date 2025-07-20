@@ -21,6 +21,10 @@ const (
 // SynchroniseSystemClock uses three different tools to immediately synchronise system clock via NTP servers.
 func (daemon *Daemon) SynchroniseSystemClock(out *bytes.Buffer) {
 	daemon.logPrintStage(out, "synchronise clock")
+	if os.Getuid() != 0 {
+		daemon.logPrintStageStep(out, "skipped because laitos is not running as uid 0 root")
+		return
+	}
 	if platform.HostIsWindows() {
 		result, err := platform.InvokeProgram(nil, 120, `C:\Windows\system32\w32tm.exe`, "/config", `/manualpeerlist:"0.pool.ntp.org sg.pool.ntp.org us.pool.ntp.org fi.pool.ntp.org"`, "/syncfromflags:manual", "/reliable:yes", "/update")
 		daemon.logPrintStageStep(out, "w32tm config: %v - %s", err, strings.TrimSpace(result))
@@ -57,6 +61,10 @@ func (daemon *Daemon) MaintainServices(out *bytes.Buffer) {
 		return
 	}
 	daemon.logPrintStage(out, "maintain system services")
+	if os.Getuid() != 0 {
+		daemon.logPrintStageStep(out, "skipped because laitos is not running as uid 0 root")
+		return
+	}
 
 	if daemon.DisableStopServices != nil {
 		sort.Strings(daemon.DisableStopServices)
@@ -86,6 +94,10 @@ func (daemon *Daemon) BlockUnusedLogin(out *bytes.Buffer) {
 		return
 	}
 	daemon.logPrintStage(out, "block unused system login")
+	if os.Getuid() != 0 {
+		daemon.logPrintStageStep(out, "skipped because laitos is not running as uid 0 root")
+		return
+	}
 	// Exception name list is case insensitive
 	exceptionMap := make(map[string]bool)
 	for _, name := range daemon.BlockSystemLoginExcept {
@@ -210,6 +222,10 @@ func (daemon *Daemon) MaintainSwapFile(out *bytes.Buffer) {
 		return
 	}
 	daemon.logPrintStage(out, "create/turn on swap file "+SwapFilePath)
+	if os.Getuid() != 0 {
+		daemon.logPrintStageStep(out, "skipped because laitos is not running as uid 0 root")
+		return
+	}
 	if daemon.SwapFileSizeMB < 0 {
 		daemon.logPrintStageStep(out, "turn off swap")
 		if err := platform.SwapOff(); err != nil {
@@ -337,12 +353,14 @@ func (daemon *Daemon) EnhanceFileSecurity(out *bytes.Buffer) {
 	}
 
 	// Reset owner and group of root home directory
-	for _, rootHomeAbs := range []string{"/root", "/private/var/root"} {
-		if stat, err := os.Stat(rootHomeAbs); err == nil && stat.IsDir() {
-			pathUID[rootHomeAbs] = 0
-			pathGID[rootHomeAbs] = 0
-			// Reset permission on the home directory and ~/.ssh later
-			allHomeDirAbs[rootHomeAbs] = struct{}{}
+	if os.Getuid() == 0 {
+		for _, rootHomeAbs := range []string{"/root", "/private/var/root"} {
+			if stat, err := os.Stat(rootHomeAbs); err == nil && stat.IsDir() {
+				pathUID[rootHomeAbs] = 0
+				pathGID[rootHomeAbs] = 0
+				// Reset permission on the home directory and ~/.ssh later
+				allHomeDirAbs[rootHomeAbs] = struct{}{}
+			}
 		}
 	}
 

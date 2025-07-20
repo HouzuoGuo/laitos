@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"bytes"
+	"os"
 	"strconv"
 	"strings"
 
@@ -18,6 +19,10 @@ func (daemon *Daemon) MaintainsIptables(out *bytes.Buffer) {
 		return
 	}
 	daemon.logPrintStage(out, "maintain iptables")
+	if os.Getuid() != 0 {
+		daemon.logPrintStageStep(out, "skipped because laitos is not running as uid 0 root")
+		return
+	}
 	if daemon.ThrottleIncomingPackets < 5 {
 		daemon.logPrintStageStep(out, "skipped due to missing/misconfigured ThrottleIncomingPackets: %d", daemon.ThrottleIncomingPackets)
 		return
