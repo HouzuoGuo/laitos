@@ -155,32 +155,31 @@ func (daemon *Daemon) Initialise() error {
 
 // Unconditionally forward the mail to forward addresses, then process feature commands if they are found.
 func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
-	// Remember: the mail body was read through dotreader, all \r\n turn into \n!
-	bodyBytes := []byte(mailBody)
 	// Run the toolbox feature command if it is present.
 	if daemon.CommandRunner != nil && daemon.CommandRunner.Processor != nil && !daemon.CommandRunner.Processor.IsEmpty() {
-		if err := daemon.CommandRunner.Process(clientIP, bodyBytes); err != nil {
+		if err := daemon.CommandRunner.Process(clientIP, []byte(mailBody)); err != nil {
 			daemon.logger.Info(fromAddr, nil, "failed to process toolbox command from mail body - %v", err)
 		}
 	}
 	// This is not a toolbox feature command, forward it.
-	subject := GetHeader(bodyBytes, "Subject")
+	// Remember: the mail body was read through dotreader, all \r\n turn into \n!
+	subject := GetHeader(mailBody, "Subject")
 	if strings.Contains(subject, inet.OutgoingMailSubjectKeyword) {
 		daemon.logger.Info(fromAddr, nil, "refusing to forward due to the appearence of laitos keyword: %s", mailBody)
 		return
 	}
 	// Write down the original sender in the subject.
-	bodyBytes = SetHeader(bodyBytes, "Subject", fmt.Sprintf("%s-forward-for-%s-%s-%s", inet.OutgoingMailSubjectKeyword, clientIP, fromAddr, subject), false)
-	bodyBytes = SetHeader(bodyBytes, "From", daemon.ForwardMailClient.MailFrom, false)
+	mailBody = SetHeader(mailBody, "Subject", fmt.Sprintf("%s-forward-for-%s-%s-%s", inet.OutgoingMailSubjectKeyword, clientIP, fromAddr, subject))
+	mailBody = SetHeader(mailBody, "From", daemon.ForwardMailClient.MailFrom)
 	// Forward the mail to all recipients. SendRaw uses dotwriter and expects \n (instead of \r\n) from its input.
-	if err := daemon.ForwardMailClient.SendRaw(daemon.ForwardMailClient.MailFrom, bodyBytes, daemon.ForwardTo...); err == nil {
+	if err := daemon.ForwardMailClient.SendRaw(daemon.ForwardMailClient.MailFrom, []byte(mailBody), daemon.ForwardTo...); err == nil {
 		daemon.logger.Info(fromAddr, nil, "successfully forwarded mail to %v", daemon.ForwardTo)
 	} else {
 		daemon.logger.Warning(fromAddr, err, "failed to forward email")
 	}
 	// Offer the processed mail to test case
 	if daemon.processMailTestCaseFunc != nil {
-		daemon.processMailTestCaseFunc(fromAddr, string(bodyBytes))
+		daemon.processMailTestCaseFunc(fromAddr, mailBody)
 	}
 }
 
