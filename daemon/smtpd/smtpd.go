@@ -250,14 +250,13 @@ func (daemon *Daemon) HandleTCPConnection(logger *lalog.Logger, ip string, clien
 	}
 done:
 	if fromAddr != "" && len(toAddrs) > 0 && mailBody != "" {
-		daemon.logger.Info(ip, nil, "received mail from \"%s\" addressed to %s", fromAddr, strings.Join(toAddrs, ", "))
+		daemon.logger.Info(ip, nil, "received mail from %q to %v: %s", fromAddr, toAddrs, mailBody)
 		// Check sender IP against blacklist, do not proceed further if the sender IP has been blacklisted.
 		if blacklistDomainName := IsSuspectIPBlacklisted(ip); blacklistDomainName == "" {
 			// Forward the mail to forward-recipients, hence the original To-Addresses are not relevant.
 			daemon.ProcessMail(ip, fromAddr, mailBody)
 		} else {
 			completionStatus += " & rejected mail due to blacklist"
-			daemon.logger.Warning(ip, nil, "not going to process the mail further because the client IP was blacklisted by %s. The mail content was: %s", blacklistDomainName, mailBody)
 			smtpConn.AnswerNegative()
 		}
 	} else {
