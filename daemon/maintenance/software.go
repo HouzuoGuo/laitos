@@ -113,13 +113,8 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 
 	// Prepare package manager
 	if platform.HostIsWindows() {
-		daemon.logPrintStageStep(out, "install windows features")
-		shellOut, err := platform.InvokeShell(3600, platform.PowerShellInterpreterPath, `Install-WindowsFeature XPS-Viewer, WoW64-Support, Windows-TIFF-IFilter, PowerShell-ISE, Windows-Defender, TFTP-Client, Telnet-Client, Server-Media-Foundation, GPMC, NET-Framework-45-Core, WebDAV-Redirector`)
-		if err != nil {
-			daemon.logPrintStageStep(out, "failed to install windows features: %v - %s", err, shellOut)
-		}
 		daemon.logPrintStageStep(out, "install/upgrade winget")
-		shellOut, err = platform.InvokeShell(3600, platform.PowerShellInterpreterPath, `Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe`)
+		shellOut, err := platform.InvokeShell(3600, platform.PowerShellInterpreterPath, `Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe`)
 		if err != nil {
 			daemon.logPrintStageStep(out, "failed to install/upgrade winget: %v - %s", err, shellOut)
 		}
@@ -161,8 +156,12 @@ func (daemon *Daemon) InstallSoftware(out *bytes.Buffer) {
 	}
 	daemon.logPrintStageStep(out, "upgrade system result: (err? %v) %s", err, strings.TrimSpace(result))
 
-	// Install system diagnosis utilities.
+	// Install system diagnosis utilities and more software packages explicitly listed in the daemon configuration.
 	daemon.logPrintStage(out, "install software")
+	if platform.HostIsWindows() && !daemon.EnableInstallPackagesOnWindows {
+		daemon.logPrintStageStep(out, "package installation is not enabled on windows")
+		return
+	}
 	allPackageNames := []string{
 		// For outgoing HTTPS connections made by laitos
 		"ca-certificates",

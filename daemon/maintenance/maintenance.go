@@ -63,6 +63,9 @@ type Daemon struct {
 	EnableStartServices []string `json:"EnableStartServices"`
 	// InstallPackages is an array of software packages to be installed and upgraded.
 	InstallPackages []string `json:"InstallPackages"`
+	// EnableInstallPackagesOnWindows determines whether to install new packages on Windows.
+	// Even if this is false, the maintenance daemon will still use winget to upgrade installed packages.
+	EnableInstallPackagesOnWindows bool `json:"EnableInstallPackagesForWindows"`
 	// BlockPortsExcept is an array of TCP and UDP ports to be blocked via iptables. Must be used in conjunction with ThrottleIncomingPackets.
 	BlockPortsExcept []int `json:"BlockPortsExcept"`
 	// ThrottleIncomingConnections throttles incoming connections and other network packets to this number/second via iptables.
