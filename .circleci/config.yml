@@ -3,11 +3,11 @@ version: 2
 jobs:
   build:
     docker:
-      - image: cimg/go:1.22
+      - image: cimg/go:1.25
     parallelism: 1
     steps:
       - checkout
       - run: env CGO_ENABLED=0 go vet ./...
       - run: make all
       - run: make clean
-      - run: env CGO_ENABLED=0 go test -count=1 -timeout 20m -v ./...
+      - run: env CGO_ENABLED=0 GODEBUG=randseednop=0 go test -count=1 -timeout 20m -v ./...
