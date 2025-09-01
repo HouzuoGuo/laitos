@@ -1,10 +1,10 @@
 package common
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -57,7 +57,7 @@ func TestUDPServer(t *testing.T) {
 	}
 
 	// Connect to the server and expect a hello response
-	client, err := net.Dial("udp", fmt.Sprintf("%s:%d", srv.ListenAddr, srv.ListenPort))
+	client, err := net.Dial("udp", net.JoinHostPort(srv.ListenAddr, strconv.Itoa(srv.ListenPort)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestUDPServer(t *testing.T) {
 	// Attempt to exceed the rate limit via connection attempts
 	var success int
 	for i := 0; i < 10; i++ {
-		client, err := net.Dial("udp", fmt.Sprintf("%s:%d", srv.ListenAddr, srv.ListenPort))
+		client, err := net.Dial("udp", net.JoinHostPort(srv.ListenAddr, strconv.Itoa(srv.ListenPort)))
 		if err != nil {
 			t.Fatal(err)
 		}

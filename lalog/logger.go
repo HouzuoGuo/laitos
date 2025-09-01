@@ -90,7 +90,7 @@ func (logger *Logger) initialiseOnce() {
 // getComponentIDs returns a string consisting of the logger's component ID fields. If there are none, it returns an empty string.
 func (logger *Logger) getComponentIDs() string {
 	var msg bytes.Buffer
-	if logger.ComponentID != nil && len(logger.ComponentID) > 0 {
+	if len(logger.ComponentID) > 0 {
 		msg.WriteRune('[')
 		for i, field := range logger.ComponentID {
 			msg.WriteString(fmt.Sprintf("%s=%v", field.Key, field.Value))

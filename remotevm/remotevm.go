@@ -508,7 +508,7 @@ func (vm *VM) executeQMP(in interface{}) (resp string, err error) {
 	// Send the input command
 	fmt.Fprintf(vm.emulatorDebugOutput, "Debug: request - %s\n", string(req))
 	_ = qmpConn.SetDeadline(time.Now().Add(QMPCommandResponseTimeoutSec * time.Second))
-	if err := qmpClient.PrintfLine(strings.ReplaceAll(string(req), "%", "%%")); err != nil {
+	if err := qmpClient.PrintfLine("%s", strings.ReplaceAll(string(req), "%", "%%")); err != nil {
 		fmt.Fprintf(vm.emulatorDebugOutput, "Error: failed to send command -  %v %s\n", err, string(resp))
 		// IO error often results in broken request/reply sequence, disconnect and reconnect on next use.
 		_ = qmpClient.Close()

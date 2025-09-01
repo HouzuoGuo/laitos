@@ -41,7 +41,7 @@ func TestStats(t *testing.T) {
 	}
 	t.Run("format to text", func(t *testing.T) {
 		if str := s.Format(); str != "0.10/0.30/0.60,1.20(4)" {
-			t.Fatalf(str)
+			t.Fatal(str)
 		}
 	})
 	t.Run("convert to display values", func(t *testing.T) {

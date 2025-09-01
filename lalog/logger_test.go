@@ -31,7 +31,7 @@ func TestLogger_Format(t *testing.T) {
 	if msg := logger.Format("fun", "act", errors.New("test"), "a"); msg != "comp[a=1;b=c].fun(act): Error \"test\" - a" {
 		t.Fatal(msg)
 	}
-	if msg := logger.Format("fun", "act", errors.New("test"), strings.Repeat("a", MaxLogMessageLen)); len(msg) != MaxLogMessageLen || !strings.Contains(msg, strings.Repeat("a", 500)) {
+	if msg := logger.Format("fun", "act", errors.New("test"), "%s", strings.Repeat("a", MaxLogMessageLen)); len(msg) != MaxLogMessageLen || !strings.Contains(msg, strings.Repeat("a", 500)) {
 		t.Fatal(len(msg), msg)
 	}
 	if msg := logger.Format("", "", errors.New("test"), ""); msg != `comp[a=1;b=c]: Error "test"` {
