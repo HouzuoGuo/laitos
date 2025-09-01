@@ -1,6 +1,6 @@
 module github.com/HouzuoGuo/laitos
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.24.2
 
@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-xray-sdk-go v1.8.5
 	github.com/miekg/dns v1.1.68
 	github.com/prometheus/client_golang v1.23.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.41.0
 	golang.org/x/net v0.43.0
 	google.golang.org/grpc v1.75.0
@@ -37,6 +37,6 @@ require (
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/tools v0.36.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250826171959-ef028d996bc1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
