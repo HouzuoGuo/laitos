@@ -2,6 +2,8 @@
 
 $ErrorActionPreference = 'Stop'
 
+Read-Host -Prompt 'Please read https://learn.microsoft.com/en-us/troubleshoot/windows-server/windows-security/user-account-control-and-remote-restriction and disable UAC remote restrictions. Press enter to proceed with task scheduler setup.'
+
 # Run laitos automatically as system boots up via task scheduler
 $laitosCmd = Read-Host -Prompt 'What is the absolute path to laitos.exe? E.g. %USERPROFILE%\laitos.exe'
 $laitosArg = Read-Host -Prompt 'What parameters to use for launching laitos automatically? E.g. -disableconflicts -awsinteg -prominteg -gomaxprocs 2 -config config.json -daemons autounlock,dnsd,httpd,httpproxy,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram'
