@@ -169,7 +169,7 @@ func (daemon *Daemon) ProcessMail(clientIP, fromAddr, mailBody string) {
 		return
 	}
 	// Write down the original sender in the subject.
-	mailBody = SetHeader(mailBody, "Subject", fmt.Sprintf("%s-forward-for-%s-%s-%s", inet.OutgoingMailSubjectKeyword, clientIP, fromAddr, subject))
+	mailBody = SetHeader(mailBody, "Subject", fmt.Sprintf("%s-forwarded %s (%s, %s)", inet.OutgoingMailSubjectKeyword, subject, fromAddr, clientIP))
 	mailBody = SetHeader(mailBody, "From", daemon.ForwardMailClient.MailFrom)
 	// Forward the mail to all recipients. SendRaw uses dotwriter and expects \n (instead of \r\n) from its input.
 	if err := daemon.ForwardMailClient.SendRaw(daemon.ForwardMailClient.MailFrom, []byte(mailBody), daemon.ForwardTo...); err == nil {
@@ -314,7 +314,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
 	from, body := <-lastEmailFrom, <-lastEmailBody
 	require.Equal(t, "ClientFrom@localhost", from)
-	require.Equal(t, "Content-type: text/plain; charset=utf-8\nFrom: howard@localhost\nTo: MsgTo@whatever\nSubject: laitos-forward-for-127.0.0.1-ClientFrom@localhost-text subject\n\ntest body\n", body)
+	require.Equal(t, "Content-type: text/plain; charset=utf-8\nFrom: howard@localhost\nTo: MsgTo@whatever\nSubject: laitos-forwarded text subject (ClientFrom@localhost, 127.0.0.1)\n\ntest body\n", body)
 
 	// Send a mail with a From address of a DMARC-enforcing domain
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@microsoft.com\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
@@ -324,7 +324,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
 	from, body = <-lastEmailFrom, <-lastEmailBody
 	require.Equal(t, "MsgFrom@microsoft.com", from)
-	require.Equal(t, "Content-type: text/plain; charset=utf-8\nFrom: howard@localhost\nTo: MsgTo@whatever\nSubject: laitos-forward-for-127.0.0.1-MsgFrom@microsoft.com-text subject\n\ntest body\n", body)
+	require.Equal(t, "Content-type: text/plain; charset=utf-8\nFrom: howard@localhost\nTo: MsgTo@whatever\nSubject: laitos-forwarded text subject (MsgFrom@microsoft.com, 127.0.0.1)\n\ntest body\n", body)
 
 	// Send a mail that does not belong to this server's domain, which will be simply discarded.
 	testMessage = "Content-type: text/plain; charset=utf-8\r\nFrom: MsgFrom@whatever\r\nTo: MsgTo@whatever\r\nSubject: text subject\r\n\r\ntest body\r\n"
@@ -346,7 +346,7 @@ func TestSMTPD(smtpd *Daemon, t testingstub.T) {
 	time.Sleep((DNSBlackListQueryTimeoutSec + 1) * time.Second)
 	from, body = <-lastEmailFrom, <-lastEmailBody
 	require.Equal(t, "ClientFrom@localhost", from)
-	require.Equal(t, "From: howard@localhost\nTo: MsgTo@whatever\nSubject: laitos-forward-for-127.0.0.1-ClientFrom@localhost-command subject\n\n  \tverysecret.s echo hi\n", body)
+	require.Equal(t, "From: howard@localhost\nTo: MsgTo@whatever\nSubject: laitos-forwarded command subject (ClientFrom@localhost, 127.0.0.1)\n\n  \tverysecret.s echo hi\n", body)
 
 	smtpd.Stop()
 	<-serverStopped

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/HouzuoGuo/laitos/misc"
+	"github.com/HouzuoGuo/laitos/platform"
 	"github.com/HouzuoGuo/laitos/tcpoverdns"
 )
 
@@ -160,6 +161,9 @@ func TestHTTPProxyServer_CNAME(t *testing.T) {
 }
 
 func TestHTTPProxyServer_TXT(t *testing.T) {
+	// CircleCI's DNS is throttled.
+	platform.SkipTestIfCI(t)
+
 	// Start a DNS server with the TCP-over-DNS proxy built-in.
 	dnsProxyServer := &Daemon{
 		Address:             "127.0.0.1",
