@@ -1,19 +1,15 @@
 # The setup script installs laitos supplements for windows, and a scheduled task that starts laitos automatically.
-
 $ErrorActionPreference = 'Stop'
 
-Read-Host -Prompt 'Please read https://learn.microsoft.com/en-us/troubleshoot/windows-server/windows-security/user-account-control-and-remote-restriction and disable UAC remote restrictions. Press enter to proceed with task scheduler setup.'
-
-# Run laitos automatically as system boots up via task scheduler
 $laitosCmd = Read-Host -Prompt 'What is the absolute path to laitos.exe? E.g. %USERPROFILE%\laitos.exe'
 $laitosArg = Read-Host -Prompt 'What parameters to use for launching laitos automatically? E.g. -disableconflicts -awsinteg -prominteg -gomaxprocs 2 -config config.json -daemons autounlock,dnsd,httpd,httpproxy,insecurehttpd,maintenance,passwdrpc,phonehome,plainsocket,simpleipsvcd,smtpd,snmpd,sockd,telegram'
 $laitosWD = Read-Host -Prompt 'Which directory does laitos program data (JSON config, web pages, etc) reside?'
 $laitosAction = New-ScheduledTaskAction -Execute $laitosCmd -Argument $laitosArg -WorkingDirectory $laitosWD
-$laitosTrigger = New-ScheduledTaskTrigger -AtStartup
-$laitosSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -RunOnlyIfNetworkAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -DontStopOnIdleEnd -RestartInterval (New-TimeSpan -Minutes 1) -RestartCount 100 -ExecutionTimeLimit (New-TimeSpan -Days 3650)
+$laitosTrigger = New-ScheduledTaskTrigger -AtLogOn
+$laitosSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -DontStopOnIdleEnd -RestartCount 10000 -RestartInterval (New-TimeSpan -Minutes 3)
 $laitosUser = Read-Host -Prompt 'What administrator user will laitos run as? E.g. Administrator'
-$laitosPassword = Read-Host -AsSecureString -Prompt 'What is the administrator password?'
-$laitosCred = New-Object System.Management.Automation.PSCredential -ArgumentList $laitosUser, $laitosPassword
-Register-ScheduledTask -Action $laitosAction -Trigger $laitosTrigger -Settings $laitosSettings -Force -TaskName laitos -User $laitosUser -Password $laitosCred.GetNetworkCredential().Password -RunLevel Highest
+$laitosPrincipal = New-ScheduledTaskPrincipal -UserID $laitosUser -RunLevel Highest
+$laitosTask = New-ScheduledTask -Action $laitosAction -Trigger $laitosTrigger -Settings $laitosSettings -Principal $laitosPrincipal
+Register-ScheduledTask -Force -TaskName laitos -InputObject $laitosTask
 
-Read-Host -Prompt 'laitos is now ready to start automatically upon system boot, enter anything to terminate the setup script.'
+Read-Host -Prompt 'laitos is now ready to start automatically when the user logs on, press enter to exit.'
