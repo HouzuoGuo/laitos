@@ -103,7 +103,7 @@ func TestProxy_TCPClient(t *testing.T) {
 		ID:                   1111,
 		InputTransport:       inTransport,
 		OutputTransport:      outTransport,
-		InitiatorSegmentData: []byte(fmt.Sprintf(`{"p": 63238, "a": "127.0.0.1", "t": "%s"}`, curr)),
+		InitiatorSegmentData: fmt.Appendf(nil, `{"p": 63238, "a": "127.0.0.1", "t": "%s"}`, curr),
 		// Keep the segment length short for the test.
 		MaxSegmentLenExclHeader: 2,
 		Initiator:               true,
@@ -151,7 +151,7 @@ func TestProxy_HTTPClient(t *testing.T) {
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
 		MaxSegmentLenExclHeader: 993,
-		InitiatorSegmentData:    []byte(fmt.Sprintf(`{"p": 80, "a": "1.1.1.1", "t": "%s"}`, curr)),
+		InitiatorSegmentData:    fmt.Appendf(nil, `{"p": 80, "a": "1.1.1.1", "t": "%s"}`, curr),
 		Initiator:               true,
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{
@@ -218,7 +218,7 @@ func TestProxy_HTTPSClient(t *testing.T) {
 		MaxSegmentLenExclHeader: 993,
 		InputTransport:          inTransport,
 		OutputTransport:         outTransport,
-		InitiatorSegmentData:    []byte(fmt.Sprintf(`{"p": 443, "a": "1.1.1.1", "t": "%s"}`, curr)),
+		InitiatorSegmentData:    fmt.Appendf(nil, `{"p": 443, "a": "1.1.1.1", "t": "%s"}`, curr),
 		Initiator:               true,
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{
@@ -309,7 +309,7 @@ func TestProxy_Blacklisted(t *testing.T) {
 		// Test asymmetric segment length.
 		InputTransport:       inTransport,
 		OutputTransport:      outTransport,
-		InitiatorSegmentData: []byte(fmt.Sprintf(`{"p": 443, "a": "1.1.1.1", "t": "%v"}`, curr)),
+		InitiatorSegmentData: fmt.Appendf(nil, `{"p": 443, "a": "1.1.1.1", "t": "%v"}`, curr),
 		Initiator:            true,
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{
@@ -352,7 +352,7 @@ func TestProxy_CleanUp(t *testing.T) {
 		InputTransport:  inTransport,
 		OutputTransport: outTransport,
 		// The destination is not going to respond.
-		InitiatorSegmentData: []byte(fmt.Sprintf(`{"p": 443, "a": "203.0.113.0", "t": "%s"}`, curr)),
+		InitiatorSegmentData: fmt.Appendf(nil, `{"p": 443, "a": "203.0.113.0", "t": "%s"}`, curr),
 		Initiator:            true,
 		// A shorter interval gives the test TC more throughput.
 		InitialTiming: tcpoverdns.TimingConfig{

@@ -107,7 +107,7 @@ func WriteWithRetry(conn net.Conn, buf []byte) (totalWritten int, err error) {
 	portionBufSize := len(buf) / maxPortions
 	// Divide the incoming buffer into several portion
 dataTransfer:
-	for portion := 0; portion < maxPortions; portion++ {
+	for portion := range maxPortions {
 		bufStart := portion * portionBufSize
 		bufEnd := (portion + 1) * portionBufSize
 		if portion == maxPortions-1 {
@@ -162,7 +162,7 @@ func RandomText(length int) string {
 		} else {
 			var round bytes.Buffer
 			roundLen := 23 + rand.Intn(29)
-			for i := 0; i < roundLen; i++ {
+			for range roundLen {
 				round.WriteRune(quirkyChars[rand.Intn(len(quirkyChars))])
 			}
 			pieces = append(pieces, round.String())

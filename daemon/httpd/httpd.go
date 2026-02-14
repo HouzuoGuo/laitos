@@ -407,7 +407,7 @@ func TestAPIHandlers(httpd *Daemon, t testingstub.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	// File upload - download
 	var downloadFileName string
-	for _, line := range strings.Split(string(resp.Body), "\n") {
+	for line := range strings.SplitSeq(string(resp.Body), "\n") {
 		/*
 			The line looks like:
 			<pre>.... Your file is available for 24 hours under name: xxxx.nnn</pre>

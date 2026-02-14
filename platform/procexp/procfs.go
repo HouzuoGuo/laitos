@@ -146,7 +146,7 @@ func getSchedStats(schedstatContent, schedContent string) (ret SchedulerStats) {
 
 	// Collect key-value pairs from /proc/XXXX.../sched
 	schedKeyValue := make(map[string]string)
-	for _, line := range strings.Split(schedContent, "\n") {
+	for line := range strings.SplitSeq(schedContent, "\n") {
 		submatches := regexColonKeyValue.FindStringSubmatch(strings.TrimSpace(line))
 		if len(submatches) > 2 {
 			schedKeyValue[submatches[1]] = submatches[2]
@@ -171,7 +171,7 @@ func getStats(content string) (ret ProcessStats) {
 func getStatus(content string) (ret ProcessStatus) {
 	// Collect key-value pairs from /proc/XXXX/status
 	statusKeyValue := make(map[string]string)
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		submatches := regexColonKeyValue.FindStringSubmatch(strings.TrimSpace(line))
 		if len(submatches) > 2 {
 			statusKeyValue[submatches[1]] = submatches[2]

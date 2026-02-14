@@ -122,7 +122,7 @@ func TestCommandProcessor_RateLimit(t *testing.T) {
 	// Exceed the rate limit by repeatedly executing a command
 	succeeded := 0
 	failed := 0
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		if result := proc.Process(context.Background(), Command{Content: "verysecret .elog", TimeoutSec: 10}, true); result.Error == nil {
 			succeeded++
 		} else if result.Error == ErrRateLimitExceeded {

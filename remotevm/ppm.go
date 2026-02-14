@@ -62,8 +62,8 @@ func readPPM(in io.Reader) (image.Image, error) {
 
 	pixel := make([]byte, 3)
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			_, err = io.ReadFull(buf, pixel)
 			if err != nil {
 				return nil, err

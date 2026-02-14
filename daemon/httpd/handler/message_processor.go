@@ -46,16 +46,16 @@ func (hand *HandleReportsRetrieval) Handle(w http.ResponseWriter, r *http.Reques
 			// Store/update an outgoing command directed at a subject identified by its host name (/endpoint?tohost=abc&cmd=xxxxx)
 			if outgoingAppCmd != "" {
 				hand.cmdProc.Features.MessageProcessor.SetOutgoingCommand(host, outgoingAppCmd)
-				_, _ = w.Write([]byte(fmt.Sprintf("The next reply made in response to %s's report will carry an app command %d characters long.\r\n", host, len(outgoingAppCmd))))
+				_, _ = w.Write(fmt.Appendf(nil, "The next reply made in response to %s's report will carry an app command %d characters long.\r\n", host, len(outgoingAppCmd)))
 			}
 		} else {
 			// Clear an outgoing command directed at a subject identified by its host name (/endpoint?tohost=abc&clear=x)
 			hand.cmdProc.Features.MessageProcessor.SetOutgoingCommand(host, "")
-			_, _ = w.Write([]byte(fmt.Sprintf("Cleared outgoing command for host %s.\r\n", host)))
+			_, _ = w.Write(fmt.Appendf(nil, "Cleared outgoing command for host %s.\r\n", host))
 		}
 		_, _ = w.Write([]byte("All outgoing commands:\r\n"))
 		for host, cmd := range hand.cmdProc.Features.MessageProcessor.GetAllOutgoingCommands() {
-			_, _ = w.Write([]byte(fmt.Sprintf("%s: %v\r\n", host, cmd)))
+			_, _ = w.Write(fmt.Appendf(nil, "%s: %v\r\n", host, cmd))
 		}
 		return
 	}

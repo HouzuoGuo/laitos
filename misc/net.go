@@ -18,7 +18,7 @@ import (
 func ProbePort(maxDuration time.Duration, host string, port int) bool {
 	maxRounds := 100
 	start := time.Now()
-	for i := 0; i < maxRounds; i++ {
+	for range maxRounds {
 		client, err := net.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 		if err == nil {
 			_ = client.Close()

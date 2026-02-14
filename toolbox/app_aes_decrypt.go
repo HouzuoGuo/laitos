@@ -136,7 +136,7 @@ func (crypt *AESDecrypt) Execute(ctx context.Context, cmd Command) (ret *Result)
 	// Conduct case insensitive search for the specified text among all lines of decrypted file
 	var match bytes.Buffer
 	var numMatch int
-	for _, line := range strings.Split(string(plainContent), "\n") {
+	for line := range strings.SplitSeq(string(plainContent), "\n") {
 		if strings.Contains(strings.ToLower(line), searchString) {
 			match.WriteString(line)
 			numMatch++

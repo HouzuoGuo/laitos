@@ -49,7 +49,7 @@ func (conn *IMAPSConnection) converse(request string) (status, body string, err 
 	_ = conn.tlsConn.SetDeadline(time.Now().Add(time.Duration(IMAPTimeoutSec) * time.Second))
 	// Random challenge is a string prefixed to an IMAP request
 	challenge := randomChallenge()
-	_, err = conn.tlsConn.Write([]byte(fmt.Sprintf("%s %s\r\n", challenge, request)))
+	_, err = conn.tlsConn.Write(fmt.Appendf(nil, "%s %s\r\n", challenge, request))
 	if err != nil {
 		conn.disconnect()
 		return
@@ -161,7 +161,7 @@ func (conn *IMAPSConnection) GetHeaders(from, to int) (ret map[int]string, err e
 	// Walk through body line by line to find boundary of messages
 	var thisNumber int
 	var thisMessage bytes.Buffer
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		trimmedLine := strings.TrimSpace(line)
 		if len(trimmedLine) == 0 {
 			continue
@@ -198,7 +198,7 @@ func (conn *IMAPSConnection) GetMessage(num int) (message string, err error) {
 	}
 	var entireMessage bytes.Buffer
 	_, body, err := conn.Converse(fmt.Sprintf("FETCH %d BODY[]", num))
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if len(line) > 0 {
 			switch line[0] {
 			// Skip fetch boundary lines

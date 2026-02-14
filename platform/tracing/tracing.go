@@ -36,7 +36,7 @@ func ListTracePoints() map[string]bool {
 			lalog.DefaultLogger.Warning(nil, err, "failed to execute bpftrace")
 			return
 		}
-		for _, probe := range strings.Split(out, "\n") {
+		for probe := range strings.SplitSeq(out, "\n") {
 			availableTracePoints[probe] = true
 		}
 	})

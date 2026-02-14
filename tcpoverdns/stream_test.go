@@ -92,7 +92,7 @@ func TestTransmissionControl_InboundSegments_ReadEach(t *testing.T) {
 		state: StateEstablished,
 	}
 	tc.Start(context.Background())
-	for i := byte(0); i < 10; i++ {
+	for i := range byte(10) {
 		t.Log("i", i)
 		seg := Segment{
 			SeqNum: uint32(i) * 3,
@@ -136,7 +136,7 @@ func TestTransmissionControl_InboundSegments_ReadAll(t *testing.T) {
 	}
 	tc.Start(context.Background())
 	var wantData []byte
-	for i := byte(0); i < 10; i++ {
+	for i := range byte(10) {
 		t.Log("i", i)
 		wantData = append(wantData, i, i, i)
 		seg := Segment{
@@ -256,7 +256,7 @@ func TestTransmissionControl_OutboundSegments_WriteEach(t *testing.T) {
 	}
 	tc.Start(context.Background())
 	var wantOutputBuf []byte
-	for i := byte(0); i < 10; i++ {
+	for i := range byte(10) {
 		t.Log("i", i)
 		n, err := tc.Write([]byte{i, i, i})
 		if n != 3 || err != nil {
@@ -306,7 +306,7 @@ func TestTransmissionControl_OutboundSegments_WriteAll(t *testing.T) {
 		state:                   StateEstablished,
 	}
 	tc.Start(context.Background())
-	for i := byte(0); i < 5; i++ {
+	for i := range byte(5) {
 		t.Log("i", i)
 		n, err := tc.Write([]byte{i, i})
 		if n != 2 || err != nil {
@@ -362,7 +362,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 		t.Fatalf("write n %v, %+v", n, err)
 	}
 	// Discard all 4 segments without acknowledging to them.
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		got := readSegment(t, testOut, 3)
 		if err != nil {
 			t.Fatalf("err: %+v", err)
@@ -380,7 +380,7 @@ func TestTransmissionControl_OutboundSegments_WriteWithRetransmission(t *testing
 	// Wait for re-transmission.
 	CheckTCError(t, tc, 3, 1, 0, 0)
 	// Discard all 4 retransmitted segments.
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		got := readSegment(t, testOut, 3)
 		if err != nil {
 			t.Fatalf("err: %+v", err)
@@ -615,7 +615,7 @@ func TestTransmissionControl_DelayedAckAndKeepAlive(t *testing.T) {
 	}
 
 	// All further segments are for keep-alive only.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		start = time.Now()
 		lalog.DefaultLogger.Info("", nil, "test expects a keep-alive")
 		gotSeg := readSegment(t, testOut, 0)
@@ -671,7 +671,7 @@ func TestTransmissionControl_InitiatorHandshake(t *testing.T) {
 	// Expect SYN with retransmissions.
 	synData := conf.Bytes()
 	synData = append(synData, 3, 2, 1)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		lalog.DefaultLogger.Info("", nil, "test expects syn")
 		syn := readSegment(t, testOut, InitiatorConfigLen+3)
 		if !reflect.DeepEqual(syn, Segment{ID: 1111, Flags: FlagHandshakeSyn, Data: synData}) {
@@ -737,7 +737,7 @@ func TestTransmissionControl_ResponderHandshake(t *testing.T) {
 	waitForState(t, tc, 10, StateSynReceived)
 
 	// Expect ACK with retransmissions.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		lalog.DefaultLogger.Info("", nil, "test expects ack")
 		ack := readSegment(t, testOut, 0)
 		if !reflect.DeepEqual(ack, Segment{ID: 1111, Flags: FlagHandshakeAck, Data: []byte{}}) {
@@ -936,7 +936,7 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 	waitForState(t, rightTC, 5, StateEstablished)
 
 	go func() {
-		for i := byte(0); i < 50; i++ {
+		for i := range byte(50) {
 			n, err := leftTC.Write([]byte{i, i, i})
 			if n != 3 {
 				log.Panicf("left tc write, i: %v, n: %v, err: %v", i, n, err)
@@ -944,7 +944,7 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 		}
 	}()
 
-	for i := byte(0); i < 50; i++ {
+	for i := range byte(50) {
 		got, err := readInput(context.Background(), rightTC, 3)
 		if err != nil || !reflect.DeepEqual(got, []byte{i, i, i}) {
 			t.Fatalf("right tc read, i: %d, err: %v, got: %v", i, err, got)
@@ -953,14 +953,14 @@ func TestTransmissionControl_PeerSimplexIO(t *testing.T) {
 
 	// Switch to the other direction.
 	go func() {
-		for i := byte(0); i < 50; i++ {
+		for i := range byte(50) {
 			n, err := rightTC.Write([]byte{i, i, i})
 			if n != 3 {
 				log.Panicf("right tc write, i: %v, n: %v, err: %v", i, n, err)
 			}
 		}
 	}()
-	for i := byte(0); i < 50; i++ {
+	for i := range byte(50) {
 		got, err := readInput(context.Background(), leftTC, 3)
 		if err != nil || !reflect.DeepEqual(got, []byte{i, i, i}) {
 			t.Fatalf("left tc read, i: %d, err: %v, got: %v", i, err, got)
@@ -1009,7 +1009,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	errs := make(chan error, 4)
 	totalRounds := byte(255)
 	go func() {
-		for i := byte(0); i < totalRounds; i++ {
+		for i := range totalRounds {
 			n, err := leftTC.Write([]byte{i, i, i})
 			if n != 3 {
 				errs <- fmt.Errorf("left tc write, i: %v, n: %v, err: %v", i, n, err)
@@ -1020,7 +1020,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	}()
 
 	go func() {
-		for i := byte(0); i < totalRounds; i++ {
+		for i := range totalRounds {
 			got, err := readInput(context.Background(), leftTC, 3)
 			if err != nil || !reflect.DeepEqual(got, []byte{i, i, i}) {
 				errs <- fmt.Errorf("left tc read, i: %d, err: %v, got: %v", i, err, got)
@@ -1030,7 +1030,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	}()
 
 	go func() {
-		for i := byte(0); i < totalRounds; i++ {
+		for i := range totalRounds {
 			n, err := rightTC.Write([]byte{i, i, i})
 			if n != 3 {
 				errs <- fmt.Errorf("right tc write, i:%v, n: %v, err: %v", i, n, err)
@@ -1040,7 +1040,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 	}()
 
 	go func() {
-		for i := byte(0); i < totalRounds; i++ {
+		for i := range totalRounds {
 			got, err := readInput(context.Background(), rightTC, 3)
 			if err != nil || !reflect.DeepEqual(got, []byte{i, i, i}) {
 				errs <- fmt.Errorf("right tc read, i: %d, err: %v, got: %v", i, err, got)
@@ -1049,7 +1049,7 @@ func TestTransmissionControl_PeerDuplexIO(t *testing.T) {
 		errs <- nil
 	}()
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		err := <-errs
 		if err != nil {
 			t.Fatal(err)
@@ -1100,7 +1100,7 @@ func TestRuntimeIntervalConfig(t *testing.T) {
 	if tc.LiveTiming.SlidingWindowWaitDuration != tc.InitialTiming.SlidingWindowWaitDuration/2 {
 		t.Fatalf("unexpected sliding window: %v", tc.LiveTiming.SlidingWindowWaitDuration)
 	}
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		tc.DecreaseTimingInterval()
 	}
 	// It won't decrease any further.
@@ -1125,7 +1125,7 @@ func TestRuntimeIntervalConfig(t *testing.T) {
 		t.Fatalf("unexpected sliding window: %v", tc.LiveTiming.SlidingWindowWaitDuration)
 	}
 	// It won't exceed the initial timing.
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		tc.IncreaseTimingInterval()
 	}
 	if tc.LiveTiming.AckDelay != tc.InitialTiming.AckDelay {

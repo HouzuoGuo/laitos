@@ -49,7 +49,7 @@ func TestReadWriteAndWriteRand(t *testing.T) {
 	if len(receivedData) < 1048576*2+200 {
 		t.Fatal(len(receivedData))
 	}
-	for i := 0; i < 2*1048576; i++ {
+	for i := range 2 * 1048576 {
 		if receivedData[i] != 1 {
 			t.Fatal(i, receivedData[i])
 		}
@@ -61,7 +61,7 @@ func TestRandomText(t *testing.T) {
 	if len(txt) != 3 {
 		t.Fatalf("unexpected length: %q", txt)
 	}
-	for i := 0; i < 5000; i++ {
+	for range 5000 {
 		length := RandNum(290, 310, 370)
 		txt := RandomText(length)
 		if len(txt) != length {

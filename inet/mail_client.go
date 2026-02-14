@@ -145,7 +145,7 @@ func (client *MailClient) sendMailWithRetry(from string, recipients []string, me
 	CommonMailLogger.Info(from, nil, "attempting to deliver mail to %v", recipients)
 	// Retry mail delivery up to couple of days, introduce a random initial delay to avoid triggering MTA's rate limit.
 	sleep := time.Duration(30+rand.Intn(30)) * time.Second
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		var smtpClient *smtp.Client
 		var mtaIP string
 		var tlsErr error

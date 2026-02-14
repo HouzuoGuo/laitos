@@ -85,15 +85,15 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		key := strings.TrimSpace(r.FormValue(autounlock.PasswordInputName))
 		decryptedConfig, err := misc.Decrypt(misc.ConfigFilePath, key)
 		if err != nil {
-			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, err.Error())))
+			_, _ = w.Write(fmt.Appendf(nil, PageHTML, summary, r.RequestURI, err.Error()))
 			return
 		}
 		if decryptedConfig[0] != '{' {
-			_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, "wrong key or malformed config file")))
+			_, _ = w.Write(fmt.Appendf(nil, PageHTML, summary, r.RequestURI, "wrong key or malformed config file"))
 			return
 		}
 		// Success!
-		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, "success")))
+		_, _ = w.Write(fmt.Appendf(nil, PageHTML, summary, r.RequestURI, "success"))
 		ws.alreadyUnlocked = true
 		// The web server has no more use
 		ws.Shutdown()
@@ -101,7 +101,7 @@ func (ws *WebServer) pageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 		ws.logger.Info(r.RemoteAddr, nil, "just visiting")
-		_, _ = w.Write([]byte(fmt.Sprintf(PageHTML, summary, r.RequestURI, "")))
+		_, _ = w.Write(fmt.Appendf(nil, PageHTML, summary, r.RequestURI, ""))
 		return
 	}
 }

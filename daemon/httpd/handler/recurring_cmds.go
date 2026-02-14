@@ -114,7 +114,7 @@ func (notif *HandleRecurringCommands) Handle(w http.ResponseWriter, r *http.Requ
 
 		}
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleRecurringCommandsSetupPage, strings.TrimPrefix(r.RequestURI, notif.stripURLPrefixFromResponse), channel, newCommand, textToStore, conclusion)))
+		_, _ = w.Write(fmt.Appendf(nil, HandleRecurringCommandsSetupPage, strings.TrimPrefix(r.RequestURI, notif.stripURLPrefixFromResponse), channel, newCommand, textToStore, conclusion))
 	} else {
 
 		// Retrieve results in JSON format

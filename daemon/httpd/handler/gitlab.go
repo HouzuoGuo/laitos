@@ -141,38 +141,39 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		projectID, found := lab.Projects[shortcutName]
 		if !found {
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
+			_, _ = w.Write(fmt.Appendf(nil, HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "(cannot find shortcut name)"))
 			return
 		}
 		dirs, fileNames, err := lab.ListGitObjects(r.Context(), projectID, browsePath, GitlabMaxObjects)
 		if err != nil {
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Error: "+err.Error())))
+			_, _ = w.Write(fmt.Appendf(nil, HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Error: "+err.Error()))
 			return
 		}
 		// Directory names are already sorted
-		contentList := strings.Join(dirs, "\n")
+		var contentList strings.Builder
+		contentList.WriteString(strings.Join(dirs, "\n"))
 		// Sort file names
 		sortedFiles := make([]string, 0, len(fileNames))
 		for fileName := range fileNames {
 			sortedFiles = append(sortedFiles, fileName)
 		}
 		sort.Strings(sortedFiles)
-		contentList += "\n\n"
+		contentList.WriteString("\n\n")
 		for _, fileName := range sortedFiles {
-			contentList += fmt.Sprintf("%s\n", fileName)
+			contentList.WriteString(fmt.Sprintf("%s\n", fileName))
 		}
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, contentList)))
+		_, _ = w.Write(fmt.Appendf(nil, HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, contentList.String()))
 	case "Download":
 		projectID, found := lab.Projects[shortcutName]
 		if !found {
 			w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "(cannot find shortcut name)")))
+			_, _ = w.Write(fmt.Appendf(nil, HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "(cannot find shortcut name)"))
 			return
 		}
 		content, err := lab.DownloadGitBlob(r.Context(), middleware.GetRealClientIP(r), projectID, browsePath, fileName)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Error: "+err.Error())))
+			_, _ = w.Write(fmt.Appendf(nil, HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Error: "+err.Error()))
 			return
 		}
 		w.Header().Set("Content-Type", "application/octet-stream")
@@ -180,7 +181,7 @@ func (lab *HandleGitlabBrowser) Handle(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(content)
 	default:
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Enter path to browse or blob ID to download")))
+		_, _ = w.Write(fmt.Appendf(nil, HandleGitlabPage, strings.TrimPrefix(r.RequestURI, lab.stripURLPrefixFromResponse), shortcutName, browsePath, fileName, "Enter path to browse or blob ID to download"))
 	}
 }
 

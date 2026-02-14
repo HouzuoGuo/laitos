@@ -66,7 +66,7 @@ func (upload *HandleFileUpload) Initialise(logger *lalog.Logger, _ *toolbox.Comm
 // render renders the file upload page in HTML
 func (upload *HandleFileUpload) render(w http.ResponseWriter, r *http.Request, message string) {
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-	_, _ = w.Write([]byte(fmt.Sprintf(HandleFileUploadPage, strings.TrimPrefix(r.RequestURI, upload.stripURLPrefixFromResponse), message)))
+	_, _ = w.Write(fmt.Appendf(nil, HandleFileUploadPage, strings.TrimPrefix(r.RequestURI, upload.stripURLPrefixFromResponse), message))
 }
 
 // periodicallyDeleteExpiredFiles deletes expired files at regular interval. This function never returns.
@@ -175,7 +175,7 @@ func (upload *HandleFileUpload) Handle(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, fh.Name())
 	default:
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleFileUploadPage, strings.TrimPrefix(r.RequestURI, upload.stripURLPrefixFromResponse), "")))
+		_, _ = w.Write(fmt.Appendf(nil, HandleFileUploadPage, strings.TrimPrefix(r.RequestURI, upload.stripURLPrefixFromResponse), ""))
 	}
 }
 

@@ -53,7 +53,7 @@ func TestVMInteractions(t *testing.T) {
 	_ = screenshotFile.Close()
 	// defer os.Remove(screenshotFile.Name())
 	// Repeat the following test commands multiple times
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		// Take screenshot
 		if err := vm.TakeScreenshot(screenshotFile.Name()); err != nil {
 			t.Fatal(err)

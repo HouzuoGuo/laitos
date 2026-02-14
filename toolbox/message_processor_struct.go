@@ -57,7 +57,7 @@ type SubjectReportRequest struct {
 	// SubjectPlatform is the OS and CPU architecture of the subject's computer (GOOS/GOARCH).
 	SubjectPlatform string
 	// SubjectComment is a free from JSON object/string the subject voluntarily includes in this report.
-	SubjectComment interface{}
+	SubjectComment any
 
 	// ServerTime is overwritten by server upon receiving the request, it is not supplied by a subject, and only used by the server internally.
 	ServerTime time.Time `json:"-"`
@@ -166,7 +166,7 @@ func (req *SubjectReportRequest) DeserialiseFromCompact(in string) error {
 			req.SubjectComment = strings.ToLower(commentAttribute[:MaxSubjectCommentStringLen])
 		} else {
 			// Allow up to 4KB of free form text to be decoded into a JSON object
-			var commentJSON map[string]interface{}
+			var commentJSON map[string]any
 			if err := json.Unmarshal([]byte(commentAttribute), &commentJSON); err == nil {
 				req.SubjectComment = commentJSON
 			}

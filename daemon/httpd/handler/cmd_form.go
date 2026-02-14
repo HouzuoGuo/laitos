@@ -50,10 +50,10 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	NoCache(w)
 	if r.Method == http.MethodGet {
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), "")))
+		_, _ = w.Write(fmt.Appendf(nil, HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), ""))
 	} else if r.Method == http.MethodPost {
 		if cmd := r.FormValue("cmd"); cmd == "" {
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), "")))
+			_, _ = w.Write(fmt.Appendf(nil, HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), ""))
 		} else {
 			result := form.cmdProc.Process(r.Context(), toolbox.Command{
 				DaemonName: "httpd",
@@ -61,7 +61,7 @@ func (form *HandleCommandForm) Handle(w http.ResponseWriter, r *http.Request) {
 				Content:    cmd,
 				TimeoutSec: HTTPClienAppCommandTimeout,
 			}, true)
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), html.EscapeString(result.CombinedOutput))))
+			_, _ = w.Write(fmt.Appendf(nil, HandleCommandFormPage, strings.TrimPrefix(r.RequestURI, form.stripURLPrefixFromResponse), html.EscapeString(result.CombinedOutput)))
 		}
 	}
 }

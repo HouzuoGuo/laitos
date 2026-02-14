@@ -173,10 +173,10 @@ func (conn *Connection) readMailData() string {
 reply is used internally to reply to a protocol command that has just been received. Should any error occurs during the
 write operation, the SMTP conversation will no longer go on.
 */
-func (conn *Connection) reply(format string, a ...interface{}) {
+func (conn *Connection) reply(format string, a ...any) {
 	if conn.stage != StageAbort {
 		conn.logger.MaybeMinorError(conn.netConn.SetWriteDeadline(time.Now().Add(conn.Config.IOTimeout)))
-		_, err := conn.netConn.Write([]byte(fmt.Sprintf(format+"\r\n", a...)))
+		_, err := conn.netConn.Write(fmt.Appendf(nil, format+"\r\n", a...))
 		if err != nil {
 			conn.stage = StageAbort
 		}

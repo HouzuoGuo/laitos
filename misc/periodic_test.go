@@ -42,9 +42,9 @@ func TestPeriodic_Restart(t *testing.T) {
 			return nil
 		},
 	}
-	for startups := 0; startups < 3; startups++ {
+	for range 3 {
 		p.Start(context.Background())
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			if round := <-gotRoundNums; round != i {
 				t.Fatalf("unexpected round number: %v", round)
 			}
@@ -235,13 +235,13 @@ func TestPeriodic_WaitForErr(t *testing.T) {
 		StableInterval: true,
 	}
 	p.Start(context.Background())
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if err := p.WaitForErr(); err != io.EOF {
 			t.Fatalf("unexpected error return: %+v", err)
 		}
 	}
 	p.Stop()
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if err := p.WaitForErr(); err != io.EOF {
 			t.Fatalf("unexpected error return: %+v", err)
 		}

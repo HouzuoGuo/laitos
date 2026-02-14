@@ -42,7 +42,7 @@ func (lint *LintText) Transform(result *Result) error {
 	// Trim spaces from beginning and end of each line, preserve line breaks.
 	if lint.TrimSpaces {
 		var out bytes.Buffer
-		for _, line := range strings.Split(ret, "\n") {
+		for line := range strings.SplitSeq(ret, "\n") {
 			out.WriteString(strings.TrimSpace(line))
 			out.WriteRune('\n')
 		}

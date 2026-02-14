@@ -130,7 +130,7 @@ func (codegen *TwoFACodeGenerator) Execute(ctx context.Context, cmd Command) (re
 	var accountFound bool
 	var codeOutput bytes.Buffer
 	// Read the account name and secrets among the lines
-	for _, line := range strings.Split(string(plainContent), "\n") {
+	for line := range strings.SplitSeq(string(plainContent), "\n") {
 		fields := strings.SplitN(line, ":", 2)
 		if len(fields) != 2 {
 			continue

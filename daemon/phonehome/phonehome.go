@@ -209,10 +209,7 @@ func (daemon *Daemon) StartAndBlock() error {
 	   wait a shorter duration. This helps to reduce server load and overall offers more reliability.
 	   If there is a large number of servers to contact, the minimum interval will be one second.
 	*/
-	intervalSecBetweenReports := daemon.ReportIntervalSec / len(daemon.MessageProcessorServers)
-	if intervalSecBetweenReports < 1 {
-		intervalSecBetweenReports = 1
-	}
+	intervalSecBetweenReports := max(daemon.ReportIntervalSec/len(daemon.MessageProcessorServers), 1)
 	periodic := &misc.Periodic{
 		LogActorName:    daemon.logger.ComponentName,
 		Interval:        time.Duration(intervalSecBetweenReports) * time.Second,

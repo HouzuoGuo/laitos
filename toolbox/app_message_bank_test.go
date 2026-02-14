@@ -61,7 +61,7 @@ func TestMessageBank_Store(t *testing.T) {
 	}
 
 	// Overwrite older message entries.
-	for i := 0; i < MessageBankMaxMessagesPerDirection-1; i++ {
+	for range MessageBankMaxMessagesPerDirection - 1 {
 		if err := bank.Store(MessageBankTagDefault, MessageDirectionIncoming, now, "charlie"); err != nil {
 			t.Fatal(err)
 		}

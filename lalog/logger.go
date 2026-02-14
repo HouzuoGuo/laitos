@@ -22,7 +22,7 @@ const (
 	truncatedLabel   = "...(truncated)..."
 )
 
-type LogWarningCallbackFunc func(componentName, componentID, funcName string, actorName interface{}, err error, msg string)
+type LogWarningCallbackFunc func(componentName, componentID, funcName string, actorName any, err error, msg string)
 
 var (
 	// MaxLogMessagePerSec is the maximum number of messages each logger will be able to print out.
@@ -66,8 +66,8 @@ LoggerIDField is a field of Logger's ComponentID, all fields that make up a Comp
 which component instance generated the log message.
 */
 type LoggerIDField struct {
-	Key   string      // Key is an arbitrary string key
-	Value interface{} // Value is an arbitrary value that will be converted to string upon printing a log entry.
+	Key   string // Key is an arbitrary string key
+	Value any    // Value is an arbitrary value that will be converted to string upon printing a log entry.
 }
 
 // Help to write log messages in a regular format.
@@ -104,7 +104,7 @@ func (logger *Logger) getComponentIDs() string {
 }
 
 // Format a log message and return, but do not print it.
-func (logger *Logger) Format(functionName string, actorName interface{}, err error, template string, values ...interface{}) string {
+func (logger *Logger) Format(functionName string, actorName any, err error, template string, values ...any) string {
 	// Message is going to look like this:
 	// ComponentName[IDKey1-IDVal1;IDKey2-IDVal2].FunctionName(actorName): Error "no such file" - failed to start component
 	var msg bytes.Buffer
@@ -149,7 +149,7 @@ func callerName(skip int) string {
 	return filepath.Base(file) + ":" + funName
 }
 
-func (logger *Logger) warning(funcName string, actorName interface{}, err error, template string, values ...interface{}) {
+func (logger *Logger) warning(funcName string, actorName any, err error, template string, values ...any) {
 	// De-duplicate recent warnings from the same actor, and honour the logger instance's rate limit.
 	if alreadyPresent, _ := LatestWarningActors.Add(funcName + fmt.Sprint(actorName)); alreadyPresent || !logger.rateLimit.Add("", false) {
 		NumDropped.Add(1)
@@ -168,13 +168,13 @@ func (logger *Logger) warning(funcName string, actorName interface{}, err error,
 }
 
 // Print a log message and keep the message in warnings buffer.
-func (logger *Logger) Warning(actorName interface{}, err error, template string, values ...interface{}) {
+func (logger *Logger) Warning(actorName any, err error, template string, values ...any) {
 	logger.initialiseOnce()
 	funcName := callerName(2)
 	logger.warning(funcName, actorName, err, template, values...)
 }
 
-func (logger *Logger) info(funcName string, actorName interface{}, err error, template string, values ...interface{}) {
+func (logger *Logger) info(funcName string, actorName any, err error, template string, values ...any) {
 	if err != nil {
 		// If the log message comes with an error, treat it as a warning.
 		logger.warning(funcName, actorName, err, template, values...)
@@ -192,19 +192,19 @@ func (logger *Logger) info(funcName string, actorName interface{}, err error, te
 }
 
 // Print a log message and keep the message in latest log buffer. If there is an error, also keep the message in warnings buffer.
-func (logger *Logger) Info(actorName interface{}, err error, template string, values ...interface{}) {
+func (logger *Logger) Info(actorName any, err error, template string, values ...any) {
 	logger.initialiseOnce()
 	funcName := callerName(2)
 	logger.info(funcName, actorName, err, template, values...)
 }
 
-func (logger *Logger) Abort(actorName interface{}, err error, template string, values ...interface{}) {
+func (logger *Logger) Abort(actorName any, err error, template string, values ...any) {
 	logger.initialiseOnce()
 	functionName := callerName(2)
 	log.Fatal(logger.Format(functionName, actorName, err, template, values...))
 }
 
-func (logger *Logger) Panic(actorName interface{}, err error, template string, values ...interface{}) {
+func (logger *Logger) Panic(actorName any, err error, template string, values ...any) {
 	logger.initialiseOnce()
 	functionName := callerName(2)
 	log.Panic(logger.Format(functionName, actorName, err, template, values...))

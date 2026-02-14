@@ -348,7 +348,7 @@ func (daemon *Daemon) Stop() {
 }
 
 // logPrintStage reports the start/finish of a maintenance stage to the output buffer and program log.
-func (daemon *Daemon) logPrintStage(out *bytes.Buffer, template string, a ...interface{}) {
+func (daemon *Daemon) logPrintStage(out *bytes.Buffer, template string, a ...any) {
 	if duration := time.Now().Unix() - daemon.lastStepTimestamp; duration > 5 {
 		out.WriteString(fmt.Sprintf("(it took %d seconds)\n", duration))
 	}
@@ -358,7 +358,7 @@ func (daemon *Daemon) logPrintStage(out *bytes.Buffer, template string, a ...int
 }
 
 // logPrintStage reports the start/finish of a maintenance step to the output buffer and program log.
-func (daemon *Daemon) logPrintStageStep(out *bytes.Buffer, template string, a ...interface{}) {
+func (daemon *Daemon) logPrintStageStep(out *bytes.Buffer, template string, a ...any) {
 	if duration := time.Now().Unix() - daemon.lastStepTimestamp; duration > 5 {
 		out.WriteString(fmt.Sprintf("(it took %d seconds)\n", duration))
 	}

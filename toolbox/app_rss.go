@@ -218,12 +218,12 @@ func DownloadRSSFeeds(ctx context.Context, timeoutSec int, xmlURLs ...string) (i
 		return items[i1].PubDate.After(items[i2].PubDate.Time)
 	})
 	// Collect error information
-	var errMsg string
+	var errMsg strings.Builder
 	for aURL, err := range errs {
-		errMsg += fmt.Sprintf("%s - %v\n", aURL, err)
+		errMsg.WriteString(fmt.Sprintf("%s - %v\n", aURL, err))
 	}
 	if len(errs) > 0 {
-		err = errors.New(errMsg)
+		err = errors.New(errMsg.String())
 	}
 	return
 }

@@ -130,7 +130,7 @@ func (resp *HTTPResponse) GetBodyUpTo(nBytes int) []byte {
 }
 
 // doHTTPRequestUsingClient makes an HTTP request via the input HTTP client.Placeholders in the URL template must always use %s.
-func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (HTTPResponse, error) {
+func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam HTTPRequest, urlTemplate string, urlValues ...any) (HTTPResponse, error) {
 	defer client.CloseIdleConnections()
 	// Use context to handle the timeout of the entire lifespan of this HTTP request
 	reqParam.FillBlanks()
@@ -155,7 +155,7 @@ func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam
 		}
 	}
 	// Encode values in URL path
-	encodedURLValues := make([]interface{}, len(urlValues))
+	encodedURLValues := make([]any, len(urlValues))
 	for i, val := range urlValues {
 		encodedURLValues[i] = url.QueryEscape(fmt.Sprint(val))
 	}
@@ -221,7 +221,7 @@ func doHTTPRequestUsingClient(ctx context.Context, client *http.Client, reqParam
 }
 
 // DoHTTP makes an HTTP request and returns its HTTP response. Placeholders in the URL template must always use %s.
-func DoHTTP(ctx context.Context, reqParam HTTPRequest, urlTemplate string, urlValues ...interface{}) (resp HTTPResponse, err error) {
+func DoHTTP(ctx context.Context, reqParam HTTPRequest, urlTemplate string, urlValues ...any) (resp HTTPResponse, err error) {
 	client := &http.Client{}
 	// Integrate the decorated handler with AWS x-ray. Be aware that the x-ray daemon program mandatory for collecting traces only runs on AWS EC2.
 	// The x-ray library gracefully does nothing when it runs on non-EC2 instances.

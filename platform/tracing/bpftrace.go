@@ -175,7 +175,7 @@ func TcpTrafficFromBpfMap(bpfMap map[string]int) []BpfNetIOTrafficCounter {
 		sockAddrIn6Str := addrPort[1]
 		port, _ := strconv.Atoi(addrPort[2])
 		var sockAddrIn6 []byte
-		for _, byteStr := range strings.Split(sockAddrIn6Str, ",") {
+		for byteStr := range strings.SplitSeq(sockAddrIn6Str, ",") {
 			byteVal, _ := strconv.Atoi(strings.TrimSpace(byteStr))
 			sockAddrIn6 = append(sockAddrIn6, byte(byteVal))
 		}

@@ -69,7 +69,7 @@ type ProgramStatusSummary struct {
 
 // DeserialiseFromJSON deserialises JSON properties from the input JSON object into this summary item.
 // The primary use of this function is in test cases.
-func (summary *ProgramStatusSummary) DeserialiseFromJSON(jsonObj interface{}) error {
+func (summary *ProgramStatusSummary) DeserialiseFromJSON(jsonObj any) error {
 	jsonDoc, err := json.Marshal(jsonObj)
 	if err != nil {
 		return err
@@ -353,7 +353,7 @@ func GetLocalUserNames() (ret map[string]bool) {
 		if err != nil {
 			return
 		}
-		for _, name := range strings.Split(out, "\n") {
+		for name := range strings.SplitSeq(out, "\n") {
 			name = strings.TrimSpace(name)
 			// Skip trailing empty line and Name header line
 			if name == "" || strings.ToLower(name) == "name" {
@@ -366,7 +366,7 @@ func GetLocalUserNames() (ret map[string]bool) {
 		if err != nil {
 			return
 		}
-		for _, line := range strings.Split(string(passwd), "\n") {
+		for line := range strings.SplitSeq(string(passwd), "\n") {
 			idx := strings.IndexRune(line, ':')
 			if idx > 0 {
 				ret[line[:idx]] = true
@@ -488,7 +488,7 @@ func DisableInterferingResolved() (out string) {
 	originalContent, err := os.ReadFile("/etc/resolv.conf")
 	var hasUplinkNameServer bool
 	if err == nil {
-		for _, line := range strings.Split(string(originalContent), "\n") {
+		for line := range strings.SplitSeq(string(originalContent), "\n") {
 			if regexp.MustCompile(`^\s*nameserver.+$`).MatchString(line) && !regexp.MustCompile(`^\s*nameserver\s+127\..*$`).MatchString(line) {
 				hasUplinkNameServer = true
 				break

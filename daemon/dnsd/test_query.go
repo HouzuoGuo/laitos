@@ -180,7 +180,7 @@ func testCommandRunner(t testingstub.T, daemon *Daemon, resolver *net.Resolver) 
 		t.Fatal("daemon saw the wrong domain name:", lastResolvedName)
 	}
 	// Rapidly making the same request before TTL period elapses should be met the same command response
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		if repeatResult, err := resolver.LookupTXT(context.Background(), appCmdQueryWithGoodPassword); err != nil || !reflect.DeepEqual(repeatResult, result) {
 			t.Fatal(repeatResult, result, err)
 		}

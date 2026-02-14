@@ -98,14 +98,14 @@ func TestDNSRelay(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		addrs, err := tcpResolver.LookupIPAddr(context.Background(), "github.com")
 		if err != nil {
 			t.Fatalf("failed to resolve via TCP: %v", err)
 		}
 		fmt.Println(addrs)
 	}
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		addrs, err := udpResolver.LookupIPAddr(context.Background(), "google.com")
 		if err != nil {
 			t.Fatalf("failed to resolve via UDP: %v", err)

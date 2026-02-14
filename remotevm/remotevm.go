@@ -160,7 +160,7 @@ func (vm *VM) connectToQMP() error {
 	// Repeat new connection attempts for up to 10 seconds
 	var connErr error
 	var conn net.Conn
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		conn, connErr = net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", vm.QMPPort), 1*time.Second)
 		if connErr == nil {
 			vm.qmpConn = conn.(*net.TCPConn)
@@ -235,9 +235,9 @@ func (vm *VM) TakeScreenshot(outputFileName string) error {
 	_ = tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 	// Ask QEMU to take the screenshot
-	_, err = vm.executeQMP(map[string]interface{}{
+	_, err = vm.executeQMP(map[string]any{
 		"execute": "screendump",
-		"arguments": map[string]interface{}{
+		"arguments": map[string]any{
 			"filename": tmpFile.Name(),
 		},
 	})
@@ -248,7 +248,7 @@ func (vm *VM) TakeScreenshot(outputFileName string) error {
 	var fileSize int64
 	var unchanging int
 anticiateGrowingFile:
-	for i := 0; i < 60; i++ {
+	for range 60 {
 		if info, err := os.Stat(tmpFile.Name()); err == nil && info.Size() > 0 {
 			if fileSize == info.Size() {
 				// The screenshot is complete if the file size looks identical for 4 consecutive checks
@@ -315,20 +315,20 @@ func (vm *VM) MoveMouse(x, y int) error {
 			Therefore, to position mouse at (X,Y) for screen resolution of W*H, ask QEMU for:
 			X*(32*(1/(W/1024))), Y*(42.68*(1/(H/768))).
 	*/
-	_, err := vm.executeQMP(map[string]interface{}{
+	_, err := vm.executeQMP(map[string]any{
 		"execute": "input-send-event",
-		"arguments": map[string]interface{}{
-			"events": []interface{}{
-				map[string]interface{}{
+		"arguments": map[string]any{
+			"events": []any{
+				map[string]any{
 					"type": "abs",
-					"data": map[string]interface{}{
+					"data": map[string]any{
 						"axis":  "x",
 						"value": int(float64(x) * (32 * (1 / (float64(vm.lastScreenWidth) / 1024)))),
 					},
 				},
-				map[string]interface{}{
+				map[string]any{
 					"type": "abs",
-					"data": map[string]interface{}{
+					"data": map[string]any{
 						"axis":  "y",
 						"value": int(float64(y) * (42.68 * (1 / (float64(vm.lastScreenHeight) / 768)))),
 					},
@@ -352,16 +352,16 @@ QEMU developers have made it very challenging to find the comprehensive list of 
 but a partial list can be found at: https://en.wikibooks.org/wiki/QEMU/Monitor#sendkey_keys
 */
 func (vm *VM) PressKeysSimultaneously(qKeyCodes ...string) error {
-	keys := make([]interface{}, len(qKeyCodes))
+	keys := make([]any, len(qKeyCodes))
 	for i, code := range qKeyCodes {
-		keys[i] = map[string]interface{}{
+		keys[i] = map[string]any{
 			"type": "qcode",
 			"data": code,
 		}
 	}
-	_, err := vm.executeQMP(map[string]interface{}{
+	_, err := vm.executeQMP(map[string]any{
 		"execute": "send-key",
-		"arguments": map[string]interface{}{
+		"arguments": map[string]any{
 			"keys": keys,
 		},
 	})
@@ -374,11 +374,11 @@ func (vm *VM) PressKeysSimultaneously(qKeyCodes ...string) error {
 // PressKeysOneByOne pushes and releases the keys given in the input sequence, one key at a time.
 func (vm *VM) PressKeysOneByOne(qKeyCodes ...string) error {
 	for _, code := range qKeyCodes {
-		_, err := vm.executeQMP(map[string]interface{}{
+		_, err := vm.executeQMP(map[string]any{
 			"execute": "send-key",
-			"arguments": map[string]interface{}{
-				"keys": []interface{}{
-					map[string]interface{}{
+			"arguments": map[string]any{
+				"keys": []any{
+					map[string]any{
 						"type": "qcode",
 						"data": code,
 					},
@@ -400,13 +400,13 @@ func (vm *VM) HoldMouse(leftButton, holdDown bool) error {
 	if !leftButton {
 		button = "right"
 	}
-	_, err := vm.executeQMP(map[string]interface{}{
+	_, err := vm.executeQMP(map[string]any{
 		"execute": "input-send-event",
-		"arguments": map[string]interface{}{
-			"events": []interface{}{
-				map[string]interface{}{
+		"arguments": map[string]any{
+			"events": []any{
+				map[string]any{
 					"type": "btn",
-					"data": map[string]interface{}{
+					"data": map[string]any{
 						"down":   holdDown,
 						"button": button,
 					},
@@ -425,13 +425,13 @@ func (vm *VM) ClickMouse(leftButton bool) error {
 	}
 	// true state means push, false state means release.
 	for _, state := range []bool{true, false} {
-		_, err := vm.executeQMP(map[string]interface{}{
+		_, err := vm.executeQMP(map[string]any{
 			"execute": "input-send-event",
-			"arguments": map[string]interface{}{
-				"events": []interface{}{
-					map[string]interface{}{
+			"arguments": map[string]any{
+				"events": []any{
+					map[string]any{
 						"type": "btn",
-						"data": map[string]interface{}{
+						"data": map[string]any{
 							"down":   state,
 							"button": button,
 						},
@@ -455,13 +455,13 @@ func (vm *VM) DoubleClickMouse(leftButton bool) error {
 	}
 	// true state means push, false state means release.
 	for _, state := range []bool{true, false, true, false} {
-		_, err := vm.executeQMP(map[string]interface{}{
+		_, err := vm.executeQMP(map[string]any{
 			"execute": "input-send-event",
-			"arguments": map[string]interface{}{
-				"events": []interface{}{
-					map[string]interface{}{
+			"arguments": map[string]any{
+				"events": []any{
+					map[string]any{
 						"type": "btn",
-						"data": map[string]interface{}{
+						"data": map[string]any{
 							"down":   state,
 							"button": button,
 						},
@@ -482,7 +482,7 @@ executeQMP is an internal function that serialises the input QMP command and sen
 emulator's response.
 For the simplicity of implementation, each command makes a new TCP connection to the emulator's TCP server.
 */
-func (vm *VM) executeQMP(in interface{}) (resp string, err error) {
+func (vm *VM) executeQMP(in any) (resp string, err error) {
 	if vm.emulatorCmd == nil {
 		return "", errors.New("emulator is not running yet")
 	}
@@ -537,7 +537,7 @@ func findEmulatorExecutable() string {
 	if _, err := os.Stat("/dev/kvm"); err == nil {
 		// KVM requires root user privilege
 		if os.Getuid() == 0 {
-			for _, prefixDir := range strings.Split(platform.CommonPATH, ":") {
+			for prefixDir := range strings.SplitSeq(platform.CommonPATH, ":") {
 				kvmPath := path.Join(prefixDir, "kvm")
 				if _, err := os.Stat(kvmPath); err == nil {
 					return kvmPath
@@ -550,7 +550,7 @@ func findEmulatorExecutable() string {
 		}
 	}
 	// Look for regular QEMU if KVM is unavailable
-	for _, prefixDir := range strings.Split(platform.CommonPATH, ":") {
+	for prefixDir := range strings.SplitSeq(platform.CommonPATH, ":") {
 		qemuPath := path.Join(prefixDir, QEMUExecutableName)
 		if _, err := os.Stat(qemuPath); err == nil {
 			return qemuPath

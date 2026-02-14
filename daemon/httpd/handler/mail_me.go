@@ -63,11 +63,11 @@ func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 	NoCache(w)
 	if r.Method == http.MethodGet {
 		// Render the page
-		_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), "")))
+		_, _ = w.Write(fmt.Appendf(nil, HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), ""))
 	} else if r.Method == http.MethodPost {
 		// Retrieve message and deliver it
 		if msg := r.FormValue("msg"); msg == "" {
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), "")))
+			_, _ = w.Write(fmt.Appendf(nil, HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), ""))
 		} else {
 			prompt := "出问题了，发不出去。"
 			if err := mm.MailClient.Send(inet.OutgoingMailSubjectKeyword+"-mailme", msg, mm.Recipients...); err == nil {
@@ -75,7 +75,7 @@ func (mm *HandleMailMe) Handle(w http.ResponseWriter, r *http.Request) {
 			} else {
 				mm.logger.Warning(r.RemoteAddr, err, "failed to deliver mail")
 			}
-			_, _ = w.Write([]byte(fmt.Sprintf(HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), prompt)))
+			_, _ = w.Write(fmt.Appendf(nil, HandleMailMePage, strings.TrimPrefix(r.RequestURI, mm.stripURLPrefixFromResponse), prompt))
 		}
 	}
 }

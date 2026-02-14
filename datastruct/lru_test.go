@@ -8,7 +8,7 @@ import (
 func TestLeastRecentlyUsedBuffer(t *testing.T) {
 	lru := NewLeastRecentlyUsedBuffer(3)
 	// Fill the buffer up
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		alreadyPresent, evicted := lru.Add(strconv.Itoa(i))
 		if alreadyPresent || evicted != "" {
 			t.Fatal(alreadyPresent, evicted)
@@ -22,7 +22,7 @@ func TestLeastRecentlyUsedBuffer(t *testing.T) {
 	}
 
 	// Continue adding elements without evicting present elements
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		alreadyPresent, evicted := lru.Add(strconv.Itoa(i))
 		if !alreadyPresent || evicted != "" {
 			t.Fatal(alreadyPresent, evicted)
@@ -79,7 +79,7 @@ func TestLeastRecentlyUsedBuffer(t *testing.T) {
 
 func TestLeastRecentlyUsedBuffer_Remove(t *testing.T) {
 	lru := NewLeastRecentlyUsedBuffer(3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		lru.Add(strconv.Itoa(i))
 		if lru.Len() != 1 {
 			t.Fatalf("unexpected length %d", lru.Len())

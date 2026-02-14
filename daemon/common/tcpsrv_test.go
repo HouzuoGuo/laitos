@@ -77,7 +77,7 @@ func TestTCPServer(t *testing.T) {
 
 	// Attempt to exceed the rate limit via connection attempts
 	var success int
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		client, err := net.Dial("tcp", net.JoinHostPort(srv.ListenAddr, strconv.Itoa(srv.ListenPort)))
 		if err != nil {
 			t.Fatal(err)
@@ -96,7 +96,7 @@ func TestTCPServer(t *testing.T) {
 	// Attempt to exceed the rate limit via conversation
 	time.Sleep(ServerRateLimitIntervalSec * 2)
 	success = 0
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if srv.AddAndCheckRateLimit("test") {
 			success++
 		}

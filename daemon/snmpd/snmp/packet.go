@@ -11,7 +11,7 @@ import (
 	"fmt"
 )
 
-func MissedExpectation(kind, expected, actual interface{}) error {
+func MissedExpectation(kind, expected, actual any) error {
 	if expected == nil {
 		return fmt.Errorf("unexpected %v %v", kind, actual)
 	}
@@ -90,7 +90,7 @@ type Packet struct {
 	ErrorStatus   int64  // ErrorStatus is an SNMP magic not handled by laitos.
 	ErrorIndex    int64  // ErrorIndex is an SNMP magic not handled by laitos.
 
-	Structure interface{} // Structure contains details of an SNMP PDU request or response.
+	Structure any // Structure contains details of an SNMP PDU request or response.
 }
 
 // ReadPacket deserialises an SNMP packet from input.
@@ -278,7 +278,7 @@ type GetResponse struct {
 	// RequestedOID is the OID presented in corresponding request.
 	RequestedOID asn1.ObjectIdentifier
 	// Value is the primitive value corresponding to requested OID.
-	Value interface{}
+	Value any
 	// NoSuchInstance describes a response toward non-existing OID.
 	NoSuchInstance bool
 	// EndOfMIBView describes a response toward the OID immediately beyond the last one in hierarchy, hence the OID does not exist.

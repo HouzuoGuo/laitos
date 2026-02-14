@@ -28,8 +28,8 @@ func SetHeader(mail string, name string, value string) string {
 
 // GetHeader returns the value of the header.
 func GetHeader(mail string, name string) string {
-	lines := strings.Split(mail, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(mail, "\n")
+	for line := range lines {
 		if strings.HasPrefix(strings.ToLower(line), strings.ToLower(name)+":") {
 			return strings.TrimSpace(line[strings.Index(line, ":")+1:])
 		}

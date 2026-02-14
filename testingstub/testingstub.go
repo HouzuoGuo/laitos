@@ -8,14 +8,14 @@ unnecessary. Hence this interface is defined to avoid triggering the initialiser
 */
 type T interface {
 	Helper()
-	Error(...interface{})
-	Errorf(string, ...interface{})
-	Fatal(...interface{})
-	Fatalf(string, ...interface{})
+	Error(...any)
+	Errorf(string, ...any)
+	Fatal(...any)
+	Fatalf(string, ...any)
 	Fail()
 	FailNow()
 	Failed() bool
-	Log(...interface{})
-	Logf(string, ...interface{})
-	Skip(...interface{})
+	Log(...any)
+	Logf(string, ...any)
+	Skip(...any)
 }

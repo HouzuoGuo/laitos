@@ -220,7 +220,7 @@ func TestDefaultForwarders(t *testing.T) {
 			},
 		}
 		for _, name := range []string{"apple.com", "github.com", "google.com", "microsoft.com", "wikipedia.org"} {
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				addrs, err := resolver.LookupIPAddr(timeoutCtx, name)
 				if err != nil {
 					t.Fatalf("failed to resolve %s: %v", name, err)

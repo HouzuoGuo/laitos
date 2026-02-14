@@ -83,14 +83,14 @@ func (bank *HandleMessageBank) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Render the page.
-	_, _ = w.Write([]byte(fmt.Sprintf(
+	_, _ = w.Write(fmt.Appendf(nil,
 		HandleMessageBankPage,
 		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagDefault, toolbox.MessageDirectionIncoming)),
 		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagDefault, toolbox.MessageDirectionOutgoing)),
 		handlerURL,
 		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionIncoming)),
 		toolbox.MessagesToString(bank.cmdProc.Features.MessageBank.Get(toolbox.MessageBankTagLoRaWAN, toolbox.MessageDirectionOutgoing)),
-		handlerURL)))
+		handlerURL))
 }
 
 func (*HandleMessageBank) GetRateLimitFactor() int {

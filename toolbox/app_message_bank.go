@@ -31,7 +31,7 @@ var (
 // Message is a timestamped text message.
 type Message struct {
 	Time    time.Time
-	Content interface{}
+	Content any
 }
 
 // MessageBank stores two-way text messages for on-demand retrieval.
@@ -63,7 +63,7 @@ func MessagesToString(messages []Message) string {
 // Store memorises the message of arbitrary type. If the maximum number of
 // messages is reached for the combination of tag and direction, then the oldest
 // message will be evicted prior to storing this message.
-func (bank *MessageBank) Store(tag, direction string, timestamp time.Time, content interface{}) error {
+func (bank *MessageBank) Store(tag, direction string, timestamp time.Time, content any) error {
 	if exists := allTags[tag]; !exists {
 		return fmt.Errorf("Store: unrecognised tag %q", tag)
 	}

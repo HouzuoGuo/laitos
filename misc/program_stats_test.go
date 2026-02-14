@@ -6,7 +6,7 @@ import (
 )
 
 func TestGetLatestStats(t *testing.T) {
-	for i := 0; i < 1928; i++ {
+	for range 1928 {
 		AutoUnlockStats.Trigger(1)
 	}
 	if s := GetLatestStats(); !strings.Contains(s, "1928") {

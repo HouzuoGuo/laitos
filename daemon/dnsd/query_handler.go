@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/HouzuoGuo/laitos/inet"
@@ -240,11 +241,11 @@ func (daemon *Daemon) handleTextQuery(clientIP string, queryLen, queryBody []byt
 }
 
 func (daemon *Daemon) spfMXList() string {
-	ret := ""
+	var ret strings.Builder
 	for _, domain := range daemon.MyDomainNames {
-		ret += fmt.Sprintf("mx:%s ", domain[1:])
+		ret.WriteString(fmt.Sprintf("mx:%s ", domain[1:]))
 	}
-	return ret
+	return ret.String()
 }
 
 func (daemon *Daemon) handleSOA(clientIP string, queryLen, queryBody []byte, header dnsmessage.Header, question dnsmessage.Question) (respBody []byte) {

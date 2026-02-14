@@ -134,12 +134,12 @@ func (handler *HandleVirtualMachine) renderRemoteVMPage(requestURL string, err e
 	if err != nil {
 		errStr = err.Error()
 	}
-	return []byte(fmt.Sprintf(HandleVirtualMachinePage,
+	return fmt.Appendf(nil, HandleVirtualMachinePage,
 		requestURL, errStr, handler.VM.GetDebugOutput(),
 		isoURL,
 		pointerX, pointerY,
 		pressKeys,
-		strings.TrimPrefix(handler.ScreenshotEndpoint, handler.stripURLPrefixFromResponse), time.Now().UnixNano()))
+		strings.TrimPrefix(handler.ScreenshotEndpoint, handler.stripURLPrefixFromResponse), time.Now().UnixNano())
 }
 
 // parseSubmission reads form action (button) and form text fields input.

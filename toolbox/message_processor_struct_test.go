@@ -42,12 +42,12 @@ func TestSubjectReportRequest_Lint(t *testing.T) {
 		SubjectIP:       strings.Repeat("I", 1000),
 		SubjectHostName: strings.Repeat("H", 1000),
 		SubjectPlatform: strings.Repeat("P", 1000),
-		SubjectComment:  map[string]interface{}{"key": "value"},
+		SubjectComment:  map[string]any{"key": "value"},
 		CommandRequest:  AppCommandRequest{Command: strings.Repeat("R", MaxCmdLength+100)},
 		CommandResponse: AppCommandResponse{Command: strings.Repeat("W", MaxCmdLength+100)},
 	}
 	req.Lint()
-	if !reflect.DeepEqual(req.SubjectComment, map[string]interface{}{"key": "value"}) {
+	if !reflect.DeepEqual(req.SubjectComment, map[string]any{"key": "value"}) {
 		t.Fatal(req.SubjectComment)
 	}
 }

@@ -80,7 +80,7 @@ func GetTaskStatus(pid, taskID int) (status TaskStatus) {
 	stack, _ := os.ReadFile(path.Join(taskDir, "stack"))
 	// On each line of the stack trace there is a function name
 	// A line looks like: [<0>] poll_schedule_timeout.constprop.0+0x46/0x70
-	for _, line := range strings.Split(string(stack), "\n") {
+	for line := range strings.SplitSeq(string(stack), "\n") {
 		if rightBracket := strings.IndexByte(line, ']'); rightBracket > 3 {
 			status.KernelStack = append(status.KernelStack, strings.TrimSpace(line[rightBracket+1:]))
 		}

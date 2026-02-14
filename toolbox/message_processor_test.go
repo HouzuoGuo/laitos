@@ -335,7 +335,7 @@ func TestMessageProcessor_processCommandRequest_SlowCommand(t *testing.T) {
 	if err := os.Remove(fileName); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		time.Sleep(1 * time.Second)
 		resp = proc.StoreReport(context.Background(), SubjectReportRequest{
 			SubjectHostName: "subject-host-name1",

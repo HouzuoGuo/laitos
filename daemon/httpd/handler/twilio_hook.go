@@ -86,9 +86,9 @@ func (hand *HandleTwilioSMSHook) Handle(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	// Generate normal XML response
-	_, _ = w.Write([]byte(fmt.Sprintf(xml.Header+`
+	_, _ = w.Write(fmt.Appendf(nil, xml.Header+`
 <Response><Message>%s</Message></Response>
-`, XMLEscape(ret.CombinedOutput))))
+`, XMLEscape(ret.CombinedOutput)))
 }
 func (hand *HandleTwilioSMSHook) GetRateLimitFactor() int {
 	return TwilioAPIRateLimitFactor
@@ -133,13 +133,13 @@ func (hand *HandleTwilioCallHook) Handle(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	// The greeting XML tells Twilio to ask user for DTMF input, and direct the input to another URL endpoint.
-	_, _ = w.Write([]byte(fmt.Sprintf(xml.Header+`
+	_, _ = w.Write(fmt.Appendf(nil, xml.Header+`
 <Response>
     <Gather action="%s" method="POST" timeout="60" finishOnKey="#" numDigits="1000">
         <Say>%s</Say>
     </Gather>
 </Response>
-`, strings.TrimPrefix(hand.CallbackEndpoint, hand.stripURLPrefixFromResponse), XMLEscape(hand.CallGreeting))))
+`, strings.TrimPrefix(hand.CallbackEndpoint, hand.stripURLPrefixFromResponse), XMLEscape(hand.CallGreeting)))
 }
 func (hand *HandleTwilioCallHook) GetRateLimitFactor() int {
 	return TwilioAPIRateLimitFactor
@@ -203,7 +203,7 @@ func (hand *HandleTwilioCallCallback) Handle(w http.ResponseWriter, r *http.Requ
 	}
 	combinedOutput = XMLEscape(combinedOutput)
 	// Repeat command output three times and listen for the next input
-	_, _ = w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+	_, _ = w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="%s" method="POST" timeout="30" finishOnKey="#" numDigits="1000">
         <Say>%s.
@@ -219,7 +219,7 @@ over.
 </Say>
     </Gather>
 </Response>
-`, strings.TrimPrefix(hand.MyEndpoint, hand.stripURLPrefixFromResponse), combinedOutput, combinedOutput, combinedOutput)))
+`, strings.TrimPrefix(hand.MyEndpoint, hand.stripURLPrefixFromResponse), combinedOutput, combinedOutput, combinedOutput))
 }
 
 func (hand *HandleTwilioCallCallback) GetRateLimitFactor() int {

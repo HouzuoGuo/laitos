@@ -71,12 +71,10 @@ func (p *Periodic) Start(ctx context.Context) error {
 		})
 	}
 	// Log a message every ~ 3 minutes
-	logIntervalSec := 3 * time.Minute / p.Interval
-	if logIntervalSec < 1 {
+	logIntervalSec := max(3*time.Minute/p.Interval,
 		// If the interval is greater than 3 minutes, then log a message with
 		// every periodic invocation of the function
-		logIntervalSec = 1
-	}
+		1)
 	ctx, cancelFunc := context.WithCancel(ctx)
 	p.cancelFunc = cancelFunc
 	p.funcErrChan = make(chan error, 1)

@@ -20,7 +20,7 @@ And laitos occupies number 121 underneath it.
 var ParentOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 52535, 121}
 
 // OIDNodeFunc is a function that retrieves a latest system/application performance indicator value.
-type OIDNodeFunc func() interface{}
+type OIDNodeFunc func() any
 
 var (
 	// FirstOID is the very first OID among all supported nodes (OIDNodes).
@@ -28,47 +28,47 @@ var (
 	// OIDNodes is a comprehensive list of suffix OIDs that correspond to nodes supported by laitos SNMP server.
 	OIDNodes = map[int]OIDNodeFunc{
 		// 1.3.6.1.4.1.52535.121.100 Octet string - public IP address
-		100: func() interface{} {
+		100: func() any {
 			return []byte(inet.GetPublicIP())
 		},
 		// 1.3.6.1.4.1.52535.121.101 Integer - system clock - number of seconds since Unix epoch
-		101: func() interface{} {
+		101: func() any {
 			return time.Now().In(time.UTC).Unix()
 		},
 		// 1.3.6.1.4.1.52535.121.102 Integer - number of seconds program has been running
-		102: func() interface{} {
+		102: func() any {
 			return int64(time.Since(misc.StartupTime).Seconds())
 		},
 		// 1.3.6.1.4.1.52535.121.103 Integer - number of CPUs
-		103: func() interface{} {
+		103: func() any {
 			return int64(runtime.NumCPU())
 		},
 		// 1.3.6.1.4.1.52535.121.104 Integer - GOMAXPROCS
-		104: func() interface{} {
+		104: func() any {
 			return int64(runtime.GOMAXPROCS(-1))
 		},
 		// 1.3.6.1.4.1.52535.121.105 Integer - number of goroutines
-		105: func() interface{} {
+		105: func() any {
 			return int64(runtime.NumGoroutine())
 		},
 		/// 1.3.6.1.4.1.52535.121.110 Integer - number of command execution attempts
-		110: func() interface{} {
+		110: func() any {
 			return int64(misc.CommandStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.111 Integer - number of web server requests processed
-		111: func() interface{} {
+		111: func() any {
 			return int64(misc.HTTPDStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.112 Integer - number of SMTP conversations
-		112: func() interface{} {
+		112: func() any {
 			return int64(misc.SMTPDStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.114 Integer - number of SMTP conversations
-		114: func() interface{} {
+		114: func() any {
 			return int64(misc.AutoUnlockStats.Count())
 		},
 		// 1.3.6.1.4.1.52535.121.115 Integer - size of outstanding mails to deliver in bytes
-		115: func() interface{} {
+		115: func() any {
 			return int64(misc.OutstandingMailBytes)
 		},
 	}

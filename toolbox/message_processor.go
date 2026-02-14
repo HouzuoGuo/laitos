@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"sort"
 	"strings"
@@ -127,9 +128,7 @@ func (proc *MessageProcessor) GetAllOutgoingCommands() map[string]string {
 	proc.mutex.Lock()
 	defer proc.mutex.Unlock()
 	ret := make(map[string]string)
-	for k, v := range proc.OutgoingAppCommands {
-		ret[k] = v
-	}
+	maps.Copy(ret, proc.OutgoingAppCommands)
 	return ret
 }
 

@@ -20,7 +20,7 @@ func TestLatestCommands(t *testing.T) {
 	// Kick off three concurrent multiple executions of the same command in short succession
 	begin := time.Now().Unix()
 	var oldResult *toolbox.Result
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		go func() {
 			// Execute the same command in short succession should result in the same output
 			result := rec.Execute(context.Background(), testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; date")
@@ -28,7 +28,7 @@ func TestLatestCommands(t *testing.T) {
 			if result == nil || result.CombinedOutput == "" {
 				panic(result)
 			}
-			for i := 0; i < 3; i++ {
+			for range 3 {
 				moreResult := rec.Execute(context.Background(), testProcessor, "", toolbox.TestCommandProcessorPIN+".s sleep 1; date")
 				if moreResult == nil || moreResult.CombinedOutput != result.CombinedOutput {
 					panic(moreResult)

@@ -28,9 +28,9 @@ func TestRateLimit(t *testing.T) {
 	// Three actors should get two chances each
 	success := [3]int{}
 	successMutex := new(sync.Mutex)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		go func(i int) {
-			for j := 0; j < 100; j++ {
+			for range 100 {
 				if limit.Add(strconv.Itoa(i), true) {
 					successMutex.Lock()
 					success[i]++
@@ -40,7 +40,7 @@ func TestRateLimit(t *testing.T) {
 		}(i)
 	}
 	time.Sleep(1 * time.Second)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		successMutex.Lock()
 		if success[i] != 4 {
 			t.Fatal(success)
@@ -54,13 +54,13 @@ func TestRateLimit2(t *testing.T) {
 	successMutex := new(sync.Mutex)
 	// Test rate limit over the period of 15 seconds
 	limit := NewRateLimit(3, 4, DefaultLogger)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		successMutex.Lock()
 		success[i] = 0
 		successMutex.Unlock()
 		go func(i int) {
 			// Will finish in exactly 0.6*25=15 seconds
-			for j := 0; j < 25; j++ {
+			for range 25 {
 				if limit.Add(strconv.Itoa(i), true) {
 					successMutex.Lock()
 					success[i]++
@@ -72,7 +72,7 @@ func TestRateLimit2(t *testing.T) {
 	}
 	time.Sleep(17 * time.Second)
 	successMutex.Lock()
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if success[i] > 22 || success[i] < 20 {
 			t.Fatal(success)
 		}
