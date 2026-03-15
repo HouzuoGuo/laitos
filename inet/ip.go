@@ -139,7 +139,7 @@ func getPublicIP() net.IP {
 		Avoid contacting cloud metadata endpoints unless the host is actually on public cloud. Otherwise, the connection will
 		remain half open for quite a while until OS or router cleans it up.
 	*/
-	ip := make(chan net.IP, 5)
+	ip := make(chan net.IP, 6)
 	// GCE internal
 	go func() {
 		if IsGCE() {
@@ -202,6 +202,18 @@ func getPublicIP() net.IP {
 			TimeoutSec: HTTPPublicIPTimeoutSec,
 			MaxBytes:   64,
 		}, "https://api.ipify.org")
+		if err == nil && resp.StatusCode/200 == 1 {
+			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
+				ip <- net.ParseIP(respBody)
+			}
+		}
+	}()
+	// ifconfig.me
+	go func() {
+		resp, err := doHTTPRequestUsingClient(context.Background(), &http.Client{}, HTTPRequest{
+			TimeoutSec: HTTPPublicIPTimeoutSec,
+			MaxBytes:   64,
+		}, "https://ifconfig.me/ip")
 		if err == nil && resp.StatusCode/200 == 1 {
 			if respBody := strings.TrimSpace(string(resp.Body)); respBody != "" {
 				ip <- net.ParseIP(respBody)
