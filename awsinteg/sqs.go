@@ -20,7 +20,7 @@ func NewSQSClient() (*SQSClient, error) {
 		return nil, fmt.Errorf("NewSQSClient: unable to determine AWS region, is it set in environment variable AWS_REGION?")
 	}
 	logger.Info(nil, nil, "initialising using AWS region name \"%s\"", regionName)
-	apiSession, err := session.NewSession(&aws.Config{Region: aws.String(regionName)})
+	apiSession, err := session.NewSession(&aws.Config{Region: new(regionName)})
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +49,8 @@ func (sqsClient *SQSClient) SendMessage(ctx context.Context, queueURL, text stri
 	_, err := sqsClient.client.SendMessageWithContext(ctx, &sqs.SendMessageInput{
 		// The new message is made immediately visible to consumers for processing
 		DelaySeconds: aws.Int64(0),
-		MessageBody:  aws.String(text),
-		QueueUrl:     aws.String(queueURL),
+		MessageBody:  new(text),
+		QueueUrl:     new(queueURL),
 	})
 	durationMilli := (time.Now().UnixNano() - startTimeNano) / 1000000
 	sqsClient.logger.Info(

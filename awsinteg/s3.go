@@ -22,7 +22,7 @@ func NewS3Client() (*S3Client, error) {
 		return nil, fmt.Errorf("NewS3Client: unable to determine AWS region, is it set in environment variable AWS_REGION?")
 	}
 	logger.Info("", nil, "initialising using AWS region name \"%s\"", regionName)
-	apiSession, err := session.NewSession(&aws.Config{Region: aws.String(regionName)})
+	apiSession, err := session.NewSession(&aws.Config{Region: new(regionName)})
 	if err != nil {
 		return nil, err
 	}
@@ -46,8 +46,8 @@ func (s3Client *S3Client) Upload(ctx context.Context, bucketName, objectKey stri
 	s3Client.logger.Info(bucketName, nil, "uploading object \"%s\"", objectKey)
 	_, err := s3Client.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Body:   objectValue,
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(objectKey),
+		Bucket: new(bucketName),
+		Key:    new(objectKey),
 	})
 	durationMilli := (time.Now().UnixNano() - startTimeNano) / 1000000
 	s3Client.logger.Info(bucketName, nil, "UploadWithContext completed in %d milliseconds for object \"%s\" (err? %v)", durationMilli, objectKey, err)
