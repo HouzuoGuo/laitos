@@ -1,8 +1,0 @@
-li {
-  overflow-wrap: break-word;
-  word-break: break-all;
-}
-
-mat-panel-description {
-  text-overflow: ellipsis;
-}
