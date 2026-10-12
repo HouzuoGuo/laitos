@@ -6,14 +6,31 @@ import (
 )
 
 func TestGetBlacklistLookupName(t *testing.T) {
-	if toLookup, err := GetBlacklistLookupName("1.2.3.4", "example.com"); err != nil || toLookup != "4.3.2.1.example.com" {
-		t.Fatal(toLookup, err)
+	var tests = []struct {
+		ip         string
+		lookupName string // empty means the suspect IP is expected to be rejected with an error
+	}{
+		{"1.2.3.4", "4.3.2.1.example.com"},
+		{"252.253.254.255", "255.254.253.252.example.com"},
+		// An IPv4-mapped IPv6 address is looked up as its IPv4 counterpart.
+		{"::ffff:1.2.3.4", "4.3.2.1.example.com"},
+		// An IPv6 address is looked up as the 32 hex nibbles of the address in reverse order (RFC 5782 section 2.4).
+		{"2001:db8::1", "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.example.com"},
+		{"2001:db8:7ca6:22::45", "5.4.0.0.0.0.0.0.0.0.0.0.0.0.0.0.2.2.0.0.6.a.c.7.8.b.d.0.1.0.0.2.example.com"},
+		{"::1", "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.example.com"},
+		{"not-a-valid-ip4-addr", ""},
+		{"not-a-valid-ip6-addr", ""},
+		{"2001:db8::1::2", ""},
 	}
-	if toLookup, err := GetBlacklistLookupName("252.253.254.255", "example.com"); err != nil || toLookup != "255.254.253.252.example.com" {
-		t.Fatal(toLookup, err)
-	}
-	if toLookup, err := GetBlacklistLookupName("not-a-valid-ip4-addr", "example.com"); err == nil {
-		t.Fatal(toLookup, err)
+	for _, test := range tests {
+		lookupName, err := GetBlacklistLookupName(test.ip, "example.com")
+		if test.lookupName == "" {
+			if err == nil {
+				t.Fatalf("%s should have been rejected with an error, but it was looked up as %s", test.ip, lookupName)
+			}
+		} else if err != nil || lookupName != test.lookupName {
+			t.Fatalf("%s should have been looked up as %s, but it was looked up as %s (%v)", test.ip, test.lookupName, lookupName, err)
+		}
 	}
 }
 
@@ -53,7 +70,10 @@ func TestIsClientBlacklisted(t *testing.T) {
 		{"192.168.0.1", ""},
 		{"192.168.254.254", ""},
 
-		{"not-a-valid-ipv4-addr", ""},
+		{"::1", ""},
+		{"2001:4860:4860::8844", ""},
+
+		{"not-a-valid-ip-addr", ""},
 	}
 	for _, test := range tests {
 		if blockedBy := IsSuspectIPBlacklisted(test.ip); blockedBy != test.blockedBy {
