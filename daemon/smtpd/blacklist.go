@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -87,8 +88,8 @@ func GetBlacklistLookupName(suspectIP, blLookupDomain string) (string, error) {
 	}
 	const hexDigits = "0123456789abcdef"
 	nibbleReversed := make([]byte, 0, net.IPv6len*4+len(blLookupDomain))
-	for byteIdx := len(suspectIPv6) - 1; byteIdx >= 0; byteIdx-- {
-		nibbleReversed = append(nibbleReversed, hexDigits[suspectIPv6[byteIdx]&0x0F], '.', hexDigits[suspectIPv6[byteIdx]>>4], '.')
+	for _, s := range slices.Backward(suspectIPv6) {
+		nibbleReversed = append(nibbleReversed, hexDigits[s&0x0F], '.', hexDigits[s>>4], '.')
 	}
 	return string(nibbleReversed) + blLookupDomain, nil
 }
